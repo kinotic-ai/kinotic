@@ -51,6 +51,15 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
     }
 
     @Override
+    public Future<Boolean> endRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source) {
+        Validate.notNull(workloadId, "Workload id cannot be null");
+        Validate.notNull(status, "Workload status cannot be null");
+        Validate.isTrue(status.isComplete(), "Workload status must be terminal: %s", status);
+        Validate.notBlank(source, "Source cannot be blank");
+        return workloadRepository.endRunSync(workloadId, status, exitCode, source);
+    }
+
+    @Override
     public Future<Boolean> setCondition(String workloadId, StatusCondition condition, String source) {
         Validate.notNull(workloadId, "Workload id cannot be null");
         Validate.notNull(condition, "Condition cannot be null");

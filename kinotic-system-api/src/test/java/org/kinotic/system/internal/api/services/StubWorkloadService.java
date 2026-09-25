@@ -120,6 +120,21 @@ public class StubWorkloadService implements WorkloadService {
     }
 
     @Override
+    public Future<Boolean> endRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source) {
+        Workload stored = saved.get(workloadId);
+        boolean ended = !stored.getStatus().isComplete();
+        if (ended) {
+            stored.setStatus(status);
+            if (exitCode != null) {
+                stored.setExitCode(exitCode);
+            }
+            stored.setUpdated(new Date());
+            touched(stored);
+        }
+        return Future.succeededFuture(ended);
+    }
+
+    @Override
     public Future<Boolean> setCondition(String workloadId, StatusCondition condition, String source) {
         Workload stored = saved.get(workloadId);
         boolean set = !StatusConditions.has(stored.getState().getConditions(), condition.type());

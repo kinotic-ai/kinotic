@@ -5,9 +5,9 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
+import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeState;
-import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.system.api.services.VmNodeService;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
 import org.springframework.stereotype.Component;
@@ -81,18 +81,17 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
     }
 
     @Override
-    public Future<Boolean> reserveSync(String nodeId, WorkloadReservation reservation) {
+    public Future<Boolean> reserveSync(String nodeId, Workload workload) {
         Validate.notNull(nodeId, "VmNode id cannot be null");
-        Validate.notNull(reservation, "Reservation cannot be null");
-        Validate.notNull(reservation.getWorkloadId(), "Reservation workload id cannot be null");
-        return vmNodeRepository.reserveSync(nodeId, reservation);
+        Validate.notNull(workload, "Workload cannot be null");
+        return vmNodeRepository.reserveSync(nodeId, workload);
     }
 
     @Override
-    public Future<Void> releaseSync(String nodeId, String workloadId) {
+    public Future<Void> releaseSync(String nodeId, Workload workload) {
         Validate.notNull(nodeId, "VmNode id cannot be null");
-        Validate.notNull(workloadId, "Workload id cannot be null");
-        return vmNodeRepository.releaseSync(nodeId, workloadId);
+        Validate.notNull(workload, "Workload cannot be null");
+        return vmNodeRepository.releaseSync(nodeId, workload);
     }
 
     @Override

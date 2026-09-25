@@ -1,6 +1,5 @@
 import { ReconcileState, type Reconcilable } from '@kinotic-ai/management-api'
 import type { VmNodeState } from '@/api/model/workload/VmNodeState'
-import type { WorkloadReservation } from '@/api/model/workload/WorkloadReservation'
 import { VmProviderType } from '@/api/model/workload/VmProviderType'
 
 /**
@@ -61,7 +60,7 @@ export class VmNode implements Reconcilable<VmNodeState> {
 
     /**
      * CPU not allocated to any workload, in cores. What is allocated is
-     * totalCpus - freeCpus, the sum of the reservations.
+     * totalCpus - freeCpus, what the workloads running on the node are sized for.
      */
     public freeCpus: number = 0
 
@@ -74,13 +73,6 @@ export class VmNode implements Reconcilable<VmNodeState> {
      * Disk space not allocated to any workload, in megabytes.
      */
     public freeDiskMb: number = 0
-
-    /**
-     * The room each workload running on this node holds, one entry per workload. The free*
-     * fields are the totals less what these hold, so a workload's room is reserved and released
-     * by its id and never counted twice.
-     */
-    public reservations: WorkloadReservation[] = []
 
     /**
      * The date and time the node was last seen/heartbeat.

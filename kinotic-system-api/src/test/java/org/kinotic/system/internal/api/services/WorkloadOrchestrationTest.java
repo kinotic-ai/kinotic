@@ -355,6 +355,29 @@ public class WorkloadOrchestrationTest {
     }
 
     @Test
+    public void aReportOfARunAlreadyEndedReturnsNoRoom() throws Exception {
+        Workload deployed = markedUnreachableBySilence();
+        await(nodeOrchestration.deregisterNode(NODE_ID));
+        await(nodeOrchestration.reconcile(await(nodes.findById(NODE_ID))));
+        assertEquals(WorkloadStatus.FAILED, workloads.saved.get(deployed.getId()).getStatus());
+
+        // the node comes back, takes another run, then reports the end it saw of the first
+        await(nodeOrchestration.registerNode(new VmNodeRegistration().setId(NODE_ID)
+                                                                     .setName("node-1")
+                                                                     .setHostname("host-1")
+                                                                     .setTotalCpus(4)
+                                                                     .setTotalMemoryMb(4096)
+                                                                     .setTotalDiskMb(10240)));
+        await(orchestration.deployWorkload(newWorkload()));
+        assertEquals(3, nodes.saved.get(NODE_ID).getFreeCpus());
+
+        report(deployed.getId(), WorkloadStatus.STOPPED, 137);
+
+        assertEquals(WorkloadStatus.FAILED, workloads.saved.get(deployed.getId()).getStatus(), "the deregistration settled the run");
+        assertEquals(3, nodes.saved.get(NODE_ID).getFreeCpus(), "room the deregistration took is not returned again");
+    }
+
+    @Test
     public void deregisteringAReachableIdleNodeAsksForItsRemoval() throws Exception {
         await(nodeOrchestration.deregisterNode(NODE_ID));
 
@@ -410,7 +433,6 @@ public class WorkloadOrchestrationTest {
         assertTrue(vmManager.destroyed.isEmpty());
         assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
         assertEquals(10240, nodes.saved.get(NODE_ID).getFreeDiskMb());
-        assertTrue(nodes.saved.get(NODE_ID).getReservations().isEmpty());
     }
 
     @Test
@@ -522,7 +544,7 @@ public class WorkloadOrchestrationTest {
     }
 
     @Test
-    public void destroyReturnsTheWorkloadsReservation() throws Exception {
+    public void destroyReturnsTheWorkloadsRoom() throws Exception {
         nodes.availableNode = registeredNode(NODE_ID, 4, 4096, 10240);
 
         Workload deployed = await(orchestration.deployWorkload(newWorkload()));
@@ -532,7 +554,6 @@ public class WorkloadOrchestrationTest {
         assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
         assertEquals(4096, nodes.saved.get(NODE_ID).getFreeMemoryMb());
         assertEquals(10240, nodes.saved.get(NODE_ID).getFreeDiskMb());
-        assertTrue(nodes.saved.get(NODE_ID).getReservations().isEmpty());
         // the destroy ended the run; the record is its outcome
         assertEquals(List.of(deployed.getId()), vmManager.destroyed);
         assertEquals(WorkloadStatus.STOPPED, workloads.saved.get(deployed.getId()).getStatus());
@@ -636,12 +657,12 @@ public class WorkloadOrchestrationTest {
     }
 
     @Test
-    public void registrationRebuildsTheLedgerFromTheWorkloadRecords() throws Exception {
+    public void registrationRebuildsFreeCapacityFromTheWorkloadRecords() throws Exception {
         nodes.availableNode = registeredNode(NODE_ID, 4, 4096, 10240);
         Workload running = await(orchestration.deployWorkload(newWorkload().setCpus(1)));
         Workload ended = await(orchestration.deployWorkload(newWorkload().setCpus(1)));
         await(orchestration.stopWorkload(ended.getId()));
-        // the node comes back with more CPU, and a leak the ledger does not know about
+        // the node comes back with more CPU, and a leak the counters do not know about
         nodes.saved.get(NODE_ID).setFreeCpus(0);
 
         VmNode registered = await(nodeOrchestration.registerNode(new VmNodeRegistration().setId(NODE_ID)
@@ -654,8 +675,6 @@ public class WorkloadOrchestrationTest {
         assertEquals(8 - running.getCpus(), registered.getFreeCpus());
         assertEquals(4096 - running.getMemoryMb(), registered.getFreeMemoryMb());
         assertEquals(10240 - running.getDiskSizeMb(), registered.getFreeDiskMb(), "an ended run holds nothing");
-        assertEquals(1, registered.getReservations().size());
-        assertEquals(running.getId(), registered.getReservations().get(0).getWorkloadId());
     }
 
     @Test

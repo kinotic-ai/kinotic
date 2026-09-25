@@ -55,6 +55,19 @@ public interface WorkloadService extends IdentifiableCrudService<Workload, Strin
     Future<Void> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source);
 
     /**
+     * Records the end of the workload's run, its terminal status and exit code, and enters the change in
+     * the ledger, leaving every other field as it is; a run that has already ended keeps its outcome.
+     * Visible to search on completion.
+     * @param workloadId the workload whose run ended
+     * @param status the terminal status
+     * @param exitCode the run's exit code, or null to leave the recorded one as it is
+     * @param source what caused it, for the ledger: the node that reported, the operator, the call
+     * @return a future that will complete with true when this call ended the run and false when it had
+     * ended already
+     */
+    Future<Boolean> endRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source);
+
+    /**
      * Marks the workload with the given condition, beside the status its node reports, and enters
      * it in the ledger. A workload already carrying a condition of that type keeps it as it is.
      * @param workloadId the workload to mark

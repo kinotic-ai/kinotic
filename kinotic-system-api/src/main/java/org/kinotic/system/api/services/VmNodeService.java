@@ -5,9 +5,9 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
+import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeState;
-import org.kinotic.system.api.model.workload.WorkloadReservation;
 
 /**
  * Service for managing {@link VmNode} entities.
@@ -102,25 +102,26 @@ public interface VmNodeService extends IdentifiableCrudService<VmNode, String> {
     Future<Void> requestDeletion(String nodeId, String source);
 
     /**
-     * Reserves a workload's room on a node for its run: takes it from the node's unallocated capacity if
-     * the node has it, atomically against every other reservation and release on the node, and completes
-     * once the change is visible to {@link #findAvailableNode}. A workload that already holds its room
-     * keeps it.
+     * Reserves a workload's room on a node for its run: takes the CPU, memory and disk the workload is
+     * sized for from the node's unallocated capacity if the node has it, atomically against every other
+     * reservation and release on the node, and completes once the change is visible to
+     * {@link #findAvailableNode}.
      * @param nodeId the id of the node to reserve on
-     * @param reservation the workload and the room its run needs
-     * @return a future that will complete with true when the workload holds the room and false when the
-     * node no longer has it, or fail if the node is not registered
+     * @param workload the workload whose run needs the room
+     * @return a future that will complete with true when the room is the workload's and false when the
+     * node does not have it, or fail if the node is not registered
      */
-    Future<Boolean> reserveSync(String nodeId, WorkloadReservation reservation);
+    Future<Boolean> reserveSync(String nodeId, Workload workload);
 
     /**
-     * Returns everything a workload holds on a node to its unallocated capacity, atomically against every
-     * other reservation and release on the node, and completes once the change is visible to
-     * {@link #findAvailableNode}. A workload holding nothing is left as it is.
+     * Returns a workload's room, the CPU, memory and disk it is sized for, to a node's unallocated
+     * capacity, atomically against every other reservation and release on the node, and completes once
+     * the change is visible to {@link #findAvailableNode}. A run's room is returned once, when the run
+     * ends; a second return credits the node again.
      * @param nodeId the id of the node to release on
-     * @param workloadId the id of the workload to release
-     * @return a future that will complete when the resources are released, or fail if the node is not registered
+     * @param workload the workload whose run held the room
+     * @return a future that will complete when the room is returned, or fail if the node is not registered
      */
-    Future<Void> releaseSync(String nodeId, String workloadId);
+    Future<Void> releaseSync(String nodeId, Workload workload);
 
 }

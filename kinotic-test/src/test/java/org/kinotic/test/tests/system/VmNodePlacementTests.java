@@ -10,7 +10,6 @@ import org.kinotic.system.api.model.workload.VmNodeStatusType;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
-import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.system.api.services.VmNodeService;
 import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.system.api.workload.VmNodeRegistration;
@@ -160,25 +159,22 @@ public class VmNodePlacementTests extends KinoticTestBase {
     public void reservingAndReleasingMoveTheStoredAvailability() throws Exception {
         VmNode registered = await(vmNodeOrchestrationService.registerNode(registration("placement-ledger", 4, 8192, 20480)));
         created.add(registered.getId());
-        WorkloadReservation reservation = new WorkloadReservation().setWorkloadId("wl-1").setCpus(0.5).setMemoryMb(1024).setDiskMb(2048);
+        Workload half = workload("placement-ledger", 0.5, 1024, 2048, WorkloadStatus.RUNNING);
 
-        Assertions.assertTrue(await(vmNodeService.reserveSync("placement-ledger", reservation)));
-        Assertions.assertTrue(await(vmNodeService.reserveSync("placement-ledger", reservation)), "a workload holding its room keeps it");
+        Assertions.assertTrue(await(vmNodeService.reserveSync("placement-ledger", half)));
         VmNode held = await(vmNodeService.findById("placement-ledger"));
         Assertions.assertEquals(3.5, held.getFreeCpus());
         Assertions.assertEquals(8192 - 1024, held.getFreeMemoryMb());
         Assertions.assertEquals(20480 - 2048, held.getFreeDiskMb());
-        Assertions.assertEquals(1, held.getReservations().size());
 
         Assertions.assertFalse(await(vmNodeService.reserveSync("placement-ledger",
-                new WorkloadReservation().setWorkloadId("wl-2").setCpus(4).setMemoryMb(1024).setDiskMb(1024))), "more CPU than the node has left");
+                workload("placement-ledger", 4, 1024, 1024, WorkloadStatus.RUNNING))), "more CPU than the node has left");
 
-        await(vmNodeService.releaseSync("placement-ledger", "wl-1"));
-        await(vmNodeService.releaseSync("placement-ledger", "wl-1"));
+        await(vmNodeService.releaseSync("placement-ledger", half));
         VmNode released = await(vmNodeService.findById("placement-ledger"));
         Assertions.assertEquals(4, released.getFreeCpus());
+        Assertions.assertEquals(8192, released.getFreeMemoryMb());
         Assertions.assertEquals(20480, released.getFreeDiskMb());
-        Assertions.assertTrue(released.getReservations().isEmpty());
     }
 
     private static Workload workload(String nodeId, double cpus, int memoryMb, int diskMb, WorkloadStatus status) {

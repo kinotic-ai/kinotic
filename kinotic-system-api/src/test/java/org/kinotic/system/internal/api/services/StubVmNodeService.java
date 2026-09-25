@@ -7,9 +7,9 @@ import org.kinotic.domain.api.model.ReconcileState;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.StatusConditions;
+import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeState;
-import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.system.api.services.VmNodeService;
 import tools.jackson.databind.ObjectMapper;
 
@@ -55,7 +55,6 @@ public class StubVmNodeService implements VmNodeService {
                   .setFreeCpus(node.getFreeCpus())
                   .setFreeMemoryMb(node.getFreeMemoryMb())
                   .setFreeDiskMb(node.getFreeDiskMb())
-                  .setReservations(node.getReservations())
                   .setWorkloadDataDir(node.getWorkloadDataDir())
                   .setLastSeen(new Date());
             return snapshot(target);
@@ -133,44 +132,26 @@ public class StubVmNodeService implements VmNodeService {
     }
 
     @Override
-    public Future<Boolean> reserveSync(String nodeId, WorkloadReservation reservation) {
+    public Future<Boolean> reserveSync(String nodeId, Workload workload) {
         boolean[] reserved = new boolean[1];
         // one node's reservations serialize under the map's lock, as the scripted update does on the shard
         return update(nodeId, node -> {
-            if (held(node, reservation.getWorkloadId()) != null) {
-                reserved[0] = true;
-            } else {
-                reserved[0] = node.getFreeCpus() >= reservation.getCpus()
-                        && node.getFreeMemoryMb() >= reservation.getMemoryMb()
-                        && node.getFreeDiskMb() >= reservation.getDiskMb();
-                if (reserved[0]) {
-                    node.setFreeCpus(node.getFreeCpus() - reservation.getCpus())
-                        .setFreeMemoryMb(node.getFreeMemoryMb() - reservation.getMemoryMb())
-                        .setFreeDiskMb(node.getFreeDiskMb() - reservation.getDiskMb());
-                    node.getReservations().add(reservation);
-                }
+            reserved[0] = node.getFreeCpus() >= workload.getCpus()
+                    && node.getFreeMemoryMb() >= workload.getMemoryMb()
+                    && node.getFreeDiskMb() >= workload.getDiskSizeMb();
+            if (reserved[0]) {
+                node.setFreeCpus(node.getFreeCpus() - workload.getCpus())
+                    .setFreeMemoryMb(node.getFreeMemoryMb() - workload.getMemoryMb())
+                    .setFreeDiskMb(node.getFreeDiskMb() - workload.getDiskSizeMb());
             }
         }).map(v -> reserved[0]);
     }
 
     @Override
-    public Future<Void> releaseSync(String nodeId, String workloadId) {
-        return update(nodeId, node -> {
-            WorkloadReservation held = held(node, workloadId);
-            if (held != null) {
-                node.setFreeCpus(Math.min(node.getTotalCpus(), node.getFreeCpus() + held.getCpus()))
-                    .setFreeMemoryMb(Math.min(node.getTotalMemoryMb(), node.getFreeMemoryMb() + held.getMemoryMb()))
-                    .setFreeDiskMb(Math.min(node.getTotalDiskMb(), node.getFreeDiskMb() + held.getDiskMb()));
-                node.getReservations().remove(held);
-            }
-        });
-    }
-
-    private static WorkloadReservation held(VmNode node, String workloadId) {
-        return node.getReservations().stream()
-                   .filter(reservation -> workloadId.equals(reservation.getWorkloadId()))
-                   .findFirst()
-                   .orElse(null);
+    public Future<Void> releaseSync(String nodeId, Workload workload) {
+        return update(nodeId, node -> node.setFreeCpus(Math.min(node.getTotalCpus(), node.getFreeCpus() + workload.getCpus()))
+                                          .setFreeMemoryMb(Math.min(node.getTotalMemoryMb(), node.getFreeMemoryMb() + workload.getMemoryMb()))
+                                          .setFreeDiskMb(Math.min(node.getTotalDiskMb(), node.getFreeDiskMb() + workload.getDiskSizeMb())));
     }
 
     private Future<Void> update(String nodeId, Consumer<VmNode> partial) {

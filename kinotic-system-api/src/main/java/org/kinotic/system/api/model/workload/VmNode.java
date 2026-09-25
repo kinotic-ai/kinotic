@@ -8,9 +8,7 @@ import org.kinotic.domain.api.model.Reconcilable;
 import org.kinotic.domain.api.model.ReconcileState;
 import org.kinotic.management.api.model.workload.Workload;
 
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 
 /**
  * Represents a node in the cluster that is running a VmManager process
@@ -87,13 +85,6 @@ public class VmNode implements Reconcilable<VmNodeState> {
      * Disk space not allocated to any workload, in megabytes.
      */
     private int freeDiskMb;
-
-    /**
-     * The room each workload running on this node holds, one entry per workload. The
-     * {@code free*} fields are the totals less what these hold, so a workload's room is
-     * reserved and released by its id and never counted twice.
-     */
-    private List<WorkloadReservation> reservations = new ArrayList<>();
 
     /**
      * The date and time the node was last seen/heartbeat.

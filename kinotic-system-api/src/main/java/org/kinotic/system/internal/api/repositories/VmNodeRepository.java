@@ -15,9 +15,9 @@ import org.kinotic.domain.internal.api.repositories.WatchedDocument;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
+import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeState;
-import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -29,56 +29,33 @@ public class VmNodeRepository extends AbstractRepository<VmNode> implements Reco
 
     public static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.VM_NODE, "kinotic_vm_node");
 
-    // Shared by the three allocation scripts: finds the workload's entry in the node's reservations,
-    // and keeps the fractional CPU total from drifting through repeated adds and subtracts
-    private static final String ALLOCATION_FUNCTIONS = """
-            Map held(def node, String workloadId) {
-                if (node.reservations == null) {
-                    node.reservations = new ArrayList();
-                }
-                for (def r : node.reservations) {
-                    if (r.workloadId == workloadId) {
-                        return r;
-                    }
-                }
-                return null;
-            }
+    // Keeps the fractional CPU total from drifting through repeated subtracts and adds
+    private static final String CPUS_FUNCTION = """
             double cpus(double value) {
                 return Math.round(value * 1000) / 1000.0;
             }
             """;
 
-    // A workload already holding its room keeps it. The node declines with noop rather than going
-    // negative, so the caller learns the capacity was taken.
-    private static final String RESERVE_SCRIPT = ALLOCATION_FUNCTIONS + """
+    // The node declines with noop rather than going negative, so the caller learns the capacity was taken
+    private static final String RESERVE_SCRIPT = CPUS_FUNCTION + """
             def node = ctx._source;
-            if (held(node, params.workloadId) == null) {
-                if (node.freeCpus < params.cpus
-                        || node.freeMemoryMb < params.memoryMb
-                        || node.freeDiskMb < params.diskMb) {
-                    ctx.op = 'noop';
-                } else {
-                    node.freeCpus = cpus(node.freeCpus - params.cpus);
-                    node.freeMemoryMb -= params.memoryMb;
-                    node.freeDiskMb -= params.diskMb;
-                    node.reservations.add(['workloadId': params.workloadId, 'cpus': params.cpus,
-                                           'memoryMb': params.memoryMb, 'diskMb': params.diskMb]);
-                }
+            if (node.freeCpus < params.cpus
+                    || node.freeMemoryMb < params.memoryMb
+                    || node.freeDiskMb < params.diskMb) {
+                ctx.op = 'noop';
+            } else {
+                node.freeCpus = cpus(node.freeCpus - params.cpus);
+                node.freeMemoryMb -= params.memoryMb;
+                node.freeDiskMb -= params.diskMb;
             }
             """;
 
-    // Returns everything the workload holds and forgets it
-    private static final String RELEASE_SCRIPT = ALLOCATION_FUNCTIONS + """
+    // Clamped to the totals, so a return the node did not expect cannot make it look larger than it is
+    private static final String RELEASE_SCRIPT = CPUS_FUNCTION + """
             def node = ctx._source;
-            Map held = held(node, params.workloadId);
-            if (held == null) {
-                ctx.op = 'noop';
-            } else {
-                node.freeCpus = cpus(Math.min(node.totalCpus, node.freeCpus + held.cpus));
-                node.freeMemoryMb = Math.min(node.totalMemoryMb, node.freeMemoryMb + held.memoryMb);
-                node.freeDiskMb = Math.min(node.totalDiskMb, node.freeDiskMb + held.diskMb);
-                node.reservations.remove(node.reservations.indexOf(held));
-            }
+            node.freeCpus = cpus(Math.min(node.totalCpus, node.freeCpus + params.cpus));
+            node.freeMemoryMb = Math.min(node.totalMemoryMb, node.freeMemoryMb + params.memoryMb);
+            node.freeDiskMb = Math.min(node.totalDiskMb, node.freeDiskMb + params.diskMb);
             """;
 
     private final WatchedStateRepository watchedStateRepository;
@@ -135,8 +112,8 @@ public class VmNodeRepository extends AbstractRepository<VmNode> implements Reco
     }
 
     /**
-     * Writes what a node reports at registration and the ledger rebuilt from its workload records —
-     * name, hostname, provider, totals, free capacity, reservations, data directory — and stamps
+     * Writes what a node reports at registration and the free capacity rebuilt from its workload
+     * records — name, hostname, provider, totals, free capacity, data directory — and stamps
      * {@code lastSeen}, creating the record for a node registering for the first time. The node's
      * state and health message are left as they are. Visible to search on completion.
      */
@@ -153,7 +130,6 @@ public class VmNodeRepository extends AbstractRepository<VmNode> implements Reco
         inventory.put("freeCpus", node.getFreeCpus());
         inventory.put("freeMemoryMb", node.getFreeMemoryMb());
         inventory.put("freeDiskMb", node.getFreeDiskMb());
-        inventory.put("reservations", node.getReservations());
         inventory.put("workloadDataDir", node.getWorkloadDataDir());
         inventory.put("lastSeen", new Date());
         return crudServiceTemplate.partialUpdateSync(indexName, node.getId(), inventory, true);
@@ -222,26 +198,26 @@ public class VmNodeRepository extends AbstractRepository<VmNode> implements Reco
     }
 
     /**
-     * Takes a workload's room from a node's {@code free*} fields and records it in the
-     * node's reservations, in one shard operation, so two reservations can never both be granted the
-     * same capacity; visible to search on completion. A workload already holding its room keeps it.
-     * @return true when the workload holds the room, false when the node does not have it
+     * Takes a workload's room, the CPU, memory and disk it is sized for, from a node's {@code free*}
+     * fields in one shard operation, so two reservations can never both be granted the same capacity;
+     * visible to search on completion.
+     * @return true when the room is the workload's, false when the node does not have it
      */
-    public Future<Boolean> reserveSync(String nodeId, WorkloadReservation reservation) {
-        return crudServiceTemplate.scriptedUpdateSync(indexName, nodeId, RESERVE_SCRIPT,
-                                                      Map.of("workloadId", reservation.getWorkloadId(),
-                                                             "cpus", reservation.getCpus(),
-                                                             "memoryMb", reservation.getMemoryMb(),
-                                                             "diskMb", reservation.getDiskMb()));
+    public Future<Boolean> reserveSync(String nodeId, Workload workload) {
+        return crudServiceTemplate.scriptedUpdateSync(indexName, nodeId, RESERVE_SCRIPT, room(workload));
     }
 
     /**
-     * Returns everything a workload holds to a node's unallocated fields and drops its reservation, in one
-     * shard operation, visible to search on completion. A workload holding nothing is left as it is.
+     * Returns a workload's room to a node's {@code free*} fields in one shard operation, visible to
+     * search on completion.
      */
-    public Future<Void> releaseSync(String nodeId, String workloadId) {
-        return crudServiceTemplate.scriptedUpdateSync(indexName, nodeId, RELEASE_SCRIPT, Map.of("workloadId", workloadId))
+    public Future<Void> releaseSync(String nodeId, Workload workload) {
+        return crudServiceTemplate.scriptedUpdateSync(indexName, nodeId, RELEASE_SCRIPT, room(workload))
                                   .mapEmpty();
+    }
+
+    private static Map<String, Object> room(Workload workload) {
+        return Map.of("cpus", workload.getCpus(), "memoryMb", workload.getMemoryMb(), "diskMb", workload.getDiskSizeMb());
     }
 
     private static WatchedDocument document(String nodeId) {

@@ -17,7 +17,6 @@ import org.kinotic.system.api.services.VmNodeOrchestrationService;
 import org.kinotic.system.api.workload.VmManagerProxy;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
 import org.kinotic.system.api.model.workload.VmNode;
-import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -94,7 +93,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
                     return persistRedacted(workload)
                             // the reservation is the workload's; a record that cannot be written hands it back
-                            .recover(error -> vmNodeService.releaseSync(node.getId(), workload.getId())
+                            .recover(error -> vmNodeService.releaseSync(node.getId(), workload)
                                                            .transform(_ -> Future.failedFuture(error)))
                             .compose(savedWorkload ->
                                 // Dispatch to the VmManager on the selected node. For a
@@ -169,11 +168,9 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     } else {
                         String nodeId = workload.getNodeId();
                         ret = verifyingNodeOnFailure(nodeId, vmManagerProxy.destroyWorkload(nodeId, workloadId))
-                                // the destroy ended a run the node will not report the end of; an
-                                // ended run holds no room, so the release is for one never reported
-                                .compose(v -> workload.getStatus().isOpen()
-                                        ? recordRunEnded(workload, WorkloadStatus.STOPPED, "destroyWorkload").mapEmpty()
-                                        : vmNodeService.releaseSync(nodeId, workloadId));
+                                // the destroy ends a run the node will not report the end of; one that
+                                // had ended keeps its outcome
+                                .compose(v -> recordRunEnded(workload, WorkloadStatus.STOPPED, "destroyWorkload").mapEmpty());
                     }
                     return ret;
                 });
@@ -276,7 +273,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                         ret = Future.failedFuture(
                                 new IllegalStateException("No available node with sufficient resources to deploy workload"));
                     } else {
-                        ret = reserve(node, workload)
+                        ret = vmNodeService.reserveSync(node.getId(), workload)
                                 .compose(reserved -> {
                                     Future<VmNode> placed;
                                     if (reserved) {
@@ -315,7 +312,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                         + (node.getState().getObserved() == null ? null : node.getState().getObserved().phase())
                                         + ", conditions " + node.getState().getConditions() + ")"));
                     } else {
-                        ret = reserve(node, workload)
+                        ret = vmNodeService.reserveSync(node.getId(), workload)
                                 .compose(reserved -> reserved
                                         ? Future.succeededFuture(node)
                                         : Future.failedFuture(new IllegalStateException(
@@ -323,10 +320,6 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     }
                     return ret;
                 });
-    }
-
-    private Future<Boolean> reserve(VmNode node, Workload workload) {
-        return vmNodeService.reserveSync(node.getId(), WorkloadReservation.forRun(workload));
     }
 
     /**
@@ -341,13 +334,22 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     }
 
     /**
-     * Records the terminal status of a run and gives its room back to the node. The record stays
-     * as the run's outcome; the node removes the VM on its own once the run has ended.
+     * Records the terminal status of a run and gives its room back to the node, once: a run that had
+     * ended keeps its outcome and its room stays returned. The record stays as the run's outcome; the
+     * node removes the VM on its own once the run has ended.
      */
     private Future<Workload> recordRunEnded(Workload workload, WorkloadStatus status, String source) {
-        workload.setStatus(status);
-        return workloadService.updateRunSync(workload.getId(), status, workload.getExitCode(), source)
-                .compose(v -> vmNodeService.releaseSync(workload.getNodeId(), workload.getId()))
+        return workloadService.endRunSync(workload.getId(), status, workload.getExitCode(), source)
+                .compose(ended -> {
+                    Future<Void> released;
+                    if (ended) {
+                        workload.setStatus(status);
+                        released = vmNodeService.releaseSync(workload.getNodeId(), workload);
+                    } else {
+                        released = Future.succeededFuture();
+                    }
+                    return released;
+                })
                 .map(workload);
     }
 

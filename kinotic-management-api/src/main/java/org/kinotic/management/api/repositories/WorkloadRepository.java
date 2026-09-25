@@ -46,6 +46,21 @@ public class WorkloadRepository extends AbstractRepository<Workload> implements 
             touched(state(ctx._source), params.now);
             """;
 
+    // A run ends once: one that has ended keeps its outcome and the script declines, so the caller
+    // that returns the run's room to its node does so exactly once
+    private static final String END_RUN = WatchedStateRepository.STATE_FUNCTIONS + """
+            if (params.terminal.contains(ctx._source.status)) {
+                ctx.op = 'noop';
+            } else {
+                ctx._source.status = params.status;
+                if (params.exitCode != null) {
+                    ctx._source.exitCode = params.exitCode;
+                }
+                ctx._source.updated = params.updated;
+                touched(state(ctx._source), params.now);
+            }
+            """;
+
     private final WatchedStateRepository watchedStateRepository;
 
     public WorkloadRepository(CrudServiceTemplate crudServiceTemplate, WatchedStateRepository watchedStateRepository) {
@@ -121,6 +136,25 @@ public class WorkloadRepository extends AbstractRepository<Workload> implements 
      * @param source     what caused it, for the ledger
      */
     public Future<Void> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source) {
+        return runScript(workloadId, UPDATE_RUN, status, exitCode, source).mapEmpty();
+    }
+
+    /**
+     * Records the end of the workload's run, its terminal status and exit code, and enters the change
+     * in the ledger; a run that has already ended keeps its outcome. Visible to search on completion.
+     * @param workloadId the workload whose run ended
+     * @param status     the terminal status
+     * @param exitCode   the run's exit code, or null to leave the recorded one as it is
+     * @param source     what caused it, for the ledger
+     * @return true when this write ended the run, false when it had ended already
+     */
+    public Future<Boolean> endRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source) {
+        return runScript(workloadId, END_RUN, status, exitCode, source);
+    }
+
+    // The terminal statuses go in as a parameter, so the script and WorkloadStatus.isComplete agree on
+    // what an ended run is; a script that declined wrote nothing and enters nothing in the ledger
+    private Future<Boolean> runScript(String workloadId, String script, WorkloadStatus status, Integer exitCode, String source) {
         Map<String, Object> params = new HashMap<>();
         params.put("status", status.name());
         if (exitCode != null) {
@@ -128,15 +162,18 @@ public class WorkloadRepository extends AbstractRepository<Workload> implements 
         }
         params.put("updated", Instant.now().toString());
         params.put("now", System.currentTimeMillis());
+        params.put("terminal", Stream.of(WorkloadStatus.values()).filter(WorkloadStatus::isComplete).map(Enum::name).toList());
         Map<String, Object> run = new LinkedHashMap<>();
         run.put("status", status);
         run.put("exitCode", exitCode);
-        return crudServiceTemplate.scriptedUpdateReturningSourceSync(indexName, workloadId, UPDATE_RUN, params)
-                                  .compose(document -> watchedStateRepository.record(
-                                          WatchedDocument.of(WATCHED, workloadId), document,
-                                          new WatchedChange(WatchEventKind.STATUS_CHANGED, source,
-                                                            exitCode != null ? "Run " + status + " with exit code " + exitCode : "Run " + status,
-                                                            run)));
+        return crudServiceTemplate.scriptedUpdateReturningSourceSync(indexName, workloadId, script, params)
+                                  .compose(document -> document == null
+                                          ? Future.succeededFuture(false)
+                                          : watchedStateRepository.record(
+                                                  WatchedDocument.of(WATCHED, workloadId), document,
+                                                  new WatchedChange(WatchEventKind.STATUS_CHANGED, source,
+                                                                    exitCode != null ? "Run " + status + " with exit code " + exitCode : "Run " + status,
+                                                                    run)).map(true));
     }
 
     /**

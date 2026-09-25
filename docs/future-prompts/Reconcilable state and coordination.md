@@ -408,8 +408,9 @@ Dependency spine: 1 → 2 → 3; 4 → 5 → 6 → 7 → 8, 9; 10 after 5.
   gets the whole record, so they have no business in the contract.
 - **Migrations are appended.** A test server runs everything and has applied the migration files
   that exist, so a schema change is a new versioned file, as PR #588 did with V6/V7 and Phase 1 does
-  with V8; `CLAUDE.md` records the rule. V6's `reservations NESTED` is the same mistake as the
-  original V8, already applied, and stays under the retype rule.
+  with V8; `CLAUDE.md` records the rule. V6's `reservations NESTED` column is the same mistake as the
+  original V8; it is applied, so it stays mapped, and unused since the node keeps only its free
+  capacity counters.
 - **The TypeScript mirror is its own phase.** The wire shape leads from Java; the packages bump and
   publish as a unit, and the console change waits on the publish, as the console's `UNREACHABLE`
   handling did in the node-failure series.

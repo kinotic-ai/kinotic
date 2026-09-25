@@ -24,7 +24,6 @@ import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeState;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
-import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
 import org.kinotic.system.api.services.VmNodeService;
 import org.kinotic.system.api.services.WorkloadService;
@@ -73,23 +72,19 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         return workloadService.findAllForNode(nodeId, Pageable.create(0, WORKLOAD_PAGE_SIZE, null))
                 .compose(placed -> {
                     log.info("Registering VmNode: {} ({})", registration.getName(), nodeId);
-                    // The workload records are what runs on the node: the ledger is rebuilt from
-                    // them, so a node that re-registers with different hardware, or after a release
-                    // the node never saw, still accounts for exactly what it hosts.
-                    List<WorkloadReservation> reservations = reservationsOf(placed.getContent());
+                    // The workload records are what runs on the node: the free capacity is rebuilt
+                    // from the runs still open, so a node that re-registers with different hardware,
+                    // or after a release the node never saw, still accounts for exactly what it hosts.
+                    List<Workload> open = placed.getContent().stream().filter(workload -> workload.getStatus().isOpen()).toList();
                     VmNode inventory = new VmNode(nodeId, registration.getName(), registration.getHostname())
                             .setProviderType(registration.getProviderType())
                             .setTotalCpus(registration.getTotalCpus())
                             .setTotalMemoryMb(registration.getTotalMemoryMb())
                             .setTotalDiskMb(registration.getTotalDiskMb())
                             .setWorkloadDataDir(registration.getWorkloadDataDir())
-                            .setReservations(reservations)
-                            .setFreeCpus(registration.getTotalCpus()
-                                    - reservations.stream().mapToDouble(WorkloadReservation::getCpus).sum())
-                            .setFreeMemoryMb(registration.getTotalMemoryMb()
-                                    - reservations.stream().mapToInt(WorkloadReservation::getMemoryMb).sum())
-                            .setFreeDiskMb(registration.getTotalDiskMb()
-                                    - reservations.stream().mapToInt(WorkloadReservation::getDiskMb).sum());
+                            .setFreeCpus(registration.getTotalCpus() - open.stream().mapToDouble(Workload::getCpus).sum())
+                            .setFreeMemoryMb(registration.getTotalMemoryMb() - open.stream().mapToInt(Workload::getMemoryMb).sum())
+                            .setFreeDiskMb(registration.getTotalDiskMb() - open.stream().mapToInt(Workload::getDiskSizeMb).sum());
                     return vmNodeService.recordInventorySync(inventory);
                 })
                 // a registered node should be taking workloads; a node registering again holds that intent already
@@ -98,17 +93,6 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                 .compose(node -> vmNodeService.reportObserved(nodeId, ONLINE, node.getState().getGeneration(), "registration"))
                 .compose(v -> vmNodeService.clearCondition(nodeId, StatusConditionType.NODE_UNREACHABLE, "registration"))
                 .compose(v -> vmNodeService.findById(nodeId));
-    }
-
-    /** The room the given workloads hold: one reservation per run that has not ended. */
-    private static List<WorkloadReservation> reservationsOf(List<Workload> workloads) {
-        List<WorkloadReservation> ret = new ArrayList<>();
-        for (Workload workload : workloads) {
-            if (workload.getStatus().isOpen()) {
-                ret.add(WorkloadReservation.forRun(workload));
-            }
-        }
-        return ret;
     }
 
     @Override
@@ -209,11 +193,15 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                 });
     }
 
-    // Records the report's status and exit code, and returns the run's room once the report says it ended
+    // Records the report's status and exit code, and returns the run's room when the report is what
+    // ended it: a run the platform had recorded ended keeps its outcome, and its room stays returned
     private Future<Void> applyReport(String nodeId, Workload workload, WorkloadStatusReport report) {
-        Future<Void> ret = workloadService.updateRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId);
+        Future<Void> ret;
         if (report.getStatus().isComplete()) {
-            ret = ret.compose(v -> vmNodeService.releaseSync(nodeId, workload.getId()));
+            ret = workloadService.endRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId)
+                                 .compose(ended -> ended ? vmNodeService.releaseSync(nodeId, workload) : Future.succeededFuture());
+        } else {
+            ret = workloadService.updateRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId);
         }
         return ret;
     }
@@ -339,8 +327,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
 
     /**
      * Records every run still open on the node FAILED, which routes each to the deployment it belongs
-     * to, and deletes the node with its capacity ledger. The runs' room goes with the ledger, so none
-     * is returned.
+     * to, and deletes the node. The runs' room goes with the node's record, so none is returned.
      */
     private Future<Requeue> finalizeDeregistration(VmNode node) {
         String nodeId = node.getId();
@@ -348,7 +335,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         return forEachOpenRun(nodeId, workload -> {
                     log.warn("Recording workload {} FAILED: node {} was deregistered while it was {}",
                              workload.getId(), nodeId, workload.getStatus());
-                    return workloadService.updateRunSync(workload.getId(), WorkloadStatus.FAILED, null, "deregistration of node " + nodeId);
+                    return workloadService.endRunSync(workload.getId(), WorkloadStatus.FAILED, null, "deregistration of node " + nodeId).mapEmpty();
                 })
                 .compose(v -> vmNodeService.deleteByIdSync(nodeId))
                 .map(Requeue.NONE);
