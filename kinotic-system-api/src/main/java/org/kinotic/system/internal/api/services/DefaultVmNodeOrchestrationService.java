@@ -20,16 +20,16 @@ import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
+import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeState;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
-import org.kinotic.system.api.services.VmNodeService;
-import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.system.api.workload.VmManagerProxy;
 import org.kinotic.system.api.workload.VmNodeRegistration;
 import org.kinotic.system.api.workload.WorkloadStatusReport;
+import org.kinotic.system.internal.api.repositories.VmNodeRepository;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -58,8 +58,8 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     private static final VmNodeState DRAINING = new VmNodeState(VmNodeStatusType.DRAINING);
 
     private final KinoticSystemApiProperties orchestratorProperties;
-    private final VmNodeService vmNodeService;
-    private final WorkloadService workloadService;
+    private final VmNodeRepository vmNodeRepository;
+    private final WorkloadRepository workloadRepository;
     private final EventBusService eventBusService;
     private final Vertx vertx;
 
@@ -69,7 +69,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         Validate.notNull(registration.getId(), "Node id cannot be null");
         String nodeId = registration.getId();
 
-        return workloadService.findAllForNode(nodeId, Pageable.create(0, WORKLOAD_PAGE_SIZE, null))
+        return workloadRepository.findAllForNode(nodeId, Pageable.create(0, WORKLOAD_PAGE_SIZE, null))
                 .compose(placed -> {
                     log.info("Registering VmNode: {} ({})", registration.getName(), nodeId);
                     // The workload records are what runs on the node: the free capacity is rebuilt
@@ -85,14 +85,14 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                             .setFreeCpus(registration.getTotalCpus() - open.stream().mapToDouble(Workload::getCpus).sum())
                             .setFreeMemoryMb(registration.getTotalMemoryMb() - open.stream().mapToInt(Workload::getMemoryMb).sum())
                             .setFreeDiskMb(registration.getTotalDiskMb() - open.stream().mapToInt(Workload::getDiskSizeMb).sum());
-                    return vmNodeService.recordInventorySync(inventory);
+                    return vmNodeRepository.recordInventorySync(inventory);
                 })
                 // a registered node should be taking workloads; a node registering again holds that intent already
-                .compose(v -> vmNodeService.updateDesired(nodeId, ONLINE, "registration"))
+                .compose(v -> vmNodeRepository.updateDesired(nodeId, ONLINE, null, "registration"))
                 // the registration is the node's own word that it is up, ahead of its first heartbeat
-                .compose(node -> vmNodeService.reportObserved(nodeId, ONLINE, node.getState().getGeneration(), "registration"))
-                .compose(v -> vmNodeService.clearCondition(nodeId, StatusConditionType.NODE_UNREACHABLE, "registration"))
-                .compose(v -> vmNodeService.findById(nodeId));
+                .compose(node -> vmNodeRepository.reportObserved(nodeId, ONLINE, node.getState().getGeneration(), "registration"))
+                .compose(v -> vmNodeRepository.clearCondition(nodeId, StatusConditionType.NODE_UNREACHABLE, "registration"))
+                .compose(v -> vmNodeRepository.findById(nodeId));
     }
 
     @Override
@@ -102,7 +102,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         String message = found.isEmpty() ? null : String.join("; ", found);
         VmNodeState reported = found.isEmpty() ? ONLINE : DRAINING;
 
-        return vmNodeService.findById(nodeId)
+        return vmNodeRepository.findById(nodeId)
                 .compose(node -> {
                     Future<VmNode> ret;
                     if (node == null) {
@@ -121,19 +121,19 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                             }
                         }
                         // a heartbeat is the only evidence the node is alive; no other write stamps lastSeen
-                        Future<Void> written = vmNodeService.recordHeartbeat(nodeId, message);
+                        Future<Void> written = vmNodeRepository.recordHeartbeat(nodeId, message);
                         // the state is written only when the heartbeat changes it, which the read just made
                         // tells: the common heartbeat is one read and one write
                         if (reportChanged) {
-                            written = written.compose(v -> vmNodeService.reportObserved(nodeId, reported, state.getGeneration(), "heartbeat"));
+                            written = written.compose(v -> vmNodeRepository.reportObserved(nodeId, reported, state.getGeneration(), "heartbeat"));
                         }
                         if (marked) {
                             // the heartbeat ends whatever silence or undelivered call the condition was inferred from
-                            written = written.compose(v -> vmNodeService.clearCondition(nodeId, StatusConditionType.NODE_UNREACHABLE, "heartbeat")
+                            written = written.compose(v -> vmNodeRepository.clearCondition(nodeId, StatusConditionType.NODE_UNREACHABLE, "heartbeat")
                                                                        .mapEmpty());
                         }
                         ret = written.compose(v -> reportChanged || marked
-                                ? vmNodeService.findById(nodeId)
+                                ? vmNodeRepository.findById(nodeId)
                                 : Future.succeededFuture(node.setLastSeen(new Date()).setHealthMessage(message)));
                     }
                     return ret;
@@ -152,7 +152,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     }
 
     private Future<Void> applyStatusReport(String nodeId, WorkloadStatusReport report) {
-        return workloadService.findById(report.getWorkloadId())
+        return workloadRepository.findById(report.getWorkloadId())
                 .compose(workload -> {
                     Future<Void> ret;
 
@@ -169,13 +169,13 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         // node is the authority on its run
                         log.info("Workload {} status {} -> {} per report from node {}, reachable again",
                                  report.getWorkloadId(), workload.getStatus(), report.getStatus(), nodeId);
-                        ret = workloadService.clearCondition(workload.getId(), StatusConditionType.NODE_UNREACHABLE, "node " + nodeId)
+                        ret = workloadRepository.clearCondition(workload.getId(), StatusConditionType.NODE_UNREACHABLE, "node " + nodeId)
                                              .compose(cleared -> applyReport(nodeId, workload, report));
                     } else if (workload.getStatus() == report.getStatus()) {
                         // Same state; still adopt an exit code the record lacks — stopWorkload
                         // records STOPPED before the node's exit-code-bearing report arrives
                         if (report.getExitCode() != null && workload.getExitCode() == null) {
-                            ret = workloadService.updateRunSync(workload.getId(), workload.getStatus(), report.getExitCode(), "node " + nodeId);
+                            ret = workloadRepository.updateRunSync(workload.getId(), workload.getStatus(), report.getExitCode(), "node " + nodeId);
                         } else {
                             ret = Future.succeededFuture();
                         }
@@ -198,10 +198,10 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     private Future<Void> applyReport(String nodeId, Workload workload, WorkloadStatusReport report) {
         Future<Void> ret;
         if (report.getStatus().isComplete()) {
-            ret = workloadService.endRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId)
-                                 .compose(ended -> ended ? vmNodeService.releaseSync(nodeId, workload) : Future.succeededFuture());
+            ret = workloadRepository.endRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId)
+                                 .compose(ended -> ended ? vmNodeRepository.releaseSync(nodeId, workload) : Future.succeededFuture());
         } else {
-            ret = workloadService.updateRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId);
+            ret = workloadRepository.updateRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId);
         }
         return ret;
     }
@@ -210,7 +210,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     public Future<Void> deregisterNode(String nodeId) {
         Validate.notNull(nodeId, "Node id cannot be null");
 
-        return vmNodeService.findById(nodeId)
+        return vmNodeRepository.findById(nodeId)
                 .compose(node -> {
                     Future<Void> ret;
                     if (node == null) {
@@ -218,13 +218,13 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                     } else if (StatusConditions.has(node.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE)) {
                         // The operator's word that a silent node is not coming back settles what its
                         // silence left open: the finalizer records its open runs FAILED
-                        ret = vmNodeService.requestDeletion(nodeId, "deregisterNode");
+                        ret = vmNodeRepository.requestDeletion(nodeId, "deregisterNode");
                     } else {
-                        ret = workloadService.countRunningForNode(nodeId)
+                        ret = workloadRepository.countRunningForNode(nodeId)
                                 .compose(count -> count > 0
                                         ? Future.failedFuture(new IllegalStateException("Cannot deregister node with running workloads. "
                                                 + "Stop or destroy the workloads running on node " + nodeId + " first."))
-                                        : vmNodeService.requestDeletion(nodeId, "deregisterNode"));
+                                        : vmNodeRepository.requestDeletion(nodeId, "deregisterNode"));
                     }
                     return ret;
                 });
@@ -232,7 +232,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
 
     @Override
     public Future<VmNode> findAvailableNode(double requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
-        return vmNodeService.findAvailableNode(requiredCpus, requiredMemoryMb, requiredDiskMb);
+        return vmNodeRepository.findAvailableNode(requiredCpus, requiredMemoryMb, requiredDiskMb);
     }
 
     @Override
@@ -246,7 +246,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                           vertx.getOrCreateContext())
                            .compose(status -> status == ListenerStatus.ACTIVE
                                    ? Future.succeededFuture()
-                                   : vmNodeService.findById(nodeId).compose(node -> {
+                                   : vmNodeRepository.findById(nodeId).compose(node -> {
                                        // a call may name a node that was deregistered since, which is nothing to mark
                                        Future<Void> marked;
                                        if (node == null) {
@@ -298,7 +298,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     }
 
     private Future<Void> markUnreachable(VmNode node, String message, String source) {
-        return vmNodeService.setCondition(node.getId(),
+        return vmNodeRepository.setCondition(node.getId(),
                                           new StatusCondition(StatusConditionType.NODE_UNREACHABLE, message, new Date()),
                                           source)
                             .onSuccess(set -> {
@@ -316,7 +316,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         StatusCondition unreachable = new StatusCondition(StatusConditionType.NODE_UNREACHABLE,
                                                           "Node " + nodeId + " missed its heartbeat",
                                                           new Date());
-        return forEachOpenRun(nodeId, workload -> workloadService.setCondition(workload.getId(), unreachable, "heartbeat timeout")
+        return forEachOpenRun(nodeId, workload -> workloadRepository.setCondition(workload.getId(), unreachable, "heartbeat timeout")
                 .onSuccess(set -> {
                     if (set) {
                         log.warn("Marked workload {} unreachable: node {} missed its heartbeat", workload.getId(), nodeId);
@@ -335,15 +335,15 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         return forEachOpenRun(nodeId, workload -> {
                     log.warn("Recording workload {} FAILED: node {} was deregistered while it was {}",
                              workload.getId(), nodeId, workload.getStatus());
-                    return workloadService.endRunSync(workload.getId(), WorkloadStatus.FAILED, null, "deregistration of node " + nodeId).mapEmpty();
+                    return workloadRepository.endRunSync(workload.getId(), WorkloadStatus.FAILED, null, "deregistration of node " + nodeId).mapEmpty();
                 })
-                .compose(v -> vmNodeService.deleteByIdSync(nodeId))
+                .compose(v -> vmNodeRepository.deleteByIdSync(nodeId))
                 .map(Requeue.NONE);
     }
 
     // Applies the change to every open run on the node, one at a time
     private Future<Void> forEachOpenRun(String nodeId, Function<Workload, Future<Void>> change) {
-        return workloadService.findAllForNode(nodeId, Pageable.create(0, WORKLOAD_PAGE_SIZE, null))
+        return workloadRepository.findAllForNode(nodeId, Pageable.create(0, WORKLOAD_PAGE_SIZE, null))
                 .compose(page -> {
                     Future<Void> chain = Future.succeededFuture();
                     for (Workload workload : page.getContent()) {

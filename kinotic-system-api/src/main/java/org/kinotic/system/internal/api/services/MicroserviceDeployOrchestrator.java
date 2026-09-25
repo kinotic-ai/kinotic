@@ -23,8 +23,8 @@ import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
+import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
-import org.kinotic.system.api.services.WorkloadService;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -60,7 +60,7 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
     private final ProjectRepository projectRepository;
     private final ProjectDeploymentRepository projectDeploymentRepository;
-    private final WorkloadService workloadService;
+    private final WorkloadRepository workloadRepository;
     private final WorkloadOrchestrationService workloadOrchestrationService;
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final ProjectWorkloadFactory projectWorkloadFactory;
@@ -95,7 +95,7 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
     private Future<Workload> workloadOf(MicroserviceDeployment deployment) {
         return deployment.getWorkloadId() == null
                 ? Future.succeededFuture()
-                : workloadService.findById(deployment.getWorkloadId());
+                : workloadRepository.findById(deployment.getWorkloadId());
     }
 
     private Future<Requeue> ensureRunning(MicroserviceDeployment current, DeploymentState desired, Workload workload, ProjectDeployment target) {
@@ -176,7 +176,7 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
     private Future<Requeue> restartAfterBackoff(MicroserviceDeployment current, DeploymentState desired, Workload workload,
                                                 ProjectDeployment target, String entryPoint) {
         WatchedParent parent = new WatchedParent(WatchedType.MICROSERVICE_DEPLOYMENT, current.getOrganizationId(), current.getId());
-        return workloadService.countFailedFor(parent, current.getState().getDesiredAt())
+        return workloadRepository.countFailedFor(parent, current.getState().getDesiredAt())
                 .compose(failures -> {
                     Duration remaining = restartDelay(failures).minus(sinceEnded(workload));
                     Future<Requeue> ret;

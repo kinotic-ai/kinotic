@@ -55,7 +55,7 @@ public class VmNodePlacementTests extends KinoticTestBase {
         node("placement-roomy", 8, 8192, 20480, 4, 4096, 10240);
         indexNodes();
 
-        VmNode chosen = await(vmNodeService.findAvailableNode(2, 2048, 5120));
+        VmNode chosen = await(vmNodeOrchestrationService.findAvailableNode(2, 2048, 5120));
 
         Assertions.assertNotNull(chosen, "a node with room should have been found");
         Assertions.assertEquals("placement-roomy", chosen.getId());
@@ -67,7 +67,7 @@ public class VmNodePlacementTests extends KinoticTestBase {
         node("placement-thin-disk", 8, 8192, 20480, 8, 8192, 1024);
         indexNodes();
 
-        Assertions.assertNull(await(vmNodeService.findAvailableNode(2, 2048, 5120)));
+        Assertions.assertNull(await(vmNodeOrchestrationService.findAvailableNode(2, 2048, 5120)));
     }
 
     @Test
@@ -79,7 +79,7 @@ public class VmNodePlacementTests extends KinoticTestBase {
         await(vmNodeService.save(draining));
         indexNodes();
 
-        Assertions.assertNull(await(vmNodeService.findAvailableNode(1, 1024, 1024)));
+        Assertions.assertNull(await(vmNodeOrchestrationService.findAvailableNode(1, 1024, 1024)));
     }
 
     /**
@@ -94,7 +94,7 @@ public class VmNodePlacementTests extends KinoticTestBase {
         node("placement-needle", 8, 8192, 20480, 4, 4096, 10240);
         indexNodes();
 
-        VmNode chosen = await(vmNodeService.findAvailableNode(2, 2048, 5120));
+        VmNode chosen = await(vmNodeOrchestrationService.findAvailableNode(2, 2048, 5120));
 
         Assertions.assertNotNull(chosen, "the only node with room is past the first page of online nodes");
         Assertions.assertEquals("placement-needle", chosen.getId());
@@ -149,32 +149,6 @@ public class VmNodePlacementTests extends KinoticTestBase {
         Assertions.assertEquals(13.5, grown.getFreeCpus(), "the running workload's CPU should survive the capacity change");
         Assertions.assertEquals(8192 - 1024, grown.getFreeMemoryMb());
         Assertions.assertEquals(20480 - 2048, grown.getFreeDiskMb(), "an ended run holds nothing");
-    }
-
-    /**
-     * The scripted reservation and releases are what placement reads, so the stored availability
-     * has to move by what each holds, with the fraction of a core surviving the round trip.
-     */
-    @Test
-    public void reservingAndReleasingMoveTheStoredAvailability() throws Exception {
-        VmNode registered = await(vmNodeOrchestrationService.registerNode(registration("placement-ledger", 4, 8192, 20480)));
-        created.add(registered.getId());
-        Workload half = workload("placement-ledger", 0.5, 1024, 2048, WorkloadStatus.RUNNING);
-
-        Assertions.assertTrue(await(vmNodeService.reserveSync("placement-ledger", half)));
-        VmNode held = await(vmNodeService.findById("placement-ledger"));
-        Assertions.assertEquals(3.5, held.getFreeCpus());
-        Assertions.assertEquals(8192 - 1024, held.getFreeMemoryMb());
-        Assertions.assertEquals(20480 - 2048, held.getFreeDiskMb());
-
-        Assertions.assertFalse(await(vmNodeService.reserveSync("placement-ledger",
-                workload("placement-ledger", 4, 1024, 1024, WorkloadStatus.RUNNING))), "more CPU than the node has left");
-
-        await(vmNodeService.releaseSync("placement-ledger", half));
-        VmNode released = await(vmNodeService.findById("placement-ledger"));
-        Assertions.assertEquals(4, released.getFreeCpus());
-        Assertions.assertEquals(8192, released.getFreeMemoryMb());
-        Assertions.assertEquals(20480, released.getFreeDiskMb());
     }
 
     private static Workload workload(String nodeId, double cpus, int memoryMb, int diskMb, WorkloadStatus status) {

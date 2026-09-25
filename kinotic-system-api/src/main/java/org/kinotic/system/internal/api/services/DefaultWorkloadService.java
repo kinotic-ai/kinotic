@@ -4,20 +4,14 @@ import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.internal.api.services.AbstractCrudService;
-import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.WatchEvent;
-import org.kinotic.domain.api.model.WatchedParent;
-import org.kinotic.domain.api.model.StatusConditionType;
+import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.management.api.model.workload.Workload;
-import org.kinotic.management.api.model.workload.WorkloadStatus;
-import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.management.api.repositories.WorkloadRepository;
+import org.kinotic.system.api.services.WorkloadService;
 import org.springframework.stereotype.Component;
 
-import java.util.Date;
 import java.util.List;
-import java.util.UUID;
 
 @Component
 public class DefaultWorkloadService extends AbstractCrudService<Workload> implements WorkloadService {
@@ -35,23 +29,6 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
     }
 
     @Override
-    public Future<Long> countRunningForNode(String nodeId) {
-        return workloadRepository.countRunningForNode(nodeId);
-    }
-
-    @Override
-    public Future<Long> countFailedFor(WatchedParent parent, long since) {
-        Validate.notNull(parent, "parent cannot be null");
-        return workloadRepository.countFailedFor(parent, since);
-    }
-
-    @Override
-    public Future<Page<Workload>> findEndedBefore(Date cutoff, Pageable pageable) {
-        Validate.notNull(cutoff, "Cutoff cannot be null");
-        return workloadRepository.findEndedBefore(cutoff, pageable);
-    }
-
-    @Override
     public Future<Page<WatchEvent>> findHistory(String workloadId, Pageable pageable) {
         Validate.notNull(workloadId, "Workload id cannot be null");
         Validate.notNull(pageable, "Pageable cannot be null");
@@ -61,51 +38,10 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
     }
 
     @Override
-    public Future<Void> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source) {
-        Validate.notNull(workloadId, "Workload id cannot be null");
-        Validate.notNull(status, "Workload status cannot be null");
-        Validate.notBlank(source, "Source cannot be blank");
-        return workloadRepository.updateRunSync(workloadId, status, exitCode, source);
-    }
-
-    @Override
-    public Future<Boolean> endRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source) {
-        Validate.notNull(workloadId, "Workload id cannot be null");
-        Validate.notNull(status, "Workload status cannot be null");
-        Validate.isTrue(status.isComplete(), "Workload status must be terminal: %s", status);
-        Validate.notBlank(source, "Source cannot be blank");
-        return workloadRepository.endRunSync(workloadId, status, exitCode, source);
-    }
-
-    @Override
-    public Future<Boolean> setCondition(String workloadId, StatusCondition condition, String source) {
-        Validate.notNull(workloadId, "Workload id cannot be null");
-        Validate.notNull(condition, "Condition cannot be null");
-        Validate.notBlank(source, "Source cannot be blank");
-        return workloadRepository.setCondition(workloadId, condition, source);
-    }
-
-    @Override
-    public Future<Boolean> clearCondition(String workloadId, StatusConditionType type, String source) {
-        Validate.notNull(workloadId, "Workload id cannot be null");
-        Validate.notNull(type, "Condition type cannot be null");
-        Validate.notBlank(source, "Source cannot be blank");
-        return workloadRepository.clearCondition(workloadId, type, source);
-    }
-
-    @Override
     protected Future<Void> beforeSave(Workload entity) {
         Validate.notNull(entity, "Workload cannot be null");
         Validate.notNull(entity.getName(), "Workload name cannot be null");
         Validate.notNull(entity.getImage(), "Workload image cannot be null");
-
-        if (entity.getId() == null) {
-            entity.setId(UUID.randomUUID().toString());
-        }
-        entity.setUpdated(new Date());
-        if (entity.getCreated() == null) {
-            entity.setCreated(new Date());
-        }
         return Future.succeededFuture();
     }
 

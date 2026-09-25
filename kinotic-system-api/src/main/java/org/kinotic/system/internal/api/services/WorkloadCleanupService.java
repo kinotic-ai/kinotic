@@ -7,9 +7,9 @@ import org.apache.ignite.resources.SpringResource;
 import org.apache.ignite.services.Service;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.management.api.model.workload.Workload;
+import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
-import org.kinotic.system.api.services.WorkloadService;
 
 import java.time.Duration;
 import java.util.Date;
@@ -34,8 +34,8 @@ public class WorkloadCleanupService implements Service {
     // Injected by Ignite on the node elected to host the singleton
     @SpringResource(resourceClass = WorkloadOrchestrationService.class)
     private transient WorkloadOrchestrationService orchestrationService;
-    @SpringResource(resourceClass = WorkloadService.class)
-    private transient WorkloadService workloadService;
+    @SpringResource(resourceClass = WorkloadRepository.class)
+    private transient WorkloadRepository workloadRepository;
     @SpringResource(resourceClass = KinoticSystemApiProperties.class)
     private transient KinoticSystemApiProperties properties;
     @SpringResource(resourceClass = Vertx.class)
@@ -72,7 +72,7 @@ public class WorkloadCleanupService implements Service {
     // comes back short or the sweep has taken its share. A batch that fails ends this sweep: the logs
     // go before the records, so nothing is half done.
     private Future<Void> sweepPage(Date cutoff, int retentionDays, int pageNumber) {
-        return workloadService.findEndedBefore(cutoff, Pageable.create(0, PAGE_SIZE, null))
+        return workloadRepository.findEndedBefore(cutoff, Pageable.create(0, PAGE_SIZE, null))
                               .compose(page -> {
                                   List<String> ids = page.getContent().stream().map(Workload::getId).toList();
                                   Future<Void> ret;

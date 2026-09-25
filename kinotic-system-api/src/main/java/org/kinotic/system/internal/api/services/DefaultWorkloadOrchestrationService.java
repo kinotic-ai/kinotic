@@ -10,10 +10,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.apache.ignite.Ignite;
 import org.kinotic.management.api.model.TelemetryTenant;
+import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.management.api.services.LokiClient;
-import org.kinotic.system.api.services.VmNodeService;
-import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
+import org.kinotic.system.internal.api.repositories.VmNodeRepository;
 import org.kinotic.system.api.workload.VmManagerProxy;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
 import org.kinotic.system.api.model.workload.VmNode;
@@ -48,8 +48,8 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     private final VmNodeOrchestrationService nodeOrchestrationService;
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
     private final VmManagerProxy vmManagerProxy;
-    private final VmNodeService vmNodeService;
-    private final WorkloadService workloadService;
+    private final VmNodeRepository vmNodeRepository;
+    private final WorkloadRepository workloadRepository;
     private final LokiClient lokiClient;
     private final Ignite ignite;
 
@@ -93,7 +93,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
                     return persistRedacted(workload)
                             // the reservation is the workload's; a record that cannot be written hands it back
-                            .recover(error -> vmNodeService.releaseSync(node.getId(), workload)
+                            .recover(error -> vmNodeRepository.releaseSync(node.getId(), workload)
                                                            .transform(_ -> Future.failedFuture(error)))
                             .compose(savedWorkload ->
                                 // Dispatch to the VmManager on the selected node. For a
@@ -124,7 +124,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     public Future<Void> stopWorkload(String workloadId) {
         Validate.notNull(workloadId, "Workload id cannot be null");
 
-        return workloadService.findById(workloadId)
+        return workloadRepository.findById(workloadId)
                 .compose(workload -> {
                     Future<Void> ret;
                     if (workload == null) {
@@ -142,7 +142,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     private Future<Void> stopRun(Workload workload) {
         String nodeId = workload.getNodeId();
         workload.setStatus(WorkloadStatus.STOPPING);
-        return workloadService.updateRunSync(workload.getId(), WorkloadStatus.STOPPING, null, "stopWorkload")
+        return workloadRepository.updateRunSync(workload.getId(), WorkloadStatus.STOPPING, null, "stopWorkload")
                 .compose(v -> verifyingNodeOnFailure(nodeId, vmManagerProxy.stopWorkload(nodeId, workload.getId())))
                 .compose(v -> recordRunEnded(workload, WorkloadStatus.STOPPED, "stopWorkload"))
                 .recover(error -> {
@@ -163,7 +163,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     public Future<Void> destroyWorkload(String workloadId) {
         Validate.notNull(workloadId, "Workload id cannot be null");
 
-        return workloadService.findById(workloadId)
+        return workloadRepository.findById(workloadId)
                 .compose(workload -> {
                     Future<Void> ret;
                     if (workload == null) {
@@ -192,7 +192,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     public Future<Void> deleteWorkloads(List<String> workloadIds) {
         Validate.notEmpty(workloadIds, "Workload ids cannot be empty");
 
-        return Future.all(workloadIds.stream().map(workloadService::findById).toList())
+        return Future.all(workloadIds.stream().map(workloadRepository::findById).toList())
                 .compose(found -> {
                     List<Workload> workloads = found.list();
                     Future<Void> ret = Future.succeededFuture();
@@ -209,9 +209,9 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                         // the logs go first: a record without logs is an ended run like any other, while
                         // logs without a record could never be found again
                         ret = deleteLogs(workloads)
-                                .compose(v -> Future.all(workloads.stream().map(workload -> workloadService.deleteById(workload.getId())).toList()))
+                                .compose(v -> Future.all(workloads.stream().map(workload -> workloadRepository.deleteById(workload.getId())).toList()))
                                 // one refresh for the batch, so a listing made right after no longer shows any of them
-                                .compose(v -> workloadService.syncIndex());
+                                .compose(v -> workloadRepository.syncIndex());
                     }
                     return ret;
                 });
@@ -241,7 +241,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
      * resulting state.
      */
     private Future<Workload> applyStartReply(Workload startedWorkload) {
-        return workloadService.findById(startedWorkload.getId())
+        return workloadRepository.findById(startedWorkload.getId())
                 .compose(current -> {
                     Future<Workload> ret;
                     if (current == null) {
@@ -256,7 +256,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                         // A RUNNING reply only promotes from STARTING: a short-lived detached
                         // workload's terminal status report can be applied before the reply
                         // gets here, and must not be clobbered.
-                        ret = workloadService.updateRunSync(startedWorkload.getId(), startedWorkload.getStatus(), startedWorkload.getExitCode(),
+                        ret = workloadRepository.updateRunSync(startedWorkload.getId(), startedWorkload.getStatus(), startedWorkload.getExitCode(),
                                                             "node " + startedWorkload.getNodeId())
                                              .map(startedWorkload);
                     } else {
@@ -279,7 +279,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                         ret = Future.failedFuture(
                                 new IllegalStateException("No available node with sufficient resources to deploy workload"));
                     } else {
-                        ret = vmNodeService.reserveSync(node.getId(), workload)
+                        ret = vmNodeRepository.reserveSync(node.getId(), workload)
                                 .compose(reserved -> {
                                     Future<VmNode> placed;
                                     if (reserved) {
@@ -306,7 +306,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
      */
     private Future<VmNode> reserveOnPinnedNode(Workload workload) {
         String nodeId = workload.getNodeId();
-        return vmNodeService.findById(nodeId)
+        return vmNodeRepository.findById(nodeId)
                 .compose(node -> {
                     Future<VmNode> ret;
                     if (node == null) {
@@ -318,7 +318,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                         + (node.getState().getObserved() == null ? null : node.getState().getObserved().phase())
                                         + ", conditions " + node.getState().getConditions() + ")"));
                     } else {
-                        ret = vmNodeService.reserveSync(node.getId(), workload)
+                        ret = vmNodeRepository.reserveSync(node.getId(), workload)
                                 .compose(reserved -> reserved
                                         ? Future.succeededFuture(node)
                                         : Future.failedFuture(new IllegalStateException(
@@ -333,7 +333,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
      * are, marked NODE_UNREACHABLE until the node's next report.
      */
     private Future<Void> markUnreachable(Workload workload, String message) {
-        return workloadService.setCondition(workload.getId(),
+        return workloadRepository.setCondition(workload.getId(),
                                             new StatusCondition(StatusConditionType.NODE_UNREACHABLE, message, new Date()),
                                             "unanswered call")
                               .mapEmpty();
@@ -345,12 +345,12 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
      * node removes the VM on its own once the run has ended.
      */
     private Future<Workload> recordRunEnded(Workload workload, WorkloadStatus status, String source) {
-        return workloadService.endRunSync(workload.getId(), status, workload.getExitCode(), source)
+        return workloadRepository.endRunSync(workload.getId(), status, workload.getExitCode(), source)
                 .compose(ended -> {
                     Future<Void> released;
                     if (ended) {
                         workload.setStatus(status);
-                        released = vmNodeService.releaseSync(workload.getNodeId(), workload);
+                        released = vmNodeRepository.releaseSync(workload.getNodeId(), workload);
                     } else {
                         released = Future.succeededFuture();
                     }
@@ -368,12 +368,12 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
         Future<Workload> ret;
         Map<String, String> secrets = workload.getSecrets();
         if (secrets == null || secrets.isEmpty()) {
-            ret = workloadService.saveSync(workload);
+            ret = workloadRepository.saveSync(workload);
         } else {
             Map<String, String> redacted = new LinkedHashMap<>();
             secrets.keySet().forEach(key -> redacted.put(key, REDACTED_SECRET_VALUE));
             workload.setSecrets(redacted);
-            ret = workloadService.saveSync(workload)
+            ret = workloadRepository.saveSync(workload)
                     .andThen(result -> workload.setSecrets(secrets));
         }
         return ret;

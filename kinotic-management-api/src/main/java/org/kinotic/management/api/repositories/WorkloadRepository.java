@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -69,6 +70,40 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
     @Override
     public String scopeOf(Workload record) {
         return record.getOrganizationId();
+    }
+
+    @Override
+    public Future<Workload> save(Workload workload) {
+        return super.save(stamped(workload));
+    }
+
+    @Override
+    public Future<Workload> saveSync(Workload workload) {
+        return super.saveSync(stamped(workload));
+    }
+
+    @Override
+    public Future<Workload> create(Workload workload) {
+        return super.create(stamped(workload));
+    }
+
+    @Override
+    public Future<Workload> createSync(Workload workload) {
+        return super.createSync(stamped(workload));
+    }
+
+    // A record gets its id on its first write and its timestamps on every write, whichever caller writes it
+    private static Workload stamped(Workload workload) {
+        Validate.notNull(workload, "workload cannot be null");
+        if (workload.getId() == null) {
+            workload.setId(UUID.randomUUID().toString());
+        }
+        Date now = new Date();
+        workload.setUpdated(now);
+        if (workload.getCreated() == null) {
+            workload.setCreated(now);
+        }
+        return workload;
     }
 
     public Future<Page<Workload>> findAllForNode(String nodeId, Pageable pageable) {

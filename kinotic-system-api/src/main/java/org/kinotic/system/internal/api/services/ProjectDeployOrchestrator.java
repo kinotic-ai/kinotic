@@ -26,8 +26,8 @@ import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
+import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
-import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRunHandle;
@@ -79,7 +79,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
     private final ProjectRepository projectRepository;
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
     private final UiDeploymentRepository uiDeploymentRepository;
-    private final WorkloadService workloadService;
+    private final WorkloadRepository workloadRepository;
     private final WorkloadOrchestrationService workloadOrchestrationService;
     private final ParticipantIdentityService participantIdentityService;
     private final JobRunRepository jobRunRepository;
@@ -286,7 +286,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
         if (workloadId == null) {
             ret = Future.succeededFuture();
         } else {
-            ret = workloadService.findById(workloadId)
+            ret = workloadRepository.findById(workloadId)
                     .compose(workload -> workload != null
                             ? workloadOrchestrationService.stopWorkload(workloadId)
                             : Future.succeededFuture())

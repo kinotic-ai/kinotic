@@ -8,9 +8,9 @@ import org.kinotic.management.api.model.MicroserviceDeployment;
 import org.kinotic.management.api.model.UiDeployment;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
+import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.system.api.services.DeploymentOperationsService;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
-import org.kinotic.system.api.services.WorkloadService;
 import org.springframework.stereotype.Component;
 
 
@@ -21,7 +21,7 @@ public class DefaultDeploymentOperationsService implements DeploymentOperationsS
 
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
     private final UiDeploymentRepository uiDeploymentRepository;
-    private final WorkloadService workloadService;
+    private final WorkloadRepository workloadRepository;
     private final WorkloadOrchestrationService workloadOrchestrationService;
 
     @Override
@@ -37,7 +37,7 @@ public class DefaultDeploymentOperationsService implements DeploymentOperationsS
                     } else {
                         // a VM still running is stopped, and the run's end brings its worker back to replace it; one
                         // that is not asks the worker to answer the intent again
-                        ret = workloadService.findById(deployment.getWorkloadId())
+                        ret = workloadRepository.findById(deployment.getWorkloadId())
                                 .compose(workload -> workload != null && workload.getStatus().isOpen()
                                         ? workloadOrchestrationService.stopWorkload(workload.getId())
                                         : microserviceDeploymentRepository.renewDesired(deployment.getId(), "restartMicroservice"));

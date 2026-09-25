@@ -7,15 +7,6 @@ import { VmNode } from '@/api/model/workload/VmNode'
 export interface IVmNodeService extends ICrudServiceProxy<VmNode> {
 
     /**
-     * Finds a node with sufficient resources to host a workload with the given requirements.
-     * @param requiredCpus the CPU required, in cores
-     * @param requiredMemoryMb the amount of memory required in megabytes
-     * @param requiredDiskMb the amount of disk space required in megabytes
-     * @return a Promise resolving to a suitable node, or null if none available
-     */
-    findAvailableNode(requiredCpus: number, requiredMemoryMb: number, requiredDiskMb: number): Promise<VmNode | null>
-
-    /**
      * Lists what happened to the node, newest first: each change of what it should be and of what it
      * reports, and each mark set beside them, with what caused it.
      * @param nodeId the id of the node
@@ -36,10 +27,6 @@ export class VmNodeServiceProxy extends CrudServiceProxy<VmNode> implements IVmN
 
     constructor(kinotic: IKinotic) {
         super(kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.system.api.services.VmNodeService`))
-    }
-
-    public findAvailableNode(requiredCpus: number, requiredMemoryMb: number, requiredDiskMb: number): Promise<VmNode | null> {
-        return this.serviceProxy.invoke('findAvailableNode', [requiredCpus, requiredMemoryMb, requiredDiskMb])
     }
 
     public async findHistory(nodeId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>> {
