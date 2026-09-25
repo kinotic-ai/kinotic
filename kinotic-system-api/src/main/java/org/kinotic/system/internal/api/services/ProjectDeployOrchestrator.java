@@ -2,7 +2,6 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -19,6 +18,7 @@ import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.management.api.model.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.ProjectPushEvent;
 import org.kinotic.management.api.model.ProjectDeployment;
 import org.kinotic.management.api.model.UiDeployment;
 import org.kinotic.grind.api.model.JobOwner;
@@ -28,8 +28,6 @@ import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
 import org.kinotic.system.api.services.WorkloadService;
-import org.kinotic.management.api.model.GitHubProjectEvent;
-import org.kinotic.management.api.model.GitHubWebhookEvent;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRunHandle;
@@ -49,7 +47,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Deploys a project whenever a commit lands on its repository's default branch, and keeps it
- * deployed. Consumes the verified {@link GitHubProjectEvent}s the management module publishes to
+ * deployed. Consumes the verified {@link ProjectPushEvent}s the management module publishes to
  * the event fabric, so a push is recorded no matter which node received the webhook, as what the
  * project's {@link ProjectDeployment} should be: the commit, running. The reconcile master then
  * calls this worker, on one node, which runs each qualifying commit as a grind job created by
@@ -71,9 +69,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @Component
 @RequiredArgsConstructor
 public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> {
-
-    /** The sha GitHub sends as {@code after} when a push deletes a ref. */
-    private static final String ZERO_SHA = "0".repeat(40);
 
     /** How long between looks at children whose removal is under way. */
     private static final Duration CHILDREN_WAIT = Duration.ofSeconds(5);
@@ -128,24 +123,10 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
     }
 
     @Consumer
-    void onEvent(GitHubProjectEvent event) {
-        GitHubWebhookEvent webhook = event.getWebhookEvent();
-        if ("push".equals(webhook.getEventType())) {
-            JsonObject payload = webhook.getPayload();
-            String commitSha = payload.getString("after");
-            String defaultBranch = payload.getJsonObject("repository") != null
-                    ? payload.getJsonObject("repository").getString("default_branch")
-                    : null;
-            boolean deploys = !payload.getBoolean("deleted", false)
-                    && commitSha != null && !ZERO_SHA.equals(commitSha)
-                    && defaultBranch != null
-                    && ("refs/heads/" + defaultBranch).equals(payload.getString("ref"));
-            if (deploys) {
-                deployProject(event.getOrganizationId(), event.getProjectId(), commitSha)
-                        .onFailure(error -> log.error("Could not record the push of {} to project {}",
-                                                      commitSha, event.getProjectId(), error));
-            }
-        }
+    void onPush(ProjectPushEvent event) {
+        deployProject(event.getOrganizationId(), event.getProjectId(), event.getCommitSha())
+                .onFailure(error -> log.error("Could not record the push of {} to project {}",
+                                              event.getCommitSha(), event.getProjectId(), error));
     }
 
     @Override
