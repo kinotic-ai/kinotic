@@ -28,7 +28,7 @@ public class InMemoryJobRunRepository extends JobRunRepository {
     public final Map<String, TaskRecord> savedTasks = new LinkedHashMap<>();
 
     public InMemoryJobRunRepository() {
-        super(null, null, null);
+        super(null, null, null, null);
     }
 
     @Override
