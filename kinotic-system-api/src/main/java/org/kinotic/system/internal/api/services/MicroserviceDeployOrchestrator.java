@@ -235,7 +235,7 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
     private Future<Requeue> finalizeRemoval(MicroserviceDeployment current) {
         log.info("Removing microservice {} of project {}", current.getName(), current.getProjectId());
         return workloadOf(current)
-                .compose(workload -> workload != null && workload.getStatus().isOpen()
+                .compose(workload -> workload != null
                         ? workloadOrchestrationService.stopWorkload(workload.getId())
                                                       .recover(error -> {
                                                           log.warn("Workload {} of microservice {} could not be stopped: {}",

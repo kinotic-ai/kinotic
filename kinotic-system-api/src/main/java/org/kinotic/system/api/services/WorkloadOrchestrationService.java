@@ -48,7 +48,7 @@ public interface WorkloadOrchestrationService {
     Future<Workload> deployWorkload(Workload workload);
 
     /**
-     * Stops a running workload.
+     * Stops a running workload; one whose run has ended, or never started, is left as it is.
      * Delegates to the VmManager on the node where the workload is deployed. A stop the vm-manager
      * never answered fails the returned future and leaves the record
      * {@link WorkloadStatus#STOPPING}, marked

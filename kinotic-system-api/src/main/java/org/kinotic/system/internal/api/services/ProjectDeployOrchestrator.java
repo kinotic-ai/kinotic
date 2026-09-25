@@ -278,8 +278,8 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                     Future<Requeue> ret;
                     if (microservices.isEmpty() && uis.isEmpty()) {
                         log.info("Removing the deployment of project {}: its children are gone", projectId);
-                        ret = stopIfOpen(current.getSyncWorkloadId())
-                                .compose(v -> stopIfOpen(current.getUiPublishWorkloadId()))
+                        ret = stop(current.getSyncWorkloadId())
+                                .compose(v -> stop(current.getUiPublishWorkloadId()))
                                 .compose(v -> removeMachine(current.getSyncMachineIdentityId()))
                                 .compose(v -> projectDeploymentRepository.deleteByIdSync(projectId, current.getOrganizationId()))
                                 .map(Requeue.NONE);
@@ -298,14 +298,15 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                 });
     }
 
-    // A run still open is stopped; the node removes what the ended run leaves, and the record stays
-    private Future<Void> stopIfOpen(String workloadId) {
+    // The node removes what the ended run leaves, and the record stays; a record already deleted is
+    // nothing to stop
+    private Future<Void> stop(String workloadId) {
         Future<Void> ret;
         if (workloadId == null) {
             ret = Future.succeededFuture();
         } else {
             ret = workloadService.findById(workloadId)
-                    .compose(workload -> workload != null && workload.getStatus().isOpen()
+                    .compose(workload -> workload != null
                             ? workloadOrchestrationService.stopWorkload(workloadId)
                             : Future.succeededFuture())
                     .recover(error -> {

@@ -126,30 +126,36 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
         return workloadService.findById(workloadId)
                 .compose(workload -> {
+                    Future<Void> ret;
                     if (workload == null) {
-                        return Future.failedFuture(
-                                new IllegalArgumentException("Workload not found: " + workloadId));
+                        ret = Future.failedFuture(new IllegalArgumentException("Workload not found: " + workloadId));
+                    } else if (!workload.getStatus().isOpen()) {
+                        // a run that has ended, or never started, holds nothing on any node
+                        ret = Future.succeededFuture();
+                    } else {
+                        ret = stopRun(workload);
                     }
+                    return ret;
+                });
+    }
 
-                    workload.setStatus(WorkloadStatus.STOPPING);
-                    return workloadService.updateRunSync(workloadId, WorkloadStatus.STOPPING, null, "stopWorkload").map(workload);
+    private Future<Void> stopRun(Workload workload) {
+        String nodeId = workload.getNodeId();
+        workload.setStatus(WorkloadStatus.STOPPING);
+        return workloadService.updateRunSync(workload.getId(), WorkloadStatus.STOPPING, null, "stopWorkload")
+                .compose(v -> verifyingNodeOnFailure(nodeId, vmManagerProxy.stopWorkload(nodeId, workload.getId())))
+                .compose(v -> recordRunEnded(workload, WorkloadStatus.STOPPED, "stopWorkload"))
+                .recover(error -> {
+                    Future<Void> recorded;
+                    if (error instanceof RpcServiceUnavailableException) {
+                        // The node may have stopped it: the record keeps STOPPING and the node's next
+                        // report settles it
+                        recorded = markUnreachable(workload, "Node " + nodeId + " did not answer the stop");
+                    } else {
+                        recorded = Future.succeededFuture();
+                    }
+                    return recorded.transform(_ -> Future.failedFuture(error));
                 })
-                .compose(workload ->
-                    verifyingNodeOnFailure(workload.getNodeId(), vmManagerProxy.stopWorkload(workload.getNodeId(), workloadId))
-                            .compose(v -> recordRunEnded(workload, WorkloadStatus.STOPPED, "stopWorkload"))
-                            .recover(error -> {
-                                Future<Void> recorded;
-                                if (error instanceof RpcServiceUnavailableException) {
-                                    // The node may have stopped it: the record keeps STOPPING and the
-                                    // node's next report settles it
-                                    recorded = markUnreachable(workload,
-                                                               "Node " + workload.getNodeId() + " did not answer the stop");
-                                } else {
-                                    recorded = Future.succeededFuture();
-                                }
-                                return recorded.transform(_ -> Future.failedFuture(error));
-                            })
-                )
                 .mapEmpty();
     }
 
