@@ -130,16 +130,15 @@ class LokiClientIntegrationTest {
         push("org-a", "wl-delete", deleted);
         push("org-a", "wl-keep", kept);
         push("org-b", "wl-delete", deleted);
-        awaitQueryContains("org-a", "wl-delete", deleted);
-        awaitQueryContains("org-a", "wl-keep", kept);
+        // a querier loads a tenant's delete requests at its first query for the tenant and reloads them
+        // every five minutes, so org-a is first queried once the delete is registered
         awaitQueryContains("org-b", "wl-delete", deleted);
 
         lokiClient.delete("org-a", "{workload_id=\"wl-delete\"}", 0, System.currentTimeMillis())
                   .toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
 
-        // Loki filters the deleted range out of query results once its queriers load the request
-        awaitQueryLacks("org-a", "wl-delete", deleted);
-        assertTrue(queryRange("org-a", "wl-keep").contains(kept), "another workload's lines in the same tenant stay");
+        awaitQueryContains("org-a", "wl-keep", kept);
+        assertFalse(queryRange("org-a", "wl-delete").contains(deleted), "the deleted workload's lines are filtered out");
         assertTrue(queryRange("org-b", "wl-delete").contains(deleted), "the same workload id in another tenant stays");
     }
 
@@ -183,15 +182,6 @@ class LokiClientIntegrationTest {
                          .toString();
     }
 
-    private static void awaitQueryLacks(String tenant, String workloadId, String marker) throws Exception {
-        for (int i = 0; i < 240; i++) {
-            if (!queryRange(tenant, workloadId).contains(marker)) {
-                return;
-            }
-            Thread.sleep(500);
-        }
-        fail("Line deleted from tenant '" + tenant + "' is still returned");
-    }
 
     private static void awaitQueryContains(String tenant, String workloadId, String marker) throws Exception {
         for (int i = 0; i < 30; i++) {

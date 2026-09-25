@@ -35,8 +35,8 @@ public interface LokiClient {
 
     /**
      * Asks Loki to delete every log entry the query selects within the time range. The entries leave
-     * query results as soon as the request is accepted, and Loki's compactor removes them from storage
-     * later, so the future completes once the request is accepted.
+     * query results once Loki's queriers load the request, within five minutes, and its compactor
+     * removes them from storage later; the future completes once the request is accepted.
      *
      * @param tenant the Loki tenant ({@code X-Scope-OrgID})
      * @param query  the LogQL selector of the log streams to delete from
