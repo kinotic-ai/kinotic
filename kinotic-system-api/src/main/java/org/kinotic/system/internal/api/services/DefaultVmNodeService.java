@@ -46,7 +46,7 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
         Validate.notNull(nodeId, "VmNode id cannot be null");
         Validate.notNull(desired, "Desired state cannot be null");
         Validate.notBlank(source, "Source cannot be blank");
-        return vmNodeRepository.updateDesired(nodeId, desired, source);
+        return vmNodeRepository.updateDesired(nodeId, desired, null, source);
     }
 
     @Override

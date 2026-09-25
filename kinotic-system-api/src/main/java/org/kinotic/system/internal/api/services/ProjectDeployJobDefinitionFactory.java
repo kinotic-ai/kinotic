@@ -365,11 +365,11 @@ public class ProjectDeployJobDefinitionFactory {
                         // a site's directory is its hostname, so a first publish mints the label first
                         published = sequentially(artifacts.uis(), ui -> deploymentFor(project, ui, unmatched.remove(ui.name())))
                                 .compose(rows -> (serving ? uploadUis(project, target, rows, commitSha) : Future.<Void>succeededFuture())
-                                        .compose(v -> sequentially(rows, row -> uiDeploymentRepository.updateDesired(row.getId(), new DeploymentState(DeploymentStatusType.READY, commitSha), source))))
+                                        .compose(v -> sequentially(rows, row -> uiDeploymentRepository.updateDesired(row.getId(), new DeploymentState(DeploymentStatusType.READY, commitSha), null, source))))
                                 .mapEmpty();
                     }
                     return published.compose(v -> sequentially(new ArrayList<>(unmatched.values()),
-                                                               orphan -> uiDeploymentRepository.updateDesired(orphan.getId(), new DeploymentState(DeploymentStatusType.ORPHANED, commitSha), source)));
+                                                               orphan -> uiDeploymentRepository.updateDesired(orphan.getId(), new DeploymentState(DeploymentStatusType.ORPHANED, commitSha), null, source)));
                 })
                 .compose(v -> awaitAnswered("UIs of project " + project.getId(), () -> uiDeploymentRepository.findAllForProject(project.getId()),
                                             UiDeployment::getName, System.currentTimeMillis() + CONVERGENCE_TIMEOUT.toMillis()))

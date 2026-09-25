@@ -3,15 +3,9 @@ package org.kinotic.system.internal.api.repositories;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.repositories.ReconcilableRepository;
-import org.kinotic.domain.api.model.StatusCondition;
-import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.WatchedType;
-import org.kinotic.domain.internal.api.repositories.AbstractRepository;
+import org.kinotic.domain.internal.api.repositories.AbstractReconcilableRepository;
 import org.kinotic.domain.internal.api.repositories.ReconcileStateRepository;
-import org.kinotic.domain.internal.api.repositories.WatchedDocument;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -25,9 +19,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Component
-public class VmNodeRepository extends AbstractRepository<VmNode> implements ReconcilableRepository<VmNode> {
+public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmNodeState> {
 
-    public static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.VM_NODE, "kinotic_vm_node");
+    private static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.VM_NODE, "kinotic_vm_node");
 
     // Keeps the fractional CPU total from drifting through repeated subtracts and adds
     private static final String CPUS_FUNCTION = """
@@ -58,45 +52,16 @@ public class VmNodeRepository extends AbstractRepository<VmNode> implements Reco
             node.freeDiskMb = Math.min(node.totalDiskMb, node.freeDiskMb + params.diskMb);
             """;
 
-    private final WatchedStateRepository watchedStateRepository;
-    private final ReconcileStateRepository reconcileStateRepository;
-
     public VmNodeRepository(CrudServiceTemplate crudServiceTemplate,
                             WatchedStateRepository watchedStateRepository,
                             ReconcileStateRepository reconcileStateRepository) {
-        super(WATCHED.name(), VmNode.class, crudServiceTemplate);
-        this.watchedStateRepository = watchedStateRepository;
-        this.reconcileStateRepository = reconcileStateRepository;
+        super(WATCHED, VmNode.class, crudServiceTemplate, watchedStateRepository, reconcileStateRepository);
     }
 
-    @Override
-    public WatchedType type() {
-        return WATCHED.type();
-    }
-
+    // A node belongs to the platform, not to an organization
     @Override
     public String scopeOf(VmNode record) {
         return null;
-    }
-
-    @Override
-    public Future<VmNode> find(String id, String scope) {
-        return findById(id);
-    }
-
-    @Override
-    public Future<Page<VmNode>> findDirty(Pageable pageable) {
-        return watchedStateRepository.findDirty(indexName, type, pageable);
-    }
-
-    @Override
-    public Future<Void> clearDirty(String id, String scope, long dirtyAt) {
-        return watchedStateRepository.clearDirty(document(id), dirtyAt);
-    }
-
-    @Override
-    public Future<Page<VmNode>> findUnreconciled(Pageable pageable) {
-        return reconcileStateRepository.findUnreconciled(indexName, type, pageable);
     }
 
     /**
@@ -148,56 +113,6 @@ public class VmNodeRepository extends AbstractRepository<VmNode> implements Reco
     }
 
     /**
-     * Writes what the node should be and enters the change in the ledger; visible to search on
-     * completion. Fails for a node that is not registered.
-     *
-     * @param nodeId  the node
-     * @param desired what the node should be
-     * @param source  what caused it, for the ledger
-     * @return the record as it stands once the intent is in place
-     */
-    public Future<VmNode> updateDesired(String nodeId, VmNodeState desired, String source) {
-        Validate.notBlank(nodeId, "nodeId cannot be blank");
-        return reconcileStateRepository.updateDesired(document(nodeId), desired, null, source)
-                                       .compose(v -> findById(nodeId));
-    }
-
-    /**
-     * Writes what the node reports it is and which generation of intent that answers, and enters
-     * the change in the ledger; visible to search on completion.
-     *
-     * @param nodeId   the node
-     * @param observed what the node is
-     * @param seen     the generation of intent the report answers
-     * @param source   what caused it, for the ledger
-     */
-    public Future<Void> reportObserved(String nodeId, VmNodeState observed, long seen, String source) {
-        Validate.notBlank(nodeId, "nodeId cannot be blank");
-        return reconcileStateRepository.reportObserved(document(nodeId), observed, seen, source).mapEmpty();
-    }
-
-    /**
-     * @see WatchedStateRepository#setCondition(WatchedDocument, StatusCondition, String)
-     */
-    public Future<Boolean> setCondition(String nodeId, StatusCondition condition, String source) {
-        return watchedStateRepository.setCondition(document(nodeId), condition, source);
-    }
-
-    /**
-     * @see WatchedStateRepository#clearCondition(WatchedDocument, StatusConditionType, String)
-     */
-    public Future<Boolean> clearCondition(String nodeId, StatusConditionType type, String source) {
-        return watchedStateRepository.clearCondition(document(nodeId), type, source);
-    }
-
-    /**
-     * @see ReconcileStateRepository#requestDeletion(WatchedDocument, String)
-     */
-    public Future<Void> requestDeletion(String nodeId, String source) {
-        return reconcileStateRepository.requestDeletion(document(nodeId), source).mapEmpty();
-    }
-
-    /**
      * Takes a workload's room, the CPU, memory and disk it is sized for, from a node's {@code free*}
      * fields in one shard operation, so two reservations can never both be granted the same capacity;
      * visible to search on completion.
@@ -218,10 +133,6 @@ public class VmNodeRepository extends AbstractRepository<VmNode> implements Reco
 
     private static Map<String, Object> room(Workload workload) {
         return Map.of("cpus", workload.getCpus(), "memoryMb", workload.getMemoryMb(), "diskMb", workload.getDiskSizeMb());
-    }
-
-    private static WatchedDocument document(String nodeId) {
-        return WatchedDocument.of(WATCHED, nodeId);
     }
 
     private static Query atLeast(String field, double required) {

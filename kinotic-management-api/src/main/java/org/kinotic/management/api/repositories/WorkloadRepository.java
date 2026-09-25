@@ -6,14 +6,10 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.StatusCondition;
-import org.kinotic.domain.api.model.StatusConditionType;
-import org.kinotic.domain.api.repositories.WatchedRepository;
-import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.model.WatchEventKind;
-import org.kinotic.domain.internal.api.repositories.AbstractRepository;
+import org.kinotic.domain.api.model.WatchedType;
+import org.kinotic.domain.internal.api.repositories.AbstractWatchedRepository;
 import org.kinotic.domain.internal.api.repositories.WatchedChange;
-import org.kinotic.domain.internal.api.repositories.WatchedDocument;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -31,9 +27,9 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 @Component
-public class WorkloadRepository extends AbstractRepository<Workload> implements WatchedRepository<Workload> {
+public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
 
-    public static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.WORKLOAD, "kinotic_workload");
+    private static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.WORKLOAD, "kinotic_workload");
 
     // The run's fields are the node's; the state the platform keeps is touched the way every other
     // write touches it, in the same shard operation
@@ -61,37 +57,13 @@ public class WorkloadRepository extends AbstractRepository<Workload> implements 
             }
             """;
 
-    private final WatchedStateRepository watchedStateRepository;
-
     public WorkloadRepository(CrudServiceTemplate crudServiceTemplate, WatchedStateRepository watchedStateRepository) {
-        super(WATCHED.name(), Workload.class, crudServiceTemplate);
-        this.watchedStateRepository = watchedStateRepository;
+        super(WATCHED, Workload.class, crudServiceTemplate, watchedStateRepository);
     }
 
-    @Override
-    public WatchedType type() {
-        return WATCHED.type();
-    }
-
-    // Stored by id alone
     @Override
     public String scopeOf(Workload record) {
-        return null;
-    }
-
-    @Override
-    public Future<Workload> find(String id, String scope) {
-        return findById(id);
-    }
-
-    @Override
-    public Future<Page<Workload>> findDirty(Pageable pageable) {
-        return watchedStateRepository.findDirty(indexName, type, pageable);
-    }
-
-    @Override
-    public Future<Void> clearDirty(String id, String scope, long dirtyAt) {
-        return watchedStateRepository.clearDirty(WatchedDocument.of(WATCHED, id), dirtyAt);
+        return record.getOrganizationId();
     }
 
     public Future<Page<Workload>> findAllForNode(String nodeId, Pageable pageable) {
@@ -169,23 +141,10 @@ public class WorkloadRepository extends AbstractRepository<Workload> implements 
                                   .compose(document -> document == null
                                           ? Future.succeededFuture(false)
                                           : watchedStateRepository.record(
-                                                  WatchedDocument.of(WATCHED, workloadId), document,
+                                                  document(workloadId), document,
                                                   new WatchedChange(WatchEventKind.STATUS_CHANGED, source,
                                                                     exitCode != null ? "Run " + status + " with exit code " + exitCode : "Run " + status,
                                                                     run)).map(true));
     }
 
-    /**
-     * @see WatchedStateRepository#setCondition(WatchedDocument, StatusCondition, String)
-     */
-    public Future<Boolean> setCondition(String workloadId, StatusCondition condition, String source) {
-        return watchedStateRepository.setCondition(WatchedDocument.of(WATCHED, workloadId), condition, source);
-    }
-
-    /**
-     * @see WatchedStateRepository#clearCondition(WatchedDocument, StatusConditionType, String)
-     */
-    public Future<Boolean> clearCondition(String workloadId, StatusConditionType type, String source) {
-        return watchedStateRepository.clearCondition(WatchedDocument.of(WATCHED, workloadId), type, source);
-    }
 }

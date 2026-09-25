@@ -3,20 +3,17 @@ package org.kinotic.grind.api.repositories;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.model.StatusCondition;
-import org.kinotic.domain.api.model.StatusConditionType;
-import org.kinotic.domain.api.repositories.WatchedRepository;
-import org.kinotic.domain.api.model.WatchedType;
-import org.kinotic.domain.api.model.WatchEventKind;
-import org.kinotic.domain.internal.api.repositories.WatchedChange;
-import org.kinotic.domain.internal.api.repositories.WatchedDocument;
-import org.kinotic.domain.internal.api.repositories.WatchedIndex;
-import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
-import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.internal.api.repositories.AbstractRepository;
+import org.kinotic.domain.api.model.StatusConditionType;
+import org.kinotic.domain.api.model.WatchEventKind;
+import org.kinotic.domain.api.model.WatchedType;
+import org.kinotic.domain.internal.api.repositories.AbstractWatchedRepository;
+import org.kinotic.domain.internal.api.repositories.WatchedChange;
+import org.kinotic.domain.internal.api.repositories.WatchedIndex;
+import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
+import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.model.TaskRecord;
@@ -36,9 +33,9 @@ import java.util.Set;
  * the {@link TaskRecordRepository}'s.
  */
 @Component
-public class JobRunRepository extends AbstractRepository<JobRun> implements WatchedRepository<JobRun> {
+public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
 
-    public static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.JOB_RUN, "kinotic_job_run");
+    private static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.JOB_RUN, "kinotic_job_run");
 
     private static final int RECORD_PAGE_SIZE = 500;
 
@@ -58,40 +55,17 @@ public class JobRunRepository extends AbstractRepository<JobRun> implements Watc
             """;
 
     private final TaskRecordRepository taskRecordRepository;
-    private final WatchedStateRepository watchedStateRepository;
 
     public JobRunRepository(CrudServiceTemplate crudServiceTemplate,
                             TaskRecordRepository taskRecordRepository,
                             WatchedStateRepository watchedStateRepository) {
-        super(WATCHED.name(), JobRun.class, crudServiceTemplate);
+        super(WATCHED, JobRun.class, crudServiceTemplate, watchedStateRepository);
         this.taskRecordRepository = taskRecordRepository;
-        this.watchedStateRepository = watchedStateRepository;
     }
 
-    @Override
-    public WatchedType type() {
-        return WATCHED.type();
-    }
-
-    // Stored by id alone
     @Override
     public String scopeOf(JobRun record) {
-        return null;
-    }
-
-    @Override
-    public Future<JobRun> find(String id, String scope) {
-        return findById(id);
-    }
-
-    @Override
-    public Future<Page<JobRun>> findDirty(Pageable pageable) {
-        return watchedStateRepository.findDirty(indexName, type, pageable);
-    }
-
-    @Override
-    public Future<Void> clearDirty(String id, String scope, long dirtyAt) {
-        return watchedStateRepository.clearDirty(WatchedDocument.of(WATCHED, id), dirtyAt);
+        return record.getOrganizationId();
     }
 
     /**
@@ -117,15 +91,8 @@ public class JobRunRepository extends AbstractRepository<JobRun> implements Watc
         params.put("now", System.currentTimeMillis());
         return crudServiceTemplate.scriptedUpdateReturningSourceSync(indexName, jobRunId, RECORD_OUTCOME, params)
                                   .compose(document -> watchedStateRepository.record(
-                                          WatchedDocument.of(WATCHED, jobRunId), document,
+                                          document(jobRunId), document,
                                           new WatchedChange(WatchEventKind.STATUS_CHANGED, source, "Run " + status, status)));
-    }
-
-    /**
-     * @see WatchedStateRepository#setCondition(WatchedDocument, StatusCondition, String)
-     */
-    public Future<Boolean> setCondition(String jobRunId, StatusCondition condition, String source) {
-        return watchedStateRepository.setCondition(WatchedDocument.of(WATCHED, jobRunId), condition, source);
     }
 
     /**
