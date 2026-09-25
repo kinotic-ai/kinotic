@@ -16,6 +16,7 @@ import org.kinotic.core.api.reconcile.WatchedParent;
 import org.kinotic.core.api.reconcile.WatchedRepository;
 import org.kinotic.core.api.reconcile.WatchedType;
 
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -29,7 +30,9 @@ import java.util.Optional;
  * timer going, such as the node's heartbeat watch, starts it on the node now hosting the master. A
  * worker is never called twice at once for one record; a record written while its worker runs is
  * queued once more when the worker returns; a worker that fails is retried with backoff; a worker
- * that asks to be called again is.
+ * that asks to be called again is. At most {@link #MAX_IN_FLIGHT} workers run at once, and the rest
+ * wait their turn, so a scan that finds many records, a resync of many, or the initial list reaches
+ * the store at a bounded rate rather than all at once.
  */
 @Slf4j
 public class ReconcileMaster implements Service {
@@ -39,6 +42,7 @@ public class ReconcileMaster implements Service {
     private static final int PAGE_SIZE = 200;
     private static final long BACKOFF_MIN_MS = 5_000;
     private static final long BACKOFF_MAX_MS = 300_000;
+    private static final int MAX_IN_FLIGHT = 32;
 
     // Injected by Ignite on the node elected to host the singleton
     @SpringResource(resourceClass = ReconcilerRegistry.class)
@@ -48,6 +52,9 @@ public class ReconcileMaster implements Service {
 
     // Guarded by this: the timers and the workers' completions arrive on Vert.x threads
     private transient Map<Key, Entry> queue;
+    // The keys whose turn has not come, in the order they were queued; also guarded by this
+    private transient ArrayDeque<Key> waiting;
+    private transient int inFlight;
     private transient long tickTimerId;
     private transient long resyncTimerId;
 
@@ -58,10 +65,12 @@ public class ReconcileMaster implements Service {
     record Key(WatchedType type, String id, String scope) {
     }
 
-    // What the master holds for a queued record: whether its worker runs, whether it changed meanwhile,
-    // how many times in a row its worker failed, and the timer of a call scheduled for later
+    // What the master holds for a queued record: whether its worker runs or waits its turn, whether it
+    // changed meanwhile, how many times in a row its worker failed, and the timer of a call scheduled
+    // for later
     private static final class Entry {
         boolean inFlight;
+        boolean waiting;
         boolean again;
         int failures;
         Long timerId;
@@ -73,6 +82,7 @@ public class ReconcileMaster implements Service {
         // this instance was serialized to the hosting node, so runtime state is created here rather
         // than in field initializers, which do not run on deserialization
         queue = new HashMap<>();
+        waiting = new ArrayDeque<>();
         registry.reconcilableRepositories().forEach(repository -> enqueueAll(repository, 0));
         tick();
         resync();
@@ -97,6 +107,7 @@ public class ReconcileMaster implements Service {
                 }
             });
             queue.clear();
+            waiting.clear();
         }
     }
 
@@ -162,7 +173,17 @@ public class ReconcileMaster implements Service {
                 vertx.cancelTimer(entry.timerId);
                 entry.timerId = null;
             }
+            start(key, entry);
+        }
+    }
+
+    // Caller holds the lock. Runs the worker when a slot is free, otherwise takes a place in line once.
+    private void start(Key key, Entry entry) {
+        if (inFlight < MAX_IN_FLIGHT) {
             run(key, entry);
+        } else if (!entry.waiting) {
+            entry.waiting = true;
+            waiting.add(key);
         }
     }
 
@@ -170,7 +191,9 @@ public class ReconcileMaster implements Service {
     // never on the copy the scan returned.
     private void run(Key key, Entry entry) {
         entry.inFlight = true;
+        entry.waiting = false;
         entry.again = false;
+        inFlight++;
         Future<Requeue> outcome;
         try {
             outcome = current(key).compose(record -> record == null
@@ -209,6 +232,7 @@ public class ReconcileMaster implements Service {
 
     private synchronized void done(Key key, Entry entry, AsyncResult<Requeue> result) {
         entry.inFlight = false;
+        inFlight--;
         if (result.failed()) {
             entry.failures++;
             long delay = Math.min(BACKOFF_MAX_MS, BACKOFF_MIN_MS << Math.min(entry.failures - 1, 10));
@@ -219,13 +243,21 @@ public class ReconcileMaster implements Service {
             entry.failures = 0;
             Requeue requeue = result.result();
             if (entry.again) {
-                run(key, entry);
+                start(key, entry);
             } else if (requeue.wanted() && requeue.after().isZero()) {
-                run(key, entry);
+                start(key, entry);
             } else if (requeue.wanted()) {
                 schedule(key, entry, requeue.after().toMillis());
             } else {
                 queue.remove(key);
+            }
+        }
+        // the freed slot goes to the next in line; a key removed or started meanwhile has left the line
+        while (inFlight < MAX_IN_FLIGHT && !waiting.isEmpty()) {
+            Key next = waiting.poll();
+            Entry queued = queue.get(next);
+            if (queued != null && queued.waiting && !queued.inFlight) {
+                run(next, queued);
             }
         }
     }
@@ -236,7 +268,7 @@ public class ReconcileMaster implements Service {
             synchronized (this) {
                 entry.timerId = null;
                 if (!entry.inFlight) {
-                    run(key, entry);
+                    start(key, entry);
                 }
             }
         });
