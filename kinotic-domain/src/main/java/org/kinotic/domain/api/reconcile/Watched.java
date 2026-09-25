@@ -1,4 +1,4 @@
-package org.kinotic.core.api.reconcile;
+package org.kinotic.domain.api.reconcile;
 
 import org.kinotic.core.api.crud.Identifiable;
 

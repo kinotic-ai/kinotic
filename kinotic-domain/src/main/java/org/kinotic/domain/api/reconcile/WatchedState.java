@@ -1,4 +1,4 @@
-package org.kinotic.core.api.reconcile;
+package org.kinotic.domain.api.reconcile;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

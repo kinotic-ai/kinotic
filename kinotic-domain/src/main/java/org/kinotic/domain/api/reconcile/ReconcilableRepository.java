@@ -1,4 +1,4 @@
-package org.kinotic.core.api.reconcile;
+package org.kinotic.domain.api.reconcile;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;

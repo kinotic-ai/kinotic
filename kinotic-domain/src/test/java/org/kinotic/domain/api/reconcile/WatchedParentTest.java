@@ -1,4 +1,4 @@
-package org.kinotic.core.api.reconcile;
+package org.kinotic.domain.api.reconcile;
 
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;

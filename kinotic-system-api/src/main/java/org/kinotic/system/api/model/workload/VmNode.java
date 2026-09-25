@@ -4,8 +4,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.core.api.reconcile.Reconcilable;
-import org.kinotic.core.api.reconcile.ReconcileState;
+import org.kinotic.domain.api.reconcile.Reconcilable;
+import org.kinotic.domain.api.reconcile.ReconcileState;
 import org.kinotic.management.api.model.workload.Workload;
 
 import java.util.ArrayList;

@@ -13,7 +13,7 @@ import java.util.List;
  * Service responsible for tracking and managing VmManager nodes in the cluster.
  * When a vm-manager process starts on a node it registers itself with this service.
  * Nodes must send periodic heartbeats to stay reachable: a node silent past the heartbeat timeout
- * carries {@link org.kinotic.core.api.reconcile.StatusConditionType#NODE_UNREACHABLE} on its
+ * carries {@link org.kinotic.domain.api.reconcile.StatusConditionType#NODE_UNREACHABLE} on its
  * {@link VmNode#getState() state} until its next heartbeat, and takes no workloads meanwhile.
  * <p>
  * For querying nodes (findById, findAll, search) use {@link VmNodeService} directly.
@@ -54,7 +54,7 @@ public interface VmNodeOrchestrationService {
      * orchestrator did not initiate, such as recovery after a vm-manager restart — and a
      * periodic full snapshot for reconciliation. A run only moves forward, so a report of a state
      * earlier than the record's, or for a workload that no longer exists, is ignored — except for a
-     * workload marked {@link org.kinotic.core.api.reconcile.StatusConditionType#NODE_UNREACHABLE}:
+     * workload marked {@link org.kinotic.domain.api.reconcile.StatusConditionType#NODE_UNREACHABLE}:
      * the report ends the silence the condition was inferred from, so it is applied whatever it says
      * and clears the condition.
      *

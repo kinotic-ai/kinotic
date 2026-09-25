@@ -1,4 +1,5 @@
-import { WatchedState, type Watched } from '@kinotic-ai/core'
+import type { Watched } from '@/api/reconcile/Watched'
+import { WatchedState } from '@/api/reconcile/WatchedState'
 import { ExecutionStatus } from '@/api/model/grind/ExecutionStatus'
 
 /**

@@ -1,6 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import org.kinotic.core.api.reconcile.WatchedType;
+import org.kinotic.domain.api.reconcile.WatchedType;
 
 /**
  * The index a kind of watched record lives in, which is what {@link WatchedStateRepository} needs to

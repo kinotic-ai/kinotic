@@ -1,4 +1,4 @@
-import type { Identifiable } from '../crud/Identifiable'
+import type { Identifiable } from '@kinotic-ai/core'
 import type { WatchedState } from './WatchedState'
 
 /**

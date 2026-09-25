@@ -1,4 +1,4 @@
-import { ReconcileState, type Reconcilable } from '@kinotic-ai/core'
+import { ReconcileState, type Reconcilable } from '@kinotic-ai/management-api'
 import type { VmNodeState } from '@/api/model/workload/VmNodeState'
 import type { WorkloadReservation } from '@/api/model/workload/WorkloadReservation'
 import { VmProviderType } from '@/api/model/workload/VmProviderType'

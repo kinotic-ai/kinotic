@@ -1,8 +1,8 @@
 package org.kinotic.domain.api.model;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.core.api.reconcile.WatchedParent;
-import org.kinotic.core.api.reconcile.WatchedType;
+import org.kinotic.domain.api.reconcile.WatchedParent;
+import org.kinotic.domain.api.reconcile.WatchedType;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Date;
