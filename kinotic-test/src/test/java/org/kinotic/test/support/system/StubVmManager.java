@@ -44,9 +44,6 @@ public class StubVmManager implements VmManager {
     /** When set, every stop fails with it. */
     public volatile Exception failStopWith;
 
-    /** When true, every start and stop is taken and never answered, the way a node that dies mid-call leaves them. */
-    public volatile boolean holdReplies;
-
     /** Counts down once the first start or stop has reached the node. */
     public final CountDownLatch reached = new CountDownLatch(1);
 
@@ -56,8 +53,6 @@ public class StubVmManager implements VmManager {
         Future<Workload> ret;
         if (failStartWith != null) {
             ret = Future.failedFuture(failStartWith);
-        } else if (holdReplies) {
-            ret = Promise.<Workload>promise().future();
         } else {
             workload.setStatus(WorkloadStatus.RUNNING);
             started.put(workload.getId(), workload);
@@ -74,8 +69,6 @@ public class StubVmManager implements VmManager {
         Future<Void> ret;
         if (failStopWith != null) {
             ret = Future.failedFuture(failStopWith);
-        } else if (holdReplies) {
-            ret = Promise.<Void>promise().future();
         } else {
             ret = Future.succeededFuture();
         }

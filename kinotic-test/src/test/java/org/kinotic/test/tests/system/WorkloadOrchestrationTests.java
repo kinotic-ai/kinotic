@@ -293,13 +293,11 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
 
     @Test
     public void unansweredStartLeavesTheWorkloadStartingAndUnreachable() throws Exception {
-        // the node takes the start and dies before answering: its registration goes with it
-        vmManager.holdReplies = true;
-        Future<Workload> run = runAsOrganization(() -> orchestration.deployWorkload(newWorkload()));
-        assertTrue(vmManager.reached.await(30, TimeUnit.SECONDS), "the start never reached the node");
-        unregisterVmManager(NODE_ID);
+        // a node that dies mid-call leaves the cluster, and the platform fails the call it was serving
+        // with RpcServiceUnavailableException; the stub answers the way that call ends
+        vmManager.failStartWith = new RpcServiceUnavailableException("node left the cluster mid-call");
 
-        Exception failure = assertThrows(Exception.class, () -> await(run));
+        Exception failure = assertThrows(Exception.class, () -> call(() -> orchestration.deployWorkload(newWorkload())));
 
         assertInstanceOf(RpcServiceUnavailableException.class, failure.getCause());
         Workload stored = await(workloads.findAllForNode(NODE_ID, Pageable.create(0, 10, null))).getContent().getFirst();
@@ -317,12 +315,9 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     @Test
     public void unansweredStopLeavesTheWorkloadStoppingAndUnreachable() throws Exception {
         Workload deployed = call(() -> orchestration.deployWorkload(newWorkload()));
-        vmManager.holdReplies = true;
-        Future<Void> stop = runAsOrganization(() -> orchestration.stopWorkload(deployed.getId()));
-        assertTrue(vmManager.reached.await(30, TimeUnit.SECONDS), "the stop never reached the node");
-        unregisterVmManager(NODE_ID);
+        vmManager.failStopWith = new RpcServiceUnavailableException("node left the cluster mid-call");
 
-        Exception failure = assertThrows(Exception.class, () -> await(stop));
+        Exception failure = assertThrows(Exception.class, () -> call(() -> orchestration.stopWorkload(deployed.getId())));
 
         assertInstanceOf(RpcServiceUnavailableException.class, failure.getCause());
         Workload stored = workload(deployed.getId());
