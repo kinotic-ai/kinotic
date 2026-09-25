@@ -16,6 +16,7 @@ import reactor.core.publisher.Flux;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Map;
 
 /**
@@ -82,11 +83,12 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
 
     @Override
     public Future<Void> delete(String tenant, String query, long start, long end) {
-        // the delete API takes its range in epoch seconds
+        // the delete API reads RFC3339, and takes unix seconds only as exactly ten digits, which
+        // rules out an epoch start
         return post(lokiUrl + DELETE_PATH,
                     Map.of("query", query,
-                           "start", Long.toString(msToSeconds(start)),
-                           "end", Long.toString(msToSeconds(end))),
+                           "start", Instant.ofEpochMilli(start).toString(),
+                           "end", Instant.ofEpochMilli(end).toString()),
                     tenant,
                     "Loki delete");
     }
