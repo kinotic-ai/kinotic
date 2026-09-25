@@ -21,6 +21,8 @@
 
       <template #item.status="{ item }">
         <Tag :value="item.status" :severity="workloadSeverity(item.status)" />
+        <Tag v-if="item.unreachable" value="node unreachable" severity="warn" icon="pi pi-exclamation-triangle"
+             class="ml-1" :title="item.unreachable.message" />
       </template>
 
       <template #item.node="{ item }">
@@ -63,13 +65,14 @@ import { useConfirm } from 'primevue/useconfirm'
 
 import { Direction, FunctionalIterablePage, Kinotic, Order,
          type IterablePage, type Page, type Pageable, type Sort } from '@kinotic-ai/core'
+import type { StatusCondition } from '@kinotic-ai/core'
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import { CrudTable, DatetimeUtil, WorkloadLogsDialog, formatMb, pageNumberOf, useCrudTablePage,
          type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
 
 import { formatCpus } from '@/util/nodes'
 import { scopePath, type Scope } from '@/util/scope'
-import { shortImage, workloadSeverity } from '@/util/workloads'
+import { nodeUnreachable, shortImage, workloadSeverity } from '@/util/workloads'
 
 /**
  * The given workloads as a searchable, sortable table whose rows open the workload's page
@@ -95,6 +98,8 @@ interface WorkloadRow extends DescriptiveIdentifiable {
   id: string
   name: string
   status: WorkloadStatus
+  /** The orchestrator's mark that the node has not answered for this workload, or null. */
+  unreachable: StatusCondition | null
   nodeId: string | null
   node: string
   owner: string | null
@@ -196,6 +201,7 @@ function toRow(workload: Workload): WorkloadRow {
     id: workload.id ?? '',
     name: workload.name,
     status: workload.status,
+    unreachable: nodeUnreachable(workload) ?? null,
     nodeId: workload.nodeId,
     node: workload.nodeId ? props.nodeNames[workload.nodeId] ?? workload.nodeId : '',
     owner: ownerOf(workload),

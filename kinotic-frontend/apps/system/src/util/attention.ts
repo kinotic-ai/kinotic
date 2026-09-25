@@ -2,6 +2,7 @@ import { ExecutionStatus, WorkloadStatus, type JobRun, type Organization, type W
 import { VmNodeStatusType, type KinoticClusterInfo, type VmNode } from '@kinotic-ai/system-api'
 import { DatetimeUtil } from '@kinotic-ai/frontend-common'
 import { scopePath, type Scope } from './scope'
+import { nodeUnreachable } from './workloads'
 
 /** One thing an operator has to look at, and where it is handled. */
 export interface AttentionItem {
@@ -51,6 +52,23 @@ function failedWorkloads(workloads: Workload[], scope: Scope): AttentionItem[] {
                             workload.exitCode !== null ? `exit code ${workload.exitCode}` : null,
                             workload.nodeId ? `on ${workload.nodeId}` : null,
                             relative(workload.created)
+                        ].filter(Boolean).join(' · '),
+                        to: `${scopePath(scope)}/workloads/${encodeURIComponent(workload.id ?? '')}`
+                    }))
+}
+
+function unreachableWorkloads(workloads: Workload[], scope: Scope): AttentionItem[] {
+    return workloads.map(workload => ({ workload, unreachable: nodeUnreachable(workload) }))
+                    .filter(({ unreachable }) => unreachable !== undefined)
+                    .slice(0, MAX_PER_KIND)
+                    .map(({ workload, unreachable }) => ({
+                        severity: 'warn',
+                        icon: 'pi-exclamation-triangle',
+                        text: `Workload ${workload.name} is on a node that has not answered`,
+                        detail: [
+                            ownerOf(workload, scope),
+                            unreachable?.message,
+                            unreachable ? relative(unreachable.since) : null
                         ].filter(Boolean).join(' · '),
                         to: `${scopePath(scope)}/workloads/${encodeURIComponent(workload.id ?? '')}`
                     }))
@@ -119,6 +137,7 @@ export function platformAttention(cluster: KinoticClusterInfo | null, nodes: VmN
     return [
         ...failedRuns(runs, scope),
         ...failedWorkloads(workloads, scope),
+        ...unreachableWorkloads(workloads, scope),
         ...unfitNodes(nodes),
         ...versionSkew(cluster)
     ]
@@ -129,6 +148,7 @@ export function organizationAttention(organization: Organization, workloads: Wor
     const scope: Scope = { organizationId: organization.id ?? '' }
     return [
         ...failedRuns(runs, scope),
-        ...failedWorkloads(workloads, scope)
+        ...failedWorkloads(workloads, scope),
+        ...unreachableWorkloads(workloads, scope)
     ]
 }
