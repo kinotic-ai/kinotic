@@ -7,6 +7,8 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.directory.ServiceDirectoryEntry;
+import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +36,9 @@ public class McpToolDirectoryTests extends KinoticTestBase {
     @Autowired
     private ServiceDirectory serviceDirectory;
 
+    @Autowired
+    private EventBusService eventBusService;
+
     @Test
     public void mcpExposedServicesArePublishedAndListed() throws Exception {
         // the directory publishes on ApplicationReadyEvent and liveness flips entries online one at a
@@ -55,7 +60,30 @@ public class McpToolDirectoryTests extends KinoticTestBase {
         }
 
         Assertions.assertTrue(names.containsAll(expected),
-                              "timed out waiting for " + expected + " in the directory listing, got: " + names);
+                              "timed out waiting for " + expected + " in the directory listing, got: " + names
+                                      + "; entries: " + entries() + "; active addresses: " + activeAddresses());
+    }
+
+    // The listing shows only online entries with tools, so the failure message says which entries exist,
+    // whether each is online, and which service addresses have a listener, to tell a publish that never
+    // happened from an entry liveness never marked
+    private List<String> entries() throws Exception {
+        return serviceDirectory.findEntriesScopedTo(null, null, Pageable.create(0, 100, Sort.by("id")))
+                               .await()
+                               .getContent()
+                               .stream()
+                               .map(McpToolDirectoryTests::describe)
+                               .toList();
+    }
+
+    private static String describe(ServiceDirectoryEntry entry) {
+        return entry.getId() + "{online=" + entry.isOnline()
+                + ", tools=" + (entry.getMcpTools() == null ? 0 : entry.getMcpTools().size())
+                + ", lastStatusChange=" + entry.getLastStatusChange() + "}";
+    }
+
+    private List<String> activeAddresses() throws Exception {
+        return eventBusService.activeServiceAddresses().await().stream().sorted().toList();
     }
 
 }
