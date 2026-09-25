@@ -125,20 +125,22 @@ class LokiClientIntegrationTest {
 
     @Test
     void deleteRemovesAWorkloadsLinesFromItsTenantAlone() throws Exception {
+        // a querier loads a tenant's delete requests at its first query for the tenant and reloads them
+        // every five minutes, so the tenant that deletes is one no other test queries, and it is first
+        // queried once the delete is registered
+        String tenant = "org-c";
         String deleted = "delete-marker-" + UUID.randomUUID();
         String kept = "kept-marker-" + UUID.randomUUID();
-        push("org-a", "wl-delete", deleted);
-        push("org-a", "wl-keep", kept);
+        push(tenant, "wl-delete", deleted);
+        push(tenant, "wl-keep", kept);
         push("org-b", "wl-delete", deleted);
-        // a querier loads a tenant's delete requests at its first query for the tenant and reloads them
-        // every five minutes, so org-a is first queried once the delete is registered
         awaitQueryContains("org-b", "wl-delete", deleted);
 
-        lokiClient.delete("org-a", "{workload_id=\"wl-delete\"}", 0, System.currentTimeMillis())
+        lokiClient.delete(tenant, "{workload_id=\"wl-delete\"}", 0, System.currentTimeMillis())
                   .toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
 
-        awaitQueryContains("org-a", "wl-keep", kept);
-        assertFalse(queryRange("org-a", "wl-delete").contains(deleted), "the deleted workload's lines are filtered out");
+        awaitQueryContains(tenant, "wl-keep", kept);
+        assertFalse(queryRange(tenant, "wl-delete").contains(deleted), "the deleted workload's lines are filtered out");
         assertTrue(queryRange("org-b", "wl-delete").contains(deleted), "the same workload id in another tenant stays");
     }
 
