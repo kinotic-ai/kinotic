@@ -4,9 +4,11 @@ import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.WatchEventKind;
+import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.internal.api.repositories.AbstractWatchedRepository;
 import org.kinotic.domain.internal.api.repositories.WatchedChange;
@@ -76,6 +78,18 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
     public Future<Long> countRunningForNode(String nodeId) {
         return count(b -> b.query(composeFilter(termFilter("nodeId", nodeId),
                                                 statusIn(status -> status.isOpen()))));
+    }
+
+    /**
+     * Counts the workloads made by the given record whose run failed since the given time: what a
+     * worker's restart backoff counts.
+     */
+    public Future<Long> countFailedFor(WatchedParent parent, long since) {
+        Validate.notNull(parent, "parent cannot be null");
+        String after = Instant.ofEpochMilli(since).toString();
+        return count(b -> b.query(composeFilter(termFilter("state.parent", parent.value()),
+                                                termFilter("status", WorkloadStatus.FAILED.name()),
+                                                Query.of(q -> q.range(r -> r.date(d -> d.field("updated").gte(after)))))));
     }
 
     /**

@@ -91,12 +91,25 @@ public class MicroserviceDeploymentRepository extends AbstractReconcilableReposi
     }
 
     /**
-     * Records why the microservice is not running as it should, or clears it with null, leaving every
-     * other field as it is.
+     * Records why the microservice is not running as it should, or clears it with null, and clears
+     * any wait for a restart, leaving every other field as it is.
      */
     public Future<Void> recordFailure(String id, String message) {
         Map<String, Object> fields = new HashMap<>();
         fields.put("failureMessage", message);
+        fields.put("restartAt", null);
+        return partial(id, fields);
+    }
+
+    /**
+     * Records why the microservice's VM exited and when it is started again, leaving every other
+     * field as it is.
+     */
+    public Future<Void> recordRestartWait(String id, String message, Date restartAt) {
+        Validate.notNull(restartAt, "restartAt cannot be null");
+        Map<String, Object> fields = new HashMap<>();
+        fields.put("failureMessage", message);
+        fields.put("restartAt", restartAt);
         return partial(id, fields);
     }
 

@@ -17,6 +17,9 @@ export class ReconcileState<S> extends WatchedState {
     /** Counts the writes to desired, so a gap from observedGeneration is intent the authority has not seen. */
     public generation: number = 0
 
+    /** When desired was last written, epoch milliseconds: what a worker counts its retries from, so a new intent starts them over. */
+    public desiredAt: number = 0
+
     /** The generation the authority had processed when it last reported. */
     public observedGeneration: number = 0
 

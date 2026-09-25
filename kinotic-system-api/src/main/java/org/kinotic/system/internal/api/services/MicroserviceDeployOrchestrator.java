@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.ReconcileState;
+import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.services.Reconciler;
 import org.kinotic.domain.api.model.Requeue;
 import org.kinotic.domain.api.model.StatusCondition;
@@ -27,6 +28,8 @@ import org.kinotic.system.api.services.WorkloadService;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
 
 /**
  * Keeps each microservice of a deployed project running as its deployment says it should: the worker
@@ -47,6 +50,8 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
 
     /** How long a VM that failed waits before it is started again. */
     static final Duration RESTART_DELAY = Duration.ofSeconds(30);
+    /** The longest a crashing service waits between starts. */
+    static final Duration MAX_RESTART_DELAY = Duration.ofMinutes(10);
 
     // The deploy job records the commit's artifacts before it writes the intents; an intent ahead of
     // its artifacts is looked at again once the job has caught up
@@ -158,11 +163,43 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
         } else if (intentSeen && lastAnswerFailed) {
             // the deployment this intent asked for failed; the next push, or a restart from the console, renews it
             ret = Future.succeededFuture(Requeue.NONE);
-        } else if (workload != null && workload.getStatus() == WorkloadStatus.FAILED && sinceEnded(workload).compareTo(RESTART_DELAY) < 0) {
-            ret = microserviceDeploymentRepository.recordFailure(current.getId(), runEnded(workload) + "; it is started again shortly")
-                                                  .map(Requeue.after(RESTART_DELAY.minus(sinceEnded(workload))));
+        } else if (workload != null && workload.getStatus() == WorkloadStatus.FAILED) {
+            ret = restartAfterBackoff(current, desired, workload, target, entryPoint);
         } else {
             ret = deploy(current, desired, target, entryPoint);
+        }
+        return ret;
+    }
+
+    // Each failure since the current intent doubles the wait before the next start, so a crashing
+    // service costs a VM every ten minutes at most; a new intent counts from zero and starts at once
+    private Future<Requeue> restartAfterBackoff(MicroserviceDeployment current, DeploymentState desired, Workload workload,
+                                                ProjectDeployment target, String entryPoint) {
+        WatchedParent parent = new WatchedParent(WatchedType.MICROSERVICE_DEPLOYMENT, current.getOrganizationId(), current.getId());
+        return workloadService.countFailedFor(parent, current.getState().getDesiredAt())
+                .compose(failures -> {
+                    Duration remaining = restartDelay(failures).minus(sinceEnded(workload));
+                    Future<Requeue> ret;
+                    if (remaining.isPositive()) {
+                        Instant restartAt = Instant.now().plus(remaining);
+                        ret = microserviceDeploymentRepository.recordRestartWait(current.getId(),
+                                        runEnded(workload) + ", " + failures + " failure(s) since the last deployment; started again at " + restartAt,
+                                        Date.from(restartAt))
+                                .map(Requeue.after(remaining));
+                    } else {
+                        ret = deploy(current, desired, target, entryPoint);
+                    }
+                    return ret;
+                });
+    }
+
+    private static Duration restartDelay(long failures) {
+        Duration ret;
+        if (failures <= 0) {
+            ret = Duration.ZERO;
+        } else {
+            Duration doubled = RESTART_DELAY.multipliedBy(1L << Math.min(failures - 1, 10));
+            ret = doubled.compareTo(MAX_RESTART_DELAY) < 0 ? doubled : MAX_RESTART_DELAY;
         }
         return ret;
     }

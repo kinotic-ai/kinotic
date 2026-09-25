@@ -7,6 +7,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
+import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 
@@ -34,6 +35,15 @@ public interface WorkloadService extends IdentifiableCrudService<Workload, Strin
      * @return a future that will complete with the number of running workloads
      */
     Future<Long> countRunningForNode(String nodeId);
+
+    /**
+     * Counts the workloads made by the given record whose run failed since the given time: what a
+     * worker's restart backoff counts.
+     * @param parent the record the workloads were made by
+     * @param since epoch milliseconds
+     * @return a future that will complete with the number of failed runs
+     */
+    Future<Long> countFailedFor(WatchedParent parent, long since);
 
     /**
      * Finds the workloads whose run ended before the cutoff, oldest first.

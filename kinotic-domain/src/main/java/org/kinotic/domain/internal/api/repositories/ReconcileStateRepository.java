@@ -54,6 +54,7 @@ public class ReconcileStateRepository {
             } else {
                 s.desired = params.desired;
                 s.generation = (long) s.generation + 1;
+                s.desiredAt = params.now;
                 touched(s, params.now);
             }
             """;
@@ -76,6 +77,7 @@ public class ReconcileStateRepository {
                 ctx.op = 'noop';
             } else {
                 s.generation = (long) s.generation + 1;
+                s.desiredAt = params.now;
                 touched(s, params.now);
             }
             """;

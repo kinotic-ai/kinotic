@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.StatusCondition;
+import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.StatusConditions;
 import org.kinotic.management.api.model.workload.Workload;
@@ -173,5 +174,14 @@ public class StubWorkloadService implements WorkloadService {
         return findAllForNode(nodeId, null).map(page -> page.getContent().stream()
                                                              .filter(workload -> !workload.getStatus().isComplete())
                                                              .count());
+    }
+
+    @Override
+    public Future<Long> countFailedFor(WatchedParent parent, long since) {
+        return Future.succeededFuture(saved.values().stream()
+                                           .filter(workload -> parent.equals(workload.getState().getParent()))
+                                           .filter(workload -> workload.getStatus() == WorkloadStatus.FAILED)
+                                           .filter(workload -> workload.getUpdated() != null && workload.getUpdated().getTime() >= since)
+                                           .count());
     }
 }

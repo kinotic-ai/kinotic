@@ -6,6 +6,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.domain.api.model.StatusCondition;
+import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
@@ -34,6 +35,12 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
     @Override
     public Future<Long> countRunningForNode(String nodeId) {
         return workloadRepository.countRunningForNode(nodeId);
+    }
+
+    @Override
+    public Future<Long> countFailedFor(WatchedParent parent, long since) {
+        Validate.notNull(parent, "parent cannot be null");
+        return workloadRepository.countFailedFor(parent, since);
     }
 
     @Override

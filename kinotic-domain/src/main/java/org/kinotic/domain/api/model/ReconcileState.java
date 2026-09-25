@@ -39,6 +39,12 @@ public class ReconcileState<S> extends WatchedState {
     private long generation;
 
     /**
+     * When {@link #getDesired()} was last written, as epoch milliseconds: what a worker counts its
+     * retries from, so a new intent starts them over.
+     */
+    private long desiredAt;
+
+    /**
      * The {@link #getGeneration()} the authority had processed when it last reported.
      */
     private long observedGeneration;

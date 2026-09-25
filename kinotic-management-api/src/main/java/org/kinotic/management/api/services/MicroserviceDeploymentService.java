@@ -2,6 +2,7 @@ package org.kinotic.management.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.management.api.model.MicroserviceDeployment;
 
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.List;
  * its identity; a deployment whose microservice a commit dropped stays orphaned until it is
  * removed here.
  */
+@McpTool
 @Publish
 public interface MicroserviceDeploymentService {
 

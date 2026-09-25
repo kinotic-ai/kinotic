@@ -69,6 +69,13 @@ public class MicroserviceDeployment implements Reconcilable<DeploymentState>, Or
     private String failureMessage;
 
     /**
+     * When a VM that exited is started again, or {@code null} while none is waiting: each failure
+     * since the last deployment doubles the wait, from thirty seconds to ten minutes, and a new
+     * deployment or a restart starts it at once.
+     */
+    private Date restartAt;
+
+    /**
      * What the deployment should be, the commit its project's last deployment asked it to run,
      * beside what it is, the phase it is in and the commit it serves, with what the platform
      * keeps on every watched record: that the node running it cannot be reached, and the
