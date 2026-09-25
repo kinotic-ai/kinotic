@@ -39,6 +39,9 @@ loki:
   compactor:
     retention_enabled: true
     delete_request_store: filesystem
+    # A delete request is filtered against every query in its tenant until the compactor applies it,
+    # after this period; the platform never cancels one, so the window is kept short
+    delete_request_cancel_period: 1h
 
 singleBinary:
   replicas: 1
