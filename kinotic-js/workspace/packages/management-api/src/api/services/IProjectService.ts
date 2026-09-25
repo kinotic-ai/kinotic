@@ -2,7 +2,7 @@ import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
 import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import { Project } from '@/api/model/Project'
 import type { ProjectDeployment } from '@/api/model/deployment/ProjectDeployment'
-import type { WatchEvent } from '@/api/model/WatchEvent'
+import type { WatchEvent } from '@/api/model/reconcile/WatchEvent'
 
 export interface IProjectService extends ICrudServiceProxy<Project> {
 

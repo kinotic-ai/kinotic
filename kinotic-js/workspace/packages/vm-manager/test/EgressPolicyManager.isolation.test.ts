@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from 'bun:test'
 import { spawnSync } from 'node:child_process'
-import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
+import { EgressPolicyManager } from '@/internal/api/EgressPolicyManager'
 
 // Rules go into the real DOCKER-USER chain, because what is being tested is which rules a
 // workload's own operations touch — a question only the kernel can answer. Skipped where the

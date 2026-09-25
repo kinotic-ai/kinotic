@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'bun:test'
 import { execSync, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
+import { EgressPolicyManager } from '@/internal/api/EgressPolicyManager'
 
 // What a workload can actually reach, rather than how many rules were written for it. Counting
 // rules cannot tell one workload's grant from another's, and cannot see a workload inheriting

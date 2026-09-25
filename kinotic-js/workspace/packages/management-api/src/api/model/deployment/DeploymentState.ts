@@ -1,4 +1,4 @@
-import type { DeploymentStatusType } from '@/api/model/DeploymentStatusType'
+import type { DeploymentStatusType } from '@/api/model/deployment/DeploymentStatusType'
 
 /**
  * The reconciled state of something the platform deploys from a commit: the shape both the intent

@@ -1,7 +1,7 @@
-import type { Reconcilable } from '@/api/model/Reconcilable'
-import { ReconcileState } from '@/api/model/ReconcileState'
+import type { Reconcilable } from '@/api/model/reconcile/Reconcilable'
+import { ReconcileState } from '@/api/model/reconcile/ReconcileState'
 import type { ProjectArtifacts } from '@/api/model/deployment/ProjectArtifacts'
-import type { DeploymentState } from '@/api/model/DeploymentState'
+import type { DeploymentState } from '@/api/model/deployment/DeploymentState'
 
 /**
  * Records where a Project's code is deployed: the node holding the checkout, the sync workload

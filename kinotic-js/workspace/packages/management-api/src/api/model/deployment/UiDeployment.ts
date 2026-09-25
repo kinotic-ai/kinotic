@@ -1,6 +1,6 @@
-import type { Reconcilable } from '@/api/model/Reconcilable'
-import { ReconcileState } from '@/api/model/ReconcileState'
-import type { DeploymentState } from '@/api/model/DeploymentState'
+import type { Reconcilable } from '@/api/model/reconcile/Reconcilable'
+import { ReconcileState } from '@/api/model/reconcile/ReconcileState'
+import type { DeploymentState } from '@/api/model/deployment/DeploymentState'
 
 /**
  * The standing deployment of one UI artifact of a Project: the site serving it, and what the

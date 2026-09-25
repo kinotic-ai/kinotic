@@ -1,7 +1,7 @@
 import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
 import { FunctionalIterablePage, type IKinotic, type IServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import type { UiDeployment } from '@/api/model/deployment/UiDeployment'
-import type { WatchEvent } from '@/api/model/WatchEvent'
+import type { WatchEvent } from '@/api/model/reconcile/WatchEvent'
 
 /**
  * The UI deployments of the caller's organization's projects, as the console shows and acts

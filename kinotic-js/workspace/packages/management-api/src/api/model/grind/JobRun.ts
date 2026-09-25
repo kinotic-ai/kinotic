@@ -1,5 +1,5 @@
-import type { Watched } from '@/api/model/Watched'
-import { WatchedState } from '@/api/model/WatchedState'
+import type { Watched } from '@/api/model/reconcile/Watched'
+import { WatchedState } from '@/api/model/reconcile/WatchedState'
 import { ExecutionStatus } from '@/api/model/grind/ExecutionStatus'
 
 /**

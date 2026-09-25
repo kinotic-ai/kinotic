@@ -1,4 +1,4 @@
-import { DeploymentStatusType } from '@/api/model/DeploymentStatusType'
+import { DeploymentStatusType } from '@/api/model/deployment/DeploymentStatusType'
 
 /**
  * Lifecycle state of something the platform deploys, and why when something is wrong. One
