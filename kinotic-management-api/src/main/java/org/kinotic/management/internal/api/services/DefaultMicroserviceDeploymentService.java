@@ -9,7 +9,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.management.api.model.MicroserviceDeployment;
+import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.services.DeploymentOperationsProxy;
 import org.kinotic.management.api.services.MicroserviceDeploymentService;

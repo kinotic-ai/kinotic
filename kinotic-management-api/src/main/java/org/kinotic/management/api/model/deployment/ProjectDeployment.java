@@ -1,5 +1,6 @@
-package org.kinotic.management.api.model;
+package org.kinotic.management.api.model.deployment;
 
+import org.kinotic.management.api.model.Project;
 import org.kinotic.domain.api.model.ApplicationScoped;
 import org.kinotic.domain.api.model.Reconcilable;
 import org.kinotic.domain.api.model.ReconcileState;

@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.apache.ignite.Ignite;
-import org.kinotic.management.api.model.TelemetryTenant;
+import org.kinotic.management.api.model.telemetry.TelemetryTenant;
 import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.management.api.services.LokiClient;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;

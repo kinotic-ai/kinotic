@@ -1,4 +1,4 @@
-package org.kinotic.management.api.model;
+package org.kinotic.management.api.model.telemetry;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

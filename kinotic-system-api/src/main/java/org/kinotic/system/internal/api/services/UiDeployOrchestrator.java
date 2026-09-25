@@ -10,7 +10,7 @@ import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.api.model.DeploymentStatus;
 import org.kinotic.domain.api.model.DeploymentStatusType;
-import org.kinotic.management.api.model.UiDeployment;
+import org.kinotic.management.api.model.deployment.UiDeployment;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;

@@ -1,4 +1,4 @@
-package org.kinotic.management.api.model;
+package org.kinotic.management.api.model.github;
 
 import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;

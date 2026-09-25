@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.management.api.model.Project;
-import org.kinotic.management.api.model.UiDeployment;
+import org.kinotic.management.api.model.deployment.UiDeployment;
 import org.kinotic.management.api.model.workload.VolumeMount;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.config.DeploymentProperties;

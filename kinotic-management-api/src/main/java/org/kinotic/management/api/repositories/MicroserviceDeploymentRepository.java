@@ -12,7 +12,7 @@ import org.kinotic.domain.internal.api.repositories.WatchedDocument;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.management.api.model.MicroserviceDeployment;
+import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;

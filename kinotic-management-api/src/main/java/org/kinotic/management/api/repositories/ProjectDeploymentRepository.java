@@ -15,8 +15,8 @@ import org.kinotic.domain.internal.api.repositories.WatchedDocument;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.management.api.model.ProjectArtifacts;
-import org.kinotic.management.api.model.ProjectDeployment;
+import org.kinotic.management.api.model.deployment.ProjectArtifacts;
+import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;

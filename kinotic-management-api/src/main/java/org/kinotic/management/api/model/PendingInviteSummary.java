@@ -1,4 +1,4 @@
-package org.kinotic.management.api.model.security;
+package org.kinotic.management.api.model;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

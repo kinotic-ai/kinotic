@@ -1,6 +1,6 @@
 package org.kinotic.system.api.model.deployment;
 
-import org.kinotic.management.api.model.UiDeployment;
+import org.kinotic.management.api.model.deployment.UiDeployment;
 
 import java.util.List;
 

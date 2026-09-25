@@ -11,12 +11,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.DeploymentStatusType;
 
-import org.kinotic.management.api.model.MicroserviceArtifact;
-import org.kinotic.management.api.model.MicroserviceDeployment;
+import org.kinotic.management.api.model.deployment.MicroserviceArtifact;
+import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
-import org.kinotic.management.api.model.ProjectArtifacts;
-import org.kinotic.management.api.model.ProjectDeployment;
-import org.kinotic.management.api.model.UiDeployment;
+import org.kinotic.management.api.model.deployment.ProjectArtifacts;
+import org.kinotic.management.api.model.deployment.ProjectDeployment;
+import org.kinotic.management.api.model.deployment.UiDeployment;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;

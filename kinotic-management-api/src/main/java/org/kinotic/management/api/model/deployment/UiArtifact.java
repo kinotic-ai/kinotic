@@ -1,4 +1,4 @@
-package org.kinotic.management.api.model;
+package org.kinotic.management.api.model.deployment;
 
 /**
  * One UI artifact of a project: a package directly under {@code packages/ui} of the

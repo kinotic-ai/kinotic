@@ -6,7 +6,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.idl.api.annotations.McpTool;
-import org.kinotic.management.api.model.UiDeployment;
+import org.kinotic.management.api.model.deployment.UiDeployment;
 
 import java.util.List;
 

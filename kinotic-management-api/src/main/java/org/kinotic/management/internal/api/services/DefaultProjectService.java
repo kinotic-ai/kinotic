@@ -9,7 +9,7 @@ import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.management.api.model.Project;
-import org.kinotic.management.api.model.ProjectDeployment;
+import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;

@@ -20,7 +20,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.Timeout;
 import org.kinotic.domain.api.model.DeploymentStatus;
 import org.kinotic.domain.api.model.DeploymentStatusType;
-import org.kinotic.management.api.model.UiDeployment;
+import org.kinotic.management.api.model.deployment.UiDeployment;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.config.UiDeploymentProperties;
 import org.kinotic.system.api.services.UiStoragePaths;

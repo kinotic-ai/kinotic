@@ -1,4 +1,4 @@
-package org.kinotic.management.api.model;
+package org.kinotic.management.api.model.telemetry;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -6,24 +6,24 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * Parameters for a trace search: the traces of one organization's workloads matching a TraceQL
- * query over a time range.
+ * Parameters for a metric query: a PromQL expression evaluated over one organization's metrics
+ * at a fixed step across a time range.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class TraceQuery {
+public class MetricQuery {
 
     /**
-     * Organization whose traces to search. Null names the platform's own, which only a system
+     * Organization whose metrics to query. Null names the platform's own, which only a system
      * participant may read.
      */
     private String organizationId;
 
     /**
-     * The TraceQL query selecting the traces to return, e.g.
-     * {@code { resource.application_id = "orders" && status = error }}.
+     * The PromQL expression to evaluate, e.g.
+     * {@code sum by (service) (rate(traces_spanmetrics_calls_total[5m]))}.
      */
     private String query;
 
@@ -38,7 +38,7 @@ public class TraceQuery {
     private long end;
 
     /**
-     * Maximum number of traces to return.
+     * Resolution of the result, in seconds between evaluated points.
      */
-    private int limit;
+    private long step;
 }

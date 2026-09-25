@@ -1,6 +1,6 @@
 package org.kinotic.system.api.model.deployment;
 
-import org.kinotic.management.api.model.MicroserviceDeployment;
+import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 
 import java.util.List;
 

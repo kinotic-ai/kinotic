@@ -1,6 +1,6 @@
 import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
-import type { ProjectArtifacts } from '@/api/model/ProjectArtifacts'
+import type { ProjectArtifacts } from '@/api/model/deployment/ProjectArtifacts'
 
 /**
  * Records the artifacts a project's deployment workloads find, on the project's

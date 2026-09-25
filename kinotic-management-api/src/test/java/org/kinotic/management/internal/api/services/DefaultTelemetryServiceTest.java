@@ -1,12 +1,12 @@
 package org.kinotic.management.internal.api.services;
 
-import org.kinotic.management.api.model.TelemetryTenant;
+import org.kinotic.management.api.model.telemetry.TelemetryTenant;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.management.api.model.MetricQuery;
-import org.kinotic.management.api.model.TraceQuery;
+import org.kinotic.management.api.model.telemetry.MetricQuery;
+import org.kinotic.management.api.model.telemetry.TraceQuery;
 import org.kinotic.management.api.services.MimirClient;
 import org.kinotic.management.api.services.TempoClient;
 

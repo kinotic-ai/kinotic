@@ -3,8 +3,8 @@ package org.kinotic.management.api.services;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.management.api.model.MetricQuery;
-import org.kinotic.management.api.model.TraceQuery;
+import org.kinotic.management.api.model.telemetry.MetricQuery;
+import org.kinotic.management.api.model.telemetry.TraceQuery;
 
 /**
  * Queries the traces and metrics that the workloads of an organization exported: an organization

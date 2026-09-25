@@ -1,7 +1,7 @@
 import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import type { Observable } from 'rxjs'
-import type { LogQuery } from '@/api/model/log/LogQuery'
+import type { LogQuery } from '@/api/model/telemetry/LogQuery'
 
 /**
  * Streams and queries the logs of workloads by the organization they ran for: an organization

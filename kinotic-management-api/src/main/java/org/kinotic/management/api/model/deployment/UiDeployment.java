@@ -1,5 +1,6 @@
-package org.kinotic.management.api.model;
+package org.kinotic.management.api.model.deployment;
 
+import org.kinotic.management.api.model.Project;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;

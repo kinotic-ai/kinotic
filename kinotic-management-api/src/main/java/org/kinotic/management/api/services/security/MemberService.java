@@ -5,7 +5,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
-import org.kinotic.management.api.model.security.PendingInviteSummary;
+import org.kinotic.management.api.model.PendingInviteSummary;
 
 /**
  * Member management for the caller's organization and its applications, used by the web app. Every

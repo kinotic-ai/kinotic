@@ -1,4 +1,4 @@
-package org.kinotic.management.api.model;
+package org.kinotic.management.api.model.telemetry;
 
 import org.apache.commons.lang3.Validate;
 

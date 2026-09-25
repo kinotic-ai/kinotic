@@ -2,8 +2,8 @@ package org.kinotic.management.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.management.api.model.ProjectArtifacts;
-import org.kinotic.management.api.model.ProjectDeployment;
+import org.kinotic.management.api.model.deployment.ProjectArtifacts;
+import org.kinotic.management.api.model.deployment.ProjectDeployment;
 
 /**
  * Records the artifacts a project's deployment workloads find, on the project's

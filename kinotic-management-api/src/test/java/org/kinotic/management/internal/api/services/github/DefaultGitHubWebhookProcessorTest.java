@@ -6,9 +6,9 @@ import io.vertx.core.json.JsonObject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.kinotic.management.api.model.GitHubWebhookEvent;
+import org.kinotic.management.api.model.github.GitHubWebhookEvent;
 import org.kinotic.management.api.model.Project;
-import org.kinotic.management.api.model.ProjectPushEvent;
+import org.kinotic.management.api.model.deployment.ProjectPushEvent;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.internal.api.repositories.GitHubAppInstallationRepository;
 

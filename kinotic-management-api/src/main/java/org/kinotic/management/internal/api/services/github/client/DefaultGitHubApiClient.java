@@ -17,7 +17,7 @@ import io.vertx.ext.web.client.WebClientOptions;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.management.api.model.GitHubToken;
+import org.kinotic.management.api.model.github.GitHubToken;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;

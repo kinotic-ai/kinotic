@@ -3,7 +3,7 @@ package org.kinotic.system.api.services;
 import io.vertx.core.Future;
 import org.kinotic.domain.api.model.DeploymentStatus;
 import org.kinotic.domain.api.model.DeploymentStatusType;
-import org.kinotic.management.api.model.UiDeployment;
+import org.kinotic.management.api.model.deployment.UiDeployment;
 
 /**
  * Reports whether a published UI serves at its hostname. Every site is served through what the

@@ -1,10 +1,10 @@
-package org.kinotic.management.api.model;
+package org.kinotic.management.api.model.github;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.management.api.model.GitHubAppInstallation;
+import org.kinotic.management.api.model.github.GitHubAppInstallation;
 
 /**
  * Result of finalising a GitHub install round-trip. Returned to the SPA's callback

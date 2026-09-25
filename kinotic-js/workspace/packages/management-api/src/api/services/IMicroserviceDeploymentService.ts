@@ -1,6 +1,6 @@
 import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
 import { FunctionalIterablePage, type IKinotic, type IServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
-import type { MicroserviceDeployment } from '@/api/model/MicroserviceDeployment'
+import type { MicroserviceDeployment } from '@/api/model/deployment/MicroserviceDeployment'
 import type { WatchEvent } from '@/api/model/WatchEvent'
 
 /**

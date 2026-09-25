@@ -4,8 +4,8 @@ import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.management.api.model.LogQuery;
-import org.kinotic.management.api.model.TelemetryTenant;
+import org.kinotic.management.api.model.telemetry.LogQuery;
+import org.kinotic.management.api.model.telemetry.TelemetryTenant;
 import org.kinotic.management.api.services.LokiClient;
 import reactor.core.publisher.Flux;
 

@@ -1,5 +1,5 @@
-import type { MicroserviceArtifact } from '@/api/model/MicroserviceArtifact'
-import type { UiArtifact } from '@/api/model/UiArtifact'
+import type { MicroserviceArtifact } from '@/api/model/deployment/MicroserviceArtifact'
+import type { UiArtifact } from '@/api/model/deployment/UiArtifact'
 
 /**
  * The artifacts one commit of a project contains, as the sync workload found them in the

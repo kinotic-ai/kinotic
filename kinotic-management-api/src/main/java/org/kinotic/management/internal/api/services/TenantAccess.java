@@ -7,7 +7,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.SystemParticipant;
-import org.kinotic.management.api.model.TelemetryTenant;
+import org.kinotic.management.api.model.telemetry.TelemetryTenant;
 import org.springframework.stereotype.Component;
 
 /**

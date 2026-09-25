@@ -1,8 +1,8 @@
 package org.kinotic.management.internal.api.services.github;
 
 import io.vertx.core.Future;
-import org.kinotic.management.api.model.ProjectPushEvent;
-import org.kinotic.management.api.model.GitHubWebhookEvent;
+import org.kinotic.management.api.model.deployment.ProjectPushEvent;
+import org.kinotic.management.api.model.github.GitHubWebhookEvent;
 
 /**
  * Internal-only service the gateway's webhook handler calls after HMAC verification.

@@ -1,4 +1,4 @@
-package org.kinotic.management.api.model;
+package org.kinotic.management.api.model.deployment;
 
 /**
  * One microservice artifact of a project: a package directly under

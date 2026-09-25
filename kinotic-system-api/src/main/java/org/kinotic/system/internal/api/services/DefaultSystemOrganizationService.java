@@ -13,7 +13,7 @@ import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
-import org.kinotic.management.api.model.security.PendingInviteSummary;
+import org.kinotic.management.api.model.PendingInviteSummary;
 import org.kinotic.system.api.services.SystemOrganizationService;
 import org.springframework.stereotype.Component;
 
