@@ -5,6 +5,7 @@ import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.WatchEventKind;
 import org.kinotic.domain.api.model.WatchedType;
@@ -55,6 +56,17 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
             touched(s, params.now);
             """;
 
+    // A mark says the run is still executing on a node that left, so a run that has finished declines
+    // it: the watcher marks the runs a search found executing, and a run that finished between the
+    // search and the write keeps its outcome
+    private static final String SET_CONDITION_ON_EXECUTING_RUN = WatchedStateRepository.STATE_FUNCTIONS + """
+            if (ctx._source.status == params.executing) {
+            """ + WatchedStateRepository.ADD_CONDITION + """
+            } else {
+                ctx.op = 'noop';
+            }
+            """;
+
     private final TaskRecordRepository taskRecordRepository;
 
     public JobRunRepository(CrudServiceTemplate crudServiceTemplate,
@@ -68,6 +80,22 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
     @Override
     public String scopeOf(JobRun record) {
         return record.getOrganizationId();
+    }
+
+    /**
+     * Sets the condition on the run while it is executing and records it; a run that has finished
+     * keeps its outcome and declines the condition, as does a run already carrying one of its type.
+     * Visible to search on completion.
+     *
+     * @param id        the run
+     * @param condition the condition to set
+     * @param source    what caused it, for the ledger
+     * @return true when the condition was set
+     */
+    @Override
+    public Future<Boolean> setCondition(String id, StatusCondition condition, String source) {
+        return watchedStateRepository.setCondition(document(id), condition, source, SET_CONDITION_ON_EXECUTING_RUN,
+                                                   Map.of("executing", ExecutionStatus.RUNNING.name()));
     }
 
     /**
