@@ -72,7 +72,8 @@ public class ApiGatewayVertcleFactory {
         router.route("/api/*").handler(sessionHandler);
 
         // REST endpoints under /api — every bean supplying gateway routes is collected and mounted
-        // here, so a disabled module contributes nothing and the gateway still boots.
+        // here, so a module absent from the server's classpath contributes nothing and the gateway
+        // still boots.
         gatewayRoutes.forEach(routes -> routes.mountRoutes(router));
 
         // The STOMP WebSocket handshake authenticates from the browser session, so the

@@ -133,7 +133,7 @@ case that forced the split: one value cannot be both browser-local and internet-
 
 The cost is the FIXMEs — five places now know the OAuth surface has its own base URL
 (`OAuthProperties.issuerBaseUrl`, `DomainProperties.resolveIssuerBaseUrl`,
-`AuthEndpointSupport.issuerUrl`, `OAuthServerHandler.issuer`, `McpJsonRpcHandler.armDiscoveryChallenge`).
+`AuthEndpointSupport.issuerUrl`, `OAuthServerHandler.issuer`, `McpJsonRpcHandler.issuer`).
 Nothing enforces the choice: every externally reached URL added from here on has to pick `issuerUrl`
 over `absoluteUrl`, and picking wrong fails only in the tunnelled topology, which is exactly the one
 nobody runs in CI.

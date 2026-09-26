@@ -1,7 +1,6 @@
-package org.kinotic.domain.internal.api.rest;
+package org.kinotic.domain.api.rest;
 
 import io.vertx.ext.web.Router;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import org.kinotic.core.api.event.EventConstants;
