@@ -42,6 +42,12 @@ public class Application implements OrganizationScoped<String> {
      */
     private String primaryUiId;
 
+    /**
+     * Where the {@link #primaryUiId primary UI}'s site is served, or {@code null} while none is designated. Set
+     * by the platform when the owner designates the primary UI; a value a caller saves is replaced.
+     */
+    private String primaryUiUrl;
+
     private Date updated = null;
 
     public Application(String name, String description) {
