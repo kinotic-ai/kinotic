@@ -49,6 +49,6 @@ output "frontdoor_endpoint_host_name" {
 }
 
 output "sites_storage_blob_endpoint" {
-  description = "The blob endpoint kinotic-server publishes sites into"
+  description = "The blob endpoint the system server publishes sites into"
   value       = module.sites.storage_blob_endpoint
 }

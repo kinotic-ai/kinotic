@@ -50,8 +50,20 @@ resource "terraform_data" "wait_for_kv_rbac" {
 # (Base64.getDecoder().decode(...)). `b64_std` attribute produces padded base64 which our
 # VersionedKeySet parser accepts.
 
+locals {
+  # Each server signs its tokens with a key set of its own
+  servers = ["kinotic-org-server", "kinotic-system-server", "kinotic-app-server"]
+}
+
 resource "random_id" "jwt_signing_key_v1" {
+  for_each    = toset(local.servers)
   byte_length = 32
+}
+
+# The org server keeps the key set the single server signed with
+moved {
+  from = random_id.jwt_signing_key_v1
+  to   = random_id.jwt_signing_key_v1["kinotic-org-server"]
 }
 
 resource "random_id" "secret_storage_master_key_v1" {
@@ -63,13 +75,15 @@ resource "random_id" "secret_storage_master_key_v1" {
 # and flip `activeKeyId`; terraform does not revisit the value because of ignore_changes.
 
 resource "azurerm_key_vault_secret" "jwt_signing_keys" {
-  name         = "kinotic-jwt-signing-keys"
+  for_each = toset(local.servers)
+
+  name         = "${each.key}-jwt-signing-keys"
   key_vault_id = azurerm_key_vault.platform.id
   content_type = "application/json"
   value = jsonencode({
     activeKeyId = "v1"
     keys = [
-      { id = "v1", key = random_id.jwt_signing_key_v1.b64_std },
+      { id = "v1", key = random_id.jwt_signing_key_v1[each.key].b64_std },
     ]
   })
 
@@ -103,7 +117,7 @@ resource "azurerm_key_vault_secret" "secret_storage_master_keys" {
 }
 
 # ── OIDC client secrets ───────────────────────────────────────────────────────
-# Stored at name = configId. SecretReferenceResolver in kinotic-server fetches by name
+# Stored at name = configId. SecretReferenceResolver in the servers fetches by name
 # at OAuth2-build time (no pod-side mount); the secretNameRef on the
 # kinotic_org_signup_oidc_configuration row points at the AKV secret name here.
 
@@ -160,7 +174,7 @@ resource "azurerm_key_vault_secret" "github_client_secret" {
 
 # ── Outputs ───────────────────────────────────────────────────────────────────
 # Consumed by cluster/ terraform via terraform_remote_state to grant read access to the
-# kinotic-server managed identity and to pass vault coordinates into the helm chart.
+# servers' managed identity and to pass vault coordinates into the helm chart.
 
 output "platform_key_vault_id" {
   description = "Resource ID of the platform Key Vault"

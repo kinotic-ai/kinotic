@@ -1,9 +1,11 @@
 # Azure production values for the load-generator chart.
-# Connects directly to kinotic-server service (cluster-internal).
+# Connects directly to the org server's internal service (cluster-internal). The pods serve TLS
+# even cluster-internally, under the cluster certificate's public names.
 
 kinotic:
-  useSsl: false
-  host: kinotic-server
+  useSsl: true
+  tlsInsecure: true
+  host: kinotic-org-server-internal
   port: 58503
 
 loadGenerator:

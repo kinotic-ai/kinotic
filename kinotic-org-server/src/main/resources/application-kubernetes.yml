@@ -20,5 +20,6 @@ kinotic:
 
   apiGateway:
     cors:
-      # the portal alone
+      # the portal alone, which signs in with the session cookie
       allowedOriginPattern: "https:\\/\\/portal\\.kinotic\\.ai"
+      allowCredentials: true

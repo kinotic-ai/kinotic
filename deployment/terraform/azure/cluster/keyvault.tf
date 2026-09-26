@@ -1,5 +1,5 @@
 # ── Azure Key Vault ───────────────────────────────────────────────────────────
-# Stores system and customer secrets. kinotic-server pods access via
+# Stores system and customer secrets. The servers' pods access it via
 # workload identity — no secret credentials needed in K8s.
 
 data "azurerm_client_config" "keyvault" {}
@@ -19,7 +19,7 @@ resource "azurerm_key_vault" "main" {
   tags = local.common_tags
 }
 
-# ── Managed Identity for kinotic-server ───────────────────────────────────────
+# ── Managed Identity for the servers ──────────────────────────────────────────
 
 resource "azurerm_user_assigned_identity" "kinotic_server" {
   name                = "id-${local.name_prefix}-kinotic-server"
@@ -35,13 +35,14 @@ resource "azurerm_role_assignment" "kinotic_server_kv_secrets" {
   principal_id         = azurerm_user_assigned_identity.kinotic_server.principal_id
 }
 
-# Federated credential so kinotic-server pods authenticate via workload identity
+# Federated credential so the servers' pods authenticate via workload identity, as the service
+# account the kinotic release creates, named after the release
 resource "azurerm_federated_identity_credential" "kinotic_server" {
   name                      = "kinotic-server-federated"
   user_assigned_identity_id = azurerm_user_assigned_identity.kinotic_server.id
   audience                  = ["api://AzureADTokenExchange"]
   issuer                    = data.azurerm_kubernetes_cluster.main.oidc_issuer_url
-  subject                   = "system:serviceaccount:kinotic:kinotic-server"
+  subject                   = "system:serviceaccount:kinotic:kinotic"
 }
 
 # ── Platform Key Vault access ─────────────────────────────────────────────────
@@ -58,11 +59,11 @@ resource "azurerm_role_assignment" "kinotic_server_platform_kv" {
 # ── Outputs ───────────────────────────────────────────────────────────────────
 
 output "key_vault_url" {
-  description = "Azure Key Vault URL for kinotic-server"
+  description = "Azure Key Vault URL for the servers"
   value       = azurerm_key_vault.main.vault_uri
 }
 
 output "kinotic_server_identity_client_id" {
-  description = "Client ID for kinotic-server workload identity"
+  description = "Client ID for the servers' workload identity"
   value       = azurerm_user_assigned_identity.kinotic_server.client_id
 }

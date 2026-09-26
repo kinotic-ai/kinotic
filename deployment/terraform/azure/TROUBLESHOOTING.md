@@ -107,11 +107,11 @@ kubectl describe pod <pending-pod> -n <namespace>  # check Events
 Beta sizing assumes:
 - ES data: 6 GB x 3 = 18 GB reserved
 - ES master: 2 GB x 1 = 2 GB reserved
-- kinotic-server: 2 GB x 2 = 4 GB reserved
+- The servers: 2 GB x 5 = 10 GB reserved (org and app at 2 replicas, system at 1)
 - System + observability: ~5 GB
-- Total: ~29 GB on 48 GB (3 x 16 GB nodes)
+- Total: ~35 GB on 48 GB (3 x 16 GB nodes)
 
-If tight, reduce ES data memory or kinotic-server replicas in the values.
+If tight, reduce ES data memory or the servers' replicas in the values.
 
 ### Loki `loki-chunks-cache` stuck Pending
 
@@ -132,7 +132,7 @@ resultsCache:
 ### LoadBalancer service unreachable from internet (empty subnet NSG)
 
 **Cause:** A custom NSG associated with the AKS subnet that has no explicit inbound allow rules blocks all internet traffic. Azure's default NSG behavior denies inbound from the internet. AKS creates its own NSG in the MC_ resource group with the correct LB rules, but a subnet-level NSG takes precedence.
-**Symptoms:** No LoadBalancer service is reachable from outside the cluster — not kinotic-server, not Grafana. Internal cluster-to-pod connectivity works. Azure LB health probes, rules, and MC_ NSG all look correct.
+**Symptoms:** No LoadBalancer service is reachable from outside the cluster — not the servers, not Grafana. Internal cluster-to-pod connectivity works. Azure LB health probes, rules, and MC_ NSG all look correct.
 **Fix:** Remove the custom NSG from the AKS subnet. AKS manages its own NSG:
 ```bash
 # Remove NSG association from subnet
@@ -167,7 +167,7 @@ az network nsg rule create --resource-group rg-kinotic-production \
 ### Privileged port binding (port 443) in containers
 
 **Cause:** Some container runtimes block binding to ports below 1024 even inside containers. Vert.x fails silently — logs show "listening on 443" but the port isn't actually open.
-**Fix:** Never bind a privileged port in the pod — remap at the Service instead. The LoadBalancer service in `helm/kinotic/templates/kinotic-server-service.yaml` already does this: `port: 443` → `targetPort: {{ kinotic.stomp.port }}` (58503).
+**Fix:** Never bind a privileged port in the pod — remap at the Service instead. The LoadBalancer services in `helm/kinotic/templates/server-service.yaml` already do this: `port: 443` → `targetPort:` the server's `gatewayPort` (58503, 58504, 58505).
 
 ### DNS A record `already exists`
 
@@ -218,9 +218,11 @@ kubectl get challenges -A
 kubectl describe certificate kinotic-tls -n kinotic
 kubectl logs -l app.kubernetes.io/name=cert-manager -n cert-manager --tail=20
 
-# kinotic-server
-kubectl logs -l app=kinotic -n kinotic --tail=20
-curl -sk https://api.kinotic.ai/health
+# The servers
+kubectl logs -l app=kinotic-org-server -n kinotic --tail=20
+curl -sk https://api.kinotic.ai/health          # org
+curl -sk https://system-api.kinotic.ai/health   # system
+curl -sk https://apps-api.kinotic.ai/health     # app
 
 # Grafana
 kubectl logs -l app.kubernetes.io/name=grafana -n observability --tail=10

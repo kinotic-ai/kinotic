@@ -11,5 +11,5 @@ resource "helm_release" "load_generator" {
 
   values = [file("${path.module}/config/load-generator/values.yaml")]
 
-  depends_on = [helm_release.kinotic_server]
+  depends_on = [helm_release.kinotic]
 }
