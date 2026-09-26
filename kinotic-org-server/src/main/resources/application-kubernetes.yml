@@ -20,4 +20,5 @@ kinotic:
 
   apiGateway:
     cors:
-      allowedOriginPattern: "https:\\/\\/(.+\\.)?kinotic\\.ai"
+      # the portal alone
+      allowedOriginPattern: "https:\\/\\/portal\\.kinotic\\.ai"

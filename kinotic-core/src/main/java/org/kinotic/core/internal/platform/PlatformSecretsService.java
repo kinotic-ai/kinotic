@@ -38,7 +38,7 @@ public class PlatformSecretsService {
 
     private final PlatformSecretsProperties properties;
     private final ObjectMapper objectMapper;
-    private final Optional<PlatformSecretsBootstrap> bootstrap;
+    private final Optional<DevPlatformSecretsGenerator> generator;
 
     private final AtomicReference<Loaded> jwtSigningKeys = new AtomicReference<>();
 
@@ -48,15 +48,15 @@ public class PlatformSecretsService {
 
     public PlatformSecretsService(KinoticProperties kinoticProperties,
                                   ObjectMapper objectMapper,
-                                  Optional<PlatformSecretsBootstrap> bootstrap) {
+                                  Optional<DevPlatformSecretsGenerator> generator) {
         this.properties = kinoticProperties.getPlatformSecrets();
         this.objectMapper = objectMapper;
-        this.bootstrap = bootstrap;
+        this.generator = generator;
     }
 
     @PostConstruct
     public void start() {
-        bootstrap.ifPresent(PlatformSecretsBootstrap::ensureFilesExist);
+        generator.ifPresent(DevPlatformSecretsGenerator::ensureFilesExist);
 
         if (properties.getJwtSigningKeysPath() != null) {
             jwtSigningKeys.set(loadFile(properties.getJwtSigningKeysPath()));

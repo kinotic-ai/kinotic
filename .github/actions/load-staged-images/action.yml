@@ -6,7 +6,7 @@ description: >-
 
 inputs:
   images:
-    description: Space-separated image names, e.g. "kinotic-migration kinotic-server".
+    description: Space-separated image names, e.g. "kinotic-migration kinotic-org-server".
     required: true
   token:
     description: Token with packages:read for ghcr.io. Composite actions cannot read secrets directly.
