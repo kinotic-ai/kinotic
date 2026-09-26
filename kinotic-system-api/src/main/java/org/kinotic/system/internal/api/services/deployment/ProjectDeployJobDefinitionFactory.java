@@ -57,7 +57,7 @@ import java.util.stream.Collectors;
  * foreground sync workload, bind the artifacts that workload found into the run, ask for one
  * long-lived runtime workload per microservice of the commit and wait for the microservices'
  * workers to answer, upload its UIs and ask for their sites to serve them, and, unless the
- * environment has no organization storage, keep the project's SBOM current with a foreground SBOM
+ * environment has no Azure storage, keep the project's SBOM current with a foreground SBOM
  * workload. The resolved {@link DeployTarget}, the artifacts, the microservice deployments, the UI
  * deployments and the SBOM are stored in the job scope under the {@link ProjectDeployStores}
  * names, so the run's {@code TaskCompletedEvent}s and {@code TaskRecord}s carry them to the
@@ -158,7 +158,7 @@ public class ProjectDeployJobDefinitionFactory {
                         return publishUis(project, target, artifacts, commitSha).toCompletionStage().toCompletableFuture();
                     }
                 }), Store.state(ProjectDeployStores.UI_DEPLOYMENTS).wire());
-        if (!properties.getSystemApi().getDeployment().isDisableSbom()) {
+        if (!properties.getSystemApi().isDisableAzureStorage()) {
             // Store.state: whether the run generated the SBOM, so a resume keeps the outcome rather
             // than generating it again; wired so the console shows it, and can tail the SBOM
             // workload's logs before that through the target
@@ -364,8 +364,8 @@ public class ProjectDeployJobDefinitionFactory {
      * checking. A commit without UIs publishes nothing.
      */
     private Future<UiDeployments> publishUis(Project project, DeployTarget target, ProjectArtifacts artifacts, String commitSha) {
-        // nothing serves a site while the provisioner is disabled, so nothing is uploaded either
-        boolean serving = !properties.getSystemApi().getUiDeployment().isDisableProvisioner();
+        // nothing serves a site without Azure storage, so nothing is uploaded either
+        boolean serving = !properties.getSystemApi().isDisableAzureStorage();
         String source = "deploy of " + commitSha;
         return uiDeploymentRepository.findAllForProject(project.getId())
                 .compose(existing -> {

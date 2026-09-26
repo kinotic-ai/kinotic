@@ -57,9 +57,10 @@ terraform apply
 terraform output -raw application_local_yml > ../../../../kinotic-server/src/main/resources/application-local.yml
 ```
 
-The last command writes the `local` Spring profile, gitignored, which turns the site
-provisioner and SBOM generation on and names the sites domain and the two accounts. `.env.local` at the repository root now carries the
-principal's credentials; if the file existed, its other lines are untouched.
+The last command writes the `local` Spring profile, gitignored, which turns Azure storage on
+(`kinotic.systemApi.disableAzureStorage: false`), so deployments publish UIs and generate
+SBOMs, and names the sites domain and the two accounts. `.env.local` at the repository root
+now carries the principal's credentials; if the file existed, its other lines are untouched.
 
 ## Checking the setup
 

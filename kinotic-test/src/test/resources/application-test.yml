@@ -14,13 +14,13 @@ kinotic:
     organizationsStorageEndpoint: "-"
   maxNumberOfCoresToUse: 4
   systemApi:
+    # no Azure storage accounts in tests: the site provisioner is the mock
+    disableAzureStorage: true
     deployment:
       # required at boot; no deployment ever runs in tests, workloads would reach the local gateway
       serverHost: localhost
-      disableSbom: true
     # placeholder site config, validated at boot; no test deploys a UI
     uiDeployment:
-      disableProvisioner: true
       sitesDomain: apps.localhost
       sitesStorageEndpoint: "-"
 

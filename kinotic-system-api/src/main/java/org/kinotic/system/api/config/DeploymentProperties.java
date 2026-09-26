@@ -58,10 +58,4 @@ public class DeploymentProperties {
      */
     private List<String> runtimeAllowedHosts = new ArrayList<>();
 
-    /**
-     * When true a deployment generates no SBOM, for an environment without the organization
-     * storage account the SBOMs are kept in.
-     */
-    private boolean disableSbom = false;
-
 }

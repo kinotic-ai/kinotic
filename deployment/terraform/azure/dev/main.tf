@@ -239,11 +239,9 @@ output "application_local_yml" {
       managementApi:
         organizationsStorageEndpoint: ${module.environment.organizations_storage_blob_endpoint}
       systemApi:
+        disableAzureStorage: false
         uiDeployment:
-          disableProvisioner: false
           sitesDomain: ${module.environment.sites_domain}
           sitesStorageEndpoint: ${module.environment.sites_storage_blob_endpoint}
-        deployment:
-          disableSbom: false
   EOT
 }
