@@ -1,9 +1,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "kinotic-server.fullname" . }}-migration-{{ .Release.Revision }}
+  name: {{ include "kinotic.fullname" . }}-migration-{{ .Release.Revision }}
   labels:
-    app: {{ include "kinotic-server.name" . }}-migration
+    app: {{ include "kinotic.name" . }}-migration
     release: {{ .Release.Name }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
@@ -15,13 +15,13 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ include "kinotic-server.name" . }}-migration
+        app: {{ include "kinotic.name" . }}-migration
     spec:
       restartPolicy: Never
       containers:
         - name: kinotic-migration
-          image: {{ if .Values.migration.image.sha }}"{{ .Values.migration.image.repository }}@{{ .Values.migration.image.sha }}"{{ else }}"{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag }}"{{ end }}
-          imagePullPolicy: {{ .Values.migration.image.pullPolicy }}
+          image: {{ include "kinotic.image" (dict "image" .Values.migration.image "root" .) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: KINOTIC_MIGRATION_ELASTIC_SCHEME
               value: "{{ (index .Values.kinotic.elastic.connections 0).scheme }}"

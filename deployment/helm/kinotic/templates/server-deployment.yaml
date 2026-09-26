@@ -1,0 +1,162 @@
+{{- range $name, $server := .Values.servers }}
+{{- if $server.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+    app.kubernetes.io/part-of: {{ include "kinotic.name" $ }}
+spec:
+  replicas: {{ $server.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ $name }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include "kinotic.serverEnv" (dict "name" $name "server" $server "root" $) | sha256sum }}
+        {{- if $.Values.tls.enabled }}
+        secret.reloader.stakater.com/reload: {{ $server.tlsSecretName | quote }}
+        {{- end }}
+      labels:
+        app: {{ $name }}
+        release: {{ $.Release.Name }}
+        # Every server's pods join the headless Service Ignite discovers its peers through
+        app.kubernetes.io/part-of: {{ include "kinotic.name" $ }}
+        {{- if $.Values.workloadIdentity.enabled }}
+        azure.workload.identity/use: "true"
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "kinotic.fullname" $ }}
+      terminationGracePeriodSeconds: 60  # Allow time for WebSocket connections to close gracefully
+      containers:
+        - name: {{ $name }}
+          image: {{ include "kinotic.image" (dict "image" $server.image "root" $) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          lifecycle:
+            preStop:
+              exec:
+                # Give WebSocket connections time to close gracefully before SIGTERM
+                command: ["/bin/sh", "-c", "sleep 15"]
+          readinessProbe:
+            httpGet:
+              path: "/health"
+              port: {{ $server.gatewayPort }}
+              {{- if $.Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
+            initialDelaySeconds: 10
+            failureThreshold: 15
+            periodSeconds: 10
+            timeoutSeconds: 7
+          startupProbe:
+            httpGet:
+              path: "/health"
+              port: {{ $server.gatewayPort }}
+              {{- if $.Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
+            initialDelaySeconds: 30
+            failureThreshold: 15
+            periodSeconds: 10
+            timeoutSeconds: 7
+          livenessProbe:
+            httpGet:
+              path: "/health"
+              port: {{ $server.gatewayPort }}
+              {{- if $.Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
+            initialDelaySeconds: 30
+            failureThreshold: 30
+            periodSeconds: 30
+            timeoutSeconds: 7
+          ports:
+            {{- if $server.webServer.enabled }}
+            - containerPort: {{ $server.webServer.port }} # the portal's static server
+            {{- end }}
+            - containerPort: {{ $server.gatewayPort }} # REST, STOMP and MCP
+            - containerPort: {{ $.Values.kinotic.cluster.discoveryPort | default 47500 }} # Ignite Discovery Port
+            - containerPort: {{ $.Values.kinotic.cluster.communicationPort | default 47100 }} # Ignite Communication Port
+          {{- with $server.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ $name }}
+          env:
+            # Pod name for unique eviction file paths
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: KINOTIC_DOMAIN_ELASTICUSERNAME
+              value: "{{ $.Values.kinotic.elastic.username }}"
+            - name: KINOTIC_DOMAIN_ELASTICPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.kinotic.elastic.secretName }}
+                  key: {{ $.Values.kinotic.elastic.secretKey }}
+            - name: KINOTIC_PLATFORMSECRETS_JWTSIGNINGKEYSPATH
+              value: "{{ $.Values.platformSecrets.mountPath }}/jwt-signing-keys"
+            - name: KINOTIC_PLATFORMSECRETS_SECRETSTORAGEMASTERKEYSPATH
+              value: "{{ $.Values.platformSecrets.mountPath }}/{{ $.Values.platformSecrets.objects.secretStorageMasterKeys }}"
+          volumeMounts:
+            - name: tmp-work
+              mountPath: /workspace/ignite/work
+            {{- if $.Values.tls.enabled }}
+            - name: tls-certs
+              mountPath: /certs
+              readOnly: true
+            {{- end }}
+            {{- if $.Values.evictionTracking.enabled }}
+            - name: eviction-data
+              mountPath: {{ $.Values.evictionTracking.mountPath | default "/eviction-data" }}
+            {{- end }}
+            - name: platform-secrets
+              mountPath: {{ $.Values.platformSecrets.mountPath }}
+              readOnly: true
+      restartPolicy: Always
+      nodeSelector: {{ toYaml $.Values.nodeSelector | nindent 8 }}
+      volumes:
+        - name: tmp-work
+          emptyDir:
+            sizeLimit: 1Gi
+        {{- if $.Values.tls.enabled }}
+        - name: tls-certs
+          secret:
+            secretName: {{ $server.tlsSecretName }}
+        {{- end }}
+        {{- if $.Values.evictionTracking.enabled }}
+        - name: eviction-data
+          hostPath:
+            path: {{ $.Values.evictionTracking.hostPath | default "/tmp/kinotic-eviction-data" }}
+            type: DirectoryOrCreate
+        {{- end }}
+        # This server's JWT key set, as jwt-signing-keys, and the secret-storage master keys: the
+        # server reads no other server's key set
+        - name: platform-secrets
+          {{- if $.Values.platformSecrets.keyVault.name }}
+          # Azure: the CSI driver projects this server's SecretProviderClass objects from Key Vault
+          # and refreshes them in place when Key Vault values change.
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ $name }}-platform-secrets
+          {{- else }}
+          # KinD / other: a K8s Secret (created by external terraform or tooling) holds every
+          # server's objects. Mounted directly — files refresh when the Secret is updated.
+          secret:
+            secretName: {{ required "platformSecrets.secretName or platformSecrets.keyVault.name is required" $.Values.platformSecrets.secretName }}
+            items:
+              - key: {{ $name }}-jwt-signing-keys
+                path: jwt-signing-keys
+              - key: {{ $.Values.platformSecrets.objects.secretStorageMasterKeys }}
+                path: {{ $.Values.platformSecrets.objects.secretStorageMasterKeys }}
+          {{- end }}
+{{- end }}
+{{- end }}
