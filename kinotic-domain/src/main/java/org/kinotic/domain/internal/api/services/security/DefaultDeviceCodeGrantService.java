@@ -44,7 +44,8 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
     private final ParticipantIdentityRepository identityRepository;
 
     @Override
-    public Future<DeviceCodeGrantStart> start(String deviceName) {
+    public Future<DeviceCodeGrantStart> start(String issuer, String deviceName) {
+        Validate.notBlank(issuer, "issuer is required");
         Date now = new Date();
         String deviceCode = DomainUtil.generateUrlSafeToken(DEVICE_CODE_BYTES);
         String userCode = generateUserCode();
@@ -52,6 +53,7 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
 
         DeviceCodeGrant grant = new DeviceCodeGrant()
                 .setId(UUID.randomUUID().toString())
+                .setIssuer(issuer)
                 .setDeviceCodeHash(DomainUtil.sha256Hex(deviceCode))
                 .setUserCode(userCode)
                 .setDeviceName(StringUtils.trimToNull(deviceName))
@@ -64,14 +66,16 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
     }
 
     @Override
-    public Future<DeviceCodePollResult> poll(String deviceCode) {
+    public Future<DeviceCodePollResult> poll(String issuer, String deviceCode) {
+        Validate.notBlank(issuer, "issuer is required");
         Validate.notBlank(deviceCode, "deviceCode is required");
         return deviceCodeGrantRepository.findByDeviceCodeHash(DomainUtil.sha256Hex(deviceCode))
-                                        .compose(this::evaluatePoll);
+                                        .compose(grant -> evaluatePoll(issuer, grant));
     }
 
-    private Future<DeviceCodePollResult> evaluatePoll(DeviceCodeGrant grant) {
-        if (grant == null) {
+    private Future<DeviceCodePollResult> evaluatePoll(String issuer, DeviceCodeGrant grant) {
+        // a grant another server started is left for that server, as if this one never saw it
+        if (grant == null || !issuer.equals(grant.getIssuer())) {
             return Future.succeededFuture(new DeviceCodePollResult(PollStatus.INVALID, null, null));
         }
         Date now = new Date();

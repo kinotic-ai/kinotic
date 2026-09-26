@@ -70,7 +70,7 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {
             authEndpointSupport.respondError(ctx, 400, "invalid_request");
             return;
         }
-        deviceCodeGrantService.poll(deviceCode)
+        deviceCodeGrantService.poll(serverSurface.issuerBaseUrl(ctx), deviceCode)
               .onSuccess(result -> {
                   switch (result.status()) {
                       case AUTHORIZATION_PENDING -> authEndpointSupport.respondError(ctx, 400, "authorization_pending");
@@ -103,7 +103,7 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {
             authEndpointSupport.respondError(ctx, 400, "invalid_client");
             return;
         }
-        deviceCodeGrantService.start(ctx.request().getFormAttribute("device_name"))
+        deviceCodeGrantService.start(serverSurface.issuerBaseUrl(ctx), ctx.request().getFormAttribute("device_name"))
               // /device is a kinotic-frontend SPA route (DeviceVerification.vue), not a gateway
               // route — hence the UI's URL, not the API's. The signed-in browser approves there via
               // OAuthApprovalService.approveDevice over STOMP; this gateway only emits the URL.
