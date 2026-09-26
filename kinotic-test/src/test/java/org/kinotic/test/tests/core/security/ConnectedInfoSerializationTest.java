@@ -44,9 +44,10 @@ public class ConnectedInfoSerializationTest {
                                                                                  .roles(List.of("ADMIN"))
                                                                                  .build();
 
-        ConnectedInfo restored = roundTrip(new ConnectedInfo(participant, "reply-123"));
+        ConnectedInfo restored = roundTrip(new ConnectedInfo(participant, "reply-123", "api.example.com"));
 
         assertEquals("reply-123", restored.getReplyToId());
+        assertEquals("api.example.com", restored.getHost());
         Participant restoredParticipant = restored.getParticipant();
         assertInstanceOf(DefaultApplicationParticipant.class, restoredParticipant,
                          "the polymorphic subtype must survive the round-trip");
@@ -67,7 +68,7 @@ public class ConnectedInfoSerializationTest {
                                                                        .roles(List.of("NODE"))
                                                                        .build();
 
-        ConnectedInfo restored = roundTrip(new ConnectedInfo(participant, null));
+        ConnectedInfo restored = roundTrip(new ConnectedInfo(participant, null, null));
 
         assertNull(restored.getReplyToId());
         assertInstanceOf(DefaultSystemParticipant.class, restored.getParticipant());

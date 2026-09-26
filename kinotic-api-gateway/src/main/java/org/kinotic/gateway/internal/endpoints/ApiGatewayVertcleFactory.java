@@ -1,5 +1,6 @@
 package org.kinotic.gateway.internal.endpoints;
 
+import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.healthchecks.HealthChecks;
@@ -8,12 +9,14 @@ import io.vertx.ext.stomp.lite.StompServerOptions;
 import io.vertx.ext.stomp.lite.StompServerVerticle;
 import io.vertx.ext.stomp.lite.StompServerVerticleFactory;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import io.vertx.ext.web.sstore.SessionStore;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.gateway.api.utils.ApiGatewayUtil;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
@@ -69,7 +72,10 @@ public class ApiGatewayVertcleFactory {
                       .setSessionTimeout(properties.getApiGateway().getSessionTimeout())
                       .setLazySession(true);
 
-        router.route("/api/*").handler(sessionHandler);
+        // Each login in the session is bound to the page that made it, so the binding is resolved right
+        // behind the SessionHandler on every path it covers
+        Handler<RoutingContext> sessionBinding = SessionBinding.handler(EventConstants.SESSION_COOKIE_NAME);
+        router.route("/api/*").handler(sessionHandler).handler(sessionBinding);
 
         // REST endpoints under /api — every bean supplying gateway routes is collected and mounted
         // here, so a module absent from the server's classpath contributes nothing and the gateway
@@ -78,7 +84,7 @@ public class ApiGatewayVertcleFactory {
 
         // The STOMP WebSocket handshake authenticates from the browser session, so the
         // SessionHandler must also cover the WebSocket path — it is not under /api/*.
-        router.route(STOMP_WEBSOCKET_PATH).handler(sessionHandler);
+        router.route(STOMP_WEBSOCKET_PATH).handler(sessionHandler).handler(sessionBinding);
 
         // The library's default heartbeat, 30 s offered and expected both ways, is what the TS client offers
         // too, so the negotiated interval is 30 s and a silent connection closes after two of them
