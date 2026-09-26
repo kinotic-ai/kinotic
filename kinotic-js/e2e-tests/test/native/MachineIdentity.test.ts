@@ -1,15 +1,18 @@
-import {BasicCredentialsResolver, Kinotic, KinoticSingleton, Pageable} from '@kinotic-ai/core'
+import {BasicCredentialsResolver, Kinotic, KinoticSingleton, Pageable, type ServerInfo} from '@kinotic-ai/core'
 import {MachineService} from '@kinotic-ai/management-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {E2E_ORGANIZATION_ID,
+        appServer,
         buildConnectOptions,
         initKinoticClient,
+        orgServer,
         postForm,
         restBase,
-        shutdownKinoticClient} from '../TestHelpers.js'
+        shutdownKinoticClient,
+        systemServer} from '../TestHelpers.js'
 
-// the machine identity V4__e2e_app_fixtures seeds for these tests (clientSecret: kinotic)
+// the APPLICATION-scope machine identity V3__e2e_app_fixtures seeds for these tests (clientSecret: kinotic)
 const MACHINE_CLIENT_ID = '00000000-0000-0000-0000-000000000010'
 const MACHINE_CLIENT_SECRET = 'kinotic'
 // a kinotic-test org USER — a valid identity + password that must nevertheless be refused
@@ -26,15 +29,15 @@ const ORG_MACHINE_ID = '00000000-0000-0000-0000-000000000012'
 describe('Kinotic JS', () => {
 
     /**
-     * Attempts a full Kinotic client connection authenticated by machine credentials on the
-     * upgrade headers — exactly how a machine connects.
+     * Attempts a full Kinotic client connection to the server authenticated by machine credentials on
+     * the upgrade headers — exactly how a machine connects.
      */
-    async function machineConnect(clientId: string, clientSecret: string,
+    async function machineConnect(server: ServerInfo, clientId: string, clientSecret: string,
                                   organizationId?: string, applicationId?: string): Promise<'connected' | 'rejected'> {
         const machineKinotic = new KinoticSingleton()
         try {
             await machineKinotic.connect({
-                ...buildConnectOptions(new BasicCredentialsResolver(clientId, clientSecret, organizationId, applicationId)),
+                ...buildConnectOptions(new BasicCredentialsResolver(clientId, clientSecret, organizationId, applicationId), server),
                 maxConnectionAttempts: 1
             })
             await machineKinotic.disconnect()
@@ -56,21 +59,29 @@ describe('Kinotic JS', () => {
     }, 60000)
 
     it('authenticates a machine with its credentials on the connection', async () => {
-        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET)).toBe('connected')
+        expect(await machineConnect(appServer(), MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET)).toBe('connected')
         // scope headers, when supplied, must agree with the machine's own scope
-        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, E2E_ORGANIZATION_ID, 'e2e-mcp')).toBe('connected')
+        expect(await machineConnect(appServer(), MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, E2E_ORGANIZATION_ID, 'e2e-mcp')).toBe('connected')
     })
+
+    it('admits a machine only at the server of its scope', async () => {
+        // an application's machine is an application identity, which only the app server admits
+        expect(await machineConnect(orgServer(), MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET)).toBe('rejected')
+        expect(await machineConnect(systemServer(), MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET)).toBe('rejected')
+        // a project's sync machine acts for the organization at the org server, never at the app server
+        expect(await machineConnect(appServer(), ORG_MACHINE_ID, MACHINE_CLIENT_SECRET)).toBe('rejected')
+    }, 60000)
 
     it('rejects connections that do not prove a machine identity', async () => {
         // wrong secret
-        expect(await machineConnect(MACHINE_CLIENT_ID, 'wrong')).toBe('rejected')
+        expect(await machineConnect(appServer(), MACHINE_CLIENT_ID, 'wrong')).toBe('rejected')
         // unknown client
-        expect(await machineConnect('no-such-machine', MACHINE_CLIENT_SECRET)).toBe('rejected')
+        expect(await machineConnect(appServer(), 'no-such-machine', MACHINE_CLIENT_SECRET)).toBe('rejected')
         // a USER id with its correct password — ids without '@' resolve only to machines
-        expect(await machineConnect(ORG_USER_ID, 'kinotic')).toBe('rejected')
+        expect(await machineConnect(orgServer(), ORG_USER_ID, 'kinotic')).toBe('rejected')
         // valid credentials but scope headers that contradict the machine's own scope
-        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, E2E_ORGANIZATION_ID, 'e2e-datastream')).toBe('rejected')
-        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, 'some-other-org')).toBe('rejected')
+        expect(await machineConnect(appServer(), MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, E2E_ORGANIZATION_ID, 'e2e-datastream')).toBe('rejected')
+        expect(await machineConnect(appServer(), MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, 'some-other-org')).toBe('rejected')
         // the OAuth surface does not speak client_credentials — machines connect, not mint
         const grant = await postForm(`${restBase()}/api/auth/oauth/token`,
                                      {grant_type: 'client_credentials',
@@ -86,9 +97,9 @@ describe('Kinotic JS', () => {
         // project's services into its application's zone, both of which the organization does
         // on its own behalf — so their machines carry no applicationId, and declaring one on
         // the connection contradicts the scope the identity holds.
-        expect(await machineConnect(ORG_MACHINE_ID, MACHINE_CLIENT_SECRET)).toBe('connected')
-        expect(await machineConnect(ORG_MACHINE_ID, MACHINE_CLIENT_SECRET, E2E_ORGANIZATION_ID)).toBe('connected')
-        expect(await machineConnect(ORG_MACHINE_ID, MACHINE_CLIENT_SECRET,
+        expect(await machineConnect(orgServer(), ORG_MACHINE_ID, MACHINE_CLIENT_SECRET)).toBe('connected')
+        expect(await machineConnect(orgServer(), ORG_MACHINE_ID, MACHINE_CLIENT_SECRET, E2E_ORGANIZATION_ID)).toBe('connected')
+        expect(await machineConnect(orgServer(), ORG_MACHINE_ID, MACHINE_CLIENT_SECRET,
                                     E2E_ORGANIZATION_ID, 'e2e-mcp')).toBe('rejected')
     }, 60000)
 
@@ -104,8 +115,8 @@ describe('Kinotic JS', () => {
         expect(created.clientSecret).toBeTruthy()
 
         // the provisioned credentials connect, with and without declared scope
-        expect(await machineConnect(machineId, created.clientSecret)).toBe('connected')
-        expect(await machineConnect(machineId, created.clientSecret, E2E_ORGANIZATION_ID, 'e2e-machines')).toBe('connected')
+        expect(await machineConnect(appServer(), machineId, created.clientSecret)).toBe('connected')
+        expect(await machineConnect(appServer(), machineId, created.clientSecret, E2E_ORGANIZATION_ID, 'e2e-machines')).toBe('connected')
 
         // and the machine is listed for its application
         const listed = await machineService.findMachines('e2e-machines', Pageable.create(0, 50))
@@ -113,19 +124,19 @@ describe('Kinotic JS', () => {
 
         // rotation kills the old secret and issues a working replacement
         const rotatedSecret = await machineService.rotateSecret(machineId)
-        expect(await machineConnect(machineId, created.clientSecret)).toBe('rejected')
-        expect(await machineConnect(machineId, rotatedSecret)).toBe('connected')
+        expect(await machineConnect(appServer(), machineId, created.clientSecret)).toBe('rejected')
+        expect(await machineConnect(appServer(), machineId, rotatedSecret)).toBe('connected')
 
         // disabling cuts the machine off on its next connection
         await machineService.setMachineEnabled(machineId, false)
-        expect(await machineConnect(machineId, rotatedSecret)).toBe('rejected')
+        expect(await machineConnect(appServer(), machineId, rotatedSecret)).toBe('rejected')
 
         // enabling restores access with the same secret
         await machineService.setMachineEnabled(machineId, true)
-        expect(await machineConnect(machineId, rotatedSecret)).toBe('connected')
+        expect(await machineConnect(appServer(), machineId, rotatedSecret)).toBe('connected')
 
         // removal is permanent
         await machineService.removeMachine(machineId)
-        expect(await machineConnect(machineId, rotatedSecret)).toBe('rejected')
+        expect(await machineConnect(appServer(), machineId, rotatedSecret)).toBe('rejected')
     }, 90000)
 })

@@ -1,5 +1,6 @@
 import * as allure from 'allure-js-commons'
-import {beforeAll, describe, expect, inject, it} from 'vitest'
+import {beforeAll, describe, expect, it} from 'vitest'
+import {orgServer, restBase, systemServer} from '../TestHelpers.js'
 
 /**
  * Exercises the browser login REST surface: POST /api/auth/system/login must admit only
@@ -13,15 +14,11 @@ describe('System login route', () => {
     beforeAll(async () => {
         await allure.suite('e2e-tests/native')
         await allure.subSuite('SystemLogin')
-        // @ts-ignore
-        const host = inject('KINOTIC_HOST') as string
-        // @ts-ignore
-        const port = inject('KINOTIC_PORT') as number
-        baseUrl = `http://${host}:${port}`
+        baseUrl = restBase(systemServer())
     }, 300000)
 
-    async function login(path: string, email: string, password: string): Promise<Response> {
-        return fetch(`${baseUrl}${path}`, {
+    async function login(path: string, email: string, password: string, server: string = baseUrl): Promise<Response> {
+        return fetch(`${server}${path}`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({email, password})
@@ -56,7 +53,17 @@ describe('System login route', () => {
     })
 
     it('leaves the org login route working for the org user', async () => {
-        const res = await login('/api/auth/org/login', 'kinotic@kinotic.local', 'kinotic')
+        const res = await login('/api/auth/org/login', 'kinotic@kinotic.local', 'kinotic', restBase(orgServer()))
         expect(res.status).toBe(204)
+    })
+
+    it('refuses the system admin at the org server\'s login', async () => {
+        const res = await login('/api/auth/org/login', 'admin@kinotic.local', 'kinotic', restBase(orgServer()))
+        expect(res.status).toBe(401)
+    })
+
+    it('mounts the system login on the system server only', async () => {
+        const res = await login('/api/auth/system/login', 'admin@kinotic.local', 'kinotic', restBase(orgServer()))
+        expect(res.status).toBe(404)
     })
 })

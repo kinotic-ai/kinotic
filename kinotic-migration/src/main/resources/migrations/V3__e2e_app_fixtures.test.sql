@@ -27,3 +27,9 @@ INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-
 -- organization rather than as an end-user of one application. (clientSecret: kinotic)
 INSERT INTO kinotic_participant_identity (id, type, machineKind, displayName, authType, organizationId, enabled) VALUES ('00000000-0000-0000-0000-000000000012', 'MACHINE', 'PROJECT_SYNC', 'e2e Org Machine', 'CLIENT_CREDENTIALS', 'kinotic-test', true) WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000012', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
+
+-- ORGANIZATION-scope machine identity, the shape a project's deployment provisions for a
+-- microservice's runtime workload: it connects to the app server and hosts and calls services in
+-- the organization's application zones, as the node-failure suite's probe does. (clientSecret: kinotic)
+INSERT INTO kinotic_participant_identity (id, type, machineKind, displayName, authType, organizationId, enabled) VALUES ('00000000-0000-0000-0000-000000000013', 'MACHINE', 'APP_RUNTIME', 'e2e Runtime Machine', 'CLIENT_CREDENTIALS', 'kinotic-test', true) WITH REFRESH;
+INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000013', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;

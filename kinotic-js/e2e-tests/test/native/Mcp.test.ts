@@ -3,13 +3,16 @@ import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/st
 import {McpError} from '@modelcontextprotocol/sdk/types.js'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import type {ServerInfo} from '@kinotic-ai/core'
 import {E2E_APP_TENANT,
         E2E_FIXTURE_PASSWORD,
         E2E_ORGANIZATION_ID,
         E2E_ORG_USER_EMAIL,
         E2E_SYSTEM_USER_EMAIL,
         appFixtureEmail,
-        restBase} from '../TestHelpers.js'
+        orgServer,
+        restBase,
+        systemServer} from '../TestHelpers.js'
 
 // A tool name is the base-36 XXHash128 of '<qualified name>/<function>', minted server side by
 // KinoticUtil.mcpToolName, so it says nothing on its own. Tools are named here by the title the server
@@ -20,13 +23,19 @@ const CREATE_APPLICATION = 'Application Service Create Application If Not Exist'
 // inherits — AbstractCrudService.save(T value) — names the same parameter 'value'.
 const SAVE_PROJECT = 'Project Service Save'
 
-/** applicationId of the APPLICATION-scope user seeded for this suite by V4__e2e_app_fixtures. */
+/** applicationId of the APPLICATION-scope user seeded for this suite by V3__e2e_app_fixtures. */
 const APP_ID = 'e2e-mcp'
 
-async function connectMcpClient(authHeaders: Record<string, string>): Promise<Client> {
+/** That user's credentials, which no server's MCP endpoint admits. */
+const APP_USER_HEADERS = {clientId: appFixtureEmail(APP_ID, E2E_APP_TENANT),
+                          clientSecret: E2E_FIXTURE_PASSWORD,
+                          organizationId: E2E_ORGANIZATION_ID,
+                          applicationId: APP_ID}
+
+async function connectMcpClient(server: ServerInfo, authHeaders: Record<string, string>): Promise<Client> {
     const client = new Client({name: 'kinotic-e2e-tests', version: '1.0.0'})
     // /mcp is stateless: every request re-authenticates from these headers
-    await client.connect(new StreamableHTTPClientTransport(new URL(`${restBase()}/mcp`),
+    await client.connect(new StreamableHTTPClientTransport(new URL(`${restBase(server)}/mcp`),
                                                            {requestInit: {headers: authHeaders}}))
     return client
 }
@@ -39,7 +48,6 @@ describe('Kinotic JS', () => {
 
     let systemClient: Client
     let organizationClient: Client
-    let applicationClient: Client
 
     /** Title to minted name, read from the system listing once every expected tool is published. */
     const mintedNames = new Map<string, string>()
@@ -56,14 +64,10 @@ describe('Kinotic JS', () => {
         await allure.suite('e2e-tests/native')
         await allure.subSuite('Mcp')
 
-        systemClient = await connectMcpClient({clientId: E2E_SYSTEM_USER_EMAIL, clientSecret: E2E_FIXTURE_PASSWORD})
-        organizationClient = await connectMcpClient({clientId: E2E_ORG_USER_EMAIL,
-                                                     clientSecret: E2E_FIXTURE_PASSWORD,
-                                                     organizationId: E2E_ORGANIZATION_ID})
-        applicationClient = await connectMcpClient({clientId: appFixtureEmail(APP_ID, E2E_APP_TENANT),
-                                                    clientSecret: E2E_FIXTURE_PASSWORD,
-                                                    organizationId: E2E_ORGANIZATION_ID,
-                                                    applicationId: APP_ID})
+        systemClient = await connectMcpClient(systemServer(), {clientId: E2E_SYSTEM_USER_EMAIL, clientSecret: E2E_FIXTURE_PASSWORD})
+        organizationClient = await connectMcpClient(orgServer(), {clientId: E2E_ORG_USER_EMAIL,
+                                                                  clientSecret: E2E_FIXTURE_PASSWORD,
+                                                                  organizationId: E2E_ORGANIZATION_ID})
 
         // the directory publishes on server startup; wait for the listing to settle
         const expected = [FIND_PROJECTS_BY_REPO, CREATE_APPLICATION, SAVE_PROJECT]
@@ -87,7 +91,7 @@ describe('Kinotic JS', () => {
     }, 120000)
 
     afterAll(async () => {
-        for (const client of [systemClient, organizationClient, applicationClient]) {
+        for (const client of [systemClient, organizationClient]) {
             await client?.close()
         }
     }, 60000)
@@ -97,12 +101,21 @@ describe('Kinotic JS', () => {
 
         expect(await toolTitles(organizationClient), 'org participants see management-api tools')
             .toContain(FIND_PROJECTS_BY_REPO)
+    })
 
-        // every management-api tool's title leads with its service's half, so this catches the management-api tools this
-        // suite never names as well as the three it does
-        const leaked = (await toolTitles(applicationClient))
-            .filter(title => title.startsWith('Project Service') || title.startsWith('Application Service'))
-        expect(leaked, 'app participants never see management-api tools').toHaveLength(0)
+    it('refuses an application participant at every MCP endpoint', async () => {
+        // the org and system servers serve MCP and admit only their own participants; the app server serves none
+        await expect(connectMcpClient(orgServer(), APP_USER_HEADERS)).rejects.toThrowError()
+        await expect(connectMcpClient(systemServer(), APP_USER_HEADERS)).rejects.toThrowError()
+    })
+
+    it('refuses each server\'s credentials at the other server\'s MCP endpoint', async () => {
+        await expect(connectMcpClient(orgServer(), {clientId: E2E_SYSTEM_USER_EMAIL, clientSecret: E2E_FIXTURE_PASSWORD}))
+            .rejects.toThrowError()
+        await expect(connectMcpClient(systemServer(), {clientId: E2E_ORG_USER_EMAIL,
+                                                       clientSecret: E2E_FIXTURE_PASSWORD,
+                                                       organizationId: E2E_ORGANIZATION_ID}))
+            .rejects.toThrowError()
     })
 
     it('serves tool metadata and schemas from the service contract', async () => {
@@ -155,13 +168,6 @@ describe('Kinotic JS', () => {
         expect(content[0]?.text ?? '').not.toContain('matches no parameter')
     })
 
-    it('refuses a call to a tool outside the caller zones', async () => {
-        // resolution is scoped to the caller's zones, so the management-api tool does not exist for an app participant
-        await expect(applicationClient.callTool({name: toolName(FIND_PROJECTS_BY_REPO),
-                                                 arguments: {repoFullName: 'a/b'}}))
-            .rejects.toThrowError(McpError)
-    })
-
     it('paginates tools/list with cursors', async () => {
         const listing = await systemClient.listTools()
         expect(listing.nextCursor, 'everything fits one page so the listing carries no cursor').toBeUndefined()
@@ -170,7 +176,7 @@ describe('Kinotic JS', () => {
     })
 
     it('rejects unauthenticated requests', async () => {
-        await expect(connectMcpClient({clientId: 'admin@kinotic.local', clientSecret: 'wrong-password'}))
+        await expect(connectMcpClient(systemServer(), {clientId: 'admin@kinotic.local', clientSecret: 'wrong-password'}))
             .rejects.toThrowError()
     })
 

@@ -1,67 +1,76 @@
-# Minimal compose for the e2e tests: Elasticsearch + migration + kinotic-server (no Kibana, OTEL, gen-schemas).
-# kinotic-server-2 is a second node of the same cluster; only the node-failure suite starts it.
+# Minimal compose for the e2e tests: Elasticsearch + migration + the three servers (no Kibana, OTEL, gen-schemas).
+# kinotic-app-server-2 is a second app server node of the same cluster; only the node-failure suite starts it.
 include:
   - compose.elasticsearch.yml
   - compose.kinotic-migration.yml
-  - compose.kinotic-server.yml
+  - compose.kinotic-servers.yml
 
-# Environment every kinotic-server node of the e2e stack runs with, on top of compose.kinotic-server.yml.
+# Environment every server node of the e2e stack runs with, on top of compose.kinotic-servers.yml.
 x-kinotic-server-e2e-environment: &kinotic-server-e2e-environment
   JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m # remove otel javaagent for test
   SPRING_PROFILES_ACTIVE: test,e2e-tests,compose
-  SPRING_AI_OPENAI_API-KEY: "noop"
   # SecretNameDeriver requires a master key at startup. The key lives in the `development`
   # profile (application-development.yml), which e2e deliberately drops in favor of
   # `test,e2e-tests,compose`, so supply the dummy test key here. Matches kinotic-test's
   # application.yml so derived secret names stay consistent with the test fixtures.
   KINOTIC_DOMAIN_SECRETSTORAGE_MASTERKEY: a2lub3RpYy10ZXN0LW1hc3Rlci1rZXktZHVtbXktMDA=
-  # Placeholder GitHub App config: GithubProperties validates these @NotBlank at boot even
-  # though no e2e test calls GitHub. disableProvisioner swaps in MockProjectRepoProvisioner so
-  # project-create flows work without a real App.
+  # KinoticJwtIssuer signs every access token with these keys. DevPlatformSecretsGenerator seeds
+  # them when the `development` profile sets kinotic.platformSecrets.generateMissing, and e2e drops
+  # that profile, so mount the dummy set below; without
+  # it the OAuth token endpoints cannot mint a token.
+  KINOTIC_PLATFORMSECRETS_JWTSIGNINGKEYSPATH: /platform-secrets/jwt-signing-keys
+  # The nodes find each other over this static address list and form one Ignite cluster. A node
+  # the running suite did not start does not resolve; Ignite logs the miss and carries on.
+  KINOTIC_IGNITE_DISCOVERYTYPE: LOCAL
+  KINOTIC_IGNITE_LOCALADDRESSES: kinotic-org-server:47500,kinotic-system-server:47500,kinotic-app-server:47500,kinotic-app-server-2:47500
+
+# Placeholder GitHub App config for the servers that load management-api: GithubProperties validates
+# these @NotBlank at boot even though no e2e test calls GitHub. disableProvisioner swaps in
+# MockProjectRepoProvisioner so project-create flows work without a real App.
+x-kinotic-management-api-e2e-environment: &kinotic-management-api-e2e-environment
   KINOTIC_MANAGEMENTAPI_GITHUB_DISABLEPROVISIONER: "true"
   KINOTIC_MANAGEMENTAPI_GITHUB_APPID: "-"
   KINOTIC_MANAGEMENTAPI_GITHUB_APPSLUG: "-"
   KINOTIC_MANAGEMENTAPI_GITHUB_APPPRIVATEKEY: "-"
   KINOTIC_MANAGEMENTAPI_GITHUB_WEBHOOKSECRET: "-"
   KINOTIC_MANAGEMENTAPI_GITHUB_REPOTEMPLATE: "-"
-  # Placeholder UI site config, validated at boot the same way; no e2e test deploys a UI,
-  # and the site provisioner is the mock.
-  KINOTIC_SYSTEMAPI_UIDEPLOYMENT_DISABLEPROVISIONER: "true"
-  KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN: apps.localhost
-  KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT: "-"
-  # The workloads' server hosts are @NotBlank and validated at boot. They are set in the
-  # `development` profile, which e2e drops in favor of `test,e2e-tests,compose`, so supply them
-  # here. No e2e test deploys a workload, so the values only have to bind.
-  KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST: localhost
-  KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST: localhost
-  # KinoticJwtIssuer signs every access token with these keys. DevPlatformSecretsGenerator seeds
-  # them when the `development` profile sets kinotic.platformSecrets.generateMissing, and e2e drops
-  # that profile, so mount the dummy set below; without
-  # it the OAuth token endpoints cannot mint a token.
-  KINOTIC_PLATFORMSECRETS_JWTSIGNINGKEYSPATH: /platform-secrets/jwt-signing-keys
-  # The nodes find each other over this static address list, so the two of them form one Ignite
-  # cluster. When only kinotic-server runs, the other name does not resolve; Ignite logs the miss
-  # and the node starts the cluster on its own.
-  KINOTIC_IGNITE_DISCOVERYTYPE: LOCAL
-  KINOTIC_IGNITE_LOCALADDRESSES: kinotic-server:47500,kinotic-server-2:47500
 
 services:
   kinotic-migration:
     environment:
       # 'test' activates the e2e fixture migrations (V3__e2e_app_fixtures.test.sql).
       SPRING_PROFILES_ACTIVE: development,test,compose
-  kinotic-server:
+  kinotic-org-server:
+    environment:
+      <<: [*kinotic-server-e2e-environment, *kinotic-management-api-e2e-environment]
+    volumes:
+      - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
+  kinotic-system-server:
+    environment:
+      <<: [*kinotic-server-e2e-environment, *kinotic-management-api-e2e-environment]
+      # Placeholder UI site config, validated at boot the same way; no e2e test deploys a UI,
+      # and the site provisioner is the mock.
+      KINOTIC_SYSTEMAPI_UIDEPLOYMENT_DISABLEPROVISIONER: "true"
+      KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN: apps.localhost
+      KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT: "-"
+      # The workloads' server hosts are @NotBlank and validated at boot. They are set in the
+      # `development` profile, which e2e drops in favor of `test,e2e-tests,compose`, so supply them
+      # here. No e2e test deploys a workload, so the values only have to bind.
+      KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST: localhost
+      KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST: localhost
+    volumes:
+      - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
+  kinotic-app-server:
     environment: *kinotic-server-e2e-environment
     volumes:
       - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
-  kinotic-server-2:
+  kinotic-app-server-2:
     extends:
-      file: compose.kinotic-server.yml
-      service: kinotic-server
-    container_name: kinotic-server-2
+      file: compose.kinotic-servers.yml
+      service: kinotic-app-server
+    container_name: kinotic-app-server-2
     ports: !override
-      - "127.0.0.1:9092:9090" # UI PORT
-      - "127.0.0.1:58504:58503" # Stomp Port
+      - "127.0.0.1:58506:58505" # REST and STOMP
     environment: *kinotic-server-e2e-environment
     volumes:
       - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
