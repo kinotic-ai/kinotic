@@ -143,20 +143,29 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
         String nodeId = workload.getNodeId();
         workload.setStatus(WorkloadStatus.STOPPING);
         return workloadRepository.updateRunSync(workload.getId(), WorkloadStatus.STOPPING, null, "stopWorkload")
-                .compose(v -> verifyingNodeOnFailure(nodeId, vmManagerProxy.stopWorkload(nodeId, workload.getId())))
-                .compose(v -> recordRunEnded(workload, WorkloadStatus.STOPPED, "stopWorkload"))
-                .recover(error -> {
-                    Future<Void> recorded;
-                    if (error instanceof RpcServiceUnavailableException) {
-                        // The node may have stopped it: the record keeps STOPPING and the node's next
-                        // report settles it
-                        recorded = markUnreachable(workload, "Node " + nodeId + " did not answer the stop");
+                .compose(stopping -> {
+                    Future<Void> ret;
+                    if (stopping) {
+                        ret = verifyingNodeOnFailure(nodeId, vmManagerProxy.stopWorkload(nodeId, workload.getId()))
+                                .compose(v -> recordRunEnded(workload, WorkloadStatus.STOPPED, "stopWorkload"))
+                                .recover(error -> {
+                                    Future<Void> recorded;
+                                    if (error instanceof RpcServiceUnavailableException) {
+                                        // The node may have stopped it: the record keeps STOPPING and the node's next
+                                        // report settles it
+                                        recorded = markUnreachable(workload, "Node " + nodeId + " did not answer the stop");
+                                    } else {
+                                        recorded = Future.succeededFuture();
+                                    }
+                                    return recorded.transform(_ -> Future.failedFuture(error));
+                                })
+                                .mapEmpty();
                     } else {
-                        recorded = Future.succeededFuture();
+                        // the run ended between the read and the write, and its room went with it
+                        ret = Future.succeededFuture();
                     }
-                    return recorded.transform(_ -> Future.failedFuture(error));
-                })
-                .mapEmpty();
+                    return ret;
+                });
     }
 
     @Override
@@ -255,10 +264,13 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     } else if (current.getStatus() == WorkloadStatus.STARTING) {
                         // A RUNNING reply only promotes from STARTING: a short-lived detached
                         // workload's terminal status report can be applied before the reply
-                        // gets here, and must not be clobbered.
+                        // gets here, and must not be clobbered; the write declines one applied
+                        // since this read, and the record then answers for the run
                         ret = workloadRepository.updateRunSync(startedWorkload.getId(), startedWorkload.getStatus(), startedWorkload.getExitCode(),
                                                             "node " + startedWorkload.getNodeId())
-                                             .map(startedWorkload);
+                                             .compose(applied -> applied
+                                                     ? Future.succeededFuture(startedWorkload)
+                                                     : workloadRepository.findById(startedWorkload.getId()));
                     } else {
                         ret = Future.succeededFuture(current);
                     }
@@ -268,8 +280,9 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
     /**
      * Picks a node with room for the workload and reserves that room on it. The pick reads the index and the
-     * reservation is atomic on the node, so a concurrent deploy that took the same room in between is answered
-     * by a declined reservation, and the pick runs again on the capacity that is left.
+     * reservation is atomic on the node, so a concurrent deploy that took the same room in between, or a node
+     * that stopped taking workloads in between, is answered by a declined reservation, and the pick runs again
+     * on the nodes and capacity that are left.
      */
     private Future<VmNode> placeWorkload(Workload workload, int attempt) {
         return nodeOrchestrationService.findAvailableNode(workload.getCpus(), workload.getMemoryMb(), workload.getDiskSizeMb())
@@ -285,7 +298,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                     if (reserved) {
                                         placed = Future.succeededFuture(node);
                                     } else if (attempt < PLACEMENT_ATTEMPTS) {
-                                        log.info("Node {} was allocated to another workload while placing {}, picking again",
+                                        log.info("Node {} declined workload {} since it was picked: its room was taken or it stopped taking workloads; picking again",
                                                  node.getId(), workload.getName());
                                         placed = placeWorkload(workload, attempt + 1);
                                     } else {
@@ -322,7 +335,8 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                 .compose(reserved -> reserved
                                         ? Future.succeededFuture(node)
                                         : Future.failedFuture(new IllegalStateException(
-                                                "Node " + nodeId + " lacks capacity for workload " + workload.getName())));
+                                                "Node " + nodeId + " lacks capacity for workload " + workload.getName()
+                                                        + ", or stopped taking workloads since it was read")));
                     }
                     return ret;
                 });

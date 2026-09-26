@@ -24,6 +24,7 @@ import co.elastic.clients.elasticsearch.indices.*;
 import co.elastic.clients.json.JsonData;
 import co.elastic.clients.json.JsonpDeserializer;
 import co.elastic.clients.json.JsonpMapperBase;
+import jakarta.json.JsonValue;
 import co.elastic.clients.transport.JsonEndpoint;
 import co.elastic.clients.transport.endpoints.EndpointWithResponseMapperAttr;
 import io.vertx.core.Context;
@@ -729,7 +730,9 @@ public class CrudServiceTemplate {
                                                        boolean returnSource,
                                                        Consumer<UpdateRequest.Builder<Map, Map<String, Object>>> builderConsumer) {
         Map<String, JsonData> scriptParams = new HashMap<>();
-        params.forEach((name, value) -> scriptParams.put(name, JsonData.of(value)));
+        // JsonData.of(null) has no serializer to look up and throws; a jakarta JsonValue is written as it
+        // is, so a null parameter reaches the script as JSON null
+        params.forEach((name, value) -> scriptParams.put(name, JsonData.of(value == null ? JsonValue.NULL : value)));
         return toFuture(esAsyncClient.update((UpdateRequest.Builder<Map, Map<String, Object>> u) -> {
             u.index(indexName)
              .id(id)

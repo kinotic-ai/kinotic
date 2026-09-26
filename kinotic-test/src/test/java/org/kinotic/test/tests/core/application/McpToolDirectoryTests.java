@@ -8,12 +8,14 @@ import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
+import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -38,6 +40,9 @@ public class McpToolDirectoryTests extends KinoticTestBase {
 
     @Autowired
     private EventBusService eventBusService;
+
+    @Autowired
+    private ServiceDirectoryStrategy directoryStrategy;
 
     @Test
     public void mcpExposedServicesArePublishedAndListed() throws Exception {
@@ -64,6 +69,35 @@ public class McpToolDirectoryTests extends KinoticTestBase {
                                       + "; entries: " + entries() + "; active addresses: " + activeAddresses());
     }
 
+    @Test
+    public void livenessObservedBeforeTheLastVerificationIsDeclined() throws Exception {
+        // the reconcile stamps every entry with the time of its snapshot
+        serviceDirectory.reconcileLiveness().await();
+        ServiceDirectoryEntry verified = entry(PROJECT_SERVICE);
+        Assertions.assertTrue(verified.isOnline(), describe(verified));
+
+        // an offline observation a node made before the snapshot, landing after it: the node whose
+        // services stopped, answered by the node whose services started
+        directoryStrategy.setOnline(PROJECT_SERVICE, false, Instant.ofEpochMilli(verified.getLivenessVerifiedAt() - 1)).await();
+        Assertions.assertTrue(entry(PROJECT_SERVICE).isOnline(), "the earlier observation is not the last word");
+
+        // an observation made after the snapshot is
+        directoryStrategy.setOnline(PROJECT_SERVICE, false, Instant.now()).await();
+        Assertions.assertFalse(entry(PROJECT_SERVICE).isOnline());
+        serviceDirectory.reconcileLiveness().await();
+        Assertions.assertTrue(entry(PROJECT_SERVICE).isOnline(), "the cluster's registrations are the latest word");
+    }
+
+    private ServiceDirectoryEntry entry(String id) throws Exception {
+        return serviceDirectory.findEntriesScopedTo(null, null, Pageable.create(0, 100, Sort.by("id")))
+                               .await()
+                               .getContent()
+                               .stream()
+                               .filter(entry -> id.equals(entry.getId()))
+                               .findFirst()
+                               .orElseThrow(() -> new AssertionError("no directory entry " + id));
+    }
+
     // The listing shows only online entries with tools, so the failure message says which entries exist,
     // whether each is online, and which service addresses have a listener, to tell a publish that never
     // happened from an entry liveness never marked
@@ -79,7 +113,8 @@ public class McpToolDirectoryTests extends KinoticTestBase {
     private static String describe(ServiceDirectoryEntry entry) {
         return entry.getId() + "{online=" + entry.isOnline()
                 + ", tools=" + (entry.getMcpTools() == null ? 0 : entry.getMcpTools().size())
-                + ", lastStatusChange=" + entry.getLastStatusChange() + "}";
+                + ", lastStatusChange=" + entry.getLastStatusChange()
+                + ", livenessVerifiedAt=" + entry.getLivenessVerifiedAt() + "}";
     }
 
     private List<String> activeAddresses() throws Exception {

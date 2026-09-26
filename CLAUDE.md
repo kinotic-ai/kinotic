@@ -140,15 +140,15 @@ it a credential.
 
 While `kinoticVersion` in `gradle.properties` is a `-SNAPSHOT`, no released artifact depends on this code, so there is nothing to stay backwards-compatible with: rename fields, break APIs, and reshape wire contracts freely. Deprecation shims and compatibility fallbacks start when the first release exists — building them sooner is Speculative Generality.
 
-Migrations are the one exception, for now: a test server runs everything and has applied the migration files that exist, so a schema change is a new versioned file (`V6__node_capacity_ledger.sql` and on), never an edit of a file already applied. Elasticsearch cannot retype a mapped field, so a column that changes type is a new column beside the old one, which stays mapped and unused (`V6` shows the shape).
+Migrations follow the same rule while the cluster can be rebuilt: a schema change edits the table in `V1__init.sql`, a change to seeded rows edits the environment file that seeds them (`V2__kinotic_test_users.development.test.sql`, `V3__e2e_app_fixtures.test.sql`, `V4__system_console.fixtures.sql`), and the cluster is rebuilt to take it. Append-only discipline starts with the first release, for the development server with the first peer sign-up (`website/content/02.platform/13.development-server.md`): from then on a change is a new versioned file, never an edit of one already applied, and since Elasticsearch cannot retype a mapped field, a column that changes type is a new column beside the old one, which stays mapped and unused.
 
 ## Keep migrations in sync with persisted entities
 
 Every entity stored through an Elasticsearch-backed Repository gets its index mapping from the
 migration DDL in `kinotic-migration/src/main/resources/migrations/`, and mappings are strict — an
 entity field missing from its CREATE TABLE fails the first save of that entity at runtime.
-Whenever you change a persisted entity's fields, update its table in the same change (a new
-migration file with the `ALTER TABLE` — see above). For DDL syntax and column
+Whenever you change a persisted entity's fields, update its table in the same change (the
+`CREATE TABLE` in `V1__init.sql` while the cluster can be rebuilt — see above). For DDL syntax and column
 types, see `website/content/01.apps/09.reference/02.migration-sql-grammar.md` or the
 `kinotic-sql` module.
 

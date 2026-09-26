@@ -41,6 +41,7 @@ export { default as SideBar } from './components/SideBar.vue'
 export { default as SidebarScope } from './components/SidebarScope.vue'
 export { default as TelemetryPanel } from './components/telemetry/TelemetryPanel.vue'
 export { default as TraceDetail } from './components/telemetry/TraceDetail.vue'
+export { default as WatchEventsTable } from './components/WatchEventsTable.vue'
 export { default as WorkloadLogView } from './components/WorkloadLogView.vue'
 export { default as WorkloadLogsDialog } from './components/WorkloadLogsDialog.vue'
 

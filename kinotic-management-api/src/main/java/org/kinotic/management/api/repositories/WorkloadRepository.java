@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
@@ -38,7 +39,7 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
 
     // The run's fields are the node's; the state the platform keeps is touched the way every other
     // write touches it, in the same shard operation
-    private static final String UPDATE_RUN = WatchedStateRepository.STATE_FUNCTIONS + """
+    private static final String RECORD_RUN = """
             ctx._source.status = params.status;
             if (params.exitCode != null) {
                 ctx._source.exitCode = params.exitCode;
@@ -47,18 +48,24 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
             touched(state(ctx._source), params.now);
             """;
 
+    // A run only moves forward: a status ranked below the recorded one is a write made from a read
+    // that a later write overtook, and the script declines it in the shard operation that would have
+    // applied it. The same rank is a status the record holds already, or its exit code arriving.
+    private static final String UPDATE_RUN = WatchedStateRepository.STATE_FUNCTIONS + """
+            if (params.rank[params.status] < params.rank[ctx._source.status]) {
+                ctx.op = 'noop';
+            } else {
+            """ + RECORD_RUN + """
+            }
+            """;
+
     // A run ends once: one that has ended keeps its outcome and the script declines, so the caller
     // that returns the run's room to its node does so exactly once
     private static final String END_RUN = WatchedStateRepository.STATE_FUNCTIONS + """
             if (params.terminal.contains(ctx._source.status)) {
                 ctx.op = 'noop';
             } else {
-                ctx._source.status = params.status;
-                if (params.exitCode != null) {
-                    ctx._source.exitCode = params.exitCode;
-                }
-                ctx._source.updated = params.updated;
-                touched(state(ctx._source), params.now);
+            """ + RECORD_RUN + """
             }
             """;
 
@@ -76,6 +83,14 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
                                                             .filter(WorkloadStatus::isOpen)
                                                             .map(Enum::name)
                                                             .toList();
+
+    private static final List<String> TERMINAL_STATUSES = Stream.of(WorkloadStatus.values())
+                                                                .filter(WorkloadStatus::isComplete)
+                                                                .map(Enum::name)
+                                                                .toList();
+
+    private static final Map<String, Integer> RANKS = Stream.of(WorkloadStatus.values())
+                                                            .collect(Collectors.toMap(Enum::name, WorkloadStatus::getRank));
 
     public WorkloadRepository(CrudServiceTemplate crudServiceTemplate,
                               WatchedStateRepository watchedStateRepository,
@@ -183,15 +198,17 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
 
     /**
      * Records the status and exit code of the workload's run and enters the change in the ledger,
-     * leaving every other field as it is; visible to search on completion.
+     * leaving every other field as it is; a run only moves forward, so a status earlier than the
+     * recorded one leaves the record as it is. Visible to search on completion.
      *
      * @param workloadId the workload whose run is reported
      * @param status     the run's status
      * @param exitCode   the run's exit code, or null to leave the recorded one as it is
      * @param source     what caused it, for the ledger
+     * @return true when the run was recorded, false when the record was already past the status
      */
-    public Future<Void> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source) {
-        return runScript(workloadId, UPDATE_RUN, status, exitCode, source).mapEmpty();
+    public Future<Boolean> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source) {
+        return runScript(workloadId, UPDATE_RUN, status, exitCode, source);
     }
 
     /**
@@ -207,8 +224,8 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
         return runScript(workloadId, END_RUN, status, exitCode, source);
     }
 
-    // The terminal statuses go in as a parameter, so the script and WorkloadStatus.isComplete agree on
-    // what an ended run is; a script that declined wrote nothing and enters nothing in the ledger
+    // The order of a run and its terminal statuses go in as parameters, so the scripts and
+    // WorkloadStatus agree on both; a script that declined wrote nothing and enters nothing in the ledger
     private Future<Boolean> runScript(String workloadId, String script, WorkloadStatus status, Integer exitCode, String source) {
         Map<String, Object> params = new HashMap<>();
         params.put("status", status.name());
@@ -217,7 +234,8 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
         }
         params.put("updated", Instant.now().toString());
         params.put("now", System.currentTimeMillis());
-        params.put("terminal", Stream.of(WorkloadStatus.values()).filter(WorkloadStatus::isComplete).map(Enum::name).toList());
+        params.put("rank", RANKS);
+        params.put("terminal", TERMINAL_STATUSES);
         Map<String, Object> run = new LinkedHashMap<>();
         run.put("status", status);
         run.put("exitCode", exitCode);

@@ -34,6 +34,22 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     // services today; page through it once customer contracts (which could reach 100k) start landing.
     private static final int RECONCILE_PAGE_SIZE = 10_000;
 
+    // A liveness write is an observation made at a time, and two writers observe the same entry: the
+    // node whose services stop and the node whose services start, a verify and a reconcile. The entry
+    // keeps the time of the latest observation applied and declines one observed earlier that lands
+    // later, so the last write to land is never the earlier word
+    private static final String SET_ONLINE = """
+            if (ctx._source.livenessVerifiedAt != null && ctx._source.livenessVerifiedAt > params.verifiedAt) {
+                ctx.op = 'noop';
+            } else {
+                if (ctx._source.online != params.online) {
+                    ctx._source.online = params.online;
+                    ctx._source.lastStatusChange = params.lastStatusChange;
+                }
+                ctx._source.livenessVerifiedAt = params.verifiedAt;
+            }
+            """;
+
     // a name resolution matches at most a handful of entries; more than this only under pathological collision
     private static final int RESOLUTION_PAGE_SIZE = 25;
 
@@ -54,20 +70,22 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         Map<String, Object> partial = objectMapper.convertValue(entry, Map.class);
         partial.remove("online");
         partial.remove("lastStatusChange");
+        partial.remove("livenessVerifiedAt");
         // the caller reconciles liveness with a search right after this completes, so the write
         // must be visible to search before the future does
         return crudServiceTemplate.partialUpdateSync(indexName, entry.getId(), partial, true);
     }
 
     /**
-     * Sets the liveness fields of an existing entry via a partial update touching only {@code online} and
-     * {@code lastStatusChange}.
+     * Sets the liveness of an existing entry as observed at the given time, touching only the liveness
+     * fields; an observation earlier than the entry's last verification leaves it as it is. Visible to
+     * search on completion.
      */
     public Future<Void> setOnline(String entryId, boolean online, Instant when) {
-        return crudServiceTemplate.partialUpdate(indexName,
-                                                 entryId,
-                                                 Map.of("online", online, "lastStatusChange", when),
-                                                 false);
+        Map<String, Object> params = Map.of("online", online,
+                                            "lastStatusChange", when,
+                                            "verifiedAt", when.toEpochMilli());
+        return crudServiceTemplate.scriptedUpdateSync(indexName, entryId, SET_ONLINE, params).mapEmpty();
     }
 
     /**
@@ -83,19 +101,20 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     }
 
     /**
-     * Corrects the liveness of every entry to match the given snapshot of active service addresses.
+     * Corrects the liveness of every entry to match the given snapshot of active service addresses, and
+     * stamps every entry with the snapshot's time as its last verification.
      */
     public Future<Void> reconcileLiveness(Set<String> activeAddresses, Instant when) {
         return findAll(Pageable.ofSize(RECONCILE_PAGE_SIZE),
-                       b -> b.source(sc -> sc.filter(f -> f.includes("id", "serviceAddress", "online"))))
+                       b -> b.source(sc -> sc.filter(f -> f.includes("id", "serviceAddress"))))
                 .compose(page -> {
                     List<Future<Void>> updates = new ArrayList<>();
                     for (ServiceDirectoryEntry entry : page.getContent()) {
                         boolean desired = entry.getServiceAddress() != null
                                 && activeAddresses.contains(entry.getServiceAddress());
-                        if (entry.isOnline() != desired) {
-                            updates.add(setOnline(entry.getId(), desired, when));
-                        }
+                        // an entry the snapshot leaves as it is takes the snapshot's time too, so an
+                        // observation made before the snapshot cannot land on it after
+                        updates.add(setOnline(entry.getId(), desired, when));
                     }
                     return Future.all(updates).mapEmpty();
                 });

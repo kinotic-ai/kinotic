@@ -54,6 +54,9 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     // Workloads read per node in one page: what a node can host is far below this
     private static final int WORKLOAD_PAGE_SIZE = 500;
 
+    // Rebuilds a registration may make before it gives up on room that deploys keep taking and returning
+    private static final int INVENTORY_ATTEMPTS = 5;
+
     private static final VmNodeState ONLINE = new VmNodeState(VmNodeStatusType.ONLINE);
     private static final VmNodeState DRAINING = new VmNodeState(VmNodeStatusType.DRAINING);
 
@@ -68,31 +71,54 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         Validate.notNull(registration, "Registration cannot be null");
         Validate.notNull(registration.getId(), "Node id cannot be null");
         String nodeId = registration.getId();
+        log.info("Registering VmNode: {} ({})", registration.getName(), nodeId);
 
-        return workloadRepository.findAllForNode(nodeId, Pageable.create(0, WORKLOAD_PAGE_SIZE, null))
-                .compose(placed -> {
-                    log.info("Registering VmNode: {} ({})", registration.getName(), nodeId);
-                    // The workload records are what runs on the node: the free capacity is rebuilt
-                    // from the runs still open, so a node that re-registers with different hardware,
-                    // or after a release the node never saw, still accounts for exactly what it hosts.
-                    List<Workload> open = placed.getContent().stream().filter(workload -> workload.getStatus().isOpen()).toList();
-                    VmNode inventory = new VmNode(nodeId, registration.getName(), registration.getHostname())
-                            .setProviderType(registration.getProviderType())
-                            .setTotalCpus(registration.getTotalCpus())
-                            .setTotalMemoryMb(registration.getTotalMemoryMb())
-                            .setTotalDiskMb(registration.getTotalDiskMb())
-                            .setWorkloadDataDir(registration.getWorkloadDataDir())
-                            .setFreeCpus(registration.getTotalCpus() - open.stream().mapToDouble(Workload::getCpus).sum())
-                            .setFreeMemoryMb(registration.getTotalMemoryMb() - open.stream().mapToInt(Workload::getMemoryMb).sum())
-                            .setFreeDiskMb(registration.getTotalDiskMb() - open.stream().mapToInt(Workload::getDiskSizeMb).sum());
-                    return vmNodeRepository.recordInventorySync(inventory);
-                })
+        return recordInventory(registration, 1)
                 // a registered node should be taking workloads; a node registering again holds that intent already
                 .compose(v -> vmNodeRepository.updateDesired(nodeId, ONLINE, null, "registration"))
                 // the registration is the node's own word that it is up, ahead of its first heartbeat
                 .compose(node -> vmNodeRepository.reportObserved(nodeId, ONLINE, node.getState().getGeneration(), "registration"))
                 .compose(v -> vmNodeRepository.clearCondition(nodeId, StatusConditionType.NODE_UNREACHABLE, "registration"))
                 .compose(v -> vmNodeRepository.findById(nodeId));
+    }
+
+    /**
+     * Writes what the node reports and its free capacity rebuilt from the workload records, which are
+     * what runs on it: a node that re-registers with different hardware, or after a release it never
+     * saw, still accounts for exactly what it hosts. The write is conditional on the counters it
+     * overwrites, so a reservation or a release landing between the reads and the write is answered by
+     * a declined write, and the rebuild runs again on what is there.
+     */
+    private Future<Void> recordInventory(VmNodeRegistration registration, int attempt) {
+        String nodeId = registration.getId();
+        return vmNodeRepository.findById(nodeId)
+                .compose(asRead -> workloadRepository.findAllForNode(nodeId, Pageable.create(0, WORKLOAD_PAGE_SIZE, null))
+                        .compose(placed -> {
+                            List<Workload> open = placed.getContent().stream().filter(workload -> workload.getStatus().isOpen()).toList();
+                            VmNode inventory = new VmNode(nodeId, registration.getName(), registration.getHostname())
+                                    .setProviderType(registration.getProviderType())
+                                    .setTotalCpus(registration.getTotalCpus())
+                                    .setTotalMemoryMb(registration.getTotalMemoryMb())
+                                    .setTotalDiskMb(registration.getTotalDiskMb())
+                                    .setWorkloadDataDir(registration.getWorkloadDataDir())
+                                    .setFreeCpus(registration.getTotalCpus() - open.stream().mapToDouble(Workload::getCpus).sum())
+                                    .setFreeMemoryMb(registration.getTotalMemoryMb() - open.stream().mapToInt(Workload::getMemoryMb).sum())
+                                    .setFreeDiskMb(registration.getTotalDiskMb() - open.stream().mapToInt(Workload::getDiskSizeMb).sum());
+                            return vmNodeRepository.recordInventorySync(inventory, asRead);
+                        }))
+                .compose(recorded -> {
+                    Future<Void> ret;
+                    if (recorded) {
+                        ret = Future.succeededFuture();
+                    } else if (attempt < INVENTORY_ATTEMPTS) {
+                        log.info("Room on node {} was taken or returned while it registered, rebuilding its free capacity again", nodeId);
+                        ret = recordInventory(registration, attempt + 1);
+                    } else {
+                        ret = Future.failedFuture(new IllegalStateException("Node " + nodeId + " kept taking and returning room through "
+                                + INVENTORY_ATTEMPTS + " rebuilds of its free capacity"));
+                    }
+                    return ret;
+                });
     }
 
     @Override
@@ -175,7 +201,8 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         // Same state; still adopt an exit code the record lacks — stopWorkload
                         // records STOPPED before the node's exit-code-bearing report arrives
                         if (report.getExitCode() != null && workload.getExitCode() == null) {
-                            ret = workloadRepository.updateRunSync(workload.getId(), workload.getStatus(), report.getExitCode(), "node " + nodeId);
+                            ret = workloadRepository.updateRunSync(workload.getId(), workload.getStatus(), report.getExitCode(), "node " + nodeId)
+                                                 .mapEmpty();
                         } else {
                             ret = Future.succeededFuture();
                         }
@@ -201,7 +228,8 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
             ret = workloadRepository.endRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId)
                                  .compose(ended -> ended ? vmNodeRepository.releaseSync(nodeId, workload) : Future.succeededFuture());
         } else {
-            ret = workloadRepository.updateRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId);
+            ret = workloadRepository.updateRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId)
+                                 .mapEmpty();
         }
         return ret;
     }
@@ -297,8 +325,9 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         return marked.map(Requeue.after(Duration.ofMillis(wait)));
     }
 
+    // The mark is conditional on the node as read: a heartbeat since is the node's word that it is here
     private Future<Void> markUnreachable(VmNode node, String message, String source) {
-        return vmNodeRepository.setCondition(node.getId(),
+        return vmNodeRepository.setCondition(node,
                                           new StatusCondition(StatusConditionType.NODE_UNREACHABLE, message, new Date()),
                                           source)
                             .onSuccess(set -> {

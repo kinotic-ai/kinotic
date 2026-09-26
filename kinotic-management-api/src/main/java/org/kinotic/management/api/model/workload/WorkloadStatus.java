@@ -1,5 +1,7 @@
 package org.kinotic.management.api.model.workload;
 
+import lombok.Getter;
+
 /**
  * Represents the current status of a {@link Workload}. A run moves through these in order and only
  * forward: pending, starting, running, stopping, then ended, where the two ended statuses share one
@@ -13,6 +15,11 @@ public enum WorkloadStatus {
     STOPPED(4),
     FAILED(4);
 
+    /**
+     * Where this status falls in a run: a status of a lower rank comes earlier, and the two ended
+     * statuses share the highest.
+     */
+    @Getter
     private final int rank;
 
     WorkloadStatus(int rank) {

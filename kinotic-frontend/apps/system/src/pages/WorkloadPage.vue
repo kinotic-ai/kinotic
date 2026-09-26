@@ -23,6 +23,7 @@
       <TabList>
         <Tab value="overview"><i class="pi pi-objects-column mr-2" />Overview</Tab>
         <Tab value="logs"><i class="pi pi-align-left mr-2" />Logs</Tab>
+        <Tab value="history"><i class="pi pi-history mr-2" />History</Tab>
       </TabList>
       <TabPanels>
         <TabPanel value="overview">
@@ -100,6 +101,15 @@
           <!-- Mounted with the tab, so a return starts a fresh history load and tail -->
           <WorkloadLogView v-if="tab === 'logs' && workload" :organization-id="workload.organizationId" :workload-id="workloadId" :run="workloadRun(workload)" class="pt-2" />
         </TabPanel>
+        <TabPanel value="history">
+          <div class="pt-2">
+            <p class="mb-3 text-xs text-muted-color">
+              What happened to the workload, newest first: each status its run passed through and each mark set beside it,
+              with what caused it. The latest {{ HISTORY_PAGE_SIZE }} entries.
+            </p>
+            <WatchEventsTable :entries="history" empty-text="Nothing has happened to the workload yet." />
+          </div>
+        </TabPanel>
       </TabPanels>
     </Tabs>
   </div>
@@ -119,10 +129,10 @@ import Tag from 'primevue/tag'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 
-import { Kinotic } from '@kinotic-ai/core'
-import { NetworkMode, WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
+import { Kinotic, Pageable } from '@kinotic-ai/core'
+import { NetworkMode, WorkloadStatus, type WatchEvent, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, PageHeader, WorkloadLogView, errorMessage, formatMb, showErrorToast,
+import { DatetimeUtil, PageHeader, WatchEventsTable, WorkloadLogView, errorMessage, formatMb, showErrorToast,
          workloadRun } from '@kinotic-ai/frontend-common'
 
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
@@ -142,6 +152,8 @@ const props = defineProps<{
   projectId?: string
 }>()
 
+const HISTORY_PAGE_SIZE = 50
+
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
@@ -158,13 +170,14 @@ const listPath = computed(() => `${scopePath(scope.value)}/workloads`)
 
 const workload = ref<Workload | null>(null)
 const node = ref<VmNode | null>(null)
+const history = ref<WatchEvent[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
 // The tab lives in the URL so a row menu can open the logs directly
 const tab = computed<string>({
-  get: () => route.query.tab === 'logs' ? 'logs' : 'overview',
-  set: value => { router.replace({ query: { ...route.query, tab: value === 'logs' ? 'logs' : undefined } }) }
+  get: () => route.query.tab === 'logs' || route.query.tab === 'history' ? route.query.tab : 'overview',
+  set: value => { router.replace({ query: { ...route.query, tab: value === 'overview' ? undefined : value } }) }
 })
 
 const canStop = computed(() => workload.value?.status === WorkloadStatus.RUNNING || workload.value?.status === WorkloadStatus.STARTING)
@@ -253,7 +266,12 @@ async function load() {
   error.value = null
   try {
     workload.value = await Kinotic.workloads.findById(props.workloadId)
-    node.value = workload.value.nodeId ? await Kinotic.vmNodes.findById(workload.value.nodeId).catch(() => null) : null
+    const [placedOn, entries] = await Promise.all([
+      workload.value.nodeId ? Kinotic.vmNodes.findById(workload.value.nodeId).catch(() => null) : Promise.resolve(null),
+      Kinotic.workloads.findHistory(props.workloadId, Pageable.create(0, HISTORY_PAGE_SIZE))
+    ])
+    node.value = placedOn
+    history.value = entries.content ?? []
   } catch (err) {
     error.value = errorMessage(err, 'Failed to load the workload')
   } finally {

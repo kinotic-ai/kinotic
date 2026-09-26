@@ -91,4 +91,10 @@ public class ServiceDirectoryEntry implements Identifiable<String> {
 
     private Instant lastStatusChange;
 
+    /**
+     * When the liveness was last verified, epoch milliseconds. A liveness write observed earlier than
+     * this is declined.
+     */
+    private Long livenessVerifiedAt;
+
 }

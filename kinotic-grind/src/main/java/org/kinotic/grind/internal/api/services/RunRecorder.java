@@ -194,19 +194,19 @@ public class RunRecorder implements RunListener {
 
     private Future<JobRun> saveRun() {
         return repository.saveRun(jobRun)
-                         .onFailure(error -> log.warn("Failed to persist run {}", jobRunId, error));
+                         .onFailure(error -> log.error("Failed to persist run {}", jobRunId, error));
     }
 
     // The terminal write leaves what the platform keeps on the run as it is, since the run's record was
     // created whole at its start and may have been marked since
     private Future<Void> recordOutcome(ExecutionStatus status, String error) {
         return repository.recordOutcome(jobRunId, status, error, new Date(), "node " + jobRun.getNodeId())
-                         .onFailure(failure -> log.warn("Failed to persist the outcome of run {}", jobRunId, failure));
+                         .onFailure(failure -> log.error("Failed to persist the outcome of run {}", jobRunId, failure));
     }
 
     private Future<TaskRecord> saveTask(TaskRecord record) {
         return repository.saveTask(record)
-                         .onFailure(error -> log.warn("Failed to persist task record {} of run {}",
+                         .onFailure(error -> log.error("Failed to persist task record {} of run {}",
                                                       record.getTaskPath(), jobRunId, error));
     }
 
@@ -226,7 +226,7 @@ public class RunRecorder implements RunListener {
         // Future.future turns a write that throws while being issued into a failed future, so
         // the run thread below can never be left waiting on a write that was never sent
         writeContext.runOnContext(v -> Future.<Void>future(promise -> write.get().onComplete(ar -> promise.complete()))
-                                             .onFailure(error -> log.warn("Failed to issue a ledger write for run {}",
+                                             .onFailure(error -> log.error("Failed to issue a ledger write for run {}",
                                                                           jobRunId, error))
                                              .onComplete(ar -> acknowledged.complete(null)));
         // join rather than get: an interrupt delivering cancellation must not abandon the write,

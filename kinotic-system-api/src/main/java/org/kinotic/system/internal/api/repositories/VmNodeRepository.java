@@ -3,6 +3,7 @@ package org.kinotic.system.internal.api.repositories;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.internal.api.repositories.AbstractReconcilableRepository;
 import org.kinotic.domain.internal.api.repositories.ReconcileStateRepository;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Component
 public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmNodeState> {
@@ -31,10 +33,12 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
             }
             """;
 
-    // The node declines with noop rather than going negative, so the caller learns the capacity was taken
+    // The node declines with noop rather than going negative or taking a run while not in its desired
+    // state, so the caller learns the room was taken, or the node left that state, since it was picked
     private static final String RESERVE_SCRIPT = CPUS_FUNCTION + """
             def node = ctx._source;
-            if (node.freeCpus < params.cpus
+            if (node.state?.reconciled != true
+                    || node.freeCpus < params.cpus
                     || node.freeMemoryMb < params.memoryMb
                     || node.freeDiskMb < params.diskMb) {
                 ctx.op = 'noop';
@@ -42,6 +46,35 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
                 node.freeCpus = cpus(node.freeCpus - params.cpus);
                 node.freeMemoryMb -= params.memoryMb;
                 node.freeDiskMb -= params.diskMb;
+            }
+            """;
+
+    // A mark on a node is inferred from what was read of it, and a heartbeat since that read is the
+    // node's own word against the inference: the script declines when lastSeen moved, so the
+    // heartbeat, whose read found no mark to clear, and this write cannot leave a node just heard marked
+    private static final String SET_CONDITION_UNLESS_HEARD = WatchedStateRepository.STATE_FUNCTIONS + """
+            if (ctx._source.lastSeen != params.lastSeen) {
+                ctx.op = 'noop';
+            } else {
+            """ + WatchedStateRepository.ADD_CONDITION + """
+            }
+            """;
+
+    // The free capacity is rebuilt from a read of the node's runs, and a reservation or a release
+    // between that read and this write moved the counters the rebuild overwrites: the script declines
+    // when they differ from what the caller read, so the rebuild runs again on what is there. A node
+    // registering for the first time is created from the same fields.
+    private static final String RECORD_INVENTORY = """
+            def node = ctx._source;
+            if (params.expected != null
+                    && (node.freeCpus != params.expected.freeCpus
+                        || node.freeMemoryMb != params.expected.freeMemoryMb
+                        || node.freeDiskMb != params.expected.freeDiskMb)) {
+                ctx.op = 'noop';
+            } else {
+                for (def field : params.inventory.entrySet()) {
+                    node[field.getKey()] = field.getValue();
+                }
             }
             """;
 
@@ -79,12 +112,38 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
     }
 
     /**
+     * Sets the condition on the node as it was read and records it; a node heard since that read, or
+     * one already carrying a condition of the type, is left as it is. Visible to search on completion.
+     *
+     * @param node      the node as read, whose {@code lastSeen} the write is conditional on
+     * @param condition the condition to set
+     * @param source    what caused it, for the ledger
+     * @return true when the condition was set
+     */
+    public Future<Boolean> setCondition(VmNode node, StatusCondition condition, String source) {
+        Validate.notNull(node, "node cannot be null");
+        Map<String, Object> params = new HashMap<>();
+        // the same mapper serializes the date the heartbeat wrote and this one, so the two compare as
+        // written; a node never heard has neither
+        if (node.getLastSeen() != null) {
+            params.put("lastSeen", node.getLastSeen());
+        }
+        return watchedStateRepository.setCondition(document(node.getId()), condition, source, SET_CONDITION_UNLESS_HEARD, params);
+    }
+
+    /**
      * Writes what a node reports at registration and the free capacity rebuilt from its workload
      * records — name, hostname, provider, totals, free capacity, data directory — and stamps
      * {@code lastSeen}, creating the record for a node registering for the first time. The node's
      * state and health message are left as they are. Visible to search on completion.
+     *
+     * @param node   what the node reports, with the free capacity rebuilt from its runs
+     * @param asRead the node's record as read before the rebuild, or null for a node registering for
+     *               the first time
+     * @return true when the inventory was written, false when the node's free capacity moved since
+     * the read it was rebuilt from
      */
-    public Future<Void> recordInventorySync(VmNode node) {
+    public Future<Boolean> recordInventorySync(VmNode node, VmNode asRead) {
         Validate.notNull(node, "node cannot be null");
         Validate.notBlank(node.getId(), "node id cannot be blank");
         Map<String, Object> inventory = new HashMap<>();
@@ -101,7 +160,16 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
         inventory.put("freeDiskMb", node.getFreeDiskMb());
         inventory.put("workloadDataDir", node.getWorkloadDataDir());
         inventory.put("lastSeen", new Date());
-        return crudServiceTemplate.partialUpdateSync(indexName, node.getId(), inventory, true);
+        Map<String, Object> params = new HashMap<>();
+        params.put("inventory", inventory);
+        if (asRead != null) {
+            params.put("expected", Map.of("freeCpus", asRead.getFreeCpus(),
+                                          "freeMemoryMb", asRead.getFreeMemoryMb(),
+                                          "freeDiskMb", asRead.getFreeDiskMb()));
+        }
+        return crudServiceTemplate.scriptedUpdateReturningSourceSync(indexName, node.getId(), RECORD_INVENTORY, params,
+                                                                     u -> u.upsert(inventory).scriptedUpsert(true))
+                                  .map(Objects::nonNull);
     }
 
     /**
@@ -118,9 +186,11 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
 
     /**
      * Takes a workload's room, the CPU, memory and disk it is sized for, from a node's {@code free*}
-     * fields in one shard operation, so two reservations can never both be granted the same capacity;
-     * visible to search on completion.
-     * @return true when the room is the workload's, false when the node does not have it
+     * fields while the node is in its desired state, in one shard operation, so two reservations can
+     * never both be granted the same capacity and a node that stopped taking workloads since it was
+     * picked grants none; visible to search on completion.
+     * @return true when the room is the workload's, false when the node does not have it or is not
+     * taking workloads
      */
     public Future<Boolean> reserveSync(String nodeId, Workload workload) {
         return crudServiceTemplate.scriptedUpdateSync(indexName, nodeId, RESERVE_SCRIPT, room(workload));
