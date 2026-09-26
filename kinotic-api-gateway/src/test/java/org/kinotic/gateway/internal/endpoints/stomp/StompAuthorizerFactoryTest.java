@@ -2,6 +2,7 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.event.ZonePartition;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
@@ -9,6 +10,7 @@ import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipan
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -16,13 +18,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies the zone routing rules enforced per participant type: the verb x participant x zone
- * matrix, dot-boundary prefix safety, and rejection of ids that cannot form a valid zone.
+ * matrix, dot-boundary prefix safety, and rejection of ids that cannot form a valid zone, on a server
+ * that serves every zone; and how a server's zone partition narrows them.
  */
 public class StompAuthorizerFactoryTest {
 
     private static final String REPLY_TO_ID = "reply-to-1";
 
-    private final StompAuthorizerFactory factory = new StompAuthorizerFactory();
+    private StompAuthorizerFactory factory = new StompAuthorizerFactory(ZonePartition.everyZone("test"));
 
     private StompAuthorizer applicationAuthorizer(String organizationId, String applicationId) {
         DefaultApplicationParticipant participant = DefaultApplicationParticipant.builder()
@@ -181,6 +184,38 @@ public class StompAuthorizerFactoryTest {
         StompAuthorizer organization = organizationAuthorizer("acme-org");
         assertTrue(organization.subscribeAllowed(CRI.create("srv://node.1.2@app.acme-org.orders-app~OrderService#1.0.0")));
         assertFalse(organization.subscribeAllowed(CRI.create("srv://node.1.2@app.other-org.orders-app~OrderService#1.0.0")));
+    }
+
+    @Test
+    public void theOrgServerRoutesOnlyToZonesItReaches() {
+        factory = new StompAuthorizerFactory(ZonePartition.of("org",
+                                                              Set.of("management-api"),
+                                                              Set.of("management-api", "system-api", "app-api")));
+        StompAuthorizer organization = organizationAuthorizer("acme-org");
+
+        assertTrue(organization.sendAllowed(CRI.create("srv://management-api~org.kinotic.management.api.services.iam.MemberService/findMembers#1.0.0")));
+        assertTrue(organization.sendAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
+        // the participant may address its applications' zones, but the org server does not reach them
+        assertFalse(organization.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
+        // nor host them, so an application's runtime cannot publish its services here
+        assertFalse(organization.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
+        // reply destinations carry no zone and pass the partition
+        assertTrue(organization.subscribeAllowed(CRI.create("reply://" + REPLY_TO_ID + ":sub-1@kinotic.js.EventBus/replyHandler")));
+    }
+
+    @Test
+    public void theAppServerHostsApplicationZonesOnly() {
+        factory = new StompAuthorizerFactory(ZonePartition.of("app", Set.of("app-api", "app"), Set.of("app-api", "app")));
+        StompAuthorizer organization = organizationAuthorizer("acme-org");
+
+        assertTrue(organization.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
+        assertTrue(organization.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
+        assertFalse(organization.sendAllowed(CRI.create("srv://management-api~org.kinotic.management.api.services.iam.MemberService/findMembers#1.0.0")));
+
+        // system participants may send anywhere, but only where this server reaches
+        StompAuthorizer system = systemAuthorizer();
+        assertFalse(system.sendAllowed(CRI.create("srv://system-api~org.kinotic.system.api.services.LogManager/query#1.0.0")));
+        assertFalse(system.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
     }
 
     @Test

@@ -5,6 +5,7 @@ import org.kinotic.core.api.utils.ZoneUtil;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -83,7 +84,8 @@ public final class ZonePartition {
      * @return true when the address has no zone or its zone is hosted here
      */
     public boolean hosts(String address) {
-        return covers(hostedZones, address);
+        String zone = ZoneUtil.zoneOf(address);
+        return zone == null || hostedZones == null || ZoneUtil.zoneMatches(zone, hostedZones);
     }
 
     /**
@@ -93,7 +95,24 @@ public final class ZonePartition {
      * @return true when the address has no zone or its zone is reachable from here
      */
     public boolean reaches(String address) {
-        return covers(reachableZones, address);
+        return reachesZone(ZoneUtil.zoneOf(address));
+    }
+
+    /**
+     * Whether this server routes to the zone.
+     *
+     * @param zone a zone, or {@code null} for an address without one
+     * @return true when the zone is {@code null} or reachable from here
+     */
+    public boolean reachesZone(String zone) {
+        return zone == null || reachableZones == null || ZoneUtil.zoneMatches(zone, reachableZones);
+    }
+
+    /**
+     * The zones this server reaches, each covering its sub-zones; empty for a server that reaches every zone.
+     */
+    public Optional<Set<String>> reachableZones() {
+        return Optional.ofNullable(reachableZones);
     }
 
     /**
@@ -104,17 +123,6 @@ public final class ZonePartition {
         Map<String, Object> ret = new HashMap<>();
         if (hostedZones != null) {
             hostedZones.forEach(zone -> ret.put(hostsAttribute(zone), Boolean.TRUE));
-        }
-        return ret;
-    }
-
-    private static boolean covers(Set<String> zones, String address) {
-        boolean ret;
-        if (zones == null) {
-            ret = true;
-        } else {
-            String zone = ZoneUtil.zoneOf(address);
-            ret = zone == null || ZoneUtil.zoneMatches(zone, zones);
         }
         return ret;
     }

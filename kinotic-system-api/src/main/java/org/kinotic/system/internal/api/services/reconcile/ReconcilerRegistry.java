@@ -2,10 +2,12 @@ package org.kinotic.system.internal.api.services.reconcile;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
+import org.kinotic.core.api.event.ZonePartition;
 import org.kinotic.domain.api.repositories.ReconcilableRepository;
 import org.kinotic.domain.api.services.Reconciler;
 import org.kinotic.domain.api.repositories.WatchedRepository;
 import org.kinotic.domain.api.model.WatchedType;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -48,10 +50,12 @@ public class ReconcilerRegistry {
         }
     }
 
-    // Every node requests the deployment; Ignite elects a single host for it cluster-wide
+    // Every node requests the deployment; Ignite elects a single host for it among the nodes hosting system-api,
+    // the only ones whose context holds the beans the master is injected with
     @EventListener(ApplicationReadyEvent.class)
     public void deployMaster() {
-        ignite.services().deployClusterSingleton(MASTER_SINGLETON_NAME, new ReconcileMaster());
+        ignite.services(ignite.cluster().forAttribute(ZonePartition.hostsAttribute(DomainUtil.SYSTEM_API_ZONE), true))
+              .deployClusterSingleton(MASTER_SINGLETON_NAME, new ReconcileMaster());
     }
 
     /**

@@ -1,10 +1,12 @@
 package org.kinotic.system.internal.api.services.workload;
 
 import io.vertx.core.Future;
+import org.kinotic.core.api.event.ZonePartition;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
+import org.kinotic.domain.api.utils.DomainUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -53,10 +55,12 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     private final LokiClient lokiClient;
     private final Ignite ignite;
 
-    // Every node requests the deployment; Ignite elects a single host for it cluster-wide
+    // Every node requests the deployment; Ignite elects a single host for it among the nodes hosting system-api,
+    // the only ones whose context holds the beans the sweep is injected with
     @EventListener(ApplicationReadyEvent.class)
     public void deployRetentionSweep() {
-        ignite.services().deployClusterSingleton(WorkloadCleanupService.SINGLETON_NAME, new WorkloadCleanupService());
+        ignite.services(ignite.cluster().forAttribute(ZonePartition.hostsAttribute(DomainUtil.SYSTEM_API_ZONE), true))
+              .deployClusterSingleton(WorkloadCleanupService.SINGLETON_NAME, new WorkloadCleanupService());
     }
 
     // A call the bus could not deliver, or whose serving node left, is the earliest sign a node is gone;

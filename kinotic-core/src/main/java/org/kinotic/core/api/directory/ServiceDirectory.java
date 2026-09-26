@@ -43,10 +43,11 @@ public interface ServiceDirectory {
                                                 String applicationId);
 
     /**
-     * Returns the online MCP tools the given scope may call, mirroring the zone send rules enforced at call time:
-     * a system scope (both ids null) sees all tools, an organization scope sees {@code management-api}- and
-     * {@code app-api}-zone tools, and an application scope sees its own {@code app.<org>.<app>}-zone tools plus
-     * {@code app-api}-zone tools.
+     * Returns the online MCP tools the given scope may call through this server, mirroring the zone send rules
+     * enforced at call time: a system scope (both ids null) sees all tools, an organization scope sees
+     * {@code management-api}- and {@code app-api}-zone tools, and an application scope sees its own
+     * {@code app.<org>.<app>}-zone tools plus {@code app-api}-zone tools, each zone with its sub-zones, and each
+     * scope only in the zones this server's {@link org.kinotic.core.api.event.ZonePartition} reaches.
      * @param organizationId the calling scope's organization, or null for a system scope
      * @param applicationId the calling scope's application, or null
      * @param pageable the {@link CursorPageable} to use, because the MCP spec only supports cursor.
