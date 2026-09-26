@@ -2,8 +2,8 @@ package org.kinotic.persistence.internal.api.services.security;
 
 import io.vertx.core.Future;
 import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.persistence.api.model.EntityDefinition;
-import org.kinotic.persistence.api.model.EntityOperation;
+import org.kinotic.domain.api.model.persistence.EntityDefinition;
+import org.kinotic.domain.api.model.persistence.EntityOperation;
 import org.kinotic.persistence.api.model.NamedQueryOperation;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;

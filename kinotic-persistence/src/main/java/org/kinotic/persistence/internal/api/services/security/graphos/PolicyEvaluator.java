@@ -2,7 +2,7 @@ package org.kinotic.persistence.internal.api.services.security.graphos;
 
 
 import io.vertx.core.Future;
-import org.kinotic.persistence.api.model.EntityContext;
+import org.kinotic.domain.api.model.persistence.EntityContext;
 
 /**
  * Responsible for evaluating GraphOS policies for a given security context

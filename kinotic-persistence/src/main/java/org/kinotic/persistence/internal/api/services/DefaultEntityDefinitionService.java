@@ -13,13 +13,13 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.model.EntityDefinition;
-import org.kinotic.persistence.api.model.EntityDescriptor;
-import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
+import org.kinotic.domain.api.model.persistence.EntityDefinition;
+import org.kinotic.domain.api.model.persistence.EntityDescriptor;
+import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.services.EntityDefinitionService;
 import org.kinotic.persistence.internal.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
-import org.kinotic.persistence.internal.utils.PersistenceUtil;
+import org.kinotic.domain.api.utils.PersistenceUtil;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 

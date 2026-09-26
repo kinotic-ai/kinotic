@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.api.services.sql;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import org.kinotic.persistence.api.model.EntityContext;
+import org.kinotic.domain.api.model.persistence.EntityContext;
 import org.kinotic.persistence.api.model.ParameterHolder;
 import org.kinotic.persistence.api.model.QueryOptions;
 

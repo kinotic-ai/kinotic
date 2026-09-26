@@ -1,7 +1,7 @@
 package org.kinotic.persistence.api.services.security;
 
 import io.vertx.core.Future;
-import org.kinotic.persistence.api.model.EntityContext;
+import org.kinotic.domain.api.model.persistence.EntityContext;
 
 /**
  * The {@link AuthorizationService} is responsible for authorizing a given action

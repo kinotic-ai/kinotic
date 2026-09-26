@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.services.security;
 
 import io.vertx.core.Future;
-import org.kinotic.persistence.api.model.EntityContext;
+import org.kinotic.domain.api.model.persistence.EntityContext;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 
 public class NoopAuthorizationService<T> implements AuthorizationService<T> {

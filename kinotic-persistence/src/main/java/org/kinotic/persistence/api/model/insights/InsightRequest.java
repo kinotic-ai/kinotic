@@ -3,7 +3,7 @@ package org.kinotic.persistence.api.model.insights;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.domain.api.model.persistence.EntityDefinition;
 
 /**
  * Represents a request for AI-powered data analysis and visualization generation.

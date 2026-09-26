@@ -4,11 +4,11 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.persistence.api.model.EntityDescriptor;
+import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.persistence.api.model.NamedQueryOperation;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
-import org.kinotic.persistence.internal.utils.PersistenceUtil;
+import org.kinotic.domain.api.utils.PersistenceUtil;
 
 import java.util.List;
 

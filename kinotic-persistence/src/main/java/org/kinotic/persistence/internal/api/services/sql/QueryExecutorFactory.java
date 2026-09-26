@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.services.sql;
 
-import org.kinotic.persistence.api.model.NamedQueriesDefinition;
-import org.kinotic.persistence.api.model.EntityDescriptor;
+import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
+import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.persistence.internal.api.services.sql.executors.QueryExecutor;
 
 /**

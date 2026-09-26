@@ -1,7 +1,7 @@
 package org.kinotic.persistence.api.services.security.graphos;
 
 import io.vertx.core.Future;
-import org.kinotic.persistence.api.model.EntityContext;
+import org.kinotic.domain.api.model.persistence.EntityContext;
 
 import java.util.List;
 

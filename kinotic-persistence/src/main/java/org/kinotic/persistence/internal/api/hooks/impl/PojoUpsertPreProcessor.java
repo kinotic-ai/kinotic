@@ -2,7 +2,7 @@ package org.kinotic.persistence.internal.api.hooks.impl;
 
 import io.vertx.core.Future;
 import org.apache.commons.lang3.NotImplementedException;
-import org.kinotic.persistence.api.model.EntityContext;
+import org.kinotic.domain.api.model.persistence.EntityContext;
 import org.kinotic.persistence.internal.api.hooks.UpsertPreProcessor;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
 
