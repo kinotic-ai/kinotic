@@ -19,6 +19,13 @@ export interface IUiDeploymentService {
     findAllForProject(projectId: string): Promise<UiDeployment[]>
 
     /**
+     * Lists the UI deployments of all the projects of one of the caller's organization's
+     * applications, ordered by UI name. An application whose projects never published a UI has none.
+     * @param applicationId an application belonging to the caller's organization
+     */
+    findAllForApplication(applicationId: string): Promise<UiDeployment[]>
+
+    /**
      * Lists what happened to one of the caller's organization's UI deployments and to the uploads
      * it ran, newest first: each change of what the deployment should be and of what it is, each
      * status an upload's run passed through, and each mark set beside them, with what caused it.
@@ -47,6 +54,10 @@ export class UiDeploymentService implements IUiDeploymentService {
 
     public findAllForProject(projectId: string): Promise<UiDeployment[]> {
         return this.serviceProxy.invoke('findAllForProject', [projectId])
+    }
+
+    public findAllForApplication(applicationId: string): Promise<UiDeployment[]> {
+        return this.serviceProxy.invoke('findAllForApplication', [applicationId])
     }
 
     public async findHistory(deploymentId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>> {

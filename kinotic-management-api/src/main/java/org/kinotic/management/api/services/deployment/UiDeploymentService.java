@@ -30,6 +30,16 @@ public interface UiDeploymentService {
     Future<List<UiDeployment>> findAllForProject(String projectId);
 
     /**
+     * Lists the UI deployments of all the projects of one of the caller's organization's
+     * applications, ordered by UI name. An application whose projects never published a UI has none.
+     *
+     * @param applicationId an application belonging to the caller's organization
+     * @return a future emitting the deployments, empty when the application has none
+     */
+    @McpTool
+    Future<List<UiDeployment>> findAllForApplication(String applicationId);
+
+    /**
      * Lists what happened to one of the caller's organization's UI deployments and to the uploads
      * it ran, newest first: each change of what the deployment should be and of what it is, each
      * status an upload's run passed through, and each mark set beside them, with what caused it.

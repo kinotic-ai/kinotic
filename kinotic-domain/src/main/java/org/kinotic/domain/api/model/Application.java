@@ -36,6 +36,12 @@ public class Application implements OrganizationScoped<String> {
      */
     private boolean tenantPerUser = false;
 
+    /**
+     * Name of the UI whose site this application's browser flows return to, such as its OAuth consent
+     * page: one of the application's published UIs, or {@code null} until the owner designates one.
+     */
+    private String primaryUiId;
+
     private Date updated = null;
 
     public Application(String name, String description) {
