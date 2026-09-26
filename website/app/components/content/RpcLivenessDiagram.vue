@@ -20,7 +20,7 @@ defineProps<{ view?: 'overview' | 'failure' }>()
       <text class="t-tag" x="24" y="26">CALLERS · EACH HOLDS PENDING REQUESTS</text>
 
       <rect class="node" x="40" y="40" width="300" height="104" rx="8"/>
-      <text class="t-name" x="190" y="62" text-anchor="middle">Java caller · any kinotic-server node</text>
+      <text class="t-name" x="190" y="62" text-anchor="middle">Java caller · any server node</text>
       <line class="sep" x1="56" y1="70" x2="324" y2="70"/>
       <text class="t-mono" x="190" y="87" text-anchor="middle">@Proxy → DefaultRpcServiceProxyHandle</text>
       <text class="t-mono" x="190" y="102" text-anchor="middle">responseMap · one lease per correlationId</text>
@@ -40,7 +40,7 @@ defineProps<{ view?: 'overview' | 'failure' }>()
 
       <!-- gateway -->
       <rect class="gw" x="700" y="206" width="400" height="150" rx="8"/>
-      <text class="t-name" x="900" y="228" text-anchor="middle">kinotic-server gateway · in the cluster</text>
+      <text class="t-name" x="900" y="228" text-anchor="middle">server gateway · in the cluster</text>
       <line class="sep" x1="716" y1="236" x2="1084" y2="236"/>
       <text class="t-plane-ind" x="716" y="254">CALLER SIDE · IncomingInvocations, the client's calls in</text>
       <text class="t-mono" x="716" y="270">reply consumer + pending records, one lease each</text>

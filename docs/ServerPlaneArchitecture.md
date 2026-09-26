@@ -1,7 +1,10 @@
 # Server Plane Architecture — Decision Record
 
-Status: **accepted** (design session, 2026-08-09). Nothing here is implemented yet; this
-records the decisions and the pre-work the implementation must respect.
+Status: **superseded** by the three-server split: `kinotic-org-server`, `kinotic-system-server`
+and `kinotic-app-server`, each public at its own host, in one Ignite cluster partitioned by zone.
+The current shape is on the website's Defense in Depth page, under Network Architecture
+(`website/content/02.platform/06.defense-in-depth.md`); this record keeps the reasoning of the
+design session of 2026-08-09.
 
 ## Context
 
