@@ -58,6 +58,12 @@ public class DomainUtil {
      */
     public static final String APP_ZONE_PREFIX = "app";
 
+    /**
+     * The prefix of the Elasticsearch indices the platform creates, including the index that holds
+     * the items of each published EntityDefinition
+     */
+    public static final String INDEX_PREFIX = "kinotic_";
+
     // Organization ids beginning with this prefix belong to the platform, which needs an
     // organization wherever it is its own tenant — the owner of VM workloads the OS runs for
     // the OS, for instance

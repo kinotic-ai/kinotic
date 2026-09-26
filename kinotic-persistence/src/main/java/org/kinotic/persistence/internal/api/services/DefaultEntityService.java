@@ -18,7 +18,7 @@ import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.persistence.api.config.PersistenceProperties;
+import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.persistence.api.model.*;
 import org.kinotic.domain.api.model.persistence.*;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
@@ -55,7 +55,7 @@ public class DefaultEntityService implements EntityService {
     private final ObjectMapper objectMapper;
     private final ReadPreProcessor readPreProcessor;
     private final EntityDescriptor entityDescriptor;
-    private final PersistenceProperties persistenceProperties;
+    private final DomainPersistenceProperties domainPersistenceProperties;
 
     @WithSpan
     @Override
@@ -496,7 +496,7 @@ public class DefaultEntityService implements EntityService {
             if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
                 String tenantIdFieldName
                         = entityDescriptor.isMultiTenantSelectionEnabled()
-                        ? entityDescriptor.tenantIdFieldName() : persistenceProperties.getTenantIdFieldName();
+                        ? entityDescriptor.tenantIdFieldName() : domainPersistenceProperties.getTenantIdFieldName();
 
                 List<Object> result = new ArrayList<>(page.getContent().size());
                 Set<String> tenantIds = Collections.emptySet();

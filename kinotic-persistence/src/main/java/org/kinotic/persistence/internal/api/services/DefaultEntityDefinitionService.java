@@ -12,6 +12,7 @@ import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
+import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
@@ -37,12 +38,14 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final EntityDefinitionConversionService entityDefinitionConversionService;
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final PersistenceProperties persistenceProperties;
+    private final DomainPersistenceProperties domainPersistenceProperties;
 
     public DefaultEntityDefinitionService(ApplicationEventPublisher eventPublisher,
                                           CrudServiceTemplate crudServiceTemplate,
                                           EntityDefinitionConversionService entityDefinitionConversionService,
                                           EntityDefinitionRepository entityDefinitionRepository,
                                           PersistenceProperties persistenceProperties,
+                                          DomainPersistenceProperties domainPersistenceProperties,
                                           SecurityContext securityContext) {
         super(entityDefinitionRepository, securityContext);
         this.eventPublisher = eventPublisher;
@@ -50,6 +53,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         this.entityDefinitionConversionService = entityDefinitionConversionService;
         this.entityDefinitionRepository = entityDefinitionRepository;
         this.persistenceProperties = persistenceProperties;
+        this.domainPersistenceProperties = domainPersistenceProperties;
     }
 
     @WithSpan
@@ -90,7 +94,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             entityDefinition.setCreated(new Date());
             entityDefinition.setUpdated(entityDefinition.getCreated());
             // Store name of the elastic search index for items
-            entityDefinition.setItemIndex(this.persistenceProperties.getIndexPrefix() + logicalIndexName);
+            entityDefinition.setItemIndex(DomainUtil.INDEX_PREFIX + logicalIndexName);
 
             ElasticConversionResult result = entityDefinitionConversionService.convertToElasticMapping(entityDefinition);
 
@@ -269,11 +273,11 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     if (entityDefinition.isPublished()) {
                         if (!existingDescriptor.isMultiTenantSelectionEnabled()
                                 && descriptor.isMultiTenantSelectionEnabled()
-                                && !persistenceProperties.getTenantIdFieldName()
-                                                         .equals(entityDefinition.getTenantIdFieldName())) {
+                                && !domainPersistenceProperties.getTenantIdFieldName()
+                                                               .equals(entityDefinition.getTenantIdFieldName())) {
                             return Future.failedFuture(
                                     new IllegalArgumentException(
-                                            "When enabling multi-tenant selection for an existing published EntityDefinition, the tenantId field must be set to: " + persistenceProperties.getTenantIdFieldName()));
+                                            "When enabling multi-tenant selection for an existing published EntityDefinition, the tenantId field must be set to: " + domainPersistenceProperties.getTenantIdFieldName()));
                         }
 
                         if (!existingDescriptor.isStream() && descriptor.isStream()) {
