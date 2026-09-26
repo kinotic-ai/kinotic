@@ -52,33 +52,38 @@ public interface ServiceDirectoryStrategy {
 
     /**
      * Corrects the liveness of every entry against the full set of currently active service addresses: entries
-     * whose address is present become online, all others become offline.
+     * whose address is present become online, all others become offline. Every entry takes the
+     * snapshot's time as its last verification, so a liveness write observed before the snapshot
+     * cannot land on any entry after it.
      * @param activeAddresses the complete snapshot of service addresses with registered listeners
-     * @param when the time of the correction
+     * @param when the time the snapshot was taken
      * @return a {@link Future} completing when all entries are corrected
      */
     Future<Void> reconcileLiveness(Set<String> activeAddresses, Instant when);
 
     /**
-     * Sets the liveness fields of the entry with the given id.
+     * Sets the liveness of the entry with the given id as observed at the given time; an observation
+     * earlier than the entry's last verification leaves the entry as it is.
      * @param entryId the entry id
      * @param online the liveness state
-     * @param when the time of the state change
+     * @param when the time the liveness was observed
      * @return a {@link Future} completing when the entry is updated
      */
     Future<Void> setOnline(String entryId, boolean online, Instant when);
 
     /**
-     * Sets the liveness fields of the entry with the given service address.
+     * Sets the liveness of the entry with the given service address as observed at the given time; an
+     * observation earlier than the entry's last verification leaves the entry as it is.
      * @param serviceAddress the service address of the entry
      * @param online the liveness state
-     * @param when the time of the state change
+     * @param when the time the liveness was observed
      * @return a {@link Future} completing when the entry is updated
      */
     Future<Void> setOnlineByAddress(String serviceAddress, boolean online, Instant when);
 
     /**
-     * Upserts an entry, leaving the liveness fields ({@code online}, {@code lastStatusChange}) untouched.
+     * Upserts an entry, leaving the liveness fields ({@code online}, {@code lastStatusChange},
+     * {@code livenessVerifiedAt}) untouched.
      * @param entry the entry to upsert
      * @return a {@link Future} completing when the entry is stored
      */
