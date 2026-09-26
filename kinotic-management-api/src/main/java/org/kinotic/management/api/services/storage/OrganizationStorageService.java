@@ -12,23 +12,26 @@ import java.time.Duration;
 public interface OrganizationStorageService {
 
     /**
-     * Issues the URL a workload writes one file through until {@code ttl} has passed: the file,
-     * with a query carrying a SAS that allows creating and writing it alone.
+     * Issues the URL a workload writes a project's SBOM through until {@code ttl} has passed: the
+     * project's one SBOM file, with a query carrying a SAS that allows creating and writing that
+     * file alone.
      *
-     * @param file the file, a path within the container
-     * @param ttl  how long the SAS stays valid
+     * @param organizationId the organization the project belongs to
+     * @param projectId      the project
+     * @param ttl            how long the SAS stays valid
      * @return a future emitting the write URL
      */
-    Future<String> issueWriteUrl(String file, Duration ttl);
+    Future<String> issueSbomWriteUrl(String organizationId, String projectId, Duration ttl);
 
     /**
-     * Issues the URL one file can be read from until {@code ttl} has passed: the file, with a
-     * query carrying a SAS that allows reading it alone.
+     * Issues the URL a project's SBOM can be read from until {@code ttl} has passed: the project's
+     * one SBOM file, with a query carrying a SAS that allows reading that file alone.
      *
-     * @param file the file, a path within the container
-     * @param ttl  how long the SAS stays valid
+     * @param organizationId the organization the project belongs to
+     * @param projectId      the project
+     * @param ttl            how long the SAS stays valid
      * @return a future emitting the read URL
      */
-    Future<String> issueReadUrl(String file, Duration ttl);
+    Future<String> issueSbomReadUrl(String organizationId, String projectId, Duration ttl);
 
 }

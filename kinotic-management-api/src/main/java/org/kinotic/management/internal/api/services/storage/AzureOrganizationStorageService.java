@@ -3,6 +3,7 @@ package org.kinotic.management.internal.api.services.storage;
 import com.azure.storage.file.datalake.sas.PathSasPermission;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.management.api.services.storage.AzureStorageUrlIssuer;
 import org.kinotic.management.api.services.storage.OrganizationStorageService;
@@ -28,14 +29,25 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
     }
 
     @Override
-    public Future<String> issueWriteUrl(String file, Duration ttl) {
-        return organizations.issueFileUrl(CONTAINER, file, ttl,
+    public Future<String> issueSbomWriteUrl(String organizationId, String projectId, Duration ttl) {
+        return organizations.issueFileUrl(CONTAINER, sbomFile(organizationId, projectId), ttl,
                                           new PathSasPermission().setCreatePermission(true).setWritePermission(true));
     }
 
     @Override
-    public Future<String> issueReadUrl(String file, Duration ttl) {
-        return organizations.issueFileUrl(CONTAINER, file, ttl, new PathSasPermission().setReadPermission(true));
+    public Future<String> issueSbomReadUrl(String organizationId, String projectId, Duration ttl) {
+        return organizations.issueFileUrl(CONTAINER, sbomFile(organizationId, projectId), ttl,
+                                          new PathSasPermission().setReadPermission(true));
+    }
+
+    /**
+     * A project's one SBOM file: {@code <organizationId>/sboms/<projectId>.cdx.json}. Everything the
+     * platform keeps for an organization sits under its directory, partitioned by use.
+     */
+    private static String sbomFile(String organizationId, String projectId) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        Validate.notBlank(projectId, "projectId cannot be blank");
+        return organizationId + "/sboms/" + projectId + ".cdx.json";
     }
 
 }
