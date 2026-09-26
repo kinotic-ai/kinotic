@@ -4,10 +4,10 @@
     <span v-else class="text-xs text-muted-color">Waiting for the sync workload's artifact report</span>
   </template>
   <template v-else>
-    <div v-if="sbom" class="mb-2 text-xs text-muted-color">
-      {{ sbomGenerated ? 'Generated the SBOM' : 'The dependencies are unchanged' }}: {{ sbom.componentCount }} components
+    <div v-if="sbomGenerated !== null" class="mb-2 text-xs text-muted-color">
+      {{ sbomGenerated ? 'Generated the SBOM' : 'The dependencies are unchanged' }}
     </div>
-    <template v-if="!sbom || sbomGenerated">
+    <template v-if="sbomGenerated !== false">
       <WorkloadLogView v-if="workloadId" :key="workloadId" :organization-id="organizationId" :workload-id="workloadId" :run="run" />
       <span v-else class="text-xs text-muted-color">Waiting for the deployment target</span>
     </template>
@@ -37,9 +37,7 @@ const props = defineProps<{
 }>()
 
 const artifacts = computed(() => ProjectDeployStores.artifactsOf(props.node))
-const sbom = computed(() => ProjectDeployStores.sbomOf(props.node))
-// an SBOM recorded after the task started is the one its workload generated; an older one was kept
-const sbomGenerated = computed(() => sbom.value !== null && props.node.started !== null && sbom.value.generated >= props.node.started)
+const sbomGenerated = computed(() => ProjectDeployStores.sbomGeneratedOf(props.node))
 const workloadId = computed(() => ProjectDeployStores.workloadLogOf(props.node, props.root))
 // The workload ran for this task, so the task's own span is the window its log falls in
 const run = computed<WorkloadRun>(() => ({ started: props.node.started, finished: props.node.finished }))

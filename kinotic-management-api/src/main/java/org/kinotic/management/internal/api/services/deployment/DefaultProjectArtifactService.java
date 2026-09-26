@@ -11,13 +11,11 @@ import org.kinotic.domain.api.model.security.participant.OrganizationParticipant
 import org.kinotic.management.api.model.deployment.MicroserviceArtifact;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
-import org.kinotic.management.api.model.deployment.ProjectSbom;
 import org.kinotic.management.api.model.deployment.UiArtifact;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.services.deployment.ProjectArtifactService;
 import org.springframework.stereotype.Component;
 
-import java.util.Date;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -46,15 +44,14 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
                     boolean sameDependencies = deployment.getArtifacts() != null
                             && Objects.equals(deployment.getArtifacts().dependencyHash(), artifacts.dependencyHash());
                     return projectDeploymentRepository.recordArtifacts(projectId, participant.getOrganizationId(), artifacts,
-                                                                       sameDependencies ? deployment.getSbom() : null);
+                                                                       sameDependencies && deployment.isSbomGenerated());
                 });
     }
 
     @Override
-    public Future<Void> recordSbom(String projectId, String dependencyHash, int componentCount) {
+    public Future<Void> recordSbom(String projectId, String dependencyHash) {
         Validate.notBlank(projectId, "projectId is required");
         Validate.notBlank(dependencyHash, "dependencyHash is required");
-        Validate.isTrue(componentCount >= 0, "componentCount cannot be negative");
         OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
         return findForSyncMachine(projectId, participant)
                 .compose(deployment -> {
@@ -62,8 +59,7 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
                     // must have been generated from those
                     Validate.isTrue(deployment.getArtifacts() != null && dependencyHash.equals(deployment.getArtifacts().dependencyHash()),
                                     "Dependency hash %s is not the one the sync workload of project %s last reported", dependencyHash, projectId);
-                    return projectDeploymentRepository.recordSbom(projectId, participant.getOrganizationId(),
-                                                                  new ProjectSbom(componentCount, new Date()));
+                    return projectDeploymentRepository.recordSbomGenerated(projectId, participant.getOrganizationId());
                 });
     }
 

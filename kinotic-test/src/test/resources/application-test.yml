@@ -10,9 +10,8 @@ kinotic:
       appPrivateKey: "-"
       webhookSecret: "-"
       repoTemplate: "-"
-    # placeholder organization storage, validated at boot; no test generates an SBOM
-    organizationStorage:
-      blobEndpoint: "-"
+    # placeholder organization storage account, validated at boot; no test generates an SBOM
+    organizationsStorageEndpoint: "-"
   maxNumberOfCoresToUse: 4
   systemApi:
     deployment:

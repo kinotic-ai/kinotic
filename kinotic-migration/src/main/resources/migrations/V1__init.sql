@@ -44,9 +44,9 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
 -- reconcilable record what it should be (state.desired, the commit its last push asked for), what
 -- it is (state.observed, the phase it is in and the commit it serves), the generations that tie
 -- the two, deletionRequested and reconciled. failureMessage keeps the reason a deployment failed.
--- sbom is the SBOM of the dependencies artifacts lists, dropped when a sync reports other
--- dependencies; its CycloneDX document is organizations/<organizationId>/sboms/<projectId>.cdx.json
--- in the organization storage account. One row per project; id equals the projectId.
+-- sbomGenerated says whether the project's SBOM, organizations/<organizationId>/sboms/<projectId>.cdx.json
+-- in the organization storage account, lists the dependencies artifacts lists; a sync that reports
+-- other dependencies clears it. One row per project; id equals the projectId.
 CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     id KEYWORD,
     organizationId KEYWORD,
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
         uis OBJECT (name KEYWORD, dir KEYWORD),
         dependencyHash KEYWORD
     ),
-    sbom OBJECT (componentCount INTEGER, generated DATE),
+    sbomGenerated BOOLEAN,
     lastJobRunId KEYWORD,
     failureMessage TEXT,
     state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),

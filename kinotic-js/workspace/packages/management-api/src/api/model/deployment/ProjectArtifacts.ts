@@ -22,7 +22,7 @@ export interface ProjectArtifacts {
     /**
      * A fingerprint of the dependencies the checkout installed: a SHA-256 of its bun.lock and of
      * the SBOM generator's version, so two commits with the same fingerprint have the same
-     * ProjectSbom. Null when the checkout has no bun.lock.
+     * SBOM. Null when the checkout has no bun.lock.
      */
     dependencyHash: string | null
 }

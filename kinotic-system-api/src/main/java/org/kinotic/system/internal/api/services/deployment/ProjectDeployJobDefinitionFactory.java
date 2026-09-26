@@ -16,7 +16,6 @@ import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
-import org.kinotic.management.api.model.deployment.ProjectSbom;
 import org.kinotic.management.api.model.deployment.UiDeployment;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
@@ -160,10 +159,10 @@ public class ProjectDeployJobDefinitionFactory {
                     }
                 }), Store.state(ProjectDeployStores.UI_DEPLOYMENTS).wire());
         if (!properties.getSystemApi().getDeployment().isDisableSbom()) {
-            // Store.state: the SBOM the run left the project with, so a resume keeps it rather than
-            // generating it again; wired so the console shows it, and can tail the SBOM workload's
-            // logs before that through the target
-            definition.task(Tasks.fromCallable("Generate SBOM", new Callable<CompletableFuture<ProjectSbom>>() {
+            // Store.state: whether the run generated the SBOM, so a resume keeps the outcome rather
+            // than generating it again; wired so the console shows it, and can tail the SBOM
+            // workload's logs before that through the target
+            definition.task(Tasks.fromCallable("Generate SBOM", new Callable<CompletableFuture<Boolean>>() {
 
                 @Autowired
                 private DeployTarget target;
@@ -172,7 +171,7 @@ public class ProjectDeployJobDefinitionFactory {
                 private ProjectArtifacts artifacts;
 
                 @Override
-                public CompletableFuture<ProjectSbom> call() {
+                public CompletableFuture<Boolean> call() {
                     return generateSbom(project, target, artifacts).toCompletionStage().toCompletableFuture();
                 }
             }), Store.state(ProjectDeployStores.SBOM).wire());
@@ -395,23 +394,23 @@ public class ProjectDeployJobDefinitionFactory {
     }
 
     /**
-     * Keeps the project's SBOM current: when the project has no SBOM of the dependencies the sync
-     * workload reported, a foreground SBOM workload generates it from the checkout, uploads it over
-     * the project's SBOM file in the organization storage account through a URL scoped to that
-     * file, and records it; otherwise no workload runs and the SBOM stays. Fails when the checkout
-     * has no bun.lock.
+     * Keeps the project's SBOM current: when the project's SBOM file does not list the dependencies
+     * the sync workload reported, a foreground SBOM workload generates it from the checkout, uploads
+     * it over that file in the organization storage account through a URL scoped to the file, and
+     * records it; otherwise no workload runs and the SBOM stays. Emits whether this run generated
+     * the SBOM, and fails when the checkout has no bun.lock.
      */
-    private Future<ProjectSbom> generateSbom(Project project, DeployTarget target, ProjectArtifacts artifacts) {
-        return findSbom(project)
-                .compose(current -> {
-                    Future<ProjectSbom> ret;
+    private Future<Boolean> generateSbom(Project project, DeployTarget target, ProjectArtifacts artifacts) {
+        return sbomGenerated(project)
+                .compose(generated -> {
+                    Future<Boolean> ret;
                     if (artifacts.dependencyHash() == null) {
                         ret = Future.failedFuture(new IllegalStateException("The checkout of project " + project.getId() + " at "
                                 + artifacts.commitSha() + " has no bun.lock, which its SBOM is generated from"));
-                    } else if (current != null) {
-                        // recordArtifacts drops the SBOM when the dependencies change, so one still
-                        // recorded lists the dependencies of this run
-                        ret = Future.succeededFuture(current);
+                    } else if (generated) {
+                        // recordArtifacts clears the flag when the dependencies change, so a set flag
+                        // means the SBOM lists the dependencies of this run
+                        ret = Future.succeededFuture(false);
                     } else {
                         ret = organizationStorageService.issueWriteUrl(OrganizationStoragePaths.sbomFile(project.getOrganizationId(), project.getId()),
                                                                        SBOM_UPLOAD_URL_TTL)
@@ -420,23 +419,23 @@ public class ProjectDeployJobDefinitionFactory {
                                         .map(credentials -> projectWorkloadFactory.sbom(project, target, credentials, url)))
                                 .compose(workloadOrchestrationService::deployWorkload)
                                 .compose(finished -> requireSucceeded(finished, "SBOM"))
-                                .compose(workloadId -> findSbom(project))
+                                .compose(workloadId -> sbomGenerated(project))
                                 .map(recorded -> {
-                                    if (recorded == null) {
+                                    if (!recorded) {
                                         throw new IllegalStateException("The SBOM workload of project " + project.getId()
                                                 + " did not record the SBOM of " + artifacts.commitSha());
                                     }
-                                    return recorded;
+                                    return true;
                                 });
                     }
                     return ret;
                 });
     }
 
-    // The SBOM the project's deployment records, or null when it has none of its current dependencies
-    private Future<ProjectSbom> findSbom(Project project) {
+    // Whether the project's SBOM file lists the dependencies its deployment records
+    private Future<Boolean> sbomGenerated(Project project) {
         return projectDeploymentRepository.findById(project.getId(), project.getOrganizationId())
-                .map(deployment -> deployment != null ? deployment.getSbom() : null);
+                .map(deployment -> deployment != null && deployment.isSbomGenerated());
     }
 
     /**

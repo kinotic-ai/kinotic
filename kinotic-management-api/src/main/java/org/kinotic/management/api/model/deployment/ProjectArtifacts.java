@@ -12,7 +12,7 @@ import java.util.List;
  * @param uis            the UI artifacts, empty when the commit has none
  * @param dependencyHash a fingerprint of the dependencies the checkout installed: a SHA-256 of its
  *                       {@code bun.lock} and of the SBOM generator's version, so two commits with
- *                       the same fingerprint have the same {@link ProjectSbom}. {@code null} when
+ *                       the same fingerprint have the same SBOM. {@code null} when
  *                       the checkout has no {@code bun.lock}
  */
 public record ProjectArtifacts(String commitSha,

@@ -1,4 +1,4 @@
-import type { ProjectArtifacts, ProjectSbom } from '@kinotic-ai/management-api'
+import type { ProjectArtifacts } from '@kinotic-ai/management-api'
 import type { JobTaskNode } from '../grind/JobTaskNode'
 
 /** Mirrors DeployTarget on the server: what a deployment run's first task decided. */
@@ -33,11 +33,14 @@ export default class ProjectDeployStores {
     return ret
   }
 
-  /** The SBOM the task left the project with, or null while the task has not completed. */
-  public static sbomOf(node: JobTaskNode): ProjectSbom | null {
-    let ret: ProjectSbom | null = null
-    if (node.storedName === ProjectDeployStores.SBOM && node.storedValue !== null && node.storedValue !== undefined) {
-      ret = node.storedValue as ProjectSbom
+  /**
+   * Whether the SBOM task generated the project's SBOM, false when the dependencies were unchanged,
+   * or null for another task or while the task has not completed.
+   */
+  public static sbomGeneratedOf(node: JobTaskNode): boolean | null {
+    let ret: boolean | null = null
+    if (node.storedName === ProjectDeployStores.SBOM && typeof node.storedValue === 'boolean') {
+      ret = node.storedValue
     }
     return ret
   }

@@ -32,9 +32,8 @@ public interface ProjectArtifactService {
      *
      * @param projectId      the project whose checkout the SBOM was generated from
      * @param dependencyHash the fingerprint of the dependencies the document lists
-     * @param componentCount how many components the document lists
      * @return a future completing once the deployment record holds the SBOM
      */
-    Future<Void> recordSbom(String projectId, String dependencyHash, int componentCount);
+    Future<Void> recordSbom(String projectId, String dependencyHash);
 
 }

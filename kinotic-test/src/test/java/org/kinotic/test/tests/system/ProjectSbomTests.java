@@ -11,7 +11,6 @@ import org.kinotic.management.api.model.deployment.DeploymentStatusType;
 import org.kinotic.management.api.model.deployment.MicroserviceArtifact;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
-import org.kinotic.management.api.model.deployment.ProjectSbom;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.management.api.services.deployment.ProjectArtifactService;
@@ -26,7 +25,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -66,22 +65,9 @@ public class ProjectSbomTests extends KinoticTestBase {
     public void theSyncMachineRecordsTheSbomOfTheDependenciesItReported() throws Exception {
         String projectId = deployedProject("sbom-recorded");
 
-        await(runAs(syncMachine(), () -> projectArtifactService.recordSbom(projectId, "hash-1", 42)));
+        await(runAs(syncMachine(), () -> projectArtifactService.recordSbom(projectId, "hash-1")));
 
-        ProjectSbom sbom = await(runAsOrganization(() -> projectService.findDeployment(projectId))).getSbom();
-        assertNotNull(sbom);
-        assertEquals(42, sbom.componentCount());
-        assertNotNull(sbom.generated());
-    }
-
-    @Test
-    public void aLaterSbomReplacesTheProjectsEarlierOne() throws Exception {
-        String projectId = deployedProject("sbom-replaced");
-        await(runAs(syncMachine(), () -> projectArtifactService.recordSbom(projectId, "hash-1", 42)));
-
-        await(runAs(syncMachine(), () -> projectArtifactService.recordSbom(projectId, "hash-1", 43)));
-
-        assertEquals(43, await(runAsOrganization(() -> projectService.findDeployment(projectId))).getSbom().componentCount());
+        assertTrue(await(runAsOrganization(() -> projectService.findDeployment(projectId))).isSbomGenerated());
     }
 
     @Test
@@ -89,10 +75,10 @@ public class ProjectSbomTests extends KinoticTestBase {
         String projectId = deployedProject("sbom-other-dependencies");
 
         Exception failure = assertThrows(Exception.class, () -> await(runAs(syncMachine(),
-                () -> projectArtifactService.recordSbom(projectId, "hash-2", 42))));
+                () -> projectArtifactService.recordSbom(projectId, "hash-2"))));
 
         assertTrue(failure.getMessage().contains("is not the one the sync workload"), failure.getMessage());
-        assertNull(await(projectDeployments.findById(projectId, TEST_ORG_ID)).getSbom());
+        assertFalse(await(projectDeployments.findById(projectId, TEST_ORG_ID)).isSbomGenerated());
     }
 
     @Test
@@ -100,39 +86,38 @@ public class ProjectSbomTests extends KinoticTestBase {
         String projectId = deployedProject("sbom-member");
 
         assertThrows(Exception.class, () -> await(runAsOrganization(
-                () -> projectArtifactService.recordSbom(projectId, "hash-1", 42))));
+                () -> projectArtifactService.recordSbom(projectId, "hash-1"))));
 
-        assertNull(await(projectDeployments.findById(projectId, TEST_ORG_ID)).getSbom());
+        assertFalse(await(projectDeployments.findById(projectId, TEST_ORG_ID)).isSbomGenerated());
     }
 
     @Test
     public void aSyncOfTheSameDependenciesKeepsTheSbom() throws Exception {
         String projectId = deployedProject("sbom-kept");
-        await(runAs(syncMachine(), () -> projectArtifactService.recordSbom(projectId, "hash-1", 42)));
+        await(runAs(syncMachine(), () -> projectArtifactService.recordSbom(projectId, "hash-1")));
 
         await(runAs(syncMachine(), () -> projectArtifactService.recordArtifacts(projectId, artifacts(NEXT_COMMIT, "hash-1"))));
 
         ProjectDeployment deployment = await(projectDeployments.findById(projectId, TEST_ORG_ID));
         assertEquals(NEXT_COMMIT, deployment.getArtifacts().commitSha());
-        assertNotNull(deployment.getSbom());
-        assertEquals(42, deployment.getSbom().componentCount());
+        assertTrue(deployment.isSbomGenerated());
     }
 
     @Test
     public void aSyncOfOtherDependenciesDropsTheSbom() throws Exception {
         String projectId = deployedProject("sbom-dropped");
-        await(runAs(syncMachine(), () -> projectArtifactService.recordSbom(projectId, "hash-1", 42)));
+        await(runAs(syncMachine(), () -> projectArtifactService.recordSbom(projectId, "hash-1")));
 
         await(runAs(syncMachine(), () -> projectArtifactService.recordArtifacts(projectId, artifacts(NEXT_COMMIT, "hash-2"))));
 
-        assertNull(await(projectDeployments.findById(projectId, TEST_ORG_ID)).getSbom());
+        assertFalse(await(projectDeployments.findById(projectId, TEST_ORG_ID)).isSbomGenerated());
     }
 
     @Test
     public void aProjectWithoutAnSbomHasNoDocument() throws Exception {
         String projectId = deployedProject("sbom-none");
 
-        assertNull(await(runAsOrganization(() -> projectService.findDeployment(projectId))).getSbom());
+        assertFalse(await(runAsOrganization(() -> projectService.findDeployment(projectId))).isSbomGenerated());
         assertNull(await(runAsOrganization(() -> projectService.findSbomDocumentUrl(projectId))));
     }
 
@@ -151,7 +136,7 @@ public class ProjectSbomTests extends KinoticTestBase {
         await(projectDeployments.updateDesired(projectId, TEST_ORG_ID, new DeploymentState(DeploymentStatusType.RUNNING, COMMIT),
                                                upsert, "push of " + COMMIT));
         await(projectDeployments.recordSyncMachine(projectId, TEST_ORG_ID, SYNC_MACHINE_ID));
-        await(projectDeployments.recordArtifacts(projectId, TEST_ORG_ID, artifacts(COMMIT, "hash-1"), null));
+        await(projectDeployments.recordArtifacts(projectId, TEST_ORG_ID, artifacts(COMMIT, "hash-1"), false));
         return projectId;
     }
 

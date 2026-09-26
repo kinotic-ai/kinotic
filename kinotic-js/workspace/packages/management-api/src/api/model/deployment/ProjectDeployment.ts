@@ -1,7 +1,6 @@
 import type { Reconcilable } from '@/api/model/reconcile/Reconcilable'
 import { ReconcileState } from '@/api/model/reconcile/ReconcileState'
 import type { ProjectArtifacts } from '@/api/model/deployment/ProjectArtifacts'
-import type { ProjectSbom } from '@/api/model/deployment/ProjectSbom'
 import type { DeploymentState } from '@/api/model/deployment/DeploymentState'
 
 /**
@@ -67,9 +66,10 @@ export class ProjectDeployment implements Reconcilable<DeploymentState> {
     public artifacts: ProjectArtifacts | null = null
 
     /**
-     * The SBOM of the dependencies artifacts list, or null until a deployment has generated it.
+     * Whether the project's SBOM file lists the dependencies artifacts list. A sync that reports
+     * other dependencies clears it until a deployment generates the SBOM again.
      */
-    public sbom: ProjectSbom | null = null
+    public sbomGenerated: boolean = false
 
     /**
      * The id of the most recent deployment job run for this project.

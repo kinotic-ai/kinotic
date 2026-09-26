@@ -22,7 +22,7 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
     private final AzureStorageUrlIssuer organizations;
 
     public AzureOrganizationStorageService(Vertx vertx, KinoticManagementApiProperties kinoticProperties) {
-        this.organizations = new AzureStorageUrlIssuer(vertx, kinoticProperties.getManagementApi().getOrganizationStorage().getBlobEndpoint());
+        this.organizations = new AzureStorageUrlIssuer(vertx, kinoticProperties.getManagementApi().getOrganizationsStorageEndpoint());
     }
 
     @Override

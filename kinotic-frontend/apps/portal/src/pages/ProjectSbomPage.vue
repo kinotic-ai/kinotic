@@ -10,7 +10,7 @@
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
     <div v-if="loading" class="p-6 text-sm text-muted-color">Loading SBOM…</div>
-    <div v-else-if="!sbom" class="p-6 text-sm text-muted-color">
+    <div v-else-if="!sbomGenerated" class="p-6 text-sm text-muted-color">
       This project has no SBOM of its current dependencies yet. The last step of a deployment generates it from the project's bun.lock whenever the dependencies change.
     </div>
 
@@ -19,8 +19,7 @@
         <span class="text-sm">
           Dependencies of <span class="font-mono" :title="commitSha">{{ shortSha(commitSha) }}</span>
         </span>
-        <span class="text-xs text-muted-color">{{ DatetimeUtil.formatRelativeDate(sbom.generated) }}</span>
-        <span class="text-sm text-muted-color">{{ sbom.componentCount }} components</span>
+        <span v-if="documentText" class="text-sm text-muted-color">{{ components.length }} components</span>
       </div>
 
       <div class="mb-3 flex flex-wrap items-center gap-3">
@@ -65,15 +64,15 @@ import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
 import SelectButton from 'primevue/selectbutton'
 import Tag from 'primevue/tag'
-import { DatetimeUtil, PageHeader, errorMessage, shortSha } from '@kinotic-ai/frontend-common'
+import { PageHeader, errorMessage, shortSha } from '@kinotic-ai/frontend-common'
 import { Kinotic } from '@kinotic-ai/core'
 import type { ProjectDeployment } from '@kinotic-ai/management-api'
 
 /**
- * The project's SBOM, the one of the dependencies of the last synced commit: when it was
- * generated, and its components, searchable by name and license and filtered by how the project
- * uses them. The CycloneDX document is read straight from the organization's storage through a
- * short-lived URL, and can be downloaded as it is.
+ * The project's SBOM, the one of the dependencies of the last synced commit: its components,
+ * searchable by name and license and filtered by how the project uses them. The CycloneDX
+ * document is read straight from the organization's storage through a short-lived URL, and can
+ * be downloaded as it is.
  */
 const props = defineProps<{
   applicationId: string
@@ -119,7 +118,7 @@ const loading = ref(true)
 const documentLoading = ref(false)
 const error = ref<string | null>(null)
 
-const sbom = computed(() => deployment.value?.sbom ?? null)
+const sbomGenerated = computed(() => deployment.value?.sbomGenerated === true)
 /** The last synced commit, whose dependencies the SBOM lists. */
 const commitSha = computed(() => deployment.value?.artifacts?.commitSha ?? '')
 
@@ -137,7 +136,7 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-  if (sbom.value !== null) {
+  if (sbomGenerated.value) {
     await loadDocument()
   }
 })
@@ -186,7 +185,7 @@ function toRow(component: CycloneDxComponent): ComponentRow {
 }
 
 function download(): void {
-  if (documentText.value !== null && sbom.value !== null) {
+  if (documentText.value !== null) {
     const url = URL.createObjectURL(new Blob([documentText.value], { type: 'application/vnd.cyclonedx+json' }))
     const link = document.createElement('a')
     link.href = url

@@ -43,10 +43,12 @@ public class ManagementApiProperties {
     private String mimirUrl = "http://localhost:9009";
 
     /**
-     * Where the files the platform holds on behalf of organizations are kept.
+     * Blob endpoint of the one storage account the platform keeps every organization's files in,
+     * e.g. {@code https://stkinoticorgs.blob.core.windows.net/}. Validated at boot, so an environment
+     * without the account still sets it, to a placeholder.
      */
-    @Valid
-    private OrganizationStorageProperties organizationStorage = new OrganizationStorageProperties();
+    @NotBlank
+    private String organizationsStorageEndpoint;
 
 
 

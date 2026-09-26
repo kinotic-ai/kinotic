@@ -54,7 +54,7 @@ async function main(): Promise<void> {
     // bounded so an unreachable server fails the run instead of retrying forever
     await Kinotic.connect({ maxConnectionAttempts: 3 })
     try {
-        await Kinotic.projectArtifacts.recordSbom(projectId, dependencyHash, componentCount)
+        await Kinotic.projectArtifacts.recordSbom(projectId, dependencyHash)
     } finally {
         await Kinotic.disconnect()
     }

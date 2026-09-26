@@ -18,7 +18,6 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
-import org.kinotic.management.api.model.deployment.ProjectSbom;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -182,27 +181,25 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
     }
 
     /**
-     * Records the artifacts the sync workload found in a commit together with the SBOM the
-     * deployment keeps for their dependencies, {@code null} when it has none, leaving every other
-     * field as it is.
+     * Records the artifacts the sync workload found in a commit together with whether the project's
+     * SBOM file lists their dependencies, leaving every other field as it is.
      */
-    public Future<Void> recordArtifacts(String projectId, String orgId, ProjectArtifacts artifacts, ProjectSbom sbom) {
+    public Future<Void> recordArtifacts(String projectId, String orgId, ProjectArtifacts artifacts, boolean sbomGenerated) {
         Validate.notNull(artifacts, "artifacts cannot be null");
         Validate.notBlank(artifacts.commitSha(), "artifacts.commitSha cannot be blank");
         Map<String, Object> fields = new HashMap<>();
         fields.put("artifacts", artifacts);
-        fields.put("sbom", sbom);
+        fields.put("sbomGenerated", sbomGenerated);
         return partial(projectId, orgId, fields);
     }
 
     /**
-     * Records the SBOM the SBOM workload generated of the dependencies the artifacts list, leaving
-     * every other field as it is.
+     * Records that the project's SBOM file lists the dependencies the artifacts list, leaving every
+     * other field as it is.
      */
-    public Future<Void> recordSbom(String projectId, String orgId, ProjectSbom sbom) {
-        Validate.notNull(sbom, "sbom cannot be null");
+    public Future<Void> recordSbomGenerated(String projectId, String orgId) {
         Map<String, Object> fields = new HashMap<>();
-        fields.put("sbom", sbom);
+        fields.put("sbomGenerated", true);
         return partial(projectId, orgId, fields);
     }
 

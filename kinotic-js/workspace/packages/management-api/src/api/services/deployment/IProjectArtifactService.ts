@@ -26,10 +26,9 @@ export interface IProjectArtifactService {
      * dependency hash the one the sync workload last reported.
      * @param projectId the project whose checkout the SBOM was generated from
      * @param dependencyHash the fingerprint of the dependencies the document lists
-     * @param componentCount how many components the document lists
      * @return Promise resolving once the deployment record holds the SBOM
      */
-    recordSbom(projectId: string, dependencyHash: string, componentCount: number): Promise<void>
+    recordSbom(projectId: string, dependencyHash: string): Promise<void>
 
 }
 
@@ -45,8 +44,8 @@ export class ProjectArtifactService implements IProjectArtifactService {
         return this.serviceProxy.invoke('recordArtifacts', [projectId, artifacts])
     }
 
-    public recordSbom(projectId: string, dependencyHash: string, componentCount: number): Promise<void> {
-        return this.serviceProxy.invoke('recordSbom', [projectId, dependencyHash, componentCount])
+    public recordSbom(projectId: string, dependencyHash: string): Promise<void> {
+        return this.serviceProxy.invoke('recordSbom', [projectId, dependencyHash])
     }
 
 }

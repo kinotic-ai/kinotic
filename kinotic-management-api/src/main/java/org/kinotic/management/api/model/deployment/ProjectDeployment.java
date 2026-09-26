@@ -81,10 +81,10 @@ public class ProjectDeployment implements Reconcilable<DeploymentState>, Applica
     private ProjectArtifacts artifacts;
 
     /**
-     * The SBOM of the dependencies {@link #artifacts} list, or {@code null} until a deployment has
-     * generated it.
+     * Whether the project's SBOM file lists the dependencies {@link #artifacts} list. A sync that
+     * reports other dependencies clears it until a deployment generates the SBOM again.
      */
-    private ProjectSbom sbom;
+    private boolean sbomGenerated;
 
     /**
      * The id of the most recent deployment job run for this project.
