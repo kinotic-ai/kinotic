@@ -273,7 +273,7 @@ public class ProjectDeployJobDefinitionFactory {
     private Future<ProjectArtifacts> resolveArtifacts(Project project, String commitSha) {
         return projectDeploymentRepository.findById(project.getId(), project.getOrganizationId())
                 .map(deployment -> {
-                    if (deployment == null || !commitSha.equals(deployment.getArtifactsCommitSha())) {
+                    if (deployment == null || deployment.getArtifacts() == null || !commitSha.equals(deployment.getArtifacts().commitSha())) {
                         throw new IllegalStateException("The sync workload of project " + project.getId()
                                 + " did not report the artifacts of commit " + commitSha);
                     }

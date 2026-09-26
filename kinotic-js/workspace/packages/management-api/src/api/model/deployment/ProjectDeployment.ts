@@ -60,15 +60,10 @@ export class ProjectDeployment implements Reconcilable<DeploymentState> {
     public syncMachineIdentityId: string | null = null
 
     /**
-     * The artifacts the sync workload found in the checkout of artifactsCommitSha, or null
+     * The artifacts the sync workload found in the checkout of the commit it last synced, or null
      * before a sync has reported any.
      */
     public artifacts: ProjectArtifacts | null = null
-
-    /**
-     * Sha of the commit artifacts were found in.
-     */
-    public artifactsCommitSha: string | null = null
 
     /**
      * The id of the most recent deployment job run for this project.

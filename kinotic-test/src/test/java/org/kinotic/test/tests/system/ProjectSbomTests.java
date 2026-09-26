@@ -138,9 +138,10 @@ public class ProjectSbomTests extends KinoticTestBase {
                                                upsert, "push of " + COMMIT));
         await(projectDeployments.recordSyncMachine(projectId, TEST_ORG_ID, SYNC_MACHINE_ID));
         await(projectDeployments.recordArtifacts(projectId, TEST_ORG_ID,
-                                                 new ProjectArtifacts(List.of(new MicroserviceArtifact("api", "services/api", "index.ts")),
-                                                                      List.of(), "hash-1"),
-                                                 COMMIT));
+                                                 new ProjectArtifacts(COMMIT,
+                                                                      List.of(new MicroserviceArtifact("api", "services/api", "index.ts")),
+                                                                      List.of(),
+                                                                      "hash-1")));
         return projectId;
     }
 

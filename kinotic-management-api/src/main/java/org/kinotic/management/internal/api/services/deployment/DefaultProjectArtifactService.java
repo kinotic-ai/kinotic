@@ -32,16 +32,16 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
     private final SecurityContext securityContext;
 
     @Override
-    public Future<Void> recordArtifacts(String projectId, String commitSha, ProjectArtifacts artifacts) {
+    public Future<Void> recordArtifacts(String projectId, ProjectArtifacts artifacts) {
         Validate.notBlank(projectId, "projectId is required");
-        Validate.notBlank(commitSha, "commitSha is required");
         Validate.notNull(artifacts, "artifacts is required");
+        Validate.notBlank(artifacts.commitSha(), "artifacts.commitSha is required");
         validate(artifacts);
         // A project's machines are ORGANIZATION scope, so an application participant is a
         // caller that can never be the sync workload
         OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
         return findForSyncMachine(projectId, participant)
-                .compose(deployment -> projectDeploymentRepository.recordArtifacts(projectId, participant.getOrganizationId(), artifacts, commitSha));
+                .compose(deployment -> projectDeploymentRepository.recordArtifacts(projectId, participant.getOrganizationId(), artifacts));
     }
 
     @Override
@@ -55,7 +55,7 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
                 .compose(deployment -> {
                     // the deployment reads the document under this commit, so the record names only
                     // a commit whose checkout the SBOM workload was given
-                    Validate.isTrue(commitSha.equals(deployment.getArtifactsCommitSha()),
+                    Validate.isTrue(deployment.getArtifacts() != null && commitSha.equals(deployment.getArtifacts().commitSha()),
                                     "Commit %s is not the one the sync workload of project %s last reported", commitSha, projectId);
                     ProjectSbom sbom = new ProjectSbom()
                             .setId(projectId)

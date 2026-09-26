@@ -58,10 +58,10 @@ each is identified by the unscoped `name` in its `package.json`, which must be l
 letters, digits, and interior dashes. A missing or invalid name, or two packages of one kind
 sharing a name, fails the run naming the package. The result is reported to the server
 through `ProjectArtifactService.recordArtifacts`, authenticated as the sync machine, so
-the deployment run can bind it once this workload exits. The report carries the checkout's
-`dependencyHash` (`src/sbom.ts`): a SHA-256 of `bun.lock` and of the cdxgen version, or null
-without a `bun.lock`, which the deployment compares with the one the project's SBOM was
-generated from.
+the deployment run can bind it once this workload exits. The report carries the synced
+commit and the checkout's `dependencyHash` (`src/sbom.ts`): a SHA-256 of `bun.lock` and of the
+cdxgen version, or null without a `bun.lock`, which the deployment compares with the one the
+project's SBOM was generated from.
 
 Every UI artifact is then built in place with `bun run build`, handed the platform's
 address as `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and `VITE_KINOTIC_USE_SSL`, the

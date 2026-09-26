@@ -8,6 +8,10 @@ import type { UiArtifact } from '@/api/model/deployment/UiArtifact'
  */
 export interface ProjectArtifacts {
     /**
+     * Full 40-character SHA of the commit the artifacts were found in.
+     */
+    commitSha: string
+    /**
      * The microservice artifacts, empty when the commit has none.
      */
     microservices: MicroserviceArtifact[]

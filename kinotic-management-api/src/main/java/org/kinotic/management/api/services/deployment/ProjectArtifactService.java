@@ -16,17 +16,15 @@ import org.kinotic.management.api.model.deployment.ProjectSbom;
 public interface ProjectArtifactService {
 
     /**
-     * Records the artifacts the sync workload found in the checkout of the given commit,
-     * replacing what an earlier sync reported. The caller must be the project's sync machine
-     * identity.
+     * Records the artifacts the sync workload found in the checkout of a commit, replacing what an
+     * earlier sync reported. The caller must be the project's sync machine identity.
      *
      * @param projectId the project whose checkout was synced
-     * @param commitSha full 40-character SHA of the synced commit
-     * @param artifacts the artifacts found; every name must be a single zone label, unique
-     *                  among the artifacts of its kind
+     * @param artifacts the artifacts found, with the full 40-character SHA of the synced commit;
+     *                  every name must be a single zone label, unique among the artifacts of its kind
      * @return a future completing once the deployment record holds the artifacts
      */
-    Future<Void> recordArtifacts(String projectId, String commitSha, ProjectArtifacts artifacts);
+    Future<Void> recordArtifacts(String projectId, ProjectArtifacts artifacts);
 
     /**
      * Records the SBOM the SBOM workload generated from the checkout of the given commit and

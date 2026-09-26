@@ -119,12 +119,12 @@ function hasCredentials(): boolean {
 }
 
 /**
- * Reports the artifacts found in the checkout, with the hash of the dependencies installed for
- * them, to the server, which records them on the project's deployment for the deployment run to
- * bind into itself once this workload has exited. The connection resolves its server and
- * credentials from the same KINOTIC_* variables the CLI reads.
+ * Reports the artifacts found in the checkout of a commit, with the hash of the dependencies
+ * installed for them, to the server, which records them on the project's deployment for the
+ * deployment run to bind into itself once this workload has exited. The connection resolves its
+ * server and credentials from the same KINOTIC_* variables the CLI reads.
  */
-async function reportArtifacts(commitSha: string, artifacts: ProjectArtifacts): Promise<void> {
+async function reportArtifacts(artifacts: ProjectArtifacts): Promise<void> {
     if (!hasCredentials()) {
         log('[workload-runner] no Kinotic credentials in the environment; skipping the artifact report')
         return
@@ -134,7 +134,7 @@ async function reportArtifacts(commitSha: string, artifacts: ProjectArtifacts): 
     // bounded so an unreachable server fails the run instead of retrying forever
     await Kinotic.connect({ maxConnectionAttempts: 3 })
     try {
-        await Kinotic.projectArtifacts.recordArtifacts(projectId, commitSha, artifacts)
+        await Kinotic.projectArtifacts.recordArtifacts(projectId, artifacts)
     } finally {
         await Kinotic.disconnect()
     }
@@ -189,7 +189,7 @@ async function main(): Promise<void> {
 
     const commitSha = headCommit(workspaceDir)
     await buildUis(workspaceDir, artifacts.uis)
-    await reportArtifacts(commitSha, { ...artifacts, dependencyHash: dependencyHashOf(workspaceDir) })
+    await reportArtifacts({ commitSha, ...artifacts, dependencyHash: dependencyHashOf(workspaceDir) })
     writeSentinel(workspaceDir, commitSha)
     log(`[workload-runner] deployed ${commitSha}`)
 }

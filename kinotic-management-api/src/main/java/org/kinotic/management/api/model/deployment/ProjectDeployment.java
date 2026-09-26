@@ -75,15 +75,10 @@ public class ProjectDeployment implements Reconcilable<DeploymentState>, Applica
     private String syncMachineIdentityId;
 
     /**
-     * The artifacts the sync workload found in the checkout of {@link #artifactsCommitSha},
-     * or {@code null} before a sync has reported any.
+     * The artifacts the sync workload found in the checkout of the commit it last synced, or
+     * {@code null} before a sync has reported any.
      */
     private ProjectArtifacts artifacts;
-
-    /**
-     * Sha of the commit {@link #artifacts} were found in.
-     */
-    private String artifactsCommitSha;
 
     /**
      * The id of the most recent deployment job run for this project.

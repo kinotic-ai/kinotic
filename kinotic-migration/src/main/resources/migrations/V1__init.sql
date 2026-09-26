@@ -56,11 +56,11 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     sbomWorkloadId KEYWORD,
     syncMachineIdentityId KEYWORD,
     artifacts OBJECT (
+        commitSha KEYWORD,
         microservices OBJECT (name KEYWORD, dir KEYWORD, entry KEYWORD),
         uis OBJECT (name KEYWORD, dir KEYWORD),
         dependencyHash KEYWORD
     ),
-    artifactsCommitSha KEYWORD,
     lastJobRunId KEYWORD,
     failureMessage TEXT,
     state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),

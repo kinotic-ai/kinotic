@@ -183,12 +183,11 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
     /**
      * Records the artifacts the sync workload found in a commit, leaving every other field as it is.
      */
-    public Future<Void> recordArtifacts(String projectId, String orgId, ProjectArtifacts artifacts, String commitSha) {
+    public Future<Void> recordArtifacts(String projectId, String orgId, ProjectArtifacts artifacts) {
         Validate.notNull(artifacts, "artifacts cannot be null");
-        Validate.notBlank(commitSha, "commitSha cannot be blank");
+        Validate.notBlank(artifacts.commitSha(), "artifacts.commitSha cannot be blank");
         Map<String, Object> fields = new HashMap<>();
         fields.put("artifacts", artifacts);
-        fields.put("artifactsCommitSha", commitSha);
         return partial(projectId, orgId, fields);
     }
 

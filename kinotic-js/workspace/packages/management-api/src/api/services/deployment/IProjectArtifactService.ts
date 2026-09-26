@@ -11,16 +11,14 @@ import type { ProjectArtifacts } from '@/api/model/deployment/ProjectArtifacts'
 export interface IProjectArtifactService {
 
     /**
-     * Records the artifacts the sync workload found in the checkout of the given commit,
-     * replacing what an earlier sync reported. The caller must be the project's sync machine
-     * identity.
+     * Records the artifacts the sync workload found in the checkout of a commit, replacing what an
+     * earlier sync reported. The caller must be the project's sync machine identity.
      * @param projectId the project whose checkout was synced
-     * @param commitSha full 40-character SHA of the synced commit
-     * @param artifacts the artifacts found; every name must be a single zone label, unique
-     *                  among the artifacts of its kind
+     * @param artifacts the artifacts found, with the full 40-character SHA of the synced commit;
+     *                  every name must be a single zone label, unique among the artifacts of its kind
      * @return Promise resolving once the deployment record holds the artifacts
      */
-    recordArtifacts(projectId: string, commitSha: string, artifacts: ProjectArtifacts): Promise<void>
+    recordArtifacts(projectId: string, artifacts: ProjectArtifacts): Promise<void>
 
     /**
      * Records the SBOM the SBOM workload generated from the checkout of the given commit and
@@ -45,8 +43,8 @@ export class ProjectArtifactService implements IProjectArtifactService {
         this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.deployment.ProjectArtifactService`)
     }
 
-    public recordArtifacts(projectId: string, commitSha: string, artifacts: ProjectArtifacts): Promise<void> {
-        return this.serviceProxy.invoke('recordArtifacts', [projectId, commitSha, artifacts])
+    public recordArtifacts(projectId: string, artifacts: ProjectArtifacts): Promise<void> {
+        return this.serviceProxy.invoke('recordArtifacts', [projectId, artifacts])
     }
 
     public recordSbom(projectId: string, commitSha: string, dependencyHash: string, componentCount: number): Promise<void> {

@@ -126,7 +126,7 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
             ret = Future.succeededFuture(Requeue.NONE);
         } else if (target == null || target.getNodeId() == null) {
             ret = failIntent(current, desired, "Project " + current.getProjectId() + " has no deployment target; deploy the project first");
-        } else if (!desired.commitSha().equals(target.getArtifactsCommitSha())) {
+        } else if (target.getArtifacts() == null || !desired.commitSha().equals(target.getArtifacts().commitSha())) {
             ret = Future.succeededFuture(Requeue.after(ARTIFACTS_WAIT));
         } else {
             MicroserviceArtifact artifact = target.getArtifacts().microservices().stream()
