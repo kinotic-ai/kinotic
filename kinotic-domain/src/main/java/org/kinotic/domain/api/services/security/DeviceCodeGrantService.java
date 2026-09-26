@@ -3,6 +3,7 @@ package org.kinotic.domain.api.services.security;
 import io.vertx.core.Future;
 import org.kinotic.domain.api.model.security.DeviceCodeGrantStart;
 import org.kinotic.domain.api.model.security.DeviceCodePollResult;
+import org.kinotic.domain.api.model.security.PollStatus;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 
 /**
@@ -16,18 +17,22 @@ public interface DeviceCodeGrantService {
      * Starts a new device authorization grant and returns the codes the CLI needs to display
      * and poll with.
      *
+     * @param issuer     OAuth issuer of the server starting the flow; only a poll under the same
+     *                   issuer redeems the grant
      * @param deviceName optional name of the device starting the flow; becomes the label of
      *                   the token family issued when the grant is redeemed
      */
-    Future<DeviceCodeGrantStart> start(String deviceName);
+    Future<DeviceCodeGrantStart> start(String issuer, String deviceName);
 
     /**
      * Polls a pending grant by its {@code device_code}. Once the grant has been approved it
-     * is consumed (deleted), and the approving user returned.
+     * is consumed (deleted), and the approving user returned. A grant started under another
+     * issuer polls as {@link PollStatus#INVALID}.
      *
-     * @param deviceCode the plaintext device code issued by {@link #start()}
+     * @param issuer     OAuth issuer of the server the CLI polls
+     * @param deviceCode the plaintext device code issued by {@link #start(String, String)}
      */
-    Future<DeviceCodePollResult> poll(String deviceCode);
+    Future<DeviceCodePollResult> poll(String issuer, String deviceCode);
 
     /**
      * Binds an authenticated user to a pending grant identified by its {@code user_code}.

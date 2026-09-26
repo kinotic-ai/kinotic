@@ -26,6 +26,12 @@ public class OAuthAuthorizationGrant implements Identifiable<String> {
     /** Request id carried to the SPA consent page; not a secret, grants nothing by itself. */
     private String id;
 
+    /**
+     * OAuth issuer of the server whose authorize endpoint began the flow; only its token endpoint
+     * exchanges the code.
+     */
+    private String issuer;
+
     /** The client's Client ID Metadata Document URL, which is also its identifier. */
     private String clientId;
 

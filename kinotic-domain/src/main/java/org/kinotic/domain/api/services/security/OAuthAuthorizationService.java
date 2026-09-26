@@ -19,6 +19,8 @@ public interface OAuthAuthorizationService {
      * Begins an authorization-code flow: resolves the client's metadata document, validates the
      * redirect URI against it, and stores the request for the consent page to act on.
      *
+     * @param issuer        OAuth issuer of the server whose authorize endpoint began the flow; only
+     *                      an exchange under the same issuer redeems the code
      * @param clientId      the requesting client's Client ID Metadata Document URL
      * @param redirectUri   must exactly match a redirect URI the client's metadata document registers
      * @param codeChallenge the PKCE S256 challenge the eventual code exchange must prove
@@ -27,7 +29,8 @@ public interface OAuthAuthorizationService {
      * @param state         client CSRF value echoed on the redirect, or {@code null}
      * @return a {@link Future} emitting the request id the consent page approves or denies with
      */
-    Future<String> createAuthorizationRequest(String clientId,
+    Future<String> createAuthorizationRequest(String issuer,
+                                              String clientId,
                                               String redirectUri,
                                               String codeChallenge,
                                               String scope,
@@ -64,16 +67,18 @@ public interface OAuthAuthorizationService {
 
     /**
      * Exchanges an authorization code for its approving user, consuming the grant so the code
-     * can never be replayed. Verifies the code, its expiry, the client and redirect URI it was
-     * issued to, and the PKCE verifier against the challenge the flow began with.
+     * can never be replayed. Verifies the code, its expiry, the issuer, client and redirect URI it
+     * was issued to, and the PKCE verifier against the challenge the flow began with.
      *
+     * @param issuer       OAuth issuer of the server whose token endpoint the code is presented to
      * @param code         the plaintext authorization code from the redirect
      * @param clientId     the client presenting the code
      * @param redirectUri  the redirect URI the code was issued for
      * @param codeVerifier the PKCE verifier whose S256 hash must equal the stored challenge
      * @return a {@link Future} emitting the enabled approving user
      */
-    Future<CodeExchangeResult> exchangeCode(String code,
+    Future<CodeExchangeResult> exchangeCode(String issuer,
+                                            String code,
                                             String clientId,
                                             String redirectUri,
                                             String codeVerifier);

@@ -25,6 +25,9 @@ public class DeviceCodeGrant implements Identifiable<String> {
 
     private String id;
 
+    /** OAuth issuer of the server that started the flow; only its token endpoint redeems the grant. */
+    private String issuer;
+
     /** SHA-256 hash of the high-entropy {@code device_code} the CLI polls with. */
     private String deviceCodeHash;
 

@@ -99,8 +99,8 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
             authEndpointSupport.respondError(ctx, 400, "invalid_request");
             return;
         }
-        oauthAuthorizationService.createAuthorizationRequest(clientId, redirectUri, codeChallenge,
-                                                             scope, resource, state)
+        oauthAuthorizationService.createAuthorizationRequest(serverSurface.issuerBaseUrl(ctx), clientId, redirectUri,
+                                                             codeChallenge, scope, resource, state)
               .compose(requestId -> serverSurface.uiUrl(ctx, "/oauth/consent?request_id="
                       + URLEncoder.encode(requestId, StandardCharsets.UTF_8)))
               .onSuccess(consentUrl -> ctx.response().setStatusCode(302).putHeader("Location", consentUrl).end())
@@ -133,7 +133,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
         String clientId = ctx.request().getFormAttribute("client_id");
         String redirectUri = ctx.request().getFormAttribute("redirect_uri");
         String codeVerifier = ctx.request().getFormAttribute("code_verifier");
-        oauthAuthorizationService.exchangeCode(code, clientId, redirectUri, codeVerifier)
+        oauthAuthorizationService.exchangeCode(serverSurface.issuerBaseUrl(ctx), code, clientId, redirectUri, codeVerifier)
               .compose(exchange -> authEndpointSupport.issueDelegateTokens(ctx, exchange.approver(),
                                                                            DelegateKind.MCP_CLIENT,
                                                                            exchange.clientId(),
