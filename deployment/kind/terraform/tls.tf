@@ -1,7 +1,7 @@
 # ── mkcert TLS for local development ─────────────────────
 #
 # Generates browser-trusted certificates using mkcert and
-# creates a Kubernetes TLS secret mounted into kinotic-server
+# creates a Kubernetes TLS secret every server mounts
 # pods. Vert.x reads the PEM files directly for TLS.
 #
 # Prerequisites:
@@ -54,7 +54,7 @@ data "local_file" "tls_key" {
   depends_on = [terraform_data.mkcert]
 }
 
-# Create the TLS secret that kinotic-server pods mount at /certs
+# Create the TLS secret every server's pods mount at /certs
 resource "kubernetes_secret" "kinotic_tls" {
   count = var.use_mkcert ? 1 : 0
 

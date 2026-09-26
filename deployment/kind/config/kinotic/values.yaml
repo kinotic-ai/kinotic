@@ -1,0 +1,91 @@
+# Helm values for the kinotic chart in KinD: the three servers, each reached through a NodePort
+# that KinD's extraPortMappings expose on the host at the server's own port
+
+image:
+  tag: 5.0.0-SNAPSHOT
+  pullPolicy: IfNotPresent
+
+servers:
+  kinotic-org-server:
+    replicaCount: 1
+    # The portal, served from the org server's jar: https://localhost (or http://localhost:9090)
+    webServer:
+      enabled: true
+      port: 9090
+    # The one mkcert certificate for localhost serves every server
+    tlsSecretName: kinotic-tls
+    service:
+      type: NodePort
+      nodePorts:
+        gateway: 30503
+        ui: 30443
+        uiDirect: 30090
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2
+        memory: 2Gi
+  kinotic-system-server:
+    replicaCount: 1
+    tlsSecretName: kinotic-tls
+    service:
+      type: NodePort
+      nodePorts:
+        gateway: 30504
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2
+        memory: 2Gi
+  kinotic-app-server:
+    replicaCount: 1
+    tlsSecretName: kinotic-tls
+    service:
+      type: NodePort
+      nodePorts:
+        gateway: 30505
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2
+        memory: 2Gi
+
+migration:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+
+properties:
+  springActiveProfiles: "production,kubernetes,debug,eviction-tracking"
+  enableJmx: true
+  enableNmt: true
+  javaToolOptions: "-Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m"
+  bplJvmHeadRoom: 10
+
+kinotic:
+  domain:
+    email:
+      enabled: false
+  elastic:
+    connections:
+      - host: "kinotic-es-es-http.elastic.svc"
+        port: 9200
+        scheme: "http"
+
+# Platform secrets — KinD path: terraform creates a k8s Secret named below with every server's
+# JWT signing keys and the secret-storage master keys. Each pod mounts its own (no CSI).
+platformSecrets:
+  secretName: kinotic-platform-secrets
+
+# Eviction tracking
+evictionTracking:
+  enabled: true
+  mountPath: "/eviction-data"
+  hostPath: "/eviction-data"
+
+nodeSelector: {}
