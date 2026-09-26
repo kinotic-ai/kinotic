@@ -1,0 +1,1 @@
+{"id":"93d620dddf7c2fa2f4d92b71e76a9596","fullName":"org.kinotic.test.tests.sql.CompositeTypeParserTest.whenParseObjectNotIndexed_thenIndexedFalseAndSubColumnsPresent","name":"whenParseObjectNotIndexed_thenIndexedFalseAndSubColumnsPresent()","status":"passed","testResultsByEnv":{"default":"bc00e03be994003e806f94432fd38ca4"}}
