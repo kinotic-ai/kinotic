@@ -1,0 +1,1 @@
+{"id":"0c9b4a38062ac5a6ee096ed432f679fe","fullName":"org.kinotic.core.internal.api.ScopedRpcTests.scopedOnlyMethodRejectsUnscopedInvocation","name":"scopedOnlyMethodRejectsUnscopedInvocation()","status":"passed","testResultsByEnv":{"default":"965175ea11f2c70c2aa7d8effce2e1ac"}}
