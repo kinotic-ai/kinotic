@@ -187,6 +187,7 @@ CREATE TABLE IF NOT EXISTS kinotic_participant_identity (
     ownerId KEYWORD,
     clientKey KEYWORD,
     delegateKind KEYWORD,
+    machineKind KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
     tenantId KEYWORD,

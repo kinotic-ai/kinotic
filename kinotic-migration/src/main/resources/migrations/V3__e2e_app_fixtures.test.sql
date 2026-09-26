@@ -19,11 +19,11 @@ INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-
 
 -- APPLICATION-scope machine identity for the machine connection e2e tests
 -- (clientId: the identity id below, clientSecret: kinotic)
-INSERT INTO kinotic_participant_identity (id, type, displayName, authType, organizationId, applicationId, enabled) VALUES ('00000000-0000-0000-0000-000000000010', 'MACHINE', 'e2e Test Machine', 'CLIENT_CREDENTIALS', 'kinotic-test', 'e2e-mcp', true) WITH REFRESH;
+INSERT INTO kinotic_participant_identity (id, type, machineKind, displayName, authType, organizationId, applicationId, enabled) VALUES ('00000000-0000-0000-0000-000000000010', 'MACHINE', 'CLIENT', 'e2e Test Machine', 'CLIENT_CREDENTIALS', 'kinotic-test', 'e2e-mcp', true) WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000010', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 
 -- ORGANIZATION-scope machine identity, the shape a project's deployment provisions for its
--- workloads: it names an organization but no application, so it acts for the whole
+-- sync workload: it names an organization but no application, so it acts for the whole
 -- organization rather than as an end-user of one application. (clientSecret: kinotic)
-INSERT INTO kinotic_participant_identity (id, type, displayName, authType, organizationId, enabled) VALUES ('00000000-0000-0000-0000-000000000012', 'MACHINE', 'e2e Org Machine', 'CLIENT_CREDENTIALS', 'kinotic-test', true) WITH REFRESH;
+INSERT INTO kinotic_participant_identity (id, type, machineKind, displayName, authType, organizationId, enabled) VALUES ('00000000-0000-0000-0000-000000000012', 'MACHINE', 'PROJECT_SYNC', 'e2e Org Machine', 'CLIENT_CREDENTIALS', 'kinotic-test', true) WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000012', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;

@@ -328,6 +328,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     @Override
     public Future<MachineProvisionResult> createMachine(MachineParticipantIdentity machine) {
         Validate.notNull(machine, "machine is required");
+        Validate.notNull(machine.getMachineKind(), "machine.machineKind is required");
 
         Date now = new Date();
         machine.setCreated(now);

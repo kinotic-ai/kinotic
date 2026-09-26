@@ -1,3 +1,4 @@
+import type { MachineKind } from '@/api/model/security/MachineKind'
 import { ParticipantIdentity } from '@/api/model/security/ParticipantIdentity'
 import { ParticipantIdentityType } from '@/api/model/security/ParticipantIdentityType'
 
@@ -9,4 +10,9 @@ import { ParticipantIdentityType } from '@/api/model/security/ParticipantIdentit
  */
 export class MachineParticipantIdentity extends ParticipantIdentity {
     public readonly type: ParticipantIdentityType.MACHINE = ParticipantIdentityType.MACHINE
+
+    /**
+     * What the machine is for; set when it is provisioned.
+     */
+    public machineKind: MachineKind | null = null
 }
