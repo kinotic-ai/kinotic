@@ -131,18 +131,17 @@ today, they can reach it at different URLs. A browser follows the OIDC `redirect
 been near the browser. A development gateway on `localhost` whose OAuth surface is tunnelled is the
 case that forced the split: one value cannot be both browser-local and internet-reachable.
 
-The cost is the FIXMEs — five places now know the OAuth surface has its own base URL
-(`OAuthProperties.issuerBaseUrl`, `DomainProperties.resolveIssuerBaseUrl`,
-`AuthEndpointSupport.issuerUrl`, `OAuthServerHandler.issuer`, `McpJsonRpcHandler.issuer`).
-Nothing enforces the choice: every externally reached URL added from here on has to pick `issuerUrl`
-over `absoluteUrl`, and picking wrong fails only in the tunnelled topology, which is exactly the one
+`ServerSurface` holds the split: `apiBaseUrl(ctx)` and `issuerBaseUrl(ctx)` name the two URLs, and
+`ConfiguredServerSurface` is the one reader of `issuerBaseUrl` and its fallback. Nothing enforces the
+choice at a call site: every externally reached URL added from here on has to pick `issuerBaseUrl`
+over `apiBaseUrl`, and picking wrong fails only in the tunnelled topology, which is exactly the one
 nobody runs in CI.
 
 **The split disappears if the browser and the internet reach the gateway at one URL.** That is a
-topology decision, not a code one, and it is the reason to keep these markers rather than settle.
+topology decision, not a code one.
 
 **Option A — keep the split.** No infrastructure change. Development works today; production sets
-nothing and falls back. Carries the shotgun surgery indefinitely.
+nothing and falls back. Keeps two base URLs on `ServerSurface` indefinitely.
 
 **Option B — dev-server proxy.** Have the vite dev server proxy `/api`, `/mcp`, `/.well-known` and
 the `/v1` STOMP upgrade to the gateway, and tunnel the dev server rather than the gateway. One origin
@@ -152,7 +151,8 @@ nowhere else — so it removes the property without removing the underlying asym
 
 **Option C — one origin everywhere, via path-based routing at the ingress.** SPA and API behind a
 single hostname, `/api` and `/v1` routed to kinotic-server and everything else to the SPA. Then
-`appBaseUrl`, `apiBaseUrl` and `issuerBaseUrl` collapse to one value and all five FIXMEs delete. On
+`appBaseUrl`, `apiBaseUrl` and `issuerBaseUrl` collapse to one value, and so do `ServerSurface`'s
+`apiBaseUrl` and `issuerBaseUrl`. On
 Azure this means a layer-7 front end (Application Gateway or Front Door) where today's LoadBalancer
 is layer 4 — a real, recurring cost, which is the thing to price before choosing this.
 
