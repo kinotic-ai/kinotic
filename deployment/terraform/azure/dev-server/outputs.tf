@@ -1,6 +1,16 @@
 output "api_hostname" {
-  description = "The API's hostname: what the router's public address answers to, and the one certbot issues for"
+  description = "The org server's hostname, on the router's public address: the API of the portal, the CLI and MCP hosts"
   value       = local.api_hostname
+}
+
+output "system_api_hostname" {
+  description = "The system server's hostname, on the router's public address: the system console's API"
+  value       = local.system_api_hostname
+}
+
+output "apps_api_domain" {
+  description = "The app server's hostname, on the router's public address, which runtime workloads dial; every application's API host is a label under it"
+  value       = local.apps_api_domain
 }
 
 output "portal_hostname" {
@@ -24,7 +34,7 @@ output "sites_storage_blob_endpoint" {
 }
 
 output "server_key_vault_url" {
-  description = "Where the server's secret storage lives (kinotic.domain.secretStorage.azure.vaultUrl)"
+  description = "Where the servers' secret storage lives (kinotic.domain.secretStorage.azure.vaultUrl)"
   value       = azurerm_key_vault.server.vault_uri
 }
 
@@ -45,7 +55,7 @@ output "snapshots_container" {
 }
 
 output "email_endpoint" {
-  description = "The shared Communication Services endpoint the server sends mail through"
+  description = "The shared Communication Services endpoint the servers send mail through"
   value       = local.global.email_service_endpoint
 }
 
@@ -55,7 +65,7 @@ output "email_sender_address" {
 }
 
 output "server_client_id" {
-  description = "The service principal the server runs as (AZURE_CLIENT_ID)"
+  description = "The service principal the servers run as (AZURE_CLIENT_ID)"
   value       = module.environment.server_client_id
 }
 
@@ -64,12 +74,11 @@ output "tenant_id" {
   value       = module.environment.tenant_id
 }
 
-# The proxmox root merges this into kinotic-server's environment, with the addresses only it
+# The proxmox root merges this into every server's environment, with the addresses only it
 # knows. Nothing here is secret.
 output "dev_server_env" {
-  description = "The non-secret half of the server's environment"
+  description = "The non-secret half of the servers' environment"
   value = {
-    DEV_SERVER_API_HOSTNAME                             = local.api_hostname
     DEV_SERVER_PORTAL_HOSTNAME                          = module.environment.ui_hostnames.portal
     DEV_SERVER_CONSOLE_HOSTNAME                         = module.environment.ui_hostnames.console
     KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN          = module.environment.sites_domain

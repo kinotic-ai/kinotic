@@ -2,10 +2,10 @@
 
 Everything the shared development server needs from Azure, applied once from an operator's
 machine. It reuses `modules/dev-environment`, the same module a developer's `dev/` root uses,
-and adds what a server peers depend on needs: a key vault for the server's secret storage, a
+and adds what a server peers depend on needs: a key vault for the servers' secret storage, a
 storage account for Elasticsearch snapshots, the portal and the system console on the same
-Front Door as the published sites, and a hostname for the API with the rights to issue its
-certificate.
+Front Door as the published sites, and a hostname for each server's API with the rights to
+issue its certificate.
 
 | Resource | Name | Purpose |
 |---|---|---|
@@ -13,11 +13,11 @@ certificate.
 | Front Door Standard profile + endpoint | `afd-kinotic-dev-sites` | Serves every published UI at `<label>.apps-dev.kinotic.ai` (`modules/sites`) |
 | Sites storage account | `stkinoticdevsites` | Every site's files under `sites/<hostname>/` |
 | Key vault | `kv-kinotic-dev-sites` | The Let's Encrypt wildcard certificate Front Door reads |
-| Key vault | `kv-kinotic-dev` | The server's secret storage (`kinotic.domain.secretStorage.backend: AZURE`) |
+| Key vault | `kv-kinotic-dev` | The servers' secret storage (`kinotic.domain.secretStorage.backend: AZURE`) |
 | Storage account + container | `stkinoticdevsnapshots` / `elasticsearch-snapshots` | The nightly Elasticsearch snapshot repository, and the migration vehicle |
 | Front Door domains + CNAMEs | `dev-portal.kinotic.ai`, `dev-console.kinotic.ai` | The portal and the system console, served from `sites/<hostname>/` in the sites account on managed certificates |
-| DNS A record | `dev-api.kinotic.ai` | The router's public address; `kinotic-dyndns.timer` on the host keeps it current |
-| Service principal | `kinotic-dev-server` | The identity the server runs as: Storage Blob Data Contributor on the sites account, Contributor on the email service, Key Vault Secrets Officer on `kv-kinotic-dev`, DNS Zone Contributor on the zone for certbot and the address updater |
+| DNS A records | `dev-api.kinotic.ai`, `dev-system-api.kinotic.ai`, `dev-apps-api.kinotic.ai`, `*.dev-apps-api.kinotic.ai` | The router's public address, for the org server, the system server, and the app server with every application's API host `<organizationId>--<applicationId>.dev-apps-api.kinotic.ai`; `kinotic-dyndns.timer` on the host keeps them current |
+| Service principal | `kinotic-dev-server` | The identity the servers run as: Storage Blob Data Contributor on the sites account, Contributor on the email service, Key Vault Secrets Officer on `kv-kinotic-dev`, DNS Zone Contributor on the zone for certbot and the address updater |
 | Role assignment | the operator | Storage Blob Data Contributor on the sites account, for `deploy-ui.sh`; Key Vault Secrets Officer on `kv-kinotic-dev`, to place the social sign-in client secrets |
 
 ## Applying
@@ -49,21 +49,21 @@ whenever `kinotic-frontend` changes:
 ```
 
 The proxmox root reads this root's state file directly (`../azure/dev-server/terraform.tfstate`),
-so both are applied from the same checkout. Two outputs feed kinotic-server:
+so both are applied from the same checkout. Two outputs feed the servers:
 
 ```bash
-terraform output dev_server_env         # merged into the server's environment by the proxmox root
+terraform output dev_server_env         # merged into every server's environment by the proxmox root
 terraform output -raw secrets_env       # → kinotic-server.env in the secrets directory, placed by sync-secrets.sh
 ```
 
 The social sign-in providers the migration seeds (`kinotic_org_signup_oidc_configuration`)
 resolve their client secrets from `kv-kinotic-dev` by name, so each provider's secret goes
-there once, and its registration lists this server's callback URLs under `dev-api`:
+there once, and its registration lists the org server's callback URLs under `dev-api`:
 
 ```bash
 az keyvault secret set --vault-name kv-kinotic-dev --name github-platform --value "$(cat)" >/dev/null   # the App's client secret on stdin
 ```
 
-`terraform destroy` removes the resource group with everything in it, the DNS record, the
+`terraform destroy` removes the resource group with everything in it, the DNS records, the
 service principal, and its role assignments. The snapshot account goes with the group, so
 copy the last snapshot elsewhere first if it still matters.
