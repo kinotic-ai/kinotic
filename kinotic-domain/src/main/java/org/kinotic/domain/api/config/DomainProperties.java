@@ -52,11 +52,6 @@ public class DomainProperties {
      */
     private SecretStorageProperties secretStorage;
 
-    /**
-     * Cluster eviction configuration
-     */
-    private ClusterEvictionProperties clusterEviction = new ClusterEvictionProperties();
-
     @NotNull
     private Duration elasticConnectionTimeout = Duration.ofSeconds(5);
 
