@@ -6,10 +6,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
+import org.kinotic.domain.api.services.security.CredentialAuthenticationService;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -18,11 +18,11 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.function.Predicate;
 
 /**
- * Sole {@link SecurityService} implementation for Kinotic OS. Handles both email/password
- * and Kinotic-issued JWT authentication across all three scope layers (System, Organization,
- * Application). Scope is identified structurally by the {@code organizationId} and
+ * Authenticates email/password, machine and Kinotic-issued JWT credentials across all three scope layers
+ * (System, Organization, Application). Scope is identified structurally by the {@code organizationId} and
  * {@code applicationId} of the resolved {@link ParticipantIdentity}:
  * <ul>
  *   <li>both absent → SYSTEM</li>
@@ -51,15 +51,33 @@ import java.util.TreeMap;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-// FIXME: this should be in a different module
-public class KinoticSecurityService implements SecurityService {
+public class DefaultCredentialAuthenticationService implements CredentialAuthenticationService {
 
     private final ParticipantIdentityService identityService;
     private final LocalAuthenticationService localAuthenticationService;
     private final KinoticJwtIssuer jwtIssuer;
 
     @Override
-    public Future<Participant> authenticate(Map<String, String> authenticationInfo) {
+    public Future<Participant> authenticate(Map<String, String> authenticationInfo,
+                                            Predicate<ParticipantIdentity> admitted) {
+        return authenticateIdentity(authenticationInfo)
+                .compose(identity -> {
+                    Future<Participant> ret;
+                    if (admitted.test(identity)) {
+                        ret = Future.succeededFuture(DomainUtil.createParticipant(identity));
+                    } else {
+                        // valid credentials of an identity another server serves, such as a system
+                        // operator's on the org server; the caller gets the answer a wrong password gets
+                        log.debug("Credentials of {} identity {} are not admitted by this server",
+                                  DomainUtil.describeScope(identity.getOrganizationId(), identity.getApplicationId()),
+                                  identity.getId());
+                        ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
+                    }
+                    return ret;
+                });
+    }
+
+    private Future<ParticipantIdentity> authenticateIdentity(Map<String, String> authenticationInfo) {
         // HTTP callers (AuthenticationHandler) lowercase all header names; STOMP preserves case.
         // Wrap in a case-insensitive view so both transports work with the same camelCase names.
         Map<String, String> authInfo = caseInsensitive(authenticationInfo);
@@ -76,7 +94,7 @@ public class KinoticSecurityService implements SecurityService {
         String clientId = authInfo.get("clientId");
         String clientSecret = authInfo.get("clientSecret");
 
-        Future<Participant> ret;
+        Future<ParticipantIdentity> ret;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             ret = authenticateKinoticJwt(authHeader.substring(7));
         } else if (clientId != null || clientSecret != null) {
@@ -108,21 +126,21 @@ public class KinoticSecurityService implements SecurityService {
      * unknown email, wrong password, disabled account, non-local account — is the same
      * generic error, matching the machine path: the upgrade headers get no account oracle.
      */
-    private Future<Participant> authenticateEmailPassword(String organizationId,
-                                                          String applicationId,
-                                                          String email,
-                                                          String password) {
+    private Future<ParticipantIdentity> authenticateEmailPassword(String organizationId,
+                                                                  String applicationId,
+                                                                  String email,
+                                                                  String password) {
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
             return Future.failedFuture(new AuthenticationException("clientId and clientSecret headers are required for credential authentication"));
         }
 
         return localAuthenticationService.authenticateLocal(email, password, organizationId, applicationId)
                      .compose(user -> {
-                         Future<Participant> ret;
+                         Future<ParticipantIdentity> ret;
                          if (user == null) {
                              ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
                          } else {
-                             ret = Future.succeededFuture(DomainUtil.createParticipant(user));
+                             ret = Future.succeededFuture(user);
                          }
                          return ret;
                      });
@@ -134,22 +152,22 @@ public class KinoticSecurityService implements SecurityService {
      * a client configured for the wrong organization or application is rejected. Every
      * failure is the same generic error.
      */
-    private Future<Participant> authenticateMachine(String organizationId,
-                                                    String applicationId,
-                                                    String clientId,
-                                                    String clientSecret) {
+    private Future<ParticipantIdentity> authenticateMachine(String organizationId,
+                                                            String applicationId,
+                                                            String clientId,
+                                                            String clientSecret) {
         if (clientId == null || clientSecret == null) {
             return Future.failedFuture(new AuthenticationException(
                     "clientId and clientSecret headers are required for credential authentication"));
         }
         return identityService.verifyMachineCredentials(clientId, clientSecret)
                               .compose(machine -> {
-                                  Future<Participant> ret;
+                                  Future<ParticipantIdentity> ret;
                                   if ((organizationId != null && !organizationId.equals(machine.getOrganizationId()))
                                           || (applicationId != null && !applicationId.equals(machine.getApplicationId()))) {
                                       ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
                                   } else {
-                                      ret = Future.succeededFuture(DomainUtil.createParticipant(machine));
+                                      ret = Future.succeededFuture(machine);
                                   }
                                   return ret;
                               })
@@ -157,13 +175,12 @@ public class KinoticSecurityService implements SecurityService {
     }
 
     /**
-     * Validates a Kinotic-issued JWT and resolves it to a Participant. The JWT must have a
+     * Validates a Kinotic-issued JWT and resolves it to its identity. The JWT must have a
      * {@code sub} claim referencing an existing, enabled {@link ParticipantIdentity} whose
      * {@code organizationId} / {@code applicationId} equal the token's claims for those values
-     * (defense in depth against a token outliving the scope it was minted for). The resulting
-     * Participant is scoped by that user record.
+     * (defense in depth against a token outliving the scope it was minted for).
      */
-    private Future<Participant> authenticateKinoticJwt(String token) {
+    private Future<ParticipantIdentity> authenticateKinoticJwt(String token) {
         return jwtIssuer.authenticate(token)
                         .recover(err -> Future.failedFuture(
                                 new AuthenticationException("JWT validation failed: " + err.getMessage(), err)))
@@ -171,23 +188,23 @@ public class KinoticSecurityService implements SecurityService {
                             JsonObject p = user.principal();
                             String sub = p.getString("sub");
 
-                            Future<Participant> ret;
+                            Future<ParticipantIdentity> ret;
                             if (sub == null) {
                                 ret = Future.failedFuture(new AuthenticationException("JWT missing sub claim"));
                             } else {
-                                ret = resolveParticipant(sub,
-                                                         p.getString("organizationId"),
-                                                         p.getString("applicationId"));
+                                ret = resolveIdentity(sub,
+                                                      p.getString("organizationId"),
+                                                      p.getString("applicationId"));
                             }
                             return ret;
                         });
     }
 
-    private Future<Participant> resolveParticipant(String sub, String jwtOrgId, String jwtAppId) {
+    private Future<ParticipantIdentity> resolveIdentity(String sub, String jwtOrgId, String jwtAppId) {
         return identityService.findById(sub)
                               .recover(err -> Future.failedFuture(new AuthenticationException("User lookup failed", err)))
                               .compose(identity -> {
-                                  Future<Participant> ret;
+                                  Future<ParticipantIdentity> ret;
                                   if (identity == null) {
                                       ret = Future.failedFuture(new AuthenticationException("No user for sub " + sub));
                                   } else if (!identity.isEnabled()) {
@@ -206,9 +223,9 @@ public class KinoticSecurityService implements SecurityService {
                                       // a delegate wields its owner's authority, so revoking the owner
                                       // revokes every delegate on the next request, with no cascade to miss
                                       ret = requireEnabledOwner(delegate)
-                                              .map(v -> DomainUtil.createParticipant(delegate));
+                                              .map(v -> delegate);
                                   } else {
-                                      ret = Future.succeededFuture(DomainUtil.createParticipant(identity));
+                                      ret = Future.succeededFuture(identity);
                                   }
                                   return ret;
                               });
