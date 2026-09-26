@@ -10,13 +10,13 @@ import java.util.function.Function;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SessionBinding;
-import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.domain.api.model.security.OidcProviderKind;
+import org.kinotic.domain.api.rest.ServerSurface;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.RefreshTokenService;
@@ -33,9 +33,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Shared response shaping + URL/route plumbing for every login/signup handler —
- * browser-session establishment, redirect construction, JSON error/payload writing, OAuth token
- * issuance, the standard "after-callback" flow, and absolute URL building.
+ * Shared response shaping + route plumbing for every login/signup handler —
+ * browser-session establishment, redirects to the UI, JSON error/payload writing, OAuth token
+ * issuance, and the standard "after-callback" flow.
  * Each individual handler delegates the boilerplate here so its body keeps only the
  * route-specific decisions (which config to start with, which UserParticipantIdentity lookup to run).
  */
@@ -54,42 +54,13 @@ public class AuthEndpointSupport {
      */
     private static final String RETURN_PATH_SESSION_KEY = "loginReturnPath";
 
-    private final KinoticDomainProperties domainProperties;
+    private final ServerSurface serverSurface;
     private final KinoticJwtIssuer jwtIssuer;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final ParticipantIdentityService identityService;
     private final RefreshTokenService refreshTokenService;
 
-
-    /**
-     * Builds an absolute backend URL ({@code kinotic.domain.apiBaseUrl}, falling back to
-     * {@code appBaseUrl}, + {@code relativePath}) — used for OIDC {@code redirect_uri}s.
-     */
-    public String absoluteUrl(String relativePath) {
-        return domainProperties.getDomain().resolveApiBaseUrl() + relativePath;
-    }
-
-    /**
-     * Builds an absolute URL on the OAuth 2.1 surface
-     * ({@code kinotic.domain.oauth.issuerBaseUrl}, falling back to {@code apiBaseUrl}, +
-     * {@code relativePath}) — used for the issuer identifier, the endpoints its metadata
-     * advertises, and the RFC 9728 resource metadata an MCP host discovers.
-     */
-    // FIXME: shotgun surgery — one of five places that know the OAuth surface has its own base URL.
-    // Every externally reached URL added from here on has to pick this over absoluteUrl, with
-    // nothing enforcing the choice. See "OAuth base URL split" in docs/NavidNotes.md.
-    public String issuerUrl(String relativePath) {
-        return domainProperties.getDomain().resolveIssuerBaseUrl() + relativePath;
-    }
-
-    /**
-     * Builds an absolute SPA URL ({@code kinotic.domain.appBaseUrl} + {@code relativePath}). The SPA is
-     * a different origin than this gateway, so redirects back to the browser must be absolute.
-     */
-    public String appUrl(String relativePath) {
-        return domainProperties.getDomain().getAppBaseUrl() + relativePath;
-    }
 
     // ── Browser session login ─────────────────────────────────────────────────
 
@@ -124,8 +95,8 @@ public class AuthEndpointSupport {
 
     /**
      * Establishes the browser session, bound to the page at {@code origin} that started the
-     * login, and redirects back to that page's origin (the SPA when the start named no page) —
-     * to the path the login started from when there was one, otherwise the root. No token
+     * login, and redirects back to that page's origin (this server's UI when the start named no
+     * page) — to the path the login started from when there was one, otherwise the root. No token
      * travels in the URL — the browser is authenticated by its session cookie.
      */
     public void redirectSuccess(RoutingContext ctx, String origin, UserParticipantIdentity user) {
@@ -133,9 +104,21 @@ public class AuthEndpointSupport {
         String returnPath = ctx.session().remove(RETURN_PATH_SESSION_KEY);
         establishSession(ctx, origin, user);
         String path = returnPath != null ? returnPath : "/";
-        ctx.response().setStatusCode(302)
-           .putHeader("Location", origin != null ? origin + path : appUrl(path))
-           .end();
+        if (origin != null) {
+            ctx.response().setStatusCode(302).putHeader("Location", origin + path).end();
+        } else {
+            redirectToUi(ctx, path);
+        }
+    }
+
+    /**
+     * {@code 302 Location: <this server's UI><path>}, resolved through {@link ServerSurface#uiUrl}. A
+     * request with no UI to send the browser to fails with the reason {@code uiUrl} gives.
+     */
+    public void redirectToUi(RoutingContext ctx, String path) {
+        serverSurface.uiUrl(ctx, path)
+                     .onSuccess(url -> ctx.response().setStatusCode(302).putHeader("Location", url).end())
+                     .onFailure(ctx::fail);
     }
 
     /**
@@ -153,15 +136,12 @@ public class AuthEndpointSupport {
         return ret;
     }
 
-    /** {@code 302 Location: <appBaseUrl><errorPath>?error=<code>}. */
+    /** {@code 302 Location: <this server's UI>/login?error=<code>}. */
     public void redirectError(RoutingContext ctx, String errorCode) {
         // the flow that stored a return path ends here, so it must not outlive it and send an
         // unrelated later login somewhere the user never asked for
         ctx.session().remove(RETURN_PATH_SESSION_KEY);
-        ctx.response().setStatusCode(302)
-           .putHeader("Location", appUrl("/login")
-                   + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8))
-           .end();
+        redirectToUi(ctx, "/login?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8));
     }
 
     /**

@@ -49,6 +49,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
+    private final ServerSurface serverSurface;
 
     @Override
     public void mountRoutes(Router router) {
@@ -158,7 +159,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.<BaseOidcConfiguration>handleCallback(
-                ctx, pathConfigId, inviteCallbackUrl(pathConfigId),
+                ctx, pathConfigId, inviteCallbackUrl(ctx, pathConfigId),
                 orgId -> resolveCallbackConfig(pathConfigId, orgId))
                 .onSuccess(result -> completeOidcAccept(ctx, result))
                 .onFailure(ex -> {
@@ -210,11 +211,8 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                       // Session established like any login (ApplicationParticipant); the redirect
                       // shows the confirmation state since the web app is not an app user's UI.
                       authEndpointSupport.establishSession(ctx, result.origin(), user);
-                      ctx.response().setStatusCode(302)
-                         .putHeader("Location", authEndpointSupport.appUrl(
-                                 INVITE_ACCEPT_PATH + "?accepted=app&application="
-                                         + URLEncoder.encode(user.getApplicationId(), StandardCharsets.UTF_8)))
-                         .end();
+                      authEndpointSupport.redirectToUi(ctx, INVITE_ACCEPT_PATH + "?accepted=app&application="
+                              + URLEncoder.encode(user.getApplicationId(), StandardCharsets.UTF_8));
                   } else {
                       authEndpointSupport.redirectSuccess(ctx, result.origin(), user);
                   }
@@ -249,7 +247,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                          if (chosen == null) {
                              ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
                          } else {
-                             ret = oidcFlowOrchestrator.startFlow(ctx, chosen, inviteCallbackUrl(configId),
+                             ret = oidcFlowOrchestrator.startFlow(ctx, chosen, inviteCallbackUrl(ctx, configId),
                                                                   invite.getOrganizationId(), token);
                          }
                          return ret;
@@ -284,22 +282,21 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                 });
     }
 
-    private String inviteCallbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl("/api/auth/invite/oidc/callback/" + configId);
+    private String inviteCallbackUrl(RoutingContext ctx, String configId) {
+        return serverSurface.apiBaseUrl(ctx) + "/api/auth/invite/oidc/callback/" + configId;
     }
 
     /**
-     * {@code 302 Location: <appBaseUrl>/invite/accept?error=<code>}. A non-null token is
+     * {@code 302 Location: <this server's UI>/invite/accept?error=<code>}. A non-null token is
      * kept in the URL so the page can reload the invitation and let the invitee try
      * another method.
      */
     private void redirectInviteError(RoutingContext ctx, String errorCode, String token) {
-        String location = authEndpointSupport.appUrl(INVITE_ACCEPT_PATH)
-                + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8);
+        String path = INVITE_ACCEPT_PATH + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8);
         if (token != null) {
-            location += "&token=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
+            path += "&token=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
         }
-        ctx.response().setStatusCode(302).putHeader("Location", location).end();
+        authEndpointSupport.redirectToUi(ctx, path);
     }
 
     /**
