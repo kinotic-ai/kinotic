@@ -15,7 +15,7 @@ import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.persistence.idl.decorators.*;
-import org.kinotic.persistence.api.services.EntityDefinitionService;
+import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.core.io.ResourceLoader;

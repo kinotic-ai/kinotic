@@ -19,7 +19,7 @@ import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.persistence.idl.decorators.QueryDecorator;
 import org.kinotic.domain.api.model.persistence.idl.decorators.TenantIdDecorator;
 import org.kinotic.persistence.api.services.AdminJsonEntitiesRepository;
-import org.kinotic.persistence.api.services.EntityDefinitionService;
+import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.NamedQueriesDefinitionService;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.api.services.EntitiesService;

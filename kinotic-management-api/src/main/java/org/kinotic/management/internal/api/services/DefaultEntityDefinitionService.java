@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.api.services;
+package org.kinotic.management.internal.api.services;
 
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch.indices.DataStreamVisibility;
@@ -13,11 +13,12 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
-import org.kinotic.persistence.api.config.PersistenceProperties;
+import org.kinotic.management.api.config.EntityDefinitionProperties;
+import org.kinotic.management.api.config.ManagementApiProperties;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
-import org.kinotic.persistence.api.services.EntityDefinitionService;
+import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -37,14 +38,14 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final CrudServiceTemplate crudServiceTemplate;
     private final EntityDefinitionConversionService entityDefinitionConversionService;
     private final EntityDefinitionRepository entityDefinitionRepository;
-    private final PersistenceProperties persistenceProperties;
+    private final EntityDefinitionProperties entityDefinitionProperties;
     private final DomainPersistenceProperties domainPersistenceProperties;
 
     public DefaultEntityDefinitionService(ApplicationEventPublisher eventPublisher,
                                           CrudServiceTemplate crudServiceTemplate,
                                           EntityDefinitionConversionService entityDefinitionConversionService,
                                           EntityDefinitionRepository entityDefinitionRepository,
-                                          PersistenceProperties persistenceProperties,
+                                          ManagementApiProperties managementApiProperties,
                                           DomainPersistenceProperties domainPersistenceProperties,
                                           SecurityContext securityContext) {
         super(entityDefinitionRepository, securityContext);
@@ -52,7 +53,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         this.crudServiceTemplate = crudServiceTemplate;
         this.entityDefinitionConversionService = entityDefinitionConversionService;
         this.entityDefinitionRepository = entityDefinitionRepository;
-        this.persistenceProperties = persistenceProperties;
+        this.entityDefinitionProperties = managementApiProperties.getEntityDefinition();
         this.domainPersistenceProperties = domainPersistenceProperties;
     }
 
@@ -192,15 +193,15 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                               .createIndexTemplate(templateName,
                                                    entityDefinition.getItemIndex() + "*",
                                                    DataStreamVisibility.of(b -> b.allowCustomRouting(allowCustomRouting)),
-                                                   persistenceProperties.getNumberOfShards(),
-                                                   persistenceProperties.getNumberOfReplicas(),
+                                                   entityDefinitionProperties.getNumberOfShards(),
+                                                   entityDefinitionProperties.getNumberOfReplicas(),
                                                    mappings)
                               .compose(v -> crudServiceTemplate.createDataStream(entityDefinition.getItemIndex()))
                             : crudServiceTemplate
                               .createIndex(entityDefinition.getItemIndex(),
                                            true,
-                                           persistenceProperties.getNumberOfShards(),
-                                           persistenceProperties.getNumberOfReplicas(),
+                                           entityDefinitionProperties.getNumberOfShards(),
+                                           entityDefinitionProperties.getNumberOfReplicas(),
                                            mappings);
 
                     return creationFuture.compose(v -> {

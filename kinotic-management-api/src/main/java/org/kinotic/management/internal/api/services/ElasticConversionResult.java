@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.api.services;
+package org.kinotic.management.internal.api.services;
 
 import co.elastic.clients.elasticsearch._types.mapping.ObjectProperty;
 import org.kinotic.domain.api.model.persistence.idl.decorators.EntityDecorator;

@@ -11,12 +11,13 @@ spring:
     # the host by sync-secrets.sh and mounted read-only
     import: optional:file:/etc/kinotic/secrets.yml
 kinotic:
-  persistence:
-    # Three master-eligible data nodes, one physical disk each: one replica survives a disk,
-    # and one shard per index keeps a published EntityDefinition cheap against the
-    # 1000-shard-per-node ceiling. The production defaults (3 and 2) assume a larger cluster.
-    numberOfShards: 1
-    numberOfReplicas: 1
+  managementApi:
+    entityDefinition:
+      # Three master-eligible data nodes, one physical disk each: one replica survives a disk,
+      # and one shard per index keeps a published EntityDefinition cheap against the
+      # 1000-shard-per-node ceiling. The production defaults (3 and 2) assume a larger cluster.
+      numberOfShards: 1
+      numberOfReplicas: 1
   apiGateway:
     # The portal and the system console are served by Front Door from the sites account, so
     # the server exposes the API port alone

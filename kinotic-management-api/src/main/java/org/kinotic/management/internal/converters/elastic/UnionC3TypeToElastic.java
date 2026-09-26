@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.converters.elastic;
+package org.kinotic.management.internal.converters.elastic;
 
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import org.kinotic.idl.api.converter.C3ConversionContext;
