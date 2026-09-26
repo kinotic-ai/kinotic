@@ -112,7 +112,7 @@ jobs:
       # Ahead of the Maven staging below: js_workspace_tests and e2e_tests block on this whole job,
       # so anything they do not need belongs after the image they do.
       - name: Build server images
-        run: ./gradlew :kinotic-org-server:bootBuildImage :kinotic-system-server:bootBuildImage :kinotic-test-server:bootBuildImage
+        run: ./gradlew :kinotic-org-server:bootBuildImage :kinotic-system-server:bootBuildImage :kinotic-app-server:bootBuildImage :kinotic-test-server:bootBuildImage
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -124,7 +124,7 @@ jobs:
       - name: Stage server images on ghcr.io
         run: |
           version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
-          for image in kinotic-org-server kinotic-system-server kinotic-test-server; do
+          for image in kinotic-org-server kinotic-system-server kinotic-app-server kinotic-test-server; do
             staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}"
             docker tag "kinoticai/${image}:${version}" "$staged"
             docker push "$staged"
@@ -218,7 +218,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [kinotic-migration, kinotic-org-server, kinotic-system-server]
+        image: [kinotic-migration, kinotic-org-server, kinotic-system-server, kinotic-app-server]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -383,7 +383,7 @@ jobs:
       - name: Load staged images
         uses: ./.github/actions/load-staged-images
         with:
-          images: kinotic-migration kinotic-org-server kinotic-system-server
+          images: kinotic-migration kinotic-org-server kinotic-system-server kinotic-app-server
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable KVM and user namespaces for boxlite
@@ -491,7 +491,7 @@ jobs:
         if: ${{ env.PROMOTE == 'true' }}
         run: |
           version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
-          for image in kinotic-migration kinotic-org-server kinotic-system-server; do
+          for image in kinotic-migration kinotic-org-server kinotic-system-server kinotic-app-server; do
             staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}"
             docker pull "$staged"
             docker tag "$staged" "kinoticai/${image}:${version}"

@@ -1,7 +1,7 @@
 name: GHCR Cleanup
 
 # Every push to develop or main, and every pull request into them, stages kinotic-org-server,
-# kinotic-system-server, kinotic-test-server and kinotic-migration on ghcr.io under sha-<commit> (see
+# kinotic-system-server, kinotic-app-server, kinotic-test-server and kinotic-migration on ghcr.io under sha-<commit> (see
 # gradle-build.yml), and nothing outside that workflow ever reads those tags — what ships is
 # promoted to Docker Hub. So a staged image is dead weight as soon as no one is going
 # to re-run the jobs of the run that produced it, and without this job they accumulate forever.
@@ -59,7 +59,7 @@ jobs:
       - name: Delete staged images past the re-run window
         uses: dataaxiom/ghcr-cleanup-action@v1.2.2
         with:
-          packages: kinotic-migration,kinotic-org-server,kinotic-system-server,kinotic-test-server
+          packages: kinotic-migration,kinotic-org-server,kinotic-system-server,kinotic-app-server,kinotic-test-server
           # Untagged versions here are prior builds of a sha the workflow built twice, orphaned when
           # the re-run pushed the same tag to a new digest. Every staging package is single-platform, so no
           # untagged version is a multi-arch child of a tag being kept. Nothing resolves a staged
