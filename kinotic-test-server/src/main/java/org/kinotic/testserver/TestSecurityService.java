@@ -1,4 +1,4 @@
-package org.kinotic.clienttest;
+package org.kinotic.testserver;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.security.Participant;
@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * {@link SecurityService} of the client-test server, which runs without the domain module and so
+ * {@link SecurityService} of the test server, which runs without the domain module and so
  * without the real {@code KinoticSecurityService} (which resolves users from Elasticsearch).
  * It authenticates purely from the STOMP CONNECT headers with no
  * user store, so the {@code @kinotic-ai/core} suite can exercise the RPC mechanism in

@@ -1,4 +1,4 @@
-package org.kinotic.clienttest;
+package org.kinotic.testserver;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Vertx;

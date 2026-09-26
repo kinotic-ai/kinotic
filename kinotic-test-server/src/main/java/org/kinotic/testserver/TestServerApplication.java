@@ -1,4 +1,4 @@
-package org.kinotic.clienttest;
+package org.kinotic.testserver;
 
 import org.kinotic.core.api.annotations.EnableKinotic;
 import org.kinotic.domain_autoconfig.KinoticDomainAutoConfiguration;
@@ -14,10 +14,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 // bring the real SecurityService in place of TestSecurityService
 @SpringBootApplication(exclude = KinoticDomainAutoConfiguration.class)
 @EnableKinotic
-public class ClientTestServerApplication {
+public class TestServerApplication {
 
 	static void main(String[] args) {
-		SpringApplication.run(ClientTestServerApplication.class, args);
+		SpringApplication.run(TestServerApplication.class, args);
 	}
 
 }

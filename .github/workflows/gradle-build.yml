@@ -112,7 +112,7 @@ jobs:
       # Ahead of the Maven staging below: js_workspace_tests and e2e_tests block on this whole job,
       # so anything they do not need belongs after the image they do.
       - name: Build server images
-        run: ./gradlew :kinotic-server:bootBuildImage :kinotic-client-test-server:bootBuildImage
+        run: ./gradlew :kinotic-server:bootBuildImage :kinotic-test-server:bootBuildImage
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -124,7 +124,7 @@ jobs:
       - name: Stage server images on ghcr.io
         run: |
           version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
-          for image in kinotic-server kinotic-client-test-server; do
+          for image in kinotic-server kinotic-test-server; do
             staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}"
             docker tag "kinoticai/${image}:${version}" "$staged"
             docker push "$staged"
@@ -275,7 +275,7 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # USE_GATEWAY_DOCKER makes the @kinotic-ai/core suite start the client-test server image via
+  # USE_GATEWAY_DOCKER makes the @kinotic-ai/core suite start the test server image via
   # testcontainers; the other suites ignore it.
   js_workspace_tests:
     name: JS Workspace Tests
@@ -306,7 +306,7 @@ jobs:
       - name: Load staged images
         uses: ./.github/actions/load-staged-images
         with:
-          images: kinotic-client-test-server
+          images: kinotic-test-server
           token: ${{ secrets.GITHUB_TOKEN }}
 
       # After this step the runner user can open /dev/kvm and create unprivileged user namespaces —

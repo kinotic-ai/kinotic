@@ -17,7 +17,7 @@ export async function setup(project: TestProject) {
         container = await new GenericContainer(KINOTIC_DOCKER_IMAGE)
             .withExposedPorts(58503)
             // /health is the gateway readiness endpoint on the STOMP port; it returns 204 with no
-            // health procedures registered (the client-test server registers none) and 200 once
+            // health procedures registered (the test server registers none) and 200 once
             // they are, so accept either.
             .withWaitStrategy(Wait.forHttp('/health', 58503).forStatusCodeMatching(c => c === 200 || c === 204))
             .start()

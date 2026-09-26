@@ -1,4 +1,4 @@
-package org.kinotic.clienttest;
+package org.kinotic.testserver;
 
 
 import org.kinotic.core.api.annotations.Publish;

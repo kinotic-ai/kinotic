@@ -157,7 +157,7 @@ public class StompAuthorizerFactoryTest {
         assertTrue(authorizer.sendAllowed(CRI.create("srv://system-api~org.kinotic.system.api.workload.WorkloadOrchestrationService/startWorkload#0.1.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://node1@system-api~kinotic-ai.vm-manager.VmManager/startWorkload#0.1.0")));
-        assertTrue(authorizer.sendAllowed(CRI.create("srv://org.kinotic.clienttest.SomeLegacyService/method#1.0.0")));
+        assertTrue(authorizer.sendAllowed(CRI.create("srv://org.kinotic.testserver.SomeLegacyService/method#1.0.0")));
 
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://node1@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
@@ -167,7 +167,7 @@ public class StompAuthorizerFactoryTest {
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app-api~org.kinotic.some.DataService#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
         // subscribing requires a zone: an un-zoned address is never subscribable, even for system
-        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://org.kinotic.clienttest.SomeLegacyService#1.0.0")));
+        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://org.kinotic.testserver.SomeLegacyService#1.0.0")));
     }
 
     @Test

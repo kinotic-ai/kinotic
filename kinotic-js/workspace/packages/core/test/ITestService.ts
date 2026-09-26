@@ -39,7 +39,7 @@ export class TestService implements ITestService {
 
     constructor(continuum?: KinoticSingleton) {
         let toUse = continuum || Kinotic
-        this.serviceProxy = toUse.serviceProxy('management-api~org.kinotic.clienttest.ITestService')
+        this.serviceProxy = toUse.serviceProxy('management-api~org.kinotic.testserver.ITestService')
     }
 
     testMethodWithString(value: string): Promise<string> {
