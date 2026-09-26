@@ -14,8 +14,8 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * {@link SecurityService} of the test server, which runs without the domain module and so
- * without the real {@code KinoticSecurityService} (which resolves users from Elasticsearch).
+ * {@link SecurityService} of the test server, which runs without the domain module's services and so
+ * without the servers' security services (which resolve users from Elasticsearch).
  * It authenticates purely from the STOMP CONNECT headers with no
  * user store, so the {@code @kinotic-ai/core} suite can exercise the RPC mechanism in
  * isolation. The Kinotic CLI participant id maps to the ANONYMOUS role; every other client
