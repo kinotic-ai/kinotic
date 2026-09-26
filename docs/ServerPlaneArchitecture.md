@@ -170,8 +170,8 @@ that already resolves the calling `Participant` for injection:
   configs, machine credentials, entity definitions, job runs; the app plane reads
   identities (login verification) and entity-definition/named-query metadata (the
   repositories need it to operate).
-- Org plane and app plane both mount **entity ES** (portal browsing, migrations,
-  insights vs. tenant data operations).
+- Org plane and app plane both mount **entity ES** (portal browsing and migrations
+  vs. tenant data operations).
 - The app plane's store access rides a **least-privilege ES principal from day one**: an
   index-scoped role granting read/write on entity indices and read-only on exactly the
   os-data indices it needs (identities, entity definitions, named queries). This needs

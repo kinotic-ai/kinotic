@@ -48,7 +48,7 @@ localStorage.removeItem('debug')
   `kinotic-ui:entity-list-entityDefinitions`, `kinotic-ui:entity-list-old`
 - `kinotic-ui:crud-table`
 - `kinotic-ui:dashboard-view`, `kinotic-ui:dashboard-details`
-- `kinotic-ui:data-insights`, `kinotic-ui:saved-widgets`, `kinotic-ui:saved-widget-item`
+- `kinotic-ui:saved-widgets`, `kinotic-ui:saved-widget-item`
 - `kinotic-ui:graphql-playground`, `kinotic-ui:openapi-playground`
 
 `apps/system`:
