@@ -14,7 +14,10 @@ kinotic:
   systemApi:
     deployment:
       # required at boot; no deployment ever runs in tests, workloads would reach the local gateway
-      serverHost: localhost
+      orgServer:
+        host: localhost
+      appServer:
+        host: localhost
     # placeholder site config, validated at boot; no test deploys a UI
     uiDeployment:
       disableProvisioner: true

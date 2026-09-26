@@ -48,9 +48,12 @@ kinotic:
     uiDeployment:
       disableProvisioner: false
     deployment:
-      # serverHost and serverPort arrive through the environment: the address is the
+      # the servers' hosts and ports arrive through the environment: each address is the
       # server's own, and the port is whatever the router forwards
-      serverUseSsl: true
+      orgServer:
+        useSsl: true
+      appServer:
+        useSsl: true
       # Destinations beyond the gateway a sync workload may reach, by name: the node's resolver
       # admits exactly the addresses it answers for each, so the npm registry's anycast and
       # GitHub's moving ranges need no CIDRs. The sync workload fetches from GitHub and runs
