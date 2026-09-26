@@ -1,11 +1,11 @@
-package org.kinotic.persistence.internal.api.services;
+package org.kinotic.management.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
-import org.kinotic.persistence.api.services.NamedQueriesDefinitionService;
+import org.kinotic.management.api.services.NamedQueriesDefinitionService;
 import org.kinotic.domain.api.repositories.NamedQueriesDefinitionRepository;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.springframework.context.ApplicationEventPublisher;

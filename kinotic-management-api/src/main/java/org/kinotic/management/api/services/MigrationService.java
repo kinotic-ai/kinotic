@@ -1,12 +1,12 @@
-package org.kinotic.persistence.api.services;
+package org.kinotic.management.api.services;
 
 import io.vertx.core.Future;
-import org.kinotic.persistence.api.model.MigrationRequest;
-import org.kinotic.persistence.api.model.MigrationResult;
+import org.kinotic.management.api.model.MigrationRequest;
+import org.kinotic.management.api.model.MigrationResult;
 import org.kinotic.core.api.annotations.Publish;
 
 /**
- * Service for executing project-specific migrations through the Persistence API.
+ * Service for executing project-specific migrations.
  * This service allows external clients to apply their own migrations to projects.
  */
 @Publish

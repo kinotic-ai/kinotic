@@ -11,6 +11,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @EnableConfigurationProperties
 @ComponentScan
-@ConditionalOnProperty(value = "kinotic.disablePersistence", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(value = "kinotic.disableManagement", havingValue = "false", matchIfMissing = true)
 public class KinoticSqlLibrary {
 }
