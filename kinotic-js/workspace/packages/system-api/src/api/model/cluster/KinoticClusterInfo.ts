@@ -1,8 +1,8 @@
 import { KinoticNodeInfo } from '@/api/model/cluster/KinoticNodeInfo'
 
 /**
- * The kinotic-server cluster's current topology and state. Mirrors the server's
- * {@code org.kinotic.domain.api.model.cluster.KinoticClusterInfo}.
+ * The current topology and state of the cluster the org, system and app servers form. Mirrors the
+ * server's {@code org.kinotic.system.api.model.cluster.KinoticClusterInfo}.
  */
 export class KinoticClusterInfo {
     public localNodeId: string = ''
