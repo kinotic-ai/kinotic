@@ -16,7 +16,7 @@ import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
 import org.kinotic.domain.api.model.persistence.DecoratedProperty;
-import org.kinotic.persistence.internal.api.repositories.EntityDefinitionRepository;
+import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.springframework.stereotype.Component;

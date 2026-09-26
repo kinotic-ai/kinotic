@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.cache.events;
+package org.kinotic.domain.api.cache;
 
 import lombok.Getter;
 

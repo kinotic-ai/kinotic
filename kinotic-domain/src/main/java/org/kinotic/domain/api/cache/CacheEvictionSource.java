@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.cache.events;
+package org.kinotic.domain.api.cache;
 
 /**
  * Type-safe enum defining the source/trigger of cache eviction events

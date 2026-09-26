@@ -46,9 +46,4 @@ public class PersistenceProperties {
     @Min(1)
     private int namedQueriesCacheMaxSize = 10_000;
 
-    /**
-     * Cluster eviction configuration
-     */
-    private ClusterEvictionProperties clusterEviction = new ClusterEvictionProperties();
-
 }

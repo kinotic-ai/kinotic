@@ -6,8 +6,8 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
 import org.kinotic.persistence.api.services.NamedQueriesDefinitionService;
-import org.kinotic.persistence.internal.api.repositories.NamedQueriesDefinitionRepository;
-import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
+import org.kinotic.domain.api.repositories.NamedQueriesDefinitionRepository;
+import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
