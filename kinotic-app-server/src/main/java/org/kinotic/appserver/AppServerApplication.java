@@ -2,7 +2,9 @@ package org.kinotic.appserver;
 
 import org.kinotic.core.api.annotations.EnableKinotic;
 import org.kinotic.core.api.event.ZonePartition;
+import org.kinotic.domain.api.rest.AppServerSurface;
 import org.kinotic.domain.api.rest.ApplicationLoginHandler;
+import org.kinotic.domain.api.rest.OAuthServerHandler;
 import org.kinotic.domain.api.rest.SessionEndpointHandler;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.boot.SpringApplication;
@@ -14,11 +16,14 @@ import java.util.Set;
 
 /**
  * The app server: the API every application's users, UIs and microservices call, the app-api
- * persistence services and the services the applications publish in their own zones.
+ * persistence services and the services the applications publish in their own zones. Each
+ * application is served at its own API host, which its browser flows and OAuth issuer derive from.
  */
 @SpringBootApplication()
 @EnableKinotic
-@Import({ApplicationLoginHandler.class,
+@Import({AppServerSurface.class,
+		 ApplicationLoginHandler.class,
+		 OAuthServerHandler.class,
 		 SessionEndpointHandler.class})
 public class AppServerApplication {
 	static void main(String[] args) {
