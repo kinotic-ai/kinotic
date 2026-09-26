@@ -37,7 +37,7 @@ const TUNNEL_HOSTS = ['.ngrok-free.app', '.ngrok-free.dev', '.ngrok.app', '.ngro
 
 // One origin for SPA + backend, so a single ngrok tunnel to this server can receive
 // GitHub/OIDC callbacks: tunnel mode clears VITE_KINOTIC_HOST, making apiUrl() and
-// Kinotic.connect() same-origin, and these routes forward to the local kinotic-server. In
+// Kinotic.connect() same-origin, and these routes forward to the local org server. In
 // plain `pnpm dev` the app calls localhost:58503 directly and this proxy sits idle.
 const BACKEND_PROXY = {
     '/api': { target: 'http://localhost:58503', changeOrigin: true },
@@ -75,8 +75,8 @@ export default defineConfig(
             allowedHosts: TUNNEL_HOSTS,
             proxy: BACKEND_PROXY,
             // Vite answers CORS preflights itself, for localhost origins only, before the proxy
-            // sees them; off, a preflight from a published site reaches kinotic-server, whose
-            // CORS policy decides. The portal is same-origin here and needs none of its own.
+            // sees them; off, every preflight reaches the org server, whose CORS policy decides.
+            // The portal is same-origin here and needs none of its own.
             cors: false,
         },
         // `pnpm dev:tunnel:build` serves the production build behind the tunnel on the dev
