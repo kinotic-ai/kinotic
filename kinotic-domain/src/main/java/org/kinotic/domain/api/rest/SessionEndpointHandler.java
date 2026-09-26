@@ -2,20 +2,20 @@ package org.kinotic.domain.api.rest;
 
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.Session;
-import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.SessionBinding;
 import org.springframework.stereotype.Component;
 
 /**
- * Browser session-lifecycle routes (named to avoid clashing with Vert.x's own {@code SessionHandler}):
+ * Browser session-lifecycle routes (named to avoid clashing with Vert.x's own {@code SessionHandler}).
+ * Both act on the login of the page that sends the request (see {@link SessionBinding}):
  * <ul>
- *   <li>{@code GET /api/auth/me} — reports whether the session cookie still authenticates the caller.
+ *   <li>{@code GET /api/auth/me} — reports whether the session cookie authenticates the calling page.
  *       A cookie-auth client (the browser) uses this to decide whether to open the realtime
  *       WebSocket: a rejected WS upgrade is opaque to browsers, whereas this HTTP status is
  *       readable, so the SPA can fail fast instead of dialing an unauthenticated socket.</li>
- *   <li>{@code POST /api/auth/logout} — destroys the browser session, ending the login for every scope
- *       (one cookie regardless of org/app/system).</li>
+ *   <li>{@code POST /api/auth/logout} — ends the calling page's login. The session, and its cookie, end
+ *       once no page's login remains.</li>
  * </ul>
  */
 @Component
@@ -28,30 +28,22 @@ public class SessionEndpointHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * {@code 204} when the session cookie authenticates the caller, {@code 401} otherwise.
+     * {@code 204} when the session cookie holds a login for the calling page, {@code 401} otherwise.
      */
     private void handleMe(RoutingContext ctx) {
-        boolean authenticated = false;
-        // Reading the session via ctx.session() actually creates a session, so we avoid creating an unessarcy session by checking the cookie first.
-        if (ctx.request().getCookie(EventConstants.SESSION_COOKIE_NAME) != null) {
-            Session session = ctx.session();
-            authenticated = session.get(ConnectedInfo.SESSION_KEY) instanceof ConnectedInfo connectedInfo
-                    && connectedInfo.getParticipant() != null;
-            if (!authenticated) {
-                // Cookie present but no valid login behind it (stale, or freshly created because the
-                // prior session was gone): drop it so nothing empty is persisted and the cookie clears.
-                session.destroy();
-            }
+        ConnectedInfo connectedInfo = SessionBinding.connectedInfo(ctx);
+        boolean authenticated = connectedInfo != null && connectedInfo.getParticipant() != null;
+        if (!authenticated) {
+            // a cookie with no login behind it (stale, or freshly created because the prior session was
+            // gone) clears, so nothing empty is persisted; another page's login keeps the session
+            SessionBinding.unbind(ctx);
         }
         ctx.response().setStatusCode(authenticated ? 204 : 401).end();
     }
 
-    /** Destroys the browser session. */
+    /** Ends the calling page's login. */
     private void handleLogout(RoutingContext ctx) {
-        Session session = ctx.session();
-        if (session != null) {
-            session.destroy();
-        }
+        SessionBinding.unbind(ctx);
         ctx.response().setStatusCode(204).end();
     }
 }

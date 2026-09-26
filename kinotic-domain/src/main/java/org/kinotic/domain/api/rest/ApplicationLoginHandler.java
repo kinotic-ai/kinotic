@@ -137,7 +137,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
                                   CallbackResult<OidcConfiguration> result,
                                   String orgId,
                                   String appId) {
-        authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
+        authEndpointSupport.completeOidcLogin(ctx, result,
                 sub -> identityService.findByOidcIdentity(sub, result.config().getId(), orgId, appId));
     }
 

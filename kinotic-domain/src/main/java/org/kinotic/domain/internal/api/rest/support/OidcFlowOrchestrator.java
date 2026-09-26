@@ -20,6 +20,7 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
+import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
@@ -123,7 +124,8 @@ public class OidcFlowOrchestrator {
                          return getOAuth2Auth(config)
                                  .compose(oauth2 -> exchangeCode(oauth2, code, callbackUrl, flowSession.pkceVerifier()))
                                  .compose(user -> verifiedClaims(config, user, flowSession))
-                                 .map(claims -> new CallbackResult<>(config, claims, flowSession.orgId(), flowSession.inviteToken()));
+                                 .map(claims -> new CallbackResult<>(config, claims, flowSession.orgId(),
+                                                                   flowSession.inviteToken(), flowSession.origin()));
                      });
     }
 
@@ -163,8 +165,9 @@ public class OidcFlowOrchestrator {
     }
 
     /**
-     * Generates state/nonce/PKCE, stores them on the session, builds the IdP authorization
-     * URL using the supplied callback URL, and returns the URL.
+     * Generates state/nonce/PKCE, stores them on the session along with the origin of the page
+     * starting the flow, builds the IdP authorization URL using the supplied callback URL, and
+     * returns the URL.
      *
      * @param orgId the organization id to stash on the session for the callback to scope its
      *              config lookup by, or {@code null} for non-org-scoped flows.
@@ -193,7 +196,8 @@ public class OidcFlowOrchestrator {
 
         Session session = ctx.session();
         session.regenerateId();
-        session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), orgId, inviteToken));
+        session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), orgId,
+                                                               inviteToken, SessionBinding.origin(ctx)));
 
         // Scopes ride as RFC 6749's space-delimited string; a row without them gets the
         // standard OIDC triple.
