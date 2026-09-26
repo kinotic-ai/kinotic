@@ -35,6 +35,7 @@ export { default as MachineSecretDialog } from './components/MachineSecretDialog
 export type { MachineSecret } from './components/MachineSecretDialog.vue'
 export { default as MachinesTable } from './components/MachinesTable.vue'
 export type { MachineOperations } from './components/MachinesTable.vue'
+export { default as OAuthConsentPage } from './components/OAuthConsentPage.vue'
 export { default as PageHeader } from './components/PageHeader.vue'
 export { default as ProjectDeployTaskDetail } from './components/deploy/ProjectDeployTaskDetail.vue'
 export { default as SideBar } from './components/SideBar.vue'

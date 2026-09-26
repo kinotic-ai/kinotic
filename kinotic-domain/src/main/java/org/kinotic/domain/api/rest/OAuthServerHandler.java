@@ -1,11 +1,13 @@
 package org.kinotic.domain.api.rest;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.domain.api.services.security.OAuthAuthorizationService;
@@ -19,8 +21,9 @@ import java.util.Optional;
 
 /**
  * The OAuth 2.1 authorization server MCP hosts discover and drive to reach {@code POST /mcp}: its
- * RFC 8414 metadata document, the PKCE authorization-code flow whose consent step is the SPA's
- * {@code /oauth/consent} page, and the token endpoint. On a server that imports
+ * RFC 8414 metadata document, the PKCE authorization-code flow whose consent step is the
+ * {@code /oauth/consent} page on this server's UI, the routes that page describes, approves and
+ * denies the request with as its signed-in user, and the token endpoint. On a server that imports
  * {@link DeviceAuthorizationHandler}, the token endpoint also redeems the RFC 8628 device codes it
  * issues to the CLI, and the metadata advertises the device grant. There is no registration
  * endpoint: an MCP host identifies itself with a Client ID Metadata Document URL
@@ -51,6 +54,9 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
     public void mountRoutes(Router router) {
         router.get("/.well-known/oauth-authorization-server").handler(this::handleAuthorizationServerMetadata);
         router.get("/api/auth/oauth/authorize").handler(this::handleAuthorize);
+        router.get("/api/auth/oauth/request/:requestId").handler(this::handleDescribe);
+        router.post("/api/auth/oauth/approve").handler(this::handleApprove);
+        router.post("/api/auth/oauth/deny").handler(this::handleDeny);
         router.post("/api/auth/oauth/token").handler(this::handleToken);
     }
 
@@ -76,8 +82,8 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
 
     /**
      * {@code GET /api/auth/oauth/authorize} — validates the request, stores it, and sends the
-     * browser to the consent page on this server's UI, which approves or denies over STOMP and
-     * then navigates to the client's redirect URI.
+     * browser to the consent page on this server's UI, which approves or denies with
+     * {@link #handleApprove} or {@link #handleDeny} and then navigates to the client's redirect URI.
      */
     private void handleAuthorize(RoutingContext ctx) {
         String clientId = ctx.request().getParam("client_id");
@@ -108,6 +114,44 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
                   log.warn("OAuth authorize request rejected: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 400, "invalid_request");
               });
+    }
+
+    /**
+     * {@code GET /api/auth/oauth/request/:requestId} — the request awaiting consent, for the consent
+     * page to show its signed-in user: {@code {"clientName","clientId","scope"}}.
+     */
+    private void handleDescribe(RoutingContext ctx) {
+        authEndpointSupport.requireSessionUser(ctx);
+        oauthAuthorizationService.findPending(serverSurface.issuerBaseUrl(ctx), ctx.pathParam("requestId"))
+              .onSuccess(ctx::json)
+              .onFailure(err -> authEndpointSupport.respondError(ctx, 400, err.getMessage()));
+    }
+
+    /**
+     * {@code POST /api/auth/oauth/approve} ({@code {"requestId"}}) — approves the request as the
+     * signed-in user and answers {@code {"redirectUrl"}}, carrying the authorization code, for the
+     * browser to follow.
+     */
+    private void handleApprove(RoutingContext ctx) {
+        Participant approver = authEndpointSupport.requireSessionUser(ctx);
+        String requestId = authEndpointSupport.readJsonBody(ctx).getString("requestId");
+        respondRedirectUrl(ctx, oauthAuthorizationService.approve(serverSurface.issuerBaseUrl(ctx), requestId,
+                                                                  approver.getId()));
+    }
+
+    /**
+     * {@code POST /api/auth/oauth/deny} ({@code {"requestId"}}) — denies the request and answers
+     * {@code {"redirectUrl"}}, carrying {@code error=access_denied}, for the browser to follow.
+     */
+    private void handleDeny(RoutingContext ctx) {
+        authEndpointSupport.requireSessionUser(ctx);
+        String requestId = authEndpointSupport.readJsonBody(ctx).getString("requestId");
+        respondRedirectUrl(ctx, oauthAuthorizationService.deny(serverSurface.issuerBaseUrl(ctx), requestId));
+    }
+
+    private void respondRedirectUrl(RoutingContext ctx, Future<String> redirectUrl) {
+        redirectUrl.onSuccess(url -> ctx.json(new JsonObject().put("redirectUrl", url)))
+                   .onFailure(err -> authEndpointSupport.respondError(ctx, 400, err.getMessage()));
     }
 
     /**
