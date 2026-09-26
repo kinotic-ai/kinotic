@@ -143,20 +143,29 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
         String nodeId = workload.getNodeId();
         workload.setStatus(WorkloadStatus.STOPPING);
         return workloadRepository.updateRunSync(workload.getId(), WorkloadStatus.STOPPING, null, "stopWorkload")
-                .compose(v -> verifyingNodeOnFailure(nodeId, vmManagerProxy.stopWorkload(nodeId, workload.getId())))
-                .compose(v -> recordRunEnded(workload, WorkloadStatus.STOPPED, "stopWorkload"))
-                .recover(error -> {
-                    Future<Void> recorded;
-                    if (error instanceof RpcServiceUnavailableException) {
-                        // The node may have stopped it: the record keeps STOPPING and the node's next
-                        // report settles it
-                        recorded = markUnreachable(workload, "Node " + nodeId + " did not answer the stop");
+                .compose(stopping -> {
+                    Future<Void> ret;
+                    if (stopping) {
+                        ret = verifyingNodeOnFailure(nodeId, vmManagerProxy.stopWorkload(nodeId, workload.getId()))
+                                .compose(v -> recordRunEnded(workload, WorkloadStatus.STOPPED, "stopWorkload"))
+                                .recover(error -> {
+                                    Future<Void> recorded;
+                                    if (error instanceof RpcServiceUnavailableException) {
+                                        // The node may have stopped it: the record keeps STOPPING and the node's next
+                                        // report settles it
+                                        recorded = markUnreachable(workload, "Node " + nodeId + " did not answer the stop");
+                                    } else {
+                                        recorded = Future.succeededFuture();
+                                    }
+                                    return recorded.transform(_ -> Future.failedFuture(error));
+                                })
+                                .mapEmpty();
                     } else {
-                        recorded = Future.succeededFuture();
+                        // the run ended between the read and the write, and its room went with it
+                        ret = Future.succeededFuture();
                     }
-                    return recorded.transform(_ -> Future.failedFuture(error));
-                })
-                .mapEmpty();
+                    return ret;
+                });
     }
 
     @Override
@@ -255,10 +264,13 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     } else if (current.getStatus() == WorkloadStatus.STARTING) {
                         // A RUNNING reply only promotes from STARTING: a short-lived detached
                         // workload's terminal status report can be applied before the reply
-                        // gets here, and must not be clobbered.
+                        // gets here, and must not be clobbered; the write declines one applied
+                        // since this read, and the record then answers for the run
                         ret = workloadRepository.updateRunSync(startedWorkload.getId(), startedWorkload.getStatus(), startedWorkload.getExitCode(),
                                                             "node " + startedWorkload.getNodeId())
-                                             .map(startedWorkload);
+                                             .compose(applied -> applied
+                                                     ? Future.succeededFuture(startedWorkload)
+                                                     : workloadRepository.findById(startedWorkload.getId()));
                     } else {
                         ret = Future.succeededFuture(current);
                     }

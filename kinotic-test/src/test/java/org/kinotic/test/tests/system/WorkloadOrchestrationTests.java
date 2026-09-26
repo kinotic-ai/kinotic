@@ -341,6 +341,26 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     }
 
     @Test
+    public void runUpdateWrittenFromAReadTheEndOvertookIsDeclined() throws Exception {
+        Workload deployed = call(() -> orchestration.deployWorkload(newWorkload()));
+        report(deployed.getId(), WorkloadStatus.STOPPED, 0);
+        assertEquals(4, node().getFreeCpus());
+
+        // the writes a stop and a node's report make from a read that showed the run open, landing
+        // after the end: each is declined in the shard operation that would have applied it
+        assertFalse(await(workloads.updateRunSync(deployed.getId(), WorkloadStatus.STOPPING, null, "stopWorkload")));
+        assertFalse(await(workloads.updateRunSync(deployed.getId(), WorkloadStatus.RUNNING, null, "node " + NODE_ID)));
+
+        Workload stored = workload(deployed.getId());
+        assertEquals(WorkloadStatus.STOPPED, stored.getStatus());
+        assertEquals(0, stored.getExitCode());
+        // the node's own end of it, or a stop, returns nothing again
+        report(deployed.getId(), WorkloadStatus.STOPPED, 0);
+        call(() -> orchestration.stopWorkload(deployed.getId()));
+        assertEquals(4, node().getFreeCpus());
+    }
+
+    @Test
     public void deregisteringAnUnreachableNodeRecordsItsOpenRunsFailed() throws Exception {
         Workload deployed = markedUnreachableBySilence();
 
@@ -584,9 +604,11 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         assertEquals(10240, node.getFreeDiskMb());
         assertEquals(WorkloadStatus.STOPPED, workload(deployed.getId()).getStatus());
 
-        // the node's own report of the same end, and a later destroy, return nothing twice
+        // the node's own report of the same end, and a later destroy, return nothing twice; the
+        // exit code the stop did not have is still adopted
         report(deployed.getId(), WorkloadStatus.STOPPED, 0);
         assertEquals(4, node().getFreeCpus());
+        assertEquals(0, workload(deployed.getId()).getExitCode());
         call(() -> orchestration.destroyWorkload(deployed.getId()));
         assertEquals(4, node().getFreeCpus());
         assertEquals(WorkloadStatus.STOPPED, workload(deployed.getId()).getStatus(), "the record outlives the run");

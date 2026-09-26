@@ -175,7 +175,8 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         // Same state; still adopt an exit code the record lacks — stopWorkload
                         // records STOPPED before the node's exit-code-bearing report arrives
                         if (report.getExitCode() != null && workload.getExitCode() == null) {
-                            ret = workloadRepository.updateRunSync(workload.getId(), workload.getStatus(), report.getExitCode(), "node " + nodeId);
+                            ret = workloadRepository.updateRunSync(workload.getId(), workload.getStatus(), report.getExitCode(), "node " + nodeId)
+                                                 .mapEmpty();
                         } else {
                             ret = Future.succeededFuture();
                         }
@@ -201,7 +202,8 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
             ret = workloadRepository.endRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId)
                                  .compose(ended -> ended ? vmNodeRepository.releaseSync(nodeId, workload) : Future.succeededFuture());
         } else {
-            ret = workloadRepository.updateRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId);
+            ret = workloadRepository.updateRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId)
+                                 .mapEmpty();
         }
         return ret;
     }
