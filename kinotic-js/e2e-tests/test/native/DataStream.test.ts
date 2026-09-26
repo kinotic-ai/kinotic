@@ -126,9 +126,9 @@ describe('Kinotic JS', () => {
     it<LocalTestContext>('Test Stream Time Range Search', async ({entityService}) => {
         const now = new Date()
         const alerts = [
-            createTestAlert({ index: 0, timestamp: new Date(now.getTime() - 3000) }),
-            createTestAlert({ index: 1, timestamp: new Date(now.getTime() - 2000) }),
-            createTestAlert({ index: 2, timestamp: new Date(now.getTime() - 1000) })
+            createTestAlert({ index: 0, timestamp: new Date(now.getTime() - 3000).toISOString() }),
+            createTestAlert({ index: 1, timestamp: new Date(now.getTime() - 2000).toISOString() }),
+            createTestAlert({ index: 2, timestamp: new Date(now.getTime() - 1000).toISOString() })
         ]
 
         await entityService.bulkSave(alerts)

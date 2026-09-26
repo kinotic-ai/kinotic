@@ -1,4 +1,4 @@
-import {Entity, MultiTenancyType, EntityType, Id, TimeReference} from '@kinotic-ai/persistence'
+import {Entity, MultiTenancyType, EntityType, Id, TimeReference, DateTime} from '@kinotic-ai/persistence'
 
 @Entity(MultiTenancyType.SHARED, EntityType.STREAM)
 export class Alert {
@@ -8,7 +8,8 @@ export class Alert {
     public severity: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW'  // Alert severity level
 
     @TimeReference
-    public timestamp: Date = new Date()  // When the alert occurred
+    @DateTime
+    public timestamp: string = new Date().toISOString()  // When the alert occurred
 
     public source: string = ''            // Source system or component
     public active: boolean = true         // Whether alert is still active

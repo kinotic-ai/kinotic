@@ -63,7 +63,7 @@ export class UnionToC3Type implements ITypeConverter<Type, C3Type, TypescriptCon
                     }
                     primitiveCount++
 
-                } else if (unionType.isObject()) { // This must be after is primitive because dates are objects
+                } else if (unionType.isObject()) {
 
                     convertedList.push(conversionContext.convert(unionType))
 
@@ -172,7 +172,6 @@ export class UnionToC3Type implements ITypeConverter<Type, C3Type, TypescriptCon
         return typeText === 'string'
             || typeText === 'number'
             || typeText === 'boolean'
-            || typeText === 'date'
             || (type.isLiteral() && this.isPrimitive(type.getApparentType()))
     }
 

@@ -2,7 +2,7 @@ import {SpecificTypesConverter} from '@/internal/converter/SpecificTypesConverte
 import {Type} from 'ts-morph'
 import {TypescriptConversionState} from './TypescriptConversionState'
 import {IConversionContext} from '@/internal/converter/IConversionContext'
-import {BooleanC3Type, C3Type, StringC3Type, IntC3Type, DateC3Type, VoidC3Type} from '@kinotic-ai/idl'
+import {BooleanC3Type, C3Type, StringC3Type, IntC3Type, VoidC3Type} from '@kinotic-ai/idl'
 
 /**
  * Converts typescript primitive types to C3Types
@@ -24,7 +24,8 @@ export class PrimitiveToC3Type extends SpecificTypesConverter<Type, C3Type, Type
         })
 
         map.set('date', () => {
-            return new DateC3Type()
+            throw new Error('The Date type is not supported because values travel as JSON, where a date is an ISO-8601 string. '
+                            + 'Use a string instead, decorated with @DateTime when it is an entity property')
         })
 
         map.set('void', () => {

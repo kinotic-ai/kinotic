@@ -1,5 +1,5 @@
 import {Type, Symbol, DecoratableNode} from 'ts-morph'
-import {C3Type, ObjectC3Type, PropertyDefinition} from '@kinotic-ai/idl'
+import {ArrayC3Type, C3Type, DateC3Type, ObjectC3Type, PropertyDefinition} from '@kinotic-ai/idl'
 import {ConverterConstants} from '@/internal/converter/ConverterConstants'
 import {TypescriptConversionState} from './TypescriptConversionState'
 import {IConversionContext} from '@/internal/converter/IConversionContext'
@@ -107,6 +107,9 @@ export class ObjectLikeToC3Type implements ITypeConverter<Type, C3Type, Typescri
                 // Additionally, this should be moved to the standard decorator pattern
                 const converted = convertPrecisionToC3Type(precisionDecorator)
                 propertyDefinition = new PropertyDefinition(propertyName, converted)
+            } else if (decoratableNode.getDecorator('DateTime')) {
+                const converted = this.convertDateTime(valueDeclaration.getType(), propertyName)
+                propertyDefinition = new PropertyDefinition(propertyName, converted)
             } else {
                 const converted = conversionContext.convert(valueDeclaration.getType())
                 propertyDefinition = new PropertyDefinition(propertyName, converted)
@@ -142,5 +145,19 @@ export class ObjectLikeToC3Type implements ITypeConverter<Type, C3Type, Typescri
         }
 
         return propertyDefinition
+    }
+
+    private convertDateTime(type: Type, propertyName: string): C3Type {
+        const nonNullableType = type.getNonNullableType()
+        const elementType = nonNullableType.isArray() ? nonNullableType.getArrayElementTypeOrThrow().getNonNullableType() : null
+        let ret: C3Type
+        if (nonNullableType.isString()) {
+            ret = new DateC3Type()
+        } else if (elementType?.isString()) {
+            ret = new ArrayC3Type(new DateC3Type())
+        } else {
+            throw new Error(`@DateTime requires a string or string array property, but ${propertyName} is ${type.getText()}`)
+        }
+        return ret
     }
 }
