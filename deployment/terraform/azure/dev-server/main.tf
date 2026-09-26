@@ -2,10 +2,11 @@
 # What the shared development server (a Proxmox host, deployment/terraform/proxmox) needs from
 # Azure: the dev-environment module — a resource group, the Front Door profile and endpoint
 # under apps-<environment>.<zone>, the sites storage account and key vault, a service
-# principal with the roles the server needs — plus three things a developer's machine does
-# without: a key vault the server stores secrets in, a storage account Elasticsearch snapshots
+# principal with the roles the servers need — plus three things a developer's machine does
+# without: a key vault the servers store secrets in, a storage account Elasticsearch snapshots
 # go to, the portal and the system console served by the same Front Door as the published
-# sites, and the DNS record and rights that put the API on a hostname with a certificate.
+# sites, and the DNS records and rights that put each server's API on a hostname with a
+# certificate.
 #
 # State is local, like dev/: one server, applied from one machine. The proxmox root reads
 # this root's outputs from that state file.
@@ -38,7 +39,7 @@ terraform {
 provider "azurerm" {
   features {
     resource_group {
-      # The group fills with the storage accounts and Front Door resources the server
+      # The group fills with the storage accounts and Front Door resources the system server
       # creates at runtime; destroy removes them along with it
       prevent_deletion_if_contains_resources = false
     }
@@ -72,9 +73,11 @@ data "terraform_remote_state" "global" {
 data "azurerm_client_config" "current" {}
 
 locals {
-  name_prefix  = "${var.project}-${var.environment}"
-  global       = data.terraform_remote_state.global.outputs
-  api_hostname = "${var.api_label}.${local.global.dns_zone_name}"
+  name_prefix         = "${var.project}-${var.environment}"
+  global              = data.terraform_remote_state.global.outputs
+  api_hostname        = "${var.api_label}.${local.global.dns_zone_name}"
+  system_api_hostname = "${var.system_api_label}.${local.global.dns_zone_name}"
+  apps_api_domain     = "${var.apps_api_label}.${local.global.dns_zone_name}"
 
   common_tags = {
     environment = var.environment
@@ -110,10 +113,10 @@ resource "azurerm_role_assignment" "operator_writes_sites" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
-# ── Key Vault for the server's secret storage ─────────────────────────────────
-# The server's SecretStorageService keeps every stored secret here (the in-memory backend
+# ── Key Vault for the servers' secret storage ─────────────────────────────────
+# Each server's SecretStorageService keeps every stored secret here (the in-memory backend
 # would lose them on restart), and here is where they already are on the day the
-# organizations move to the cloud. Secrets Officer: the server writes as well as reads.
+# organizations move to the cloud. Secrets Officer: the servers write as well as read.
 
 resource "azurerm_key_vault" "server" {
   name                       = "kv-${local.name_prefix}"
@@ -161,13 +164,25 @@ resource "azurerm_storage_container" "snapshots" {
   container_access_type = "private"
 }
 
-# ── The API's hostname ────────────────────────────────────────────────────────
-# One A record for the address the router forwards to kinotic-server, and DNS Zone
-# Contributor so certbot on the host answers the DNS-01 challenge, and kinotic-dyndns keeps
-# the record on the router's current address, as the server's principal.
+# ── The servers' hostnames ────────────────────────────────────────────────────
+# An A record on the router's address for each name the servers answer to — the org server's,
+# the system server's, and the app server's own with every application's API host under it —
+# and DNS Zone Contributor so certbot on the host answers the DNS-01 challenges, and
+# kinotic-dyndns keeps the records on the router's current address, as the servers' principal.
 
-resource "azurerm_dns_a_record" "api" {
-  name                = var.api_label
+locals {
+  public_labels = {
+    api           = var.api_label
+    system_api    = var.system_api_label
+    apps_api      = var.apps_api_label
+    app_api_hosts = "*.${var.apps_api_label}"
+  }
+}
+
+resource "azurerm_dns_a_record" "public" {
+  for_each = local.public_labels
+
+  name                = each.value
   zone_name           = local.global.dns_zone_name
   resource_group_name = local.global.resource_group_name
   ttl                 = 300
@@ -178,6 +193,11 @@ resource "azurerm_dns_a_record" "api" {
   lifecycle {
     ignore_changes = [records]
   }
+}
+
+moved {
+  from = azurerm_dns_a_record.api
+  to   = azurerm_dns_a_record.public["api"]
 }
 
 resource "azurerm_role_assignment" "server_dns" {
