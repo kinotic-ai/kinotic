@@ -6,6 +6,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
@@ -122,7 +123,7 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      * client secret it connects with. The identity's id is its {@code clientId}; the secret is
      * returned in plaintext exactly once and stored only as a hash.
      *
-     * @param machine the unsaved machine carrying display name and scope
+     * @param machine the unsaved machine carrying display name, scope and {@link MachineKind}
      * @return a future emitting the saved machine together with its one-time secret
      */
     Future<MachineProvisionResult> createMachine(MachineParticipantIdentity machine);
