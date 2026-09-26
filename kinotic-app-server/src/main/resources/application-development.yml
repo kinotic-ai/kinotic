@@ -1,0 +1,35 @@
+# YAML Reference http://www.yaml.org/refcard.html
+kinotic:
+  debug: true
+  domain:
+    elastic-connections:
+      - scheme: "http"
+        host: "localhost"
+        port: "9200"
+    secretStorage:
+      backend: ~
+      # The org server's dev key: SecretNameDeriver must derive the same storage names on every
+      # server. Dev-only value — production supplies this via Azure Key Vault.
+      masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
+  apiGateway:
+    cors:
+      # An application UI's vite dev server on any local port, and the sites a developer publishes
+      # under apps-<environment>.kinotic.ai
+      allowedOriginPattern: "http:\\/\\/localhost:\\d+|https:\\/\\/[a-z0-9-]+\\.apps-[a-z0-9-]+\\.kinotic\\.ai"
+      allowCredentials: true
+  maxNumberOfCoresToUse: 4
+  ignite:
+    discoveryType: SHAREDFS
+  platformSecrets:
+    # Seeded on first boot by DevPlatformSecretsGenerator, or by whichever server boots first: every
+    # server on the machine reads the same file. Production uses Azure Key Vault via the Secrets
+    # Store CSI driver — same file layout, different origin.
+    generateMissing: true
+    jwtSigningKeysPath: ${user.home}/.kinotic/dev-platform-secrets/jwt-signing-keys
+
+logging:
+  level:
+    org:
+      kinotic: TRACE
+      # Logs every classpath resource it scans at TRACE, which drowns the rest of the log
+      kinotic.core.internal.utils.ClassPathScanningMetadataReaderProvider: DEBUG
