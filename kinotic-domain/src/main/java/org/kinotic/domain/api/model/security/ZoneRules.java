@@ -3,6 +3,7 @@ package org.kinotic.domain.api.model.security;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.event.ZonePartition;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
@@ -16,18 +17,23 @@ import java.util.Set;
 /**
  * The zones a participant may address, derived once from the participant type: the zones it may send to and the
  * zones it may subscribe in. Zones come from the CRI itself, so an un-zoned address is only ever sendable by a
- * participant that may send to any zone.
+ * participant that may send to any zone. {@link #restrictedTo(ZonePartition)} narrows the rules to what one server
+ * serves.
  */
 public class ZoneRules {
+
+    private static final ZonePartition EVERY_ZONE = ZonePartition.everyZone("every-zone");
 
     private final boolean sendAnyZone;
     private final Set<String> sendZones;
     private final Set<String> subscribableZones;
+    private final ZonePartition partition;
 
-    private ZoneRules(boolean sendAnyZone, Set<String> sendZones, Set<String> subscribableZones) {
+    private ZoneRules(boolean sendAnyZone, Set<String> sendZones, Set<String> subscribableZones, ZonePartition partition) {
         this.sendAnyZone = sendAnyZone;
         this.sendZones = sendZones;
         this.subscribableZones = subscribableZones;
+        this.partition = partition;
     }
 
     /**
@@ -50,7 +56,7 @@ public class ZoneRules {
 
             // management-api and app-api are hosted in-process only, so no connection may ever
             // subscribe to them; system-api stays subscribable for the vm-manager nodes that host there
-            case SystemParticipant _ -> new ZoneRules(true, Set.of(), Set.of(DomainUtil.SYSTEM_API_ZONE));
+            case SystemParticipant _ -> new ZoneRules(true, Set.of(), Set.of(DomainUtil.SYSTEM_API_ZONE), EVERY_ZONE);
 
             // appZone validates the ids, so an id that could shift the zone's label structure
             // fails instead of widening access
@@ -59,7 +65,8 @@ public class ZoneRules {
                                   Set.of(DomainUtil.APP_API_ZONE,
                                          appZone(applicationParticipant.getOrganizationId(),
                                                  applicationParticipant.getApplicationId())),
-                                  Set.of());
+                                  Set.of(),
+                                  EVERY_ZONE);
 
             case OrganizationParticipant organizationParticipant -> {
                 // the organization id becomes a zone label, so it is validated the same way
@@ -67,15 +74,28 @@ public class ZoneRules {
                 String orgAppsZone = DomainUtil.APP_ZONE_PREFIX + "." + organizationParticipant.getOrganizationId();
                 yield new ZoneRules(false,
                                     Set.of(DomainUtil.MANAGEMENT_API_ZONE, DomainUtil.APP_API_ZONE, orgAppsZone),
-                                    Set.of(orgAppsZone));
+                                    Set.of(orgAppsZone),
+                                    EVERY_ZONE);
             }
         };
+    }
+
+    /**
+     * These rules narrowed to what one server serves: a send only to a zone the partition reaches, a subscription
+     * only in a zone it hosts.
+     *
+     * @param partition the server's zone partition
+     * @return the narrowed rules
+     */
+    public ZoneRules restrictedTo(ZonePartition partition) {
+        Validate.notNull(partition, "partition must not be null");
+        return new ZoneRules(sendAnyZone, sendZones, subscribableZones, partition);
     }
 
     public boolean sendAllowed(CRI cri) {
         boolean ret;
         if (isRoutableScheme(cri.scheme())) {
-            ret = sendAnyZone || zoneAllowed(cri.zone(), sendZones);
+            ret = (sendAnyZone || zoneAllowed(cri.zone(), sendZones)) && partition.reaches(cri.baseResource());
         } else {
             ret = false;
         }
@@ -85,7 +105,7 @@ public class ZoneRules {
     public boolean subscribeAllowed(CRI cri) {
         boolean ret;
         if (isRoutableScheme(cri.scheme())) {
-            ret = zoneAllowed(cri.zone(), subscribableZones);
+            ret = zoneAllowed(cri.zone(), subscribableZones) && partition.hosts(cri.baseResource());
         } else {
             ret = false;
         }
