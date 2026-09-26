@@ -31,6 +31,12 @@ export class Application implements Identifiable<string> {
      */
     public primaryUiId: string | null = null
 
+    /**
+     * Where the primary UI's site is served, or null while none is designated. Set by the
+     * platform when the owner designates the primary UI; a value a caller saves is replaced.
+     */
+    public primaryUiUrl: string | null = null
+
     public updated: number | null = null
 
     constructor(name: string, description: string) {
