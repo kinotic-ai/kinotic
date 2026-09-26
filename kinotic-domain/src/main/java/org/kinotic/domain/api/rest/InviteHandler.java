@@ -21,7 +21,6 @@ import org.kinotic.domain.internal.api.rest.support.OidcCallbackException;
 import org.kinotic.domain.internal.api.rest.support.OidcErrorCodes;
 import org.kinotic.domain.internal.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
-import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -35,7 +34,6 @@ import java.util.Map;
  * callback.
  */
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class InviteHandler implements SuppliesGatewayRoutes {
 
