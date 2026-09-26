@@ -6,7 +6,7 @@ import * as path from 'path'
 
 /**
  * Credentials passed as WebSocket upgrade headers; the gateway's
- * KinoticSecurityService authenticates the participant from these before
+ * SecurityService authenticates the participant from these before
  * the STOMP CONNECT frame is processed.
  */
 export interface AuthHeaders {
