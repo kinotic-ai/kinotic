@@ -41,6 +41,7 @@ import java.util.Optional;
 public class OAuthServerHandler implements SuppliesGatewayRoutes {
 
     private final AuthEndpointSupport authEndpointSupport;
+    private final ServerSurface serverSurface;
     private final OAuthAuthorizationService oauthAuthorizationService;
     private final RefreshTokenService refreshTokenService;
     // present only on a server that imports DeviceAuthorizationHandler
@@ -55,7 +56,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
 
     /** {@code GET /.well-known/oauth-authorization-server} — RFC 8414 metadata. */
     private void handleAuthorizationServerMetadata(RoutingContext ctx) {
-        String issuer = issuer();
+        String issuer = serverSurface.issuerBaseUrl(ctx);
         JsonObject metadata = new JsonObject()
                 .put("issuer", issuer)
                 .put("authorization_endpoint", issuer + "/api/auth/oauth/authorize")
@@ -75,8 +76,8 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
 
     /**
      * {@code GET /api/auth/oauth/authorize} — validates the request, stores it, and sends the
-     * browser to the SPA consent page, which approves or denies over STOMP and then navigates
-     * to the client's redirect URI.
+     * browser to the consent page on this server's UI, which approves or denies over STOMP and
+     * then navigates to the client's redirect URI.
      */
     private void handleAuthorize(RoutingContext ctx) {
         String clientId = ctx.request().getParam("client_id");
@@ -100,11 +101,9 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
         }
         oauthAuthorizationService.createAuthorizationRequest(clientId, redirectUri, codeChallenge,
                                                              scope, resource, state)
-              .onSuccess(requestId -> ctx.response()
-                                         .setStatusCode(302)
-                                         .putHeader("Location", authEndpointSupport.appUrl("/oauth/consent?request_id="
-                                                 + URLEncoder.encode(requestId, StandardCharsets.UTF_8)))
-                                         .end())
+              .compose(requestId -> serverSurface.uiUrl(ctx, "/oauth/consent?request_id="
+                      + URLEncoder.encode(requestId, StandardCharsets.UTF_8)))
+              .onSuccess(consentUrl -> ctx.response().setStatusCode(302).putHeader("Location", consentUrl).end())
               .onFailure(err -> {
                   log.warn("OAuth authorize request rejected: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 400, "invalid_request");
@@ -158,12 +157,6 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
                   log.warn("OAuth refresh token rotation failed: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 400, "invalid_grant");
               });
-    }
-
-    // FIXME: shotgun surgery — one of five places that know the OAuth surface has its own base URL.
-    // See "OAuth base URL split" in docs/NavidNotes.md for the topologies that would remove it.
-    private String issuer() {
-        return authEndpointSupport.issuerUrl("");
     }
 
 }

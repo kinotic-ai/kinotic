@@ -42,6 +42,7 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {
     private static final String CLI_DISPLAY_NAME = "Kinotic CLI";
 
     private final AuthEndpointSupport authEndpointSupport;
+    private final ServerSurface serverSurface;
     private final DeviceCodeGrantService deviceCodeGrantService;
 
     @Override
@@ -103,21 +104,19 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {
             return;
         }
         deviceCodeGrantService.start(ctx.request().getFormAttribute("device_name"))
-              .onSuccess(start -> {
-                  // /device is a kinotic-frontend SPA route (DeviceVerification.vue), not a gateway
-                  // route — hence appUrl (SPA origin), not absoluteUrl. The signed-in browser
-                  // approves there via OAuthApprovalService.approveDevice over STOMP; this gateway only emits the URL.
-                  String verificationUri = authEndpointSupport.appUrl("/device");
-                  ctx.json(new JsonObject()
-                          .put("device_code", start.deviceCode())
-                          .put("user_code", start.userCode())
-                          .put("verification_uri", verificationUri)
-                          .put("verification_uri_complete",
-                               verificationUri + "?user_code="
-                                       + URLEncoder.encode(start.userCode(), StandardCharsets.UTF_8))
-                          .put("expires_in", Math.max((start.expiresAt().getTime() - System.currentTimeMillis()) / 1000L, 0))
-                          .put("interval", start.intervalSeconds()));
-              })
+              // /device is a kinotic-frontend SPA route (DeviceVerification.vue), not a gateway
+              // route — hence the UI's URL, not the API's. The signed-in browser approves there via
+              // OAuthApprovalService.approveDevice over STOMP; this gateway only emits the URL.
+              .compose(start -> serverSurface.uiUrl(ctx, "/device").map(verificationUri -> new JsonObject()
+                      .put("device_code", start.deviceCode())
+                      .put("user_code", start.userCode())
+                      .put("verification_uri", verificationUri)
+                      .put("verification_uri_complete",
+                           verificationUri + "?user_code="
+                                   + URLEncoder.encode(start.userCode(), StandardCharsets.UTF_8))
+                      .put("expires_in", Math.max((start.expiresAt().getTime() - System.currentTimeMillis()) / 1000L, 0))
+                      .put("interval", start.intervalSeconds())))
+              .onSuccess(ctx::json)
               .onFailure(err -> {
                   log.warn("Device authorization start failed: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 500, "Could not start device authorization");
