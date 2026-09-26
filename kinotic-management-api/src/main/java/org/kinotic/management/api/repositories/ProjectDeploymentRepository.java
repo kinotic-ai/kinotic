@@ -15,6 +15,7 @@ import org.kinotic.domain.internal.api.repositories.WatchedDocument;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
+import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.springframework.stereotype.Component;
@@ -157,13 +158,14 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
      * Records where a deployment run put the project and the workloads it ran, leaving every other
      * field as it is.
      */
-    public Future<Void> recordTarget(String projectId, String orgId, String nodeId, String hostDir,
-                                     String syncWorkloadId, String uiPublishWorkloadId) {
+    public Future<Void> recordTarget(String projectId, String orgId, DeployTarget target) {
+        Validate.notNull(target, "target cannot be null");
         Map<String, Object> fields = new HashMap<>();
-        fields.put("nodeId", nodeId);
-        fields.put("hostDir", hostDir);
-        fields.put("syncWorkloadId", syncWorkloadId);
-        fields.put("uiPublishWorkloadId", uiPublishWorkloadId);
+        fields.put("nodeId", target.nodeId());
+        fields.put("hostDir", target.hostDir());
+        fields.put("syncWorkloadId", target.syncWorkloadId());
+        fields.put("uiPublishWorkloadId", target.uiPublishWorkloadId());
+        fields.put("sbomWorkloadId", target.sbomWorkloadId());
         return partial(projectId, orgId, fields);
     }
 
@@ -179,14 +181,25 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
     }
 
     /**
-     * Records the artifacts the sync workload found in a commit, leaving every other field as it is.
+     * Records the artifacts the sync workload found in a commit together with whether the project's
+     * SBOM file lists their dependencies, leaving every other field as it is.
      */
-    public Future<Void> recordArtifacts(String projectId, String orgId, ProjectArtifacts artifacts, String commitSha) {
+    public Future<Void> recordArtifacts(String projectId, String orgId, ProjectArtifacts artifacts, boolean sbomGenerated) {
         Validate.notNull(artifacts, "artifacts cannot be null");
-        Validate.notBlank(commitSha, "commitSha cannot be blank");
+        Validate.notBlank(artifacts.commitSha(), "artifacts.commitSha cannot be blank");
         Map<String, Object> fields = new HashMap<>();
         fields.put("artifacts", artifacts);
-        fields.put("artifactsCommitSha", commitSha);
+        fields.put("sbomGenerated", sbomGenerated);
+        return partial(projectId, orgId, fields);
+    }
+
+    /**
+     * Records that the project's SBOM file lists the dependencies the artifacts list, leaving every
+     * other field as it is.
+     */
+    public Future<Void> recordSbomGenerated(String projectId, String orgId) {
+        Map<String, Object> fields = new HashMap<>();
+        fields.put("sbomGenerated", true);
         return partial(projectId, orgId, fields);
     }
 

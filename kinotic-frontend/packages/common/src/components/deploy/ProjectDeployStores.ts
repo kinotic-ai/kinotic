@@ -7,6 +7,7 @@ export interface DeployTarget {
   hostDir: string
   syncWorkloadId: string
   uiPublishWorkloadId: string
+  sbomWorkloadId: string
 }
 
 /**
@@ -21,12 +22,25 @@ export default class ProjectDeployStores {
   public static readonly DEPLOY_TARGET = 'deployTarget'
   public static readonly SYNC_WORKLOAD_ID = 'syncWorkloadId'
   public static readonly UI_DEPLOYMENTS = 'uiDeployments'
+  public static readonly SBOM = 'sbom'
 
   /** The artifacts the task bound into the run, or null while the task has not completed. */
   public static artifactsOf(node: JobTaskNode): ProjectArtifacts | null {
     let ret: ProjectArtifacts | null = null
     if (ProjectDeployStores.hasArtifacts(node) && node.storedValue !== null && node.storedValue !== undefined) {
       ret = node.storedValue as ProjectArtifacts
+    }
+    return ret
+  }
+
+  /**
+   * Whether the SBOM task generated the project's SBOM, false when the dependencies were unchanged,
+   * or null for another task or while the task has not completed.
+   */
+  public static sbomGeneratedOf(node: JobTaskNode): boolean | null {
+    let ret: boolean | null = null
+    if (node.storedName === ProjectDeployStores.SBOM && typeof node.storedValue === 'boolean') {
+      ret = node.storedValue
     }
     return ret
   }
@@ -43,15 +57,16 @@ export default class ProjectDeployStores {
 
   /**
    * Whether the task's row carries a workload log: the sync task's is the run's build log, the
-   * publish task's is the upload log.
+   * publish task's is the upload log, the SBOM task's is the log of its generation.
    */
   public static hasWorkloadLog(node: JobTaskNode): boolean {
     return node.storedName === ProjectDeployStores.SYNC_WORKLOAD_ID
       || node.storedName === ProjectDeployStores.UI_DEPLOYMENTS
+      || node.storedName === ProjectDeployStores.SBOM
   }
 
   /**
-   * The workload whose log belongs to the task, or null while it is not yet known. Both
+   * The workload whose log belongs to the task, or null while it is not yet known. The
    * workloads are named by the resolved deploy target before their tasks run; the sync task
    * also names its own once it completed.
    */
@@ -64,6 +79,8 @@ export default class ProjectDeployStores {
       ret = typeof node.storedValue === 'string' ? node.storedValue : target?.syncWorkloadId ?? null
     } else if (node.storedName === ProjectDeployStores.UI_DEPLOYMENTS) {
       ret = target?.uiPublishWorkloadId ?? null
+    } else if (node.storedName === ProjectDeployStores.SBOM) {
+      ret = target?.sbomWorkloadId ?? null
     }
     return ret
   }

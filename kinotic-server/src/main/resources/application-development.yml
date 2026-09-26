@@ -15,15 +15,18 @@ kinotic:
     github:
       webhookSecret: "-"
       appPrivateKey: "-"
+    # validated at boot; nothing reads it while Azure storage is disabled (see systemApi.disableAzureStorage)
+    organizationsStorageEndpoint: "-"
   systemApi:
-    # No sites account in development: a published UI is marked ready without being uploaded
-    # or served. To publish to a real subscription instead, run with the `local` profile as well
-    # and set the real values in the git-ignored application-local.yml (see the contributing
-    # guide, "Publishing UIs against Azure")
+    # No Azure storage accounts in development: a published UI is marked ready without being
+    # uploaded or served, and a deployment generates no SBOM. To use a real subscription
+    # instead, run with the `local` profile as well and set the real values in the git-ignored
+    # application-local.yml, which the dev terraform root prints (see the contributing guide,
+    # "Publishing UIs against Azure")
+    disableAzureStorage: true
     uiDeployment:
-      disableProvisioner: true
       sitesDomain: apps.localhost
-      # validated at boot; nothing reads it while the provisioner is disabled
+      # validated at boot; nothing reads it while Azure storage is disabled
       sitesStorageEndpoint: "-"
     deployment:
       # A workload runs inside a micro VM, so "localhost" there is the guest, not this machine.
@@ -34,7 +37,8 @@ kinotic:
       # A CLOUD_HYPERVISOR node instead puts its workloads on the node's docker bridge, where
       # they reach the gateway at 172.17.0.1.
       serverHost: 192.168.127.254
-      # The sync workload fetches the project from GitHub and runs bun install
+      # The sync workload fetches the project from GitHub and runs bun install; the SBOM
+      # workload looks each package's license up in the registry
       syncAllowedHosts:
         - github.com
         - registry.npmjs.org

@@ -14,7 +14,7 @@ import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.config.UiDeploymentProperties;
-import org.kinotic.system.api.model.deployment.DeployTarget;
+import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.kinotic.system.api.services.deployment.SiteStorageService;
 import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 import org.springframework.stereotype.Component;

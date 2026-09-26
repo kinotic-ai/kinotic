@@ -1,5 +1,5 @@
 import { log, logError } from './log.ts'
-import { deleteDirectory, parseSiteUrl } from './site-storage.ts'
+import { deleteDirectory, parseDirectoryUrl } from './blob-directory.ts'
 
 /**
  * One-shot entrypoint of the site removal workload: deletes one site's directory in the
@@ -20,7 +20,7 @@ function require_(name: string): string {
 }
 
 async function main(): Promise<void> {
-    const site = parseSiteUrl('KINOTIC_UI_REMOVAL_URL', require_('KINOTIC_UI_REMOVAL_URL'))
+    const site = parseDirectoryUrl('KINOTIC_UI_REMOVAL_URL', require_('KINOTIC_UI_REMOVAL_URL'))
     log(`[workload-runner] removing site ${site.directory}`)
     await deleteDirectory(site)
     log(`[workload-runner] removed site ${site.directory}`)

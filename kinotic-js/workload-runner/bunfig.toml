@@ -1,4 +1,7 @@
 [install]
+# cdxgen's optional dependencies are about 250MB of analysis plugins for languages a Kinotic
+# project does not use; the SBOM of a Bun workspace comes from its bun.lock without them
+optional = false
 minimumReleaseAge = 86400 # seconds; third-party releases younger than 24h are rejected
 minimumReleaseAgeExcludes = [
     "@kinotic-ai/core",

@@ -61,6 +61,15 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
     Future<Page<WatchEvent>> findDeploymentHistory(String projectId, Pageable pageable);
 
     /**
+     * Finds a URL the CycloneDX JSON document of the given project's SBOM can be read from for the
+     * next fifteen minutes, by anyone holding it.
+     *
+     * @param projectId id of the project the SBOM belongs to
+     * @return a {@link Future} emitting the URL, or {@code null} when the project has no SBOM
+     */
+    Future<String> findSbomDocumentUrl(String projectId);
+
+    /**
      * Re-runs repository initialization for a project left
      * {@link org.kinotic.management.api.model.RepositoryConnectionStatus#INITIALIZATION_FAILED}
      * by creation, persisting the result. Succeeds with the project marked

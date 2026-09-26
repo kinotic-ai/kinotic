@@ -90,6 +90,8 @@ module "environment" {
   dns_zone_resource_group_name   = local.global.resource_group_name
   dns_zone_subscription_id       = local.global.subscription_id
   email_communication_service_id = local.global.email_communication_service_id
+
+  portal_origins = var.portal_origins
 }
 
 # The resources predate the module and keep their identity: a developer's next apply moves
@@ -212,6 +214,12 @@ variable "lets_encrypt_email" {
   type        = string
 }
 
+variable "portal_origins" {
+  description = "Origins the developer's portal is served from, which read an organization's files straight from the organization storage account; add a tunnel's origin in local.auto.tfvars"
+  type        = list(string)
+  default     = ["http://localhost:5173"]
+}
+
 # ── Outputs ─────────────────────────────────────────────────────────────────
 
 output "sites_domain" {
@@ -228,9 +236,11 @@ output "application_local_yml" {
   description = "The `local` profile kinotic-server runs with: write it to kinotic-server/src/main/resources/application-local.yml"
   value       = <<-EOT
     kinotic:
+      managementApi:
+        organizationsStorageEndpoint: ${module.environment.organizations_storage_blob_endpoint}
       systemApi:
+        disableAzureStorage: false
         uiDeployment:
-          disableProvisioner: false
           sitesDomain: ${module.environment.sites_domain}
           sitesStorageEndpoint: ${module.environment.sites_storage_blob_endpoint}
   EOT

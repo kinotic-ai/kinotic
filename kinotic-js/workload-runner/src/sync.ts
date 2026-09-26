@@ -1,18 +1,19 @@
-import { spawn, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { Kinotic } from '@kinotic-ai/core'
 import { ManagementApiPlugin, type ProjectArtifacts, type UiArtifact } from '@kinotic-ai/management-api'
 import { findArtifacts } from './artifacts.ts'
+import { dependencyHashOf } from './sbom.ts'
 import { writeSentinel } from './sentinel.ts'
-import { forwardOutput, log, logError } from './log.ts'
+import { log, logError, run } from './log.ts'
 
 /**
  * One-shot entrypoint of the sync workload: brings the shared checkout directory to the
  * requested commit, installs dependencies, finds the artifacts the commit contains,
  * synchronizes the project's entity definitions with the server, builds the UIs, reports
- * the artifacts to the server, and writes the reload sentinel the runtime workload's
- * supervisor polls.
+ * the artifacts and the hash of the installed dependencies to the server, and writes the
+ * reload sentinel the runtime workload's supervisor polls.
  *
  * The sentinel is written last, only after everything else succeeded — the supervisor
  * therefore never restarts the microservices into a half-updated tree.
@@ -40,21 +41,6 @@ function require_(name: string): string {
         throw new Error(`${name} must be set`)
     }
     return value
-}
-
-function run(command: string, args: string[], cwd: string, env: Record<string, string> = {}): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] })
-        forwardOutput(child)
-        child.on('error', reject)
-        child.on('exit', (code, signal) => {
-            if (code === 0) {
-                resolve()
-            } else {
-                reject(new Error(`${command} ${args.join(' ')} exited with ${code ?? signal}`))
-            }
-        })
-    })
 }
 
 function headCommit(workspaceDir: string): string {
@@ -133,12 +119,12 @@ function hasCredentials(): boolean {
 }
 
 /**
- * Reports the artifacts found in the checkout to the server, which records them on the
- * project's deployment for the deployment run to bind into itself once this workload has
- * exited. The connection resolves its server and credentials from the same KINOTIC_*
- * variables the CLI reads.
+ * Reports the artifacts found in the checkout of a commit, with the hash of the dependencies
+ * installed for them, to the server, which records them on the project's deployment for the
+ * deployment run to bind into itself once this workload has exited. The connection resolves its
+ * server and credentials from the same KINOTIC_* variables the CLI reads.
  */
-async function reportArtifacts(commitSha: string, artifacts: ProjectArtifacts): Promise<void> {
+async function reportArtifacts(artifacts: ProjectArtifacts): Promise<void> {
     if (!hasCredentials()) {
         log('[workload-runner] no Kinotic credentials in the environment; skipping the artifact report')
         return
@@ -148,7 +134,7 @@ async function reportArtifacts(commitSha: string, artifacts: ProjectArtifacts): 
     // bounded so an unreachable server fails the run instead of retrying forever
     await Kinotic.connect({ maxConnectionAttempts: 3 })
     try {
-        await Kinotic.projectArtifacts.recordArtifacts(projectId, commitSha, artifacts)
+        await Kinotic.projectArtifacts.recordArtifacts(projectId, artifacts)
     } finally {
         await Kinotic.disconnect()
     }
@@ -203,7 +189,7 @@ async function main(): Promise<void> {
 
     const commitSha = headCommit(workspaceDir)
     await buildUis(workspaceDir, artifacts.uis)
-    await reportArtifacts(commitSha, artifacts)
+    await reportArtifacts({ commitSha, ...artifacts, dependencyHash: dependencyHashOf(workspaceDir) })
     writeSentinel(workspaceDir, commitSha)
     log(`[workload-runner] deployed ${commitSha}`)
 }

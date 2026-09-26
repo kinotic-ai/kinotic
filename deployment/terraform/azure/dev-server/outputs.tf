@@ -74,6 +74,7 @@ output "dev_server_env" {
     DEV_SERVER_CONSOLE_HOSTNAME                         = module.environment.ui_hostnames.console
     KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN          = module.environment.sites_domain
     KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT = module.environment.sites_storage_blob_endpoint
+    KINOTIC_MANAGEMENTAPI_ORGANIZATIONSSTORAGEENDPOINT  = module.environment.organizations_storage_blob_endpoint
     KINOTIC_DOMAIN_SECRETSTORAGE_AZURE_VAULTURL         = azurerm_key_vault.server.vault_uri
     KINOTIC_DOMAIN_EMAIL_ENDPOINT                       = local.global.email_service_endpoint
     KINOTIC_DOMAIN_EMAIL_SENDERADDRESS                  = "DoNotReply@${local.global.email_sender_domain}"

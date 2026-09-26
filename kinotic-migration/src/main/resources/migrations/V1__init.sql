@@ -44,7 +44,9 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
 -- reconcilable record what it should be (state.desired, the commit its last push asked for), what
 -- it is (state.observed, the phase it is in and the commit it serves), the generations that tie
 -- the two, deletionRequested and reconciled. failureMessage keeps the reason a deployment failed.
--- One row per project; id equals the projectId.
+-- sbomGenerated says whether the project's SBOM, organizations/<organizationId>/sboms/<projectId>.cdx.json
+-- in the organization storage account, lists the dependencies artifacts lists; a sync that reports
+-- other dependencies clears it. One row per project; id equals the projectId.
 CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     id KEYWORD,
     organizationId KEYWORD,
@@ -53,12 +55,15 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     hostDir KEYWORD,
     syncWorkloadId KEYWORD,
     uiPublishWorkloadId KEYWORD,
+    sbomWorkloadId KEYWORD,
     syncMachineIdentityId KEYWORD,
     artifacts OBJECT (
+        commitSha KEYWORD,
         microservices OBJECT (name KEYWORD, dir KEYWORD, entry KEYWORD),
-        uis OBJECT (name KEYWORD, dir KEYWORD)
+        uis OBJECT (name KEYWORD, dir KEYWORD),
+        dependencyHash KEYWORD
     ),
-    artifactsCommitSha KEYWORD,
+    sbomGenerated BOOLEAN,
     lastJobRunId KEYWORD,
     failureMessage TEXT,
     state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),

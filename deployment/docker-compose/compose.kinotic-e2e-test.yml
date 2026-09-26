@@ -24,11 +24,13 @@ x-kinotic-server-e2e-environment: &kinotic-server-e2e-environment
   KINOTIC_MANAGEMENTAPI_GITHUB_APPPRIVATEKEY: "-"
   KINOTIC_MANAGEMENTAPI_GITHUB_WEBHOOKSECRET: "-"
   KINOTIC_MANAGEMENTAPI_GITHUB_REPOTEMPLATE: "-"
-  # Placeholder UI site config, validated at boot the same way; no e2e test deploys a UI,
-  # and the site provisioner is the mock.
-  KINOTIC_SYSTEMAPI_UIDEPLOYMENT_DISABLEPROVISIONER: "true"
+  # No Azure storage accounts: the site provisioner is the mock.
+  KINOTIC_SYSTEMAPI_DISABLEAZURESTORAGE: "true"
+  # Placeholder UI site config, validated at boot the same way; no e2e test deploys a UI.
   KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN: apps.localhost
   KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT: "-"
+  # Placeholder organization storage, validated at boot the same way; no e2e test deploys.
+  KINOTIC_MANAGEMENTAPI_ORGANIZATIONSSTORAGEENDPOINT: "-"
   # DeploymentProperties.serverHost is @NotBlank and validated at boot. It is set in the
   # `development` profile, which e2e drops in favor of `test,e2e-tests,compose`, so supply it
   # here. No e2e test deploys a workload, so the value only has to bind.

@@ -226,6 +226,13 @@ const pageRoutes: RouteRecordRaw[] = [
         meta: { sidebar: projectItem('Deployment', 'pi-cloud-upload', 30) } as RouteMeta,
         component: () => import('@/pages/ProjectDeploymentPage.vue'),
         props: true
+      },
+      {
+        name: 'project-sbom',
+        path: 'sbom',
+        meta: { sidebar: projectItem('SBOM', 'pi-list-check', 40) } as RouteMeta,
+        component: () => import('@/pages/ProjectSbomPage.vue'),
+        props: true
       }
     ]
   },

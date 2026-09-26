@@ -27,9 +27,10 @@ import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.Tasks;
+import org.kinotic.management.api.services.storage.OrganizationStorageService;
 import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
 import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
-import org.kinotic.system.api.model.deployment.DeployTarget;
+import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.kinotic.system.api.model.deployment.MicroserviceDeployments;
 import org.kinotic.system.api.model.deployment.ProjectDeployStores;
 import org.kinotic.system.api.model.deployment.UiDeployments;
@@ -54,10 +55,12 @@ import java.util.stream.Collectors;
  * the target node and checkout directory, bring the checkout to the commit with a
  * foreground sync workload, bind the artifacts that workload found into the run, ask for one
  * long-lived runtime workload per microservice of the commit and wait for the microservices'
- * workers to answer, and upload its UIs and ask for their sites to serve them. The resolved {@link DeployTarget}, the artifacts, the
- * microservice deployments and the UI deployments are stored in the job scope under the
- * {@link ProjectDeployStores} names, so the run's {@code TaskCompletedEvent}s and
- * {@code TaskRecord}s carry them to the caller and the console.
+ * workers to answer, upload its UIs and ask for their sites to serve them, and, unless the
+ * environment has no Azure storage, keep the project's SBOM current with a foreground SBOM
+ * workload. The resolved {@link DeployTarget}, the artifacts, the microservice deployments, the UI
+ * deployments and the SBOM are stored in the job scope under the {@link ProjectDeployStores}
+ * names, so the run's {@code TaskCompletedEvent}s and {@code TaskRecord}s carry them to the
+ * caller and the console.
  */
 @Slf4j
 @Component
@@ -66,6 +69,8 @@ public class ProjectDeployJobDefinitionFactory {
 
     /** Longer than placing and booting every microservice's VM, or a first look at every site, takes. */
     private static final Duration CONVERGENCE_TIMEOUT = Duration.ofMinutes(10);
+    /** Longer than generating and uploading an SBOM takes, and short enough that a leaked URL is soon worthless. */
+    private static final Duration SBOM_UPLOAD_URL_TTL = Duration.ofHours(1);
     private static final Duration CONVERGENCE_POLL_INTERVAL = Duration.ofSeconds(2);
 
     private final Vertx vertx;
@@ -78,6 +83,7 @@ public class ProjectDeployJobDefinitionFactory {
     private final UiSitePublisher uiSitePublisher;
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final ProjectWorkloadFactory projectWorkloadFactory;
+    private final OrganizationStorageService organizationStorageService;
     private final KinoticSystemApiProperties properties;
 
     /**
@@ -92,7 +98,7 @@ public class ProjectDeployJobDefinitionFactory {
      */
     public JobDefinition createJobDefinition(Project project, ProjectDeployment existing, String commitSha) {
         String projectId = project.getId();
-        return JobDefinition.create("Deploy project " + projectId + " at " + commitSha)
+        JobDefinition definition = JobDefinition.create("Deploy project " + projectId + " at " + commitSha)
                 .name("project-deploy-" + projectId)
                 .version("1.0.0")
                 // Store.state: the target is a decision later effects are bound to - the sync
@@ -151,6 +157,25 @@ public class ProjectDeployJobDefinitionFactory {
                         return publishUis(project, target, artifacts, commitSha).toCompletionStage().toCompletableFuture();
                     }
                 }), Store.state(ProjectDeployStores.UI_DEPLOYMENTS).wire());
+        if (!properties.getSystemApi().isDisableAzureStorage()) {
+            // Store.state: whether the run generated the SBOM, so a resume keeps the outcome rather
+            // than generating it again; wired so the console shows it, and can tail the SBOM
+            // workload's logs before that through the target
+            definition.task(Tasks.fromCallable("Generate SBOM", new Callable<CompletableFuture<Boolean>>() {
+
+                @Autowired
+                private DeployTarget target;
+
+                @Autowired
+                private ProjectArtifacts artifacts;
+
+                @Override
+                public CompletableFuture<Boolean> call() {
+                    return generateSbom(project, target, artifacts).toCompletionStage().toCompletableFuture();
+                }
+            }), Store.state(ProjectDeployStores.SBOM).wire());
+        }
+        return definition;
     }
 
     /**
@@ -162,12 +187,14 @@ public class ProjectDeployJobDefinitionFactory {
         Future<DeployTarget> ret;
         String syncWorkloadId = UUID.randomUUID().toString();
         String uiPublishWorkloadId = UUID.randomUUID().toString();
+        String sbomWorkloadId = UUID.randomUUID().toString();
 
         if (existing != null && existing.getNodeId() != null) {
             ret = Future.succeededFuture(new DeployTarget(existing.getNodeId(),
                                                           existing.getHostDir(),
                                                           syncWorkloadId,
-                                                          uiPublishWorkloadId));
+                                                          uiPublishWorkloadId,
+                                                          sbomWorkloadId));
         } else {
             log.debug("Resolving deploy target for project {}: asking for a node with {} cpus, {}MB memory, {}MB disk",
                      projectId, ProjectWorkloadSizes.SYNC_CPUS, ProjectWorkloadSizes.SYNC_MEMORY_MB, ProjectWorkloadSizes.SYNC_DISK_SIZE_MB);
@@ -193,7 +220,8 @@ public class ProjectDeployJobDefinitionFactory {
                                     new DeployTarget(node.getId(),
                                                      node.getWorkloadDataDir() + "/projects/" + projectId,
                                                      syncWorkloadId,
-                                                     uiPublishWorkloadId));
+                                                     uiPublishWorkloadId,
+                                                     sbomWorkloadId));
                         }
 
                         return resolved;
@@ -241,7 +269,7 @@ public class ProjectDeployJobDefinitionFactory {
     private Future<ProjectArtifacts> resolveArtifacts(Project project, String commitSha) {
         return projectDeploymentRepository.findById(project.getId(), project.getOrganizationId())
                 .map(deployment -> {
-                    if (deployment == null || !commitSha.equals(deployment.getArtifactsCommitSha())) {
+                    if (deployment == null || deployment.getArtifacts() == null || !commitSha.equals(deployment.getArtifacts().commitSha())) {
                         throw new IllegalStateException("The sync workload of project " + project.getId()
                                 + " did not report the artifacts of commit " + commitSha);
                     }
@@ -335,8 +363,8 @@ public class ProjectDeployJobDefinitionFactory {
      * checking. A commit without UIs publishes nothing.
      */
     private Future<UiDeployments> publishUis(Project project, DeployTarget target, ProjectArtifacts artifacts, String commitSha) {
-        // nothing serves a site while the provisioner is disabled, so nothing is uploaded either
-        boolean serving = !properties.getSystemApi().getUiDeployment().isDisableProvisioner();
+        // nothing serves a site without Azure storage, so nothing is uploaded either
+        boolean serving = !properties.getSystemApi().isDisableAzureStorage();
         String source = "deploy of " + commitSha;
         return uiDeploymentRepository.findAllForProject(project.getId())
                 .compose(existing -> {
@@ -362,6 +390,50 @@ public class ProjectDeployJobDefinitionFactory {
                 .compose(v -> awaitAnswered("UIs of project " + project.getId(), () -> uiDeploymentRepository.findAllForProject(project.getId()),
                                             UiDeployment::getName, System.currentTimeMillis() + CONVERGENCE_TIMEOUT.toMillis()))
                 .map(UiDeployments::new);
+    }
+
+    /**
+     * Keeps the project's SBOM current: when the project's SBOM file does not list the dependencies
+     * the sync workload reported, a foreground SBOM workload generates it from the checkout, uploads
+     * it over that file in the organization storage account through a URL scoped to the file, and
+     * records it; otherwise no workload runs and the SBOM stays. Emits whether this run generated
+     * the SBOM, and fails when the checkout has no bun.lock.
+     */
+    private Future<Boolean> generateSbom(Project project, DeployTarget target, ProjectArtifacts artifacts) {
+        return sbomGenerated(project)
+                .compose(generated -> {
+                    Future<Boolean> ret;
+                    if (artifacts.dependencyHash() == null) {
+                        ret = Future.failedFuture(new IllegalStateException("The checkout of project " + project.getId() + " at "
+                                + artifacts.commitSha() + " has no bun.lock, which its SBOM is generated from"));
+                    } else if (generated) {
+                        // recordArtifacts clears the flag when the dependencies change, so a set flag
+                        // means the SBOM lists the dependencies of this run
+                        ret = Future.succeededFuture(false);
+                    } else {
+                        ret = organizationStorageService.issueSbomWriteUrl(project.getOrganizationId(), project.getId(), SBOM_UPLOAD_URL_TTL)
+                                // the sync workload has exited, so the SBOM workload takes over its machine's credentials
+                                .compose(url -> projectDeployIdentityService.issueSyncCredentials(project)
+                                        .map(credentials -> projectWorkloadFactory.sbom(project, target, credentials, url)))
+                                .compose(workloadOrchestrationService::deployWorkload)
+                                .compose(finished -> requireSucceeded(finished, "SBOM"))
+                                .compose(workloadId -> sbomGenerated(project))
+                                .map(recorded -> {
+                                    if (!recorded) {
+                                        throw new IllegalStateException("The SBOM workload of project " + project.getId()
+                                                + " did not record the SBOM of " + artifacts.commitSha());
+                                    }
+                                    return true;
+                                });
+                    }
+                    return ret;
+                });
+    }
+
+    // Whether the project's SBOM file lists the dependencies its deployment records
+    private Future<Boolean> sbomGenerated(Project project) {
+        return projectDeploymentRepository.findById(project.getId(), project.getOrganizationId())
+                .map(deployment -> deployment != null && deployment.isSbomGenerated());
     }
 
     /**

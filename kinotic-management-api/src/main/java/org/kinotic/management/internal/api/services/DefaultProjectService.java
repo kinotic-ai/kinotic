@@ -17,8 +17,10 @@ import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.services.ProjectRepoProvisioner;
 import org.kinotic.management.api.services.ProjectService;
+import org.kinotic.management.api.services.storage.OrganizationStorageService;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Function;
@@ -26,19 +28,25 @@ import java.util.function.Function;
 @Component
 public class DefaultProjectService extends AbstractApplicationScopedService<Project> implements ProjectService {
 
+    /** Long enough for a page to fetch the document, short enough that a leaked URL is soon worthless. */
+    private static final Duration SBOM_DOCUMENT_URL_TTL = Duration.ofMinutes(15);
+
     final Slugify slg = Slugify.builder().build();
 
     private final ProjectRepository projectRepository;
     private final ProjectDeploymentRepository projectDeploymentRepository;
+    private final OrganizationStorageService organizationStorageService;
     private final ProjectRepoProvisioner repoProvisioner;
 
     public DefaultProjectService(ProjectRepository repository,
                                  SecurityContext securityContext,
                                  ProjectDeploymentRepository projectDeploymentRepository,
+                                 OrganizationStorageService organizationStorageService,
                                  ProjectRepoProvisioner repoProvisioner) {
         super(repository, securityContext);
         this.projectRepository = repository;
         this.projectDeploymentRepository = projectDeploymentRepository;
+        this.organizationStorageService = organizationStorageService;
         this.repoProvisioner = repoProvisioner;
     }
 
@@ -106,6 +114,17 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         Validate.notBlank(projectId, "projectId must not be blank");
         Validate.notNull(pageable, "pageable must not be null");
         return projectDeploymentRepository.findHistory(projectId, requireOrganizationId(), pageable);
+    }
+
+    @Override
+    public Future<String> findSbomDocumentUrl(String projectId) {
+        Validate.notBlank(projectId, "projectId must not be blank");
+        String organizationId = requireOrganizationId();
+        // deployments are stored per organization, so another organization's project reads as one without an SBOM
+        return projectDeploymentRepository.findById(projectId, organizationId)
+                .compose(deployment -> deployment != null && deployment.isSbomGenerated()
+                        ? organizationStorageService.issueSbomReadUrl(organizationId, projectId, SBOM_DOCUMENT_URL_TTL)
+                        : Future.succeededFuture());
     }
 
     @Override

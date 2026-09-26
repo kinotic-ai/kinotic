@@ -44,8 +44,7 @@ kinotic:
       # The master key SecretNameDeriver derives storage names with comes from secrets.yml.
       backend: AZURE
   systemApi:
-    uiDeployment:
-      disableProvisioner: false
+    disableAzureStorage: false
     deployment:
       # serverHost and serverPort arrive through the environment: the address is the
       # server's own, and the port is whatever the router forwards
@@ -53,7 +52,7 @@ kinotic:
       # Destinations beyond the gateway a sync workload may reach, by name: the node's resolver
       # admits exactly the addresses it answers for each, so the npm registry's anycast and
       # GitHub's moving ranges need no CIDRs. The sync workload fetches from GitHub and runs
-      # bun install.
+      # bun install; the SBOM workload looks each package's license up in the registry.
       syncAllowedHosts:
         - github.com
         - registry.npmjs.org

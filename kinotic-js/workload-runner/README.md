@@ -15,7 +15,7 @@ bun src/sync.ts                               bun src/supervise.ts   (image defa
 mounts <checkout> read-write                  mounts <checkout> read-only
 fetch + checkout GIT_REF                      runs the project's microservice entry
 bun install                                   polls .kinotic/reload for changes
-find artifacts                                restarts the process when it changes
+find artifacts, hash bun.lock                 restarts the process when it changes
 entity sync + publish
 build the UIs
 report artifacts to the server
@@ -58,7 +58,10 @@ each is identified by the unscoped `name` in its `package.json`, which must be l
 letters, digits, and interior dashes. A missing or invalid name, or two packages of one kind
 sharing a name, fails the run naming the package. The result is reported to the server
 through `ProjectArtifactService.recordArtifacts`, authenticated as the sync machine, so
-the deployment run can bind it once this workload exits.
+the deployment run can bind it once this workload exits. The report carries the synced
+commit and the checkout's `dependencyHash` (`src/sbom.ts`): a SHA-256 of `bun.lock` and of the
+cdxgen version, or null without a `bun.lock`, which the deployment compares with the one the
+project's SBOM was generated from.
 
 Every UI artifact is then built in place with `bun run build`, handed the platform's
 address as `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and `VITE_KINOTIC_USE_SSL`, the
@@ -92,6 +95,26 @@ under it, through the removal URL issued for the site.
 | Variable | Meaning | Default |
 |---|---|---|
 | `KINOTIC_UI_REMOVAL_URL` | the site's directory in the sites account, with a SAS for that directory as its query | required |
+
+`generate-sbom.ts` — one-shot, exits 0 on success. Runs at the end of a deployment that has
+no SBOM for the dependencies its sync reported, on the same checkout mounted read-only. It
+generates the project's SBOM with [cdxgen](https://github.com/CycloneDX/cdxgen), a dependency of
+this runner, so a project needs nothing of its own: a CycloneDX 1.6 JSON document of every
+package `bun.lock` resolves, with its integrity hash, and with its license looked up in the npm
+registry (`FETCH_LICENSE`). The document goes up over the project's one SBOM file in the
+organization storage account, through a URL whose SAS is scoped to that file; then the run
+records it with the checkout's `dependencyHash` through `ProjectArtifactService.recordSbom`,
+authenticated as the project's sync machine.
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `KINOTIC_SBOM_UPLOAD_URL` | the project's SBOM file in the organization storage account, with a SAS for that file as its query | required |
+| `KINOTIC_PROJECT_ID` | the project the checkout belongs to | required |
+| `KINOTIC_WORKSPACE_DIR` | the checkout | `/workspace` |
+| `KINOTIC_SERVER_HOST/PORT/USE_SSL`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET`, `KINOTIC_ORGANIZATION_ID` | the server and the sync machine identity the SBOM is recorded as | required |
+
+cdxgen's optional dependencies, analysis plugins for other languages that run to hundreds of
+megabytes, are left out of every install of this package by `bunfig.toml`.
 
 `supervise.ts` — long-lived:
 

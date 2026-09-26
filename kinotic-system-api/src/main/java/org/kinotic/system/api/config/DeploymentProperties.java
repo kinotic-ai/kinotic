@@ -47,7 +47,8 @@ public class DeploymentProperties {
     /**
      * Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond
      * the gateway — the repository and package registry hosts, so {@code git fetch} and
-     * {@code bun install} work on nodes that deny workload egress by default.
+     * {@code bun install} work on nodes that deny workload egress by default. The SBOM workload
+     * may reach them too, to look up each package's license in the registry it came from.
      */
     private List<String> syncAllowedHosts = new ArrayList<>();
 

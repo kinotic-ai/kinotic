@@ -10,14 +10,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * Fallback {@link UiDeploymentProvisioner} used when site provisioning is disabled
- * ({@code kinotic.systemApi.uiDeployment.disableProvisioner=true}). Nothing serves, and
- * every deployment reads ready at once so publishing completes in development and tests
- * without Front Door.
+ * Fallback {@link UiDeploymentProvisioner} used when the environment has no Azure storage
+ * ({@code kinotic.systemApi.disableAzureStorage=true}). Nothing serves, and every deployment
+ * reads ready at once so publishing completes in development and tests without Azure.
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(value = "kinotic.systemApi.uiDeployment.disableProvisioner", havingValue = "true")
+@ConditionalOnProperty(value = "kinotic.systemApi.disableAzureStorage", havingValue = "true")
 public class MockUiDeploymentProvisioner implements UiDeploymentProvisioner {
 
     @Override

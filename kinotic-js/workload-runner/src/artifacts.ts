@@ -27,7 +27,7 @@ interface PackageManifest {
     json: Record<string, unknown>
 }
 
-export function findArtifacts(workspaceDir: string): ProjectArtifacts {
+export function findArtifacts(workspaceDir: string): Pick<ProjectArtifacts, 'microservices' | 'uis'> {
     const microservices: MicroserviceArtifact[] = requireUniqueNames(readManifests(workspaceDir, 'packages/microservices'))
         .map(manifest => ({ name: manifest.name, dir: manifest.dir, entry: entryOf(manifest) }))
     const uis: UiArtifact[] = requireUniqueNames(readManifests(workspaceDir, 'packages/ui').filter(hasBuildScript))

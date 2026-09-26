@@ -48,6 +48,14 @@ export interface IProjectService extends ICrudServiceProxy<Project> {
     findDeploymentHistory(projectId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>>
 
     /**
+     * Finds a URL the CycloneDX JSON document of the given project's SBOM can be read from for the
+     * next fifteen minutes, by anyone holding it.
+     * @param projectId id of the project the SBOM belongs to
+     * @return Promise emitting the URL, or null when the project has no SBOM
+     */
+    findSbomDocumentUrl(projectId: string): Promise<string | null>
+
+    /**
      * Re-runs repository initialization for a project left
      * {@link RepositoryConnectionStatus.INITIALIZATION_FAILED} by creation.
      * @param projectId the id of the project to retry
@@ -99,6 +107,10 @@ export class ProjectService extends CrudServiceProxy<Project> implements IProjec
 
     public findDeploymentHistorySinglePage(projectId: string, pageable: Pageable): Promise<Page<WatchEvent>> {
         return this.serviceProxy.invoke('findDeploymentHistory', [projectId, pageable])
+    }
+
+    public findSbomDocumentUrl(projectId: string): Promise<string | null> {
+        return this.serviceProxy.invoke('findSbomDocumentUrl', [projectId])
     }
 
     public retryRepoInitialization(projectId: string): Promise<Project> {
