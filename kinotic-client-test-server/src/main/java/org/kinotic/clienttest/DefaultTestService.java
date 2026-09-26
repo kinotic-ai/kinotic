@@ -1,4 +1,4 @@
-package org.kinotic.server.clienttest;
+package org.kinotic.clienttest;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Vertx;
@@ -6,7 +6,6 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -18,7 +17,6 @@ import java.util.concurrent.CompletableFuture;
  * Created by Navíd Mitchell 🤪 on 7/12/23.
  */
 @Component
-@Profile("clienttest")
 public class DefaultTestService implements ITestService{
 
     private static final UUID TEST_UUID = UUID.randomUUID();

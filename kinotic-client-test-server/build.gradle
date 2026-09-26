@@ -1,0 +1,14 @@
+plugins {
+	id 'org.kinotic.java-application-conventions'
+}
+
+dependencies {
+	implementation project(':kinotic-core')
+	implementation project(':kinotic-api-gateway')
+	// For its participant model; ClientTestServerApplication excludes the module's auto-configuration
+	implementation project(':kinotic-domain')
+
+	implementation 'io.vertx:vertx-core'
+
+	implementation 'io.projectreactor:reactor-core'
+}

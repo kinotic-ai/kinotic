@@ -1,8 +1,9 @@
 name: GHCR Cleanup
 
-# Every push to develop or main, and every pull request into them, stages kinotic-server and
-# kinotic-migration on ghcr.io under sha-<commit> (see gradle-build.yml), and nothing outside that workflow ever reads those tags —
-# what ships is promoted to Docker Hub. So a staged image is dead weight as soon as no one is going
+# Every push to develop or main, and every pull request into them, stages kinotic-server,
+# kinotic-client-test-server and kinotic-migration on ghcr.io under sha-<commit> (see
+# gradle-build.yml), and nothing outside that workflow ever reads those tags — what ships is
+# promoted to Docker Hub. So a staged image is dead weight as soon as no one is going
 # to re-run the jobs of the run that produced it, and without this job they accumulate forever.
 #
 # Deliberately not done inline at the end of a build: re-running a failed suite pulls the staged
@@ -53,14 +54,14 @@ jobs:
           echo "Protected from this sweep: ${tags}"
           echo "tags=${tags}" >> "$GITHUB_OUTPUT"
 
-      # ghcr.io/kinotic-ai/workload-runner is intentionally absent: unlike the two staging packages
+      # ghcr.io/kinotic-ai/workload-runner is intentionally absent: unlike the three staging packages
       # its tags are consumed outside CI — DeploymentProperties.workloadRunnerImage pulls :latest.
       - name: Delete staged images past the re-run window
         uses: dataaxiom/ghcr-cleanup-action@v1.2.2
         with:
-          packages: kinotic-migration,kinotic-server
+          packages: kinotic-migration,kinotic-server,kinotic-client-test-server
           # Untagged versions here are prior builds of a sha the workflow built twice, orphaned when
-          # the re-run pushed the same tag to a new digest. Both packages are single-platform, so no
+          # the re-run pushed the same tag to a new digest. All three packages are single-platform, so no
           # untagged version is a multi-arch child of a tag being kept. Nothing resolves a staged
           # image by digest, so an untagged one is unreachable and needs no exclusion.
           delete-tags: 'sha-*'

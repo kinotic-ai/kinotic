@@ -326,8 +326,6 @@ These predate the split and should be fixed (or verified) before or alongside it
    `MigrationService`, `AdminJsonEntitiesRepository`, `WorkloadOrchestrationService`,
    `VmNodeOrchestrationService`, `LogManager`, `KinoticClusterInfoService` — their
    access control today is the zone rules alone.
-4. **`ITestService` ships in kinotic-server's main sources** on the management-api zone. Confirm
-   its gating, or move it out of main.
 
 ## Open items
 
