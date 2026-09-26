@@ -5,7 +5,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.services.deployment.SiteStorageService;
-import org.kinotic.system.api.services.deployment.UiStoragePaths;
+import org.kinotic.system.internal.utils.SystemApiUtil;
 import org.kinotic.management.api.services.storage.AzureStorageUrlIssuer;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +19,9 @@ import java.time.Duration;
 @Component
 public class AzureSiteStorageService implements SiteStorageService {
 
+    /** The one container of the sites account. */
+    private static final String CONTAINER = "sites";
+
     private final AzureStorageUrlIssuer sites;
 
     public AzureSiteStorageService(Vertx vertx, KinoticSystemApiProperties kinoticProperties) {
@@ -28,7 +31,7 @@ public class AzureSiteStorageService implements SiteStorageService {
     @Override
     public Future<String> issueUploadUrl(String hostname, Duration ttl) {
         // list and delete within the directory let the workload clear the files of other commits
-        return sites.issueDirectoryUrl(UiStoragePaths.SITES_CONTAINER, UiStoragePaths.sitePrefix(hostname), ttl,
+        return sites.issueDirectoryUrl(CONTAINER, SystemApiUtil.siteDirectory(hostname), ttl,
                                        new PathSasPermission().setCreatePermission(true)
                                                               .setWritePermission(true)
                                                               .setListPermission(true)
@@ -37,7 +40,7 @@ public class AzureSiteStorageService implements SiteStorageService {
 
     @Override
     public Future<String> issueRemovalUrl(String hostname, Duration ttl) {
-        return sites.issueDirectoryUrl(UiStoragePaths.SITES_CONTAINER, UiStoragePaths.sitePrefix(hostname), ttl,
+        return sites.issueDirectoryUrl(CONTAINER, SystemApiUtil.siteDirectory(hostname), ttl,
                                        new PathSasPermission().setListPermission(true).setDeletePermission(true));
     }
 
