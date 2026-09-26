@@ -20,12 +20,8 @@ import java.nio.charset.StandardCharsets;
  * handler's RFC 8414 metadata. The CLI is a pre-registered public client and the only one the grant
  * serves.
  *
- * <p>A server serves the device grant by importing this class with
- * {@code @Import(DeviceAuthorizationHandler.class)}.
- *
  * <p>Error responses use the RFC 6749 shape {@code {"error":"<code>"}}.
  */
-// Registered only by @Import, so the device grant exists on the servers that import it and no others
 @Slf4j
 @RequiredArgsConstructor
 public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {

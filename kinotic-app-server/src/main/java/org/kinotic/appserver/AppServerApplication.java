@@ -2,10 +2,13 @@ package org.kinotic.appserver;
 
 import org.kinotic.core.api.annotations.EnableKinotic;
 import org.kinotic.core.api.event.ZonePartition;
+import org.kinotic.domain.api.rest.ApplicationLoginHandler;
+import org.kinotic.domain.api.rest.SessionEndpointHandler;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 
 import java.util.Set;
 
@@ -15,6 +18,8 @@ import java.util.Set;
  */
 @SpringBootApplication()
 @EnableKinotic
+@Import({ApplicationLoginHandler.class,
+		 SessionEndpointHandler.class})
 public class AppServerApplication {
 	static void main(String[] args) {
 		SpringApplication.run(AppServerApplication.class, args);
