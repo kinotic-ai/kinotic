@@ -42,6 +42,12 @@ public class ManagementApiProperties {
     @NotBlank
     private String mimirUrl = "http://localhost:9009";
 
+    /**
+     * Where the files the platform holds on behalf of organizations are kept.
+     */
+    @Valid
+    private OrganizationStorageProperties organizationStorage = new OrganizationStorageProperties();
+
 
 
 }

@@ -23,6 +23,4 @@ public interface DeploymentOperationsProxy {
 
     Future<Void> removeUiSite(String deploymentId);
 
-    Future<String> issueSbomUrl(String organizationId, String projectId, String commitSha);
-
 }

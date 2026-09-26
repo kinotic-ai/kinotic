@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services.storage;
+package org.kinotic.management.api.services.storage;
 
 import com.azure.core.credential.TokenCredential;
 import com.azure.identity.DefaultAzureCredentialBuilder;
@@ -18,11 +18,12 @@ import java.time.ZoneOffset;
 import java.util.function.Function;
 
 /**
- * Issues the URLs of paths in one Data Lake storage account, each carrying a SAS the server's
- * Azure identity signs with a user delegation key for that path alone. The URLs are on the
- * account's blob endpoint, which honors a directory's SAS for every blob under it.
+ * Issues the URLs of paths in one Azure storage account with a hierarchical namespace, each
+ * carrying a SAS the server's Azure identity signs with a user delegation key for that path alone.
+ * The URLs are on the account's blob endpoint, which honors a directory's SAS for every blob under
+ * it.
  */
-public class DataLakeSasIssuer {
+public class AzureStorageUrlIssuer {
 
     /** How far in the past a delegation key starts, so clock skew between server and storage never rejects a fresh SAS. */
     private static final Duration KEY_START_SKEW = Duration.ofMinutes(5);
@@ -37,7 +38,7 @@ public class DataLakeSasIssuer {
      * @param vertx        the Vert.x instance the issued futures complete on
      * @param blobEndpoint the account's blob endpoint, e.g. {@code https://stkinoticsites.blob.core.windows.net/}
      */
-    public DataLakeSasIssuer(Vertx vertx, String blobEndpoint) {
+    public AzureStorageUrlIssuer(Vertx vertx, String blobEndpoint) {
         this.vertx = vertx;
         this.blobEndpoint = blobEndpoint.endsWith("/") ? blobEndpoint.substring(0, blobEndpoint.length() - 1) : blobEndpoint;
     }

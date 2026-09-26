@@ -1,4 +1,4 @@
-package org.kinotic.system.api.services.storage;
+package org.kinotic.management.api.services.storage;
 
 import io.vertx.core.Future;
 

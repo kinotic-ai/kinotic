@@ -24,6 +24,7 @@ dependencies {
 
     implementation 'com.azure:azure-communication-email'
     implementation 'com.azure:azure-identity'
+    implementation 'com.azure:azure-storage-file-datalake'
 
     implementation 'org.apache.ignite:ignite-core'
 

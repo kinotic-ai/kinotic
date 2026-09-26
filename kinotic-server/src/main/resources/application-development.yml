@@ -15,6 +15,12 @@ kinotic:
     github:
       webhookSecret: "-"
       appPrivateKey: "-"
+    # No organization storage account in development, so deployments generate no SBOM (see
+    # systemApi.deployment.disableSbom); the `local` profile's application-local.yml names a real
+    # one (the dev root prints it)
+    organizationStorage:
+      # validated at boot; nothing reads it while SBOMs are disabled
+      blobEndpoint: "-"
   systemApi:
     # No sites account in development: a published UI is marked ready without being uploaded
     # or served. To publish to a real subscription instead, run with the `local` profile as well
@@ -25,12 +31,8 @@ kinotic:
       sitesDomain: apps.localhost
       # validated at boot; nothing reads it while the provisioner is disabled
       sitesStorageEndpoint: "-"
-    # No organization storage account in development either, so deployments generate no SBOM;
-    # the `local` profile's application-local.yml names a real one (the dev root prints it)
-    organizationStorage:
-      # validated at boot; nothing reads it while SBOMs are disabled
-      blobEndpoint: "-"
     deployment:
+      # no organization storage account in development (see managementApi.organizationStorage)
       disableSbom: true
       # A workload runs inside a micro VM, so "localhost" there is the guest, not this machine.
       # Local development runs the BOXLITE provider, whose guests reach the host on the

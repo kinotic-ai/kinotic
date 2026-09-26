@@ -69,17 +69,17 @@ output "tenant_id" {
 output "dev_server_env" {
   description = "The non-secret half of the server's environment"
   value = {
-    DEV_SERVER_API_HOSTNAME                             = local.api_hostname
-    DEV_SERVER_PORTAL_HOSTNAME                          = module.environment.ui_hostnames.portal
-    DEV_SERVER_CONSOLE_HOSTNAME                         = module.environment.ui_hostnames.console
-    KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN          = module.environment.sites_domain
-    KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT = module.environment.sites_storage_blob_endpoint
-    KINOTIC_SYSTEMAPI_ORGANIZATIONSTORAGE_BLOBENDPOINT  = module.environment.organization_storage_blob_endpoint
-    KINOTIC_DOMAIN_SECRETSTORAGE_AZURE_VAULTURL         = azurerm_key_vault.server.vault_uri
-    KINOTIC_DOMAIN_EMAIL_ENDPOINT                       = local.global.email_service_endpoint
-    KINOTIC_DOMAIN_EMAIL_SENDERADDRESS                  = "DoNotReply@${local.global.email_sender_domain}"
-    AZURE_CLIENT_ID                                     = module.environment.server_client_id
-    AZURE_TENANT_ID                                     = module.environment.tenant_id
+    DEV_SERVER_API_HOSTNAME                                = local.api_hostname
+    DEV_SERVER_PORTAL_HOSTNAME                             = module.environment.ui_hostnames.portal
+    DEV_SERVER_CONSOLE_HOSTNAME                            = module.environment.ui_hostnames.console
+    KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN             = module.environment.sites_domain
+    KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT    = module.environment.sites_storage_blob_endpoint
+    KINOTIC_MANAGEMENTAPI_ORGANIZATIONSTORAGE_BLOBENDPOINT = module.environment.organization_storage_blob_endpoint
+    KINOTIC_DOMAIN_SECRETSTORAGE_AZURE_VAULTURL            = azurerm_key_vault.server.vault_uri
+    KINOTIC_DOMAIN_EMAIL_ENDPOINT                          = local.global.email_service_endpoint
+    KINOTIC_DOMAIN_EMAIL_SENDERADDRESS                     = "DoNotReply@${local.global.email_sender_domain}"
+    AZURE_CLIENT_ID                                        = module.environment.server_client_id
+    AZURE_TENANT_ID                                        = module.environment.tenant_id
   }
 }
 

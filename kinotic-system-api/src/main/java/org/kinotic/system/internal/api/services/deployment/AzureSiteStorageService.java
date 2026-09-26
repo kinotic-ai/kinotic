@@ -6,7 +6,7 @@ import io.vertx.core.Vertx;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.services.deployment.SiteStorageService;
 import org.kinotic.system.api.services.deployment.UiStoragePaths;
-import org.kinotic.system.internal.api.services.storage.DataLakeSasIssuer;
+import org.kinotic.management.api.services.storage.AzureStorageUrlIssuer;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -19,10 +19,10 @@ import java.time.Duration;
 @Component
 public class AzureSiteStorageService implements SiteStorageService {
 
-    private final DataLakeSasIssuer sites;
+    private final AzureStorageUrlIssuer sites;
 
     public AzureSiteStorageService(Vertx vertx, KinoticSystemApiProperties kinoticProperties) {
-        this.sites = new DataLakeSasIssuer(vertx, kinoticProperties.getSystemApi().getUiDeployment().getSitesStorageEndpoint());
+        this.sites = new AzureStorageUrlIssuer(vertx, kinoticProperties.getSystemApi().getUiDeployment().getSitesStorageEndpoint());
     }
 
     @Override

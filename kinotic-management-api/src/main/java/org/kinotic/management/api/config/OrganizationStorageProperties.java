@@ -1,4 +1,4 @@
-package org.kinotic.system.api.config;
+package org.kinotic.management.api.config;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
@@ -8,7 +8,7 @@ import lombok.experimental.Accessors;
 
 /**
  * Where the platform keeps the files it holds on behalf of organizations, bound under
- * {@code kinotic.systemApi.organizationStorage.*}: one storage account for every organization,
+ * {@code kinotic.managementApi.organizationStorage.*}: one storage account for every organization,
  * partitioned by organization and then by use. Validated at boot, so an environment without the
  * account still sets it, to a placeholder.
  */

@@ -10,12 +10,8 @@ import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.system.api.services.deployment.DeploymentOperationsService;
-import org.kinotic.system.api.services.storage.OrganizationStoragePaths;
-import org.kinotic.system.api.services.storage.OrganizationStorageService;
 import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 import org.springframework.stereotype.Component;
-
-import java.time.Duration;
 
 
 @Slf4j
@@ -23,14 +19,10 @@ import java.time.Duration;
 @RequiredArgsConstructor
 public class DefaultDeploymentOperationsService implements DeploymentOperationsService {
 
-    /** Long enough for a page to fetch the document, short enough that a leaked URL is soon worthless. */
-    private static final Duration SBOM_URL_TTL = Duration.ofMinutes(15);
-
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
     private final UiDeploymentRepository uiDeploymentRepository;
     private final WorkloadRepository workloadRepository;
     private final WorkloadOrchestrationService workloadOrchestrationService;
-    private final OrganizationStorageService organizationStorageService;
 
     @Override
     public Future<Void> restartMicroservice(String deploymentId) {
@@ -64,11 +56,6 @@ public class DefaultDeploymentOperationsService implements DeploymentOperationsS
     public Future<Void> removeUiSite(String deploymentId) {
         return loadUi(deploymentId)
                 .compose(deployment -> uiDeploymentRepository.requestDeletion(deployment.getId(), "removeUiSite"));
-    }
-
-    @Override
-    public Future<String> issueSbomUrl(String organizationId, String projectId, String commitSha) {
-        return organizationStorageService.issueReadUrl(OrganizationStoragePaths.sbomFile(organizationId, projectId, commitSha), SBOM_URL_TTL);
     }
 
     private Future<MicroserviceDeployment> loadMicroservice(String deploymentId) {

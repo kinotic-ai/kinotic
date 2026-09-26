@@ -1,11 +1,12 @@
-package org.kinotic.system.internal.api.services.storage;
+package org.kinotic.management.internal.api.services.storage;
 
 import com.azure.storage.file.datalake.sas.PathSasPermission;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import org.kinotic.system.api.config.KinoticSystemApiProperties;
-import org.kinotic.system.api.services.storage.OrganizationStoragePaths;
-import org.kinotic.system.api.services.storage.OrganizationStorageService;
+import org.kinotic.management.api.config.KinoticManagementApiProperties;
+import org.kinotic.management.api.services.storage.AzureStorageUrlIssuer;
+import org.kinotic.management.api.services.storage.OrganizationStoragePaths;
+import org.kinotic.management.api.services.storage.OrganizationStorageService;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -18,10 +19,10 @@ import java.time.Duration;
 @Component
 public class AzureOrganizationStorageService implements OrganizationStorageService {
 
-    private final DataLakeSasIssuer organizations;
+    private final AzureStorageUrlIssuer organizations;
 
-    public AzureOrganizationStorageService(Vertx vertx, KinoticSystemApiProperties kinoticProperties) {
-        this.organizations = new DataLakeSasIssuer(vertx, kinoticProperties.getSystemApi().getOrganizationStorage().getBlobEndpoint());
+    public AzureOrganizationStorageService(Vertx vertx, KinoticManagementApiProperties kinoticProperties) {
+        this.organizations = new AzureStorageUrlIssuer(vertx, kinoticProperties.getManagementApi().getOrganizationStorage().getBlobEndpoint());
     }
 
     @Override

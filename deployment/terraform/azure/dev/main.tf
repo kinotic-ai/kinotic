@@ -236,13 +236,14 @@ output "application_local_yml" {
   description = "The `local` profile kinotic-server runs with: write it to kinotic-server/src/main/resources/application-local.yml"
   value       = <<-EOT
     kinotic:
+      managementApi:
+        organizationStorage:
+          blobEndpoint: ${module.environment.organization_storage_blob_endpoint}
       systemApi:
         uiDeployment:
           disableProvisioner: false
           sitesDomain: ${module.environment.sites_domain}
           sitesStorageEndpoint: ${module.environment.sites_storage_blob_endpoint}
-        organizationStorage:
-          blobEndpoint: ${module.environment.organization_storage_blob_endpoint}
         deployment:
           disableSbom: false
   EOT
