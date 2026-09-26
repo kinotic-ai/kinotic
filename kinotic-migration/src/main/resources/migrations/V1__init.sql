@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS kinotic_project_sbom (
     applicationId KEYWORD,
     commitSha KEYWORD,
     dependencyHash KEYWORD,
+    componentCount INTEGER,
     generated DATE
 );
 

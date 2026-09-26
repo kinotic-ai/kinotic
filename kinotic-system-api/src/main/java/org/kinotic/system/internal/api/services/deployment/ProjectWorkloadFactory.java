@@ -22,9 +22,8 @@ import java.util.List;
 
 /**
  * Builds the workloads a project runs on its node: the foreground sync and SBOM workloads of a
- * deployment run, and the long-lived runtime workload of one microservice, sized by
- * {@link ProjectWorkloadSizes}. The sync and runtime workloads connect to Kinotic as the machine
- * whose credentials they are given.
+ * deployment run, and the long-lived runtime workload of one microservice. Each connects to
+ * Kinotic as the machine whose credentials it is given, sized by {@link ProjectWorkloadSizes}.
  */
 @Component
 @RequiredArgsConstructor
@@ -72,11 +71,13 @@ public class ProjectWorkloadFactory {
 
     /**
      * The SBOM workload of a deployment run: generates the project's SBOM from the checkout
-     * mounted read-only at {@code /workspace} and uploads it through {@code uploadUrl}, the
-     * project's SBOM directory in the organization storage account, its only credential.
+     * mounted read-only at {@code /workspace}, uploads it through {@code uploadUrl}, the project's
+     * SBOM directory in the organization storage account, and records it as the project's sync
+     * machine.
      */
     public Workload sbom(Project project,
                          DeployTarget target,
+                         MachineProvisionResult credentials,
                          String uploadUrl,
                          String commitSha) {
         DeploymentProperties deployment = deployment();
@@ -92,8 +93,10 @@ public class ProjectWorkloadFactory {
         workload.setMemoryMb(ProjectWorkloadSizes.RUNTIME_MEMORY_MB);
         workload.setDiskSizeMb(ProjectWorkloadSizes.RUNTIME_DISK_SIZE_MB);
         workload.setEntrypoint(List.of("bun", "src/generate-sbom.ts"));
+        workload.getEnvironment().put("KINOTIC_PROJECT_ID", project.getId());
         workload.getEnvironment().put("KINOTIC_SBOM_COMMIT", commitSha);
         workload.getEnvironment().put("KINOTIC_SBOM_FILE", OrganizationStoragePaths.sbomFileName(commitSha));
+        putKinoticConnection(workload, deployment, credentials);
         // the URL is a credential for the run's length, so it travels as a secret
         workload.getSecrets().put("KINOTIC_SBOM_UPLOAD_URL", uploadUrl);
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
@@ -103,7 +106,7 @@ public class ProjectWorkloadFactory {
         // goes up to the account's blob host
         List<String> hosts = new ArrayList<>(deployment.getSyncAllowedHosts());
         hosts.add(URI.create(uploadUrl).getHost());
-        workload.getNetwork().setAllowedHosts(hosts);
+        workload.getNetwork().setAllowedHosts(allowedHosts(hosts, deployment));
         return workload;
     }
 

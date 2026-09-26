@@ -6,7 +6,8 @@
   <template v-else>
     <div v-if="sbom" class="mb-2 text-xs text-muted-color">
       {{ sbomGenerated ? 'Generated the SBOM of' : 'The dependencies are unchanged since' }}
-      <span class="font-mono" :title="sbom.commitSha">{{ shortSha(sbom.commitSha) }}</span>
+      <span class="font-mono" :title="sbom.commitSha">{{ shortSha(sbom.commitSha) }}</span>:
+      {{ sbom.componentCount }} components
     </div>
     <template v-if="!sbom || sbomGenerated">
       <WorkloadLogView v-if="workloadId" :key="workloadId" :organization-id="organizationId" :workload-id="workloadId" :run="run" />

@@ -399,10 +399,9 @@ public class ProjectDeployJobDefinitionFactory {
     /**
      * Keeps the project's SBOM current: when the dependency hash the sync workload reported differs
      * from the one the project's SBOM was generated from, or the project has none, a foreground
-     * SBOM workload generates it from the checkout and uploads it into the project's SBOM directory
-     * of the organization storage account through a URL scoped to that directory, and the SBOM is
-     * recorded once the workload succeeded; otherwise no workload runs and the SBOM stays. Fails when
-     * the checkout has no bun.lock.
+     * SBOM workload generates it from the checkout, uploads it into the project's SBOM directory of
+     * the organization storage account through a URL scoped to that directory, and records it;
+     * otherwise no workload runs and the SBOM stays. Fails when the checkout has no bun.lock.
      */
     private Future<ProjectSbom> generateSbom(Project project, DeployTarget target, ProjectArtifacts artifacts, String commitSha) {
         String organizationId = project.getOrganizationId();
@@ -416,16 +415,19 @@ public class ProjectDeployJobDefinitionFactory {
                         ret = Future.succeededFuture(current);
                     } else {
                         ret = organizationStorageService.issueWriteUrl(OrganizationStoragePaths.sbomDirectory(organizationId, project.getId()), SBOM_UPLOAD_URL_TTL)
-                                .map(url -> projectWorkloadFactory.sbom(project, target, url, commitSha))
+                                // the sync workload has exited, so the SBOM workload takes over its machine's credentials
+                                .compose(url -> projectDeployIdentityService.issueSyncCredentials(project)
+                                        .map(credentials -> projectWorkloadFactory.sbom(project, target, credentials, url, commitSha)))
                                 .compose(workloadOrchestrationService::deployWorkload)
                                 .compose(finished -> requireSucceeded(finished, "SBOM"))
-                                .compose(workloadId -> projectSbomRepository.saveSync(new ProjectSbom().setId(project.getId())
-                                                                                                        .setOrganizationId(organizationId)
-                                                                                                        .setApplicationId(project.getApplicationId())
-                                                                                                        .setCommitSha(commitSha)
-                                                                                                        .setDependencyHash(artifacts.dependencyHash())
-                                                                                                        .setGenerated(new Date()),
-                                                                                      organizationId));
+                                .compose(workloadId -> projectSbomRepository.findById(project.getId(), organizationId))
+                                .map(recorded -> {
+                                    if (recorded == null || !commitSha.equals(recorded.getCommitSha())) {
+                                        throw new IllegalStateException("The SBOM workload of project " + project.getId()
+                                                + " did not record the SBOM of commit " + commitSha);
+                                    }
+                                    return recorded;
+                                });
                     }
                     return ret;
                 });
