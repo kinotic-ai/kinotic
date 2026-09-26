@@ -1,4 +1,4 @@
-import {BasicCredentialsResolver, type ConnectOptions, Kinotic, KinoticSingleton, RpcError} from '@kinotic-ai/core'
+import {BasicCredentialsResolver, type ConnectOptions, Kinotic, KinoticSingleton, RpcError, type ServerInfo} from '@kinotic-ai/core'
 import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
@@ -7,11 +7,8 @@ import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {
     buildConnectOptions,
     E2E_FIXTURE_PASSWORD,
-    E2E_ORG_USER_EMAIL,
     E2E_ORGANIZATION_ID,
-    kinoticHost,
-    kinoticPort,
-    kinoticPort2
+    kinoticServer
 } from '../TestHelpers.js'
 import {ProbeService, type ProbeEvent} from './ProbeService.js'
 
@@ -19,12 +16,16 @@ ensureNodeWebSocket()
 
 const execFileAsync = promisify(execFile)
 
-// The host publishes the probe in an app zone of the e2e organization, which its org user may host and call
+// The host publishes the probe in an app zone of the e2e organization, which the organization's runtime machine may
+// host and call
 const ZONE = `app.${E2E_ORGANIZATION_ID}.node-failure`
 const PROBE_SERVICE = `${ZONE}~e2e.nodefailure.ProbeService`
 
+/** The organization's runtime machine V3__e2e_app_fixtures seeds, which connects to app server nodes (clientSecret: kinotic). */
+const RUNTIME_MACHINE_ID = '00000000-0000-0000-0000-000000000013'
+
 /** The compose container name of the second node, the one every test here kills. */
-const NODE_2 = 'kinotic-server-2'
+const NODE_2 = 'kinotic-app-server-2'
 
 /**
  * How long a lost call may take to fail once its node is gone: Ignite's failure detection (10s by default)
@@ -45,8 +46,8 @@ const CLIENT_RECONNECT_MS = 240_000
 const probeEvents: ProbeEvent[] = []
 
 /**
- * Runs the suite's kill-and-restart scenarios against the two-node cluster the node-failure setup starts:
- * kinotic-server (node 1) and kinotic-server-2 (node 2). The probe host is the global Kinotic client;
+ * Runs the suite's kill-and-restart scenarios against the two app server nodes the node-failure setup starts:
+ * kinotic-app-server (node 1) and kinotic-app-server-2 (node 2). The probe host is the global Kinotic client;
  * callers are separate clients so each side of a call can be placed on the node the scenario needs.
  */
 describe('Node failure handling for service proxies', () => {
@@ -55,7 +56,7 @@ describe('Node failure handling for service proxies', () => {
     beforeAll(async () => {
         Kinotic.zonePrefix = ZONE
         new ProbeService(event => probeEvents.push(event))
-        await Kinotic.connect(orgUserConnectOptions(kinoticPort2()))
+        await Kinotic.connect(runtimeConnectOptions(node2()))
     }, 120_000)
 
     afterAll(async () => {
@@ -66,16 +67,16 @@ describe('Node failure handling for service proxies', () => {
         Kinotic.zonePrefix = null
     }, 120_000)
 
-    /** Connects a new caller to the node listening on the given port; the suite disconnects it at the end. */
-    async function connectCaller(port: number): Promise<KinoticSingleton> {
+    /** Connects a new caller to the node; the suite disconnects it at the end. */
+    async function connectCaller(node: ServerInfo): Promise<KinoticSingleton> {
         const caller = new KinoticSingleton()
-        await caller.connect(orgUserConnectOptions(port))
+        await caller.connect(runtimeConnectOptions(node))
         callers.push(caller)
         return caller
     }
 
     it('fails a call whose host disconnects before replying', async () => {
-        const caller = await connectCaller(kinoticPort())
+        const caller = await connectCaller(node1())
         const started = eventCount('hang-started')
 
         const pending = caller.serviceProxy(PROBE_SERVICE).invoke('hang')
@@ -88,14 +89,14 @@ describe('Node failure handling for service proxies', () => {
         try {
             await callFailed
         } finally {
-            await Kinotic.connect(orgUserConnectOptions(kinoticPort2()))
+            await Kinotic.connect(runtimeConnectOptions(node2()))
         }
 
         await waitForProbe(caller, 'after host reconnect')
     })
 
     it('cancels the producer when a caller on another node unsubscribes its stream', async () => {
-        const caller = await connectCaller(kinoticPort())
+        const caller = await connectCaller(node1())
         const cancelled = eventCount('ticks-cancelled')
 
         const values = await firstValueFrom(caller.serviceProxy(PROBE_SERVICE)
@@ -108,7 +109,7 @@ describe('Node failure handling for service proxies', () => {
     })
 
     it('cancels the producer when the caller of a stream disconnects', async () => {
-        const caller = await connectCaller(kinoticPort())
+        const caller = await connectCaller(node1())
         const cancelled = eventCount('ticks-cancelled')
 
         const first = await firstValueFrom(caller.serviceProxy(PROBE_SERVICE).invokeStream('ticks', [100]))
@@ -121,7 +122,7 @@ describe('Node failure handling for service proxies', () => {
     })
 
     it('fails the pending call and stream of a serving node that is killed, and serves again once it is back', {timeout: 600_000}, async () => {
-        const caller = await connectCaller(kinoticPort())
+        const caller = await connectCaller(node1())
         const hangStarted = eventCount('hang-started')
         const ticksStarted = eventCount('ticks-started')
 
@@ -137,7 +138,7 @@ describe('Node failure handling for service proxies', () => {
         try {
             await Promise.all([callFailed, streamFailed])
         } finally {
-            await startNode(NODE_2, kinoticPort2())
+            await startNode(NODE_2, node2())
         }
 
         // the host reconnects on its own and registers the probe with the restarted node again
@@ -148,8 +149,8 @@ describe('Node failure handling for service proxies', () => {
     it('fails the pending call and stream of a caller whose own node is killed, and cancels the producer', async () => {
         // The host moves to node 1 so that killing node 2 takes out the caller's gateway alone
         await Kinotic.disconnect(true)
-        await Kinotic.connect(orgUserConnectOptions(kinoticPort()))
-        const caller = await connectCaller(kinoticPort2())
+        await Kinotic.connect(runtimeConnectOptions(node1()))
+        const caller = await connectCaller(node2())
         const hangStarted = eventCount('hang-started')
         const ticksStarted = eventCount('ticks-started')
         const cancelled = eventCount('ticks-cancelled')
@@ -173,11 +174,19 @@ describe('Node failure handling for service proxies', () => {
     })
 })
 
-/** Connects as the e2e organization's user to the node listening on the given port. */
-function orgUserConnectOptions(port: number): ConnectOptions {
-    return buildConnectOptions(
-        new BasicCredentialsResolver(E2E_ORG_USER_EMAIL, E2E_FIXTURE_PASSWORD, E2E_ORGANIZATION_ID),
-        {host: kinoticHost(), port, useSSL: false})
+/** The first app server node, which every caller not moved to node 2 connects to. */
+function node1(): ServerInfo {
+    return kinoticServer('kinotic-app-server')
+}
+
+/** The second app server node, the probe host's and the one every test kills. */
+function node2(): ServerInfo {
+    return kinoticServer('kinotic-app-server-2')
+}
+
+/** Connects as the e2e organization's runtime machine to the node. */
+function runtimeConnectOptions(node: ServerInfo): ConnectOptions {
+    return buildConnectOptions(new BasicCredentialsResolver(RUNTIME_MACHINE_ID, E2E_FIXTURE_PASSWORD), node)
 }
 
 /** Asserts the pending call or stream fails with the platform's RpcServiceUnavailableException within the failure-detection budget. */
@@ -217,10 +226,10 @@ async function killNode(containerName: string): Promise<void> {
 }
 
 /** Starts the node's container again and waits until its gateway answers its health check. */
-async function startNode(containerName: string, stompPort: number): Promise<void> {
+async function startNode(containerName: string, node: ServerInfo): Promise<void> {
     console.log(`Starting ${containerName}...`)
     await execFileAsync('docker', ['start', containerName])
-    const healthUrl = `http://${kinoticHost()}:${stompPort}/health`
+    const healthUrl = `http://${node.host}:${node.port}/health`
     await waitFor(async () => {
         try {
             const response = await fetch(healthUrl)

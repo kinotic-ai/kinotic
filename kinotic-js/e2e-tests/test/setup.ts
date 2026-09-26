@@ -13,8 +13,24 @@ ensureNodeWebSocket()
 Kinotic.use(ManagementApiPlugin)
        .use(PersistencePlugin)
 
-/** The STOMP port every kinotic-server container listens on. */
-const STOMP_PORT = 58503
+/** The REST and STOMP port each server container listens on, by its compose service name. */
+const SERVER_PORTS = {
+    'kinotic-org-server': 58503,
+    'kinotic-system-server': 58504,
+    'kinotic-app-server': 58505,
+    'kinotic-app-server-2': 58505,
+}
+
+/** A server of the e2e compose stack, by its compose service name. */
+export type KinoticServerName = keyof typeof SERVER_PORTS
+
+/** The host port compose.kinotic-e2e-test.yml publishes each server on, for a stack started by hand. */
+const PUBLISHED_PORTS: Record<KinoticServerName, number> = {
+    'kinotic-org-server': 58503,
+    'kinotic-system-server': 58504,
+    'kinotic-app-server': 58505,
+    'kinotic-app-server-2': 58506,
+}
 
 /** The vitest globalSetup pair (setup and teardown) for a suite run against the e2e compose stack. */
 export interface GlobalSetup {
@@ -25,13 +41,12 @@ export interface GlobalSetup {
 /**
  * Builds the globalSetup of a suite that runs against the compose stack in
  * deployment/docker-compose/compose.kinotic-e2e-test.yml. With VITE_USE_KINOTIC_DOCKER=true the
- * setup brings up Elasticsearch, the migration and the given kinotic-server services, and provides
- * KINOTIC_HOST plus the mapped STOMP port of each server: KINOTIC_PORT for the first and
- * KINOTIC_PORT_2 for the second. Otherwise it points the suite at 127.0.0.1 on the ports the compose
- * file publishes, for a stack started by hand.
- * @param serverNames the kinotic-server services to start, in the order their ports are provided
+ * setup brings up Elasticsearch, the migration and the given servers, and provides KINOTIC_HOST plus
+ * KINOTIC_PORTS, the mapped REST and STOMP port of each server by name. Otherwise it points the suite
+ * at 127.0.0.1 on the ports the compose file publishes, for a stack started by hand.
+ * @param serverNames the servers to start
  */
-export function createGlobalSetup(serverNames: string[]): GlobalSetup {
+export function createGlobalSetup(serverNames: KinoticServerName[]): GlobalSetup {
     let environment: StartedDockerComposeEnvironment
 
     return {
@@ -46,14 +61,14 @@ export function createGlobalSetup(serverNames: string[]): GlobalSetup {
                     .withWaitStrategy('kinotic-elasticsearch', Wait.forHttp('/_cluster/health', 9200))
                     .withEnvironmentFile(path.resolve('../../', 'gradle.properties'))
                 for(const serverName of serverNames){
-                    compose = compose.withWaitStrategy(serverName, Wait.forHttp('/health', 9090))
+                    compose = compose.withWaitStrategy(serverName, Wait.forHttp('/health', SERVER_PORTS[serverName]))
                 }
                 environment = await compose.up(['kinotic-elasticsearch', ...serverNames])
 
-                const ports: number[] = []
+                const ports: Partial<Record<KinoticServerName, number>> = {}
                 for(const serverName of serverNames){
                     const container = environment.getContainer(serverName)
-                    ports.push(container.getMappedPort(STOMP_PORT))
+                    ports[serverName] = container.getMappedPort(SERVER_PORTS[serverName])
 
                     // Surface server-side failures in the test output: without this, a broken server startup
                     // only ever shows up as opaque timeouts in the suites
@@ -74,8 +89,11 @@ export function createGlobalSetup(serverNames: string[]): GlobalSetup {
 
                 console.log('Kinotic started.')
             }else{
-                // the host ports compose.kinotic-e2e-test.yml publishes, one per server in order
-                provideServers(project, '127.0.0.1', serverNames.map((_, index) => STOMP_PORT + index))
+                const ports: Partial<Record<KinoticServerName, number>> = {}
+                for(const serverName of serverNames){
+                    ports[serverName] = PUBLISHED_PORTS[serverName]
+                }
+                provideServers(project, '127.0.0.1', ports)
                 console.log('Skipping Kinotic setup because VITE_USE_KINOTIC_DOCKER is false')
             }
         },
@@ -93,18 +111,14 @@ export function createGlobalSetup(serverNames: string[]): GlobalSetup {
     }
 }
 
-function provideServers(project: TestProject, host: string, ports: number[]): void {
+function provideServers(project: TestProject, host: string, ports: Partial<Record<KinoticServerName, number>>): void {
     // @ts-ignore
     project.provide('KINOTIC_HOST', host)
     // @ts-ignore
-    project.provide('KINOTIC_PORT', ports[0])
-    if(ports.length > 1){
-        // @ts-ignore
-        project.provide('KINOTIC_PORT_2', ports[1])
-    }
+    project.provide('KINOTIC_PORTS', ports)
 }
 
-const globalSetup = createGlobalSetup(['kinotic-server'])
+const globalSetup = createGlobalSetup(['kinotic-org-server', 'kinotic-system-server', 'kinotic-app-server'])
 
 // Run once before all tests
 export const setup = globalSetup.setup
