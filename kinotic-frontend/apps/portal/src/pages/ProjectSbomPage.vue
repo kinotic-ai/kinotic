@@ -135,7 +135,7 @@ const visibleComponents = computed(() => {
 onMounted(async () => {
   try {
     const [found, deployed] = await Promise.all([
-      Kinotic.projectSboms.findSbom(props.projectId),
+      Kinotic.projects.findSbom(props.projectId),
       Kinotic.projects.findDeployment(props.projectId),
     ])
     sbom.value = found
@@ -153,7 +153,7 @@ onMounted(async () => {
 async function loadDocument(): Promise<void> {
   documentLoading.value = true
   try {
-    const url = await Kinotic.projectSboms.findDocumentUrl(props.projectId)
+    const url = await Kinotic.projects.findSbomDocumentUrl(props.projectId)
     if (url !== null) {
       const response = await fetch(url)
       if (!response.ok) {

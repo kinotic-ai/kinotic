@@ -10,15 +10,20 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
+import org.kinotic.management.api.model.deployment.ProjectSbom;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
+import org.kinotic.management.api.repositories.ProjectSbomRepository;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.services.ProjectRepoProvisioner;
 import org.kinotic.management.api.services.ProjectService;
+import org.kinotic.management.api.services.storage.OrganizationStoragePaths;
+import org.kinotic.management.api.services.storage.OrganizationStorageService;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Function;
@@ -26,19 +31,28 @@ import java.util.function.Function;
 @Component
 public class DefaultProjectService extends AbstractApplicationScopedService<Project> implements ProjectService {
 
+    /** Long enough for a page to fetch the document, short enough that a leaked URL is soon worthless. */
+    private static final Duration SBOM_DOCUMENT_URL_TTL = Duration.ofMinutes(15);
+
     final Slugify slg = Slugify.builder().build();
 
     private final ProjectRepository projectRepository;
     private final ProjectDeploymentRepository projectDeploymentRepository;
+    private final ProjectSbomRepository projectSbomRepository;
+    private final OrganizationStorageService organizationStorageService;
     private final ProjectRepoProvisioner repoProvisioner;
 
     public DefaultProjectService(ProjectRepository repository,
                                  SecurityContext securityContext,
                                  ProjectDeploymentRepository projectDeploymentRepository,
+                                 ProjectSbomRepository projectSbomRepository,
+                                 OrganizationStorageService organizationStorageService,
                                  ProjectRepoProvisioner repoProvisioner) {
         super(repository, securityContext);
         this.projectRepository = repository;
         this.projectDeploymentRepository = projectDeploymentRepository;
+        this.projectSbomRepository = projectSbomRepository;
+        this.organizationStorageService = organizationStorageService;
         this.repoProvisioner = repoProvisioner;
     }
 
@@ -106,6 +120,24 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         Validate.notBlank(projectId, "projectId must not be blank");
         Validate.notNull(pageable, "pageable must not be null");
         return projectDeploymentRepository.findHistory(projectId, requireOrganizationId(), pageable);
+    }
+
+    @Override
+    public Future<ProjectSbom> findSbom(String projectId) {
+        Validate.notBlank(projectId, "projectId must not be blank");
+        return projectSbomRepository.findById(projectId, requireOrganizationId());
+    }
+
+    @Override
+    public Future<String> findSbomDocumentUrl(String projectId) {
+        Validate.notBlank(projectId, "projectId must not be blank");
+        String organizationId = requireOrganizationId();
+        // rows are stored per organization, so another organization's project reads as one without an SBOM
+        return projectSbomRepository.findById(projectId, organizationId)
+                .compose(sbom -> sbom != null
+                        ? organizationStorageService.issueReadUrl(OrganizationStoragePaths.sbomFile(organizationId, projectId, sbom.getCommitSha()),
+                                                                  SBOM_DOCUMENT_URL_TTL)
+                        : Future.succeededFuture());
     }
 
     @Override

@@ -14,8 +14,8 @@ import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.management.api.model.deployment.ProjectSbom;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectSbomRepository;
+import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.management.api.services.deployment.ProjectArtifactService;
-import org.kinotic.management.api.services.deployment.ProjectSbomService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -47,7 +47,7 @@ public class ProjectSbomTests extends KinoticTestBase {
     private ProjectArtifactService projectArtifactService;
 
     @Autowired
-    private ProjectSbomService projectSbomService;
+    private ProjectService projectService;
 
     @Autowired
     private ProjectDeploymentRepository projectDeployments;
@@ -72,7 +72,7 @@ public class ProjectSbomTests extends KinoticTestBase {
 
         await(runAs(syncMachine(), () -> projectArtifactService.recordSbom(projectId, COMMIT, "hash-1", 42)));
 
-        ProjectSbom sbom = await(runAsOrganization(() -> projectSbomService.findSbom(projectId)));
+        ProjectSbom sbom = await(runAsOrganization(() -> projectService.findSbom(projectId)));
         assertNotNull(sbom);
         assertEquals(projectId, sbom.getId());
         assertEquals(TEST_APP_ID, sbom.getApplicationId());
@@ -89,7 +89,7 @@ public class ProjectSbomTests extends KinoticTestBase {
 
         await(runAs(syncMachine(), () -> projectArtifactService.recordSbom(projectId, COMMIT, "hash-2", 43)));
 
-        ProjectSbom sbom = await(runAsOrganization(() -> projectSbomService.findSbom(projectId)));
+        ProjectSbom sbom = await(runAsOrganization(() -> projectService.findSbom(projectId)));
         assertEquals("hash-2", sbom.getDependencyHash());
         assertEquals(43, sbom.getComponentCount());
     }
@@ -119,8 +119,8 @@ public class ProjectSbomTests extends KinoticTestBase {
     public void aProjectWithoutAnSbomHasNoDocument() throws Exception {
         String projectId = deployedProject("sbom-none");
 
-        assertNull(await(runAsOrganization(() -> projectSbomService.findSbom(projectId))));
-        assertNull(await(runAsOrganization(() -> projectSbomService.findDocumentUrl(projectId))));
+        assertNull(await(runAsOrganization(() -> projectService.findSbom(projectId))));
+        assertNull(await(runAsOrganization(() -> projectService.findSbomDocumentUrl(projectId))));
     }
 
     /**

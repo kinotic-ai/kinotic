@@ -4,7 +4,6 @@ import { ProjectService, type IProjectService } from '@/api/services/IProjectSer
 import { ProjectArtifactService, type IProjectArtifactService } from '@/api/services/deployment/IProjectArtifactService'
 import { MicroserviceDeploymentService, type IMicroserviceDeploymentService } from '@/api/services/deployment/IMicroserviceDeploymentService'
 import { UiDeploymentService, type IUiDeploymentService } from '@/api/services/deployment/IUiDeploymentService'
-import { ProjectSbomService, type IProjectSbomService } from '@/api/services/deployment/IProjectSbomService'
 import { EntityDefinitionService, type IEntityDefinitionService } from '@/api/services/IEntityDefinitionService'
 import {type INamedQueriesDefinitionService, NamedQueriesDefinitionService} from '@/api/services/INamedQueriesDefinitionService'
 import { MigrationService, type IMigrationService } from '@/api/services/IMigrationService'
@@ -26,7 +25,6 @@ export interface IManagementApiExtension {
     projectArtifacts: IProjectArtifactService
     microserviceDeployments: IMicroserviceDeploymentService
     uiDeployments: IUiDeploymentService
-    projectSboms: IProjectSbomService
     entityDefinitions: IEntityDefinitionService
     namedQueriesDefinitions: INamedQueriesDefinitionService
     migrations: IMigrationService
@@ -51,7 +49,6 @@ export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
             projectArtifacts: new ProjectArtifactService(kinotic),
             microserviceDeployments: new MicroserviceDeploymentService(kinotic),
             uiDeployments: new UiDeploymentService(kinotic),
-            projectSboms: new ProjectSbomService(kinotic),
             entityDefinitions: new EntityDefinitionService(kinotic),
             namedQueriesDefinitions: new NamedQueriesDefinitionService(kinotic),
             migrations: new MigrationService(kinotic),
