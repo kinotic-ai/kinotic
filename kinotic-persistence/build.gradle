@@ -8,7 +8,6 @@ dependencies {
 	implementation project(':kinotic-domain')
 	implementation project(':kinotic-api-gateway')
     implementation project(':kinotic-idl')
-	implementation project(':kinotic-sql')
 
 	implementation 'co.elastic.clients:elasticsearch-java'
 

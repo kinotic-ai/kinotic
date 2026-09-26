@@ -1,13 +1,13 @@
-package org.kinotic.persistence.internal.api.services;
+package org.kinotic.management.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.persistence.api.model.MigrationDefinition;
-import org.kinotic.persistence.api.model.MigrationRequest;
-import org.kinotic.persistence.api.model.MigrationResult;
-import org.kinotic.persistence.api.services.MigrationService;
+import org.kinotic.management.api.model.MigrationDefinition;
+import org.kinotic.management.api.model.MigrationRequest;
+import org.kinotic.management.api.model.MigrationResult;
+import org.kinotic.management.api.services.MigrationService;
 import org.kinotic.sql.domain.Migration;
 import org.kinotic.sql.domain.MigrationContent;
 import org.kinotic.sql.executor.MigrationExecutor;
@@ -20,7 +20,7 @@ import java.util.List;
 
 /**
  * Implementation of MigrationService that allows external clients to execute migrations
- * through the Kinotic Persistence API using the existing MigrationExecutor infrastructure.
+ * using the existing MigrationExecutor infrastructure.
  */
 @Component
 @RequiredArgsConstructor
