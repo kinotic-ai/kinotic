@@ -22,7 +22,8 @@ pnpm dev          # portal on http://localhost:5173
 pnpm dev:system   # system console
 ```
 
-Both talk to kinotic-server at `localhost:58503` by default — see
+The portal talks to the org server at `localhost:58503` and the console to the system server
+at `localhost:58504` by default — see
 `kinotic-frontend/apps/portal/ENV_SETUP.md` for how `VITE_KINOTIC_HOST`/`PORT`/`USE_SSL`
 resolve per command.
 
