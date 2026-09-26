@@ -5,33 +5,41 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.services.security.DeviceCodeGrantService;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
-import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 /**
- * The RFC 8628 device authorization endpoint the Kinotic CLI logs in through. The CLI is a
- * pre-registered public client and the only one this endpoint serves. The user approves the
- * device on the SPA's {@code /device} page, and the CLI redeems its device code at the token
- * endpoint of {@link OAuthServerHandler}.
+ * The RFC 8628 device grant the Kinotic CLI logs in through: the device authorization endpoint, the
+ * redemption of its device codes at the token endpoint of {@link OAuthServerHandler}, and the entries
+ * advertising both in that handler's RFC 8414 metadata. The CLI is a pre-registered public client and
+ * the only one the grant serves; the user approves the device on the SPA's {@code /device} page.
+ *
+ * <p>A server serves the device grant by importing this class with
+ * {@code @Import(DeviceAuthorizationHandler.class)}.
  *
  * <p>Error responses use the RFC 6749 shape {@code {"error":"<code>"}}.
  */
+// Registered only by @Import, so the device grant exists on the servers that import it and no others
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {
 
-    static final String DEVICE_AUTHORIZATION_ROUTE = "/api/auth/oauth/device_authorization";
+    static final String DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
+
+    private static final String DEVICE_AUTHORIZATION_ROUTE = "/api/auth/oauth/device_authorization";
 
     /**
      * The {@code client_id} of the Kinotic CLI, the only client the device grant serves. Constant
      * rather than configuration: it identifies the CLI itself, not a deployment of it.
      */
-    static final String CLI_CLIENT_ID = "kinotic-cli";
+    private static final String CLI_CLIENT_ID = "kinotic-cli";
+
+    /** Display name of the CLI's delegate wherever the user's authorized clients are listed. */
+    private static final String CLI_DISPLAY_NAME = "Kinotic CLI";
 
     private final AuthEndpointSupport authEndpointSupport;
     private final DeviceCodeGrantService deviceCodeGrantService;
@@ -39,6 +47,48 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {
     @Override
     public void mountRoutes(Router router) {
         router.post(DEVICE_AUTHORIZATION_ROUTE).handler(this::handleDeviceAuthorization);
+    }
+
+    /**
+     * Adds the device grant to RFC 8414 authorization-server metadata: the device authorization
+     * endpoint under {@code issuer}, and the device-code grant type in {@code grant_types_supported}.
+     */
+    void advertise(JsonObject metadata, String issuer) {
+        metadata.put("device_authorization_endpoint", issuer + DEVICE_AUTHORIZATION_ROUTE);
+        metadata.getJsonArray("grant_types_supported").add(DEVICE_CODE_GRANT_TYPE);
+    }
+
+    /**
+     * Answers a token request carrying the device-code grant — RFC 8628 §3.4/§3.5: the RFC's error
+     * for the code's state ({@code authorization_pending}, {@code slow_down}, {@code expired_token},
+     * {@code invalid_grant}), or, once the user has approved the code, a token pair acting as that user.
+     */
+    void redeem(RoutingContext ctx) {
+        String deviceCode = ctx.request().getFormAttribute("device_code");
+        if (deviceCode == null || deviceCode.isBlank()) {
+            authEndpointSupport.respondError(ctx, 400, "invalid_request");
+            return;
+        }
+        deviceCodeGrantService.poll(deviceCode)
+              .onSuccess(result -> {
+                  switch (result.status()) {
+                      case AUTHORIZATION_PENDING -> authEndpointSupport.respondError(ctx, 400, "authorization_pending");
+                      case SLOW_DOWN -> authEndpointSupport.respondError(ctx, 400, "slow_down");
+                      case EXPIRED -> authEndpointSupport.respondError(ctx, 400, "expired_token");
+                      case INVALID -> authEndpointSupport.respondError(ctx, 400, "invalid_grant");
+                      case APPROVED -> authEndpointSupport.issueDelegateTokens(ctx, result.user(), DelegateKind.CLI,
+                                                                              CLI_CLIENT_ID, CLI_DISPLAY_NAME,
+                                                                              result.deviceName())
+                              .onFailure(err -> {
+                                  log.warn("Could not issue tokens after device approval: {}", err.getMessage());
+                                  authEndpointSupport.respondError(ctx, 500, "Could not issue tokens");
+                              });
+                  }
+              })
+              .onFailure(err -> {
+                  log.warn("Device token poll failed: {}", err.getMessage());
+                  authEndpointSupport.respondError(ctx, 400, "invalid_grant");
+              });
     }
 
     /**

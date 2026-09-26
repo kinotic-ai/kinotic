@@ -1,6 +1,5 @@
 package org.kinotic.domain.api.rest;
 
-import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
@@ -9,23 +8,22 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.model.security.KinoticAudience;
-import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
-import org.kinotic.domain.api.services.security.DeviceCodeGrantService;
 import org.kinotic.domain.api.services.security.OAuthAuthorizationService;
-import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.RefreshTokenService;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 
 /**
  * The OAuth 2.1 authorization server MCP hosts discover and drive to reach {@code POST /mcp}: its
  * RFC 8414 metadata document, the PKCE authorization-code flow whose consent step is the SPA's
- * {@code /oauth/consent} page, and the token endpoint, which also redeems the RFC 8628 device codes
- * {@link DeviceAuthorizationHandler} issues to the CLI. There is no registration endpoint: an MCP
- * host identifies itself with a Client ID Metadata Document URL
+ * {@code /oauth/consent} page, and the token endpoint. On a server that imports
+ * {@link DeviceAuthorizationHandler}, the token endpoint also redeems the RFC 8628 device codes it
+ * issues to the CLI, and the metadata advertises the device grant. There is no registration
+ * endpoint: an MCP host identifies itself with a Client ID Metadata Document URL
  * (draft-ietf-oauth-client-id-metadata-document) the authorize endpoint fetches. Token responses
  * carry a Kinotic access token plus a rotating refresh token, so clients requesting
  * {@code offline_access} refresh without re-consent.
@@ -42,16 +40,11 @@ import java.nio.charset.StandardCharsets;
 @RequiredArgsConstructor
 public class OAuthServerHandler implements SuppliesGatewayRoutes {
 
-    private static final String DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
-
-    /** Display name of the CLI's delegate wherever the user's authorized clients are listed. */
-    private static final String CLI_DISPLAY_NAME = "Kinotic CLI";
-
     private final AuthEndpointSupport authEndpointSupport;
-    private final ParticipantIdentityService identityService;
     private final OAuthAuthorizationService oauthAuthorizationService;
-    private final DeviceCodeGrantService deviceCodeGrantService;
     private final RefreshTokenService refreshTokenService;
+    // present only on a server that imports DeviceAuthorizationHandler
+    private final Optional<DeviceAuthorizationHandler> deviceAuthorization;
 
     @Override
     public void mountRoutes(Router router) {
@@ -63,21 +56,21 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
     /** {@code GET /.well-known/oauth-authorization-server} — RFC 8414 metadata. */
     private void handleAuthorizationServerMetadata(RoutingContext ctx) {
         String issuer = issuer();
-        ctx.json(new JsonObject()
+        JsonObject metadata = new JsonObject()
                 .put("issuer", issuer)
                 .put("authorization_endpoint", issuer + "/api/auth/oauth/authorize")
                 .put("token_endpoint", issuer + "/api/auth/oauth/token")
-                .put("device_authorization_endpoint", issuer + DeviceAuthorizationHandler.DEVICE_AUTHORIZATION_ROUTE)
                 // draft-ietf-oauth-client-id-metadata-document Section 5 — lets a host check for
                 // support before sending the user somewhere that would reject its client_id
                 .put("client_id_metadata_document_supported", true)
                 .put("response_types_supported", new JsonArray().add("code"))
                 .put("grant_types_supported", new JsonArray().add("authorization_code")
-                                                             .add("refresh_token")
-                                                             .add(DEVICE_CODE_GRANT_TYPE))
+                                                             .add("refresh_token"))
                 .put("code_challenge_methods_supported", new JsonArray().add("S256"))
                 .put("token_endpoint_auth_methods_supported", new JsonArray().add("none"))
-                .put("scopes_supported", new JsonArray().add("offline_access")));
+                .put("scopes_supported", new JsonArray().add("offline_access"));
+        deviceAuthorization.ifPresent(device -> device.advertise(metadata, issuer));
+        ctx.json(metadata);
     }
 
     /**
@@ -120,7 +113,8 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
 
     /**
      * {@code POST /api/auth/oauth/token} — form-encoded per RFC 6749. Supports the
-     * {@code authorization_code} (PKCE), {@code refresh_token}, and RFC 8628 device-code grants.
+     * {@code authorization_code} (PKCE) and {@code refresh_token} grants, plus the RFC 8628
+     * device-code grant on a server that imports {@link DeviceAuthorizationHandler}.
      */
     private void handleToken(RoutingContext ctx) {
         String grantType = ctx.request().getFormAttribute("grant_type");
@@ -128,39 +122,11 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
             handleAuthorizationCodeGrant(ctx);
         } else if ("refresh_token".equals(grantType)) {
             handleRefreshTokenGrant(ctx);
-        } else if (DEVICE_CODE_GRANT_TYPE.equals(grantType)) {
-            handleDeviceCodeGrant(ctx);
+        } else if (DeviceAuthorizationHandler.DEVICE_CODE_GRANT_TYPE.equals(grantType) && deviceAuthorization.isPresent()) {
+            deviceAuthorization.get().redeem(ctx);
         } else {
             authEndpointSupport.respondError(ctx, 400, "unsupported_grant_type");
         }
-    }
-
-    private void handleDeviceCodeGrant(RoutingContext ctx) {
-        String deviceCode = ctx.request().getFormAttribute("device_code");
-        if (deviceCode == null || deviceCode.isBlank()) {
-            authEndpointSupport.respondError(ctx, 400, "invalid_request");
-            return;
-        }
-        deviceCodeGrantService.poll(deviceCode)
-              .onSuccess(result -> {
-                  switch (result.status()) {
-                      case AUTHORIZATION_PENDING -> authEndpointSupport.respondError(ctx, 400, "authorization_pending");
-                      case SLOW_DOWN -> authEndpointSupport.respondError(ctx, 400, "slow_down");
-                      case EXPIRED -> authEndpointSupport.respondError(ctx, 400, "expired_token");
-                      case INVALID -> authEndpointSupport.respondError(ctx, 400, "invalid_grant");
-                      case APPROVED -> issueDelegateTokens(ctx, result.user(), DelegateKind.CLI,
-                                                           DeviceAuthorizationHandler.CLI_CLIENT_ID, CLI_DISPLAY_NAME,
-                                                           result.deviceName())
-                              .onFailure(err -> {
-                                  log.warn("Could not issue tokens after device approval: {}", err.getMessage());
-                                  authEndpointSupport.respondError(ctx, 500, "Could not issue tokens");
-                              });
-                  }
-              })
-              .onFailure(err -> {
-                  log.warn("Device token poll failed: {}", err.getMessage());
-                  authEndpointSupport.respondError(ctx, 400, "invalid_grant");
-              });
     }
 
     private void handleAuthorizationCodeGrant(RoutingContext ctx) {
@@ -169,32 +135,14 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
         String redirectUri = ctx.request().getFormAttribute("redirect_uri");
         String codeVerifier = ctx.request().getFormAttribute("code_verifier");
         oauthAuthorizationService.exchangeCode(code, clientId, redirectUri, codeVerifier)
-              .compose(exchange -> issueDelegateTokens(ctx, exchange.approver(), DelegateKind.MCP_CLIENT,
-                                                       exchange.clientId(), exchange.clientName(), null))
+              .compose(exchange -> authEndpointSupport.issueDelegateTokens(ctx, exchange.approver(),
+                                                                           DelegateKind.MCP_CLIENT,
+                                                                           exchange.clientId(),
+                                                                           exchange.clientName(), null))
               .onFailure(err -> {
                   log.warn("OAuth code exchange failed: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 400, "invalid_grant");
               });
-    }
-
-    /**
-     * The tail every delegate-minting grant shares: find-or-create the approver's delegate for
-     * the client, issue a refresh token for the delegate kind's audience, and respond with the
-     * token pair.
-     */
-    private Future<Void> issueDelegateTokens(RoutingContext ctx,
-                                             UserParticipantIdentity approver,
-                                             DelegateKind kind,
-                                             String clientKey,
-                                             String clientName,
-                                             String sessionLabel) {
-        return identityService.findOrCreateDelegate(approver, kind, clientKey, clientName)
-                .compose(delegate -> refreshTokenService.issue(delegate.getId(),
-                                                               delegate.getDelegateKind().getAudience(),
-                                                               sessionLabel)
-                        .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(
-                                ctx, delegate, refreshToken, delegate.getDelegateKind().getAudience())))
-                .mapEmpty();
     }
 
     private void handleRefreshTokenGrant(RoutingContext ctx) {

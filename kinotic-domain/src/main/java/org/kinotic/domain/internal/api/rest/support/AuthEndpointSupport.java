@@ -11,11 +11,14 @@ import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
+import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.domain.api.model.security.OidcProviderKind;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.services.security.RefreshTokenService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.security.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
@@ -31,8 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Shared response shaping + URL/route plumbing for every login/signup handler —
- * browser-session establishment, redirect construction, JSON error/payload writing, the
- * standard "after-callback" flow, and absolute URL building.
+ * browser-session establishment, redirect construction, JSON error/payload writing, OAuth token
+ * issuance, the standard "after-callback" flow, and absolute URL building.
  * Each individual handler delegates the boilerplate here so its body keeps only the
  * route-specific decisions (which config to start with, which UserParticipantIdentity lookup to run).
  */
@@ -55,6 +58,8 @@ public class AuthEndpointSupport {
     private final KinoticJwtIssuer jwtIssuer;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
+    private final ParticipantIdentityService identityService;
+    private final RefreshTokenService refreshTokenService;
 
 
     /**
@@ -247,6 +252,27 @@ public class AuthEndpointSupport {
            .putHeader("Cache-Control", "no-store")
            .putHeader("Pragma", "no-cache")
            .end(body.encode());
+    }
+
+    /**
+     * Answers a token request for a delegate-minting grant: finds or creates {@code approver}'s
+     * delegate of the given {@code kind} for the client {@code clientKey}, issues a refresh token
+     * for the audience of {@code kind}, and responds with the token pair. Both tokens act as the
+     * delegate. {@code sessionLabel} names the refresh-token family where the client supplied one.
+     */
+    public Future<Void> issueDelegateTokens(RoutingContext ctx,
+                                            UserParticipantIdentity approver,
+                                            DelegateKind kind,
+                                            String clientKey,
+                                            String clientName,
+                                            String sessionLabel) {
+        return identityService.findOrCreateDelegate(approver, kind, clientKey, clientName)
+                .compose(delegate -> refreshTokenService.issue(delegate.getId(),
+                                                               delegate.getDelegateKind().getAudience(),
+                                                               sessionLabel)
+                        .onSuccess(refreshToken -> respondTokenPair(
+                                ctx, delegate, refreshToken, delegate.getDelegateKind().getAudience())))
+                .mapEmpty();
     }
 
     /** Login-lookup path-fork response indicating the frontend should reveal the password field. */
