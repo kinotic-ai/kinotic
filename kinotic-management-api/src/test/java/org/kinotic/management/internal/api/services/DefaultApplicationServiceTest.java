@@ -18,14 +18,14 @@ import static org.mockito.Mockito.when;
  * Covers id handling in {@link DefaultApplicationService#beforeSave}: minting the id from the
  * slugified name, rejecting ids that are not lowercase letters, digits, and interior dashes,
  * rejecting the reserved {@code system} label, and rejecting ids that cannot form the
- * application's host label. beforeSave reads no collaborator but the caller's organization, so
- * no other is given.
+ * application's host label. An application without a primary UI reads no collaborator but the
+ * caller's organization, so no other is given.
  */
 class DefaultApplicationServiceTest {
 
     private static final String CALLER_ORG = "acme";
 
-    private final DefaultApplicationService service = new DefaultApplicationService(null, null, null, callerContext());
+    private final DefaultApplicationService service = new DefaultApplicationService(null, null, null, null, callerContext());
 
     private static SecurityContext callerContext() {
         OrganizationParticipant participant = mock(OrganizationParticipant.class);

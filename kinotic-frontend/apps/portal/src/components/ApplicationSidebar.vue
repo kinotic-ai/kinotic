@@ -52,6 +52,7 @@ async function handleSubmit(): Promise<void> {
       organizationId: USER_STATE.getOrganizationId(),
       description: form.description,
       tenantPerUser: false,
+      primaryUiId: null,
       updated: null
     }
 

@@ -60,6 +60,8 @@
           <dd class="m-0 font-mono">app.{{ organizationId }}.{{ applicationId }}</dd>
           <dt class="text-muted-color">Tenancy</dt>
           <dd class="m-0">{{ application?.tenantPerUser ? 'Tenant per user' : 'Shared tenant' }}</dd>
+          <dt class="text-muted-color">Primary UI</dt>
+          <dd class="m-0">{{ application?.primaryUiId ?? 'Not set' }}</dd>
           <dt class="text-muted-color">Updated</dt>
           <dd class="m-0">{{ application?.updated ? DatetimeUtil.formatRelativeDate(application.updated) : '—' }}</dd>
         </dl>
@@ -68,7 +70,7 @@
 
     <section :class="cardClass" class="mt-4">
       <h2 class="text-sm font-semibold text-surface-950 dark:text-surface-0">UIs</h2>
-      <div v-if="loadingProjects" class="mt-4 flex flex-col gap-3">
+      <div v-if="loadingUis" class="mt-4 flex flex-col gap-3">
         <Skeleton v-for="n in 2" :key="n" height="2.25rem" />
       </div>
       <p v-else-if="uis.length === 0" class="mt-4 text-sm text-muted-color">
@@ -134,6 +136,7 @@ const projects = ref<Project[]>([])
 const loadingProjects = ref(true)
 const deploymentStatus = ref<Record<string, DeploymentStatusType>>({})
 const uis = ref<UiDeployment[]>([])
+const loadingUis = ref(true)
 const usersCount = ref<number | null>(null)
 const machinesCount = ref<number | null>(null)
 
@@ -170,14 +173,14 @@ async function load(): Promise<void> {
   uis.value = []
   usersCount.value = null
   machinesCount.value = null
-  await Promise.all([loadProjects(), loadUsersCount(), loadMachinesCount()])
+  await Promise.all([loadProjects(), loadUis(), loadUsersCount(), loadMachinesCount()])
 }
 
 async function loadProjects(): Promise<void> {
   try {
     const page = await Kinotic.projects.findAllForApplication(props.applicationId, Pageable.create(0, PROJECT_PREVIEW_COUNT))
     projects.value = page.content ?? []
-    await Promise.all(projects.value.flatMap(project => [loadDeploymentStatus(project), loadUis(project)]))
+    await Promise.all(projects.value.map(loadDeploymentStatus))
   } catch (error) {
     debug('Failed to load projects: %O', error)
   } finally {
@@ -197,13 +200,14 @@ async function loadDeploymentStatus(project: Project): Promise<void> {
   }
 }
 
-async function loadUis(project: Project): Promise<void> {
-  if (!project.id) return
+async function loadUis(): Promise<void> {
+  loadingUis.value = true
   try {
-    const published = await Kinotic.uiDeployments.findAllForProject(project.id)
-    uis.value = [...uis.value, ...published].sort((a, b) => a.name.localeCompare(b.name))
+    uis.value = await Kinotic.uiDeployments.findAllForApplication(props.applicationId)
   } catch (error) {
-    debug('Failed to load UIs for %s: %O', project.id, error)
+    debug('Failed to load UIs: %O', error)
+  } finally {
+    loadingUis.value = false
   }
 }
 
