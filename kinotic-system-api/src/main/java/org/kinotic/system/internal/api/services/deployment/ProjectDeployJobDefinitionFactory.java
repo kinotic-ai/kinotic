@@ -27,7 +27,7 @@ import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.Tasks;
-import org.kinotic.management.api.services.storage.OrganizationStoragePaths;
+import org.kinotic.management.api.utils.ManagementApiUtil;
 import org.kinotic.management.api.services.storage.OrganizationStorageService;
 import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
 import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
@@ -412,7 +412,7 @@ public class ProjectDeployJobDefinitionFactory {
                         // means the SBOM lists the dependencies of this run
                         ret = Future.succeededFuture(false);
                     } else {
-                        ret = organizationStorageService.issueWriteUrl(OrganizationStoragePaths.sbomFile(project.getOrganizationId(), project.getId()),
+                        ret = organizationStorageService.issueWriteUrl(ManagementApiUtil.projectSbomFile(project.getOrganizationId(), project.getId()),
                                                                        SBOM_UPLOAD_URL_TTL)
                                 // the sync workload has exited, so the SBOM workload takes over its machine's credentials
                                 .compose(url -> projectDeployIdentityService.issueSyncCredentials(project)

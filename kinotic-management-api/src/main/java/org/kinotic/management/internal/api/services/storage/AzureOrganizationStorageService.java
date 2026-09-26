@@ -5,7 +5,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.management.api.services.storage.AzureStorageUrlIssuer;
-import org.kinotic.management.api.services.storage.OrganizationStoragePaths;
 import org.kinotic.management.api.services.storage.OrganizationStorageService;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +18,9 @@ import java.time.Duration;
 @Component
 public class AzureOrganizationStorageService implements OrganizationStorageService {
 
+    /** The one container of the organization storage account. */
+    private static final String CONTAINER = "organizations";
+
     private final AzureStorageUrlIssuer organizations;
 
     public AzureOrganizationStorageService(Vertx vertx, KinoticManagementApiProperties kinoticProperties) {
@@ -27,13 +29,13 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
 
     @Override
     public Future<String> issueWriteUrl(String file, Duration ttl) {
-        return organizations.issueFileUrl(OrganizationStoragePaths.CONTAINER, file, ttl,
+        return organizations.issueFileUrl(CONTAINER, file, ttl,
                                           new PathSasPermission().setCreatePermission(true).setWritePermission(true));
     }
 
     @Override
     public Future<String> issueReadUrl(String file, Duration ttl) {
-        return organizations.issueFileUrl(OrganizationStoragePaths.CONTAINER, file, ttl, new PathSasPermission().setReadPermission(true));
+        return organizations.issueFileUrl(CONTAINER, file, ttl, new PathSasPermission().setReadPermission(true));
     }
 
 }

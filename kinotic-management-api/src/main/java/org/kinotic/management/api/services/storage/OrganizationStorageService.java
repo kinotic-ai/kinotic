@@ -6,7 +6,7 @@ import java.time.Duration;
 
 /**
  * Issues the credentials workloads and browsers act on organizations' files with. The files live
- * in the organization storage account as {@link OrganizationStoragePaths} lays them out; the server
+ * in the organization storage account, each organization's under its own directory; the server
  * itself never reads, writes or deletes them.
  */
 public interface OrganizationStorageService {

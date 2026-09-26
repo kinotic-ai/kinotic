@@ -17,8 +17,8 @@ import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.services.ProjectRepoProvisioner;
 import org.kinotic.management.api.services.ProjectService;
-import org.kinotic.management.api.services.storage.OrganizationStoragePaths;
 import org.kinotic.management.api.services.storage.OrganizationStorageService;
+import org.kinotic.management.api.utils.ManagementApiUtil;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -124,7 +124,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         // deployments are stored per organization, so another organization's project reads as one without an SBOM
         return projectDeploymentRepository.findById(projectId, organizationId)
                 .compose(deployment -> deployment != null && deployment.isSbomGenerated()
-                        ? organizationStorageService.issueReadUrl(OrganizationStoragePaths.sbomFile(organizationId, projectId), SBOM_DOCUMENT_URL_TTL)
+                        ? organizationStorageService.issueReadUrl(ManagementApiUtil.projectSbomFile(organizationId, projectId), SBOM_DOCUMENT_URL_TTL)
                         : Future.succeededFuture());
     }
 
