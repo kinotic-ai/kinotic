@@ -10,7 +10,7 @@ import org.kinotic.domain.api.model.persistence.DecoratedProperty;
 import org.kinotic.domain.api.model.persistence.idl.decorators.EntityType;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.persistence.idl.decorators.*;
-import org.kinotic.domain.api.utils.PersistenceUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 
 /**
  * Converts a {@link ObjectC3Type} to a {@link Property}
@@ -40,7 +40,7 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
 
             String fieldName = property.getName();
             C3Type type = property.getType();
-            PersistenceUtil.validatePropertyName(fieldName);
+            DomainUtil.validatePropertyName(fieldName);
 
             // Initialize state for processing this field
             state.beginProcessingField(property);

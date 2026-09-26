@@ -14,7 +14,7 @@ import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEval
 import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEvaluatorWithOperation;
 import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEvaluatorWithoutOperation;
 import org.kinotic.persistence.internal.api.services.security.graphos.SharedPolicyManager;
-import org.kinotic.domain.api.utils.PersistenceUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,9 +30,9 @@ public class EntityDefinitionPolicyAuthorizationService implements Authorization
     public EntityDefinitionPolicyAuthorizationService(EntityDefinition entityDefinition,
                                                       PolicyAuthorizer policyAuthorizer) {
 
-        this.entityDefinitionId = PersistenceUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
-                                                                           entityDefinition.getApplicationId(),
-                                                                           entityDefinition.getName());
+        this.entityDefinitionId = DomainUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
+                                                                      entityDefinition.getApplicationId(),
+                                                                      entityDefinition.getName());
         ObjectC3Type schema = entityDefinition.getSchema();
 
         // Get any Policies to apply to the Entity and its fields

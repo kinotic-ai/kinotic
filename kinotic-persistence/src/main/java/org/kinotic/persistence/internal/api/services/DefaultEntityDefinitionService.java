@@ -19,7 +19,7 @@ import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.services.EntityDefinitionService;
 import org.kinotic.persistence.internal.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
-import org.kinotic.domain.api.utils.PersistenceUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
@@ -69,14 +69,14 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                                                Future<EntityDefinition>> createOp) {
         try {
             // will throw an exception if invalid
-            PersistenceUtil.validateEntityDefinition(entityDefinition);
+            DomainUtil.validateEntityDefinition(entityDefinition);
 
             entityDefinition.setApplicationId(entityDefinition.getApplicationId().trim());
             entityDefinition.setProjectId(entityDefinition.getProjectId().trim());
             entityDefinition.setName(entityDefinition.getName().trim());
-            String logicalIndexName = PersistenceUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
-                                                                               entityDefinition.getApplicationId(),
-                                                                               entityDefinition.getName());
+            String logicalIndexName = DomainUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
+                                                                          entityDefinition.getApplicationId(),
+                                                                          entityDefinition.getName());
 
             if (logicalIndexName.length() > 255) {
                 return Future.failedFuture(new IllegalArgumentException(
@@ -232,7 +232,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     public Future<EntityDefinition> save(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
         try {
             Validate.notBlank(entityDefinition.getId(), "EntityDefinition Id Invalid");
-            PersistenceUtil.validateEntityDefinition(entityDefinition);
+            DomainUtil.validateEntityDefinition(entityDefinition);
         } catch (IllegalArgumentException e) {
             return Future.failedFuture(e);
         }
