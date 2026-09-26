@@ -39,7 +39,7 @@ micro VMs sharing a host mount, and inotify events do not cross the VM boundary.
 | `GIT_TOKEN` | token authorizing the fetch; omit for a public repository | — |
 | `KINOTIC_WORKSPACE_DIR` | the shared checkout directory | `/workspace` |
 | `KINOTIC_PROJECT_ID` | the project the checkout belongs to, named in the artifact report | required with credentials |
-| `KINOTIC_UI_SERVER_URL` | the address a browser reaches the platform on, handed to every UI build as `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and `VITE_KINOTIC_USE_SSL` | — |
+| `KINOTIC_UI_SERVER_URL` | the address a browser reaches the project's application on, handed to every UI build as `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and `VITE_KINOTIC_USE_SSL` | — |
 | `KINOTIC_SERVER_HOST/PORT/USE_SSL`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET`, `KINOTIC_ORGANIZATION_ID` | machine identity and server the CLI and the artifact report connect with; both are skipped when no credentials are present | — |
 | `KINOTIC_CLI_BIN` | overrides the kinotic CLI entry script (development/tests) | resolved from the image install |
 

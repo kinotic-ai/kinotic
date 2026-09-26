@@ -23,8 +23,8 @@ import { forwardOutput, log, logError } from './log.ts'
  * - GIT_TOKEN              token authorizing the fetch; omit for a public repository
  * - KINOTIC_WORKSPACE_DIR  the shared checkout directory (default /workspace)
  * - KINOTIC_PROJECT_ID     the project the checkout belongs to; required to report artifacts
- * - KINOTIC_UI_SERVER_URL  the address a browser reaches the platform on, handed to every UI
- *                          build as VITE_KINOTIC_HOST, VITE_KINOTIC_PORT and VITE_KINOTIC_USE_SSL
+ * - KINOTIC_UI_SERVER_URL  the address a browser reaches the project's application on, handed to
+ *                          every UI build as VITE_KINOTIC_HOST, VITE_KINOTIC_PORT and VITE_KINOTIC_USE_SSL
  * - KINOTIC_SERVER_* / KINOTIC_CLIENT_ID / KINOTIC_CLIENT_SECRET — standard Kinotic
  *   connection settings the CLI and the artifact report authenticate with; both are
  *   skipped when no credentials are present

@@ -2,6 +2,7 @@ package org.kinotic.system.internal.api.services.deployment;
 
 import lombok.RequiredArgsConstructor;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.model.AppHost;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
@@ -55,9 +56,10 @@ public class ProjectWorkloadFactory {
         workload.getEnvironment().put("GIT_CLONE_URL", token.getCloneUrl());
         workload.getEnvironment().put("GIT_REF", commitSha);
         workload.getEnvironment().put("KINOTIC_PROJECT_ID", project.getId());
-        // The UIs are built against the address a browser reaches the platform on, which the
-        // egress address in DeploymentProperties.serverHost is not
-        workload.getEnvironment().put("KINOTIC_UI_SERVER_URL", domainProperties.getDomain().resolveApiBaseUrl());
+        // The UIs are built against the address a browser reaches their application on, which the
+        // address the workload itself dials is not
+        workload.getEnvironment().put("KINOTIC_UI_SERVER_URL",
+                                      domainProperties.getDomain().resolveAppApiUrl(new AppHost(project.getOrganizationId(), project.getApplicationId())));
         putKinoticConnection(workload, deployment, credentials);
         workload.getSecrets().put("GIT_TOKEN", token.getToken());
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())

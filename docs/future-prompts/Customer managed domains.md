@@ -1,4 +1,4 @@
-We serve every published UI at `<org>-<app>-<ui>.apps.kinotic.ai` through one Front Door
+We serve every published UI at `<org>--<app>--<ui>.apps.kinotic.ai` through one Front Door
 wildcard domain, and the API at `api.kinotic.ai` on the cluster's load balancer. I want a
 customer to be able to bring their own domain: `ui.mydomain.com` for a published UI and
 `api.mydomain.com` for the API, so the session cookie stays same-site. A customer domain may
