@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.api.repositories;
+package org.kinotic.domain.api.repositories;
 
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;

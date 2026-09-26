@@ -1,42 +1,21 @@
-package org.kinotic.persistence.internal.cache;
+package org.kinotic.domain.internal.cache;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.SpringApplicationContextResource;
-import org.apache.ignite.resources.SpringResource;
-import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
-import org.kinotic.persistence.internal.cache.events.EvictionSourceOperation;
-import org.kinotic.persistence.internal.cache.events.EvictionSourceType;
+import org.kinotic.domain.api.cache.CacheEvictionEvent;
+import org.kinotic.domain.api.cache.EvictionSourceOperation;
+import org.kinotic.domain.api.cache.EvictionSourceType;
 import org.springframework.context.ApplicationContext;
 
 /**
  * Simple Ignite Compute Grid task for cluster-wide cache eviction.
  * Uses IDs to avoid serialization issues.
- * Includes timestamp-based duplicate prevention with auto-expiry.
- * 
- * Spring Resource Injection:
- * This task uses Apache Ignite's {@link SpringResource} annotation to inject Spring beans.
- * Since Continuum uses {@code IgniteSpring.start(IgniteConfiguration, ApplicationContext)},
- * Spring beans are automatically injected into fields annotated with {@code @SpringResource}.
- * 
- * Important:
- * - Fields must be marked as {@code transient} to prevent serialization issues
- * - Use {@code resourceClass} to inject by type, or {@code resourceName} to inject by bean name
- * - Injection happens automatically when the task is executed on each cluster node
- * - Each node must have the Spring ApplicationContext available (handled by Continuum)
- *   This bean wraps the ApplicationContext and makes it available for Ignite task injection
  */
 @Slf4j
 @RequiredArgsConstructor
 public class ClusterCacheEvictionTask implements IgniteRunnable {
-
-    /**
-     * Spring-managed cache for tracking processed evictions, injected by Ignite.
-     * Marked as transient to prevent serialization (injection happens on each node).
-     */
-    @SpringResource(resourceClass = ProcessedEvictionsCache.class)
-    private transient ProcessedEvictionsCache processedEvictionsCache;
 
     /**
      * Spring-managed ApplicationEventPublisher injected by Ignite.
@@ -56,7 +35,7 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
     private final String applicationId;
     private final String entityDefinitionId;
     private final String namedQueryId;
-    private final long timestamp; // Timestamp to prevent duplicate processing
+    private final long timestamp; // Correlates the log lines of one eviction across its retries
 
     @Override
     public void run() {
@@ -75,18 +54,7 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                 throw new IllegalStateException("ApplicationEventPublisher was not injected by Spring. " +
                         "Ensure Ignite is started with IgniteSpring.start() and Spring ApplicationContext is available.");
             }
-            if (processedEvictionsCache == null) {
-                throw new IllegalStateException("ProcessedEvictionsCache was not injected by Spring. " +
-                        "Ensure Ignite is started with IgniteSpring.start() and Spring ApplicationContext is available.");
-            }
-            
-            // Check if this eviction has already been processed
-            Long existingTimestamp = processedEvictionsCache.getIfPresent(evictionKey);
-            if (existingTimestamp != null && existingTimestamp.equals(timestamp)) {
-                log.trace("Cache eviction already processed for key: {} (timestamp: {})", evictionKey, timestamp);
-                return; // Skip duplicate processing
-            }
-            
+
             if (EvictionSourceType.ENTITY_DEFINITION == evictionSourceType) {
                 log.trace("Executing EntityDefinition cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
                 
@@ -102,8 +70,6 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                         throw new IllegalArgumentException("Invalid eviction operation for key: " + evictionKey);
                     }
                     
-                    // Mark as processed
-                    processedEvictionsCache.put(evictionKey, timestamp);
                     log.trace("Successfully processed EntityDefinition cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
                 } else {
                     log.warn("EntityDefinition not found for cache eviction: {} {}", applicationId, entityDefinitionId);
@@ -125,8 +91,6 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                         throw new IllegalArgumentException("Invalid eviction operation: " + evictionOperation);
                     }
                     
-                    // Mark as processed
-                    processedEvictionsCache.put(evictionKey, timestamp);
                     log.trace("Successfully processed NamedQuery cache eviction for key: {} (timestamp: {})", evictionKey, timestamp);
                 } else {
                     log.warn("NamedQuery not found for cache eviction: {}", evictionKey);

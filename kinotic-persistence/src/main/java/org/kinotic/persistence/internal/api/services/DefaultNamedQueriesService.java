@@ -11,14 +11,14 @@ import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.persistence.api.model.ParameterHolder;
 import org.kinotic.persistence.api.services.NamedQueriesService;
-import org.kinotic.persistence.internal.api.repositories.NamedQueriesDefinitionRepository;
+import org.kinotic.domain.api.repositories.NamedQueriesDefinitionRepository;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.persistence.internal.api.services.sql.QueryExecutorFactory;
 import org.kinotic.persistence.internal.api.services.sql.executors.QueryExecutor;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
-import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
-import org.kinotic.persistence.internal.cache.events.EvictionSourceType;
+import org.kinotic.domain.api.cache.CacheEvictionEvent;
+import org.kinotic.domain.api.cache.EvictionSourceType;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
