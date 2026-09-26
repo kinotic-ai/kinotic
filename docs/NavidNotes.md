@@ -277,7 +277,7 @@ accepted.
   name shared config across two modules first. (Done since, for a different reason: published UIs
   live on sibling hosts of the API under `apps.kinotic.ai`, and the `__Host-` prefix keeps a page
   there from planting a session cookie the API would read. `EventConstants.SESSION_COOKIE_NAME` is
-  the one name both modules use.)
+  the one name the gateway hands to both the `SessionHandler` and `SessionBinding`.)
 * `setNagHttps(true)` is already in effect — `DEFAULT_NAG_HTTPS` is true and nothing disables it.
   That is the "session cookies without https" line in the dev logs. It is a log warning, not a
   control.
