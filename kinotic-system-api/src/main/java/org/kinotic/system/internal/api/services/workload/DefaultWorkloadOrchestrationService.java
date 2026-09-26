@@ -280,8 +280,9 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
     /**
      * Picks a node with room for the workload and reserves that room on it. The pick reads the index and the
-     * reservation is atomic on the node, so a concurrent deploy that took the same room in between is answered
-     * by a declined reservation, and the pick runs again on the capacity that is left.
+     * reservation is atomic on the node, so a concurrent deploy that took the same room in between, or a node
+     * that stopped taking workloads in between, is answered by a declined reservation, and the pick runs again
+     * on the nodes and capacity that are left.
      */
     private Future<VmNode> placeWorkload(Workload workload, int attempt) {
         return nodeOrchestrationService.findAvailableNode(workload.getCpus(), workload.getMemoryMb(), workload.getDiskSizeMb())
@@ -297,7 +298,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                     if (reserved) {
                                         placed = Future.succeededFuture(node);
                                     } else if (attempt < PLACEMENT_ATTEMPTS) {
-                                        log.info("Node {} was allocated to another workload while placing {}, picking again",
+                                        log.info("Node {} declined workload {} since it was picked: its room was taken or it stopped taking workloads; picking again",
                                                  node.getId(), workload.getName());
                                         placed = placeWorkload(workload, attempt + 1);
                                     } else {
@@ -334,7 +335,8 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                 .compose(reserved -> reserved
                                         ? Future.succeededFuture(node)
                                         : Future.failedFuture(new IllegalStateException(
-                                                "Node " + nodeId + " lacks capacity for workload " + workload.getName())));
+                                                "Node " + nodeId + " lacks capacity for workload " + workload.getName()
+                                                        + ", or stopped taking workloads since it was read")));
                     }
                     return ret;
                 });

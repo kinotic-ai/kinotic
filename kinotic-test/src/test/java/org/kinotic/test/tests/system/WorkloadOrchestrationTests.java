@@ -556,6 +556,20 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     }
 
     @Test
+    public void reservationDeclinesANodeThatLeftItsDesiredStateSinceItWasPicked() throws Exception {
+        // placement read the node taking workloads; it reported a problem before the reservation was written
+        call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of("disk limits unenforced")));
+
+        assertFalse(await(nodes.reserveSync(NODE_ID, newWorkload())));
+        assertEquals(4, node().getFreeCpus(), "a node not in its desired state grants no room");
+
+        call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of()));
+
+        assertTrue(await(nodes.reserveSync(NODE_ID, newWorkload())));
+        assertEquals(3, node().getFreeCpus());
+    }
+
+    @Test
     public void destroyReturnsTheWorkloadsRoom() throws Exception {
         Workload deployed = call(() -> orchestration.deployWorkload(newWorkload()));
         assertEquals(4 - deployed.getCpus(), node().getFreeCpus());

@@ -31,10 +31,12 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
             }
             """;
 
-    // The node declines with noop rather than going negative, so the caller learns the capacity was taken
+    // The node declines with noop rather than going negative or taking a run while not in its desired
+    // state, so the caller learns the room was taken, or the node left that state, since it was picked
     private static final String RESERVE_SCRIPT = CPUS_FUNCTION + """
             def node = ctx._source;
-            if (node.freeCpus < params.cpus
+            if (node.state?.reconciled != true
+                    || node.freeCpus < params.cpus
                     || node.freeMemoryMb < params.memoryMb
                     || node.freeDiskMb < params.diskMb) {
                 ctx.op = 'noop';
@@ -118,9 +120,11 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
 
     /**
      * Takes a workload's room, the CPU, memory and disk it is sized for, from a node's {@code free*}
-     * fields in one shard operation, so two reservations can never both be granted the same capacity;
-     * visible to search on completion.
-     * @return true when the room is the workload's, false when the node does not have it
+     * fields while the node is in its desired state, in one shard operation, so two reservations can
+     * never both be granted the same capacity and a node that stopped taking workloads since it was
+     * picked grants none; visible to search on completion.
+     * @return true when the room is the workload's, false when the node does not have it or is not
+     * taking workloads
      */
     public Future<Boolean> reserveSync(String nodeId, Workload workload) {
         return crudServiceTemplate.scriptedUpdateSync(indexName, nodeId, RESERVE_SCRIPT, room(workload));
