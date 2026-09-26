@@ -1,0 +1,10 @@
+plugins {
+	id 'org.kinotic.server-conventions'
+}
+
+dependencies {
+	implementation project(':kinotic-core')
+	implementation project(':kinotic-domain')
+	implementation project(':kinotic-persistence')
+	implementation project(':kinotic-api-gateway')
+}
