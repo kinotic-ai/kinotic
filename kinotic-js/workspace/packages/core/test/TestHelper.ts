@@ -23,7 +23,7 @@ const DEFAULT_AUTH_HEADERS: AuthHeaders = {
 }
 
 /**
- * Returns the Kinotic Docker image string with version from gradle.properties
+ * Returns the test server's Docker image, tagged with the kinoticVersion from gradle.properties
  */
 export function getKinoticDockerImage(): string {
     const gradlePropsPath = path.resolve(__dirname, '../../../../../gradle.properties')
@@ -33,7 +33,7 @@ export function getKinoticDockerImage(): string {
     if (!version) {
         throw new Error('Could not find kinoticVersion in gradle.properties')
     }
-    return `kinoticai/kinotic-server:${version.trim()}`
+    return `kinoticai/kinotic-test-server:${version.trim()}`
 }
 
 export const KINOTIC_DOCKER_IMAGE: string = getKinoticDockerImage()

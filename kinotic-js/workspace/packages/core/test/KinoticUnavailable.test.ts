@@ -39,7 +39,6 @@ describe('Kinotic JS', () => {
 
                container = await new GenericContainer(KINOTIC_DOCKER_IMAGE)
                    .withExposedPorts({container: 58503, host: 58590})
-                   .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
                    .withWaitStrategy(Wait.forHttp('/health', 58503).forStatusCodeMatching(c => c === 200 || c === 204))
                    .withName('maxretries-container')
                    .start()
