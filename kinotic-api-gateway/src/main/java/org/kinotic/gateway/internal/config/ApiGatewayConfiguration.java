@@ -4,6 +4,7 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.web.sstore.ClusteredSessionStore;
 import io.vertx.ext.web.sstore.SessionStore;
+import org.kinotic.core.api.event.ZonePartition;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
@@ -32,7 +33,7 @@ public class ApiGatewayConfiguration {
     }
 
     @Bean
-    public SessionStore sessionStore(Vertx vertx, JsonMapper jsonMapper){
+    public SessionStore sessionStore(Vertx vertx, JsonMapper jsonMapper, ZonePartition zonePartition){
         // ConnectedInfo is stored in the SessionStore and is marshalled by this store when clustered.
         // Vert.x rebuilds it reflectively on read, so the jsonMapper cannot be injected, so we use a static field.
         ConnectedInfo.setSerializationMapper(jsonMapper);
@@ -42,7 +43,10 @@ public class ApiGatewayConfiguration {
         // a browser presenting a stale cookie (its session gone, e.g. a restart cleared the Ignite map)
         // stalls its first /api request for the full 5 seconds before being treated as session-less.
         // One second still covers the propagation race without a user-visible hang on stale cookies.
-        ClusteredSessionStore store = ClusteredSessionStore.create(vertx, SESSION_RETRY_TIMEOUT_MILLIS);
+        // Each server kind keeps its own map, so a server never resolves a session another kind issued
+        ClusteredSessionStore store = ClusteredSessionStore.create(vertx,
+                                                                   zonePartition.name() + "." + ClusteredSessionStore.DEFAULT_SESSION_MAP_NAME,
+                                                                   SESSION_RETRY_TIMEOUT_MILLIS);
         // The backing cluster-wide map is created lazily on first access; touch it now so the first
         // request after boot does not pay for the Ignite cache creation.
         store.get("noop");

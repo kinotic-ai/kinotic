@@ -15,7 +15,7 @@ import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import io.vertx.ext.web.sstore.SessionStore;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.event.ZonePartition;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.gateway.api.utils.ApiGatewayUtil;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
@@ -40,6 +40,7 @@ public class ApiGatewayVertcleFactory {
     private final HealthChecks healthChecks;
     private final Vertx vertx;
     private final SessionStore sessionStore;
+    private final ZonePartition zonePartition;
 
     public StompServerVerticle createApiGatewayVerticle(){
         // Router arrives pre-wired with CORS and the exception-converting failure handler, so an
@@ -63,9 +64,12 @@ public class ApiGatewayVertcleFactory {
 
         // Add session handler to all api paths. The __Host- cookie name needs Secure, the default
         // path / and no Domain, all of which hold here, and keeps a published UI on a sibling host
-        // of the sites domain from planting a session cookie the api host would read.
+        // of the sites domain from planting a session cookie the api host would read. Each server kind
+        // names its own cookie: cookies ignore the port, so servers sharing a development host would
+        // otherwise overwrite each other's session.
+        String sessionCookieName = "__Host-kinotic-" + zonePartition.name() + "-session";
         SessionHandler sessionHandler = SessionHandler.create(sessionStore)
-                      .setSessionCookieName(EventConstants.SESSION_COOKIE_NAME)
+                      .setSessionCookieName(sessionCookieName)
                       .setCookieHttpOnlyFlag(true)
                       .setCookieSecureFlag(true)
                       .setCookieSameSite(properties.getApiGateway().getSessionCookieSameSite())
@@ -74,7 +78,7 @@ public class ApiGatewayVertcleFactory {
 
         // Each login in the session is bound to the page that made it, so the binding is resolved right
         // behind the SessionHandler on every path it covers
-        Handler<RoutingContext> sessionBinding = SessionBinding.handler(EventConstants.SESSION_COOKIE_NAME);
+        Handler<RoutingContext> sessionBinding = SessionBinding.handler(sessionCookieName);
         router.route("/api/*").handler(sessionHandler).handler(sessionBinding);
 
         // REST endpoints under /api — every bean supplying gateway routes is collected and mounted
