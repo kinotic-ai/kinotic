@@ -64,7 +64,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        identityService.findByEmail(email)
+        identityService.findFirstOrgUserByEmail(email)
               .compose(user -> resolveSsoOrPassword(ctx, user))
               .onFailure(err -> {
                   log.warn("Login lookup failed for {}: {}", email, err.getMessage());
@@ -147,11 +147,11 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * {@code POST /api/auth/org/login {email, password}} — verifies the password and establishes the browser
-     * session. Generic {@code 401} on any failure.
+     * {@code POST /api/auth/org/login {email, password}} — verifies the password of the organization user with
+     * that email and establishes the browser session. Generic {@code 401} on any failure.
      */
     private void handleLogin(RoutingContext ctx) {
-        authEndpointSupport.handlePasswordLogin(ctx, localAuthenticationService::authenticateLocal);
+        authEndpointSupport.handlePasswordLogin(ctx, localAuthenticationService::authenticateOrgUser);
     }
 
     /**
@@ -161,10 +161,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
      * the callback can validate state.
      */
     private Future<Void> resolveSsoOrPassword(RoutingContext ctx, UserParticipantIdentity user) {
-        if (user == null
-                || user.getAuthType() != AuthType.OIDC
-                || user.getOrganizationId() == null
-                || user.getApplicationId() != null) {
+        if (user == null || user.getAuthType() != AuthType.OIDC) {
             return authEndpointSupport.respondPasswordPath(ctx);
         }
 
