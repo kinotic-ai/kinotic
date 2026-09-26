@@ -5,6 +5,7 @@ export * from '@/api/model/TenantSpecificId'
 
 // Decorators
 export * from '@/api/KinoticPersistenceDecorators'
+export * from '@/api/idl/AbacPolicyDecorator'
 export * from '@/api/idl/EntityServiceDecorator'
 export * from '@/api/idl/EntityServiceDecoratorsConfig'
 export * from '@/api/idl/EntityServiceDecoratorsDecorator'

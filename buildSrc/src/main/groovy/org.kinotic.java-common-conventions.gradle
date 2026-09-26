@@ -101,6 +101,8 @@ dependencyManagement {
         dependency "co.elastic.clients:elasticsearch-java:${elasticClientVersion}"
         dependency "co.elastic.clients:elasticsearch-rest5-client:${elasticClientVersion}"
 
+        dependency "com.authzed.api:authzed:${authzedApiVersion}"
+
         dependency "com.azure:azure-communication-email:${azureCommunicationEmailVersion}"
         dependency "com.azure:azure-identity:${azureIdentityVersion}"
         dependency "com.azure:azure-security-keyvault-secrets:${azureKeyvaultSecretsVersion}"
@@ -111,6 +113,15 @@ dependencyManagement {
         dependency "com.github.jknack:handlebars:${handlebarsVersion}"
 
         dependency "commons-io:commons-io:${commonsIoVersion}"
+
+        dependency "io.grpc:grpc-api:${grpcVersion}"
+        dependency "io.grpc:grpc-context:${grpcVersion}"
+        dependency "io.grpc:grpc-core:${grpcVersion}"
+        dependency "io.grpc:grpc-netty-shaded:${grpcVersion}"
+        dependency "io.grpc:grpc-protobuf:${grpcVersion}"
+        dependency "io.grpc:grpc-protobuf-lite:${grpcVersion}"
+        dependency "io.grpc:grpc-stub:${grpcVersion}"
+        dependency "io.grpc:grpc-util:${grpcVersion}"
 
         // JWT and OIDC dependencies
         dependency "io.jsonwebtoken:jjwt-api:${jsonwebtokenVersion}"

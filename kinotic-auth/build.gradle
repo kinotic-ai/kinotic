@@ -1,0 +1,55 @@
+plugins {
+	id 'org.kinotic.java-library-conventions'
+	id 'io.freefair.lombok'
+    id 'antlr'
+}
+
+// Configure ANTLR plugin
+generateGrammarSource {
+	arguments += ['-package', 'org.kinotic.auth.parser']
+	arguments += ['-visitor']
+
+	// Output directly to the parser package
+	outputDirectory = file("${projectDir}/src/main/java/org/kinotic/auth/parser")
+	enabled = project.gradle.startParameter.taskNames.contains(':kinotic-auth:generateGrammarSource')
+}
+
+// Configure Javadoc to exclude generated files
+tasks.withType(Javadoc) {
+    exclude '**/parser/AbacPolicy*.java'
+    exclude '**/parser/AbacPolicy*.interp'
+    exclude '**/parser/AbacPolicy*.tokens'
+}
+
+tasks.named('sourcesJar') {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+dependencies {
+    // Kinotic dependencies
+    implementation project(':kinotic-idl')
+
+    // Elasticsearch dependencies
+    implementation 'co.elastic.clients:elasticsearch-java'
+    implementation 'co.elastic.clients:elasticsearch-rest5-client'
+
+    // Json
+    implementation 'tools.jackson.core:jackson-core'
+    implementation 'tools.jackson.core:jackson-databind'
+
+    // Parsing dependencies
+	implementation 'org.antlr:antlr4-runtime'
+	antlr 'org.antlr:antlr4'
+
+    // SpEL evaluator for the fine-grained gate
+    implementation 'org.springframework:spring-expression'
+
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    // SpiceDB Java client + gRPC transport for the coarse-gate benchmark (skips without a server)
+    testImplementation 'com.authzed.api:authzed'
+    testImplementation 'io.grpc:grpc-api'
+    testImplementation 'io.grpc:grpc-stub'
+    testImplementation 'io.grpc:grpc-protobuf'
+    testImplementation 'io.grpc:grpc-netty-shaded'
+}
