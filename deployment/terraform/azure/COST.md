@@ -32,10 +32,7 @@ Estimated monthly costs for `centralus` (the `location` in `cluster/terraform.tf
 | Azure Key Vault (platform secrets) | Key Vault Standard | **~$1/mo** |
 | Azure Communication Services | Email | **Per-message** |
 | Front Door Standard profile + endpoint (UI sites) | Azure Front Door | **~$35/mo** base, billed hourly; traffic ~$0.09/GB out, ~$0.01 per 10k requests; custom domains and managed certificates included |
-| Organization storage resource group + private-endpoints subnet | Resource Manager, VNet | Free |
-| Private DNS zone (`privatelink.blob.core.windows.net`) + VNet link | Azure Private DNS | **~$0.50/mo** |
-| Per organization: storage account | Blob Storage (StorageV2, LRS, hot) | **~$0.02/GB/mo**; a published UI is a few MB, so cents |
-| Per organization: private endpoint | Private Link | **~$7.30/mo** each, plus ~$0.01/GB processed |
+| Organization storage account, shared by every organization | Blob Storage (StorageV2 with hierarchical namespace, LRS, hot) | **~$0.02/GB/mo**; a project's SBOM of a few hundred packages is about half a MB, so cents |
 | Per site: CNAME + TXT records, Front Door domain and route | Azure DNS, Front Door | Included |
 
 ### Production Only (`beta_mode = false`)
@@ -84,10 +81,9 @@ Includes observability stack (Loki + Alloy + Grafana) and Entra ID auth.
 | DNS Zone | kinotic.ai | 1 | $0.50 | $1 |
 | State Storage | Blob (LRS) | 1 | $1 | $1 |
 | Front Door Standard (UI sites) | Base fee | 1 | $35 | $35 |
-| Private DNS Zone (blob) | privatelink.blob.core.windows.net | 1 | $0.50 | $1 |
-| Organization storage | Storage account + private endpoint | per org | ~$7.50 | +$7.50 per org |
+| Organization storage | Storage account (HNS, LRS, hot) | 1 | ~$0.02/GB | $1 |
 
-### Beta Total: ~$609/mo, plus ~$7.50 per organization
+### Beta Total: ~$609/mo
 
 ### Beta Resource Utilization (48 GB across 3 nodes)
 
@@ -138,15 +134,12 @@ AKS Standard tier with uptime SLA.
 | DNS Zone | kinotic.ai | 1 | $0.50 | $1 |
 | State Storage | Blob (LRS) | 1 | $1 | $1 |
 | Front Door Standard (UI sites) | Base fee | 1 | $35 | $35 |
-| Private DNS Zone (blob) | privatelink.blob.core.windows.net | 1 | $0.50 | $1 |
-| Organization storage | Storage account + private endpoint | per org | ~$7.50 | +$7.50 per org |
+| Organization storage | Storage account (HNS, LRS, hot) | 1 | ~$0.02/GB | $1 |
 
-### Production Total: ~$2,061/mo, plus ~$7.50 per organization
+### Production Total: ~$2,061/mo
 
-The per-organization line is the private endpoint; the account itself is cents. At a
-thousand organizations that is ~$7,300/mo, which is where service endpoints or a shared
-account layout would earn a redesign (see the "Deferred" section of the project publishing
-design).
+Every organization's files share the one organization storage account, partitioned by
+directory, so an organization adds only what its files take to the bill.
 
 ---
 
@@ -158,7 +151,7 @@ private endpoints, no cluster.
 | Line Item | Spec | Count | Unit cost | Total/mo |
 |---|---|---|---|---|
 | Front Door Standard (UI sites) | Base fee, billed hourly | 1 | $35 | $35 |
-| Organization storage accounts | Blob (LRS, hot), a few MB each | per org | cents | ~$0 |
+| Sites account, organization storage account | Blob (LRS, hot), a few MB each | 2 | cents | ~$0 |
 | Service principal, role assignments, resource group | | | $0 | $0 |
 | DNS records under `apps-<environment>` | In the shared `kinotic.ai` zone | | included | $0 |
 

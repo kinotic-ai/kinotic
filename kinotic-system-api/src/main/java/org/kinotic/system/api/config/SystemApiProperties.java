@@ -38,4 +38,10 @@ public class SystemApiProperties {
     @Valid
     private UiDeploymentProperties uiDeployment = new UiDeploymentProperties();
 
+    /**
+     * Where the files the platform holds on behalf of organizations are kept.
+     */
+    @Valid
+    private OrganizationStorageProperties organizationStorage = new OrganizationStorageProperties();
+
 }

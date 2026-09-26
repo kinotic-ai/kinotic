@@ -5,9 +5,10 @@ import org.kinotic.core.api.annotations.Publish;
 
 /**
  * The operations on the platform's infrastructure behind the management plane's deployment
- * services: a microservice's VM, and a UI's site and files. Published in the system zone, where the management server reaches it through
- * {@code DeploymentOperationsProxy}. Callers are trusted: the management plane authorizes a
- * request before it reaches this service, which checks nothing about the caller.
+ * services: a microservice's VM, a UI's site and files, and a project's SBOM. Published in the
+ * system zone, where the management server reaches it through {@code DeploymentOperationsProxy}.
+ * Callers are trusted: the management plane authorizes a request before it reaches this service,
+ * which checks nothing about the caller.
  */
 @Publish
 public interface DeploymentOperationsService {
@@ -39,5 +40,16 @@ public interface DeploymentOperationsService {
      * @return a future completing when the removal is asked for
      */
     Future<Void> removeUiSite(String deploymentId);
+
+    /**
+     * Issues the URL the CycloneDX document of a project's SBOM can be read from for the next
+     * fifteen minutes, by anyone holding it.
+     *
+     * @param organizationId the organization the project belongs to
+     * @param projectId      the project
+     * @param commitSha      the commit the project's SBOM was generated from
+     * @return a future emitting the URL
+     */
+    Future<String> issueSbomUrl(String organizationId, String projectId, String commitSha);
 
 }

@@ -9,14 +9,15 @@ creates:
 | Resource group | `rg-kinotic-<environment>` | Holds everything below but the service principal |
 | Front Door Standard profile + endpoint | `afd-kinotic-<environment>-sites` | Serves every published UI at `<label>.apps-<environment>.kinotic.ai` through one wildcard domain, one wildcard DNS record and one route; nothing on Front Door changes when a UI is published (`modules/sites`) |
 | Sites storage account | `stkinotic<environment>sites` | Holds every site's files under `sites/<hostname>/`, read by the profile's identity and written by the publish workloads through URLs the server signs |
+| Organization storage account | `stkinotic<environment>orgs` | Holds each organization's files under `organizations/<organizationId>/<use>/`, today every project's SBOM, written by the SBOM workloads and read by the portal through URLs the server signs; its CORS rule answers the `portal_origins` |
 | Key vault | `kv-kinotic-<environment>-sites` | Holds the Let's Encrypt wildcard certificate for `*.apps-<environment>.kinotic.ai`, issued by the apply through a DNS challenge and renewed by an apply within 30 days of expiry |
-| Service principal | `kinotic-<environment>-server` | The identity the server runs as, with Storage Blob Data Contributor on the sites account and Contributor on the email service |
+| Service principal | `kinotic-<environment>-server` | The identity the server runs as, with Storage Blob Data Contributor on the sites and organization storage accounts and Contributor on the email service |
 | `.env.local` at the repository root | | The principal's `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID`, written by the apply |
 
 The wildcard DNS records are written into the shared `kinotic.ai` zone under
-`apps-<environment>`, so the zone itself is not created here. There is no VNet: the publish
-workloads reach the account over its public endpoint. State is local, in this directory, and
-gitignored.
+`apps-<environment>`, so the zone itself is not created here. There is no VNet: the
+workloads reach the accounts over their public endpoints. State is local, in this directory,
+and gitignored.
 
 ## Prerequisites
 
@@ -46,6 +47,7 @@ environment = "local"   # e.g. your first name
 ```hcl
 # local.auto.tfvars (gitignored)
 lets_encrypt_email = "you@example.com"   # the Let's Encrypt account the wildcard certificate is issued under
+portal_origins     = ["http://localhost:5173", "https://you.ngrok.app"]   # optional: where your portal is served, which reads SBOMs from the organization storage account
 ```
 
 ```bash
@@ -56,7 +58,7 @@ terraform output -raw application_local_yml > ../../../../kinotic-server/src/mai
 ```
 
 The last command writes the `local` Spring profile, gitignored, which turns the site
-provisioner on and names the sites domain and the account. `.env.local` at the repository root now carries the
+provisioner and SBOM generation on and names the sites domain and the two accounts. `.env.local` at the repository root now carries the
 principal's credentials; if the file existed, its other lines are untouched.
 
 ## Checking the setup
@@ -96,7 +98,9 @@ curl -XDELETE 'localhost:9200/migration_history'
 Then deploy a project that contains a UI: its site appears on the deployment page,
 `PROVISIONING` while the publish workload uploads it and Front Door serves the first request,
 then `READY` with its URL. A publish before the roles propagated fails with
-`AuthorizationFailed` on the workload; the next deploy of the project succeeds.
+`AuthorizationFailed` on the workload; the next deploy of the project succeeds. The
+deployment's last step generates the project's SBOM, which the project's **SBOM** page in the
+portal lists.
 
 ## Tearing down
 
@@ -104,8 +108,8 @@ then `READY` with its URL. A publish before the roles propagated fails with
 terraform destroy
 ```
 
-This removes the resource group with the sites account, the Front Door profile and the key
-vault, the wildcard records under `apps-<environment>` in the `kinotic.ai` zone, the service
+This removes the resource group with the sites and organization storage accounts, the Front
+Door profile and the key vault, the wildcard records under `apps-<environment>` in the `kinotic.ai` zone, the service
 principal, and its role assignments. It does not touch the three lines in `.env.local`.
 
 ## Troubleshooting

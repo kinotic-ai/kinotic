@@ -157,11 +157,11 @@ terraform apply     # creates Static Web App + DNS CNAME (first time only)
 ## Developer UI Publishing
 
 A kinotic-server on a developer machine publishes UIs to a real subscription with the `dev`
-root: a resource group the organization storage accounts are created in, a Front Door
-Standard profile and endpoint under `apps-<environment>.<zone>`, and a service principal
-for the server holding Contributor and Storage Blob Data Contributor on the group, DNS Zone
-Contributor on the zone, and Contributor on the email service. State is local, one
-environment per developer.
+root: a resource group holding the sites account, a Front Door Standard profile and endpoint
+under `apps-<environment>.<zone>`, and the organization storage account the project SBOMs are
+kept in, and a service principal for the server holding Storage Blob Data Contributor on both
+accounts and Contributor on the email service. State is local, one environment per
+developer.
 
 The principal's `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID` are written to
 `.env.local` at the repository root (gitignored) as a commented block after a blank line,

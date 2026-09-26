@@ -25,6 +25,7 @@ import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
+import org.kinotic.management.api.repositories.ProjectSbomRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
@@ -34,7 +35,7 @@ import org.kinotic.grind.api.model.JobRunHandle;
 import org.kinotic.grind.api.model.events.TaskCompletedEvent;
 import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.services.JobService;
-import org.kinotic.system.api.model.deployment.DeployTarget;
+import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.kinotic.system.api.model.deployment.ProjectDeployStores;
 import org.springframework.stereotype.Component;
 
@@ -63,7 +64,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>
  * A deployment whose removal was asked for, which a project's deletion asks, is finalized bottom-up:
  * the removal of its microservice and UI deployments is asked for and their workers carry it out,
- * then the sync and publish workloads are stopped, the sync machine removed and the record deleted.
+ * then the sync, publish and SBOM workloads are stopped, the sync machine removed, and the project's
+ * SBOM record and the deployment's deleted.
  */
 @Slf4j
 @Component
@@ -76,6 +78,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
     private final JobService jobService;
     private final ProjectDeployJobDefinitionFactory jobDefinitionFactory;
     private final ProjectDeploymentRepository projectDeploymentRepository;
+    private final ProjectSbomRepository projectSbomRepository;
     private final ProjectRepository projectRepository;
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
     private final UiDeploymentRepository uiDeploymentRepository;
@@ -245,8 +248,8 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
 
     /**
      * Asks for the removal of every microservice and UI deployment of the project and waits for their
-     * workers to finish, then stops the sync and publish workloads, removes the sync machine and
-     * deletes the record. What is already gone is not a failure.
+     * workers to finish, then stops the sync, publish and SBOM workloads, removes the sync machine and
+     * deletes the project's SBOM record and the deployment's. What is already gone is not a failure.
      */
     private Future<Requeue> finalizeRemoval(ProjectDeployment current) {
         String projectId = current.getId();
@@ -261,7 +264,10 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                         log.info("Removing the deployment of project {}: its children are gone", projectId);
                         ret = stop(current.getSyncWorkloadId())
                                 .compose(v -> stop(current.getUiPublishWorkloadId()))
+                                .compose(v -> stop(current.getSbomWorkloadId()))
                                 .compose(v -> removeMachine(current.getSyncMachineIdentityId()))
+                                // the machine the SBOM workload records as is gone, so no SBOM is recorded after this
+                                .compose(v -> projectSbomRepository.deleteByIdSync(projectId, current.getOrganizationId()))
                                 .compose(v -> projectDeploymentRepository.deleteByIdSync(projectId, current.getOrganizationId()))
                                 .map(Requeue.NONE);
                     } else {
@@ -336,8 +342,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
         String organizationId = deployment.getOrganizationId();
         Future<Void> ret;
         if (target != null) {
-            ret = projectDeploymentRepository.recordTarget(projectId, organizationId, target.nodeId(), target.hostDir(),
-                                                           target.syncWorkloadId(), target.uiPublishWorkloadId());
+            ret = projectDeploymentRepository.recordTarget(projectId, organizationId, target);
         } else {
             ret = Future.succeededFuture();
         }

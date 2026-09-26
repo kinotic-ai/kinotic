@@ -53,7 +53,7 @@ kinotic:
       # Destinations beyond the gateway a sync workload may reach, by name: the node's resolver
       # admits exactly the addresses it answers for each, so the npm registry's anycast and
       # GitHub's moving ranges need no CIDRs. The sync workload fetches from GitHub and runs
-      # bun install.
+      # bun install; the SBOM workload looks each package's license up in the registry.
       syncAllowedHosts:
         - github.com
         - registry.npmjs.org

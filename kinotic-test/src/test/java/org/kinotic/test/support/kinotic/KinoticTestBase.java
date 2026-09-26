@@ -94,10 +94,18 @@ public abstract class KinoticTestBase {
      * services without authenticating through the gateway.
      */
     protected <T> Future<T> runAsOrganization(Supplier<Future<T>> supplier) {
+        return runAs(TEST_ORGANIZATION_PARTICIPANT, supplier);
+    }
+
+    /**
+     * Runs the supplied async operation on a Vert.x context with the given participant bound, as
+     * {@link #runAsOrganization(Supplier)} does with {@link #TEST_ORGANIZATION_PARTICIPANT}.
+     */
+    protected <T> Future<T> runAs(OrganizationParticipant participant, Supplier<Future<T>> supplier) {
         Promise<T> promise = Promise.promise();
         Context context = vertx.getOrCreateContext();
         context.runOnContext(v -> {
-            securityContext.setParticipant(context, TEST_ORGANIZATION_PARTICIPANT);
+            securityContext.setParticipant(context, participant);
             try {
                 supplier.get().onComplete(promise);
             } catch (Throwable t) {

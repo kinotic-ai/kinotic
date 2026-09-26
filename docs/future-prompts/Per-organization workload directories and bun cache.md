@@ -2,11 +2,12 @@ A node keeps every project's checkout directly under its workload data directory
 project alone:
 
 ```java
-// kinotic-system-api/.../ProjectDeployJobDefinitionFactory.java:216
+// kinotic-system-api/.../ProjectDeployJobDefinitionFactory.java:224
 new DeployTarget(node.getId(),
                  node.getWorkloadDataDir() + "/projects/" + projectId,
                  syncWorkloadId,
-                 uiPublishWorkloadId)
+                 uiPublishWorkloadId,
+                 sbomWorkloadId)
 ```
 
 so `/var/lib/kinotic/workloads/projects/<project>` holds projects of every organization side by

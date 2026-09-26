@@ -1,4 +1,4 @@
-import type { ChildProcess } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { closeSync, existsSync, openSync, renameSync, rmSync, statSync, writeSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -95,4 +95,23 @@ export function logError(message: string): void {
 export function forwardOutput(child: ChildProcess): void {
     child.stdout?.on('data', chunk => emit(process.stdout, chunk))
     child.stderr?.on('data', chunk => emit(process.stderr, chunk))
+}
+
+/**
+ * Runs a command to completion with its output forwarded to the runner's own, rejecting with
+ * the command line when it exits with anything but 0.
+ */
+export function run(command: string, args: string[], cwd: string, env: Record<string, string> = {}): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] })
+        forwardOutput(child)
+        child.on('error', reject)
+        child.on('exit', (code, signal) => {
+            if (code === 0) {
+                resolve()
+            } else {
+                reject(new Error(`${command} ${args.join(' ')} exited with ${code ?? signal}`))
+            }
+        })
+    })
 }

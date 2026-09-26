@@ -54,3 +54,8 @@ variable "ui_hostnames" {
   type        = map(string)
   default     = {}
 }
+
+variable "portal_origins" {
+  description = "Origins the portal is served from, which read an organization's files straight from the organization storage account"
+  type        = list(string)
+}

@@ -12,6 +12,11 @@ resource "helm_release" "es_secret_sync" {
 
 # ── Kinotic Server ────────────────────────────────────────────────────────────
 
+locals {
+  # Where the portal, the SPA, is served
+  portal_url = "https://portal.${local.global.dns_zone_name}"
+}
+
 resource "helm_release" "kinotic_server" {
   name      = "kinotic-server"
   namespace = kubernetes_namespace.kinotic.metadata[0].name
@@ -32,7 +37,7 @@ resource "helm_release" "kinotic_server" {
     # SPA is hosted on Azure Storage (Static Web Apps) — no static server inside the cluster.
     { name = "kinotic.webServer.enabled", value = "false" },
     # Where the SPA lives — used for verification email links and post-OIDC SPA redirects.
-    { name = "kinotic.domain.appBaseUrl", value = "https://portal.${local.global.dns_zone_name}" },
+    { name = "kinotic.domain.appBaseUrl", value = local.portal_url },
     # Where the backend lives — used as the OIDC redirect_uri so the IdP returns the
     # browser to the AKS-hosted /api/{login,signup}/callback/* path, not the SPA's domain.
     { name = "kinotic.domain.apiBaseUrl", value = "https://api.${local.global.dns_zone_name}" },
@@ -45,6 +50,8 @@ resource "helm_release" "kinotic_server" {
     # UI sites — the domain published UIs are served under and the account they are published into
     { name = "extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN", value = local.sites_domain },
     { name = "extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT", value = module.sites.storage_blob_endpoint },
+    # Organization storage — the account the files kept on behalf of organizations are issued URLs in
+    { name = "extraEnv.KINOTIC_SYSTEMAPI_ORGANIZATIONSTORAGE_BLOBENDPOINT", value = module.organization_storage.storage_blob_endpoint },
     # Email (Azure Communication Services) — shared service from global terraform
     { name = "extraEnv.KINOTIC_EMAIL_BACKEND", value = "azure" },
     { name = "extraEnv.KINOTIC_EMAIL_AZURE_ENDPOINT", value = local.global.email_service_endpoint },

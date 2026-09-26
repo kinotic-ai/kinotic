@@ -10,11 +10,15 @@ import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.management.api.model.deployment.MicroserviceArtifact;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
+import org.kinotic.management.api.model.deployment.ProjectDeployment;
+import org.kinotic.management.api.model.deployment.ProjectSbom;
 import org.kinotic.management.api.model.deployment.UiArtifact;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
+import org.kinotic.management.api.repositories.ProjectSbomRepository;
 import org.kinotic.management.api.services.deployment.ProjectArtifactService;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -24,6 +28,7 @@ import java.util.Set;
 public class DefaultProjectArtifactService implements ProjectArtifactService {
 
     private final ProjectDeploymentRepository projectDeploymentRepository;
+    private final ProjectSbomRepository projectSbomRepository;
     private final SecurityContext securityContext;
 
     @Override
@@ -35,17 +40,48 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
         // A project's machines are ORGANIZATION scope, so an application participant is a
         // caller that can never be the sync workload
         OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
-        return projectDeploymentRepository.findById(projectId, participant.getOrganizationId())
+        return findForSyncMachine(projectId, participant)
+                .compose(deployment -> projectDeploymentRepository.recordArtifacts(projectId, participant.getOrganizationId(), artifacts, commitSha));
+    }
+
+    @Override
+    public Future<Void> recordSbom(String projectId, String commitSha, String dependencyHash, int componentCount) {
+        Validate.notBlank(projectId, "projectId is required");
+        Validate.notBlank(commitSha, "commitSha is required");
+        Validate.notBlank(dependencyHash, "dependencyHash is required");
+        Validate.isTrue(componentCount >= 0, "componentCount cannot be negative");
+        OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
+        return findForSyncMachine(projectId, participant)
                 .compose(deployment -> {
-                    // Only the sync workload the deployment issued credentials to may report for
-                    // the project; an org member or another project's machine gets the same
-                    // answer as a project that does not exist
+                    // the deployment reads the document under this commit, so the record names only
+                    // a commit whose checkout the SBOM workload was given
+                    Validate.isTrue(commitSha.equals(deployment.getArtifactsCommitSha()),
+                                    "Commit %s is not the one the sync workload of project %s last reported", commitSha, projectId);
+                    ProjectSbom sbom = new ProjectSbom()
+                            .setId(projectId)
+                            .setOrganizationId(deployment.getOrganizationId())
+                            .setApplicationId(deployment.getApplicationId())
+                            .setCommitSha(commitSha)
+                            .setDependencyHash(dependencyHash)
+                            .setComponentCount(componentCount)
+                            .setGenerated(new Date());
+                    return projectSbomRepository.saveSync(sbom, participant.getOrganizationId()).mapEmpty();
+                });
+    }
+
+    /**
+     * The project's deployment when the participant is the machine its sync workload runs as. Only
+     * the workloads the deployment issued those credentials to may report for the project; an org
+     * member or another project's machine gets the same answer as a project that does not exist.
+     */
+    private Future<ProjectDeployment> findForSyncMachine(String projectId, OrganizationParticipant participant) {
+        return projectDeploymentRepository.findById(projectId, participant.getOrganizationId())
+                .map(deployment -> {
                     if (deployment == null || !participant.getId().equals(deployment.getSyncMachineIdentityId())) {
-                        log.error("Participant {} may not record artifacts for project {}",
-                                  participant.getId(), projectId);
+                        log.error("Participant {} may not report for project {}", participant.getId(), projectId);
                         throw new AuthorizationException("Access denied");
                     }
-                    return projectDeploymentRepository.recordArtifacts(projectId, participant.getOrganizationId(), artifacts, commitSha);
+                    return deployment;
                 });
     }
 

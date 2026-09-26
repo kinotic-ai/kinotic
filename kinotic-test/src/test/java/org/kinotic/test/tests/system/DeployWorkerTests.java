@@ -10,6 +10,7 @@ import org.kinotic.domain.api.model.Requeue;
 import org.kinotic.domain.api.services.Reconciler;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.kinotic.management.api.model.deployment.DeploymentState;
 import org.kinotic.management.api.model.deployment.DeploymentStatusType;
 import org.kinotic.management.api.model.deployment.MicroserviceArtifact;
@@ -161,9 +162,9 @@ public class DeployWorkerTests extends KinoticTestBase {
     public void aMicroserviceAheadOfItsProjectsArtifactsWaitsForTheDeployJob() throws Exception {
         String projectId = "worker-artifacts";
         projectDeployment(projectId, new DeploymentState(DeploymentStatusType.RUNNING, "old"));
-        await(projectDeployments.recordTarget(projectId, TEST_ORG_ID, "node-x", "/srv/" + projectId, null, null));
+        await(projectDeployments.recordTarget(projectId, TEST_ORG_ID, new DeployTarget("node-x", "/srv/" + projectId, null, null, null)));
         await(projectDeployments.recordArtifacts(projectId, TEST_ORG_ID,
-                                                 new ProjectArtifacts(List.of(new MicroserviceArtifact("api", "services/api", "index.ts")), List.of()),
+                                                 new ProjectArtifacts(List.of(new MicroserviceArtifact("api", "services/api", "index.ts")), List.of(), null),
                                                  "old"));
         MicroserviceDeployment deployment = microservice(projectId, "api", new DeploymentState(DeploymentStatusType.RUNNING, COMMIT));
 
@@ -300,9 +301,9 @@ public class DeployWorkerTests extends KinoticTestBase {
         project.setName(projectId);
         await(projects.createSync(project, TEST_ORG_ID));
         projectDeployment(projectId, new DeploymentState(DeploymentStatusType.RUNNING, COMMIT));
-        await(projectDeployments.recordTarget(projectId, TEST_ORG_ID, NODE_ID, "/srv/" + projectId, null, null));
+        await(projectDeployments.recordTarget(projectId, TEST_ORG_ID, new DeployTarget(NODE_ID, "/srv/" + projectId, null, null, null)));
         await(projectDeployments.recordArtifacts(projectId, TEST_ORG_ID,
-                                                 new ProjectArtifacts(List.of(new MicroserviceArtifact("api", "services/api", "index.ts")), List.of()),
+                                                 new ProjectArtifacts(List.of(new MicroserviceArtifact("api", "services/api", "index.ts")), List.of(), null),
                                                  COMMIT));
     }
 

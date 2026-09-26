@@ -90,6 +90,8 @@ module "environment" {
   dns_zone_resource_group_name   = local.global.resource_group_name
   dns_zone_subscription_id       = local.global.subscription_id
   email_communication_service_id = local.global.email_communication_service_id
+
+  portal_origins = var.portal_origins
 }
 
 # The resources predate the module and keep their identity: a developer's next apply moves
@@ -212,6 +214,12 @@ variable "lets_encrypt_email" {
   type        = string
 }
 
+variable "portal_origins" {
+  description = "Origins the developer's portal is served from, which read an organization's files straight from the organization storage account; add a tunnel's origin in local.auto.tfvars"
+  type        = list(string)
+  default     = ["http://localhost:5173"]
+}
+
 # ── Outputs ─────────────────────────────────────────────────────────────────
 
 output "sites_domain" {
@@ -233,5 +241,9 @@ output "application_local_yml" {
           disableProvisioner: false
           sitesDomain: ${module.environment.sites_domain}
           sitesStorageEndpoint: ${module.environment.sites_storage_blob_endpoint}
+        organizationStorage:
+          blobEndpoint: ${module.environment.organization_storage_blob_endpoint}
+        deployment:
+          disableSbom: false
   EOT
 }

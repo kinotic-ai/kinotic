@@ -61,6 +61,14 @@ public class ProjectDeployment implements Reconcilable<DeploymentState>, Applica
     private String uiPublishWorkloadId;
 
     /**
+     * The id of the SBOM workload of the most recent deployment run, or {@code null} before the
+     * first run resolved its target. The workload runs only when an artifact's SBOM is missing or
+     * out of date, and is destroyed when its run ends; its logs stay in the organization's log
+     * store under this id.
+     */
+    private String sbomWorkloadId;
+
+    /**
      * The id of the machine identity the sync workload authenticates as, or {@code null}
      * before the project's first deployment. Its secret is reissued for every deployment.
      */

@@ -25,7 +25,13 @@ kinotic:
       sitesDomain: apps.localhost
       # validated at boot; nothing reads it while the provisioner is disabled
       sitesStorageEndpoint: "-"
+    # No organization storage account in development either, so deployments generate no SBOM;
+    # the `local` profile's application-local.yml names a real one (the dev root prints it)
+    organizationStorage:
+      # validated at boot; nothing reads it while SBOMs are disabled
+      blobEndpoint: "-"
     deployment:
+      disableSbom: true
       # A workload runs inside a micro VM, so "localhost" there is the guest, not this machine.
       # Local development runs the BOXLITE provider, whose guests reach the host on the
       # gvisor-tap-vsock host alias; boxlite's proxy completes the last hop over this machine's
@@ -34,7 +40,8 @@ kinotic:
       # A CLOUD_HYPERVISOR node instead puts its workloads on the node's docker bridge, where
       # they reach the gateway at 172.17.0.1.
       serverHost: 192.168.127.254
-      # The sync workload fetches the project from GitHub and runs bun install
+      # The sync workload fetches the project from GitHub and runs bun install; the SBOM
+      # workload looks each package's license up in the registry
       syncAllowedHosts:
         - github.com
         - registry.npmjs.org

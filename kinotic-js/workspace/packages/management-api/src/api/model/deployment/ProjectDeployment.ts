@@ -47,6 +47,13 @@ export class ProjectDeployment implements Reconcilable<DeploymentState> {
     public uiPublishWorkloadId: string | null = null
 
     /**
+     * The id of the SBOM workload of the most recent deployment run, or null before a run has
+     * generated an SBOM. The workload is destroyed when its run ends; its logs stay in the
+     * organization's log store under this id.
+     */
+    public sbomWorkloadId: string | null = null
+
+    /**
      * The id of the machine identity the sync workload authenticates as, or null before the
      * project's first deployment. Its secret is reissued for every deployment.
      */
