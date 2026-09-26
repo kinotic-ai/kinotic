@@ -14,7 +14,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Spring beans owned by the api-gateway module. {@link HealthChecks} is exposed here so
- * other modules (e.g. kinotic-persistence registering its elasticsearch check) can inject
+ * other modules (e.g. kinotic-domain registering its elasticsearch check) can inject
  * it without taking a compile dependency on a higher-level web-tier module.
  */
 @Configuration

@@ -1,5 +1,5 @@
 services:
-  kinotic-server:
+  kinotic-org-server:
     environment:
       # Trace logging on the auth-flow handlers + OAuth2 plumbing — useful when iterating
       # on the OIDC roundtrip locally. Trim back if it gets noisy.
@@ -39,7 +39,7 @@ services:
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: keycloak
       # KC_HOSTNAME=keycloak so JWT iss claim is http://keycloak:8888/auth/realms/test —
-      # matches what kinotic-server discovers + what isIssuerValid expects. Browser-side
+      # matches what kinotic-org-server discovers + what isIssuerValid expects. Browser-side
       # resolution requires `127.0.0.1 keycloak` in /etc/hosts (see KEYCLOAK_HOSTS_SETUP.md).
       KC_HOSTNAME: keycloak
       KC_HOSTNAME_STRICT: false
