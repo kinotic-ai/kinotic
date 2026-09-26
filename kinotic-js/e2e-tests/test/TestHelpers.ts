@@ -25,6 +25,7 @@ import {
 import {Alert} from './domain/Alert.js'
 import {Person} from './domain/Person.js'
 import {inject} from 'vitest'
+import type {KinoticServerName} from './setup.js'
 import path from 'path'
 import {PersonWithTenant} from './domain/PersonWithTenant.js'
 import {Cat, Dog} from './domain/Pet.js'
@@ -66,30 +67,39 @@ export function kinoticHost(): string {
     return inject('KINOTIC_HOST') as string
 }
 
-export function kinoticPort(): number {
+/** The e2e stack's server with the given compose service name, as a {@link ServerInfo} — the suite always runs without TLS. */
+export function kinoticServer(name: KinoticServerName): ServerInfo {
     // @ts-ignore
-    return inject('KINOTIC_PORT') as number
+    const port = (inject('KINOTIC_PORTS') as Partial<Record<KinoticServerName, number>>)[name]
+    if (port === undefined) {
+        throw new Error(`The suite's setup did not start ${name}`)
+    }
+    return {host: kinoticHost(), port, useSSL: false}
 }
 
-/** STOMP port of the second cluster node; only provided by the node-failure suite's setup. */
-export function kinoticPort2(): number {
-    // @ts-ignore
-    return inject('KINOTIC_PORT_2') as number
+/** The org server, where an organization's users and machines connect. */
+export function orgServer(): ServerInfo {
+    return kinoticServer('kinotic-org-server')
 }
 
-/** The gateway under test as a {@link ServerInfo} — the suite always runs without TLS. */
-export function serverUnderTest(): ServerInfo {
-    return {host: kinoticHost(), port: kinoticPort(), useSSL: false}
+/** The system server, where platform operators connect. */
+export function systemServer(): ServerInfo {
+    return kinoticServer('kinotic-system-server')
 }
 
-/** REST base URL of the gateway under test. */
-export function restBase(): string {
-    return buildServerUrl(serverUnderTest(), 'http')
+/** The app server, where an application's users and machines and an organization's runtimes connect. */
+export function appServer(): ServerInfo {
+    return kinoticServer('kinotic-app-server')
 }
 
-/** STOMP broker URL of the gateway under test. */
-export function stompUrl(): string {
-    return buildBrokerUrl(serverUnderTest())
+/** REST base URL of the given server, the org server by default. */
+export function restBase(server: ServerInfo = orgServer()): string {
+    return buildServerUrl(server, 'http')
+}
+
+/** STOMP broker URL of the given server, the org server by default. */
+export function stompUrl(server: ServerInfo = orgServer()): string {
+    return buildBrokerUrl(server)
 }
 
 /** POSTs an application/x-www-form-urlencoded body — the shape of every OAuth endpoint call. */
@@ -101,7 +111,7 @@ export function postForm(url: string, params: Record<string, string>): Promise<R
     })
 }
 
-export function buildConnectOptions(credentials: CredentialsResolver, server: ServerInfo = serverUnderTest()): ConnectOptions {
+export function buildConnectOptions(credentials: CredentialsResolver, server: ServerInfo = orgServer()): ConnectOptions {
     return {
         server,
         sessionKeepAlive: SessionKeepAliveMode.NONE,
@@ -133,8 +143,8 @@ export async function shutdownKinoticClient(): Promise<void> {
 }
 
 /**
- * Creates a fresh {@link KinoticSingleton} connected as the APPLICATION-scoped user seeded for
- * the given (applicationId, tenantId) pair by the V3__e2e_app_fixtures migration (email
+ * Creates a fresh {@link KinoticSingleton} connected to the app server as the APPLICATION-scoped user
+ * seeded for the given (applicationId, tenantId) pair by the V3__e2e_app_fixtures migration (email
  * convention app-<applicationId>-<tenantId>@test.local, password kinotic). The caller is
  * responsible for disconnecting it when done. The instance has {@code ManagementApiPlugin} and
  * {@code PersistencePlugin} installed so it can back an {@code EntityRepository} that acts on the
@@ -146,7 +156,8 @@ export async function initKinoticAppClient(applicationId: string, tenantId: stri
 
     await appKinotic.connect(buildConnectOptions(
         new BasicCredentialsResolver(appFixtureEmail(applicationId, tenantId),
-                                     E2E_FIXTURE_PASSWORD, E2E_ORGANIZATION_ID, applicationId)))
+                                     E2E_FIXTURE_PASSWORD, E2E_ORGANIZATION_ID, applicationId),
+        appServer()))
     return appKinotic
 }
 

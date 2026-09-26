@@ -1,12 +1,14 @@
 # End-to-end tests for Kinotic.
 
-Vitest suites under `test/` that drive a real kinotic-server over STOMP and REST. Every
-push to `develop` and `main` runs them in CI and publishes the results to the Allure report.
+Vitest suites under `test/` that drive the real Kinotic servers (org, system and app) over STOMP
+and REST. Every push to `develop` and `main` runs them in CI and publishes the results to the
+Allure report.
 
 ```bash
 pnpm install
 
-# Against an already-running server on 127.0.0.1:58503
+# Against a stack already running on 127.0.0.1: the org server on 58503, the system server on 58504
+# and the app server on 58505
 pnpm test
 
 # Let the suite start its own stack via testcontainers
@@ -16,26 +18,30 @@ pnpm ui-test       # vitest --ui
 ```
 
 `test/setup.ts` is the vitest `globalSetup`. With `VITE_USE_KINOTIC_DOCKER=true` it brings up
-`deployment/docker-compose/compose.kinotic-e2e-test.yml` (Elasticsearch + migration +
-kinotic-server on the `test,e2e-tests,compose` profiles) and hands the mapped ports to the
-suites; otherwise it points them at `127.0.0.1:58503`.
+`deployment/docker-compose/compose.kinotic-e2e-test.yml` (Elasticsearch + migration + the org,
+system and app servers on the `test,e2e-tests,compose` profiles) and hands each server's mapped
+port to the suites; otherwise it points them at the ports that file publishes on `127.0.0.1`. A
+suite reaches a server through `orgServer()`, `systemServer()` or `appServer()` in
+`test/TestHelpers.ts`: an organization's users and machines connect to the org server, platform
+operators to the system server, and an application's users and machines to the app server.
 
 ## Node-failure suite
 
 `test/node-failure/` proves that a service call fails instead of hanging when the node serving
 it, or the node the caller is connected to, dies mid-call, and that a stream's producer is
 cancelled when its caller unsubscribes, disconnects, or loses its node. It runs on its own
-config against a two-node cluster (`kinotic-server` and `kinotic-server-2` from the same compose
-file) and kills and restarts `kinotic-server-2` through the `docker` CLI, so it needs Docker
-either way:
+config against two app server nodes (`kinotic-app-server` and `kinotic-app-server-2` from the
+same compose file), connected as the organization's runtime machine that hosts and calls the probe,
+and kills and restarts `kinotic-app-server-2` through the `docker` CLI, so it needs Docker either
+way:
 
 ```bash
 # Let the suite start its own two-node stack
 VITE_USE_KINOTIC_DOCKER=true pnpm test:node-failure
 
-# Against a stack started by hand on 127.0.0.1:58503 and 127.0.0.1:58504
+# Against a stack started by hand on 127.0.0.1:58505 and 127.0.0.1:58506
 docker compose --env-file ../../gradle.properties \
-  -f ../../deployment/docker-compose/compose.kinotic-e2e-test.yml up kinotic-server kinotic-server-2
+  -f ../../deployment/docker-compose/compose.kinotic-e2e-test.yml up kinotic-app-server kinotic-app-server-2
 pnpm test:node-failure
 ```
 
