@@ -359,7 +359,7 @@ Each Anthropic surface presents its own document URL, and kinotic-server ships b
 
 ## Bootstrap
 
-`kinotic-migration` runs to completion before kinotic-server starts. Migrations are versioned SQL applied once per version: `V1__init.sql` creates the Elasticsearch indices, and `V2__kinotic_data_inserts.sql` seeds the curated social providers into `kinotic_org_signup_oidc_configuration`. A migration whose filename carries environment suffixes — `V3__kinotic_test_users.development.test.sql` — is applied only in those environments, which is how test fixtures stay out of production.
+`kinotic-migration` runs to completion before kinotic-server starts. Migrations are versioned SQL applied once per version: `V1__init.sql` creates the Elasticsearch indices and seeds the curated social providers into `kinotic_org_signup_oidc_configuration`. A migration whose filename carries environment suffixes — `V2__kinotic_test_users.development.test.sql` — is applied only in those environments, which is how test fixtures stay out of production.
 
 There is no startup bootstrap step for OIDC. A seeded provider row carries only a `secretNameRef`; the client secret itself is placed in external secret storage by the operator and read at flow time, so no secret passes through a migration or a config file.
 

@@ -327,7 +327,7 @@ The deployment is in its desired state, `state.reconciled`, exactly when the two
 change to either is entered in the `kinotic_watch_event` ledger with what caused it. The ledger is
 read back per record, newest first: `ProjectService.findDeploymentHistory` lists what happened to
 the project's deployment and to the deployment jobs, build VMs, microservice deployments and UI
-deployments it made; `MicroserviceDeploymentService.findHistory` and `UiDeploymentService.findHistory`
+deployments it made, which the portal's deployment page shows under History; `MicroserviceDeploymentService.findHistory` and `UiDeploymentService.findHistory`
 list what happened to one deployment and to the VMs or uploads it ran, and both are MCP tools, so an
 assistant can answer how a deployment got to where it is. The project's
 Deployment page shows the observed phase alongside the served commit, the commit being deployed
