@@ -299,8 +299,9 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         return marked.map(Requeue.after(Duration.ofMillis(wait)));
     }
 
+    // The mark is conditional on the node as read: a heartbeat since is the node's word that it is here
     private Future<Void> markUnreachable(VmNode node, String message, String source) {
-        return vmNodeRepository.setCondition(node.getId(),
+        return vmNodeRepository.setCondition(node,
                                           new StatusCondition(StatusConditionType.NODE_UNREACHABLE, message, new Date()),
                                           source)
                             .onSuccess(set -> {

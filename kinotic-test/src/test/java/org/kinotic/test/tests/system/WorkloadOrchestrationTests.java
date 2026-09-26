@@ -242,6 +242,21 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     }
 
     @Test
+    public void nodeMarkFromAReadAHeartbeatOvertookIsDeclined() throws Exception {
+        silentFor(Duration.ofSeconds(10));
+        VmNode asRead = node();
+        // the worker read the node silent; its heartbeat landed before the worker's mark, and that
+        // heartbeat's own read found no mark to clear
+        call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of()));
+
+        assertFalse(await(nodes.setCondition(asRead, unreachableCondition(), "heartbeat timeout")));
+
+        assertFalse(nodeUnreachable(), "a node just heard is not marked");
+        assertTrue(await(nodes.setCondition(node(), unreachableCondition(), "heartbeat timeout")), "the mark from a current read applies");
+        assertTrue(nodeUnreachable());
+    }
+
+    @Test
     public void nodeHeardWithinTheTimeoutIsLookedAtAgainWhenItsHeartbeatWouldBeOverdue() throws Exception {
         call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of()));
 
@@ -774,6 +789,10 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
 
     private boolean nodeUnreachable() throws Exception {
         return StatusConditions.has(node().getState().getConditions(), StatusConditionType.NODE_UNREACHABLE);
+    }
+
+    private static StatusCondition unreachableCondition() {
+        return new StatusCondition(StatusConditionType.NODE_UNREACHABLE, "Node " + NODE_ID + " missed its heartbeat", new Date());
     }
 
     private Date nodeUnreachableSince() throws Exception {

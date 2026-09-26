@@ -3,6 +3,7 @@ package org.kinotic.system.internal.api.repositories;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.internal.api.repositories.AbstractReconcilableRepository;
 import org.kinotic.domain.internal.api.repositories.ReconcileStateRepository;
@@ -47,6 +48,17 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
             }
             """;
 
+    // A mark on a node is inferred from what was read of it, and a heartbeat since that read is the
+    // node's own word against the inference: the script declines when lastSeen moved, so the
+    // heartbeat, whose read found no mark to clear, and this write cannot leave a node just heard marked
+    private static final String SET_CONDITION_UNLESS_HEARD = WatchedStateRepository.STATE_FUNCTIONS + """
+            if (ctx._source.lastSeen != params.lastSeen) {
+                ctx.op = 'noop';
+            } else {
+            """ + WatchedStateRepository.ADD_CONDITION + """
+            }
+            """;
+
     // Clamped to the totals, so a return the node did not expect cannot make it look larger than it is
     private static final String RELEASE_SCRIPT = CPUS_FUNCTION + """
             def node = ctx._source;
@@ -78,6 +90,26 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
                                                     atLeast("freeCpus", requiredCpus),
                                                     atLeast("freeMemoryMb", requiredMemoryMb),
                                                     atLeast("freeDiskMb", requiredDiskMb))));
+    }
+
+    /**
+     * Sets the condition on the node as it was read and records it; a node heard since that read, or
+     * one already carrying a condition of the type, is left as it is. Visible to search on completion.
+     *
+     * @param node      the node as read, whose {@code lastSeen} the write is conditional on
+     * @param condition the condition to set
+     * @param source    what caused it, for the ledger
+     * @return true when the condition was set
+     */
+    public Future<Boolean> setCondition(VmNode node, StatusCondition condition, String source) {
+        Validate.notNull(node, "node cannot be null");
+        Map<String, Object> params = new HashMap<>();
+        // the same mapper serializes the date the heartbeat wrote and this one, so the two compare as
+        // written; a node never heard has neither
+        if (node.getLastSeen() != null) {
+            params.put("lastSeen", node.getLastSeen());
+        }
+        return watchedStateRepository.setCondition(document(node.getId()), condition, source, SET_CONDITION_UNLESS_HEARD, params);
     }
 
     /**
