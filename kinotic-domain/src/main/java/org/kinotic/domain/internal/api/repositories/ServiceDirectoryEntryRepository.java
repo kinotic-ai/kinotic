@@ -10,6 +10,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
+import org.kinotic.core.api.event.ZonePartition;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -19,7 +20,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Elasticsearch repository for {@link ServiceDirectoryEntry}s over the {@code kinotic_service_directory} index.
@@ -54,11 +57,14 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     private static final int RESOLUTION_PAGE_SIZE = 25;
 
     private final ObjectMapper objectMapper;
+    private final ZonePartition zonePartition;
 
     public ServiceDirectoryEntryRepository(CrudServiceTemplate crudServiceTemplate,
-                                           ObjectMapper objectMapper) {
+                                           ObjectMapper objectMapper,
+                                           ZonePartition zonePartition) {
         super("kinotic_service_directory", ServiceDirectoryEntry.class, crudServiceTemplate);
         this.objectMapper = objectMapper;
+        this.zonePartition = zonePartition;
     }
 
     /**
@@ -224,20 +230,33 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         return ret;
     }
 
-    // The listing view of the zone send rules enforced at dispatch time by ZoneRules: system sees all zones,
-    // an organization sees management-api + app-api, an application sees its own app.<org>.<app> zone + app-api.
+    // The listing view of the zone send rules enforced at dispatch time by ZoneRules, narrowed to the zones this
+    // server reaches: system sees all zones, an organization sees management-api + app-api, an application sees
+    // its own app.<org>.<app> zone + app-api. A zone is listed with its sub-zones, as ZoneRules sends to them.
     private Query zoneVisibilityFilter(String organizationId, String applicationId) {
-        Query ret;
+        Optional<Set<String>> zones;
         if (organizationId == null) {
-            ret = null;
+            zones = zonePartition.reachableZones();
         } else {
-            List<String> zones = applicationId == null
-                    ? List.of(DomainUtil.MANAGEMENT_API_ZONE, DomainUtil.APP_API_ZONE)
-                    : List.of(DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId,
-                              DomainUtil.APP_API_ZONE);
+            Set<String> callerZones = applicationId == null
+                    ? Set.of(DomainUtil.MANAGEMENT_API_ZONE, DomainUtil.APP_API_ZONE)
+                    : Set.of(DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId,
+                             DomainUtil.APP_API_ZONE);
+            zones = Optional.of(callerZones.stream().filter(zonePartition::reachesZone).collect(Collectors.toSet()));
+        }
+        return zones.map(this::inZones).orElse(null);
+    }
+
+    private Query inZones(Set<String> zones) {
+        Query ret;
+        if (zones.isEmpty()) {
+            // no zone left to show: match nothing, rather than leave an empty bool to the engine
+            ret = Query.of(q -> q.bool(b -> b.mustNot(n -> n.matchAll(m -> m))));
+        } else {
             ret = Query.of(q -> q.bool(b -> {
                 for (String zone : zones) {
                     b.should(termFilter("zone", zone));
+                    b.should(s -> s.prefix(p -> p.field("zone").value(zone + ".")));
                 }
                 return b.minimumShouldMatch("1");
             }));
