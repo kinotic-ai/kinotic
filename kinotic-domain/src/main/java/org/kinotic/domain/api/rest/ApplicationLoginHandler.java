@@ -16,7 +16,6 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
-import org.springframework.stereotype.Component;
 
 
 /**
@@ -28,7 +27,6 @@ import org.springframework.stereotype.Component;
  * handler's own callback.
  */
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
 

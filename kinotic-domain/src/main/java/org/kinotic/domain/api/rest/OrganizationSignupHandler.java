@@ -14,7 +14,6 @@ import org.kinotic.domain.api.model.security.PendingSignUp;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.services.security.SignUpService;
-import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -26,7 +25,6 @@ import java.util.Map;
  * {@link UserParticipantIdentity}; each handler method documents its own step.
  */
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
 

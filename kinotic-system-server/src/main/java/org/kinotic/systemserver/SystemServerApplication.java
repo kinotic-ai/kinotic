@@ -2,10 +2,15 @@ package org.kinotic.systemserver;
 
 import org.kinotic.core.api.annotations.EnableKinotic;
 import org.kinotic.core.api.event.ZonePartition;
+import org.kinotic.domain.api.rest.McpJsonRpcHandler;
+import org.kinotic.domain.api.rest.OAuthServerHandler;
+import org.kinotic.domain.api.rest.SessionEndpointHandler;
+import org.kinotic.domain.api.rest.SystemLoginHandler;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 
 import java.util.Set;
 
@@ -15,6 +20,10 @@ import java.util.Set;
  */
 @SpringBootApplication()
 @EnableKinotic
+@Import({SystemLoginHandler.class,
+		 SessionEndpointHandler.class,
+		 OAuthServerHandler.class,
+		 McpJsonRpcHandler.class})
 public class SystemServerApplication {
 	static void main(String[] args) {
 		SpringApplication.run(SystemServerApplication.class, args);
