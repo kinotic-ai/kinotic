@@ -175,12 +175,15 @@ locals {
     KINOTIC_APIGATEWAY_STOMPPORT = tostring(var.api_port)
     KINOTIC_DOMAIN_EMAIL_ENABLED = "true"
     # What a workload dials, by the name its certificate carries, and the one destination every
-    # egress policy permits; the node pins the name to the LAN address for its guests (hosts_entry)
-    KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERHOST = local.azure.api_hostname
-    KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERPORT = tostring(var.api_port)
-    KINOTIC_MANAGEMENTAPI_LOKIURL           = local.service_urls["http://loki:3100"]
-    KINOTIC_MANAGEMENTAPI_TEMPOURL          = local.service_urls["http://tempo:3200"]
-    KINOTIC_MANAGEMENTAPI_MIMIRURL          = local.service_urls["http://mimir:9009"]
+    # egress policy permits; the node pins the name to the LAN address for its guests (hosts_entry).
+    # The one server here is both the org server and the app server
+    KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST = local.azure.api_hostname
+    KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_PORT = tostring(var.api_port)
+    KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST = local.azure.api_hostname
+    KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_PORT = tostring(var.api_port)
+    KINOTIC_MANAGEMENTAPI_LOKIURL               = local.service_urls["http://loki:3100"]
+    KINOTIC_MANAGEMENTAPI_TEMPOURL              = local.service_urls["http://tempo:3200"]
+    KINOTIC_MANAGEMENTAPI_MIMIRURL              = local.service_urls["http://mimir:9009"]
 
     # No collector: the agent exports each signal to its store's OTLP endpoint, under the
     # platform tenant, which is what the compose collector stamps on the server's telemetry
