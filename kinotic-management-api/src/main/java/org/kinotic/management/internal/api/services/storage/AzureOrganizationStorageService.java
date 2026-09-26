@@ -14,7 +14,7 @@ import java.time.Duration;
 /**
  * Data Lake SDK backed {@link OrganizationStorageService}. Reaches the organization storage account
  * at its configured blob endpoint as the server's Azure identity, which signs each URL with a user
- * delegation key for the one directory or file it names.
+ * delegation key for the one file it names.
  */
 @Component
 public class AzureOrganizationStorageService implements OrganizationStorageService {
@@ -26,13 +26,9 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
     }
 
     @Override
-    public Future<String> issueWriteUrl(String directory, Duration ttl) {
-        // list and delete within the directory let the workload clear the files it replaces
-        return organizations.issueDirectoryUrl(OrganizationStoragePaths.CONTAINER, directory, ttl,
-                                               new PathSasPermission().setCreatePermission(true)
-                                                                      .setWritePermission(true)
-                                                                      .setListPermission(true)
-                                                                      .setDeletePermission(true));
+    public Future<String> issueWriteUrl(String file, Duration ttl) {
+        return organizations.issueFileUrl(OrganizationStoragePaths.CONTAINER, file, ttl,
+                                          new PathSasPermission().setCreatePermission(true).setWritePermission(true));
     }
 
     @Override

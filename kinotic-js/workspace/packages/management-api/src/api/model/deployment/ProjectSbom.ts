@@ -1,19 +1,10 @@
 /**
- * The software bill of materials of a project: every package its bun.lock resolves, as a
- * CycloneDX document kept in the organization's storage. A deployment replaces it when the
- * project's dependencies changed.
+ * The software bill of materials of the dependencies a project's ProjectArtifacts list: every
+ * package the bun.lock of their checkout resolves, as a CycloneDX document kept in the
+ * organization's storage. A sync that reports other dependencies drops it, and the deployment
+ * generates it again.
  */
 export interface ProjectSbom {
-    /**
-     * Full 40-character SHA of the commit whose checkout the document was generated from. Later
-     * commits that leave the dependencies unchanged keep the document.
-     */
-    commitSha: string
-    /**
-     * The ProjectArtifacts.dependencyHash the document was generated from: the SBOM is current for
-     * a commit whose artifacts carry the same hash.
-     */
-    dependencyHash: string
     /**
      * How many components the document lists.
      */

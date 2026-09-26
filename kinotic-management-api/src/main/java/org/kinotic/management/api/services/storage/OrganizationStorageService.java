@@ -12,16 +12,14 @@ import java.time.Duration;
 public interface OrganizationStorageService {
 
     /**
-     * Issues the URL a workload writes into one directory through: the directory, with a query
-     * carrying a SAS that allows creating, writing, listing and deleting blobs within that
-     * directory alone until {@code ttl} has passed. The workload appends each file's name before
-     * the query.
+     * Issues the URL a workload writes one file through until {@code ttl} has passed: the file,
+     * with a query carrying a SAS that allows creating and writing it alone.
      *
-     * @param directory the directory, a path within the container
-     * @param ttl       how long the SAS stays valid
+     * @param file the file, a path within the container
+     * @param ttl  how long the SAS stays valid
      * @return a future emitting the write URL
      */
-    Future<String> issueWriteUrl(String directory, Duration ttl);
+    Future<String> issueWriteUrl(String file, Duration ttl);
 
     /**
      * Issues the URL one file can be read from until {@code ttl} has passed: the file, with a

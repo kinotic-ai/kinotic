@@ -6,8 +6,6 @@ import { tmpdir } from 'node:os'
 
 const GENERATE_SBOM = join(import.meta.dir, '..', 'src', 'generate-sbom.ts')
 
-const COMMIT = 'a'.repeat(40)
-
 /** Runs the SBOM entrypoint the way its workload does: as a process with an environment. */
 function runGenerateSbom(env: Record<string, string>): ReturnType<typeof spawnSync> {
     return spawnSync('bun', [GENERATE_SBOM], { env: { ...process.env, ...env }, encoding: 'utf-8' })
@@ -30,9 +28,7 @@ describe('generate-sbom entrypoint', () => {
     function environment(): Record<string, string> {
         return {
             // never contacted: each run fails before anything is uploaded
-            KINOTIC_SBOM_UPLOAD_URL: 'https://storage.example.test/organizations/acme/sboms/shop?sv=2020-12-06&sig=test',
-            KINOTIC_SBOM_FILE: `${COMMIT}.cdx.json`,
-            KINOTIC_SBOM_COMMIT: COMMIT,
+            KINOTIC_SBOM_UPLOAD_URL: 'https://storage.example.test/organizations/acme/sboms/shop.cdx.json?sv=2020-12-06&sig=test',
             KINOTIC_PROJECT_ID: 'shop',
             KINOTIC_WORKSPACE_DIR: workspaceDir,
         }

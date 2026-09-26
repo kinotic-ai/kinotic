@@ -124,8 +124,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         // deployments are stored per organization, so another organization's project reads as one without an SBOM
         return projectDeploymentRepository.findById(projectId, organizationId)
                 .compose(deployment -> deployment != null && deployment.getSbom() != null
-                        ? organizationStorageService.issueReadUrl(OrganizationStoragePaths.sbomFile(organizationId, projectId, deployment.getSbom().commitSha()),
-                                                                  SBOM_DOCUMENT_URL_TTL)
+                        ? organizationStorageService.issueReadUrl(OrganizationStoragePaths.sbomFile(organizationId, projectId), SBOM_DOCUMENT_URL_TTL)
                         : Future.succeededFuture());
     }
 

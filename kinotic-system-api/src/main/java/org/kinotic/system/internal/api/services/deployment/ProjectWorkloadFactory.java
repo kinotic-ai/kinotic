@@ -13,7 +13,6 @@ import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.config.DeploymentProperties;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.management.api.model.deployment.DeployTarget;
-import org.kinotic.management.api.services.storage.OrganizationStoragePaths;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
@@ -72,14 +71,12 @@ public class ProjectWorkloadFactory {
     /**
      * The SBOM workload of a deployment run: generates the project's SBOM from the checkout
      * mounted read-only at {@code /workspace}, uploads it through {@code uploadUrl}, the project's
-     * SBOM directory in the organization storage account, and records it as the project's sync
-     * machine.
+     * SBOM file in the organization storage account, and records it as the project's sync machine.
      */
     public Workload sbom(Project project,
                          DeployTarget target,
                          MachineProvisionResult credentials,
-                         String uploadUrl,
-                         String commitSha) {
+                         String uploadUrl) {
         DeploymentProperties deployment = deployment();
         Workload workload = new Workload("project-sbom-" + project.getId(), deployment.getWorkloadRunnerImage());
         workload.setId(target.sbomWorkloadId());
@@ -94,8 +91,6 @@ public class ProjectWorkloadFactory {
         workload.setDiskSizeMb(ProjectWorkloadSizes.RUNTIME_DISK_SIZE_MB);
         workload.setEntrypoint(List.of("bun", "src/generate-sbom.ts"));
         workload.getEnvironment().put("KINOTIC_PROJECT_ID", project.getId());
-        workload.getEnvironment().put("KINOTIC_SBOM_COMMIT", commitSha);
-        workload.getEnvironment().put("KINOTIC_SBOM_FILE", OrganizationStoragePaths.sbomFileName(commitSha));
         putKinoticConnection(workload, deployment, credentials);
         // the URL is a credential for the run's length, so it travels as a secret
         workload.getSecrets().put("KINOTIC_SBOM_UPLOAD_URL", uploadUrl);

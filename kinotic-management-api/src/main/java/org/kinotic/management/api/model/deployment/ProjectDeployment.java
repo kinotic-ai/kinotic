@@ -62,9 +62,9 @@ public class ProjectDeployment implements Reconcilable<DeploymentState>, Applica
 
     /**
      * The id of the SBOM workload of the most recent deployment run, or {@code null} before the
-     * first run resolved its target. The workload runs only when an artifact's SBOM is missing or
-     * out of date, and is destroyed when its run ends; its logs stay in the organization's log
-     * store under this id.
+     * first run resolved its target. The workload runs only when the project has no SBOM of the
+     * dependencies its sync reported, and is destroyed when its run ends; its logs stay in the
+     * organization's log store under this id.
      */
     private String sbomWorkloadId;
 
@@ -81,8 +81,8 @@ public class ProjectDeployment implements Reconcilable<DeploymentState>, Applica
     private ProjectArtifacts artifacts;
 
     /**
-     * The SBOM the last SBOM workload generated, or {@code null} before a deployment has
-     * generated one.
+     * The SBOM of the dependencies {@link #artifacts} list, or {@code null} until a deployment has
+     * generated it.
      */
     private ProjectSbom sbom;
 

@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 @Slf4j
@@ -39,24 +40,30 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
         // caller that can never be the sync workload
         OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
         return findForSyncMachine(projectId, participant)
-                .compose(deployment -> projectDeploymentRepository.recordArtifacts(projectId, participant.getOrganizationId(), artifacts));
+                .compose(deployment -> {
+                    // the SBOM lists the dependencies it was generated from, so a report of other
+                    // dependencies drops it and the deployment generates it again
+                    boolean sameDependencies = deployment.getArtifacts() != null
+                            && Objects.equals(deployment.getArtifacts().dependencyHash(), artifacts.dependencyHash());
+                    return projectDeploymentRepository.recordArtifacts(projectId, participant.getOrganizationId(), artifacts,
+                                                                       sameDependencies ? deployment.getSbom() : null);
+                });
     }
 
     @Override
-    public Future<Void> recordSbom(String projectId, String commitSha, String dependencyHash, int componentCount) {
+    public Future<Void> recordSbom(String projectId, String dependencyHash, int componentCount) {
         Validate.notBlank(projectId, "projectId is required");
-        Validate.notBlank(commitSha, "commitSha is required");
         Validate.notBlank(dependencyHash, "dependencyHash is required");
         Validate.isTrue(componentCount >= 0, "componentCount cannot be negative");
         OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
         return findForSyncMachine(projectId, participant)
                 .compose(deployment -> {
-                    // the deployment reads the document under this commit, so the record names only
-                    // a commit whose checkout the SBOM workload was given
-                    Validate.isTrue(deployment.getArtifacts() != null && commitSha.equals(deployment.getArtifacts().commitSha()),
-                                    "Commit %s is not the one the sync workload of project %s last reported", commitSha, projectId);
+                    // the SBOM is recorded as the one of the dependencies the artifacts list, so it
+                    // must have been generated from those
+                    Validate.isTrue(deployment.getArtifacts() != null && dependencyHash.equals(deployment.getArtifacts().dependencyHash()),
+                                    "Dependency hash %s is not the one the sync workload of project %s last reported", dependencyHash, projectId);
                     return projectDeploymentRepository.recordSbom(projectId, participant.getOrganizationId(),
-                                                                  new ProjectSbom(commitSha, dependencyHash, componentCount, new Date()));
+                                                                  new ProjectSbom(componentCount, new Date()));
                 });
     }
 

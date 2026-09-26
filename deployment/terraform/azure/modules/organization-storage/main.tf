@@ -1,9 +1,9 @@
 # ── Organization storage ──────────────────────────────────────────────────────
 # One account for the files the platform keeps on behalf of organizations, partitioned by
 # organization and then by use: organizations/<organizationId>/<use>/..., today
-# organizations/<organizationId>/sboms/<projectId>/ for each project's SBOM. Anonymous access is
-# off. kinotic-server signs short-lived SAS URLs, each for one directory or one file, through
-# which workloads write and the portal reads, so the account answers the portal's origins.
+# organizations/<organizationId>/sboms/<projectId>.cdx.json for each project's SBOM. Anonymous
+# access is off. kinotic-server signs short-lived SAS URLs, each for one directory or one file,
+# through which workloads write and the portal reads, so the account answers the portal's origins.
 
 terraform {
   required_providers {

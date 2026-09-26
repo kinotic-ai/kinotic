@@ -1,13 +1,12 @@
 import { log } from './log.ts'
 
 /**
- * What the entrypoints do with one directory of a platform storage account, a site's directory
- * in the sites account or a project's SBOM directory in the organization storage account, through
- * a URL that names the directory and carries a SAS scoped to it:
- * `<account URL>/<container>/<directory>?<sas>`, the directory being everything after the
- * container. Files are written, listed and deleted through the account's blob endpoint, and a
- * directory is deleted through its Data Lake endpoint, which removes it and everything under it
- * in one request.
+ * What the entrypoints do in a platform storage account through URLs carrying a SAS: upload one
+ * file, such as a project's SBOM in the organization storage account, and act on a site's
+ * directory in the sites account through a URL that names the directory and carries a SAS scoped
+ * to it: `<container URL>/<directory>?<sas>`, the directory being the URL's last path segment.
+ * Files are written, listed and deleted through the account's blob endpoint, and a directory is
+ * deleted through its Data Lake endpoint, which removes it and everything under it in one request.
  */
 
 /** One directory and the credential that acts on it. */
@@ -16,7 +15,7 @@ export interface BlobDirectory {
     containerUrl: string
     /** The container's URL on the Data Lake endpoint, the same host on dfs */
     dfsContainerUrl: string
-    /** The directory's path in the container */
+    /** The directory in the container: the last segment of the URL's path */
     directory: string
     /** The SAS query, without the leading ? */
     query: string
@@ -39,20 +38,17 @@ export function parseDirectoryUrl(name: string, url: string): BlobDirectory {
         throw new Error(`${name} carries no SAS query`)
     }
     const path = url.slice(0, query)
-    const parsed = path.includes('://') ? new URL(path) : null
-    // an account on an IP address or localhost, an emulator's, is named by the first path
-    // segment rather than the host, the way Azure's own clients read such a URL
-    const accountSegments = parsed !== null && /^(localhost|\[.*\]|[\d.]+)$/.test(parsed.hostname) ? 1 : 0
-    const segments = parsed?.pathname.split('/').filter(segment => segment !== '') ?? []
-    if (parsed === null || segments.length < accountSegments + 2) {
+    const slash = path.lastIndexOf('/')
+    const directory = path.slice(slash + 1)
+    const containerUrl = path.slice(0, slash)
+    if (!directory || !containerUrl.includes('://') || new URL(containerUrl).pathname === '/') {
         throw new Error(`${name} names no directory in a container: ${path}`)
     }
-    const containerUrl = `${parsed.origin}/${segments.slice(0, accountSegments + 1).join('/')}`
     return {
         containerUrl,
         // the Data Lake endpoint of an account is its blob host on dfs
         dfsContainerUrl: containerUrl.replace('.blob.', '.dfs.'),
-        directory: segments.slice(accountSegments + 1).join('/'),
+        directory,
         query: url.slice(query + 1),
     }
 }
@@ -64,9 +60,10 @@ export function blobUrl(directory: BlobDirectory, ...segments: string[]): string
 
 /**
  * Uploads one blob as a block blob with its cache policy and content type, stamped with the
- * commit it belongs to. A 5xx is retried once; anything else that is not 2xx fails the upload.
+ * commit it belongs to when one is given. A 5xx is retried once; anything else that is not 2xx
+ * fails the upload.
  */
-export async function uploadBlob(url: string, body: Blob, cacheControl: string, contentType: string, commitSha: string): Promise<void> {
+export async function uploadBlob(url: string, body: Blob, cacheControl: string, contentType: string, commitSha?: string): Promise<void> {
     for (let attempt = 1; ; attempt++) {
         const response = await fetch(url, {
             method: 'PUT',
@@ -74,7 +71,7 @@ export async function uploadBlob(url: string, body: Blob, cacheControl: string, 
                 'x-ms-blob-type': 'BlockBlob',
                 'x-ms-blob-cache-control': cacheControl,
                 'Content-Type': contentType,
-                [COMMIT_METADATA_HEADER]: commitSha,
+                ...(commitSha ? { [COMMIT_METADATA_HEADER]: commitSha } : {}),
             },
             body,
         })

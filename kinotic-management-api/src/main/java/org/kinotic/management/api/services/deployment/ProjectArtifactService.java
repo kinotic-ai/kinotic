@@ -26,17 +26,15 @@ public interface ProjectArtifactService {
     Future<Void> recordArtifacts(String projectId, ProjectArtifacts artifacts);
 
     /**
-     * Records the SBOM the SBOM workload generated from the checkout of the given commit and
-     * uploaded to the organization's storage, replacing the project's earlier SBOM. The caller
-     * must be the project's sync machine identity, and the commit the one the sync workload last
-     * reported artifacts for.
+     * Records the SBOM the SBOM workload generated from the project's checkout and uploaded to the
+     * organization's storage. The caller must be the project's sync machine identity, and the
+     * dependency hash the one the sync workload last reported.
      *
      * @param projectId      the project whose checkout the SBOM was generated from
-     * @param commitSha      full 40-character SHA of the checked-out commit
      * @param dependencyHash the fingerprint of the dependencies the document lists
      * @param componentCount how many components the document lists
      * @return a future completing once the deployment record holds the SBOM
      */
-    Future<Void> recordSbom(String projectId, String commitSha, String dependencyHash, int componentCount);
+    Future<Void> recordSbom(String projectId, String dependencyHash, int componentCount);
 
 }

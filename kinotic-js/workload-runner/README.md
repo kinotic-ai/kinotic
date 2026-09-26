@@ -96,23 +96,19 @@ under it, through the removal URL issued for the site.
 |---|---|---|
 | `KINOTIC_UI_REMOVAL_URL` | the site's directory in the sites account, with a SAS for that directory as its query | required |
 
-`generate-sbom.ts` — one-shot, exits 0 on success. Runs at the end of a deployment whose
-`dependencyHash` differs from the one the project's SBOM was generated from, on the same
-checkout mounted read-only. It generates the project's SBOM with
-[cdxgen](https://github.com/CycloneDX/cdxgen), a dependency of this runner, so a project needs
-nothing of its own: a CycloneDX 1.6 JSON document of every package `bun.lock` resolves, with its
-integrity hash, and with its license looked up in the npm registry (`FETCH_LICENSE`). The
-document goes up into the project's directory of the organization storage account as
-`KINOTIC_SBOM_FILE`, stamped with the commit, through a URL whose SAS is scoped to that
-directory; then the run records it through `ProjectArtifactService.recordSbom`, authenticated
-as the project's sync machine, and only then deletes the files other commits left in the
-directory, so a run whose record fails leaves the SBOM the server knows of readable.
+`generate-sbom.ts` — one-shot, exits 0 on success. Runs at the end of a deployment that has
+no SBOM for the dependencies its sync reported, on the same checkout mounted read-only. It
+generates the project's SBOM with [cdxgen](https://github.com/CycloneDX/cdxgen), a dependency of
+this runner, so a project needs nothing of its own: a CycloneDX 1.6 JSON document of every
+package `bun.lock` resolves, with its integrity hash, and with its license looked up in the npm
+registry (`FETCH_LICENSE`). The document goes up over the project's one SBOM file in the
+organization storage account, through a URL whose SAS is scoped to that file; then the run
+records it with the checkout's `dependencyHash` through `ProjectArtifactService.recordSbom`,
+authenticated as the project's sync machine.
 
 | Variable | Meaning | Default |
 |---|---|---|
-| `KINOTIC_SBOM_UPLOAD_URL` | the project's SBOM directory in the organization storage account, with a SAS for that directory as its query | required |
-| `KINOTIC_SBOM_FILE` | the name the document is uploaded under | required |
-| `KINOTIC_SBOM_COMMIT` | the commit the checkout holds | required |
+| `KINOTIC_SBOM_UPLOAD_URL` | the project's SBOM file in the organization storage account, with a SAS for that file as its query | required |
 | `KINOTIC_PROJECT_ID` | the project the checkout belongs to | required |
 | `KINOTIC_WORKSPACE_DIR` | the checkout | `/workspace` |
 | `KINOTIC_SERVER_HOST/PORT/USE_SSL`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET`, `KINOTIC_ORGANIZATION_ID` | the server and the sync machine identity the SBOM is recorded as | required |

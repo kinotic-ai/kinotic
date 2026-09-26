@@ -67,7 +67,7 @@ export class ProjectDeployment implements Reconcilable<DeploymentState> {
     public artifacts: ProjectArtifacts | null = null
 
     /**
-     * The SBOM the last SBOM workload generated, or null before a deployment has generated one.
+     * The SBOM of the dependencies artifacts list, or null until a deployment has generated it.
      */
     public sbom: ProjectSbom | null = null
 

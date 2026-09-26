@@ -164,7 +164,8 @@ public class DeployWorkerTests extends KinoticTestBase {
         projectDeployment(projectId, new DeploymentState(DeploymentStatusType.RUNNING, "old"));
         await(projectDeployments.recordTarget(projectId, TEST_ORG_ID, new DeployTarget("node-x", "/srv/" + projectId, null, null, null)));
         await(projectDeployments.recordArtifacts(projectId, TEST_ORG_ID,
-                                                 new ProjectArtifacts("old", List.of(new MicroserviceArtifact("api", "services/api", "index.ts")), List.of(), null)));
+                                                 new ProjectArtifacts("old", List.of(new MicroserviceArtifact("api", "services/api", "index.ts")), List.of(), null),
+                                                 null));
         MicroserviceDeployment deployment = microservice(projectId, "api", new DeploymentState(DeploymentStatusType.RUNNING, COMMIT));
 
         Requeue requeue = await(microserviceWorker.reconcile(deployment));
@@ -302,7 +303,8 @@ public class DeployWorkerTests extends KinoticTestBase {
         projectDeployment(projectId, new DeploymentState(DeploymentStatusType.RUNNING, COMMIT));
         await(projectDeployments.recordTarget(projectId, TEST_ORG_ID, new DeployTarget(NODE_ID, "/srv/" + projectId, null, null, null)));
         await(projectDeployments.recordArtifacts(projectId, TEST_ORG_ID,
-                                                 new ProjectArtifacts(COMMIT, List.of(new MicroserviceArtifact("api", "services/api", "index.ts")), List.of(), null)));
+                                                 new ProjectArtifacts(COMMIT, List.of(new MicroserviceArtifact("api", "services/api", "index.ts")), List.of(), null),
+                                                 null));
     }
 
     /** Waits for the master's worker to report the microservice deployed with a VM other than the given one. */

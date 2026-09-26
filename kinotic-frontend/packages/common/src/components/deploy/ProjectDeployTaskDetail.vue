@@ -5,9 +5,7 @@
   </template>
   <template v-else>
     <div v-if="sbom" class="mb-2 text-xs text-muted-color">
-      {{ sbomGenerated ? 'Generated the SBOM of' : 'The dependencies are unchanged since' }}
-      <span class="font-mono" :title="sbom.commitSha">{{ shortSha(sbom.commitSha) }}</span>:
-      {{ sbom.componentCount }} components
+      {{ sbomGenerated ? 'Generated the SBOM' : 'The dependencies are unchanged' }}: {{ sbom.componentCount }} components
     </div>
     <template v-if="!sbom || sbomGenerated">
       <WorkloadLogView v-if="workloadId" :key="workloadId" :organization-id="organizationId" :workload-id="workloadId" :run="run" />
@@ -21,7 +19,6 @@ import { computed } from 'vue'
 import type { JobTaskNode } from '../grind/JobTaskNode'
 import WorkloadLogView from '../WorkloadLogView.vue'
 import type { WorkloadRun } from '../WorkloadRun'
-import { shortSha } from '../../util/helpers'
 import ProjectArtifactsDetail from './ProjectArtifactsDetail.vue'
 import ProjectDeployStores from './ProjectDeployStores'
 

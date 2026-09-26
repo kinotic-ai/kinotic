@@ -11,16 +11,13 @@
 
     <div v-if="loading" class="p-6 text-sm text-muted-color">Loading SBOM…</div>
     <div v-else-if="!sbom" class="p-6 text-sm text-muted-color">
-      This project has no SBOM yet. The last step of a deployment generates one from the project's bun.lock.
+      This project has no SBOM of its current dependencies yet. The last step of a deployment generates it from the project's bun.lock whenever the dependencies change.
     </div>
 
     <template v-else>
       <div class="mb-4 flex flex-wrap items-center gap-4">
-        <span :title="current ? 'The deployed commit has these dependencies' : 'The last synced commit has other dependencies; its deployment did not generate their SBOM'">
-          <Tag :value="current ? 'Current' : 'Outdated'" :severity="current ? 'success' : 'warn'" />
-        </span>
         <span class="text-sm">
-          Generated from <span class="font-mono" :title="sbom.commitSha">{{ shortSha(sbom.commitSha) }}</span>
+          Dependencies of <span class="font-mono" :title="commitSha">{{ shortSha(commitSha) }}</span>
         </span>
         <span class="text-xs text-muted-color">{{ DatetimeUtil.formatRelativeDate(sbom.generated) }}</span>
         <span class="text-sm text-muted-color">{{ sbom.componentCount }} components</span>
@@ -73,10 +70,10 @@ import { Kinotic } from '@kinotic-ai/core'
 import type { ProjectDeployment } from '@kinotic-ai/management-api'
 
 /**
- * The project's SBOM: when and from which commit it was generated, whether the dependencies of
- * the last synced commit are still the ones it lists, and its components, searchable by name
- * and license and filtered by how the project uses them. The CycloneDX document is read straight
- * from the organization's storage through a short-lived URL, and can be downloaded as it is.
+ * The project's SBOM, the one of the dependencies of the last synced commit: when it was
+ * generated, and its components, searchable by name and license and filtered by how the project
+ * uses them. The CycloneDX document is read straight from the organization's storage through a
+ * short-lived URL, and can be downloaded as it is.
  */
 const props = defineProps<{
   applicationId: string
@@ -123,9 +120,8 @@ const documentLoading = ref(false)
 const error = ref<string | null>(null)
 
 const sbom = computed(() => deployment.value?.sbom ?? null)
-
-/** Whether the last synced commit's dependencies are the ones the SBOM lists. */
-const current = computed(() => sbom.value !== null && deployment.value?.artifacts?.dependencyHash === sbom.value.dependencyHash)
+/** The last synced commit, whose dependencies the SBOM lists. */
+const commitSha = computed(() => deployment.value?.artifacts?.commitSha ?? '')
 
 const visibleComponents = computed(() => {
   const needle = search.value.trim().toLowerCase()
@@ -194,7 +190,7 @@ function download(): void {
     const url = URL.createObjectURL(new Blob([documentText.value], { type: 'application/vnd.cyclonedx+json' }))
     const link = document.createElement('a')
     link.href = url
-    link.download = `${props.projectId}-${shortSha(sbom.value.commitSha)}.cdx.json`
+    link.download = `${props.projectId}-${shortSha(commitSha.value)}.cdx.json`
     link.click()
     URL.revokeObjectURL(url)
   }

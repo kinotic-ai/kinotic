@@ -182,19 +182,22 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
     }
 
     /**
-     * Records the artifacts the sync workload found in a commit, leaving every other field as it is.
+     * Records the artifacts the sync workload found in a commit together with the SBOM the
+     * deployment keeps for their dependencies, {@code null} when it has none, leaving every other
+     * field as it is.
      */
-    public Future<Void> recordArtifacts(String projectId, String orgId, ProjectArtifacts artifacts) {
+    public Future<Void> recordArtifacts(String projectId, String orgId, ProjectArtifacts artifacts, ProjectSbom sbom) {
         Validate.notNull(artifacts, "artifacts cannot be null");
         Validate.notBlank(artifacts.commitSha(), "artifacts.commitSha cannot be blank");
         Map<String, Object> fields = new HashMap<>();
         fields.put("artifacts", artifacts);
+        fields.put("sbom", sbom);
         return partial(projectId, orgId, fields);
     }
 
     /**
-     * Records the SBOM the SBOM workload generated, replacing the project's earlier one and
-     * leaving every other field as it is.
+     * Records the SBOM the SBOM workload generated of the dependencies the artifacts list, leaving
+     * every other field as it is.
      */
     public Future<Void> recordSbom(String projectId, String orgId, ProjectSbom sbom) {
         Validate.notNull(sbom, "sbom cannot be null");

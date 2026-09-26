@@ -8,7 +8,7 @@ import org.apache.commons.lang3.Validate;
  * organization's directory of the {@code organizations} container, partitioned by use:
  *
  * <pre>
- * organizations/&lt;organizationId&gt;/sboms/&lt;projectId&gt;/&lt;commitSha&gt;.cdx.json   a project's SBOM, named by the commit it was generated from
+ * organizations/&lt;organizationId&gt;/sboms/&lt;projectId&gt;.cdx.json   a project's SBOM
  * </pre>
  */
 public final class OrganizationStoragePaths {
@@ -20,27 +20,12 @@ public final class OrganizationStoragePaths {
     }
 
     /**
-     * The directory of one project's SBOMs.
+     * The SBOM of one project.
      */
-    public static String sbomDirectory(String organizationId, String projectId) {
+    public static String sbomFile(String organizationId, String projectId) {
         Validate.notBlank(organizationId, "organizationId cannot be blank");
         Validate.notBlank(projectId, "projectId cannot be blank");
-        return organizationId + "/sboms/" + projectId;
-    }
-
-    /**
-     * The name, within its directory, of the SBOM generated from the given commit.
-     */
-    public static String sbomFileName(String commitSha) {
-        Validate.notBlank(commitSha, "commitSha cannot be blank");
-        return commitSha + ".cdx.json";
-    }
-
-    /**
-     * The SBOM of one project generated from the given commit.
-     */
-    public static String sbomFile(String organizationId, String projectId, String commitSha) {
-        return sbomDirectory(organizationId, projectId) + "/" + sbomFileName(commitSha);
+        return organizationId + "/sboms/" + projectId + ".cdx.json";
     }
 
 }
