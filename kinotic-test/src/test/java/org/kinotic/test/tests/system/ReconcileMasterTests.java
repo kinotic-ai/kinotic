@@ -11,6 +11,7 @@ import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
 import org.kinotic.system.api.model.workload.VmNodeRegistration;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
+import org.kinotic.test.support.system.NodeFixtures;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -78,13 +79,7 @@ public class ReconcileMasterTests extends KinoticTestBase {
     }
 
     private static VmNodeRegistration registration() {
-        return new VmNodeRegistration().setId(NODE_ID)
-                                       .setName(NODE_ID)
-                                       .setHostname("host-" + NODE_ID)
-                                       .setTotalCpus(4)
-                                       .setTotalMemoryMb(4096)
-                                       .setTotalDiskMb(10240)
-                                       .setWorkloadDataDir("/var/lib/kinotic/" + NODE_ID);
+        return NodeFixtures.registration(NODE_ID, 4, 4096, 10240);
     }
 
     private boolean nodeUnreachable() throws Exception {

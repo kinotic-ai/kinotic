@@ -9,8 +9,6 @@ import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
-import org.kinotic.core.api.service.ServiceIdentifier;
-import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.model.Requeue;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
@@ -25,11 +23,10 @@ import org.kinotic.system.api.model.workload.VmNodeState;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
 import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
 import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
-import org.kinotic.system.api.services.workload.VmManagerProxy;
-import org.kinotic.system.api.model.workload.VmNodeRegistration;
 import org.kinotic.system.api.model.workload.WorkloadStatusReport;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
+import org.kinotic.test.support.system.NodeFixtures;
 import org.kinotic.test.support.system.StubVmManager;
 import org.kinotic.test.support.system.VmManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -731,33 +728,21 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
 
     /** Registers the node the way a vm-manager does at startup, taking workloads and heard just now. */
     private VmNode registered(String nodeId, int cpus, int memoryMb, int diskMb) throws Exception {
-        VmNodeRegistration registration = new VmNodeRegistration().setId(nodeId)
-                                                                  .setName(nodeId)
-                                                                  .setHostname("host-" + nodeId)
-                                                                  .setTotalCpus(cpus)
-                                                                  .setTotalMemoryMb(memoryMb)
-                                                                  .setTotalDiskMb(diskMb)
-                                                                  .setWorkloadDataDir("/var/lib/kinotic/" + nodeId);
-        return call(() -> nodeOrchestration.registerNode(registration));
+        return call(() -> nodeOrchestration.registerNode(NodeFixtures.registration(nodeId, cpus, memoryMb, diskMb)));
     }
 
     /** Serves a stand-in vm-manager at the node's address, the one the platform's proxy sends to. */
     private StubVmManager vmManager(String nodeId) throws Exception {
         StubVmManager stub = new StubVmManager();
-        await(serviceRegistry.register(vmManagerAddress(nodeId), VmManager.class, stub));
+        await(serviceRegistry.register(NodeFixtures.vmManagerAddress(nodeId), VmManager.class, stub));
         vmManagers.put(nodeId, stub);
         return stub;
     }
 
     private void unregisterVmManager(String nodeId) throws Exception {
         if (vmManagers.remove(nodeId) != null) {
-            await(serviceRegistry.unregister(vmManagerAddress(nodeId)));
+            await(serviceRegistry.unregister(NodeFixtures.vmManagerAddress(nodeId)));
         }
-    }
-
-    private static ServiceIdentifier vmManagerAddress(String nodeId) {
-        ServiceIdentifier vmManager = KinoticUtil.serviceIdentifierOf(VmManagerProxy.class);
-        return new ServiceIdentifier(vmManager.zone(), vmManager.namespace(), vmManager.name(), nodeId, vmManager.version());
     }
 
     /** The proxy sends as the participant on the calling context, so every orchestration call is made as one. */

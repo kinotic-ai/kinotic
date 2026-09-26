@@ -14,6 +14,7 @@ import org.kinotic.system.api.services.workload.VmNodeService;
 import org.kinotic.system.api.services.workload.WorkloadService;
 import org.kinotic.system.api.model.workload.VmNodeRegistration;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
+import org.kinotic.test.support.system.NodeFixtures;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -180,14 +181,8 @@ public class VmNodePlacementTests extends KinoticTestBase {
         return await(vmNodeService.save(node));
     }
 
-    private VmNodeRegistration registration(String id, int totalCpus, int totalMemoryMb, int totalDiskMb) {
-        return new VmNodeRegistration().setId(id)
-                                       .setName(id)
-                                       .setHostname("host-" + id)
-                                       .setTotalCpus(totalCpus)
-                                       .setTotalMemoryMb(totalMemoryMb)
-                                       .setTotalDiskMb(totalDiskMb)
-                                       .setWorkloadDataDir("/var/lib/kinotic/" + id);
+    private static VmNodeRegistration registration(String id, int totalCpus, int totalMemoryMb, int totalDiskMb) {
+        return NodeFixtures.registration(id, totalCpus, totalMemoryMb, totalDiskMb);
     }
 
     /** Individual saves skip the refresh; one index sync afterwards makes the whole fixture searchable. */
