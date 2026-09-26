@@ -1,7 +1,6 @@
 package org.kinotic.persistence.api.config;
 
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -12,11 +11,6 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @NoArgsConstructor
 public class PersistenceProperties {
-
-    private final String indexPrefix = "kinotic_";
-
-    @NotNull
-    private String tenantIdFieldName = "tenantId";
 
     /**
      * Primary shards for the Elasticsearch index backing a published {@code EntityDefinition}.

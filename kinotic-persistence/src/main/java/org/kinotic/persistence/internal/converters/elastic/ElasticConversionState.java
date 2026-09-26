@@ -3,7 +3,6 @@ package org.kinotic.persistence.internal.converters.elastic;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.domain.api.model.persistence.idl.decorators.EntityDecorator;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.EsIndexConfigurationDecorator;
@@ -42,9 +41,5 @@ public class ElasticConversionState extends BaseConversionState {
      * If true the index will be created, if false the index will not be created for a given field.
      */
     private boolean shouldIndex = true;
-
-    public ElasticConversionState(PersistenceProperties persistenceProperties) {
-        super(persistenceProperties);
-    }
 
 }

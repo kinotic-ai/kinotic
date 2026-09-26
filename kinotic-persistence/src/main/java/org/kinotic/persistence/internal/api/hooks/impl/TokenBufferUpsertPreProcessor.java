@@ -2,7 +2,6 @@ package org.kinotic.persistence.internal.api.hooks.impl;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
-import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
@@ -21,11 +20,10 @@ import java.util.Map;
 public class TokenBufferUpsertPreProcessor extends AbstractJsonUpsertPreProcessor<TokenBuffer> {
 
 
-    public TokenBufferUpsertPreProcessor(PersistenceProperties persistenceProperties,
-                                         JsonMapper jsonMapper,
+    public TokenBufferUpsertPreProcessor(JsonMapper jsonMapper,
                                          EntityDescriptor entityDescriptor,
                                          Map<String, DecoratorLogic> fieldPreProcessors) {
-        super(persistenceProperties, jsonMapper, entityDescriptor, fieldPreProcessors);
+        super(jsonMapper, entityDescriptor, fieldPreProcessors);
     }
 
     @Override

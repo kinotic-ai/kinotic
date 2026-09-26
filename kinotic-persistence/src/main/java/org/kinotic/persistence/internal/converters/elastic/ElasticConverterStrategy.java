@@ -1,13 +1,11 @@
 package org.kinotic.persistence.internal.converters.elastic;
 
 import co.elastic.clients.elasticsearch._types.mapping.*;
-import lombok.RequiredArgsConstructor;
 import org.kinotic.idl.api.converter.C3ConversionContext;
 import org.kinotic.idl.api.converter.C3TypeConverter;
 import org.kinotic.idl.api.converter.C3TypeConverterContainer;
 import org.kinotic.idl.api.converter.IdlConverterStrategy;
 import org.kinotic.idl.api.schema.*;
-import org.kinotic.persistence.api.config.PersistenceProperties;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -18,7 +16,6 @@ import java.util.function.BiFunction;
  * Strategy for converting C3 types to ES properties
  * Created by Navíd Mitchell 🤪 on 4/28/23.
  */
-@RequiredArgsConstructor
 public class ElasticConverterStrategy implements IdlConverterStrategy<Property, ElasticConversionState> {
 
     private static final Property BOOL = BooleanProperty.of(f -> f)._toProperty();
@@ -58,7 +55,6 @@ public class ElasticConverterStrategy implements IdlConverterStrategy<Property, 
         = ShortNumberProperty.of(f -> f.index(false).docValues(dv -> dv.enabled(false)))._toProperty();
 
     private static final Set<C3TypeConverter<Property, ? extends C3Type, ElasticConversionState>> converters;
-    private final PersistenceProperties persistenceProperties;
 
     static {
         // Basic types
@@ -101,7 +97,7 @@ public class ElasticConverterStrategy implements IdlConverterStrategy<Property, 
 
     @Override
     public ElasticConversionState initialState() {
-        return new ElasticConversionState(this.persistenceProperties);
+        return new ElasticConversionState();
     }
 
     @Override

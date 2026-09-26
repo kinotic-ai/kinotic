@@ -58,6 +58,18 @@ public class DomainUtil {
      */
     public static final String APP_ZONE_PREFIX = "app";
 
+    /**
+     * The prefix of the Elasticsearch indices the platform creates, including the index that holds
+     * the items of each published EntityDefinition
+     */
+    public static final String INDEX_PREFIX = "kinotic_";
+
+    /**
+     * The document field that holds the tenant id of an entity whose multi-tenancy type is
+     * {@code SHARED} and that does not declare its own tenant id field
+     */
+    public static final String TENANT_ID_FIELD_NAME = "tenantId";
+
     // Organization ids beginning with this prefix belong to the platform, which needs an
     // organization wherever it is its own tenant — the owner of VM workloads the OS runs for
     // the OS, for instance

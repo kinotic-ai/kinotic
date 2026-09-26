@@ -45,7 +45,6 @@ public class EntityServiceCache {
     private final JsonMapper jsonMapper;
     private final ReadPreProcessor readPreProcessor;
     private final EntityDefinitionRepository entityDefinitionRepository;
-    private final PersistenceProperties persistenceProperties;
     private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
     private final AsyncLoadingCache<CacheKey, EntityService> cache;
 
@@ -66,7 +65,6 @@ public class EntityServiceCache {
         this.jsonMapper = jsonMapper;
         this.readPreProcessor = readPreProcessor;
         this.entityDefinitionRepository = entityDefinitionRepository;
-        this.persistenceProperties = persistenceProperties;
 
         this.upsertFieldPreProcessors = PersistenceUtil.listToMap(upsertFieldPreProcessors,
                                                                  p -> p.implementsDecorator().getName());
@@ -135,16 +133,14 @@ public class EntityServiceCache {
                                  .map(authService -> new DefaultEntityService(
                                          authService,
                                          crudServiceTemplate,
-                                         new DelegatingUpsertPreProcessor(persistenceProperties,
-                                                                          jsonMapper,
+                                         new DelegatingUpsertPreProcessor(jsonMapper,
                                                                           entityDescriptor,
                                                                           fieldPreProcessors),
                                          esAsyncClient,
                                          namedQueriesService,
                                          jsonMapper,
                                          readPreProcessor,
-                                         entityDescriptor,
-                                         persistenceProperties));
+                                         entityDescriptor));
     }
 
     private record CacheKey(String organizationId, String entityDefinitionId) {}

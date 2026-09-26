@@ -4,10 +4,10 @@ import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.*;
-import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -25,12 +25,6 @@ import java.util.function.Consumer;
 @Component
 public class ReadPreProcessor {
     private static final Logger log = LoggerFactory.getLogger(ReadPreProcessor.class);
-
-    private final PersistenceProperties persistenceProperties;
-
-    public ReadPreProcessor(PersistenceProperties persistenceProperties) {
-        this.persistenceProperties = persistenceProperties;
-    }
 
     public void beforeCount(EntityDescriptor entityDescriptor,
                             String query,
@@ -100,7 +94,7 @@ public class ReadPreProcessor {
             }else{
                 builder.routing(context.requireTenantId());
                 if(!entityDescriptor.isMultiTenantSelectionEnabled()) {
-                    builder.sourceExcludes(persistenceProperties.getTenantIdFieldName());
+                    builder.sourceExcludes(DomainUtil.TENANT_ID_FIELD_NAME);
                 }
             }
         }
@@ -117,7 +111,7 @@ public class ReadPreProcessor {
 
         if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED
             && !entityDescriptor.isMultiTenantSelectionEnabled()){
-            builder.sourceExcludes(persistenceProperties.getTenantIdFieldName());
+            builder.sourceExcludes(DomainUtil.TENANT_ID_FIELD_NAME);
         }
 
         if(context.hasIncludedFieldsFilter()){
@@ -165,7 +159,7 @@ public class ReadPreProcessor {
                 routingConsumer.accept(tenantId);
                 queryBuilder = new Query.Builder();
                 queryBuilder
-                        .bool(b -> b.filter(qb -> qb.term(tq -> tq.field(persistenceProperties.getTenantIdFieldName())
+                        .bool(b -> b.filter(qb -> qb.term(tq -> tq.field(DomainUtil.TENANT_ID_FIELD_NAME)
                                                                   .value(tenantId))));
             }
         }
@@ -203,7 +197,7 @@ public class ReadPreProcessor {
                     routingConsumer.accept(tenantId);
                     queryBuilder
                             .bool(b -> b.must(must -> must.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
-                                        .filter(qb -> qb.term(tq -> tq.field(persistenceProperties.getTenantIdFieldName())
+                                        .filter(qb -> qb.term(tq -> tq.field(DomainUtil.TENANT_ID_FIELD_NAME)
                                                                       .value(tenantId))));
                 }
             }else{
@@ -222,7 +216,7 @@ public class ReadPreProcessor {
             // If MultiTenancyType.SHARED exclude tenant id
 //            if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED) {
 //                // Currently this must not be done to support our multi tenancy paranoid check
-//                sf.excludes(persistenceProperties.getTenantIdFieldName());
+//                sf.excludes(DomainUtil.TENANT_ID_FIELD_NAME);
 //            }
             // Add source fields filter
             if(context.hasIncludedFieldsFilter()){
@@ -234,7 +228,7 @@ public class ReadPreProcessor {
                 }
                 // TODO: remove this when above is put back
                 if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED) {
-                    sf.includes(persistenceProperties.getTenantIdFieldName());
+                    sf.includes(DomainUtil.TENANT_ID_FIELD_NAME);
                 }
             }
             return sf;

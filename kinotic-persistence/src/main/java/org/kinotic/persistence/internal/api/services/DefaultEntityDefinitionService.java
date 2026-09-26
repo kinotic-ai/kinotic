@@ -90,7 +90,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             entityDefinition.setCreated(new Date());
             entityDefinition.setUpdated(entityDefinition.getCreated());
             // Store name of the elastic search index for items
-            entityDefinition.setItemIndex(this.persistenceProperties.getIndexPrefix() + logicalIndexName);
+            entityDefinition.setItemIndex(DomainUtil.INDEX_PREFIX + logicalIndexName);
 
             ElasticConversionResult result = entityDefinitionConversionService.convertToElasticMapping(entityDefinition);
 
@@ -269,11 +269,10 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     if (entityDefinition.isPublished()) {
                         if (!existingDescriptor.isMultiTenantSelectionEnabled()
                                 && descriptor.isMultiTenantSelectionEnabled()
-                                && !persistenceProperties.getTenantIdFieldName()
-                                                         .equals(entityDefinition.getTenantIdFieldName())) {
+                                && !DomainUtil.TENANT_ID_FIELD_NAME.equals(entityDefinition.getTenantIdFieldName())) {
                             return Future.failedFuture(
                                     new IllegalArgumentException(
-                                            "When enabling multi-tenant selection for an existing published EntityDefinition, the tenantId field must be set to: " + persistenceProperties.getTenantIdFieldName()));
+                                            "When enabling multi-tenant selection for an existing published EntityDefinition, the tenantId field must be set to: " + DomainUtil.TENANT_ID_FIELD_NAME));
                         }
 
                         if (!existingDescriptor.isStream() && descriptor.isStream()) {

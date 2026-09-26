@@ -105,8 +105,7 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
                 && state.getEntityDecorator().getMultiTenancyType() == MultiTenancyType.SHARED
                 && state.getTenantIdFieldName() == null){
 
-            builder.properties(state.getPersistenceProperties()
-                                    .getTenantIdFieldName(),
+            builder.properties(DomainUtil.TENANT_ID_FIELD_NAME,
                                KeywordProperty.of(f -> f)._toProperty());
 
         }

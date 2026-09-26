@@ -2,8 +2,8 @@ package org.kinotic.persistence.internal.api.hooks.impl;
 
 import io.vertx.core.Future;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
-import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
+import org.kinotic.domain.api.utils.DomainUtil;
 import tools.jackson.core.JsonEncoding;
 import tools.jackson.core.JsonGenerator;
 import tools.jackson.core.JsonParser;
@@ -35,15 +35,12 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
     /** Mapper with FAIL_ON_TRAILING_TOKENS disabled for stream reads (Jackson 3; not needed in Jackson 2). */
     protected final JsonMapper jsonMapper;
     protected final EntityDescriptor entityDescriptor;
-    protected final PersistenceProperties persistenceProperties;
     // Map of json path to decorator logic
     private final Map<String, DecoratorLogic> fieldPreProcessors;
 
-    public AbstractJsonUpsertPreProcessor(PersistenceProperties persistenceProperties,
-                                          JsonMapper jsonMapper,
+    public AbstractJsonUpsertPreProcessor(JsonMapper jsonMapper,
                                           EntityDescriptor entityDescriptor,
                                           Map<String, DecoratorLogic> fieldPreProcessors) {
-        this.persistenceProperties = persistenceProperties;
         // Jackson 3 fails on trailing tokens by default; we stream-parse and readValue() one field at a time,
         // leaving the parser on the next token (e.g. next property). Disable so partial reads succeed (Jackson 2 allowed this).
         this.jsonMapper = jsonMapper.rebuild()
@@ -176,8 +173,8 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                     }else{
                         // Check if this is the tenant id if MultiTenancyType.SHARED is enabled
                         if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED
-                                && !entityDescriptor.isMultiTenantSelectionEnabled() // just in case there is a field with the same name as the configured prop
-                                && currentJsonPath.equals(persistenceProperties.getTenantIdFieldName())){
+                                && !entityDescriptor.isMultiTenantSelectionEnabled() // just in case there is a field with the same name as TENANT_ID_FIELD_NAME
+                                && currentJsonPath.equals(DomainUtil.TENANT_ID_FIELD_NAME)){
 
                             // since the tenant id field is already present check its value to make sure it is null
                             // or matches the logged in tenant
@@ -216,7 +213,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED
                                 && currentTenantId == null){
                             currentTenantId = context.requireTenantId();
-                            jsonGenerator.writeStringProperty(persistenceProperties.getTenantIdFieldName(), currentTenantId);
+                            jsonGenerator.writeStringProperty(DomainUtil.TENANT_ID_FIELD_NAME, currentTenantId);
                         }
 
                         // This is the end of the object, so we store the object
