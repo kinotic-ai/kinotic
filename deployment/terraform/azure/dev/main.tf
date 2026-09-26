@@ -1,9 +1,9 @@
 # ── Developer UI publishing ───────────────────────────────────────────────────
-# What a kinotic-server running on a developer machine needs to publish UIs to a real
+# What the system server running on a developer machine needs to publish UIs to a real
 # subscription: the dev-environment module (a resource group, the Front Door profile and
 # endpoint under apps-<environment>.<zone>, the sites storage account and key vault, and a
-# service principal with the roles the server needs), plus the three lines in .env.local that
-# make the server on this machine run as that principal.
+# service principal with the roles the servers need), plus the three lines in .env.local that
+# make the servers on this machine run as that principal.
 #
 # State is kept locally, next to this file, because the root is per developer: each
 # developer picks an `environment` of their own and owns what it creates.
@@ -220,12 +220,12 @@ output "sites_domain" {
 }
 
 output "server_client_id" {
-  description = "The service principal kinotic-server runs as; its credentials are in .env.local at the repository root"
+  description = "The service principal the servers on a developer machine run as; its credentials are in .env.local at the repository root"
   value       = module.environment.server_client_id
 }
 
 output "application_local_yml" {
-  description = "The `local` profile kinotic-server runs with: write it to kinotic-server/src/main/resources/application-local.yml"
+  description = "The `local` profile kinotic-system-server runs with: write it to kinotic-system-server/src/main/resources/application-local.yml"
   value       = <<-EOT
     kinotic:
       systemApi:
