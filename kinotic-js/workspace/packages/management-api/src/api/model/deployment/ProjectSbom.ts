@@ -27,11 +27,6 @@ export class ProjectSbom {
     public dependencyHash!: string
 
     /**
-     * How many components the document lists.
-     */
-    public componentCount!: number
-
-    /**
      * When the document was generated.
      */
     public generated!: number

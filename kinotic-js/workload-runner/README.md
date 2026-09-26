@@ -104,18 +104,15 @@ nothing of its own: a CycloneDX 1.6 JSON document of every package `bun.lock` re
 integrity hash, and with its license looked up in the npm registry (`FETCH_LICENSE`). The
 document goes up into the project's directory of the organization storage account as
 `KINOTIC_SBOM_FILE`, stamped with the commit, through a URL whose SAS is scoped to that
-directory; then the run records it through `ProjectArtifactService.recordSbom`, authenticated
-as the project's sync machine, and only then deletes the files other commits left in the
-directory, so a run whose record fails leaves the SBOM the server knows of readable.
+directory, the workload's only credential; then the run deletes the files other commits left in
+the directory. The server records the SBOM once the workload has exited 0.
 
 | Variable | Meaning | Default |
 |---|---|---|
 | `KINOTIC_SBOM_UPLOAD_URL` | the project's SBOM directory in the organization storage account, with a SAS for that directory as its query | required |
 | `KINOTIC_SBOM_FILE` | the name the document is uploaded under | required |
 | `KINOTIC_SBOM_COMMIT` | the commit the checkout holds | required |
-| `KINOTIC_PROJECT_ID` | the project the checkout belongs to | required |
 | `KINOTIC_WORKSPACE_DIR` | the checkout | `/workspace` |
-| `KINOTIC_SERVER_HOST/PORT/USE_SSL`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET`, `KINOTIC_ORGANIZATION_ID` | the server and the sync machine identity the SBOM is recorded as | required |
 
 cdxgen's optional dependencies, analysis plugins for other languages that run to hundreds of
 megabytes, are left out of every install of this package by `bunfig.toml`.

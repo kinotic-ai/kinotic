@@ -4,9 +4,9 @@ import type { ProjectArtifacts } from '@/api/model/deployment/ProjectArtifacts'
 
 /**
  * Records the artifacts a project's deployment workloads find, on the project's
- * ProjectDeployment, and the project's ProjectSbom. Every call is authorized against the machine
- * identities the deployment recorded for the project, so only a workload the deployment issued
- * credentials to can report on the project's behalf.
+ * ProjectDeployment. Every call is authorized against the machine identities the deployment
+ * recorded for the project, so only a workload the deployment issued credentials to can
+ * report on the project's behalf.
  */
 export interface IProjectArtifactService {
 
@@ -22,19 +22,6 @@ export interface IProjectArtifactService {
      */
     recordArtifacts(projectId: string, commitSha: string, artifacts: ProjectArtifacts): Promise<void>
 
-    /**
-     * Records the SBOM the SBOM workload generated from the checkout of the given commit and
-     * uploaded to the organization's storage, replacing the project's earlier SBOM. The caller
-     * must be the project's sync machine identity, and the commit the one the sync workload last
-     * reported artifacts for.
-     * @param projectId the project whose checkout the SBOM was generated from
-     * @param commitSha full 40-character SHA of the checked-out commit
-     * @param dependencyHash the fingerprint of the dependencies the document lists
-     * @param componentCount how many components the document lists
-     * @return Promise resolving once the SBOM is recorded
-     */
-    recordSbom(projectId: string, commitSha: string, dependencyHash: string, componentCount: number): Promise<void>
-
 }
 
 export class ProjectArtifactService implements IProjectArtifactService {
@@ -47,10 +34,6 @@ export class ProjectArtifactService implements IProjectArtifactService {
 
     public recordArtifacts(projectId: string, commitSha: string, artifacts: ProjectArtifacts): Promise<void> {
         return this.serviceProxy.invoke('recordArtifacts', [projectId, commitSha, artifacts])
-    }
-
-    public recordSbom(projectId: string, commitSha: string, dependencyHash: string, componentCount: number): Promise<void> {
-        return this.serviceProxy.invoke('recordSbom', [projectId, commitSha, dependencyHash, componentCount])
     }
 
 }

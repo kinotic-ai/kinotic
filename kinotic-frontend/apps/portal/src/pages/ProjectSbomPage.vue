@@ -23,7 +23,7 @@
           Generated from <span class="font-mono" :title="sbom.commitSha">{{ shortSha(sbom.commitSha) }}</span>
         </span>
         <span class="text-xs text-muted-color">{{ DatetimeUtil.formatRelativeDate(sbom.generated) }}</span>
-        <span class="text-sm text-muted-color">{{ sbom.componentCount }} components</span>
+        <span v-if="documentText" class="text-sm text-muted-color">{{ components.length }} components</span>
       </div>
 
       <div class="mb-3 flex flex-wrap items-center gap-3">

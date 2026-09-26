@@ -266,7 +266,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                                 .compose(v -> stop(current.getUiPublishWorkloadId()))
                                 .compose(v -> stop(current.getSbomWorkloadId()))
                                 .compose(v -> removeMachine(current.getSyncMachineIdentityId()))
-                                // the machine the SBOM workload records as is gone, so no SBOM is recorded after this
+                                // after the SBOM workload is stopped, so a run still in its SBOM step fails instead of recording one
                                 .compose(v -> projectSbomRepository.deleteByIdSync(projectId, current.getOrganizationId()))
                                 .compose(v -> projectDeploymentRepository.deleteByIdSync(projectId, current.getOrganizationId()))
                                 .map(Requeue.NONE);

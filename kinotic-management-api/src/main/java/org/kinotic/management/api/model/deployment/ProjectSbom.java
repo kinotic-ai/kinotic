@@ -43,11 +43,6 @@ public class ProjectSbom implements ApplicationScoped<String> {
     private String dependencyHash;
 
     /**
-     * How many components the document lists.
-     */
-    private int componentCount;
-
-    /**
      * When the document was generated.
      */
     private Date generated;
