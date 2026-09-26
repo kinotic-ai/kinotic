@@ -1,5 +1,6 @@
 package org.kinotic.persistence.api.model;
 
+import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 
 import java.util.List;
@@ -49,7 +50,7 @@ public interface EntityContext {
     /**
      * The tenant slice of an Application's end-user data this operation is confined to, or null
      * when the participant carries no tenant. An {@link EntityDefinition} whose
-     * {@link org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType} is
+     * {@link org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType} is
      * {@code SHARED} requires one.
      *
      * @return the tenant this operation is confined to, or null
@@ -59,7 +60,7 @@ public interface EntityContext {
     /**
      * The tenant this operation is confined to, for an operation that cannot be carried out
      * without one — every read and write of an {@link EntityDefinition} whose
-     * {@link org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType} is
+     * {@link org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType} is
      * {@code SHARED}.
      *
      * @return the tenant this operation is confined to; never null

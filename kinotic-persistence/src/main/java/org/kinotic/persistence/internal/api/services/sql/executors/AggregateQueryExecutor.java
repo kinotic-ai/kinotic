@@ -5,8 +5,8 @@ import java.util.List;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.model.EntityDescriptor;
-import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
+import org.kinotic.domain.api.model.persistence.EntityDescriptor;
+import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.persistence.internal.api.services.sql.elasticsearch.ElasticVertxClient;
 

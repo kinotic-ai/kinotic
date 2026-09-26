@@ -5,7 +5,7 @@ import lombok.EqualsAndHashCode;
 
 import java.time.Instant;
 
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.springframework.context.ApplicationEvent;
 
 /**

@@ -12,12 +12,12 @@ import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.IntC3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
-import org.kinotic.persistence.api.model.EntityDefinition;
-import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
-import org.kinotic.persistence.api.model.idl.decorators.*;
+import org.kinotic.domain.api.model.persistence.EntityDefinition;
+import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
+import org.kinotic.domain.api.model.persistence.idl.decorators.*;
 import org.kinotic.persistence.api.services.EntityDefinitionService;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
-import org.kinotic.persistence.internal.utils.PersistenceUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
@@ -97,9 +97,9 @@ public class TestDataService {
      * @return a {@link Future} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
      */
     public Future<Pair<EntityDefinition, Boolean>> createCarEntityDefinitionIfNotExists(String structureNameSuffix){
-        String structureId = PersistenceUtil.createEntityDefinitionId(SAMPLE_ORG_ID,
-                                                                      SAMPLE_APP_ID,
-                                                                      "Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
+        String structureId = DomainUtil.createEntityDefinitionId(SAMPLE_ORG_ID,
+                                                                 SAMPLE_APP_ID,
+                                                                 "Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return entityDefinitionService.findById(structureId)
                                       .compose(structure -> {
                                    Future<Pair<EntityDefinition, Boolean>> ret;
@@ -185,9 +185,9 @@ public class TestDataService {
      * @return a {@link Future} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
      */
     public Future<Pair<EntityDefinition, Boolean>> createPersonEntityDefinitionIfNotExists(String structureNameSuffix){
-        String structureId = PersistenceUtil.createEntityDefinitionId(SAMPLE_ORG_ID,
-                                                                      SAMPLE_APP_ID,
-                                                                      "Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
+        String structureId = DomainUtil.createEntityDefinitionId(SAMPLE_ORG_ID,
+                                                                 SAMPLE_APP_ID,
+                                                                 "Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return entityDefinitionService.findById(structureId)
                                       .compose(structure -> {
                                    Future<Pair<EntityDefinition, Boolean>> ret;

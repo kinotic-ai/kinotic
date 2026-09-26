@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.api.services;
 
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.domain.api.model.persistence.EntityDefinition;
 
 /**
  * Handles converting {@link EntityDefinition}s to various mappings. Such as ElasticSearch.

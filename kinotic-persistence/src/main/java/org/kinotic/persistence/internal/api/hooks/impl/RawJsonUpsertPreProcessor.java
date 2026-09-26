@@ -7,7 +7,7 @@ import tools.jackson.databind.json.JsonMapper;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.persistence.api.model.EntityDescriptor;
+import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
 

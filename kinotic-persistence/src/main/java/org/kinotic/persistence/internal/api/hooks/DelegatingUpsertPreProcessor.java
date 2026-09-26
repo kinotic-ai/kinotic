@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.api.hooks;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.model.EntityDescriptor;
+import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
 import org.kinotic.persistence.api.model.EntityContext;

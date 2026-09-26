@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     implementation project(':kinotic-core')
+    implementation project(':kinotic-idl')
 
     implementation 'com.azure:azure-communication-email'
     implementation 'com.azure:azure-identity'

@@ -4,7 +4,7 @@ import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.internal.api.repositories.AbstractProjectScopedRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.persistence.api.model.NamedQueriesDefinition;
+import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
 import org.springframework.stereotype.Component;
 
 @Component

@@ -6,7 +6,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.services.ProjectScopedCrudService;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.domain.api.model.persistence.EntityDefinition;
 
 /**
  * Public service for managing {@link EntityDefinition} lifecycle: creation, publication,
