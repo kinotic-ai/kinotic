@@ -16,6 +16,7 @@ import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.event.ZonePartition;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
@@ -255,7 +256,7 @@ public class RpcLivenessTests {
                 .setDiscoverySpi(new TcpDiscoverySpi().setIpFinder(new TcpDiscoveryVmIpFinder().setAddresses(List.of("127.0.0.1:47500..47509"))))
                 .setCommunicationSpi(new TcpCommunicationSpi());
         secondIgnite = Ignition.start(configuration);
-        KinoticIgniteClusterManager clusterManager = new KinoticIgniteClusterManager(secondIgnite);
+        KinoticIgniteClusterManager clusterManager = new KinoticIgniteClusterManager(secondIgnite, ZonePartition.everyZone("rpc-liveness-second-node"));
         secondVertx = Vertx.builder()
                            .withClusterManager(clusterManager)
                            .buildClustered()

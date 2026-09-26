@@ -13,6 +13,7 @@ import io.vertx.micrometer.MicrometerMetricsOptions;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
+import org.kinotic.core.api.event.ZonePartition;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.api.event.EventMessageCodec;
 import org.kinotic.core.internal.KinoticIgniteClusterManager;
@@ -31,11 +32,11 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class KinoticVertxConfig {
 
     @Bean
-    public KinoticIgniteClusterManager clusterManager(Ignite ignite){
+    public KinoticIgniteClusterManager clusterManager(Ignite ignite, ZonePartition zonePartition){
         // make sure clustering is enabled
         System.setProperty("vertx.clustered","true");
 
-        return new KinoticIgniteClusterManager(ignite);
+        return new KinoticIgniteClusterManager(ignite, zonePartition);
     }
 
     @Bean
