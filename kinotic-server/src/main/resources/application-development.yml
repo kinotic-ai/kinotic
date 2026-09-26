@@ -91,13 +91,3 @@ logging:
       kinotic: TRACE
       # Logs every classpath resource it scans at TRACE, which drowns the rest of the log
       kinotic.core.internal.utils.ClassPathScanningMetadataReaderProvider: DEBUG
-
-spring:
-  ai:
-    openai:
-      api-key: "noop"
-      base-url: https://api.x.ai
-      chat:
-        options:
-          model: grok-4
-

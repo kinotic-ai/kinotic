@@ -7,7 +7,6 @@ import { UiDeploymentService, type IUiDeploymentService } from '@/api/services/d
 import { EntityDefinitionService, type IEntityDefinitionService } from '@/api/services/IEntityDefinitionService'
 import {type INamedQueriesDefinitionService, NamedQueriesDefinitionService} from '@/api/services/INamedQueriesDefinitionService'
 import { MigrationService, type IMigrationService } from '@/api/services/IMigrationService'
-import { DataInsightsService, type IDataInsightsService } from '@/api/services/IDataInsightsService'
 import { LogService, type ILogService } from '@/api/services/telemetry/ILogService'
 import { TelemetryService, type ITelemetryService } from '@/api/services/telemetry/ITelemetryService'
 import { MemberService, type IMemberService } from '@/api/services/security/IMemberService'
@@ -28,7 +27,6 @@ export interface IManagementApiExtension {
     entityDefinitions: IEntityDefinitionService
     namedQueriesDefinitions: INamedQueriesDefinitionService
     migrations: IMigrationService
-    dataInsights: IDataInsightsService
     jobMonitoring: IJobMonitoringService
     logs: ILogService
     telemetry: ITelemetryService
@@ -52,7 +50,6 @@ export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
             entityDefinitions: new EntityDefinitionService(kinotic),
             namedQueriesDefinitions: new NamedQueriesDefinitionService(kinotic),
             migrations: new MigrationService(kinotic),
-            dataInsights: new DataInsightsService(kinotic),
             jobMonitoring: new JobMonitoringService(kinotic),
             logs: new LogService(kinotic),
             telemetry: new TelemetryService(kinotic),
