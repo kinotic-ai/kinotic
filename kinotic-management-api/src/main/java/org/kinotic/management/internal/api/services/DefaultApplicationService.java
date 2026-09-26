@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.api.model.AppHost;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
@@ -98,6 +99,10 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
         }
         // Validate only; re-minting an update's id would silently write a new document
         DomainUtil.validateApplicationId(entity.getId());
+        AppHost appHost = new AppHost(requireOrganizationId(), entity.getId());
+        Validate.isTrue(appHost.label().length() <= AppHost.MAX_LABEL_LENGTH,
+                        "The application's host label '%s' is longer than %d characters; shorten the application name",
+                        appHost.label(), AppHost.MAX_LABEL_LENGTH);
         entity.setUpdated(new Date());
         return Future.succeededFuture();
     }

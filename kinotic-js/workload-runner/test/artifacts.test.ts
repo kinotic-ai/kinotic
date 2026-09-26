@@ -62,6 +62,12 @@ describe('findArtifacts', () => {
         expect(() => findArtifacts(workspaceDir)).toThrow(/packages\/ui\/admin.*@acme\/Admin_UI/)
     })
 
+    it('fails naming a UI package whose name holds the host label separator', () => {
+        write({ 'packages/ui/admin/package.json': '{"name": "@acme/admin--v2", "scripts": {"build": "vite build"}}' })
+
+        expect(() => findArtifacts(workspaceDir)).toThrow(/packages\/ui\/admin.*admin--v2/)
+    })
+
     it('fails naming a package without a name', () => {
         write({ 'packages/microservices/orders/package.json': '{"version": "1.0.0"}' })
 
