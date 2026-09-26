@@ -5,7 +5,7 @@ import type {ToastServiceMethods} from "primevue/toastservice";
  * The gateway overrides the VITE_KINOTIC_HOST/PORT/USE_SSL build vars declare, for both the
  * STOMP connect and REST URLs. With no VITE_KINOTIC_HOST the object is empty and core's own
  * resolution applies — the page's location, so a same-origin deployment (SPA served from
- * kinotic-server's webroot) and vite's dev proxy both work untouched.
+ * the org server's webroot) and vite's dev proxy both work untouched.
  */
 export function serverOverrides(): Partial<ServerInfo> {
     const host = import.meta.env.VITE_KINOTIC_HOST
@@ -20,7 +20,7 @@ export function serverOverrides(): Partial<ServerInfo> {
 }
 
 /**
- * Builds the absolute URL for a kinotic-server REST endpoint from the same overrides the
+ * Builds the absolute URL for a server's REST endpoint from the same overrides the
  * STOMP connect uses. Returns the path unchanged when no host override is set so vite's dev
  * proxy handles it (and so a same-origin production deployment still works).
  */

@@ -1,7 +1,7 @@
 # Environment Variable Setup Guide
 
 `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT`, and `VITE_KINOTIC_USE_SSL` point the SPA at
-kinotic-server. Both the REST calls (`apiUrl()`) and the STOMP connect (`serverOverrides()`)
+the org server. Both the REST calls (`apiUrl()`) and the STOMP connect (`serverOverrides()`)
 read them, in `packages/common/src/util/helpers.ts`. An empty host resolves same-origin,
 which is what the vite dev proxy and the gateway-served production build both need.
 

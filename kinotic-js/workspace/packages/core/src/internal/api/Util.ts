@@ -5,7 +5,7 @@ import {ChainedCredentialsResolver} from '@/api/security/ChainedCredentialsResol
 import {EnvCredentialsResolver} from '@/api/security/EnvCredentialsResolver'
 import {SessionCredentialsResolver} from '@/api/security/SessionCredentialsResolver'
 
-/** The port a kinotic-server listens on when running without TLS termination in front. */
+/** The port the org server listens on when running without TLS termination in front. */
 const DEFAULT_PORT = 58503
 
 /** Where a fully unconfigured client connects: the Kinotic cloud. */

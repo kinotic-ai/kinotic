@@ -1,6 +1,6 @@
-# The development server: kinotic-server as a container on one Proxmox host beside three
-# Elasticsearch nodes and the observability stack (deployment/terraform/proxmox), with Front
-# Door, the sites storage account, email, and a Key Vault in Azure
+# The development server's org server: kinotic-org-server as a container on one Proxmox host
+# beside three Elasticsearch nodes and the observability stack (deployment/terraform/proxmox),
+# with Front Door, the sites storage account, email, and a Key Vault in Azure
 # (deployment/terraform/azure/dev-server). Activated as `production,dev-server`. Holds what is
 # fixed for this shape of deployment; everything that differs per server — hostnames,
 # endpoints, addresses — arrives through the environment the terraform root composes, and
@@ -19,8 +19,8 @@ kinotic:
       numberOfShards: 1
       numberOfReplicas: 1
   apiGateway:
-    # The portal and the system console are served by Front Door from the sites account, so
-    # the server exposes the API port alone
+    # The portal is served by Front Door from the sites account, so the server exposes the API
+    # port alone
     webServer:
       enabled: false
     ssl:
@@ -30,8 +30,8 @@ kinotic:
       certPath: /etc/kinotic/certs/fullchain.pem
       keyPath: /etc/kinotic/certs/privkey.pem
     cors:
-      # The portal, the system console, and the UIs published under the sites domain
-      allowedOriginPattern: "https:\\/\\/${DEV_SERVER_PORTAL_HOSTNAME}|https:\\/\\/${DEV_SERVER_CONSOLE_HOSTNAME}|https:\\/\\/[a-z0-9-]+\\.${KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN}"
+      # The portal alone
+      allowedOriginPattern: "https:\\/\\/${DEV_SERVER_PORTAL_HOSTNAME}"
       allowCredentials: true
   platformSecrets:
     # Generated once when the server is built (generate-secrets.sh in deployment/terraform/proxmox),
@@ -44,20 +44,3 @@ kinotic:
       # dev-server terraform root creates keeps them, and keeps them in Azure for migration.
       # The master key SecretNameDeriver derives storage names with comes from secrets.yml.
       backend: AZURE
-  systemApi:
-    uiDeployment:
-      disableProvisioner: false
-    deployment:
-      # the servers' hosts and ports arrive through the environment: each address is the
-      # server's own, and the port is whatever the router forwards
-      orgServer:
-        useSsl: true
-      appServer:
-        useSsl: true
-      # Destinations beyond the gateway a sync workload may reach, by name: the node's resolver
-      # admits exactly the addresses it answers for each, so the npm registry's anycast and
-      # GitHub's moving ranges need no CIDRs. The sync workload fetches from GitHub and runs
-      # bun install.
-      syncAllowedHosts:
-        - github.com
-        - registry.npmjs.org

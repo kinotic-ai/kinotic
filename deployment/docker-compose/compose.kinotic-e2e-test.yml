@@ -35,7 +35,8 @@ x-kinotic-server-e2e-environment: &kinotic-server-e2e-environment
   KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST: localhost
   KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST: localhost
   # KinoticJwtIssuer signs every access token with these keys. DevPlatformSecretsGenerator seeds
-  # them under the `development` profile, which e2e drops, so mount the dummy set below; without
+  # them when the `development` profile sets kinotic.platformSecrets.generateMissing, and e2e drops
+  # that profile, so mount the dummy set below; without
   # it the OAuth token endpoints cannot mint a token.
   KINOTIC_PLATFORMSECRETS_JWTSIGNINGKEYSPATH: /platform-secrets/jwt-signing-keys
   # The nodes find each other over this static address list, so the two of them form one Ignite
