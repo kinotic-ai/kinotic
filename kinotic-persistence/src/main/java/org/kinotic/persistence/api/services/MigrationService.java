@@ -1,8 +1,8 @@
 package org.kinotic.persistence.api.services;
 
 import io.vertx.core.Future;
-import org.kinotic.domain.api.model.persistence.MigrationRequest;
-import org.kinotic.domain.api.model.persistence.MigrationResult;
+import org.kinotic.persistence.api.model.MigrationRequest;
+import org.kinotic.persistence.api.model.MigrationResult;
 import org.kinotic.core.api.annotations.Publish;
 
 /**

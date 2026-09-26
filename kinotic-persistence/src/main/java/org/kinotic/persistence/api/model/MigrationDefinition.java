@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.persistence;
+package org.kinotic.persistence.api.model;
 
 /**
  * Represents a migration definition that can be sent via the API.

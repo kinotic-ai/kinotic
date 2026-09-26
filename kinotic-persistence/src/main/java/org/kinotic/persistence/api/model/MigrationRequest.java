@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.persistence;
+package org.kinotic.persistence.api.model;
 
 import java.util.List;
 

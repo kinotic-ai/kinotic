@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.core.api.exceptions.AuthorizationException;
+import org.kinotic.persistence.api.model.*;
 import org.kinotic.domain.api.model.persistence.*;
 import org.kinotic.domain.api.model.persistence.idl.decorators.EntityServiceDecoratorsConfig;
 import org.kinotic.domain.api.model.persistence.idl.decorators.EntityServiceDecoratorsDecorator;

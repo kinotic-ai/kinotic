@@ -7,7 +7,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.domain.api.model.persistence.EntityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.persistence.api.model.ParameterHolder;

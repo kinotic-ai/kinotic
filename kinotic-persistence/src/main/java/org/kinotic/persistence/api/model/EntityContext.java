@@ -1,5 +1,6 @@
-package org.kinotic.domain.api.model.persistence;
+package org.kinotic.persistence.api.model;
 
+import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 
 import java.util.List;

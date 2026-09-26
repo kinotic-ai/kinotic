@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.hooks;
 
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
-import org.kinotic.domain.api.model.persistence.EntityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 
 /**
  * {@link UpsertFieldPreProcessor} is used to modify the value of a field before it is upserted into the database.

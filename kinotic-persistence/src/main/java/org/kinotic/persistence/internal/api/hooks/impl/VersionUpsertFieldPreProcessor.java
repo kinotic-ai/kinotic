@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.api.hooks.impl;
 
-import org.kinotic.domain.api.model.persistence.EntityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.persistence.idl.decorators.VersionDecorator;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.UpsertPreProcessor;

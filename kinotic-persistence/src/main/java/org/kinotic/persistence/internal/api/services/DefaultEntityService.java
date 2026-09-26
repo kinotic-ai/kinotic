@@ -26,7 +26,7 @@ import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
-import org.kinotic.domain.api.utils.PersistenceUtil;
+import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.core.JacksonException;

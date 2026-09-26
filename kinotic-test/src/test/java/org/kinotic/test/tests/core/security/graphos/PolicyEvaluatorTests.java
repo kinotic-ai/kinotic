@@ -3,7 +3,7 @@ package org.kinotic.test.tests.core.security.graphos;
 import io.vertx.core.Future;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.kinotic.domain.api.model.persistence.EntityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.internal.api.services.security.graphos.*;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizationRequest;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizer;

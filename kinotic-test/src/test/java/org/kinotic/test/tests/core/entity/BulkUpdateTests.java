@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.persistence.EntityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;

@@ -11,7 +11,7 @@ import tools.jackson.core.JsonToken;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.core.util.ByteArrayBuilder;
 import tools.jackson.databind.json.JsonMapper;
-import org.kinotic.domain.api.model.persistence.EntityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.*;

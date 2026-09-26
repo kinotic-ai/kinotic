@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.hooks;
 
 import io.vertx.core.Future;
-import org.kinotic.domain.api.model.persistence.EntityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
 
 import java.util.List;

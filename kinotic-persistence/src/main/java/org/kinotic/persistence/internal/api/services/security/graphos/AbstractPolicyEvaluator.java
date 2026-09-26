@@ -2,7 +2,7 @@ package org.kinotic.persistence.internal.api.services.security.graphos;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
-import org.kinotic.domain.api.model.persistence.EntityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizationRequest;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizer;
 

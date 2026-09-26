@@ -3,7 +3,7 @@ package org.kinotic.persistence.api.services.security.graphos;
 import io.vertx.core.Future;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.domain.api.model.persistence.EntityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.NamedQueryOperation;
 import org.kinotic.domain.api.model.persistence.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.security.AuthorizationService;

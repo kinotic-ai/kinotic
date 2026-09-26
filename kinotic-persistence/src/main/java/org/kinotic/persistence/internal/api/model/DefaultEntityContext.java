@@ -6,7 +6,7 @@ import lombok.experimental.Accessors;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
-import org.kinotic.domain.api.model.persistence.EntityContext;
+import org.kinotic.persistence.api.model.EntityContext;
 
 import java.util.List;
 
