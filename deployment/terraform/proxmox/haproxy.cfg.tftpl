@@ -1,0 +1,35 @@
+# The edge: takes the router's forwarded port and passes each TLS connection, unopened, to the
+# server whose hostname its SNI carries. Every server terminates TLS itself, with a certificate
+# for its own names.
+global
+    log stdout format raw local0
+
+defaults
+    mode tcp
+    log global
+    option tcplog
+    timeout connect 5s
+    # STOMP and MCP connections are long-lived; STOMP heartbeats keep them active
+    timeout client 1h
+    timeout server 1h
+
+frontend tls
+    bind :${port}
+    # The ClientHello carries the SNI; a connection that sends none, or names no server, is closed
+    tcp-request inspect-delay 5s
+    tcp-request content accept if { req.ssl_hello_type 1 }
+    tcp-request content reject
+%{ for name, server in servers ~}
+%{ for hostname in server.hostnames ~}
+%{ if startswith(hostname, "*.") ~}
+    use_backend ${name} if { req.ssl_sni -i -m end ${trimprefix(hostname, "*")} }
+%{ else ~}
+    use_backend ${name} if { req.ssl_sni -i ${hostname} }
+%{ endif ~}
+%{ endfor ~}
+%{ endfor ~}
+%{ for name, server in servers ~}
+
+backend ${name}
+    server ${name} ${server.private_ip}:${server.port}
+%{ endfor ~}

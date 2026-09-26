@@ -20,8 +20,8 @@ kinotic:
       numberOfReplicas: 1
   apiGateway:
     ssl:
-      # certbot's certificate for the API's hostname, mounted from the host; Vert.x terminates
-      # TLS and there is no reverse proxy
+      # certbot's certificate for the system server's hostname, mounted from the host; Vert.x
+      # terminates TLS, and the edge passes each connection through unopened
       enabled: true
       certPath: /etc/kinotic/certs/fullchain.pem
       keyPath: /etc/kinotic/certs/privkey.pem
@@ -44,8 +44,8 @@ kinotic:
     uiDeployment:
       disableProvisioner: false
     deployment:
-      # the servers' hosts and ports arrive through the environment: each address is the
-      # server's own, and the port is whatever the router forwards
+      # the servers' hostnames and ports arrive through the environment: each is the name the
+      # server's certificate carries, at the port the edge serves every name on
       orgServer:
         useSsl: true
       appServer:
