@@ -285,7 +285,7 @@ export function createTestAlert(options: Partial<Alert> & { index?: number } = {
     ret.message = options.message ?? faker.lorem.sentence()
     ret.severity = options.severity ?? (index % 3 === 0 ? 'LOW' : index % 3 === 1 ? 'MEDIUM' : 'HIGH')
     ret.source = options.source ?? faker.internet.domainName()
-    ret.timestamp = options.timestamp ?? new Date(Date.now() - (index * 1000))
+    ret.timestamp = options.timestamp ?? new Date(Date.now() - (index * 1000)).toISOString()
     ret.active = options.active ?? (index % 2 === 0)
     return ret
 }

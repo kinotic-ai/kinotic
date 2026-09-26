@@ -96,11 +96,41 @@ export class TodoRepository extends BaseTodoRepository {
 }
 `
 
+const DATE_TIME_ENTITY_SOURCE = `import {DateTime, Entity, Id} from '@kinotic-ai/persistence'
+
+export class Step {
+    @DateTime
+    public at!: string
+}
+
+@Entity()
+export class Todo {
+    @Id()
+    public id!: string
+    @DateTime
+    public due!: string
+    @DateTime
+    public completed: string | null = null
+    @DateTime
+    public reminded?: string
+    @DateTime
+    public reminders: string[] = []
+    @DateTime
+    public holidays: readonly string[] = []
+    public steps: Step[] = []
+}
+`
+
+const DATE_TIME_ON_NUMBER_ENTITY_SOURCE = DATE_TIME_ENTITY_SOURCE.replace('public due!: string', 'public due!: number')
+
+const DATE_TYPED_ENTITY_SOURCE = ENTITY_SOURCE.replace('public title!: string', 'public due: Date | null = null')
+
 describe('EntityCodeGenerationService', () => {
 
     const projectConfig = new KinoticProjectConfig()
     let projectDir: string
     let originalCwd: string
+    let logged: string[]
 
     // The service resolves the entities path, the tsconfig and .config against the working
     // directory, so each test runs from inside a throwaway project rather than the repo.
@@ -115,16 +145,19 @@ describe('EntityCodeGenerationService', () => {
         fs.symlinkSync(fileURLToPath(new URL('../../node_modules', import.meta.url)), path.join(projectDir, 'node_modules'))
         // No "files"/"include" on purpose: generation reads compilerOptions from the
         // tsconfig but must discover entities from entitiesPaths alone.
+        // strict keeps nullable property types as unions, as they are in a real project.
         fs.writeFileSync(path.join(projectDir, 'tsconfig.json'), JSON.stringify({
             compilerOptions: {
                 target: 'esnext',
                 module: 'ES2020',
                 moduleResolution: 'bundler',
                 experimentalDecorators: true,
-                skipLibCheck: true
+                skipLibCheck: true,
+                strict: true
             },
             files: []
         }))
+        logged = []
 
         projectConfig.applicationId = 'my.app'
         projectConfig.organizationId = 'acme'
@@ -146,9 +179,14 @@ describe('EntityCodeGenerationService', () => {
 
     // A fresh service per call, matching the one-generation-per-process lifecycle of `kinotic gen`.
     async function generate(): Promise<void> {
+        // Conversion errors are reported through the logger, so the tests read them from there
+        const logger = new ConsoleLogger()
+        logger.log = (message?: string) => {
+            logged.push(message ?? '')
+        }
         const service = new EntityCodeGenerationService(projectConfig.applicationId,
                                                         projectConfig.fileExtensionForImports,
-                                                        new ConsoleLogger())
+                                                        logger)
         await service.generateAllEntities(projectConfig, false, undefined, true)
     }
 
@@ -255,6 +293,36 @@ describe('EntityCodeGenerationService', () => {
 
         expect(await generateError())
             .to.equal('TodoRepository.countByTitle cannot declare a TenantSelection parameter, declare the query on the AdminRepository')
+    })
+
+    it('maps @DateTime string properties to date, in arrays and nested objects too', async () => {
+        fs.writeFileSync(path.join(projectDir, 'src/model/Todo.ts'), DATE_TIME_ENTITY_SOURCE)
+        await generate()
+
+        const entity = JSON.parse(readIfExists('.config/c3/entities/my.app.Todo.json') as string)
+        const types = Object.fromEntries(entity.properties.map((p: {name: string, type: unknown}) => [p.name, p.type]))
+        expect(types.due).to.deep.equal({type: 'date'})
+        expect(types.completed).to.deep.equal({type: 'date'})
+        expect(types.reminded).to.deep.equal({type: 'date'})
+        expect(types.reminders).to.deep.equal({type: 'array', contains: {type: 'date'}})
+        expect(types.holidays).to.deep.equal({type: 'array', contains: {type: 'date'}})
+        expect(types.steps.contains.properties).to.deep.equal([{name: 'at', type: {type: 'date'}}])
+    })
+
+    it('fails a property typed Date and logs how to declare it', async () => {
+        fs.writeFileSync(path.join(projectDir, 'src/model/Todo.ts'), DATE_TYPED_ENTITY_SOURCE)
+
+        expect(await generateError()).to.equal('Could not convert Todo to a C3Type')
+        expect(logged.join('\n')).to.contain('The Date type is not supported')
+                                 .and.to.contain('decorated with @DateTime')
+                                 .and.to.contain('JsonPath: due')
+    })
+
+    it('fails @DateTime on a property that is not a string', async () => {
+        fs.writeFileSync(path.join(projectDir, 'src/model/Todo.ts'), DATE_TIME_ON_NUMBER_ENTITY_SOURCE)
+
+        expect(await generateError()).to.equal('Could not convert Todo to a C3Type')
+        expect(logged.join('\n')).to.contain('@DateTime requires a string or string array property, but due is number')
     })
 
 })
