@@ -101,12 +101,13 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
     }
 
     @Override
-    public Future<Void> approve(String userCode, String identityId) {
+    public Future<Void> approve(String issuer, String userCode, String identityId) {
+        Validate.notBlank(issuer, "issuer is required");
         Validate.notBlank(userCode, "userCode is required");
         Validate.notBlank(identityId, "identityId is required");
         return deviceCodeGrantRepository.findByUserCode(normalizeUserCode(userCode))
                 .compose(grant -> {
-                    if (grant == null) {
+                    if (grant == null || !issuer.equals(grant.getIssuer())) {
                         return Future.failedFuture(new IllegalArgumentException("Unknown user code"));
                     }
                     if (grant.getExpiresAt().before(new Date())) {

@@ -36,10 +36,12 @@ public interface DeviceCodeGrantService {
 
     /**
      * Binds an authenticated user to a pending grant identified by its {@code user_code}.
-     * Fails if the code is unknown, already approved, or expired.
+     * Fails if the code is unknown, already approved, or expired; a grant started under another
+     * issuer is unknown.
      *
+     * @param issuer   OAuth issuer of the server serving the device page
      * @param userCode the code the user entered in the browser
      * @param identityId   id of the authenticated {@link UserParticipantIdentity} approving the grant
      */
-    Future<Void> approve(String userCode, String identityId);
+    Future<Void> approve(String issuer, String userCode, String identityId);
 }
