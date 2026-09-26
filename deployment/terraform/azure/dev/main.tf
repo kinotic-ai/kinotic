@@ -237,7 +237,7 @@ output "application_local_yml" {
   value       = <<-EOT
     kinotic:
       managementApi:
-        organizationsStorageEndpoint: ${module.environment.organization_storage_blob_endpoint}
+        organizationsStorageEndpoint: ${module.environment.organizations_storage_blob_endpoint}
       systemApi:
         uiDeployment:
           disableProvisioner: false

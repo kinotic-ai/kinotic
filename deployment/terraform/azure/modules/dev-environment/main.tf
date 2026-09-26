@@ -81,8 +81,8 @@ module "sites" {
   hostnames                       = var.ui_hostnames
 }
 
-module "organization_storage" {
-  source = "../organization-storage"
+module "organizations_storage" {
+  source = "../organizations-storage"
 
   name_prefix                     = local.name_prefix
   location                        = var.location

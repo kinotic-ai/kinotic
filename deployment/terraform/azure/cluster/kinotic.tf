@@ -51,7 +51,7 @@ resource "helm_release" "kinotic_server" {
     { name = "extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN", value = local.sites_domain },
     { name = "extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT", value = module.sites.storage_blob_endpoint },
     # Organization storage — the account the files kept on behalf of organizations are issued URLs in
-    { name = "extraEnv.KINOTIC_MANAGEMENTAPI_ORGANIZATIONSSTORAGEENDPOINT", value = module.organization_storage.storage_blob_endpoint },
+    { name = "extraEnv.KINOTIC_MANAGEMENTAPI_ORGANIZATIONSSTORAGEENDPOINT", value = module.organizations_storage.storage_blob_endpoint },
     # Email (Azure Communication Services) — shared service from global terraform
     { name = "extraEnv.KINOTIC_EMAIL_BACKEND", value = "azure" },
     { name = "extraEnv.KINOTIC_EMAIL_AZURE_ENDPOINT", value = local.global.email_service_endpoint },

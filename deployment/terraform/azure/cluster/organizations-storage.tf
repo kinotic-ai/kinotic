@@ -2,8 +2,8 @@
 # The files the platform keeps on behalf of organizations, partitioned by organization and then
 # by use, which workloads write and the portal reads through URLs kinotic-server issues.
 
-module "organization_storage" {
-  source = "../modules/organization-storage"
+module "organizations_storage" {
+  source = "../modules/organizations-storage"
 
   name_prefix         = local.name_prefix
   location            = var.location

@@ -13,9 +13,9 @@ output "sites_storage_blob_endpoint" {
   value       = module.sites.storage_blob_endpoint
 }
 
-output "organization_storage_blob_endpoint" {
+output "organizations_storage_blob_endpoint" {
   description = "The blob endpoint kinotic-server issues organization storage URLs on"
-  value       = module.organization_storage.storage_blob_endpoint
+  value       = module.organizations_storage.storage_blob_endpoint
 }
 
 output "sites_endpoint_host_name" {
