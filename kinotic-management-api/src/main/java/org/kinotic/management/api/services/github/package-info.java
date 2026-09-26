@@ -1,5 +1,6 @@
 /**
- * GitHub integration service contracts, including the interfaces published for remote access.
+ * GitHub integration service contracts, including the interfaces published for remote access, and
+ * the webhook endpoint GitHub delivers repository events to.
  */
 @Version("1.0.0")
 @Zone(DomainUtil.MANAGEMENT_API_ZONE)

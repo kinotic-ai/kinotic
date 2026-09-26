@@ -1,7 +1,9 @@
-package org.kinotic.domain.internal.api.rest.mcp;
+package org.kinotic.domain.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.DecodeException;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RequestBody;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -15,9 +17,9 @@ import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.security.AuthenticationHandler;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
+import org.kinotic.domain.internal.api.rest.mcp.McpToolInvoker;
 import org.kinotic.domain.internal.api.rest.mcp.model.*;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.springframework.stereotype.Component;
@@ -32,7 +34,9 @@ import java.util.Set;
 /**
  * The stateless MCP server: mounts {@code POST /mcp} on the gateway router, authenticates every request
  * independently from its headers, and dispatches the JSON-RPC 2.0 request to the MCP methods the gateway
- * supports. There are no sessions and no server-initiated messages, so all other verbs are rejected.
+ * supports. There are no sessions and no server-initiated messages, so all other verbs on {@code /mcp} are
+ * rejected. The RFC 9728 protected-resource metadata it also serves names the authorization server an MCP
+ * host obtains its bearer token from.
  */
 @Slf4j
 @Component
@@ -40,6 +44,7 @@ import java.util.Set;
 public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 
     private static final String MCP_ROUTE = "/mcp";
+    private static final String PROTECTED_RESOURCE_METADATA_ROUTE = "/.well-known/oauth-protected-resource";
     private static final int MAX_BODY_SIZE = 262144;
 
     private static final String LATEST_PROTOCOL_VERSION = "2025-11-25";
@@ -70,6 +75,9 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 
     @Override
     public void mountRoutes(Router router) {
+        router.get(PROTECTED_RESOURCE_METADATA_ROUTE).handler(this::handleProtectedResourceMetadata);
+        // RFC 9728 path-inserted form for the /mcp resource
+        router.get(PROTECTED_RESOURCE_METADATA_ROUTE + MCP_ROUTE).handler(this::handleProtectedResourceMetadata);
         router.post(MCP_ROUTE).handler(this::armDiscoveryChallenge);
         // AuthenticationHandler pauses the request while authenticating, so it precedes the
         // BodyHandler. It also binds the Participant to the Vert.x context, which is where
@@ -78,6 +86,16 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         router.post(MCP_ROUTE).handler(BodyHandler.create().setBodyLimit(MAX_BODY_SIZE));
         router.post(MCP_ROUTE).handler(this::handlePost);
         router.route(MCP_ROUTE).handler(ctx -> ctx.response().setStatusCode(405).end());
+    }
+
+    /** {@code GET /.well-known/oauth-protected-resource[/mcp]} — RFC 9728 metadata for {@code /mcp}. */
+    private void handleProtectedResourceMetadata(RoutingContext ctx) {
+        String issuer = issuer();
+        ctx.json(new JsonObject()
+                .put("resource", issuer + MCP_ROUTE)
+                .put("authorization_servers", new JsonArray().add(issuer))
+                .put("bearer_methods_supported", new JsonArray().add("header"))
+                .put("scopes_supported", new JsonArray().add("offline_access")));
     }
 
     /**
@@ -89,10 +107,8 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         ctx.addHeadersEndHandler(_ -> {
             if (ctx.response().getStatusCode() == 401) {
                 // points MCP hosts at the document that starts the OAuth discovery flow
-                // FIXME: shotgun surgery — one of five places that know the OAuth surface has its
-                // own base URL. See "OAuth base URL split" in docs/NavidNotes.md.
                 ctx.response().putHeader("WWW-Authenticate", "Bearer resource_metadata=\""
-                        + authEndpointSupport.issuerUrl("/.well-known/oauth-protected-resource/mcp") + "\"");
+                        + issuer() + PROTECTED_RESOURCE_METADATA_ROUTE + MCP_ROUTE + "\"");
             }
         });
         ctx.next();
@@ -211,5 +227,11 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
             ret = Future.succeededFuture(JsonRpcResponse.error(id, INVALID_PARAMS, "tools/call requires a tool name"));
         }
         return ret;
+    }
+
+    // FIXME: shotgun surgery — one of five places that know the OAuth surface has its own base URL.
+    // See "OAuth base URL split" in docs/NavidNotes.md for the topologies that would remove it.
+    private String issuer() {
+        return authEndpointSupport.issuerUrl("");
     }
 }

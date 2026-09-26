@@ -1,9 +1,8 @@
-package org.kinotic.domain.internal.api.rest;
+package org.kinotic.domain.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +17,7 @@ import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.internal.api.rest.support.CallbackResult;
 import org.kinotic.domain.internal.api.rest.support.OAuth2Util;
 import org.kinotic.domain.internal.api.rest.support.OidcCallbackException;
+import org.kinotic.domain.internal.api.rest.support.OidcErrorCodes;
 import org.kinotic.domain.internal.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.springframework.stereotype.Component;
