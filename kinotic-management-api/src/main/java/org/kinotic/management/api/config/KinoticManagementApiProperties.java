@@ -27,9 +27,4 @@ public class KinoticManagementApiProperties extends KinoticProperties {
     @Valid
     private ManagementApiProperties managementApi = new ManagementApiProperties();
 
-    /**
-     * If true, management-api functionality will not be loaded.
-     */
-    private boolean disableManagement = false;
-
 }

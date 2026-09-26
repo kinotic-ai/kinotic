@@ -90,7 +90,7 @@ Never remove or alter an existing authorship comment — `Created by <name> on <
 ## Properties
 Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.
 
-Never gate a bean on a Spring profile — `@Profile` is for test contexts only; profile-gated beans are hard to audit. Profiles are property bundles: an `application-<name>.yml` selects property values for a deployment shape. Enabling or disabling behavior is done with explicit `kinotic.*` properties read by `@ConditionalOnProperty` (the `kinotic.disable*` module flags are the established idiom), so what a deployment runs can be read from its YAML alone.
+Never gate a bean on a Spring profile — `@Profile` is for test contexts only; profile-gated beans are hard to audit. Profiles are property bundles: an `application-<name>.yml` selects property values for a deployment shape. Which modules a server runs is decided by its server module: every library module auto-configures once it is on the runtime classpath, so the server's `build.gradle` dependencies select the modules, and `@SpringBootApplication(exclude = …)` excludes the auto-configuration of a module the server needs only for its types (`TestServerApplication` excludes `KinoticDomainAutoConfiguration`). Enabling or disabling a feature within a module is done with an explicit `kinotic.*` property read by `@ConditionalOnProperty` (`kinotic.managementApi.github.disableProvisioner` is the established idiom), so what a deployment runs can be read from its server module and YAML alone.
 
 ## Dependency Versions
 

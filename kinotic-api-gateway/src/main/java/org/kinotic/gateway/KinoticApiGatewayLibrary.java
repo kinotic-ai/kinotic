@@ -1,6 +1,5 @@
 package org.kinotic.gateway;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +10,5 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @EnableConfigurationProperties
 @ComponentScan
-@ConditionalOnProperty(value = "kinotic.disableApiGateway", havingValue = "false", matchIfMissing = true)
 public class KinoticApiGatewayLibrary {
 }

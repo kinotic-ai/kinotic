@@ -21,11 +21,6 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 public class KinoticDomainProperties extends KinoticProperties {
 
-    /**
-     * If true, domain functionality will not be loaded.
-     */
-    private boolean disableDomain = false;
-
     @Valid
     private DomainProperties domain = new DomainProperties();
 
