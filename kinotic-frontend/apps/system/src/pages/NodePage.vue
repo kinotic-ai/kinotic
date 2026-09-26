@@ -74,6 +74,15 @@
             <CapacityRows :capacity="capacityOf([node])" />
           </div>
         </div>
+
+        <div class="rounded-lg border border-surface p-4">
+          <h2 class="text-base font-semibold">History</h2>
+          <p class="mb-3 text-xs text-muted-color">
+            What happened to the node, newest first: each change of what it should be and of what it reports, and each mark
+            set beside them, with what caused it. The latest {{ HISTORY_PAGE_SIZE }} entries.
+          </p>
+          <WatchEventsTable :entries="history" empty-text="Nothing has happened to the node yet." />
+        </div>
       </div>
     </template>
   </div>
@@ -85,10 +94,10 @@ import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 
-import { Kinotic } from '@kinotic-ai/core'
-import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
+import { Kinotic, Pageable } from '@kinotic-ai/core'
+import { WorkloadStatus, type WatchEvent, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, PageHeader, errorMessage, formatMb } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, PageHeader, WatchEventsTable, errorMessage, formatMb } from '@kinotic-ai/frontend-common'
 
 import CapacityRows from '@/components/CapacityRows.vue'
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
@@ -104,10 +113,13 @@ const props = defineProps<{
   nodeId: string
 }>()
 
+const HISTORY_PAGE_SIZE = 50
+
 const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
 
 const node = ref<VmNode | null>(null)
 const workloads = ref<Workload[]>([])
+const history = ref<WatchEvent[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -164,12 +176,14 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const [found, placed] = await Promise.all([
+    const [found, placed, entries] = await Promise.all([
       Kinotic.vmNodes.findById(props.nodeId),
-      scanWorkloads({}, { nodeId: props.nodeId })
+      scanWorkloads({}, { nodeId: props.nodeId }),
+      Kinotic.vmNodes.findHistory(props.nodeId, Pageable.create(0, HISTORY_PAGE_SIZE))
     ])
     node.value = found
     workloads.value = placed
+    history.value = entries.content ?? []
   } catch (err) {
     error.value = errorMessage(err, 'Failed to load the worker node')
   } finally {

@@ -78,6 +78,15 @@
           </Column>
         </DataTable>
       </section>
+      <section class="mt-8">
+        <h2 class="text-base font-medium mb-1">History</h2>
+        <p class="text-sm text-muted-color mt-0 mb-3">
+          What happened to the deployment and to what it made, newest first: each push and each answer to it, each
+          microservice VM's run, each UI's site, and each mark the platform set beside them, with what caused it. The
+          latest {{ HISTORY_PAGE_SIZE }} entries.
+        </p>
+        <WatchEventsTable :entries="history" show-record empty-text="Nothing has happened to the deployment yet." />
+      </section>
     </template>
 
     <div v-else-if="loading" class="p-6 text-sm text-muted-color">Loading deployment…</div>
@@ -101,13 +110,14 @@ import Tag from 'primevue/tag'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail,
-         WorkloadLogsDialog, deploymentStatusSeverity, shortSha, showErrorToast } from '@kinotic-ai/frontend-common'
-import { Kinotic } from '@kinotic-ai/core'
+         WatchEventsTable, WorkloadLogsDialog, deploymentStatusSeverity, shortSha, showErrorToast } from '@kinotic-ai/frontend-common'
+import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DeploymentStatusType,
          type MachineParticipantIdentity,
          type MicroserviceDeployment,
          type ProjectDeployment,
-         type UiDeployment } from '@kinotic-ai/management-api'
+         type UiDeployment,
+         type WatchEvent } from '@kinotic-ai/management-api'
 import MicroserviceDeploymentsTable from '@/components/MicroserviceDeploymentsTable.vue'
 import { KinoticStates } from '@/states'
 import UiDeploymentsTable from '@/components/UiDeploymentsTable.vue'
@@ -131,6 +141,7 @@ const props = defineProps<{
 }>()
 
 const POLL_INTERVAL_MS = 5000
+const HISTORY_PAGE_SIZE = 50
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -145,6 +156,7 @@ const liveCommit = computed(() => deployment.value?.state.observed?.commitSha ??
 const microservices = ref<MicroserviceDeployment[]>([])
 const uis = ref<UiDeployment[]>([])
 const machines = ref<MachineRow[]>([])
+const history = ref<WatchEvent[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const logsFor = ref<MicroserviceDeployment | null>(null)
@@ -162,6 +174,11 @@ async function loadDeployment(): Promise<void> {
       await loadDetails()
     } else if (uis.value.some(ui => !ui.state.reconciled)) {
       await loadUis()
+    }
+    // every poll re-reads the ledger: the workers write to it between runs, a restart or a removal
+    // included, and the page is what shows their answers
+    if (deployment.value !== null) {
+      await loadHistory()
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
@@ -193,6 +210,11 @@ async function loadDetails(): Promise<void> {
 
 async function loadUis(): Promise<void> {
   uis.value = await Kinotic.uiDeployments.findAllForProject(props.projectId)
+}
+
+async function loadHistory(): Promise<void> {
+  const page = await Kinotic.projects.findDeploymentHistory(props.projectId, Pageable.create(0, HISTORY_PAGE_SIZE))
+  history.value = page.content ?? []
 }
 
 function openLogs(microservice: MicroserviceDeployment): void {
