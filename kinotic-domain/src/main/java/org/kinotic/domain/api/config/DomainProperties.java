@@ -10,6 +10,8 @@ import org.kinotic.domain.api.model.AppHost;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 /**
  *
@@ -45,6 +47,12 @@ public class DomainProperties {
      */
     @NotBlank
     private String appApiBaseUrl = "http://localhost:58505";
+
+    /**
+     * Origins admitted as a UI of every application, for UIs a developer serves from their own machine, such as
+     * {@code http://localhost:\d+}. When unset, an application's login is made only from its published sites.
+     */
+    private Pattern localAppUiOriginPattern = null;
 
     /**
      * Email / outbound-mail configuration.
@@ -107,6 +115,20 @@ public class DomainProperties {
     public String resolveAppApiUrl(AppHost appHost) {
         URI base = URI.create(appApiBaseUrl);
         return base.getScheme() + "://" + appHost.label() + "." + base.getRawAuthority();
+    }
+
+    /**
+     * The application whose API host {@code host} is, a label under {@link #appApiBaseUrl}'s domain, or
+     * {@code null} when {@code host} is no application's API host.
+     */
+    public AppHost resolveAppHost(String host) {
+        String domainSuffix = "." + URI.create(appApiBaseUrl).getHost().toLowerCase(Locale.ROOT);
+        String name = host.toLowerCase(Locale.ROOT);
+        AppHost ret = null;
+        if (name.endsWith(domainSuffix)) {
+            ret = AppHost.fromLabel(name.substring(0, name.length() - domainSuffix.length()));
+        }
+        return ret;
     }
 
     /**

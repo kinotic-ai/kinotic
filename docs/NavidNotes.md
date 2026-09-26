@@ -14,13 +14,11 @@ No phase may rewrite, refactor or restructure what an earlier phase produced. If
 * Verify DefaultOpenAPIService.addNamedQueryPathItems (call looks up named queries without org)
 * No OpenAPI routes have the org in the path.
 
-### App auth return-to-application redirect
+### App invite links
 
-* App OIDC login callbacks (`ApplicationLoginHandler` → `redirectSuccess`) currently land app
-  end-users on the web app `/` because no per-app frontend URL exists in the model. The
-  return-to-application redirect belongs with the per-app URL / distributable-components work
-  already deferred. Same gap applies to where app-invite emails link (today: the hosted
-  `/invite/accept` page, which is the intended fallback).
+* App-invite emails link to the hosted `/invite/accept` page, which is the intended fallback
+  until an application's own UI accepts its invitations. App OIDC logins already return to the
+  UI that started them, and fail to the application's primary UI.
 
   
 ### JWT audience check (dropped, needs to come back)

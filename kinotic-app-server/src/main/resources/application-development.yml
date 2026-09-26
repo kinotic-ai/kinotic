@@ -11,6 +11,9 @@ kinotic:
       # The org server's dev key: SecretNameDeriver must derive the same storage names on every
       # server. Dev-only value — production supplies this via Azure Key Vault.
       masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
+    # An application UI's vite dev server on any local port signs its users in to the application
+    # whose API host its proxy addresses
+    localAppUiOriginPattern: "http:\\/\\/localhost:\\d+"
   apiGateway:
     cors:
       # An application UI's vite dev server on any local port, and the sites a developer publishes
