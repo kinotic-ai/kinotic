@@ -41,11 +41,6 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
                 .map(UserParticipantIdentity.class::cast);
     }
 
-    public Future<UserParticipantIdentity> findByEmail(String email) {
-        return findFirst(b -> b.query(termFilter("email", DomainUtil.normalizeEmail(email))))
-                .map(UserParticipantIdentity.class::cast);
-    }
-
     /** Users only — delegates share their owner's scope and must not appear in member listings. */
     public Future<Page<UserParticipantIdentity>> findUsersByScope(String organizationId, String applicationId, Pageable pageable) {
         return findAll(pageable, b -> b.query(composeFilter(

@@ -23,10 +23,10 @@ public class DefaultLocalAuthenticationService implements LocalAuthenticationSer
     private final ParticipantIdentityRepository identityRepository;
 
     @Override
-    public Future<UserParticipantIdentity> authenticateLocal(String email, String password) {
+    public Future<UserParticipantIdentity> authenticateOrgUser(String email, String password) {
         Validate.notBlank(email, "email cannot be blank");
         Validate.notBlank(password, "password cannot be blank");
-        return verifyMatchingUser(password, () -> identityRepository.findByEmail(email));
+        return verifyMatchingUser(password, () -> identityRepository.findFirstOrgUserByEmail(email));
     }
 
     @Override
