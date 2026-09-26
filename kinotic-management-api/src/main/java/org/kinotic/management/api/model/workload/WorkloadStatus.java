@@ -1,15 +1,23 @@
 package org.kinotic.management.api.model.workload;
 
 /**
- * Represents the current status of a {@link Workload}.
+ * Represents the current status of a {@link Workload}. A run moves through these in order and only
+ * forward: pending, starting, running, stopping, then ended, where the two ended statuses share one
+ * rank since a run ends once.
  */
 public enum WorkloadStatus {
-    PENDING,
-    STARTING,
-    RUNNING,
-    STOPPING,
-    STOPPED,
-    FAILED;
+    PENDING(0),
+    STARTING(1),
+    RUNNING(2),
+    STOPPING(3),
+    STOPPED(4),
+    FAILED(4);
+
+    private final int rank;
+
+    WorkloadStatus(int rank) {
+        this.rank = rank;
+    }
 
     /**
      * True when this run of the workload has ended — the guest is no longer executing and the
@@ -17,5 +25,21 @@ public enum WorkloadStatus {
      */
     public boolean isComplete() {
         return this == STOPPED || this == FAILED;
+    }
+
+    /**
+     * True while the run holds a VM on its node: started and not yet ended. A stop the node has not
+     * answered counts, since the VM may still be there.
+     */
+    public boolean isOpen() {
+        return this == STARTING || this == RUNNING || this == STOPPING;
+    }
+
+    /**
+     * True when this status comes later in a run than {@code other}, so a report of it moves the run
+     * forward.
+     */
+    public boolean isAfter(WorkloadStatus other) {
+        return rank > other.rank;
     }
 }

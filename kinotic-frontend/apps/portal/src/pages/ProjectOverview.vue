@@ -15,7 +15,8 @@
         <div class="flex items-center gap-2 text-xs text-muted-color"><i class="pi pi-cloud-upload" />Deployment</div>
         <Skeleton v-if="loading" height="1.5rem" width="5rem" class="mt-2" />
         <div v-else class="mt-2">
-          <Tag v-if="deployment" :value="deployment.status.type" :severity="deploymentStatusSeverity(deployment.status.type)" />
+          <Tag v-if="deployment" :value="deployment.state.observed?.phase ?? 'UNKNOWN'"
+               :severity="observedPhaseSeverity(deployment.state.observed)" />
           <Tag v-else value="Never deployed" severity="secondary" />
         </div>
         <div class="mt-1 text-xs text-muted-color">
@@ -65,7 +66,7 @@
               <div class="truncate text-sm font-medium">{{ ui.name }}</div>
               <a :href="ui.url" target="_blank" rel="noopener" class="block truncate font-mono text-xs text-primary-500 hover:underline">{{ ui.url }}</a>
             </div>
-            <Tag :value="ui.status.type" :severity="deploymentStatusSeverity(ui.status.type)" />
+            <Tag :value="observedPhase(ui.state.observed)" :severity="observedPhaseSeverity(ui.state.observed)" />
           </li>
         </ul>
       </section>
@@ -97,7 +98,7 @@ import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
 import { type Project, type ProjectDeployment, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
-import { DatetimeUtil, deploymentStatusSeverity, PageHeader } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, observedPhase, observedPhaseSeverity, PageHeader } from '@kinotic-ai/frontend-common'
 
 /**
  * The landing page of one project: its repository, its deployment state, how many entities

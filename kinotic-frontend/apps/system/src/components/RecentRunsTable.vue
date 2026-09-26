@@ -12,7 +12,11 @@
         </template>
       </Column>
       <Column header="Status">
-        <template #body="{ data }"><Tag :value="data.status" :severity="executionStatusSeverity(data.status)" /></template>
+        <template #body="{ data }">
+          <Tag :value="data.status" :severity="executionStatusSeverity(data.status)" />
+          <Tag v-if="nodeLeft(data)" value="node left" severity="warn" icon="pi pi-exclamation-triangle" class="ml-1"
+               :title="nodeLeft(data)?.message" />
+        </template>
       </Column>
       <Column :header="ownerHeader" class="hidden md:table-cell">
         <template #body="{ data }">
@@ -40,7 +44,7 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
 
-import type { JobRun } from '@kinotic-ai/management-api'
+import { StatusConditionType, findStatusCondition, type JobRun, type StatusCondition } from '@kinotic-ai/management-api'
 import { DatetimeUtil, executionStatusSeverity } from '@kinotic-ai/frontend-common'
 
 import { scopePath, type Scope } from '@/util/scope'
@@ -58,6 +62,11 @@ const props = defineProps<{
 const router = useRouter()
 const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
 const formatDuration = DatetimeUtil.formatDuration
+
+/** The mark that the node running the run left the cluster while it was live, or undefined. */
+function nodeLeft(run: JobRun): StatusCondition | undefined {
+  return findStatusCondition(run.state.conditions, StatusConditionType.SERVER_NODE_LEFT)
+}
 
 const listPath = computed(() => `${scopePath(props.scope)}/jobs`)
 

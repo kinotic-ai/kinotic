@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.management.api.config.GithubProperties;
-import org.kinotic.management.api.model.GitHubWebhookEvent;
+import org.kinotic.management.api.model.github.GitHubWebhookEvent;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;

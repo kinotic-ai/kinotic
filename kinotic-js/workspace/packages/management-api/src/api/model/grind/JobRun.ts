@@ -1,11 +1,12 @@
-import type { Identifiable } from '@kinotic-ai/core'
+import type { Watched } from '@/api/model/reconcile/Watched'
+import { WatchedState } from '@/api/model/reconcile/WatchedState'
 import { ExecutionStatus } from '@/api/model/grind/ExecutionStatus'
 
 /**
  * The persistent record of one execution of a grind job definition. The individual tasks
  * executed during the run are recorded as TaskRecords referencing this run's id.
  */
-export class JobRun implements Identifiable<string> {
+export class JobRun implements Watched {
 
     /**
      * Unique identifier for this run.
@@ -76,4 +77,10 @@ export class JobRun implements Identifiable<string> {
      */
     public finished: number | null = null
 
+
+    /**
+     * What the platform keeps on this run beside the executing node's own record: that the node left
+     * the cluster while the run was live, and the deployment the run was made by.
+     */
+    public state: WatchedState = new WatchedState()
 }

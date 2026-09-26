@@ -3,13 +3,14 @@ package org.kinotic.management.internal.api.services.github;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.annotations.Emitter;
-import org.kinotic.management.api.model.GitHubProjectEvent;
-import org.kinotic.management.api.model.GitHubWebhookEvent;
+import org.kinotic.management.api.model.github.GitHubWebhookEvent;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.deployment.ProjectPushEvent;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.internal.api.repositories.GitHubAppInstallationRepository;
@@ -24,8 +25,8 @@ import java.util.List;
 /**
  * Default impl: mutates installation state for management events, flips backing
  * projects to {@link RepositoryConnectionStatus#DISCONNECTED} when GitHub revokes
- * access, and publishes a {@link GitHubProjectEvent} per backing project to the event
- * fabric for repo events.
+ * access, and publishes a {@link ProjectPushEvent} per backing project to the event fabric
+ * for a push to the repository's default branch.
  * <p>
  * Webhook deliveries have no Kinotic participant attached, so reads go through the
  * repositories' find-by-field finders (which need no org context, the search key is
@@ -46,7 +47,9 @@ public class DefaultGitHubWebhookProcessor implements GitHubWebhookProcessor {
 
     // Hot source of the @Emitter stream; never terminates. Best-effort delivery keeps a slow
     // fabric uplink from stalling the webhook handler, matching GitHub's at-most-once semantics.
-    private final Sinks.Many<GitHubProjectEvent> sink = Sinks.many().multicast().directBestEffort();
+    private final Sinks.Many<ProjectPushEvent> sink = Sinks.many().multicast().directBestEffort();
+
+    private static final String ZERO_SHA = "0".repeat(40);
 
     // One shared context every emission is delivered on: it serializes concurrent deliveries (Sinks
     // reject concurrent emission) and keeps subscriber chains off the threads that complete the
@@ -59,7 +62,7 @@ public class DefaultGitHubWebhookProcessor implements GitHubWebhookProcessor {
     }
 
     @Emitter
-    Flux<GitHubProjectEvent> projectEvents() {
+    Flux<ProjectPushEvent> projectPushes() {
         return sink.asFlux();
     }
 
@@ -150,31 +153,52 @@ public class DefaultGitHubWebhookProcessor implements GitHubWebhookProcessor {
     }
 
     private Future<Void> handleRepoEvent(GitHubWebhookEvent event) {
-        if (event.getRepoFullName() == null) {
-            return Future.succeededFuture();
-        }
-        return projectRepository.findByRepoFullName(event.getRepoFullName())
-                .compose(projects -> {
-                    if (projects.isEmpty()) {
-                        log.debug("No Kinotic project for repo {} (event {}); dropping",
-                                  event.getRepoFullName(), event.getEventType());
-                    } else {
-                        for (Project project : projects) {
-                            emit(new GitHubProjectEvent().setOrganizationId(project.getOrganizationId())
-                                                         .setProjectId(project.getId())
-                                                         .setWebhookEvent(event));
+        String commitSha = defaultBranchCommit(event);
+        Future<Void> ret;
+        if (event.getRepoFullName() == null || commitSha == null) {
+            ret = Future.succeededFuture();
+        } else {
+            ret = projectRepository.findByRepoFullName(event.getRepoFullName())
+                    .compose(projects -> {
+                        if (projects.isEmpty()) {
+                            log.debug("No Kinotic project for repo {}; dropping the push of {}", event.getRepoFullName(), commitSha);
+                        } else {
+                            for (Project project : projects) {
+                                emit(new ProjectPushEvent(project.getOrganizationId(), project.getId(), commitSha));
+                            }
                         }
-                    }
-                    return Future.succeededFuture();
-                });
+                        return Future.succeededFuture();
+                    });
+        }
+        return ret;
     }
 
-    private void emit(GitHubProjectEvent event) {
+    // The commit a push to the default branch delivered, or null for any other delivery: another
+    // event type, a push to another branch, or a branch deletion, which arrives as a push with
+    // deleted set or the zero sha
+    private static String defaultBranchCommit(GitHubWebhookEvent event) {
+        String ret = null;
+        if ("push".equals(event.getEventType())) {
+            JsonObject payload = event.getPayload();
+            String commitSha = payload.getString("after");
+            JsonObject repository = payload.getJsonObject("repository");
+            String defaultBranch = repository != null ? repository.getString("default_branch") : null;
+            boolean delivered = !payload.getBoolean("deleted", false)
+                    && commitSha != null && !ZERO_SHA.equals(commitSha)
+                    && defaultBranch != null
+                    && ("refs/heads/" + defaultBranch).equals(payload.getString("ref"));
+            if (delivered) {
+                ret = commitSha;
+            }
+        }
+        return ret;
+    }
+
+    private void emit(ProjectPushEvent event) {
         deliveryContext.runOnContext(v -> {
             Sinks.EmitResult result = sink.tryEmitNext(event);
             if (result.isFailure() && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
-                log.warn("Failed to emit {} event for project {}: {}",
-                         event.getWebhookEvent().getEventType(), event.getProjectId(), result);
+                log.warn("Failed to emit the push of {} for project {}: {}", event.getCommitSha(), event.getProjectId(), result);
             }
         });
     }

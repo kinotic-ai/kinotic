@@ -8,7 +8,7 @@ import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
-import org.kinotic.management.api.model.security.PendingInviteSummary;
+import org.kinotic.management.api.model.PendingInviteSummary;
 
 /**
  * Cross-organization reads for platform operators. Published in the system zone, which only

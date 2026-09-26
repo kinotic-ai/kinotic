@@ -138,17 +138,24 @@ it a credential.
 
 ## Snapshot versions — nothing is in stone
 
-While `kinoticVersion` in `gradle.properties` is a `-SNAPSHOT`, nothing is deployed and no released artifact depends on this code, so there is nothing to stay backwards-compatible with. Edit existing migrations in place (schema in `V1__init.sql`, seed rows in `V2__kinotic_data_inserts.sql`) instead of appending new versioned files, rename fields, break APIs, and reshape wire contracts freely. Append-only migration discipline, deprecation shims, and compatibility fallbacks start when the first release exists — building them sooner is Speculative Generality.
+While `kinoticVersion` in `gradle.properties` is a `-SNAPSHOT`, no released artifact depends on this code, so there is nothing to stay backwards-compatible with: rename fields, break APIs, and reshape wire contracts freely. Deprecation shims and compatibility fallbacks start when the first release exists — building them sooner is Speculative Generality.
+
+Migrations are the one exception, for now: a test server runs everything and has applied the migration files that exist, so a schema change is a new versioned file (`V6__node_capacity_ledger.sql` and on), never an edit of a file already applied. Elasticsearch cannot retype a mapped field, so a column that changes type is a new column beside the old one, which stays mapped and unused (`V6` shows the shape).
 
 ## Keep migrations in sync with persisted entities
 
 Every entity stored through an Elasticsearch-backed Repository gets its index mapping from the
 migration DDL in `kinotic-migration/src/main/resources/migrations/`, and mappings are strict — an
 entity field missing from its CREATE TABLE fails the first save of that entity at runtime.
-Whenever you change a persisted entity's fields, update its table in the same change (edit the
-CREATE TABLE in place while the version is -SNAPSHOT — see above). For DDL syntax and column
+Whenever you change a persisted entity's fields, update its table in the same change (a new
+migration file with the `ALTER TABLE` — see above). For DDL syntax and column
 types, see `website/content/01.apps/09.reference/02.migration-sql-grammar.md` or the
 `kinotic-sql` module.
+
+A `List<POJO>` field is an `OBJECT` column: Elasticsearch stores a list under an object mapping and
+a query on one sub-field matches across it. `NESTED` is only for a query that must match two
+sub-fields of the same element, and that query must exist in the change that introduces the
+column; the grammar reference explains what each nested element costs.
 
 ## Keep docs in sync with code
 

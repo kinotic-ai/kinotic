@@ -1,13 +1,12 @@
-import type { Identifiable } from '@kinotic-ai/core'
-import { VmNodeStatus } from '@/api/model/workload/VmNodeStatus'
-import type { WorkloadReservation } from '@/api/model/workload/WorkloadReservation'
+import { ReconcileState, type Reconcilable } from '@kinotic-ai/management-api'
+import type { VmNodeState } from '@/api/model/workload/VmNodeState'
 import { VmProviderType } from '@/api/model/workload/VmProviderType'
 
 /**
  * Represents a node in the cluster that is running a VmManager process
  * and is capable of hosting workloads.
  */
-export class VmNode implements Identifiable<string> {
+export class VmNode implements Reconcilable<VmNodeState> {
 
     /**
      * Unique identifier for this node.
@@ -25,9 +24,18 @@ export class VmNode implements Identifiable<string> {
     public hostname: string
 
     /**
-     * Whether the node is fit to receive workloads, and why when it is not.
+     * What the node should be, taking workloads, and what it reports it is, with what the platform
+     * inferred beside the node's word: that it fell silent, or that a call to it could not be
+     * delivered. A node is placeable exactly when this is reconciled.
      */
-    public status: VmNodeStatus = new VmNodeStatus()
+    public state: ReconcileState<VmNodeState> = new ReconcileState()
+
+    /**
+     * Why the node is not taking workloads, or null when it is. Set from the node's own report of
+     * the guarantees it can still make — a data root that stopped enforcing disk limits, or a
+     * firewall that stopped hiding host credentials from guests.
+     */
+    public healthMessage: string | null = null
 
     /**
      * The VM provider this node runs every workload on, determined by how the node was
@@ -52,7 +60,7 @@ export class VmNode implements Identifiable<string> {
 
     /**
      * CPU not allocated to any workload, in cores. What is allocated is
-     * totalCpus - freeCpus, the sum of the reservations.
+     * totalCpus - freeCpus, what the workloads running on the node are sized for.
      */
     public freeCpus: number = 0
 
@@ -65,13 +73,6 @@ export class VmNode implements Identifiable<string> {
      * Disk space not allocated to any workload, in megabytes.
      */
     public freeDiskMb: number = 0
-
-    /**
-     * The room each workload running on this node holds, one entry per workload. The free*
-     * fields are the totals less what these hold, so a workload's room is reserved and released
-     * by its id and never counted twice.
-     */
-    public reservations: WorkloadReservation[] = []
 
     /**
      * The date and time the node was last seen/heartbeat.

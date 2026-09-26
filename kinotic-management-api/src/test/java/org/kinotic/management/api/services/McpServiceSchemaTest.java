@@ -4,14 +4,19 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.ResolvableTypeConverter;
+import org.kinotic.management.api.services.deployment.MicroserviceDeploymentService;
+import org.kinotic.management.api.services.deployment.UiDeploymentService;
 import org.kinotic.management.internal.api.services.DefaultApplicationService;
 import org.kinotic.management.internal.api.services.DefaultProjectService;
+import org.kinotic.management.internal.api.services.deployment.DefaultMicroserviceDeploymentService;
+import org.kinotic.management.internal.api.services.deployment.DefaultUiDeploymentService;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.kinotic.idl.internal.directory.DefaultResolvableTypeConverter;
 import org.kinotic.idl.internal.directory.DefaultSchemaFactory;
+import org.kinotic.idl.internal.directory.JsonNodeToC3Type;
 import org.kinotic.idl.internal.directory.ReactiveToC3Type;
 import org.kinotic.idl.internal.directory.TokenBufferToC3Type;
 import org.kinotic.idl.internal.directory.jdk.ArrayToC3Type;
@@ -51,10 +56,12 @@ public class McpServiceSchemaTest {
     public void mcpExposedServicesConvert() {
         NamespaceDefinition namespaceDefinition =
                 schemaFactory().createForServices(List.of(new ServiceDeclaration(ProjectService.class, DefaultProjectService.class),
-                                                           new ServiceDeclaration(ApplicationService.class, DefaultApplicationService.class)));
+                                                           new ServiceDeclaration(ApplicationService.class, DefaultApplicationService.class),
+                                                           new ServiceDeclaration(MicroserviceDeploymentService.class, DefaultMicroserviceDeploymentService.class),
+                                                           new ServiceDeclaration(UiDeploymentService.class, DefaultUiDeploymentService.class)));
 
         // createForServices omits any service that fails conversion, so a shrunken count is the failure signal
-        Assertions.assertEquals(2, namespaceDefinition.getServices().size());
+        Assertions.assertEquals(4, namespaceDefinition.getServices().size());
     }
 
     @Test
@@ -166,6 +173,7 @@ public class McpServiceSchemaTest {
                                                            new URIToC3Type(),
                                                            new VoidToC3Type(),
                                                            new TokenBufferToC3Type(),
+                                                           new JsonNodeToC3Type(),
                                                            new ReactiveToC3Type(registryProvider()));
         return new DefaultSchemaFactory(new DefaultResolvableTypeConverter(converters));
     }

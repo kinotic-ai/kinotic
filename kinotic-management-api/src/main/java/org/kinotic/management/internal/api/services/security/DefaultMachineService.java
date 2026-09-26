@@ -13,7 +13,7 @@ import org.kinotic.domain.api.model.security.participant.OrganizationParticipant
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
-import org.kinotic.management.api.model.MicroserviceDeployment;
+import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.services.security.MachineService;

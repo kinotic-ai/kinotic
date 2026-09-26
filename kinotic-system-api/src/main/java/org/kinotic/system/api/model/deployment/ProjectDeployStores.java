@@ -12,7 +12,7 @@ public final class ProjectDeployStores {
     public static final String DEPLOY_TARGET = "deployTarget";
 
     /**
-     * The {@link org.kinotic.management.api.model.ProjectArtifacts} of the deployed commit,
+     * The {@link org.kinotic.management.api.model.deployment.ProjectArtifacts} of the deployed commit,
      * as the sync workload found them in the checkout and the run bound them.
      */
     public static final String ARTIFACTS = "artifacts";

@@ -10,16 +10,18 @@
 
     <template v-if="deployment">
       <div class="mb-4 flex flex-wrap items-center gap-4">
-        <Tag :value="deployment.status.type" :severity="deploymentStatusSeverity(deployment.status.type)" />
-        <span v-if="deployment.commitSha" class="font-mono text-sm text-muted-color"
-              :title="deployment.commitSha">{{ shortSha(deployment.commitSha) }}</span>
+        <Tag :value="phase ?? 'UNKNOWN'" :severity="phase ? deploymentStatusSeverity(phase) : 'secondary'" />
+        <span v-if="liveCommit" class="font-mono text-sm text-muted-color"
+              :title="liveCommit">{{ shortSha(liveCommit) }}</span>
+        <span v-if="phase === StatusType.DEPLOYING && deployment.state.desired?.commitSha" class="text-xs text-muted-color"
+              :title="deployment.state.desired.commitSha">deploying {{ shortSha(deployment.state.desired.commitSha) }}</span>
         <span v-if="deployment.updated" class="text-xs text-muted-color">
           Updated {{ DatetimeUtil.formatRelativeDate(deployment.updated) }}
         </span>
       </div>
 
-      <Message v-if="deployment.status.type === StatusType.FAILED && deployment.status.message"
-               severity="error" :closable="false" class="mb-4">{{ deployment.status.message }}</Message>
+      <Message v-if="phase === StatusType.FAILED && deployment.failureMessage"
+               severity="error" :closable="false" class="mb-4">{{ deployment.failureMessage }}</Message>
 
       <JobRunProgress v-if="deployment.lastJobRunId"
                       :key="deployment.lastJobRunId"
@@ -33,8 +35,9 @@
       <section class="mt-8">
         <h2 class="text-base font-medium mb-1">Microservices</h2>
         <p class="text-sm text-muted-color mt-0 mb-3">
-          Each microservice the deployment has ensured runs in a VM of its own. Restart runs it
-          in a fresh VM; Remove destroys the VM and its machine identity — a microservice the
+          Each microservice the deployment has ensured runs in a VM of its own, kept running by
+          the platform: a VM that exits is replaced. Restart stops the VM and a fresh one takes
+          its place; Remove stops the VM and deletes its machine identity — a microservice the
           current commit still contains comes back with the next deployment.
         </p>
         <MicroserviceDeploymentsTable v-if="microservices.length" :deployments="microservices"
@@ -45,11 +48,11 @@
       <section class="mt-8">
         <h2 class="text-base font-medium mb-1">UIs</h2>
         <p class="text-sm text-muted-color mt-0 mb-3">
-          Each UI the deployment has published is served from a site of its own. A failed site
-          can be provisioned again; Remove takes the site down and deletes its files — a UI the
-          current commit still contains comes back with the next deployment, at a new site.
+          Each UI the deployment has published is served from a site of its own, checked until
+          it serves the published commit. Remove takes the site down and deletes its files — a UI
+          the current commit still contains comes back with the next deployment, at a new site.
         </p>
-        <UiDeploymentsTable v-if="uis.length" :deployments="uis" @retry="retryUi" @remove="confirmRemoveUi" />
+        <UiDeploymentsTable v-if="uis.length" :deployments="uis" @remove="confirmRemoveUi" />
         <div v-else class="text-sm text-muted-color">No UI has been published yet.</div>
       </section>
 
@@ -89,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import Column from 'primevue/column'
 import ConfirmDialog from 'primevue/confirmdialog'
 import DataTable from 'primevue/datatable'
@@ -135,6 +138,10 @@ const organizationId = KinoticStates.getUserState().getOrganizationId()
 const StatusType = DeploymentStatusType
 
 const deployment = ref<ProjectDeployment | null>(null)
+/** The phase the deployment reports it is in, or null for a record with no report yet. */
+const phase = computed(() => deployment.value?.state.observed?.phase ?? null)
+/** The commit the deployment serves, or null while none is served. */
+const liveCommit = computed(() => deployment.value?.state.observed?.commitSha ?? null)
 const microservices = ref<MicroserviceDeployment[]>([])
 const uis = ref<UiDeployment[]>([])
 const machines = ref<MachineRow[]>([])
@@ -150,10 +157,10 @@ async function loadDeployment(): Promise<void> {
     error.value = null
     // a deployment ensures the microservices, publishes the UIs and provisions the machines it
     // needs, so the listings only change with a run, or with an action taken here; a site
-    // keeps provisioning after the run, so those are watched until they settle
+    // keeps being checked after the run, so those are watched until they are reconciled
     if (deployment.value !== null && deployment.value.lastJobRunId !== previousJobRunId) {
       await loadDetails()
-    } else if (uis.value.some(ui => ui.status.type === DeploymentStatusType.PROVISIONING)) {
+    } else if (uis.value.some(ui => !ui.state.reconciled)) {
       await loadUis()
     }
   } catch (err) {
@@ -196,7 +203,7 @@ function openLogs(microservice: MicroserviceDeployment): void {
 function confirmRestart(microservice: MicroserviceDeployment): void {
   confirm.require({
     header: 'Restart microservice',
-    message: `Restart ${microservice.name}? It runs again in a fresh VM and the service is unavailable meanwhile.`,
+    message: `Restart ${microservice.name}? Its VM is stopped and a fresh one started, and the service is unavailable meanwhile.`,
     icon: 'pi pi-exclamation-triangle',
     acceptProps: { label: 'Restart', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
@@ -206,19 +213,14 @@ function confirmRestart(microservice: MicroserviceDeployment): void {
 }
 
 function confirmRemove(microservice: MicroserviceDeployment): void {
-  confirmRemoval(microservice.name, microservice.status.type === DeploymentStatusType.ORPHANED,
+  confirmRemoval(microservice.name, microservice.state.observed?.phase === DeploymentStatusType.ORPHANED,
                  'Remove microservice',
-                 `Remove ${microservice.name}? Its VM is destroyed and its machine identity deleted. The next deployment brings it back while the commit still contains it.`,
+                 `Remove ${microservice.name}? Its VM is stopped and its machine identity deleted. The next deployment brings it back while the commit still contains it.`,
                  () => Kinotic.microserviceDeployments.remove(microservice.id!))
 }
 
-function retryUi(ui: UiDeployment): void {
-  void run(() => Kinotic.uiDeployments.retryProvisioning(ui.id!),
-           `Provisioning ${ui.name} again`, `Failed to provision ${ui.name} again`)
-}
-
 function confirmRemoveUi(ui: UiDeployment): void {
-  confirmRemoval(ui.name, ui.status.type === DeploymentStatusType.ORPHANED, 'Remove UI',
+  confirmRemoval(ui.name, ui.state.observed?.phase === DeploymentStatusType.ORPHANED, 'Remove UI',
                  `Remove ${ui.name}? Its site is taken down and its files deleted. The next deployment publishes it again, at a new site, while the commit still contains it.`,
                  () => Kinotic.uiDeployments.remove(ui.id!))
 }

@@ -30,6 +30,12 @@ loki:
       chunks: kinotic-loki-chunks
       ruler: kinotic-loki-ruler
 
+  # The log deletion API (a workload's logs go with its record) needs the compactor's retention and
+  # a delete request store; on Azure that store is the object store the chunks live in
+  compactor:
+    retention_enabled: true
+    delete_request_store: azure
+
 singleBinary:
   persistence:
     enabled: true

@@ -4,7 +4,7 @@ import org.kinotic.domain.internal.api.repositories.AbstractOrganizationScopedRe
 
 import io.vertx.core.Future;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.management.api.model.GitHubAppInstallation;
+import org.kinotic.management.api.model.github.GitHubAppInstallation;
 import org.springframework.stereotype.Component;
 
 @Component

@@ -5,6 +5,7 @@ import org.kinotic.core.api.Kinotic;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobOwner;
+import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.model.events.JobRunEvent;
 import org.kinotic.grind.api.model.JobRunHandle;
@@ -65,13 +66,18 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
     @Override
     public JobRunHandle run(JobDefinition jobDefinition, JobOwner owner) {
+        return run(jobDefinition, owner, null);
+    }
+
+    @Override
+    public JobRunHandle run(JobDefinition jobDefinition, JobOwner owner, WatchedParent parent) {
         Validate.notNull(jobDefinition, "jobDefinition cannot be null");
         Validate.notNull(owner, "owner cannot be null");
         Validate.notBlank(jobDefinition.getName(), "JobDefinition name must be set to run");
 
         String runId = UUID.randomUUID().toString();
         DefaultJobDefinition definition = (DefaultJobDefinition) jobDefinition;
-        RunRecorder recorder = new RunRecorder(runId, definition, owner, null,
+        RunRecorder recorder = new RunRecorder(runId, definition, owner, parent, null,
                                                kinotic.serverInfo().getNodeId(), repository, vertx);
 
         Flux<JobRunEvent> upstream = Flux.create(sink ->
@@ -88,7 +94,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
         String runId = UUID.randomUUID().toString();
         DefaultJobDefinition definition = (DefaultJobDefinition) jobDefinition;
-        RunRecorder recorder = new RunRecorder(runId, definition, null, jobRunId,
+        RunRecorder recorder = new RunRecorder(runId, definition, null, null, jobRunId,
                                                kinotic.serverInfo().getNodeId(), repository, vertx);
 
         Flux<JobRunEvent> upstream = Flux.create(sink ->
@@ -179,7 +185,8 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                     + ", only FAILED or CANCELLED runs can be resumed");
         }
         // the resumed run belongs to whoever owned the original
-        recorder.ownerResolved(original.getOrganizationId(), original.getApplicationId(), original.getProjectId());
+        recorder.ownerResolved(original.getOrganizationId(), original.getApplicationId(), original.getProjectId(),
+                               original.getState().getParent());
 
         Map<String, ReplayEntry> ret = new HashMap<>();
         for (TaskRecord record : await(repository.findTasks(jobRunId))) {

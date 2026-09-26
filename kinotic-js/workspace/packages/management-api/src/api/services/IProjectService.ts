@@ -1,7 +1,8 @@
 import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
 import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import { Project } from '@/api/model/Project'
-import type { ProjectDeployment } from '@/api/model/ProjectDeployment'
+import type { ProjectDeployment } from '@/api/model/deployment/ProjectDeployment'
+import type { WatchEvent } from '@/api/model/reconcile/WatchEvent'
 
 export interface IProjectService extends ICrudServiceProxy<Project> {
 
@@ -35,6 +36,16 @@ export interface IProjectService extends ICrudServiceProxy<Project> {
      *         been deployed
      */
     findDeployment(projectId: string): Promise<ProjectDeployment | null>
+
+    /**
+     * Lists what happened to the deployment of the given project in the current participant's
+     * organization and to the records it made, the deployment jobs, build VMs, microservice
+     * deployments and UI deployments, newest first, with what caused each. A project that has never
+     * been deployed has none.
+     * @param projectId id of the project the deployment belongs to
+     * @param pageable the page to return
+     */
+    findDeploymentHistory(projectId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>>
 
     /**
      * Re-runs repository initialization for a project left
@@ -78,6 +89,16 @@ export class ProjectService extends CrudServiceProxy<Project> implements IProjec
 
     public findDeployment(projectId: string): Promise<ProjectDeployment | null> {
         return this.serviceProxy.invoke('findDeployment', [projectId])
+    }
+
+    public async findDeploymentHistory(projectId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>> {
+        const page: Page<WatchEvent> = await this.findDeploymentHistorySinglePage(projectId, pageable)
+        return new FunctionalIterablePage(pageable, page,
+            (pageable: Pageable) => this.findDeploymentHistorySinglePage(projectId, pageable))
+    }
+
+    public findDeploymentHistorySinglePage(projectId: string, pageable: Pageable): Promise<Page<WatchEvent>> {
+        return this.serviceProxy.invoke('findDeploymentHistory', [projectId, pageable])
     }
 
     public retryRepoInitialization(projectId: string): Promise<Project> {

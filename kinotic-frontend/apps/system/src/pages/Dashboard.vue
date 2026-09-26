@@ -58,7 +58,7 @@ import Message from 'primevue/message'
 
 import { Kinotic } from '@kinotic-ai/core'
 import { ExecutionStatus, WorkloadStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
-import { VmNodeStatusType, type KinoticClusterInfo, type VmNode } from '@kinotic-ai/system-api'
+import type { KinoticClusterInfo, VmNode } from '@kinotic-ai/system-api'
 import { DatetimeUtil, PageHeader, accentColor, errorMessage, isDark, scanJobRuns } from '@kinotic-ai/frontend-common'
 
 import AttentionList from '@/components/AttentionList.vue'
@@ -68,7 +68,7 @@ import RecentRunsTable from '@/components/RecentRunsTable.vue'
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import WorkloadStateCard from '@/components/WorkloadStateCard.vue'
 import { platformAttention } from '@/util/attention'
-import { capacityOf, loadNodes } from '@/util/nodes'
+import { NodeHealth, capacityOf, loadNodes, nodeHealth } from '@/util/nodes'
 import { scanWorkloads } from '@/util/workloads'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -84,18 +84,19 @@ const organizationCount = ref<number | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-// A workload can only be placed on an ONLINE node, so an offline node's free capacity is not
-// the platform's to hand out — counting it reports headroom no placement can actually use.
-const onlineNodes = computed(() => nodes.value.filter(node => node.status.type === VmNodeStatusType.ONLINE))
-const capacity = computed(() => capacityOf(onlineNodes.value))
+// A workload can only be placed on a node in its desired state, so the free capacity of a node
+// that is draining or unreachable is not the platform's to hand out — counting it reports headroom
+// no placement can actually use.
+const placeableNodes = computed(() => nodes.value.filter(node => node.state.reconciled))
+const capacity = computed(() => capacityOf(placeableNodes.value))
+const onlineNodes = computed(() => nodes.value.filter(node => nodeHealth(node) === NodeHealth.ONLINE))
 
 const nodeStates = computed(() => {
-  const count = (type: VmNodeStatusType) => nodes.value.filter(node => node.status.type === type).length
+  const count = (health: NodeHealth) => nodes.value.filter(node => nodeHealth(node) === health).length
   return [
-    { label: 'Online', count: count(VmNodeStatusType.ONLINE), color: accentColor('green', isDark.value) },
-    { label: 'Draining', count: count(VmNodeStatusType.DRAINING), color: accentColor('amber', isDark.value) },
-    { label: 'Unreachable', count: count(VmNodeStatusType.UNREACHABLE), color: accentColor('violet', isDark.value) },
-    { label: 'Offline', count: count(VmNodeStatusType.OFFLINE), color: accentColor('red', isDark.value) }
+    { label: 'Online', count: count(NodeHealth.ONLINE), color: accentColor('green', isDark.value) },
+    { label: 'Draining', count: count(NodeHealth.DRAINING), color: accentColor('amber', isDark.value) },
+    { label: 'Unreachable', count: count(NodeHealth.UNREACHABLE), color: accentColor('red', isDark.value) }
   ]
 })
 

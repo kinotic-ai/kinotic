@@ -376,8 +376,8 @@ sticky load balancer ever change the calculus.
 ## Phase 9 — orchestrator fast path (~5 files, optional)
 
 The orchestrator now lives in `kinotic-system-api`
-(`org.kinotic.system.internal.api.services.DefaultVmNodeOrchestrationService`,
-`org.kinotic.system.api.workload.VmManagerProxy`). Feed `RpcServiceUnavailableException` /
+(`org.kinotic.system.internal.api.services.workload.DefaultVmNodeOrchestrationService`,
+`org.kinotic.system.api.services.workload.VmManagerProxy`). Feed `RpcServiceUnavailableException` /
 `NO_HANDLERS` on `VmManagerProxy` into VmNode health verification as an invalidation trigger, the
 way `ServiceLivenessUpdater` works — the orchestrator otherwise learns of node death only from
 the heartbeat reaper. And fix the guard that keeps a draining node from ever going offline:

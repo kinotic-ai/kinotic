@@ -21,6 +21,8 @@
 
       <template #item.status="{ item }">
         <Tag :value="item.status" :severity="workloadSeverity(item.status)" />
+        <Tag v-if="item.unreachable" value="node unreachable" severity="warn" icon="pi pi-exclamation-triangle"
+             class="ml-1" :title="item.unreachable.message" />
       </template>
 
       <template #item.node="{ item }">
@@ -63,13 +65,13 @@ import { useConfirm } from 'primevue/useconfirm'
 
 import { Direction, FunctionalIterablePage, Kinotic, Order,
          type IterablePage, type Page, type Pageable, type Sort } from '@kinotic-ai/core'
-import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
+import { WorkloadStatus, type StatusCondition, type Workload } from '@kinotic-ai/management-api'
 import { CrudTable, DatetimeUtil, WorkloadLogsDialog, formatMb, pageNumberOf, useCrudTablePage,
          type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
 
 import { formatCpus } from '@/util/nodes'
 import { scopePath, type Scope } from '@/util/scope'
-import { shortImage, workloadSeverity } from '@/util/workloads'
+import { nodeUnreachable, runOpen, shortImage, workloadSeverity } from '@/util/workloads'
 
 /**
  * The given workloads as a searchable, sortable table whose rows open the workload's page
@@ -95,6 +97,8 @@ interface WorkloadRow extends DescriptiveIdentifiable {
   id: string
   name: string
   status: WorkloadStatus
+  /** The orchestrator's mark that the node has not answered for this workload, or null. */
+  unreachable: StatusCondition | null
   nodeId: string | null
   node: string
   owner: string | null
@@ -196,6 +200,7 @@ function toRow(workload: Workload): WorkloadRow {
     id: workload.id ?? '',
     name: workload.name,
     status: workload.status,
+    unreachable: nodeUnreachable(workload) ?? null,
     nodeId: workload.nodeId,
     node: workload.nodeId ? props.nodeNames[workload.nodeId] ?? workload.nodeId : '',
     owner: ownerOf(workload),
@@ -232,18 +237,34 @@ function rowActions(item: WorkloadRow): MenuItem[] {
       command: () => act(() => Kinotic.workloadOrchestration.stopWorkload(item.id), 'Workload stopping', 'Failed to stop workload')
     })
   }
-  actions.push({
-    label: 'Destroy',
-    icon: 'pi pi-trash',
-    command: () => confirm.require({
-      header: 'Confirm destroy',
-      message: `Destroy workload ${item.name}? Its VM and disk are removed permanently.`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptProps: { label: 'Destroy', severity: 'danger' },
-      rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-      accept: () => act(() => Kinotic.workloadOrchestration.destroyWorkload(item.id), 'Workload destroyed', 'Failed to destroy workload')
+  // A run holding a VM is destroyed; an ended one is deleted with its logs
+  if (runOpen(item.status)) {
+    actions.push({
+      label: 'Destroy',
+      icon: 'pi pi-power-off',
+      command: () => confirm.require({
+        header: 'Confirm destroy',
+        message: `Destroy workload ${item.name}? Its VM and disk are removed permanently; its record and logs stay.`,
+        icon: 'pi pi-exclamation-triangle',
+        acceptProps: { label: 'Destroy', severity: 'danger' },
+        rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+        accept: () => act(() => Kinotic.workloadOrchestration.destroyWorkload(item.id), 'Workload destroyed', 'Failed to destroy workload')
+      })
     })
-  })
+  } else {
+    actions.push({
+      label: 'Delete',
+      icon: 'pi pi-trash',
+      command: () => confirm.require({
+        header: 'Confirm delete',
+        message: `Delete workload ${item.name}? Its record and its logs are removed permanently.`,
+        icon: 'pi pi-exclamation-triangle',
+        acceptProps: { label: 'Delete', severity: 'danger' },
+        rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+        accept: () => act(() => Kinotic.workloadOrchestration.deleteWorkload(item.id), 'Workload deleted', 'Failed to delete workload')
+      })
+    })
+  }
   return actions
 }
 

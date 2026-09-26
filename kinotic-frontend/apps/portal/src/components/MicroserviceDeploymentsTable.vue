@@ -5,15 +5,18 @@
     </Column>
     <Column header="Status" style="width: 14%">
       <template #body="{ data }">
-        <span :title="data.status.message ?? undefined">
-          <Tag :value="data.status.type" :severity="deploymentStatusSeverity(data.status.type)" />
+        <span :title="data.failureMessage ?? undefined">
+          <Tag :value="observedPhase(data.state.observed)" :severity="observedPhaseSeverity(data.state.observed)" />
         </span>
+        <Tag v-if="unreachable(data)" value="node unreachable" severity="warn" icon="pi pi-exclamation-triangle"
+             class="ml-1" :title="unreachable(data)?.message" />
+        <Tag v-if="data.state.deletionRequested" value="removing" severity="secondary" class="ml-1" />
       </template>
     </Column>
     <Column header="Commit" style="width: 12%">
       <template #body="{ data }">
-        <span class="font-mono text-sm text-muted-color" :title="data.commitSha ?? undefined">
-          {{ data.commitSha ? shortSha(data.commitSha) : '—' }}
+        <span class="font-mono text-sm text-muted-color" :title="data.state.observed?.commitSha ?? undefined">
+          {{ data.state.observed?.commitSha ? shortSha(data.state.observed.commitSha) : '—' }}
         </span>
       </template>
     </Column>
@@ -40,17 +43,22 @@ import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
-import { deploymentStatusSeverity, shortSha } from '@kinotic-ai/frontend-common'
-import type { MicroserviceDeployment } from '@kinotic-ai/management-api'
+import { StatusConditionType, findStatusCondition, type MicroserviceDeployment, type StatusCondition } from '@kinotic-ai/management-api'
+import { observedPhase, observedPhaseSeverity, shortSha } from '@kinotic-ai/frontend-common'
 
 /**
- * The microservices a project's deployments have ensured, one row each with its status, the
- * commit it was ensured for, the module it runs, and the actions the console offers: its
- * workload's log, a restart of its VM, and removal.
+ * The microservices a project's deployments have ensured, one row each with the phase it reports,
+ * the commit it serves, the module it runs, and the actions the console offers: its workload's
+ * log, a restart of its VM, and removal.
  */
 defineProps<{
   deployments: MicroserviceDeployment[]
 }>()
+
+/** The mark that the node running the microservice has not answered, or undefined while it does. */
+function unreachable(deployment: MicroserviceDeployment): StatusCondition | undefined {
+  return findStatusCondition(deployment.state.conditions, StatusConditionType.NODE_UNREACHABLE)
+}
 
 const emit = defineEmits<{
   logs: [deployment: MicroserviceDeployment]

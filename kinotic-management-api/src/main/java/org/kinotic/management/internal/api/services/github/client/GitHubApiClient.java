@@ -2,7 +2,7 @@ package org.kinotic.management.internal.api.services.github.client;
 
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
-import org.kinotic.management.api.model.GitHubToken;
+import org.kinotic.management.api.model.github.GitHubToken;
 
 import java.util.List;
 import java.util.Map;

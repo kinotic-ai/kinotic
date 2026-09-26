@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
+import { EgressPolicyManager } from '@/internal/api/EgressPolicyManager'
 
 // Rule application needs iptables and root, so what is exercised here is the part that runs
 // before any of that: the guard deciding whether a destination can be enforced at all, and

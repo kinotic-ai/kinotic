@@ -1,7 +1,9 @@
 import { ExecutionStatus, WorkloadStatus, type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
-import { VmNodeStatusType, type KinoticClusterInfo, type VmNode } from '@kinotic-ai/system-api'
+import type { KinoticClusterInfo, VmNode } from '@kinotic-ai/system-api'
 import { DatetimeUtil } from '@kinotic-ai/frontend-common'
+import { NodeHealth, nodeHealth, nodeUnreachable as nodeMark } from './nodes'
 import { scopePath, type Scope } from './scope'
+import { nodeUnreachable } from './workloads'
 
 /** One thing an operator has to look at, and where it is handled. */
 export interface AttentionItem {
@@ -56,31 +58,43 @@ function failedWorkloads(workloads: Workload[], scope: Scope): AttentionItem[] {
                     }))
 }
 
+function unreachableWorkloads(workloads: Workload[], scope: Scope): AttentionItem[] {
+    return workloads.map(workload => ({ workload, unreachable: nodeUnreachable(workload) }))
+                    .filter(({ unreachable }) => unreachable !== undefined)
+                    .slice(0, MAX_PER_KIND)
+                    .map(({ workload, unreachable }) => ({
+                        severity: 'warn',
+                        icon: 'pi-exclamation-triangle',
+                        text: `Workload ${workload.name} is on a node that has not answered`,
+                        detail: [
+                            ownerOf(workload, scope),
+                            unreachable?.message,
+                            unreachable ? relative(unreachable.since) : null
+                        ].filter(Boolean).join(' · '),
+                        to: `${scopePath(scope)}/workloads/${encodeURIComponent(workload.id ?? '')}`
+                    }))
+}
+
 function unfitNodes(nodes: VmNode[]): AttentionItem[] {
     const ret: AttentionItem[] = []
     for (const node of nodes) {
-        if (node.status.type === VmNodeStatusType.DRAINING) {
-            ret.push({
-                severity: 'warn',
-                icon: 'pi-server',
-                text: `${node.name} is draining`,
-                detail: node.status.healthMessage ?? 'The orchestrator places nothing new on it',
-                to: `/worker-nodes/${encodeURIComponent(node.id)}`
-            })
-        } else if (node.status.type === VmNodeStatusType.UNREACHABLE) {
+        const health = nodeHealth(node)
+        if (health === NodeHealth.UNREACHABLE) {
+            const mark = nodeMark(node)
             ret.push({
                 severity: 'warn',
                 icon: 'pi-server',
                 text: `${node.name} is unreachable`,
-                detail: 'A call to its vm-manager could not be delivered; the orchestrator places nothing new on it',
+                detail: [mark?.message, node.lastSeen ? `last heartbeat ${relative(node.lastSeen)}` : null,
+                         'the orchestrator places nothing new on it'].filter(Boolean).join(' · '),
                 to: `/worker-nodes/${encodeURIComponent(node.id)}`
             })
-        } else if (node.status.type === VmNodeStatusType.OFFLINE) {
+        } else if (health === NodeHealth.DRAINING) {
             ret.push({
                 severity: 'warn',
                 icon: 'pi-server',
-                text: `${node.name} is offline`,
-                detail: [`${node.providerType} on ${node.hostname}`, node.lastSeen ? `last heartbeat ${relative(node.lastSeen)}` : null].filter(Boolean).join(' · '),
+                text: `${node.name} is draining`,
+                detail: node.healthMessage ?? 'The orchestrator places nothing new on it',
                 to: `/worker-nodes/${encodeURIComponent(node.id)}`
             })
         }
@@ -119,6 +133,7 @@ export function platformAttention(cluster: KinoticClusterInfo | null, nodes: VmN
     return [
         ...failedRuns(runs, scope),
         ...failedWorkloads(workloads, scope),
+        ...unreachableWorkloads(workloads, scope),
         ...unfitNodes(nodes),
         ...versionSkew(cluster)
     ]
@@ -129,6 +144,7 @@ export function organizationAttention(organization: Organization, workloads: Wor
     const scope: Scope = { organizationId: organization.id ?? '' }
     return [
         ...failedRuns(runs, scope),
-        ...failedWorkloads(workloads, scope)
+        ...failedWorkloads(workloads, scope),
+        ...unreachableWorkloads(workloads, scope)
     ]
 }

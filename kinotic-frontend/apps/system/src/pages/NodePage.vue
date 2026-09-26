@@ -7,7 +7,7 @@
         <span class="truncate">{{ node?.name ?? nodeId }}</span>
       </template>
       <template #actions>
-        <Tag v-if="node" :value="node.status.type" :severity="nodeSeverity(node.status.type)" />
+        <Tag v-if="node" :value="nodeHealth(node)" :severity="nodeSeverity(nodeHealth(node))" />
         <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined :loading="loading" @click="load" />
       </template>
     </PageHeader>
@@ -15,20 +15,24 @@
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
     <template v-if="node">
-      <Message v-if="node.status.type === VmNodeStatusType.DRAINING" severity="warn" :closable="false" class="mb-4">
-        <b>Draining.</b> {{ node.status.healthMessage ?? 'The node reported a problem.' }}
+      <Message v-if="node.state.deletionRequested" severity="info" :closable="false" class="mb-4">
+        <b>Deregistering.</b> Its removal was asked for {{ formatEpochDateTime(node.state.deletionRequested) }};
+        the orchestrator records any run still open on it as failed and removes the node.
+      </Message>
+      <Message v-if="health === NodeHealth.UNREACHABLE" severity="error" :closable="false" class="mb-4">
+        <b>Unreachable.</b> {{ unreachable?.message }}, since {{ formatEpochDateTime(unreachable?.since ?? null) }}.
+        Last heartbeat {{ formatEpochDateTime(node.lastSeen) }}. The orchestrator places nothing new here;
+        its {{ workloads.length }} workloads keep their last reported status until the node's next
+        heartbeat, which makes it reachable again, or its deregistration, which records the open ones as failed.
+      </Message>
+      <Message v-else-if="health === NodeHealth.DRAINING" severity="warn" :closable="false" class="mb-4">
+        <b>Draining.</b> {{ node.healthMessage ?? 'The node reported a problem.' }}
         The orchestrator places nothing new here until the node reports no problems; its
         {{ workloads.length }} workloads keep running.
       </Message>
-      <Message v-else-if="node.status.type === VmNodeStatusType.UNREACHABLE" severity="error" :closable="false" class="mb-4">
-        <b>Unreachable.</b> A call to its vm-manager could not be delivered, and the node holds no
-        registration on the server. The orchestrator places nothing new here; its
-        {{ workloads.length }} workloads keep running until the node either heartbeats, which makes it
-        online again, or stays silent past the heartbeat timeout, which takes it offline.
-      </Message>
-      <Message v-else-if="node.status.type === VmNodeStatusType.OFFLINE" severity="error" :closable="false" class="mb-4">
-        <b>Offline.</b> No heartbeat since {{ formatEpochDateTime(node.lastSeen) }}. A node that
-        reconnects is online again with its next heartbeat.
+      <Message v-else-if="health === NodeHealth.UNKNOWN" severity="secondary" :closable="false" class="mb-4">
+        <b>Not reported yet.</b> The node has not reported whether it takes workloads since it registered;
+        its next heartbeat says.
       </Message>
 
       <div class="flex flex-col gap-4">
@@ -83,13 +87,13 @@ import Tag from 'primevue/tag'
 
 import { Kinotic } from '@kinotic-ai/core'
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
-import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
+import type { VmNode } from '@kinotic-ai/system-api'
 import { DatetimeUtil, PageHeader, errorMessage, formatMb } from '@kinotic-ai/frontend-common'
 
 import CapacityRows from '@/components/CapacityRows.vue'
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import WorkloadsTable from '@/components/WorkloadsTable.vue'
-import { capacityOf, formatCpus, nodeSeverity, percentOf } from '@/util/nodes'
+import { NodeHealth, capacityOf, formatCpus, nodeHealth, nodeSeverity, nodeUnreachable, percentOf } from '@/util/nodes'
 import { scanWorkloads } from '@/util/workloads'
 
 /**
@@ -106,6 +110,9 @@ const node = ref<VmNode | null>(null)
 const workloads = ref<Workload[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
+
+const health = computed(() => node.value ? nodeHealth(node.value) : NodeHealth.UNKNOWN)
+const unreachable = computed(() => node.value ? nodeUnreachable(node.value) : undefined)
 
 interface Stat {
   label: string
