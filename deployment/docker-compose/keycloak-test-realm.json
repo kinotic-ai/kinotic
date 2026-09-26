@@ -93,7 +93,7 @@
       "id": "kinotic-client",
       "clientId": "kinotic-client",
       "name": "Kinotic platform — Keycloak (dev)",
-      "description": "Confidential client for the kinotic-server's platform OIDC bootstrap. The clientSecret here is intentionally hardcoded — this realm is only ever loaded into the dev Keycloak container; do not reuse anywhere production-adjacent.",
+      "description": "Confidential client for the org server's platform OIDC bootstrap. The clientSecret here is intentionally hardcoded — this realm is only ever loaded into the dev Keycloak container; do not reuse anywhere production-adjacent.",
       "enabled": true,
       "publicClient": false,
       "secret": "dev-only-keycloak-kinotic-platform-secret",

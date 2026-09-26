@@ -63,7 +63,7 @@ resource "azurerm_cdn_frontdoor_endpoint" "sites" {
 
 # ── Sites storage ─────────────────────────────────────────────────────────────
 # One account for every site of the environment: sites/<hostname>/... Anonymous access is
-# off; Front Door reads as the profile's identity and kinotic-server writes as its own.
+# off; Front Door reads as the profile's identity and the system server writes as its own.
 
 resource "azurerm_storage_account" "sites" {
   name                            = local.storage_account_name

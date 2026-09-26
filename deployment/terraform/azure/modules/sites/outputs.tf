@@ -9,7 +9,7 @@ output "endpoint_host_name" {
 }
 
 output "storage_blob_endpoint" {
-  description = "The blob endpoint kinotic-server publishes sites into"
+  description = "The blob endpoint the system server publishes sites into"
   value       = azurerm_storage_account.sites.primary_blob_endpoint
 }
 

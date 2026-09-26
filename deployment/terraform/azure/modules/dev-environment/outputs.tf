@@ -9,7 +9,7 @@ output "sites_domain" {
 }
 
 output "sites_storage_blob_endpoint" {
-  description = "The blob endpoint kinotic-server publishes sites into"
+  description = "The blob endpoint the system server publishes sites into"
   value       = module.sites.storage_blob_endpoint
 }
 
@@ -19,7 +19,7 @@ output "sites_endpoint_host_name" {
 }
 
 output "server_client_id" {
-  description = "The service principal kinotic-server runs as (AZURE_CLIENT_ID)"
+  description = "The service principal the Kinotic servers run as (AZURE_CLIENT_ID)"
   value       = azuread_application.server.client_id
 }
 
