@@ -81,6 +81,12 @@ public class ProjectDeployment implements Reconcilable<DeploymentState>, Applica
     private ProjectArtifacts artifacts;
 
     /**
+     * The SBOM the last SBOM workload generated, or {@code null} before a deployment has
+     * generated one.
+     */
+    private ProjectSbom sbom;
+
+    /**
      * The id of the most recent deployment job run for this project.
      */
     private String lastJobRunId;

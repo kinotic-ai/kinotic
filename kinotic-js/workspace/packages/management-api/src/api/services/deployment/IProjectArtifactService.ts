@@ -3,10 +3,10 @@ import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import type { ProjectArtifacts } from '@/api/model/deployment/ProjectArtifacts'
 
 /**
- * Records the artifacts a project's deployment workloads find, on the project's
- * ProjectDeployment, and the project's ProjectSbom. Every call is authorized against the machine
- * identities the deployment recorded for the project, so only a workload the deployment issued
- * credentials to can report on the project's behalf.
+ * Records the artifacts a project's deployment workloads find, and the SBOM they generate, on the
+ * project's ProjectDeployment. Every call is authorized against the machine identities the
+ * deployment recorded for the project, so only a workload the deployment issued credentials to can
+ * report on the project's behalf.
  */
 export interface IProjectArtifactService {
 
@@ -29,7 +29,7 @@ export interface IProjectArtifactService {
      * @param commitSha full 40-character SHA of the checked-out commit
      * @param dependencyHash the fingerprint of the dependencies the document lists
      * @param componentCount how many components the document lists
-     * @return Promise resolving once the SBOM is recorded
+     * @return Promise resolving once the deployment record holds the SBOM
      */
     recordSbom(projectId: string, commitSha: string, dependencyHash: string, componentCount: number): Promise<void>
 

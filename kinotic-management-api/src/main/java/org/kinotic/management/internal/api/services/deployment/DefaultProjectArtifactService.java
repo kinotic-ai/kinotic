@@ -14,7 +14,6 @@ import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.management.api.model.deployment.ProjectSbom;
 import org.kinotic.management.api.model.deployment.UiArtifact;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
-import org.kinotic.management.api.repositories.ProjectSbomRepository;
 import org.kinotic.management.api.services.deployment.ProjectArtifactService;
 import org.springframework.stereotype.Component;
 
@@ -28,7 +27,6 @@ import java.util.Set;
 public class DefaultProjectArtifactService implements ProjectArtifactService {
 
     private final ProjectDeploymentRepository projectDeploymentRepository;
-    private final ProjectSbomRepository projectSbomRepository;
     private final SecurityContext securityContext;
 
     @Override
@@ -57,15 +55,8 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
                     // a commit whose checkout the SBOM workload was given
                     Validate.isTrue(deployment.getArtifacts() != null && commitSha.equals(deployment.getArtifacts().commitSha()),
                                     "Commit %s is not the one the sync workload of project %s last reported", commitSha, projectId);
-                    ProjectSbom sbom = new ProjectSbom()
-                            .setId(projectId)
-                            .setOrganizationId(deployment.getOrganizationId())
-                            .setApplicationId(deployment.getApplicationId())
-                            .setCommitSha(commitSha)
-                            .setDependencyHash(dependencyHash)
-                            .setComponentCount(componentCount)
-                            .setGenerated(new Date());
-                    return projectSbomRepository.saveSync(sbom, participant.getOrganizationId()).mapEmpty();
+                    return projectDeploymentRepository.recordSbom(projectId, participant.getOrganizationId(),
+                                                                  new ProjectSbom(commitSha, dependencyHash, componentCount, new Date()));
                 });
     }
 

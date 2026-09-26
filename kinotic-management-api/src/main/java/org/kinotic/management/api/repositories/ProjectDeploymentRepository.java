@@ -18,6 +18,7 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
+import org.kinotic.management.api.model.deployment.ProjectSbom;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -188,6 +189,17 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
         Validate.notBlank(artifacts.commitSha(), "artifacts.commitSha cannot be blank");
         Map<String, Object> fields = new HashMap<>();
         fields.put("artifacts", artifacts);
+        return partial(projectId, orgId, fields);
+    }
+
+    /**
+     * Records the SBOM the SBOM workload generated, replacing the project's earlier one and
+     * leaving every other field as it is.
+     */
+    public Future<Void> recordSbom(String projectId, String orgId, ProjectSbom sbom) {
+        Validate.notNull(sbom, "sbom cannot be null");
+        Map<String, Object> fields = new HashMap<>();
+        fields.put("sbom", sbom);
         return partial(projectId, orgId, fields);
     }
 

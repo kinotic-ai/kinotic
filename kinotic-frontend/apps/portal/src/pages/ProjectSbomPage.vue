@@ -70,7 +70,7 @@ import SelectButton from 'primevue/selectbutton'
 import Tag from 'primevue/tag'
 import { DatetimeUtil, PageHeader, errorMessage, shortSha } from '@kinotic-ai/frontend-common'
 import { Kinotic } from '@kinotic-ai/core'
-import type { ProjectDeployment, ProjectSbom } from '@kinotic-ai/management-api'
+import type { ProjectDeployment } from '@kinotic-ai/management-api'
 
 /**
  * The project's SBOM: when and from which commit it was generated, whether the dependencies of
@@ -113,7 +113,6 @@ const PAGE_SIZE = 50
 const ALL_SCOPES = 'All'
 const SCOPE_OPTIONS = [ALL_SCOPES, ComponentScope.RUNTIME, ComponentScope.DEVELOPMENT, ComponentScope.OPTIONAL]
 
-const sbom = ref<ProjectSbom | null>(null)
 const deployment = ref<ProjectDeployment | null>(null)
 const documentText = ref<string | null>(null)
 const components = ref<ComponentRow[]>([])
@@ -122,6 +121,8 @@ const scope = ref<string>(ALL_SCOPES)
 const loading = ref(true)
 const documentLoading = ref(false)
 const error = ref<string | null>(null)
+
+const sbom = computed(() => deployment.value?.sbom ?? null)
 
 /** Whether the last synced commit's dependencies are the ones the SBOM lists. */
 const current = computed(() => sbom.value !== null && deployment.value?.artifacts?.dependencyHash === sbom.value.dependencyHash)
@@ -134,12 +135,7 @@ const visibleComponents = computed(() => {
 
 onMounted(async () => {
   try {
-    const [found, deployed] = await Promise.all([
-      Kinotic.projects.findSbom(props.projectId),
-      Kinotic.projects.findDeployment(props.projectId),
-    ])
-    sbom.value = found
-    deployment.value = deployed
+    deployment.value = await Kinotic.projects.findDeployment(props.projectId)
   } catch (err) {
     error.value = errorMessage(err, 'The SBOM could not be loaded')
   } finally {

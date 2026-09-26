@@ -1,6 +1,7 @@
 import type { Reconcilable } from '@/api/model/reconcile/Reconcilable'
 import { ReconcileState } from '@/api/model/reconcile/ReconcileState'
 import type { ProjectArtifacts } from '@/api/model/deployment/ProjectArtifacts'
+import type { ProjectSbom } from '@/api/model/deployment/ProjectSbom'
 import type { DeploymentState } from '@/api/model/deployment/DeploymentState'
 
 /**
@@ -64,6 +65,11 @@ export class ProjectDeployment implements Reconcilable<DeploymentState> {
      * before a sync has reported any.
      */
     public artifacts: ProjectArtifacts | null = null
+
+    /**
+     * The SBOM the last SBOM workload generated, or null before a deployment has generated one.
+     */
+    public sbom: ProjectSbom | null = null
 
     /**
      * The id of the most recent deployment job run for this project.

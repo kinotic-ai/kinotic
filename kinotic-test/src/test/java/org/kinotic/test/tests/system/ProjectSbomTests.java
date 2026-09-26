@@ -13,7 +13,6 @@ import org.kinotic.management.api.model.deployment.ProjectArtifacts;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.management.api.model.deployment.ProjectSbom;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
-import org.kinotic.management.api.repositories.ProjectSbomRepository;
 import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.management.api.services.deployment.ProjectArtifactService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
@@ -52,15 +51,11 @@ public class ProjectSbomTests extends KinoticTestBase {
     @Autowired
     private ProjectDeploymentRepository projectDeployments;
 
-    @Autowired
-    private ProjectSbomRepository projectSboms;
-
     private final List<String> projectIds = new ArrayList<>();
 
     @AfterEach
     public void removeCreatedRecords() throws Exception {
         for (String id : projectIds) {
-            await(projectSboms.deleteByIdSync(id, TEST_ORG_ID));
             await(projectDeployments.deleteByIdSync(id, TEST_ORG_ID));
         }
         projectIds.clear();
@@ -72,14 +67,12 @@ public class ProjectSbomTests extends KinoticTestBase {
 
         await(runAs(syncMachine(), () -> projectArtifactService.recordSbom(projectId, COMMIT, "hash-1", 42)));
 
-        ProjectSbom sbom = await(runAsOrganization(() -> projectService.findSbom(projectId)));
+        ProjectSbom sbom = await(runAsOrganization(() -> projectService.findDeployment(projectId))).getSbom();
         assertNotNull(sbom);
-        assertEquals(projectId, sbom.getId());
-        assertEquals(TEST_APP_ID, sbom.getApplicationId());
-        assertEquals(COMMIT, sbom.getCommitSha());
-        assertEquals("hash-1", sbom.getDependencyHash());
-        assertEquals(42, sbom.getComponentCount());
-        assertNotNull(sbom.getGenerated());
+        assertEquals(COMMIT, sbom.commitSha());
+        assertEquals("hash-1", sbom.dependencyHash());
+        assertEquals(42, sbom.componentCount());
+        assertNotNull(sbom.generated());
     }
 
     @Test
@@ -89,9 +82,9 @@ public class ProjectSbomTests extends KinoticTestBase {
 
         await(runAs(syncMachine(), () -> projectArtifactService.recordSbom(projectId, COMMIT, "hash-2", 43)));
 
-        ProjectSbom sbom = await(runAsOrganization(() -> projectService.findSbom(projectId)));
-        assertEquals("hash-2", sbom.getDependencyHash());
-        assertEquals(43, sbom.getComponentCount());
+        ProjectSbom sbom = await(runAsOrganization(() -> projectService.findDeployment(projectId))).getSbom();
+        assertEquals("hash-2", sbom.dependencyHash());
+        assertEquals(43, sbom.componentCount());
     }
 
     @Test
@@ -102,7 +95,7 @@ public class ProjectSbomTests extends KinoticTestBase {
                 () -> projectArtifactService.recordSbom(projectId, "f".repeat(40), "hash-1", 42))));
 
         assertTrue(failure.getMessage().contains("is not the one the sync workload"), failure.getMessage());
-        assertNull(await(projectSboms.findById(projectId, TEST_ORG_ID)));
+        assertNull(await(projectDeployments.findById(projectId, TEST_ORG_ID)).getSbom());
     }
 
     @Test
@@ -112,14 +105,14 @@ public class ProjectSbomTests extends KinoticTestBase {
         assertThrows(Exception.class, () -> await(runAsOrganization(
                 () -> projectArtifactService.recordSbom(projectId, COMMIT, "hash-1", 42))));
 
-        assertNull(await(projectSboms.findById(projectId, TEST_ORG_ID)));
+        assertNull(await(projectDeployments.findById(projectId, TEST_ORG_ID)).getSbom());
     }
 
     @Test
     public void aProjectWithoutAnSbomHasNoDocument() throws Exception {
         String projectId = deployedProject("sbom-none");
 
-        assertNull(await(runAsOrganization(() -> projectService.findSbom(projectId))));
+        assertNull(await(runAsOrganization(() -> projectService.findDeployment(projectId))).getSbom());
         assertNull(await(runAsOrganization(() -> projectService.findSbomDocumentUrl(projectId))));
     }
 

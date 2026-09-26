@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
 -- reconcilable record what it should be (state.desired, the commit its last push asked for), what
 -- it is (state.observed, the phase it is in and the commit it serves), the generations that tie
 -- the two, deletionRequested and reconciled. failureMessage keeps the reason a deployment failed.
--- One row per project; id equals the projectId.
+-- sbom is the SBOM the last SBOM workload generated; its CycloneDX document is in the organization
+-- storage account, named by sbom.commitSha. One row per project; id equals the projectId.
 CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     id KEYWORD,
     organizationId KEYWORD,
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
         uis OBJECT (name KEYWORD, dir KEYWORD),
         dependencyHash KEYWORD
     ),
+    sbom OBJECT (commitSha KEYWORD, dependencyHash KEYWORD, componentCount INTEGER, generated DATE),
     lastJobRunId KEYWORD,
     failureMessage TEXT,
     state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
@@ -103,19 +105,6 @@ CREATE TABLE IF NOT EXISTS kinotic_ui_deployment (
     state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
     created DATE,
     updated DATE
-);
-
--- Project SBOMs: one row per project; id equals the projectId. The CycloneDX document itself is
--- in the organization storage account, named by commitSha, the commit it was generated from;
--- dependencyHash is what a deployment compares with the sync workload's to tell whether it is current.
-CREATE TABLE IF NOT EXISTS kinotic_project_sbom (
-    id KEYWORD,
-    organizationId KEYWORD,
-    applicationId KEYWORD,
-    commitSha KEYWORD,
-    dependencyHash KEYWORD,
-    componentCount INTEGER,
-    generated DATE
 );
 
 -- GitHub App installations: one row per Kinotic Org that has linked GitHub.

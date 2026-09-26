@@ -22,7 +22,6 @@ import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
-import org.kinotic.management.api.repositories.ProjectSbomRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
@@ -86,7 +85,6 @@ public class ProjectDeployJobDefinitionFactory {
     private final UiSitePublisher uiSitePublisher;
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final ProjectWorkloadFactory projectWorkloadFactory;
-    private final ProjectSbomRepository projectSbomRepository;
     private final OrganizationStorageService organizationStorageService;
     private final KinoticSystemApiProperties properties;
 
@@ -405,13 +403,13 @@ public class ProjectDeployJobDefinitionFactory {
      */
     private Future<ProjectSbom> generateSbom(Project project, DeployTarget target, ProjectArtifacts artifacts, String commitSha) {
         String organizationId = project.getOrganizationId();
-        return projectSbomRepository.findById(project.getId(), organizationId)
+        return findSbom(project)
                 .compose(current -> {
                     Future<ProjectSbom> ret;
                     if (artifacts.dependencyHash() == null) {
                         ret = Future.failedFuture(new IllegalStateException("The checkout of project " + project.getId() + " at " + commitSha
                                 + " has no bun.lock, which its SBOM is generated from"));
-                    } else if (current != null && artifacts.dependencyHash().equals(current.getDependencyHash())) {
+                    } else if (current != null && artifacts.dependencyHash().equals(current.dependencyHash())) {
                         ret = Future.succeededFuture(current);
                     } else {
                         ret = organizationStorageService.issueWriteUrl(OrganizationStoragePaths.sbomDirectory(organizationId, project.getId()), SBOM_UPLOAD_URL_TTL)
@@ -420,9 +418,9 @@ public class ProjectDeployJobDefinitionFactory {
                                         .map(credentials -> projectWorkloadFactory.sbom(project, target, credentials, url, commitSha)))
                                 .compose(workloadOrchestrationService::deployWorkload)
                                 .compose(finished -> requireSucceeded(finished, "SBOM"))
-                                .compose(workloadId -> projectSbomRepository.findById(project.getId(), organizationId))
+                                .compose(workloadId -> findSbom(project))
                                 .map(recorded -> {
-                                    if (recorded == null || !commitSha.equals(recorded.getCommitSha())) {
+                                    if (recorded == null || !commitSha.equals(recorded.commitSha())) {
                                         throw new IllegalStateException("The SBOM workload of project " + project.getId()
                                                 + " did not record the SBOM of commit " + commitSha);
                                     }
@@ -431,6 +429,12 @@ public class ProjectDeployJobDefinitionFactory {
                     }
                     return ret;
                 });
+    }
+
+    // The SBOM the project's deployment records, or null when no run has generated one
+    private Future<ProjectSbom> findSbom(Project project) {
+        return projectDeploymentRepository.findById(project.getId(), project.getOrganizationId())
+                .map(deployment -> deployment != null ? deployment.getSbom() : null);
     }
 
     /**

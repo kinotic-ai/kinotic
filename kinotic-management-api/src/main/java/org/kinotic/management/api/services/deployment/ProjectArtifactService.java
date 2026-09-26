@@ -4,13 +4,12 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
-import org.kinotic.management.api.model.deployment.ProjectSbom;
 
 /**
- * Records the artifacts a project's deployment workloads find, on the project's
- * {@link ProjectDeployment}, and the project's {@link ProjectSbom}. Every call is authorized
- * against the machine identities the deployment recorded for the project, so only a workload the
- * deployment issued credentials to can report on the project's behalf.
+ * Records the artifacts a project's deployment workloads find, and the SBOM they generate, on the
+ * project's {@link ProjectDeployment}. Every call is authorized against the machine identities the
+ * deployment recorded for the project, so only a workload the deployment issued credentials to can
+ * report on the project's behalf.
  */
 @Publish
 public interface ProjectArtifactService {
@@ -36,7 +35,7 @@ public interface ProjectArtifactService {
      * @param commitSha      full 40-character SHA of the checked-out commit
      * @param dependencyHash the fingerprint of the dependencies the document lists
      * @param componentCount how many components the document lists
-     * @return a future completing once the SBOM is recorded and visible to search
+     * @return a future completing once the deployment record holds the SBOM
      */
     Future<Void> recordSbom(String projectId, String commitSha, String dependencyHash, int componentCount);
 

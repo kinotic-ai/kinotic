@@ -10,11 +10,9 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
-import org.kinotic.management.api.model.deployment.ProjectSbom;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
-import org.kinotic.management.api.repositories.ProjectSbomRepository;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.services.ProjectRepoProvisioner;
@@ -38,20 +36,17 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
 
     private final ProjectRepository projectRepository;
     private final ProjectDeploymentRepository projectDeploymentRepository;
-    private final ProjectSbomRepository projectSbomRepository;
     private final OrganizationStorageService organizationStorageService;
     private final ProjectRepoProvisioner repoProvisioner;
 
     public DefaultProjectService(ProjectRepository repository,
                                  SecurityContext securityContext,
                                  ProjectDeploymentRepository projectDeploymentRepository,
-                                 ProjectSbomRepository projectSbomRepository,
                                  OrganizationStorageService organizationStorageService,
                                  ProjectRepoProvisioner repoProvisioner) {
         super(repository, securityContext);
         this.projectRepository = repository;
         this.projectDeploymentRepository = projectDeploymentRepository;
-        this.projectSbomRepository = projectSbomRepository;
         this.organizationStorageService = organizationStorageService;
         this.repoProvisioner = repoProvisioner;
     }
@@ -123,19 +118,13 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     }
 
     @Override
-    public Future<ProjectSbom> findSbom(String projectId) {
-        Validate.notBlank(projectId, "projectId must not be blank");
-        return projectSbomRepository.findById(projectId, requireOrganizationId());
-    }
-
-    @Override
     public Future<String> findSbomDocumentUrl(String projectId) {
         Validate.notBlank(projectId, "projectId must not be blank");
         String organizationId = requireOrganizationId();
-        // rows are stored per organization, so another organization's project reads as one without an SBOM
-        return projectSbomRepository.findById(projectId, organizationId)
-                .compose(sbom -> sbom != null
-                        ? organizationStorageService.issueReadUrl(OrganizationStoragePaths.sbomFile(organizationId, projectId, sbom.getCommitSha()),
+        // deployments are stored per organization, so another organization's project reads as one without an SBOM
+        return projectDeploymentRepository.findById(projectId, organizationId)
+                .compose(deployment -> deployment != null && deployment.getSbom() != null
+                        ? organizationStorageService.issueReadUrl(OrganizationStoragePaths.sbomFile(organizationId, projectId, deployment.getSbom().commitSha()),
                                                                   SBOM_DOCUMENT_URL_TTL)
                         : Future.succeededFuture());
     }

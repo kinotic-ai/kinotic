@@ -8,7 +8,6 @@ import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.services.ApplicationScopedCrudService;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
-import org.kinotic.management.api.model.deployment.ProjectSbom;
 import org.kinotic.idl.api.annotations.McpTool;
 
 import java.util.List;
@@ -60,16 +59,6 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      *         been deployed
      */
     Future<Page<WatchEvent>> findDeploymentHistory(String projectId, Pageable pageable);
-
-    /**
-     * Finds the SBOM of the given project in the current participant's organization, which the
-     * last step of a deployment generates whenever the project's dependencies changed.
-     *
-     * @param projectId id of the project the SBOM belongs to
-     * @return a {@link Future} emitting the SBOM, or {@code null} when the project's deployments
-     *         have not generated one
-     */
-    Future<ProjectSbom> findSbom(String projectId);
 
     /**
      * Finds a URL the CycloneDX JSON document of the given project's SBOM can be read from for the
