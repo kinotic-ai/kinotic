@@ -15,6 +15,7 @@ dependencies {
     implementation 'io.vertx:vertx-auth-jwt'
     implementation 'io.vertx:vertx-auth-oauth2'
     implementation 'io.vertx:vertx-core'
+    implementation 'io.vertx:vertx-health-check'
     implementation 'io.vertx:vertx-web'
     implementation 'io.vertx:vertx-web-client'
 
