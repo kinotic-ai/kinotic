@@ -6,6 +6,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
+import org.kinotic.domain.api.model.AppHost;
 import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
@@ -81,7 +82,7 @@ public class DomainUtil {
 
     /**
      * Validates that the given application id contains only lowercase letters, digits, and
-     * interior dashes, and is not a zone label the platform reserves for itself.
+     * interior dashes, never {@code --}, and is not a zone label the platform reserves for itself.
      *
      * @param applicationId to validate
      * @throws IllegalArgumentException if the application id is null, invalid, or reserved
@@ -95,8 +96,8 @@ public class DomainUtil {
 
     /**
      * Validates that the given organization id contains only lowercase letters, digits, and
-     * interior dashes, is not a zone label the platform reserves for itself, and does not begin
-     * with the prefix reserved for the platform's own organizations.
+     * interior dashes, never {@code --}, is not a zone label or host label the platform reserves,
+     * and does not begin with the prefix reserved for the platform's own organizations.
      *
      * @param organizationId to validate
      * @throws IllegalArgumentException if the organization id is null, invalid, or reserved
@@ -106,15 +107,39 @@ public class DomainUtil {
             throw new IllegalArgumentException("Organization Id must not be null");
         }
         validateZoneLabelId(organizationId);
+        // an organization id of "xn" would start its applications' host labels with "xn--", which
+        // DNS reserves for internationalized labels
+        Validate.isTrue(!"xn".equals(organizationId), "Organization Id '%s' is reserved", organizationId);
         // The platform's own organizations are seeded by db migrations, which do not come
         // through here, so the prefix needs no escape hatch
         Validate.isTrue(!organizationId.startsWith(RESERVED_ID_PREFIX),
                         "Organization Id '%s' is reserved by the platform", organizationId);
     }
 
+    /**
+     * Validates that the given UI name, the name of a project's UI package, contains only lowercase
+     * letters, digits, and interior dashes, never {@code --}.
+     *
+     * @param uiName to validate
+     * @throws IllegalArgumentException if the UI name is null or invalid
+     */
+    public static void validateUiName(String uiName) {
+        if (uiName == null) {
+            throw new IllegalArgumentException("UI name must not be null");
+        }
+        validateHostLabelPart(uiName);
+    }
+
     private static void validateZoneLabelId(String id) {
-        ZoneUtil.validateLabel(id);
+        validateHostLabelPart(id);
         Validate.isTrue(!SYSTEM_API_ZONE.equals(id), "Id '%s' is reserved by the platform", id);
+    }
+
+    // AppHost joins ids and UI names with "--" into one host label, so a name holding it would let
+    // two applications form the same label: org "a" with app "b--c" and org "a--b" with app "c"
+    private static void validateHostLabelPart(String name) {
+        ZoneUtil.validateLabel(name);
+        Validate.isTrue(!name.contains(AppHost.SEPARATOR), "'%s' must not contain '%s'", name, AppHost.SEPARATOR);
     }
 
     public static void validateProjectId(String projectId){

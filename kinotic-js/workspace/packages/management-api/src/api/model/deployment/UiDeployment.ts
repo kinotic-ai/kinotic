@@ -10,8 +10,8 @@ import type { DeploymentState } from '@/api/model/deployment/DeploymentState'
 export class UiDeployment implements Reconcilable<DeploymentState> {
 
     /**
-     * The site's hostname label under the platform's sites domain, minted once when the UI
-     * is first published: `<org>-<app>-<ui>`, with a numeric suffix when that label is taken.
+     * The site's hostname label under the platform's sites domain, minted when the UI is first
+     * published: `<org>--<app>--<ui>`.
      */
     public id: string | null = null
 
@@ -25,8 +25,8 @@ export class UiDeployment implements Reconcilable<DeploymentState> {
     public projectId!: string
 
     /**
-     * The UI's identity: the UiArtifact name it was published from. Unique among the
-     * project's UI deployments.
+     * The UI's identity: the UiArtifact name it was published from. Unique among the UI
+     * deployments of the project's application.
      */
     public name!: string
 

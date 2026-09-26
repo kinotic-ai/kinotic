@@ -23,9 +23,8 @@ import java.util.Date;
 public class UiDeployment implements Reconcilable<DeploymentState>, OrganizationScoped<String> {
 
     /**
-     * The site's hostname label under the platform's sites domain, minted once when the UI
-     * is first published and never parsed: {@code <org>-<app>-<ui>}, with a numeric suffix
-     * when that label is taken. The site's resources are named after it.
+     * The site's hostname label under the platform's sites domain, minted when the UI is first
+     * published: {@code <org>--<app>--<ui>}. The site's resources are named after it.
      */
     private String id;
 
@@ -40,7 +39,7 @@ public class UiDeployment implements Reconcilable<DeploymentState>, Organization
 
     /**
      * The UI's identity: the {@link UiArtifact#name()} it was published from. Unique among
-     * the project's UI deployments.
+     * the UI deployments of the project's application.
      */
     private String name;
 

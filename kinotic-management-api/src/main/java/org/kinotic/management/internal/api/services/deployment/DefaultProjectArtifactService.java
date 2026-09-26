@@ -8,6 +8,7 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.deployment.MicroserviceArtifact;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
 import org.kinotic.management.api.model.deployment.UiArtifact;
@@ -49,9 +50,9 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
                 });
     }
 
-    // A name becomes a workload name and a hostname label, and two artifacts of one kind with
-    // one name would deploy as one, so a report breaking either rule is refused whatever the
-    // workload found
+    // A name becomes a workload name and a hostname label, a UI's name joined with "--" into its
+    // site's label, and two artifacts of one kind with one name would deploy as one, so a report
+    // breaking any of these rules is refused whatever the workload found
     private static void validate(ProjectArtifacts artifacts) {
         Validate.notNull(artifacts.microservices(), "artifacts.microservices is required");
         Validate.notNull(artifacts.uis(), "artifacts.uis is required");
@@ -62,6 +63,7 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
         }
         names.clear();
         for (UiArtifact ui : artifacts.uis()) {
+            DomainUtil.validateUiName(ui.name());
             requireArtifact(ui.name(), ui.dir(), names);
         }
     }

@@ -22,7 +22,7 @@ public interface ProjectArtifactService {
      * @param projectId the project whose checkout was synced
      * @param commitSha full 40-character SHA of the synced commit
      * @param artifacts the artifacts found; every name must be a single zone label, unique
-     *                  among the artifacts of its kind
+     *                  among the artifacts of its kind, and a UI's name must not contain {@code --}
      * @return a future completing once the deployment record holds the artifacts
      */
     Future<Void> recordArtifacts(String projectId, String commitSha, ProjectArtifacts artifacts);
