@@ -4,6 +4,7 @@ package org.kinotic.core.api.event;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.kinotic.core.api.utils.ZoneUtil;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -13,8 +14,6 @@ import java.net.URISyntaxException;
  * Created by Navid Mitchell on 5/1/20
  */
 class DefaultCRI implements CRI {
-
-    private static final char ZONE_DELIMITER = '~';
 
     private final URI uri;
 
@@ -53,11 +52,11 @@ class DefaultCRI implements CRI {
     // only confuse parsing — a delimiter inside a part is rejected outright
     private void validateIdentity() {
         String scope = scope();
-        if (scope != null && scope.indexOf(ZONE_DELIMITER) >= 0) {
+        if (scope != null && scope.indexOf(ZoneUtil.ZONE_DELIMITER) >= 0) {
             throw new IllegalArgumentException("The scope must not contain '~' but was '" + scope + "'");
         }
         String resourceName = resourceName();
-        if (resourceName != null && resourceName.indexOf(ZONE_DELIMITER) >= 0) {
+        if (resourceName != null && resourceName.indexOf(ZoneUtil.ZONE_DELIMITER) >= 0) {
             throw new IllegalArgumentException("The resourceName must not contain '~' but was '" + resourceName + "'");
         }
         String authority = uri.getRawAuthority();
@@ -89,12 +88,8 @@ class DefaultCRI implements CRI {
 
     @Override
     public String zone() {
-        String hostPart = hostPart();
-        if (hostPart == null) {
-            return null;
-        }
-        int delimiter = hostPart.indexOf(ZONE_DELIMITER);
-        return delimiter >= 0 ? hostPart.substring(0, delimiter) : null;
+        // the one parser the cluster manager routes by, so a CRI's zone and its address's zone never disagree
+        return ZoneUtil.zoneOf(uri.toString());
     }
 
     @Override
@@ -108,7 +103,7 @@ class DefaultCRI implements CRI {
         if (hostPart == null) {
             return null;
         }
-        int delimiter = hostPart.indexOf(ZONE_DELIMITER);
+        int delimiter = hostPart.indexOf(ZoneUtil.ZONE_DELIMITER);
         return delimiter >= 0 ? hostPart.substring(delimiter + 1) : hostPart;
     }
 
@@ -152,7 +147,7 @@ class DefaultCRI implements CRI {
         }
         if(hasZone()){
             sb.append(zone());
-            sb.append(ZONE_DELIMITER);
+            sb.append(ZoneUtil.ZONE_DELIMITER);
         }
         sb.append(resourceName());
 

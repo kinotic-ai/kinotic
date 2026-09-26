@@ -9,7 +9,8 @@ import reactor.core.publisher.Flux;
 import java.util.Set;
 
 /**
- * Provides functionality for non-persistent {@link Event}'s
+ * Provides functionality for non-persistent {@link Event}'s. Sends and publishes reach only the zones this
+ * server's {@link ZonePartition} reaches, and a listener is advertised to the cluster only in a zone it hosts.
  *
  * Created by navid on 10/30/19
  */
@@ -51,14 +52,16 @@ public interface EventBusService {
     EventConsumer listen(CRI cri);
 
     /**
-     * Checks if any listeners are registered for the {@link CRI#baseResource()} of the given {@link CRI}
+     * Checks if any listeners are registered anywhere in the cluster for the {@link CRI#baseResource()} of the
+     * given {@link CRI}, whether or not this server's {@link ZonePartition} reaches it
      * @param cri to check if any listeners are active for
      * @return a {@link Future} that contains true if listeners are active false if not
      */
     Future<Boolean> isAnybodyListening(CRI cri);
 
     /**
-     * Monitors the status of listeners for the {@link CRI#baseResource()} of the given {@link CRI}
+     * Monitors the status of listeners anywhere in the cluster for the {@link CRI#baseResource()} of the given
+     * {@link CRI}, whether or not this server's {@link ZonePartition} reaches it
      * @param cri to check for registered listeners
      * @return a {@link Flux} that emits the current status on subscribe and every status transition after that
      */

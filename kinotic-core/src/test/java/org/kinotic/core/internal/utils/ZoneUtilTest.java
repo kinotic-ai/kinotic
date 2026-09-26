@@ -3,11 +3,17 @@ package org.kinotic.core.internal.utils;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.utils.ZoneUtil;
 
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verifies the zone grammar.
+ * Verifies the zone grammar, how a zone is read from an address, and how zones cover their sub-zones.
  */
 public class ZoneUtilTest {
 
@@ -54,6 +60,31 @@ public class ZoneUtilTest {
         assertThrows(IllegalArgumentException.class, () -> ZoneUtil.validateLabel("Acme-Org"));
         // slugified ids no longer use underscores, so an underscore label is rejected
         assertThrows(IllegalArgumentException.class, () -> ZoneUtil.validateLabel("acme_corp"));
+    }
+
+    @Test
+    public void zoneOfReadsTheZoneOfAnAddress() {
+        assertEquals("management-api", ZoneUtil.zoneOf("srv://management-api~org.kinotic.Service"));
+        assertEquals("app.acme.orders", ZoneUtil.zoneOf("srv://app.acme.orders~com.acme.Orders/place#1.0.0"));
+        // the scope precedes the zone and never contributes to it
+        assertEquals("management-api", ZoneUtil.zoneOf("srv://9a3b@management-api~org.kinotic.JobMonitoringService"));
+        // a '~' in the path is not a zone delimiter
+        assertNull(ZoneUtil.zoneOf("srv://org.kinotic.Service/a~b"));
+        assertNull(ZoneUtil.zoneOf("srv://scope@org.kinotic.Service"));
+        // vertx reply addresses carry no scheme, and so no zone
+        assertNull(ZoneUtil.zoneOf("__vertx.reply.4f0c"));
+    }
+
+    @Test
+    public void zoneMatchesItselfAndItsSubZones() {
+        Set<String> zones = Set.of("app", "management-api");
+        assertTrue(ZoneUtil.zoneMatches("app", zones));
+        assertTrue(ZoneUtil.zoneMatches("app.acme.orders", zones));
+        assertTrue(ZoneUtil.zoneMatches("management-api", zones));
+        // the dot boundary keeps a zone that only shares a prefix out
+        assertFalse(ZoneUtil.zoneMatches("app-api", zones));
+        assertFalse(ZoneUtil.zoneMatches("management-api-2", zones));
+        assertFalse(ZoneUtil.zoneMatches("app.acme.orders", Set.of("app.acme.order")));
     }
 
 }

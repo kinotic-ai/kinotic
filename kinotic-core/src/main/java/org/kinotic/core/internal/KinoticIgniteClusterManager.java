@@ -1,5 +1,6 @@
 package org.kinotic.core.internal;
 
+import io.vertx.core.Completable;
 import io.vertx.core.Context;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
@@ -17,6 +18,7 @@ import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.ServiceListenerChange;
 import org.kinotic.core.api.event.ServiceListenerContinuityLost;
 import org.kinotic.core.api.event.ServiceListenerEvent;
+import org.kinotic.core.api.event.ZonePartition;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
@@ -28,9 +30,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * An {@link IgniteClusterManager} that additionally provides a {@link Flux} of {@link ListenerStatus} for
- * any event bus address, fed by the registration updates it already receives for message routing, and a
- * {@link Flux} of the cluster membership, fed by the discovery events it already receives.
+ * An {@link IgniteClusterManager} confined to this server's {@link ZonePartition}: it advertises a consumer to the
+ * cluster only in a zone the server hosts, and routes sends and publishes only to zones the server reaches. It
+ * additionally provides a {@link Flux} of {@link ListenerStatus} for any event bus address, fed by the
+ * registration updates it already receives for message routing, and a {@link Flux} of the cluster membership,
+ * fed by the discovery events it already receives. Both fluxes, and {@link #getClusterRegistrations}, observe the
+ * whole cluster whatever the partition.
  * Monitoring an address therefore costs a local map entry, no matter how many addresses are monitored or
  * how often monitors come and go. All monitor signals are delivered on a vertx context, never on the
  * cluster threads that observe registration changes.
@@ -50,6 +55,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     private static final String SERVICE_ADDRESS_PREFIX = EventConstants.SERVICE_DESTINATION_SCHEME + "://";
 
     private final Ignite ignite;
+    private final ZonePartition partition;
     private final Map<String, AddressMonitor> monitors = new ConcurrentHashMap<>();
     // Hot sink shared by every serviceListenerEventsFlux subscriber; never terminates
     private final Sinks.Many<ServiceListenerEvent> serviceListenerSink = Sinks.many().multicast().directBestEffort();
@@ -60,9 +66,39 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     private volatile Vertx vertx;
     private volatile Context deliveryContext;
 
-    public KinoticIgniteClusterManager(Ignite ignite) {
+    public KinoticIgniteClusterManager(Ignite ignite, ZonePartition partition) {
         super(ignite);
         this.ignite = ignite;
+        this.partition = partition;
+    }
+
+    @Override
+    public void addRegistration(String address, RegistrationInfo registrationInfo, Completable<Void> promise) {
+        if(partition.hosts(address)){
+            super.addRegistration(address, registrationInfo, promise);
+        }else{
+            promise.fail(new IllegalStateException("The " + partition.name() + " server does not host the zone of " + address));
+        }
+    }
+
+    // Vert.x's node selector routes every send and publish through this lookup
+    @Override
+    public void getRegistrations(String address, Completable<List<RegistrationInfo>> promise) {
+        if(partition.reaches(address)){
+            super.getRegistrations(address, promise);
+        }else{
+            promise.succeed(List.of());
+        }
+    }
+
+    /**
+     * The registrations of the address across the whole cluster, whether or not this server reaches its zone:
+     * where {@link #getRegistrations} answers what this server may route to, this answers who is listening.
+     * @param address the event bus address
+     * @param promise completed with the registrations
+     */
+    public void getClusterRegistrations(String address, Completable<List<RegistrationInfo>> promise) {
+        super.getRegistrations(address, promise);
     }
 
     @Override
@@ -118,14 +154,16 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
             public boolean wantsUpdatesFor(String address) {
                 return monitors.containsKey(address)
                         || (serviceListenerSink.currentSubscriberCount() > 0 && address.startsWith(SERVICE_ADDRESS_PREFIX))
-                        || registrationListener.wantsUpdatesFor(address);
+                        || (partition.reaches(address) && registrationListener.wantsUpdatesFor(address));
             }
 
             @Override
             public void registrationsUpdated(RegistrationUpdateEvent event) {
-                // an update fired for a monitor is not forwarded unless the wrapped listener asked
-                // for the address, matching what the cluster manager would deliver without this wrapper
-                if(registrationListener.wantsUpdatesFor(event.address())){
+                // an update fired for a monitor is not forwarded unless the wrapped listener asked for the
+                // address, matching what the cluster manager would deliver without this wrapper. An unreachable
+                // zone is never forwarded: the node selector holds an entry for an address while its first
+                // lookup is in flight, and an update in that window would install a route getRegistrations refused
+                if(partition.reaches(event.address()) && registrationListener.wantsUpdatesFor(event.address())){
                     registrationListener.registrationsUpdated(event);
                 }
                 AddressMonitor monitor = monitors.get(event.address());
@@ -245,7 +283,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
 
     private void refresh(String address, boolean seed) {
         Promise<List<RegistrationInfo>> promise = Promise.promise();
-        getRegistrations(address, promise);
+        getClusterRegistrations(address, promise);
         promise.future().onComplete(ar -> {
             AddressMonitor monitor = monitors.get(address);
             if(monitor == null){

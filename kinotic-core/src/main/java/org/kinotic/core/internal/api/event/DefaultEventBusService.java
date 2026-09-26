@@ -47,7 +47,7 @@ public class DefaultEventBusService implements EventBusService {
     @Override
     public Future<Boolean> isAnybodyListening(CRI cri) {
         Promise<List<RegistrationInfo>> promise = Promise.promise();
-        clusterManager.getRegistrations(cri.baseResource(), promise);
+        clusterManager.getClusterRegistrations(cri.baseResource(), promise);
         return promise.future().map(registrations -> registrations != null && !registrations.isEmpty());
     }
 
