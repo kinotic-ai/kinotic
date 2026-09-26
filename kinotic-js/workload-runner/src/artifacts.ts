@@ -12,8 +12,8 @@ import type { MicroserviceArtifact, ProjectArtifacts, UiArtifact } from '@kinoti
  *   script; one without is a library and is left alone
  *
  * An artifact's identity is the unscoped part of the `name` in its `package.json`
- * (`@acme/orders` is `orders`), which must be a single zone label; the directory name never
- * matters. A missing or invalid name, or two artifacts of one kind sharing a name, throws
+ * (`@acme/orders` is `orders`), which must be a single zone label, and a UI's must not contain
+ * `--`; the directory name never matters. A missing or invalid name, or two artifacts of one kind sharing a name, throws
  * naming the package. Both lists come back ordered by name.
  */
 
@@ -30,7 +30,7 @@ interface PackageManifest {
 export function findArtifacts(workspaceDir: string): ProjectArtifacts {
     const microservices: MicroserviceArtifact[] = requireUniqueNames(readManifests(workspaceDir, 'packages/microservices'))
         .map(manifest => ({ name: manifest.name, dir: manifest.dir, entry: entryOf(manifest) }))
-    const uis: UiArtifact[] = requireUniqueNames(readManifests(workspaceDir, 'packages/ui').filter(hasBuildScript))
+    const uis: UiArtifact[] = requireUniqueNames(readManifests(workspaceDir, 'packages/ui').filter(hasBuildScript).map(requireUiName))
         .map(manifest => ({ name: manifest.name, dir: manifest.dir }))
     return {
         microservices: microservices.sort(byName),
@@ -91,6 +91,15 @@ function entryOf(manifest: PackageManifest): string {
         ret = DEFAULT_MICROSERVICE_ENTRY
     }
     return ret
+}
+
+// the rule the server applies to the report too: a UI's name is joined with "--" into its site's
+// hostname label, <org>--<app>--<ui>
+function requireUiName(manifest: PackageManifest): PackageManifest {
+    if (manifest.name.includes('--')) {
+        throw new Error(`Package ${manifest.dir} has the name '${manifest.name}': a UI's name must not contain '--'`)
+    }
+    return manifest
 }
 
 function hasBuildScript(manifest: PackageManifest): boolean {

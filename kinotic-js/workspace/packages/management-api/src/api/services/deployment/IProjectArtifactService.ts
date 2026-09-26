@@ -17,7 +17,7 @@ export interface IProjectArtifactService {
      * @param projectId the project whose checkout was synced
      * @param commitSha full 40-character SHA of the synced commit
      * @param artifacts the artifacts found; every name must be a single zone label, unique
-     *                  among the artifacts of its kind
+     *                  among the artifacts of its kind, and a UI's name must not contain `--`
      * @return Promise resolving once the deployment record holds the artifacts
      */
     recordArtifacts(projectId: string, commitSha: string, artifacts: ProjectArtifacts): Promise<void>
