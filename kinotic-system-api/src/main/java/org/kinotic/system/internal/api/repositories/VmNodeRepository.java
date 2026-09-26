@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Component
 public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmNodeState> {
@@ -56,6 +57,24 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
                 ctx.op = 'noop';
             } else {
             """ + WatchedStateRepository.ADD_CONDITION + """
+            }
+            """;
+
+    // The free capacity is rebuilt from a read of the node's runs, and a reservation or a release
+    // between that read and this write moved the counters the rebuild overwrites: the script declines
+    // when they differ from what the caller read, so the rebuild runs again on what is there. A node
+    // registering for the first time is created from the same fields.
+    private static final String RECORD_INVENTORY = """
+            def node = ctx._source;
+            if (params.expected != null
+                    && (node.freeCpus != params.expected.freeCpus
+                        || node.freeMemoryMb != params.expected.freeMemoryMb
+                        || node.freeDiskMb != params.expected.freeDiskMb)) {
+                ctx.op = 'noop';
+            } else {
+                for (def field : params.inventory.entrySet()) {
+                    node[field.getKey()] = field.getValue();
+                }
             }
             """;
 
@@ -117,8 +136,14 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
      * records — name, hostname, provider, totals, free capacity, data directory — and stamps
      * {@code lastSeen}, creating the record for a node registering for the first time. The node's
      * state and health message are left as they are. Visible to search on completion.
+     *
+     * @param node   what the node reports, with the free capacity rebuilt from its runs
+     * @param asRead the node's record as read before the rebuild, or null for a node registering for
+     *               the first time
+     * @return true when the inventory was written, false when the node's free capacity moved since
+     * the read it was rebuilt from
      */
-    public Future<Void> recordInventorySync(VmNode node) {
+    public Future<Boolean> recordInventorySync(VmNode node, VmNode asRead) {
         Validate.notNull(node, "node cannot be null");
         Validate.notBlank(node.getId(), "node id cannot be blank");
         Map<String, Object> inventory = new HashMap<>();
@@ -135,7 +160,16 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
         inventory.put("freeDiskMb", node.getFreeDiskMb());
         inventory.put("workloadDataDir", node.getWorkloadDataDir());
         inventory.put("lastSeen", new Date());
-        return crudServiceTemplate.partialUpdateSync(indexName, node.getId(), inventory, true);
+        Map<String, Object> params = new HashMap<>();
+        params.put("inventory", inventory);
+        if (asRead != null) {
+            params.put("expected", Map.of("freeCpus", asRead.getFreeCpus(),
+                                          "freeMemoryMb", asRead.getFreeMemoryMb(),
+                                          "freeDiskMb", asRead.getFreeDiskMb()));
+        }
+        return crudServiceTemplate.scriptedUpdateReturningSourceSync(indexName, node.getId(), RECORD_INVENTORY, params,
+                                                                     u -> u.upsert(inventory).scriptedUpsert(true))
+                                  .map(Objects::nonNull);
     }
 
     /**

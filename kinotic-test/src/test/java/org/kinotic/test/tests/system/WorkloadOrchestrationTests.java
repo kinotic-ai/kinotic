@@ -257,6 +257,25 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     }
 
     @Test
+    public void capacityRebuildFromAReadAReservationOvertookIsDeclined() throws Exception {
+        VmNode asRead = node();
+        // a deploy took room between the registration's reads and its write
+        assertTrue(await(nodes.reserveSync(NODE_ID, newWorkload())));
+        VmNode inventory = new VmNode(NODE_ID, NODE_ID, "host-" + NODE_ID)
+                .setTotalCpus(8).setTotalMemoryMb(4096).setTotalDiskMb(10240)
+                .setFreeCpus(8).setFreeMemoryMb(4096).setFreeDiskMb(10240)
+                .setWorkloadDataDir("/var/lib/kinotic/" + NODE_ID);
+
+        assertFalse(await(nodes.recordInventorySync(inventory, asRead)));
+
+        assertEquals(4, node().getTotalCpus(), "the rebuild from the overtaken read wrote nothing");
+        assertEquals(3, node().getFreeCpus(), "the room the deploy took is still its");
+        assertTrue(await(nodes.recordInventorySync(inventory, node())), "the rebuild from a current read applies");
+        assertEquals(8, node().getTotalCpus());
+        assertEquals(8, node().getFreeCpus());
+    }
+
+    @Test
     public void nodeHeardWithinTheTimeoutIsLookedAtAgainWhenItsHeartbeatWouldBeOverdue() throws Exception {
         call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of()));
 
