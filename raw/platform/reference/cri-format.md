@@ -378,7 +378,7 @@ cri.raw()           // 'srv://tenant-123@app.acme-org.orders-app~OrderService/pl
   <tr>
     <td>
       <code>
-        srv://system-api~org.kinotic.system.api.services.WorkloadOrchestrationService
+        srv://system-api~org.kinotic.system.api.services.workload.WorkloadOrchestrationService
       </code>
     </td>
     

@@ -34,8 +34,8 @@ the records, their repositories and every service the portal calls live in manag
 everything that touches nodes, workloads or Azure lives in system-api; and the management
 plane reaches the second only through `DeploymentOperationsProxy`, a `@Proxy` interface onto
 the system zone's `DeploymentOperationsService` (`restartMicroservice`, `removeMicroservice`,
-`checkUiSite`, `provisionUiSite`, `removeUiSite`). The management
-services authorize a request against the caller's organization, then delegate; the
+`removeUiSite`), each of which writes intent that the deployment's worker carries out. The
+management services authorize a request against the caller's organization, then delegate; the
 operations service trusts its callers.
 `ProjectDeployment` keeps the sync identity and loses `runtimeWorkloadId` and
 `runtimeMachineIdentityId`, which move to the per-microservice rows.
@@ -237,10 +237,10 @@ per-site domains, certificates and routes could never make a new UI available wi
 of a publish, and why they are gone. `FrontDoorUiDeploymentProvisioner` only reports: a site
 is `PROVISIONING` from its first publish until `https://<hostname>/version.json` answers with
 the deployment's commit and `https://<hostname>/` answers with HTML (a file bypasses the spa
-rule), then `READY`, checked every 30 seconds for up to 15 minutes after the publish and
-recorded on its row; a site still provisioning after that, or one whose polling died with the
-server, is checked again whenever its project's UI deployments are listed, and
-`retryProvisioning` checks it on request.
+rule), then `READY`: the deployment's worker, `UiDeployOrchestrator`, checks every 30 seconds
+until the site serves the published commit, recording what the site answered on the row
+meanwhile, and the reconcile master's resync brings a site back under check after a server
+restart.
 
 The hostname label is `{org}-{app}-{ui}` under `sitesDomain` (`apps.kinotic.ai`), minted once
 at first publish, stored as `UiDeployment.id`, looked up by hostname and never parsed. The
@@ -356,19 +356,17 @@ per environment: the profile and its identity, the sites account and that identi
 Storage Blob Data Reader on it, the server identity's Storage Blob Data Contributor on it,
 the wildcard certificate, domain and DNS record, the identity-authenticated origin group,
 and the route whose rules serve `sites/{hostname}/`. An organization owns no storage and
-no provisioning: signing up creates its record and nothing else. `FrontDoorUiDeploymentProvisioner` creates nothing: it polls a
-published site in the background until `version.json` serves its commit and the root
-serves its index through Front Door, then marks it `READY`.
-- **UI deployments in the console.** `UiDeploymentService` (`findAllForProject`,
-`retryProvisioning`, `remove`), published from management-api and delegating to the
-system server through `DeploymentOperationsProxy`: listing has any site left provisioning
-for ten minutes or more checked, so one whose polling died with the server still advances;
-retry runs the provisioner again and records the outcome; remove takes the site down,
+no provisioning: signing up creates its record and nothing else. `FrontDoorUiDeploymentProvisioner` creates nothing: it answers
+whether a published site serves its commit through `version.json` and its index through
+Front Door, and the deployment's worker keeps asking until it does, then reports `READY`.
+- **UI deployments in the console.** `UiDeploymentService` (`findAllForProject`, `remove`),
+published from management-api and delegating to the system server through
+`DeploymentOperationsProxy`: remove asks for the deployment's removal, and its worker takes the site down,
 deletes the UI's prefix in storage and deletes the row. Deleting a project removes
 its UI deployments the same way. `@kinotic-ai/management-api` exposes it as
 `Kinotic.uiDeployments` with the `UiDeployment` model.
 - **Sites in the console.** `UiDeployment.url` is minted with the
-label, so the portal's deployment page lists each UI with a link to its site, status and
-commit, with retry and removal. The session cookie is `__Host-kinotic-session`, its name
+label, so the portal's deployment page lists each UI with a link to its site, the phase it
+reports and the commit it serves, with removal. The session cookie is `__Host-kinotic-session`, its name
 shared through `EventConstants.SESSION_COOKIE_NAME` by the gateway's session handler and the
 `/api/auth/me` route.

@@ -540,7 +540,7 @@ INSERT INTO kinotic_application (id, organizationId, name)
 
 ### Inserting composite columns
 
-`OBJECT`, `NESTED`, `UNION`, `GEO_POINT`, `GEO_SHAPE`, and `JSON` columns take an object literal — `{ field: value, ... }` — as their value. A `NESTED` column holds a list, so its value is an array literal of object literals. Object and array literals nest to any depth.
+`OBJECT`, `NESTED`, `UNION`, `GEO_POINT`, `GEO_SHAPE`, and `JSON` columns take an object literal — `{ field: value, ... }` — as their value. An `OBJECT` or `NESTED` column holding a list takes an array literal of object literals. Object and array literals nest to any depth.
 
 ```sql
 CREATE TABLE persons (
@@ -895,7 +895,11 @@ WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
         NESTED
       </code>
       
-       column
+       column or an <code>
+        OBJECT
+      </code>
+      
+       column holding a list
     </td>
   </tr>
 </tbody>
@@ -1260,7 +1264,7 @@ Object and array literals are accepted wherever a value is written — `INSERT .
     </td>
     
     <td>
-      Embedded object with declared sub-fields; schema is fixed
+      Embedded object with declared sub-fields, one or a list of them; schema is fixed
     </td>
   </tr>
   
@@ -1284,7 +1288,11 @@ Object and array literals are accepted wherever a value is written — `INSERT .
     </td>
     
     <td>
-      Array of embedded objects; each element is independently queryable
+      List of embedded objects, each indexed as its own document; only for a query that must match two sub-fields of the same element (see <a href="#nested">
+        NESTED
+      </a>
+      
+      )
     </td>
   </tr>
   
@@ -1354,7 +1362,7 @@ Composite types are recursive: OBJECT inside NESTED, NESTED inside OBJECT, and o
 
 ### OBJECT
 
-Defines a single embedded object. The sub-fields are stored inline with the parent document.
+Defines an embedded object with declared sub-fields. The column holds one object or a list of them: Elasticsearch indexes a list by flattening each sub-field into an array (`tags.label: ['a', 'b']`, `tags.value: [...]`), so a query on any one sub-field matches across the whole list, and the document returns the list as stored. This is the column type for every list of objects unless the query described under [NESTED](#nested) applies.
 
 **Syntax:**
 
@@ -1381,7 +1389,7 @@ CREATE TABLE events (
 
 ### NESTED
 
-Defines an array of embedded objects where each element is independently queryable. Use NESTED instead of OBJECT when the field holds a list of items and you need to query across the list without cross-element matching.
+Defines a list of embedded objects where each element is indexed as its own hidden document. Use it only when a query must match two sub-fields of the **same element** — `tags.label = 'env' AND tags.value = 'prod'` as one tag, not one tag's label and another tag's value — which the flattening an `OBJECT` column performs cannot express. Every element is a separate Lucene document, reached with a `nested` query and `inner_hits`, counted against `index.mapping.nested_objects.limit`, and rewritten whenever the parent document is updated, so a list that is read whole or queried by one sub-field is an `OBJECT` column. See the Elasticsearch reference on the [nested field type](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/nested).
 
 **Syntax:**
 

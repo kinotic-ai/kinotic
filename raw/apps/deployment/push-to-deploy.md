@@ -37,17 +37,21 @@ the deployment run. The step's row on the job run page lists them: each microser
 with the module it starts from, and each UI.
 4. **Ensure runtime workloads** — one long-lived VM per microservice the commit contains,
 each running that microservice from the checkout (mounted read-only) with its own machine
-identity. The first deployment of a microservice starts its VM. Later deployments leave a
-running VM alone: its supervisor sees the reload signal and restarts the service onto the
-new commit. A VM that was stopped or has crashed, or whose entry module the commit moved,
-is retired and replaced by a fresh one, never started again with the state that may have
-failed it. A microservice the commit no longer contains keeps its VM running but its
-deployment is marked orphaned, and a commit that brings it back adopts the VM; the
-deployment is only ever destroyed on request. A microservice that cannot be left running
-is recorded failed with the reason, the others still deploy, and the step fails naming it.
+identity. The step records what each microservice's deployment should be, running the
+commit, and waits for the deployment's worker to answer. The first deployment of a
+microservice starts its VM. Later deployments leave a running VM alone: its supervisor sees
+the reload signal and restarts the service onto the new commit. A VM whose entry module the
+commit moved is stopped and replaced by a fresh one, and so is one whose run has ended —
+never started again with the state that may have failed it. A microservice the commit no
+longer contains keeps its VM running but its deployment is marked orphaned, and a commit
+that brings it back adopts the VM; the deployment is only ever removed on request. A
+microservice that cannot be left running is recorded failed with the reason, the others
+still deploy, and the step fails naming it, or naming the ones whose worker gave no answer
+within ten minutes.
 5. **Publish UIs** — uploads every UI the build VM built to its site's directory in the
 platform's storage through a short-lived publish VM that holds nothing but one upload URL
-per site, valid for the run, then records each UI's site. A UI's first publish mints its
+per site, valid for the run, then records what each UI's deployment should be, serving the
+commit, and waits for the deployment's worker to look. A UI's first publish mints its
 site's hostname; nothing else is created for a site, so it serves as soon as its files
 are up, and later publishes switch it to the new commit. A UI the commit no longer
 contains keeps serving but its deployment is marked orphaned, and a commit that brings it
@@ -101,18 +105,31 @@ next deployment provisions a replacement.
 
 ## Microservices
 
-The project's Deployment page lists each microservice the deployment has ensured: its status,
-the commit it was last ensured for, the module it runs, and its workload. From there you can
-open the microservice's log, restart its VM in place, or remove the deployment. Removing
-destroys the VM and its machine identity and forgets the record; a microservice the current
-commit still contains comes back with the next deployment, so removal is mainly how an
-orphaned microservice, one a commit dropped, is finally retired.
+The project's Deployment page lists each microservice the deployment has ensured: the phase it
+reports, the commit it serves, the module it runs, and its workload. From there you can open
+the microservice's log, restart it, or remove the deployment; the listing and the restart are
+MCP tools too, so an assistant connected to the platform sees each microservice's phase, its
+message and a restart it is waiting for, while removal, which only the next deployment undoes,
+stays with the console. Each deployment carries what it
+should be in `state.desired` — the commit the project's last deployment asked it to run, or
+`ORPHANED` when that commit dropped it — and what it is in `state.observed`; `failureMessage`
+says why the two differ when they do. A deployment's worker keeps the two equal: a VM whose
+run ends is replaced; one that failed waits first, thirty seconds doubled by each failure since
+the last deployment up to ten minutes, with `restartAt` saying when, so a crashing service costs a
+VM every ten minutes at most, and a new deployment or a restart starts it again at once; a VM on
+a node the platform cannot reach is left alone,
+since it may well be running, and the deployment carries `NODE_UNREACHABLE` in
+`state.conditions` until the node answers or is deregistered. Restart stops the running VM,
+and the worker replaces it once the run has ended; a deployment without a running VM is asked
+to deploy again. Removing stops the VM, deletes its machine identity and the record; a
+microservice the current commit still contains comes back with the next deployment, so removal
+is mainly how an orphaned microservice, one a commit dropped, is finally retired.
 
 <table>
 <thead>
   <tr>
     <th>
-      Status
+      Reported phase
     </th>
     
     <th>
@@ -130,7 +147,9 @@ orphaned microservice, one a commit dropped, is finally retired.
     </td>
     
     <td>
-      The VM is up and running the microservice as of the ensured commit
+      The VM is up and running the microservice as of the commit in <code>
+        state.observed
+      </code>
     </td>
   </tr>
   
@@ -142,7 +161,11 @@ orphaned microservice, one a commit dropped, is finally retired.
     </td>
     
     <td>
-      The last deployment could not leave the microservice running; the message says why
+      The last deployment could not leave the microservice running; <code>
+        failureMessage
+      </code>
+      
+       says why, and the next push or a restart tries again
     </td>
   </tr>
   
@@ -168,11 +191,17 @@ UI as of the commit recorded on its deployment, and a publish switches it atomic
 new commit's assets are uploaded first, under a path named by the commit and cached for a
 year, and the site's index is replaced last.
 
+Each deployment carries what it should be in `state.desired` — the commit the project's last
+deployment published, with the phase `READY`, or `ORPHANED` when that commit dropped the UI —
+and what it is in `state.observed`; while the two differ, `observation` says what the site
+answered when last checked. The deployment's worker checks the site every thirty seconds until
+it serves the published commit.
+
 <table>
 <thead>
   <tr>
     <th>
-      Status
+      Reported phase
     </th>
     
     <th>
@@ -190,7 +219,7 @@ year, and the site's index is replaced last.
     </td>
     
     <td>
-      The site does not yet serve the recorded commit
+      The site does not yet serve the published commit; the commit is the one it still serves
     </td>
   </tr>
   
@@ -202,7 +231,7 @@ year, and the site's index is replaced last.
     </td>
     
     <td>
-      The site serves the UI as of the recorded commit
+      The site serves the UI as of the published commit
     </td>
   </tr>
   
@@ -217,40 +246,32 @@ year, and the site's index is replaced last.
       The last deployed commit no longer contains the UI; the site keeps serving until removed
     </td>
   </tr>
-  
-  <tr>
-    <td>
-      <code>
-        FAILED
-      </code>
-    </td>
-    
-    <td>
-      The site could not be created; the message says why
-    </td>
-  </tr>
 </tbody>
 </table>
 
-A failed site can be provisioned again, which completes whatever the earlier attempt left
-missing. Removing a UI deployment takes its site down, deletes the UI's published files and
-deletes the record; a UI the current commit still contains comes back with the next
-deployment, at a site minted anew. Deleting the project removes every one of its UI
-deployments the same way.
+Removing a UI deployment asks the worker to take its site down, delete the UI's published
+files and delete the record; a UI the current commit still contains comes back with the next
+deployment, at a site minted anew. Deleting the project asks for the removal of its deployment,
+whose worker asks for the removal of every one of its UI and microservice deployments the same
+way, then stops the deployment's workloads and removes its machine identities.
 
-The project's deployment page lists each UI with its site, status and the commit the site
-serves, and offers both actions; the project's and the application's overview pages list the
-published UIs with their sites as well.
+The project's deployment page lists each UI with its site, the phase it reports and the
+commit the site serves, and offers removal; the project's and the application's overview pages
+list the published UIs with their sites as well. The listing is an MCP tool too, so an assistant
+connected to the platform sees each site's phase and what it last answered; removal, which only
+the next deployment undoes, stays with the console.
 
 ## Deployment status
 
-The project's deployment record tracks one status at a time:
+The project's deployment record keeps what the deployment should be beside what it is, under
+`state`. `state.desired` is the commit the last qualifying push asked for, always with the phase
+`RUNNING`; `state.observed` is the phase the deployment is in and the commit it serves:
 
 <table>
 <thead>
   <tr>
     <th>
-      Status
+      Observed phase
     </th>
     
     <th>
@@ -268,7 +289,7 @@ The project's deployment record tracks one status at a time:
     </td>
     
     <td>
-      A deployment job is running for the latest qualifying push
+      A deployment job is running for the latest qualifying push; the commit is the one still live
     </td>
   </tr>
   
@@ -280,7 +301,7 @@ The project's deployment record tracks one status at a time:
     </td>
     
     <td>
-      The recorded commit built successfully and every microservice's VM is serving it
+      The commit built successfully and every microservice's VM is serving it
     </td>
   </tr>
   
@@ -292,15 +313,26 @@ The project's deployment record tracks one status at a time:
     </td>
     
     <td>
-      The last deployment failed; the reason is recorded on the status
+      The last deployment failed; <code>
+        failureMessage
+      </code>
+      
+       says why, and the commit is the one still live
     </td>
   </tr>
 </tbody>
 </table>
 
-The project's Deployment page shows this status alongside the deployed commit and the
-most recent deployment job's steps, live while a deployment runs — so it always answers
-exactly what the last push did, step by step.
+The deployment is in its desired state, `state.reconciled`, exactly when the two agree, and every
+change to either is entered in the `kinotic_watch_event` ledger with what caused it. The ledger is
+read back per record, newest first: `ProjectService.findDeploymentHistory` lists what happened to
+the project's deployment and to the deployment jobs, build VMs, microservice deployments and UI
+deployments it made; `MicroserviceDeploymentService.findHistory` and `UiDeploymentService.findHistory`
+list what happened to one deployment and to the VMs or uploads it ran, and both are MCP tools, so an
+assistant can answer how a deployment got to where it is. The project's
+Deployment page shows the observed phase alongside the served commit, the commit being deployed
+while a job runs, and the most recent deployment job's steps, live while a deployment runs — so
+it always answers exactly what the last push did, step by step.
 
 ## Failure behavior
 
@@ -311,8 +343,11 @@ cleaned up on the next successful deployment of the project.
 
 ## Concurrent pushes
 
-Deployments are serialized per project with **latest-wins**: pushes arriving while a
-deployment is running collapse to the newest commit, which deploys next. Intermediate
+A push writes the project's intent, `state.desired`, and the reconcile master, one elected server
+node, runs the deployment for it. Deployments are serialized per project with **latest-wins**:
+pushes arriving while a deployment is running collapse to the newest commit, because the record
+holds only the latest intent and the master calls the deployment worker once more when the run
+ends. Intermediate
 commits are skipped rather than queued — the checkout converges to the newest push, and
 each skipped commit is still reachable in git history. Redeliveries of the same push are
 harmless: syncing a commit twice converges to the same checkout.
