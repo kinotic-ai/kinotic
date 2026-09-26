@@ -20,7 +20,7 @@ class SensorService {
             map(() => ({
                 sensorId,
                 value: Math.random() * 100,
-                timestamp: new Date()
+                timestamp: new Date().toISOString()
             }))
         )
     }
