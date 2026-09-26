@@ -5,7 +5,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.services.deployment.SiteStorageService;
-import org.kinotic.system.internal.utils.SystemApiUtil;
 import org.kinotic.management.api.services.storage.AzureStorageUrlIssuer;
 import org.springframework.stereotype.Component;
 
@@ -31,7 +30,7 @@ public class AzureSiteStorageService implements SiteStorageService {
     @Override
     public Future<String> issueUploadUrl(String hostname, Duration ttl) {
         // list and delete within the directory let the workload clear the files of other commits
-        return sites.issueDirectoryUrl(CONTAINER, SystemApiUtil.siteDirectory(hostname), ttl,
+        return sites.issueDirectoryUrl(CONTAINER, hostname, ttl,
                                        new PathSasPermission().setCreatePermission(true)
                                                               .setWritePermission(true)
                                                               .setListPermission(true)
@@ -40,7 +39,7 @@ public class AzureSiteStorageService implements SiteStorageService {
 
     @Override
     public Future<String> issueRemovalUrl(String hostname, Duration ttl) {
-        return sites.issueDirectoryUrl(CONTAINER, SystemApiUtil.siteDirectory(hostname), ttl,
+        return sites.issueDirectoryUrl(CONTAINER, hostname, ttl,
                                        new PathSasPermission().setListPermission(true).setDeletePermission(true));
     }
 
