@@ -1,11 +1,12 @@
 import {Kinotic, Pageable} from '@kinotic-ai/core'
-import {DelegateKind, DelegateService, OAuthApprovalService} from '@kinotic-ai/management-api'
+import {DelegateKind, DelegateService} from '@kinotic-ai/management-api'
 import type {DelegatingParticipantIdentity} from '@kinotic-ai/management-api'
 import * as allure from 'allure-js-commons'
 import {randomBytes, createHash} from 'node:crypto'
 import {WebSocket} from 'ws'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
-import {initKinoticClient, postForm, restBase, shutdownKinoticClient, stompUrl} from '../TestHelpers.js'
+import {E2E_FIXTURE_PASSWORD, E2E_ORG_USER_EMAIL, initKinoticClient, postForm, restBase, shutdownKinoticClient,
+        stompUrl} from '../TestHelpers.js'
 
 const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
 
@@ -45,7 +46,7 @@ describe('Kinotic JS', () => {
     beforeAll(async () => {
         await allure.suite('e2e-tests/native')
         await allure.subSuite('OAuthMcp')
-        // the org user (kinotic@kinotic.local / kinotic-test) that approves the device grant
+        // the org user (kinotic@kinotic.local) whose delegates the device grant creates
         await initKinoticClient()
     }, 120000)
 
@@ -119,8 +120,20 @@ describe('Kinotic JS', () => {
                                             {client_id: 'kinotic-cli', device_name: 'e2e-laptop'})).json()
         expect(start.user_code).toBeTruthy()
 
-        // the /device page approval, exactly as DeviceVerification.vue performs it over STOMP
-        await new OAuthApprovalService(Kinotic).approveDevice(start.user_code)
+        // the /device page approval, as DeviceVerification.vue sends it with the org user's session
+        const login = await fetch(`${restBase()}/api/auth/org/login`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email: E2E_ORG_USER_EMAIL, password: E2E_FIXTURE_PASSWORD})
+        })
+        expect(login.status).toBe(204)
+        const sessionCookie = login.headers.getSetCookie().find(c => c.startsWith('__Host-kinotic-'))!.split(';')[0]
+        const approval = await fetch(`${restBase()}/api/auth/oauth/device/approve`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', Cookie: sessionCookie},
+            body: JSON.stringify({userCode: start.user_code})
+        })
+        expect(approval.status).toBe(204)
 
         const tokenResponse = await postForm(`${restBase()}/api/auth/oauth/token`,
                                              {grant_type: DEVICE_CODE_GRANT_TYPE, device_code: start.device_code})

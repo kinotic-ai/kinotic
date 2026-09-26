@@ -40,30 +40,36 @@ public interface OAuthAuthorizationService {
     /**
      * Describes a request awaiting consent, for display on the consent page.
      *
+     * @param issuer    OAuth issuer of the server serving the consent page; a request another
+     *                  issuer began is unknown here
      * @param requestId the id returned by {@link #createAuthorizationRequest}
      * @return a {@link Future} emitting the pending request, failing when it is
      *         unknown, expired, or already decided
      */
-    Future<PendingOAuthAuthorization> findPending(String requestId);
+    Future<PendingOAuthAuthorization> findPending(String issuer, String requestId);
 
     /**
      * Binds the approving user to the request and mints its single-use authorization code.
      *
+     * @param issuer    OAuth issuer of the server serving the consent page; a request another
+     *                  issuer began is unknown here
      * @param requestId the id returned by {@link #createAuthorizationRequest}
      * @param identityId    the approving {@link UserParticipantIdentity}'s id
      * @return a {@link Future} emitting the full redirect URL, carrying the code and
      *         the client's {@code state}, that the browser must navigate to
      */
-    Future<String> approve(String requestId, String identityId);
+    Future<String> approve(String issuer, String requestId, String identityId);
 
     /**
      * Rejects the request and consumes it.
      *
+     * @param issuer    OAuth issuer of the server serving the consent page; a request another
+     *                  issuer began is unknown here
      * @param requestId the id returned by {@link #createAuthorizationRequest}
      * @return a {@link Future} emitting the full redirect URL carrying
      *         {@code error=access_denied} and the client's {@code state}
      */
-    Future<String> deny(String requestId);
+    Future<String> deny(String issuer, String requestId);
 
     /**
      * Exchanges an authorization code for its approving user, consuming the grant so the code

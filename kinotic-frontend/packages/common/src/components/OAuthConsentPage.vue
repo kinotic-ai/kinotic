@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell :art="loginBackgroundArt" :show-theme-toggle="false">
+  <AuthPageShell :art="art" :show-theme-toggle="false">
     <div class="login-form">
       <div v-if="!requestId || failed" class="consent-message">
         <span class="pi pi-exclamation-triangle consent-message__icon"></span>
@@ -48,23 +48,38 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { Kinotic } from '@kinotic-ai/core'
 import { isSystemParticipant } from '@kinotic-ai/management-api'
-import type { PendingOAuthAuthorization } from '@kinotic-ai/management-api'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 
-import loginPageLeft from '@/assets/login-page-left.svg'
-import { AuthPageShell } from '@kinotic-ai/frontend-common'
-import { USER_STATE } from '@/states/IUserState'
-
-const oauthApproval = Kinotic.oauthApproval
+import AuthPageShell from './AuthPageShell.vue'
+import type { ISessionState } from '../session/SessionState'
+import { readAuthError } from '../session/loginApi'
+import { apiUrl } from '../util/helpers'
 
 /**
- * The OAuth 2.1 consent page. The gateway's authorize endpoint sends the browser here
- * (`/oauth/consent?request_id=<id>`); the signed-in user approves or denies, and either
- * decision returns the client's redirect URL this page navigates to.
+ * The OAuth 2.1 consent page, routed by every app whose server issues tokens. The server's
+ * authorize endpoint sends the browser here (`/oauth/consent?request_id=<id>`); the signed-in
+ * user approves or denies, and either decision returns the client's redirect URL this page
+ * navigates to.
  */
+const props = withDefaults(defineProps<{
+  /** The app's session, whose signed-in participant the approval binds to. */
+  session: ISessionState
+  /** Overrides the auth pages' background art when set. */
+  art?: string | null
+}>(), {
+  art: null
+})
+
+/** What the server shows about the request awaiting consent. */
+interface PendingOAuthAuthorization {
+  clientName: string
+  /** The client's Client ID Metadata Document URL. */
+  clientId: string
+  scope: string | null
+}
+
 type Decision = 'approve' | 'deny'
 
 const pending = ref<PendingOAuthAuthorization | null>(null)
@@ -72,13 +87,11 @@ const failed = ref<string | null>(null)
 // which decision is in flight, so only the clicked button shows its spinner
 const deciding = ref<Decision | null>(null)
 
-const loginBackgroundArt = loginPageLeft
 const route = useRoute()
 
-// the browser session already carries who is signed in, so the account being authorized is
-// named without asking the server again. a system-scoped session reaches this page the same
-// way an organization one does — the console and the portal share the session cookie
-const participant = computed(() => USER_STATE.connectedInfo?.participant ?? null)
+// the session already carries who is signed in on this page, so the account being authorized is
+// named without asking the server again
+const participant = computed(() => props.session.connectedInfo?.participant ?? null)
 
 const accountLabel = computed<string>(() => participant.value?.metadata?.email ?? 'your account')
 
@@ -102,10 +115,12 @@ const clientHost = computed<string>(() => {
 
 onMounted(async () => {
   if (!requestId.value) return
-  try {
-    pending.value = await oauthApproval.describe(requestId.value)
-  } catch (err) {
-    failed.value = err instanceof Error ? err.message : 'Could not load the authorization request'
+  const res = await fetch(apiUrl('/api/auth/oauth/request/' + encodeURIComponent(requestId.value)),
+                          { credentials: 'include' })
+  if (res.ok) {
+    pending.value = await res.json()
+  } else {
+    failed.value = await readAuthError(res, 'Could not load the authorization request')
   }
 })
 
@@ -113,13 +128,16 @@ async function decide(decision: Decision) {
   const id = requestId.value
   if (!id) return
   deciding.value = decision
-  try {
-    const redirectUrl = decision === 'approve'
-      ? await oauthApproval.approve(id)
-      : await oauthApproval.deny(id)
-    window.location.href = redirectUrl
-  } catch (err) {
-    failed.value = err instanceof Error ? err.message : 'Could not complete the authorization'
+  const res = await fetch(apiUrl('/api/auth/oauth/' + decision), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ requestId: id })
+  })
+  if (res.ok) {
+    window.location.href = (await res.json()).redirectUrl
+  } else {
+    failed.value = await readAuthError(res, 'Could not complete the authorization')
     deciding.value = null
   }
 }

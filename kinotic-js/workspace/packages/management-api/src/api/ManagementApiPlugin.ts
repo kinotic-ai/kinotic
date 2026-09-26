@@ -11,7 +11,6 @@ import { LogService, type ILogService } from '@/api/services/telemetry/ILogServi
 import { TelemetryService, type ITelemetryService } from '@/api/services/telemetry/ITelemetryService'
 import { MemberService, type IMemberService } from '@/api/services/security/IMemberService'
 import { InviteEmailTemplateService, type IInviteEmailTemplateService } from '@/api/services/IInviteEmailTemplateService'
-import { OAuthApprovalService, type IOAuthApprovalService } from '@/api/services/security/IOAuthApprovalService'
 import { DelegateService, type IDelegateService } from '@/api/services/security/IDelegateService'
 import { ProfileService, type IProfileService } from '@/api/services/security/IProfileService'
 import { MachineService, type IMachineService } from '@/api/services/security/IMachineService'
@@ -32,7 +31,6 @@ export interface IManagementApiExtension {
     telemetry: ITelemetryService
     members: IMemberService
     inviteEmailTemplates: IInviteEmailTemplateService
-    oauthApproval: IOAuthApprovalService
     delegates: IDelegateService
     profile: IProfileService
     machines: IMachineService
@@ -55,7 +53,6 @@ export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
             telemetry: new TelemetryService(kinotic),
             members: new MemberService(kinotic),
             inviteEmailTemplates: new InviteEmailTemplateService(kinotic),
-            oauthApproval: new OAuthApprovalService(kinotic),
             delegates: new DelegateService(kinotic),
             profile: new ProfileService(kinotic),
             machines: new MachineService(kinotic),
