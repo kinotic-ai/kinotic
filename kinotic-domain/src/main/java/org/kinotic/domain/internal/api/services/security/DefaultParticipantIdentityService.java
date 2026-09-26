@@ -162,12 +162,6 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    public Future<UserParticipantIdentity> findByEmail(String email) {
-        Validate.notBlank(email, "email cannot be blank");
-        return identityRepository.findByEmail(email);
-    }
-
-    @Override
     public Future<UserParticipantIdentity> findByOidcIdentity(String oidcSubject,
                                                               String oidcConfigId,
                                                               String organizationId,
