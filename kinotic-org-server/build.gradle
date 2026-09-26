@@ -1,22 +1,5 @@
 plugins {
-	id 'org.kinotic.java-application-conventions'
-}
-
-sourceSets {
-    main {
-        java {
-            exclude '**/test/**'
-        }
-    }
-}
-
-configurations {
-    otelAgent {
-        canBeResolved = true
-        canBeConsumed = false
-        // The agent is a self-contained shaded jar; only the single artifact is wanted
-        transitive = false
-    }
+	id 'org.kinotic.server-conventions'
 }
 
 dependencies {
@@ -24,18 +7,6 @@ dependencies {
 	implementation project(':kinotic-domain')
 	implementation project(':kinotic-management-api')
 	implementation project(':kinotic-api-gateway')
-
-	// The agent version tracks the instrumentation BOM version
-	otelAgent "io.opentelemetry.javaagent:opentelemetry-javaagent:${otelInstrumentationBomVersion}"
-}
-
-// Places the resolved agent at a stable, project-relative path under the name the -javaagent
-// arguments use. Kept separate from processResources so launching the server from the IDE
-// does not drag in the frontend build.
-tasks.register('otelAgentJar', Sync) {
-	from configurations.otelAgent
-	rename { 'opentelemetry-javaagent.jar' }
-	into layout.buildDirectory.dir('otel-agent')
 }
 
 tasks.named('processResources') {
@@ -44,9 +15,6 @@ tasks.named('processResources') {
 	if (findProject(':kinotic-frontend') != null) {
 		dependsOn ":kinotic-frontend:copyDist"
 	}
-	// Embed the agent as BOOT-INF/classes/opentelemetry-javaagent.jar, the path the
-	// docker-compose -javaagent arguments point at
-	from(tasks.named('otelAgentJar'))
 }
 
 tasks.named('sourcesJar') {
