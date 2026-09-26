@@ -2,7 +2,7 @@ package org.kinotic.persistence.internal;
 
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.persistence.api.config.PersistenceProperties;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -26,7 +26,6 @@ public class PersistenceInitializer {
     private final KinoticProperties kinoticProperties;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final HealthChecks healthChecks;
-    private final PersistenceProperties properties;
     private final KinoticDomainProperties domainProperties;
     private final Vertx vertx;
     private Throwable lastEsError = null;
@@ -48,8 +47,8 @@ public class PersistenceInitializer {
         vertx.setPeriodic(domainProperties.getDomain().getElasticHealthCheckInterval().toMillis(),
                           event -> esAsyncClient
                                   .cluster()
-                                  .health(builder -> builder.index(properties.getIndexPrefix() + "application")
-                                                            .index(properties.getIndexPrefix() + "entity_definition"))
+                                  .health(builder -> builder.index(DomainUtil.INDEX_PREFIX + "application")
+                                                            .index(DomainUtil.INDEX_PREFIX + "entity_definition"))
                                   .whenComplete((health, throwable) -> {
                                       if(throwable != null){
                                           log.error("Elasticsearch cluster health check failed", throwable);

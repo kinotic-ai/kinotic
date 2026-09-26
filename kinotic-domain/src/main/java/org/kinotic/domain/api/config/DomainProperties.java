@@ -48,6 +48,12 @@ public class DomainProperties {
     private OAuthProperties oauth = new OAuthProperties();
 
     /**
+     * Entity storage configuration.
+     */
+    @Valid
+    private DomainPersistenceProperties persistence = new DomainPersistenceProperties();
+
+    /**
      * Secret storage configuration. If null, an in-memory backend is used.
      */
     private SecretStorageProperties secretStorage;

@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.PersistenceProperties;
@@ -45,7 +46,7 @@ public class EntityServiceCache {
     private final JsonMapper jsonMapper;
     private final ReadPreProcessor readPreProcessor;
     private final EntityDefinitionRepository entityDefinitionRepository;
-    private final PersistenceProperties persistenceProperties;
+    private final DomainPersistenceProperties domainPersistenceProperties;
     private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
     private final AsyncLoadingCache<CacheKey, EntityService> cache;
 
@@ -57,6 +58,7 @@ public class EntityServiceCache {
                                     ReadPreProcessor readPreProcessor,
                                     EntityDefinitionRepository entityDefinitionRepository,
                                     PersistenceProperties persistenceProperties,
+                                    DomainPersistenceProperties domainPersistenceProperties,
                                     List<UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors,
                                     DefaultCaffeineCacheFactory cacheFactory) {
         this.authServiceFactory = authServiceFactory;
@@ -66,7 +68,7 @@ public class EntityServiceCache {
         this.jsonMapper = jsonMapper;
         this.readPreProcessor = readPreProcessor;
         this.entityDefinitionRepository = entityDefinitionRepository;
-        this.persistenceProperties = persistenceProperties;
+        this.domainPersistenceProperties = domainPersistenceProperties;
 
         this.upsertFieldPreProcessors = PersistenceUtil.listToMap(upsertFieldPreProcessors,
                                                                  p -> p.implementsDecorator().getName());
@@ -135,7 +137,7 @@ public class EntityServiceCache {
                                  .map(authService -> new DefaultEntityService(
                                          authService,
                                          crudServiceTemplate,
-                                         new DelegatingUpsertPreProcessor(persistenceProperties,
+                                         new DelegatingUpsertPreProcessor(domainPersistenceProperties,
                                                                           jsonMapper,
                                                                           entityDescriptor,
                                                                           fieldPreProcessors),
@@ -144,7 +146,7 @@ public class EntityServiceCache {
                                          jsonMapper,
                                          readPreProcessor,
                                          entityDescriptor,
-                                         persistenceProperties));
+                                         domainPersistenceProperties));
     }
 
     private record CacheKey(String organizationId, String entityDefinitionId) {}

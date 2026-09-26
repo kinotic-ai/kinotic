@@ -6,7 +6,7 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
-import org.kinotic.persistence.api.config.PersistenceProperties;
+import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.EntityType;
 import org.kinotic.persistence.internal.converters.elastic.ElasticConversionState;
@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 public class DefaultEntityDefinitionConversionService implements EntityDefinitionConversionService {
 
     private final IdlConverterFactory idlConverterFactory;
-    private final PersistenceProperties persistenceProperties;
+    private final DomainPersistenceProperties domainPersistenceProperties;
 
     @WithSpan
     @Override
@@ -29,7 +29,7 @@ public class DefaultEntityDefinitionConversionService implements EntityDefinitio
         ObjectProperty objectProperty;
 
         IdlConverter<Property, ElasticConversionState> converter = idlConverterFactory
-                .createConverter(new ElasticConverterStrategy(persistenceProperties));
+                .createConverter(new ElasticConverterStrategy(domainPersistenceProperties));
 
         ElasticConversionState state = converter.getConversionContext().state();
 

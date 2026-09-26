@@ -317,6 +317,44 @@ Ways to do better, once there is something to design against:
 * Re-home a project whose node cannot fit its runtime VMs: move the checkout and its VMs to a node
   that can. This is the one that fixes the pinning as well, and the one that needs real design.
 
+### Admin entity repositories and the platform tenant field
+
+**Admin repositories do nothing useful yet.** The idea behind `AdminJsonEntitiesRepository` (and the
+`*AdminRepository` the CLI generates for an entity with a `@TenantId` field) is a participant seeing
+data for several tenants at once. Today a participant that belongs to a tenant is confined to it:
+`PersistenceUtil.validateEntityContext` refuses any tenant selection other than its own, so through
+the admin repository it sees exactly what the tenant-scoped repository shows. Only a participant
+without a tenant, a microservice connected at organization scope, can select other tenants.
+Structures never had this restriction because auth was gated higher up, before a call reached the
+repositories. Real cross-tenant access needs its own security design (who may select which
+tenants), and until that exists the implementation stays simple on purpose.
+
+**`@TenantId` has to carry the platform tenant field's name.**
+`kinotic.domain.persistence.tenantIdFieldName` (default `tenantId`) names the field that holds a
+`SHARED` entity's tenant id when the entity does not declare one; the platform writes it, reads it
+for routing and filters on it by itself. It is configurable because Structures deployments changed
+it: a Structures customer set it to `domain`, so all of their data holds the tenant there, and the
+value has to carry over when they upgrade to kinotic. In practice a `@TenantId` field must use the
+same name. Without a tenant selection, which is every tenant-scoped repository call,
+`ReadPreProcessor.createQueryWithTenantLogic`, `createQueryWithTenantLogicAndSearch` and
+`AggregateQueryExecutor` filter on the property field, while a `@TenantId` entity's documents hold
+only the declared field (`AbstractJsonUpsertPreProcessor` writes the property field only when there
+is no `@TenantId` value). Nothing enforces or documents this: publishing accepts any top-level name,
+so an entity with `@TenantId orgId` publishes and saves fine, and every tenant-scoped read returns
+nothing. `TenantSelectionTests` only covers a field named `tenantId`.
+`DefaultEntityService.createParanoidCheck` already reads the declared field.
+
+Revisit together with the admin security design:
+
+**Option A — enforce it at publish.** Reject a `@TenantId` field not named like the property. Loud,
+but an app's schema then depends on a server setting its developers never see.
+
+**Option B — remove it.** Read on the declared field whenever the entity has one, the choice
+`createParanoidCheck` already makes, leaving the property to name only the field the platform manages
+itself. The names then have to match only when `@TenantId` is added to an index that already has data,
+which `DefaultEntityDefinitionService` already rejects with a clear error. Safe for existing data,
+because a `@TenantId` entity's documents hold only the declared field.
+
 ### Outstanding
 * Move secret storage stuff out of the kinotic-core
 * Fix OidcFlowOrchestrator.java to not secretReferenceResolver.resolve for finding secrets. This won't work for our customers’ configs and should be done differently for our signup configs. 
