@@ -37,8 +37,14 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
     updated DATE
 );
 
--- Deployment state per project: which node holds the checkout, which workload serves it,
--- and the commit currently live. One row per project; id equals the projectId.
+-- Deployment state per project: which node holds the checkout, which workload serves it, and
+-- the reconcile contract every watched record carries: state.conditions (what the platform
+-- inferred beside what the record's owner reported), state.parent (the record it belongs to) and
+-- state.dirty/dirtyAt (whether its last write has been seen by the reconcile master), and for a
+-- reconcilable record what it should be (state.desired, the commit its last push asked for), what
+-- it is (state.observed, the phase it is in and the commit it serves), the generations that tie
+-- the two, deletionRequested and reconciled. failureMessage keeps the reason a deployment failed.
+-- One row per project; id equals the projectId.
 CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     id KEYWORD,
     organizationId KEYWORD,
@@ -48,19 +54,22 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     syncWorkloadId KEYWORD,
     uiPublishWorkloadId KEYWORD,
     syncMachineIdentityId KEYWORD,
-    commitSha KEYWORD,
     artifacts OBJECT (
         microservices OBJECT (name KEYWORD, dir KEYWORD, entry KEYWORD),
         uis OBJECT (name KEYWORD, dir KEYWORD)
     ),
     artifactsCommitSha KEYWORD,
     lastJobRunId KEYWORD,
-    status OBJECT (type KEYWORD, message TEXT),
+    failureMessage TEXT,
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
     created DATE,
     updated DATE
 );
 
 -- Microservice deployments: one row per microservice artifact a project deployment has ensured.
+-- state.desired is running the commit its project's last deployment asked for, or left as the
+-- commit dropped it; failureMessage keeps why it is not running as it should; restartAt is when
+-- a VM that exited is started again.
 CREATE TABLE IF NOT EXISTS kinotic_microservice_deployment (
     id KEYWORD,
     organizationId KEYWORD,
@@ -70,14 +79,17 @@ CREATE TABLE IF NOT EXISTS kinotic_microservice_deployment (
     workloadId KEYWORD,
     machineIdentityId KEYWORD,
     entryPoint KEYWORD,
-    commitSha KEYWORD,
-    status OBJECT (type KEYWORD, message TEXT),
+    failureMessage TEXT,
+    restartAt DATE,
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
     created DATE,
     updated DATE
 );
 
 -- UI deployments: one row per UI artifact a project deployment has published, keyed by the
--- site's hostname label.
+-- site's hostname label. state.desired is serving the commit its project's last deployment
+-- published, or left as the commit dropped it; observation keeps what the site answered when
+-- last checked.
 CREATE TABLE IF NOT EXISTS kinotic_ui_deployment (
     id KEYWORD,
     organizationId KEYWORD,
@@ -85,8 +97,8 @@ CREATE TABLE IF NOT EXISTS kinotic_ui_deployment (
     projectId KEYWORD,
     name KEYWORD,
     url KEYWORD,
-    commitSha KEYWORD,
-    status OBJECT (type KEYWORD, message TEXT),
+    observation TEXT,
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
     created DATE,
     updated DATE
 );
@@ -153,7 +165,8 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
         ) NOT INDEXED
     ),
     online BOOLEAN,
-    lastStatusChange DATE
+    lastStatusChange DATE,
+    livenessVerifiedAt LONG
 );
 
 -- Participant Identity: authenticated identities at each scope layer — a person (type=USER)
@@ -347,26 +360,32 @@ CREATE TABLE IF NOT EXISTS kinotic_oauth_authorization_grant (
     expiresAt DATE
 );
 
--- Create the vm_node table for tracking VmManager nodes
+-- The vm-manager nodes. state.desired is taking workloads; state.observed is taking workloads or
+-- draining, with NODE_UNREACHABLE set by silence or an undelivered call; healthMessage keeps the
+-- reason a node gives for not taking workloads. The free* columns are the totals less what the
+-- runs still open on the node are sized for, taken and returned in one shard operation each.
 CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     id KEYWORD,
     name KEYWORD,
     hostname KEYWORD,
-    status OBJECT (type KEYWORD, healthMessage TEXT),
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD), observed OBJECT (phase KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
+    healthMessage TEXT,
     providerType KEYWORD,
     totalCpus INTEGER,
     totalMemoryMb INTEGER,
     totalDiskMb INTEGER,
-    availableCpus INTEGER,
-    availableMemoryMb INTEGER,
-    availableDiskMb INTEGER,
+    freeCpus DOUBLE,
+    freeMemoryMb INTEGER,
+    freeDiskMb INTEGER,
     lastSeen DATE,
     workloadDataDir KEYWORD
 );
 
 -- Create the workload table for tracking deployed workloads.
 -- organizationId/applicationId encode who the workload runs on behalf of (both null = platform
--- workload); the mapping is strict, so every Workload entity field must be declared here.
+-- workload); the mapping is strict, so every Workload entity field must be declared here. A
+-- workload keeps the last status its node reported and carries NODE_UNREACHABLE in its state
+-- until the node's next report clears it.
 CREATE TABLE IF NOT EXISTS kinotic_workload (
     id KEYWORD,
     name KEYWORD,
@@ -375,16 +394,16 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     organizationId KEYWORD,
     applicationId KEYWORD,
     image KEYWORD,
-    vcpus INTEGER,
+    cpus DOUBLE,
     memoryMb INTEGER,
     diskSizeMb INTEGER,
     network OBJECT (mode KEYWORD, allowedHosts KEYWORD),
     logPolicy OBJECT (maxSizeMb INTEGER, maxFiles INTEGER),
     telemetry BOOLEAN,
     detached BOOLEAN,
-    autoRemove BOOLEAN,
     status KEYWORD,
     exitCode INTEGER,
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG),
     environment JSON NOT INDEXED,
     secrets JSON NOT INDEXED,
     portMappings OBJECT (hostPort INTEGER, guestPort INTEGER, protocol KEYWORD, hostIp KEYWORD),
@@ -395,7 +414,9 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     updated DATE
 );
 
--- Create the job_run table for the persistent history of grind job executions
+-- Create the job_run table for the persistent history of grind job executions. A run carries
+-- SERVER_NODE_LEFT in its state once the cluster membership watch sees its node leave, and the
+-- deployment the run was made by as its parent.
 CREATE TABLE IF NOT EXISTS kinotic_job_run (
     id KEYWORD,
     name KEYWORD,
@@ -409,7 +430,8 @@ CREATE TABLE IF NOT EXISTS kinotic_job_run (
     resumedFrom KEYWORD,
     nodeId KEYWORD,
     started DATE,
-    finished DATE
+    finished DATE,
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG)
 );
 
 -- Create the task_record table for the per-task history of a job run
@@ -428,3 +450,48 @@ CREATE TABLE IF NOT EXISTS kinotic_task_record (
     started DATE,
     finished DATE
 );
+
+-- The ledger: one entry per write to a watched record, saying what happened, from where and why.
+-- The record says what it is now; its entries say how it got there. @timestamp is the write's time.
+CREATE DATA STREAM kinotic_watch_event (type KEYWORD, id KEYWORD, scope KEYWORD, parent KEYWORD, kind KEYWORD, source KEYWORD, serverNodeId KEYWORD, generation LONG, message TEXT, value JSON NOT INDEXED) WITH (DATA_RETENTION = '30d') ;
+
+-- Kinotic-curated social IdP configurations powering the "Continue with X" buttons on
+-- /api/login/providers and the org-signup flow.
+--
+-- The OAuth client secret for each row is resolved at OAuth2-build time via
+-- SecretReferenceResolver — Azure Key Vault in prod (kinotic.domain.secretStorage.azure.vaultUrl)
+-- or KINOTIC_AKV_<uppercased,sanitized-secretNameRef> env vars in dev. The secret name
+-- here must match the AKV secret object name terraform creates.
+--
+-- audience is intentionally not set: for these social providers (Google, Microsoft Entra
+-- /common) the OAuth2 code-for-token exchange already pins the resulting id_token to our
+-- client_id, and the signature is verified against the IdP's JWKS. Validating aud against
+-- a configured value would only be belt-and-suspenders here. Per-org OidcConfiguration
+-- rows used for SSO can populate audience when the org admin uses a custom audience
+-- identifier — the orchestrator + Vert.x validation kicks in automatically when the field
+-- is non-blank.
+--
+-- Rows for OIDC-compliant providers (Google, Entra) need only authority — endpoints come
+-- from the provider's discovery document and identity from the id_token. Providers without
+-- OIDC support (GitHub) set everything explicitly: authorizationUri/tokenUri for the code
+-- flow, userInfoUri for identity, userEmailsUri for a GitHub-style verified-email lookup,
+-- and scopes as the space-delimited OAuth scope string.
+--
+-- Each IdP application registration must list these redirect URIs, per environment origin:
+--   <apiBaseUrl>/api/auth/org/login/social/callback/<id>
+--   <apiBaseUrl>/api/auth/org/signup/social/callback/<id>
+--   <apiBaseUrl>/api/auth/invite/oidc/callback/<id>
+
+INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId, secretNameRef, authority, enabled, created, updated) VALUES ('entra-platform', 'Microsoft', 'azure-ad', 'f24706cc-55ff-4d17-b72c-11ddfa87966a', 'entra-platform', 'https://login.microsoftonline.com/common/v2.0', true, '2026-05-05', '2026-05-05') WITH REFRESH;
+
+INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId, secretNameRef, authority, enabled, created, updated) VALUES ('google-platform', 'Google', 'google', '1018531658131-komame5nk0m59fkp4836b4hrci0r538r.apps.googleusercontent.com', 'google-platform', 'https://accounts.google.com', true, '2026-05-05', '2026-05-05') WITH REFRESH;
+
+-- github-platform must be the kinotic-ai GitHub App's own OAuth credential — it signs
+-- users in AND verifies installation ownership at link time (see the Defense in Depth
+-- doc). Required App settings: a client secret (AKV name = secretNameRef); "Request
+-- user authorization (OAuth) during installation" checked; callback URLs under
+-- "Identifying and authorizing users" = <appBaseUrl>/github/install/callback FIRST
+-- (install redirects go to the first callback URL) plus the URLs above; the
+-- "Email addresses: read-only" account permission. Scopes are inert for GitHub Apps.
+
+INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId, secretNameRef, authority, authorizationUri, tokenUri, userInfoUri, userEmailsUri, scopes, enabled, created, updated) VALUES ('github-platform', 'GitHub', 'github', 'Iv23liN1suytxICfhtOz', 'github-platform', 'https://github.com/login', 'https://github.com/login/oauth/authorize', 'https://github.com/login/oauth/access_token', 'https://api.github.com/user', 'https://api.github.com/user/emails', 'read:user user:email', true, '2026-08-01', '2026-08-01') WITH REFRESH;
