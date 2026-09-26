@@ -20,6 +20,9 @@ public class ManagementApiProperties {
     @Valid
     private GithubProperties github = new GithubProperties();
 
+    @Valid
+    private EntityDefinitionProperties entityDefinition = new EntityDefinitionProperties();
+
     /**
      * Base URL of the Loki HTTP API the {@code LogService} reads workload logs from; override per
      * environment via {@code kinotic.managementApi.lokiUrl} (env {@code KINOTIC_MANAGEMENTAPI_LOKIURL}).

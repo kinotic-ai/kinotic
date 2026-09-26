@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.converters.elastic;
+package org.kinotic.management.internal.converters.elastic;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -7,7 +7,6 @@ import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.domain.api.model.persistence.idl.decorators.EntityDecorator;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.EsIndexConfigurationDecorator;
-import org.kinotic.persistence.internal.converters.common.BaseConversionState;
 import org.kinotic.domain.api.model.persistence.DecoratedProperty;
 
 import java.util.LinkedList;

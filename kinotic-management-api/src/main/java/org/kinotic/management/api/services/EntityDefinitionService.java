@@ -1,5 +1,5 @@
 
-package org.kinotic.persistence.api.services;
+package org.kinotic.management.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;

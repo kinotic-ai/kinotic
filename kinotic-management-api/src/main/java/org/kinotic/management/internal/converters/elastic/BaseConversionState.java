@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.converters.common;
+package org.kinotic.management.internal.converters.elastic;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

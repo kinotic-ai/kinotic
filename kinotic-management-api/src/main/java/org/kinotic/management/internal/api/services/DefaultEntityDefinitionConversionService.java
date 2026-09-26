@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.api.services;
+package org.kinotic.management.internal.api.services;
 
 import co.elastic.clients.elasticsearch._types.mapping.ObjectProperty;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
@@ -9,8 +9,8 @@ import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.EntityType;
-import org.kinotic.persistence.internal.converters.elastic.ElasticConversionState;
-import org.kinotic.persistence.internal.converters.elastic.ElasticConverterStrategy;
+import org.kinotic.management.internal.converters.elastic.ElasticConversionState;
+import org.kinotic.management.internal.converters.elastic.ElasticConverterStrategy;
 import org.springframework.stereotype.Component;
 
 /**

@@ -9,7 +9,7 @@ import org.kinotic.idl.api.converter.C3ConversionException;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
-import org.kinotic.persistence.api.services.EntityDefinitionService;
+import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.test.support.sample.TestDataService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;

@@ -138,7 +138,7 @@ public class StompAuthorizerFactoryTest {
         StompAuthorizer authorizer = organizationAuthorizer("acme-org");
 
         // the management surface, the data plane, and its own applications' zones
-        assertTrue(authorizer.sendAllowed(CRI.create("srv://management-api~org.kinotic.persistence.api.services.EntityDefinitionService/publish#1.0.0")));
+        assertTrue(authorizer.sendAllowed(CRI.create("srv://management-api~org.kinotic.management.api.services.EntityDefinitionService/publish#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://management-api~org.kinotic.management.api.services.iam.MemberService/findMembers#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
