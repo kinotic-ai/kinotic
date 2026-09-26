@@ -3,6 +3,7 @@ package org.kinotic.system.internal.api.services.deployment;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
@@ -25,7 +26,8 @@ import java.util.function.Function;
  * The identities are ORGANIZATION scope. Synchronizing entity definitions and publishing
  * services into an application's zone are things the organization does on its own behalf —
  * an APPLICATION-scope identity holds the authority of an end-user of that application, which
- * is not enough to do either.
+ * is not enough to do either. The sync workload's identity is a {@link MachineKind#PROJECT_SYNC}
+ * machine, a microservice's an {@link MachineKind#APP_RUNTIME} one.
  */
 @Component
 @RequiredArgsConstructor
@@ -51,7 +53,7 @@ public class ProjectDeployIdentityService {
                         ret = Future.failedFuture(new IllegalStateException(
                                 "No deployment record for project " + project.getId()));
                     } else {
-                        ret = issue(project, "deploy sync", deployment.getSyncMachineIdentityId(),
+                        ret = issue(newMachine(project, MachineKind.PROJECT_SYNC, "deploy sync"), deployment.getSyncMachineIdentityId(),
                                     identityId -> projectDeploymentRepository.recordSyncMachine(project.getId(), project.getOrganizationId(), identityId));
                     }
                     return ret;
@@ -71,19 +73,18 @@ public class ProjectDeployIdentityService {
     public Future<MachineProvisionResult> issueRuntimeCredentials(Project project, MicroserviceDeployment deployment) {
         Validate.notNull(project, "project is required");
         Validate.notNull(deployment, "deployment is required");
-        return issue(project, "runtime " + deployment.getName(), deployment.getMachineIdentityId(), identityId -> {
+        return issue(newMachine(project, MachineKind.APP_RUNTIME, "runtime " + deployment.getName()), deployment.getMachineIdentityId(), identityId -> {
             deployment.setMachineIdentityId(identityId);
             return microserviceDeploymentRepository.recordMachine(deployment.getId(), identityId);
         });
     }
 
-    private Future<MachineProvisionResult> issue(Project project,
-                                                 String role,
+    private Future<MachineProvisionResult> issue(MachineParticipantIdentity unsaved,
                                                  String identityId,
                                                  Function<String, Future<Void>> recordIdentity) {
         Future<MachineProvisionResult> ret;
         if (identityId == null) {
-            ret = createAndRecord(project, role, recordIdentity);
+            ret = createAndRecord(unsaved, recordIdentity);
         } else {
             ret = identityService.findById(identityId)
                     .compose(identity -> {
@@ -95,7 +96,7 @@ public class ProjectDeployIdentityService {
                             // an org member may remove a project's machine from the console; the
                             // recorded id then points at nothing and the deployment provisions
                             // a replacement rather than failing
-                            issued = createAndRecord(project, role, recordIdentity);
+                            issued = createAndRecord(unsaved, recordIdentity);
                         }
                         return issued;
                     });
@@ -107,20 +108,23 @@ public class ProjectDeployIdentityService {
      * Records the new machine's id before returning it, so a run that fails after this point
      * leaves an identity the next deployment reuses instead of orphaning it.
      */
-    private Future<MachineProvisionResult> createAndRecord(Project project,
-                                                           String role,
+    private Future<MachineProvisionResult> createAndRecord(MachineParticipantIdentity unsaved,
                                                            Function<String, Future<Void>> recordIdentity) {
-        MachineParticipantIdentity machine = new MachineParticipantIdentity();
-        machine.setDisplayName(displayName(project, role))
-               .setOrganizationId(project.getOrganizationId());
-        return identityService.createMachine(machine)
+        return identityService.createMachine(unsaved)
                 .compose(provisioned -> recordIdentity.apply(provisioned.machine().getId())
                                                       .map(provisioned));
     }
 
-    /** Names the machine for the console listing and for the participant metadata in the logs. */
-    private static String displayName(Project project, String role) {
-        return (project.getName() != null ? project.getName() : project.getId()) + " " + role;
+    /**
+     * The machine a workload of the project is created with when it has none, named for the console
+     * listing and for the participant metadata in the logs.
+     */
+    private static MachineParticipantIdentity newMachine(Project project, MachineKind kind, String role) {
+        MachineParticipantIdentity machine = new MachineParticipantIdentity();
+        machine.setMachineKind(kind)
+               .setDisplayName((project.getName() != null ? project.getName() : project.getId()) + " " + role)
+               .setOrganizationId(project.getOrganizationId());
+        return machine;
     }
 
 }
