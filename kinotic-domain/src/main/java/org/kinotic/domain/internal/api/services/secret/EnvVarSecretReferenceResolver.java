@@ -2,16 +2,19 @@ package org.kinotic.domain.internal.api.services.secret;
 
 import io.vertx.core.Future;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 /**
- * Dev fallback for {@link SecretReferenceResolver}. Resolves secrets from process env
- * vars named {@code KINOTIC_AKV_<sanitizedSecretName>} — the secret name is uppercased
- * with non-alphanumeric characters replaced by {@code _}, matching standard env-var
- * conventions. Returns {@code null} when the env var is not set.
+ * Dev fallback for {@link SecretReferenceResolver}. Resolves secrets from the Spring
+ * {@link Environment} property {@code KINOTIC_AKV_<sanitizedSecretName>} — the secret name is
+ * uppercased with non-alphanumeric characters replaced by {@code _}, matching standard env-var
+ * conventions — so a secret can be an environment variable or a key in any loaded config file.
+ * Returns {@code null} when the property is not set.
  *
  * <p>Active when {@code kinotic.domain.secretStorage.azure.vaultUrl} is unset or blank.
  * Mutually exclusive with {@link AzureKeyVaultSecretReferenceResolver} via the same
@@ -21,12 +24,15 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 @ConditionalOnExpression("'${kinotic.domain.secretStorage.azure.vaultUrl:}'.isBlank()")
 public class EnvVarSecretReferenceResolver implements SecretReferenceResolver {
 
+    private final Environment environment;
+
     @PostConstruct
     void announce() {
-        log.info("Resolving named secrets from KINOTIC_AKV_* env vars");
+        log.info("Resolving named secrets from KINOTIC_AKV_* properties");
     }
 
     @Override
@@ -34,10 +40,10 @@ public class EnvVarSecretReferenceResolver implements SecretReferenceResolver {
         if (secretName == null || secretName.isBlank()) {
             return Future.succeededFuture();
         }
-        String envName = "KINOTIC_AKV_" + secretName.replaceAll("[^a-zA-Z0-9]", "_").toUpperCase();
-        String value = System.getenv(envName);
+        String propertyName = "KINOTIC_AKV_" + secretName.replaceAll("[^a-zA-Z0-9]", "_").toUpperCase();
+        String value = environment.getProperty(propertyName);
         if (value == null) {
-            log.debug("Secret '{}' not found in env var {}", secretName, envName);
+            log.debug("Secret '{}' not found in property {}", secretName, propertyName);
         }
         return Future.succeededFuture(value);
     }

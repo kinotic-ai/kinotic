@@ -72,6 +72,14 @@ docker compose down -v && docker compose up -d
 | Grafana | <http://localhost:3000> | When `compose-otel.yml` is included. Anonymous auth with the Admin role — no login |
 | Keycloak | <http://keycloak:8888> | When `compose.keycloak.yml` is included; requires `127.0.0.1 keycloak` in `/etc/hosts` per `KEYCLOAK_HOSTS_SETUP.md` |
 
+## Sample data
+
+The full stack seeds the `kinotic-test` organization for evaluators: `compose.yml` runs the
+migration with the `fixtures` profile (set in `evaluation.env`), and `kinotic-gen-schemas`
+adds the `ecommerce` and `healthcare` applications with entity data. Sign in at
+<http://localhost:9090> as `kinotic@kinotic.local` / `kinotic` to see it. The other stacks
+include `compose.kinotic-migration.yml` without `evaluation.env` and seed none of it.
+
 ## Try the auth flow (UI devs)
 
 The full compose stack (`docker compose up -d`) gives you a working signup/login flow out

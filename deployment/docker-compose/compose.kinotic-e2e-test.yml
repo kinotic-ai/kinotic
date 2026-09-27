@@ -50,7 +50,9 @@ services:
       SPRING_PROFILES_ACTIVE: development,test,compose
   kinotic-server:
     environment: *kinotic-server-e2e-environment
-    volumes:
+    # Replaces compose.kinotic-server.yml's mount of the developer's tunnel and GitHub App,
+    # which would otherwise configure the e2e server on a developer machine
+    volumes: !override
       - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
   kinotic-server-2:
     extends:
@@ -61,5 +63,5 @@ services:
       - "127.0.0.1:9092:9090" # UI PORT
       - "127.0.0.1:58504:58503" # Stomp Port
     environment: *kinotic-server-e2e-environment
-    volumes:
+    volumes: !override
       - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro

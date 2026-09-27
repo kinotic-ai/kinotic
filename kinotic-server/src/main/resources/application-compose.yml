@@ -10,3 +10,7 @@ kinotic:
       # which is absent from the Paketo JRE — so compose falls back to InMemoryBackend.
       # IDE devs still get hft via application-development.yml.
       backend: ~
+    # The portal build the server serves on 9090. A developer's tunnel replaces it from
+    # ./config/application.yml, which compose.kinotic-server.yml mounts and which outranks
+    # every file packaged in the jar.
+    appBaseUrl: http://localhost:9090
