@@ -56,8 +56,8 @@ import java.util.stream.Collectors;
  * long-lived runtime workload per microservice of the commit and wait for the microservices'
  * workers to answer, and upload its UIs and ask for their sites to serve them. The resolved {@link DeployTarget}, the artifacts, the
  * microservice deployments and the UI deployments are stored in the job scope under the
- * {@link ProjectDeployStores} names, so the run's {@code TaskCompletedEvent}s and
- * {@code TaskRecord}s carry them to the caller and the console.
+ * {@link ProjectDeployStores} names, so the run's {@code TaskRecord}s carry them to the console.
+ * The target is also recorded on the project's deployment as soon as it is resolved.
  */
 @Slf4j
 @Component

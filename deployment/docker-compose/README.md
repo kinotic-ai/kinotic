@@ -237,15 +237,19 @@ verification URL to the IntelliJ console instead — which is what the compose s
 
 If you also run the Vite frontend (`pnpm dev` on `:5173`), it calls the server directly at
 `localhost:58503` via `VITE_KINOTIC_HOST`/`VITE_KINOTIC_PORT` — see
-`kinotic-frontend/apps/portal/ENV_SETUP.md`. For flows where the IdP has to call back into
-your machine, use `pnpm dev:tunnel` and set `KINOTIC_DOMAIN_APPBASEURL` on the IntelliJ run
-config to the tunnel origin so OIDC redirect URIs match what's registered with the IdP.
+`kinotic-frontend/apps/portal/ENV_SETUP.md`. For flows where the IdP or GitHub has to call back into
+your machine, use `pnpm dev:tunnel` behind your ngrok tunnel, with the tunnel origin in
+`~/.kinotic/dev-environment/application.yml` — see "Local development environment" in the
+contributing guide (`website/content/02.platform/09.contributing.md`).
 
 ## Storage paths
 
 - `kinotic-elastic-data` — Elasticsearch data, a Docker named volume. Survives
   `docker compose down`; removed by `docker compose down -v`.
-- No host volumes for the kinotic-server container — it's stateless.
+- `~/.kinotic/dev-environment` is bind-mounted read-only into the kinotic-server container as
+  `/workspace/config`: a developer's tunnel origin and GitHub App, when
+  `dev-tools/github-app/dev-github-app.ts create` has written them. The server keeps no state
+  of its own there.
 
 ## When you outgrow docker-compose
 

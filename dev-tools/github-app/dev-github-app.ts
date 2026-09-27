@@ -78,7 +78,7 @@ async function create() {
         fail(`${APP_JSON} already holds App ${readApp().slug}. Delete that App on GitHub and pass --force to register another.`)
     }
     const origin = new URL(values.domain.includes('://') ? values.domain : `https://${values.domain}`).origin
-    const name = values.name ?? `kinotic-dev-${userInfo().username}`
+    const name = values.name ?? defaultAppName()
     const state = crypto.randomUUID()
 
     const created = Promise.withResolvers<string>()
@@ -121,13 +121,16 @@ async function create() {
     const app = (await resp.json()) as CreatedApp
 
     mkdirSync(ENVIRONMENT_DIR, { recursive: true })
-    writeSecretFile(APP_JSON, JSON.stringify(app, null, 2) + '\n')
-    writeSecretFile(ENVIRONMENT_YML, environmentYml(origin, app))
+    writeSecretFile(APP_JSON, JSON.stringify(app, null, 2) + '\n', 0o600)
+    // The compose server reads application.yml through a bind mount as its image's own user,
+    // which on Linux is another uid than yours; Docker Desktop maps ownership on macOS
+    writeSecretFile(ENVIRONMENT_YML, environmentYml(origin, app), process.platform === 'linux' ? 0o644 : 0o600)
 
     console.log(`Registered ${app.html_url} (id ${app.id}) owned by ${app.owner.login}.`)
     console.log(`Wrote ${ENVIRONMENT_YML} and ${APP_JSON}.`)
-    await syncEs(app)
+    // The restart comes first: syncEs exits on a cluster the migration has not reached yet
     restartComposeServer()
+    await syncEs(app)
 }
 
 function restartComposeServer() {
@@ -138,6 +141,12 @@ function restartComposeServer() {
     } else {
         console.log('Restart kinotic-server to load the App.')
     }
+}
+
+// GitHub App names are at most 34 characters of letters, digits and hyphens
+function defaultAppName(): string {
+    const user = userInfo().username.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '')
+    return `kinotic-dev-${user}`.slice(0, 34).replace(/-+$/, '')
 }
 
 function manifestPage(origin: string, name: string, redirectUrl: string, state: string): string {
@@ -220,7 +229,8 @@ async function pointSignInRow(clientId: string) {
     const resp = await fetch(`${values.es}/kinotic_org_signup_oidc_configuration/_update/${SIGN_IN_CONFIG_ID}?refresh=true`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ doc: { clientId } }),
+        // updated is part of the server's OAuth client cache key, so the new client id takes effect
+        body: JSON.stringify({ doc: { clientId, updated: new Date().toISOString() } }),
     })
     if (!resp.ok) {
         fail(`Updating the ${SIGN_IN_CONFIG_ID} row failed: ${resp.status} ${await resp.text()}\n`
@@ -251,6 +261,16 @@ async function linkInstallation(app: CreatedApp, organizationId: string) {
     const installation = installations[0]
     const now = new Date().toISOString()
     const id = String(installation.id)
+    // An organization links one installation, as completeInstall enforces; a link left by an
+    // App registered earlier would otherwise stay beside this one
+    const cleared = await fetch(`${values.es}/kinotic_github_app_installation/_delete_by_query?routing=${organizationId}&refresh=true`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ query: { term: { organizationId } } }),
+    })
+    if (!cleared.ok) {
+        fail(`Clearing the installation links of ${organizationId} failed: ${cleared.status} ${await cleared.text()}`)
+    }
     const doc = await fetch(`${values.es}/kinotic_github_app_installation/_doc/${organizationId}-${id}?routing=${organizationId}&refresh=true`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -287,9 +307,17 @@ function readApp(): CreatedApp {
     return JSON.parse(readFileSync(APP_JSON, 'utf8')) as CreatedApp
 }
 
-function writeSecretFile(path: string, content: string) {
-    writeFileSync(path, content, { mode: 0o600 })
-    chmodSync(path, 0o600)
+function writeSecretFile(path: string, content: string, mode: number) {
+    try {
+        writeFileSync(path, content, { mode })
+        chmodSync(path, mode)
+    } catch (error) {
+        // Docker creates a bind mount's missing host directory as root when compose starts first
+        if ((error as NodeJS.ErrnoException).code === 'EACCES') {
+            fail(`${path} is not writable; if Docker created ${ENVIRONMENT_DIR}, run: sudo chown -R $USER ${ENVIRONMENT_DIR}`)
+        }
+        throw error
+    }
 }
 
 function fail(message: string): never {

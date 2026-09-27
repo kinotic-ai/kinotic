@@ -6,7 +6,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
+import org.springframework.core.env.PropertySource;
 import org.springframework.stereotype.Component;
 
 /**
@@ -28,7 +30,7 @@ import org.springframework.stereotype.Component;
 @ConditionalOnExpression("'${kinotic.domain.secretStorage.azure.vaultUrl:}'.isBlank()")
 public class EnvVarSecretReferenceResolver implements SecretReferenceResolver {
 
-    private final Environment environment;
+    private final ConfigurableEnvironment environment;
 
     @PostConstruct
     void announce() {
@@ -41,7 +43,15 @@ public class EnvVarSecretReferenceResolver implements SecretReferenceResolver {
             return Future.succeededFuture();
         }
         String propertyName = "KINOTIC_AKV_" + secretName.replaceAll("[^a-zA-Z0-9]", "_").toUpperCase();
-        String value = environment.getProperty(propertyName);
+        // Each source's raw value: Environment.getProperty would resolve ${...} inside a secret
+        String value = null;
+        for (PropertySource<?> source : environment.getPropertySources()) {
+            Object raw = source.getProperty(propertyName);
+            if (raw != null) {
+                value = raw.toString();
+                break;
+            }
+        }
         if (value == null) {
             log.debug("Secret '{}' not found in property {}", secretName, propertyName);
         }
