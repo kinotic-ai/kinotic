@@ -4,7 +4,7 @@
 // "Local development environment".
 //
 //   bun dev-tools/github-app/dev-github-app.ts create --domain <you>.ngrok-free.dev [--name <app-name>] [--org <github-org>] [--force]
-//   bun dev-tools/github-app/dev-github-app.ts sync-es [--es http://localhost:9200]
+//   bun dev-tools/github-app/dev-github-app.ts sync-es [--organization-id kinotic-test] [--es http://localhost:9200]
 //
 // create runs GitHub's App manifest flow: a browser page posts the manifest below to GitHub,
 // the developer confirms, GitHub redirects back here with a code, and the code is exchanged
@@ -14,10 +14,12 @@
 //   ~/.kinotic/dev-environment/github-app.json   the full credential set, read by sync-es
 // then runs sync-es and restarts the compose kinotic-server container when it is running.
 //
-// sync-es points the github-platform sign-in row in local Elasticsearch at the App's client
-// id. The migration seeds that row with the kinotic-ai App's client id, so this runs again
-// after every fresh migration (docker compose down -v).
+// sync-es restores what a fresh migration (docker compose down -v) loses and GitHub still has:
+// it points the github-platform sign-in row, which the migration seeds with the kinotic-ai
+// App's client id, at this App's, and links the App's installation to a Kinotic organization,
+// as linking GitHub in the portal would. The App itself is registered once and reused.
 
+import { createSign } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir, userInfo } from 'node:os'
 import { join } from 'node:path'
@@ -28,6 +30,8 @@ const ENVIRONMENT_YML = join(ENVIRONMENT_DIR, 'application.yml')
 const APP_JSON = join(ENVIRONMENT_DIR, 'github-app.json')
 // The OrgSignupOidcConfiguration row id and secretNameRef seeded in V1__init.sql
 const SIGN_IN_CONFIG_ID = 'github-platform'
+// Organization the development migration seeds and its kinotic@kinotic.local user belongs to
+const DEFAULT_ORGANIZATION_ID = 'kinotic-test'
 // Container name in deployment/docker-compose/compose.kinotic-server.yml
 const COMPOSE_SERVER = 'kinotic-server'
 
@@ -50,6 +54,7 @@ const { positionals, values } = parseArgs({
         org: { type: 'string' },
         force: { type: 'boolean', default: false },
         es: { type: 'string', default: 'http://localhost:9200' },
+        'organization-id': { type: 'string', default: DEFAULT_ORGANIZATION_ID },
     },
 })
 
@@ -58,11 +63,11 @@ switch (positionals[0]) {
         await create()
         break
     case 'sync-es':
-        await syncEs(readApp().client_id)
+        await syncEs(readApp())
         break
     default:
         fail('usage: dev-github-app.ts create --domain <you>.ngrok-free.dev [--name <app-name>] [--org <github-org>] [--force]\n'
-             + '       dev-github-app.ts sync-es [--es http://localhost:9200]')
+             + '       dev-github-app.ts sync-es [--organization-id kinotic-test] [--es http://localhost:9200]')
 }
 
 async function create() {
@@ -121,7 +126,7 @@ async function create() {
 
     console.log(`Registered ${app.html_url} (id ${app.id}) owned by ${app.owner.login}.`)
     console.log(`Wrote ${ENVIRONMENT_YML} and ${APP_JSON}.`)
-    await syncEs(app.client_id)
+    await syncEs(app)
     restartComposeServer()
 }
 
@@ -199,25 +204,80 @@ ${pem}
 `
 }
 
-async function syncEs(clientId: string) {
-    const url = `${values.es}/kinotic_org_signup_oidc_configuration/_update/${SIGN_IN_CONFIG_ID}?refresh=true`
-    let resp: Response
+async function syncEs(app: CreatedApp) {
     try {
-        resp = await fetch(url, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ doc: { clientId } }),
-        })
+        await fetch(values.es)
     } catch {
         console.warn(`Elasticsearch is not reachable at ${values.es}. Once it is up and migrated, run:\n`
                      + '  bun dev-tools/github-app/dev-github-app.ts sync-es')
         return
     }
+    await pointSignInRow(app.client_id)
+    await linkInstallation(app, values['organization-id']!)
+}
+
+async function pointSignInRow(clientId: string) {
+    const resp = await fetch(`${values.es}/kinotic_org_signup_oidc_configuration/_update/${SIGN_IN_CONFIG_ID}?refresh=true`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ doc: { clientId } }),
+    })
     if (!resp.ok) {
         fail(`Updating the ${SIGN_IN_CONFIG_ID} row failed: ${resp.status} ${await resp.text()}\n`
              + 'Run the migration first, then sync-es again.')
     }
     console.log(`The ${SIGN_IN_CONFIG_ID} sign-in row now uses client id ${clientId}.`)
+}
+
+// Writes the GitHubAppInstallation the portal's link flow would, keyed and routed as
+// AbstractOrganizationScopedRepository stores it. The flow's ownership check is skipped: the
+// App is private to its owner, so every installation it has is the developer's own.
+async function linkInstallation(app: CreatedApp, organizationId: string) {
+    const resp = await fetch('https://api.github.com/app/installations', {
+        headers: { accept: 'application/vnd.github+json', authorization: `Bearer ${appJwt(app)}` },
+    })
+    if (!resp.ok) {
+        fail(`Listing the installations of ${app.slug} failed: ${resp.status} ${await resp.text()}`)
+    }
+    const installations = (await resp.json()) as { id: number, account: { login: string, type: string }, suspended_at: string | null }[]
+    if (installations.length === 0) {
+        console.log(`${app.slug} is not installed yet; link GitHub from the portal to install it.`)
+        return
+    }
+    if (installations.length > 1) {
+        fail(`${app.slug} has ${installations.length} installations (${installations.map(i => i.account.login).join(', ')}); `
+             + 'uninstall the ones you do not deploy from.')
+    }
+    const installation = installations[0]
+    const now = new Date().toISOString()
+    const id = String(installation.id)
+    const doc = await fetch(`${values.es}/kinotic_github_app_installation/_doc/${organizationId}-${id}?routing=${organizationId}&refresh=true`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+            id,
+            organizationId,
+            githubInstallationId: installation.id,
+            accountLogin: installation.account.login,
+            accountType: installation.account.type,
+            suspendedAt: installation.suspended_at,
+            created: now,
+            updated: now,
+        }),
+    })
+    if (!doc.ok) {
+        fail(`Linking installation ${id} failed: ${doc.status} ${await doc.text()}`)
+    }
+    console.log(`Installation ${id} on ${installation.account.login} is linked to organization ${organizationId}.`)
+}
+
+// A GitHub App JWT: RS256 over the App id, valid for the ten minutes GitHub allows, issued a
+// minute early to absorb clock drift
+function appJwt(app: CreatedApp): string {
+    const now = Math.floor(Date.now() / 1000)
+    const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')
+    const unsigned = `${encode({ alg: 'RS256', typ: 'JWT' })}.${encode({ iat: now - 60, exp: now + 540, iss: String(app.id) })}`
+    return `${unsigned}.${createSign('RSA-SHA256').update(unsigned).sign(app.pem, 'base64url')}`
 }
 
 function readApp(): CreatedApp {
