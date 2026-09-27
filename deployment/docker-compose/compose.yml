@@ -3,5 +3,6 @@ include:
   - compose.kibana.yml
   - compose-otel.yml
   - compose.gen-schemas.yml
-  - compose.kinotic-migration.yml
+  - path: compose.kinotic-migration.yml
+    env_file: evaluation.env
   - compose.kinotic-server.yml

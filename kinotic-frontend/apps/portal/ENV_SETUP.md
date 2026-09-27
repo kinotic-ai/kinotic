@@ -25,14 +25,17 @@ reach a local server through a single tunnel. `.env.tunnel` clears `VITE_KINOTIC
 and `/mcp` to 58503.
 
 ```bash
-pnpm dev:tunnel          # vite on :5173, proxying the backend
-ngrok http 5173          # one public origin for SPA + API
+ngrok http --url=<you>.ngrok-free.dev 5173   # one public origin for SPA + API
+pnpm dev:tunnel                              # vite on :5173, proxying the backend
 ```
 
-Point the GitHub App callback and webhook URLs at the ngrok origin, then set the server's
-`kinotic.domain.appBaseUrl` to it (`KINOTIC_DOMAIN_APPBASEURL=https://<id>.ngrok-free.app`,
-or edit `application-development.yml`) — OIDC `redirect_uri`s and email links are built from
-it server-side, and `apiBaseUrl` falls back to it.
+The SPA needs nothing tunnel-specific: it resolves the server from the page's origin. The
+server does — its `kinotic.domain.appBaseUrl` and `apiBaseUrl` build OIDC `redirect_uri`s and
+email links, and your own GitHub App carries the callback and webhook URLs. Both come from
+`bun dev-tools/github-app/dev-github-app.ts create --domain <you>.ngrok-free.dev`, which
+registers the App and writes `~/.kinotic/dev-environment/application.yml`, which the IDE and
+compose servers both import; see "Local development environment" in the contributing guide
+(`website/content/02.platform/09.contributing.md`).
 
 The tunnel host must be allowed in two places:
 
