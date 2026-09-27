@@ -170,6 +170,9 @@ export class BoxliteProvider implements IVmProvider {
     }
 
     private readonly workloads: Map<string, Workload> = new Map()
+    // Workloads whose start() has not returned: STARTING here means the boot is in progress,
+    // where a STARTING record recover() loads means a boot a crash cut short
+    private readonly starting: Set<string> = new Set()
     private readonly activeVms: Map<string, ActiveVm> = new Map()
     // The box id of every workload with a box on this node, running or not: the vm_id label
     // its shipped logs carry, kept as long as the log files are, until destroy
@@ -268,6 +271,7 @@ export class BoxliteProvider implements IVmProvider {
         // STARTING is persisted first so a crash mid-boot is visible to recover()
         this.persist(workload)
 
+        this.starting.add(id)
         try {
             // boxlite refuses a box whose volume host path is missing, so the checkout
             // directory a deployment mounts is created here on its first deployment
@@ -308,6 +312,7 @@ export class BoxliteProvider implements IVmProvider {
             this.activeVms.delete(id)
             throw error
         } finally {
+            this.starting.delete(id)
             workload.updated = Date.now()
             this.persist(workload)
         }
@@ -453,7 +458,10 @@ export class BoxliteProvider implements IVmProvider {
     // exits, so a guest that ended on its own is reported here rather than waiting for an
     // operation against it to fail.
     private async syncStatus(workload: Workload): Promise<void> {
-        if (workload.status !== WorkloadStatus.RUNNING && workload.status !== WorkloadStatus.STARTING) {
+        // A start in flight settles the status itself; before it has booted the guest, a box
+        // that is not running would read as a guest that exited
+        if ((workload.status !== WorkloadStatus.RUNNING && workload.status !== WorkloadStatus.STARTING)
+            || this.starting.has(workload.id!)) {
             return
         }
         let status: WorkloadStatus

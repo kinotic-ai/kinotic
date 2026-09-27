@@ -56,6 +56,9 @@ export class CloudHypervisorProvider implements IVmProvider {
     readonly type: VmProviderType = VmProviderType.CLOUD_HYPERVISOR
 
     private readonly workloads: Map<string, Workload> = new Map()
+    // Workloads whose start() has not returned: STARTING here means the boot is in progress,
+    // where a STARTING record recover() loads means a boot a crash cut short
+    private readonly starting: Set<string> = new Set()
     private readonly containers: Map<string, ActiveContainer> = new Map()
     // Settles once a running container's exit has been recorded; what awaitExit waits on
     private readonly exitWatches: Map<string, Promise<void>> = new Map()
@@ -217,6 +220,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         // STARTING is persisted first so a crash mid-boot is visible to recover()
         this.persist(workload)
 
+        this.starting.add(id)
         try {
             this.mounts.prepare(workload)
             // A node provisioned for this provider carries project quotas, so a cap it cannot
@@ -246,6 +250,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.containers.delete(id)
             throw error
         } finally {
+            this.starting.delete(id)
             workload.updated = Date.now()
             this.persist(workload)
         }
@@ -361,7 +366,10 @@ export class CloudHypervisorProvider implements IVmProvider {
     // Refreshes a workload the vm-manager believes is live, so a guest that died on its own
     // is reported rather than waiting for an operation against it
     private async syncStatus(workload: Workload): Promise<void> {
-        if (workload.status !== WorkloadStatus.RUNNING && workload.status !== WorkloadStatus.STARTING) {
+        // A start in flight settles the status itself; before it has booted the guest, a box
+        // that is not running would read as a guest that exited
+        if ((workload.status !== WorkloadStatus.RUNNING && workload.status !== WorkloadStatus.STARTING)
+            || this.starting.has(workload.id!)) {
             return
         }
         let status: WorkloadStatus
