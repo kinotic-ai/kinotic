@@ -91,6 +91,12 @@ found in; the server applies the same name rule to what it is told.
       <code>
         DeployTarget(nodeId, hostDir, syncWorkloadId, uiPublishWorkloadId)
       </code>
+      
+      , recorded on the <code>
+        ProjectDeployment
+      </code>
+      
+       before any workload runs, since the microservice workers place their VMs on its node
     </td>
   </tr>
   

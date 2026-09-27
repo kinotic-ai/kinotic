@@ -1841,12 +1841,13 @@ read-only for a week, then tear it down.
 ## Developers' own environments
 
 The same pieces serve a developer's machine, without the Proxmox host: the compose stack
-from `deployment/docker-compose` with the `BOXLITE` vm-manager beside it, and the `dev/` root
-for Front Door, the sites account, and email, as the contributing guide describes. Every
+from `deployment/docker-compose` with the `BOXLITE` vm-manager beside it, as the
+[contributing guide](/platform/contributing#running-workloads-on-your-machine) describes, and
+the `dev/` root for Front Door, the sites account, and email. Every
 development environment shares one GitHub App. An App has one webhook URL, and it points at
 the development server, so a developer's own server sees no push events: deployments there
 start from the re-run path, and a developer who needs the webhook registers an App of their
-own. Sign-in through Azure and Google is outside this page until that support is defined.
+own, as the [contributing guide](/platform/contributing#your-tunnel-and-github-app) describes. Sign-in through Azure and Google is outside this page until that support is defined.
 
 ## Build order
 

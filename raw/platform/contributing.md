@@ -140,20 +140,477 @@ bun install
 bun run dev
 ```
 
-## Testing
+## Local development environment
 
-### Java/Kotlin
+There are two ways to run Kinotic locally, for two different people. Evaluating Kinotic, the
+whole platform runs in Docker and you use the portal the server serves on
+`http://localhost:9090`. Developing Kinotic, only the backing services run in Docker, you run
+kinotic-server from your IDE, and the portal runs from source on vite's
+`http://localhost:5173`. Anything involving GitHub — linking an organization, creating
+projects, deployments on push — needs an ngrok tunnel and a GitHub App of your own with
+either setup, because the App names your tunnel in its callback and webhook URLs, and a
+GitHub App has only one of each.
+
+### Prerequisites
+
+- Docker
+- For development, [Bun](https://bun.sh), pnpm, JDK 25 (the shared IntelliJ run configurations
+use `graalvm-ce-25`), and IntelliJ's EnvFile plugin, which loads `.env.local` into the
+server's environment
+- For GitHub, Bun and pnpm, and an [ngrok](https://ngrok.com) account with its free static
+domain, e.g. `you.ngrok-free.dev`, and the `ngrok` CLI signed in to it
+(`ngrok config add-authtoken <token>`)
+
+### Evaluating Kinotic
 
 ```bash
-./gradlew test
+cd deployment/docker-compose
+docker compose up -d
 ```
 
-### TypeScript (Vitest)
+That brings up the whole platform from published images:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Service
+    </th>
+    
+    <th>
+      Address
+    </th>
+    
+    <th>
+      What it is
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        kinotic-elasticsearch
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        localhost:9200
+      </code>
+    </td>
+    
+    <td>
+      Everything the platform stores
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic-migration
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      Creates the indices and seeds the platform rows, then exits; the server waits for it
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic-server
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        localhost:9090
+      </code>
+      
+      , <code>
+        localhost:58503
+      </code>
+    </td>
+    
+    <td>
+      The portal build baked into the image on 9090, and the API and STOMP gateway on 58503
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic-gen-schemas
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      Publishes a set of sample entity definitions through the server, then exits
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Kibana
+    </td>
+    
+    <td>
+      <code>
+        localhost:5601
+      </code>
+    </td>
+    
+    <td>
+      Browses Elasticsearch
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      OpenTelemetry collector, Tempo, Loki, Mimir, Grafana
+    </td>
+    
+    <td>
+      <code>
+        localhost:3000
+      </code>
+      
+       (Grafana)
+    </td>
+    
+    <td>
+      The server's traces, logs and metrics
+    </td>
+  </tr>
+</tbody>
+</table>
+
+Open `http://localhost:9090` and sign in as `kinotic@kinotic.local` with the password
+`kinotic`. That user belongs to the `kinotic-test` organization, which the stack fills with
+sample data: the migration runs with the `fixtures` profile (`evaluation.env`), which seeds
+applications, projects, members and pending invites, and `kinotic-gen-schemas` creates the
+`ecommerce` and `healthcare` applications with published entity definitions and records.
+Signing up instead creates an organization of your own, which starts empty.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Screens with sample data
+    </th>
+    
+    <th>
+      Screens that stay empty
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      Applications, their projects, members and settings; the organization's members and pending invites; entity definitions and their records in <code>
+        ecommerce
+      </code>
+      
+       and <code>
+        healthcare
+      </code>
+      
+      ; the GraphQL playground over those entities; your profile
+    </td>
+    
+    <td>
+      Deployments, and the deployment sections of the application and project overviews; jobs; observability and traces; the organization's GitHub link
+    </td>
+  </tr>
+</tbody>
+</table>
+
+The empty screens fill only from what a deployed project produces: a deployment starts when a
+push reaches the server from GitHub, runs as workloads on a vm-manager node, and sends the
+telemetry the observability screens read. Using Kinotic locally for real, rather than walking
+its screens, takes [your own tunnel and GitHub App](#your-tunnel-and-github-app) and a
+[vm-manager node](#running-workloads-on-your-machine) to run the workloads.
+
+Email is off in the compose server, so a sign-up's verification link is in its log
+(`docker compose logs -f kinotic-server`). `docker compose pull` refreshes the images, and
+`docker compose down -v` wipes Elasticsearch; the next `up` migrates and seeds it again.
+`deployment/docker-compose/README.md` lists the other combinations of the stack.
+
+### Developing Kinotic
+
+Start only the backing services, including the observability stack the shared run
+configuration exports traces to:
 
 ```bash
-cd kinotic-js
-bun test
+cd deployment/docker-compose
+docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml -f compose-otel.yml up -d
 ```
+
+Run the server from the `KinoticServerApplication` run configuration. It runs the
+`development,local` profiles and loads `.env.local` from the repository root, which must exist
+(`touch .env.local`). The `development` profile sends email through the platform's Azure
+Communication Services; add `KINOTIC_DOMAIN_EMAIL_ENABLED=false` to `.env.local` to log
+verification links instead. When you change the migration, run `KinoticMigrationApplication`
+from the IDE instead of the container.
+
+Then run the portal from source:
+
+```bash
+cd kinotic-frontend
+pnpm install
+pnpm dev
+```
+
+The portal on `http://localhost:5173` talks to the server on `localhost:58503`, and the links
+the `development` profile builds point at it.
+
+### Your tunnel and GitHub App
+
+Register the App once, naming your ngrok domain:
+
+```bash
+bun dev-tools/github-app/dev-github-app.ts create --domain you.ngrok-free.dev
+```
+
+A browser page opens on GitHub with the App filled in; confirm it. The App is named
+`kinotic-dev-<your username>` unless you pass `--name` (App names are unique across GitHub),
+and it belongs to your account unless you pass `--org <organization>`. It is private, so it
+can be installed only on the account that owns it, and that account is where the projects
+you create get their repositories. It carries:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Setting
+    </th>
+    
+    <th>
+      Value
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      Webhook URL
+    </td>
+    
+    <td>
+      <code>
+        https://<domain>/api/github/webhook
+      </code>
+      
+      , subscribed to <code>
+        push
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Callback URLs
+    </td>
+    
+    <td>
+      <code>
+        https://<domain>/github/install/callback
+      </code>
+      
+       first, then the <code>
+        github-platform
+      </code>
+      
+       sign-in callbacks under <code>
+        /api/auth/org/login/social/callback/
+      </code>
+      
+      , <code>
+        /api/auth/org/signup/social/callback/
+      </code>
+      
+       and <code>
+        /api/auth/invite/oidc/callback/
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Request user authorization (OAuth) during installation
+    </td>
+    
+    <td>
+      on
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Repository permissions
+    </td>
+    
+    <td>
+      Administration: write, Contents: write, Metadata: read
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Account permissions
+    </td>
+    
+    <td>
+      Email addresses: read
+    </td>
+  </tr>
+</tbody>
+</table>
+
+The script writes the [override file](#the-override-file),
+`~/.kinotic/dev-environment/application.yml`, and beside it `github-app.json` with every
+credential GitHub returned. It then runs `sync-es`, below, and restarts the compose
+`kinotic-server` container if it is running so the server loads the App; a server run from the
+IDE needs restarting by hand.
+
+The App lives on GitHub, so it outlasts every wipe of your stack; register it once. What a fresh
+migration loses is its link to Kinotic: the migration seeds the `github-platform` sign-in row
+with the kinotic-ai App's client id, and an organization's link to your App's installation is a
+row in Elasticsearch. After every fresh migration (`docker compose down -v`, or a new cluster),
+restore both:
+
+```bash
+bun dev-tools/github-app/dev-github-app.ts sync-es
+```
+
+`sync-es` points the sign-in row at your App's client id and, once the App is installed, links
+its installation to the `kinotic-test` organization (`--organization-id` for another), which is
+what linking GitHub in the portal does. It reads the App from `github-app.json` and asks GitHub
+for the installation with the App's own key, so nothing is registered or installed again.
+
+To register the App again, for a new domain say, delete the old one on GitHub (**Settings →
+Developer settings → GitHub Apps**) and run `create` with `--force`.
+
+With either server running, start the tunnel and the portal from source behind it; the
+tunnel fronts vite's dev server, whose proxy reaches the server, since the portal on 9090 is
+static files alone:
+
+```bash
+ngrok http --url=you.ngrok-free.dev 5173
+cd kinotic-frontend && pnpm install && pnpm dev:tunnel
+```
+
+`pnpm dev:tunnel` makes the portal call its own origin, and its dev server forwards `/api`,
+`/v1`, `/.well-known` and `/mcp` to the server on port 58503, so the portal, the API, OAuth
+callbacks, the GitHub webhook and the MCP endpoint all answer on `https://you.ngrok-free.dev`.
+
+Open that origin and sign in as `kinotic@kinotic.local` with the password `kinotic`. The first
+time, link GitHub when creating a project: GitHub installs your App, returns to
+`/github/install/callback`, and the server verifies the installation belongs to you before
+storing it; after a wipe, `sync-es` restores that link. Projects you create get a repository
+under the account the App is installed on, and pushes to them reach your server through the
+webhook.
+
+### Running workloads on your machine
+
+A deployment runs its workloads on a vm-manager node. For local development that is the `BOXLITE`
+provider on your own machine, which runs each workload as a micro VM: macOS on Apple silicon, or
+Linux with `/dev/kvm`. The node works beside either server, since both answer on
+`localhost:58503` and run the `development` profile.
+
+```bash
+cd kinotic-js/workspace
+bun install && bun run build   # the node resolves the workspace packages through their dist
+cd packages/vm-manager
+bun run dev
+```
+
+`.env.development`, which Bun loads for `bun run dev`, supplies the rest: the node id
+`dev-node-1`, the SYSTEM machine identity the development migration seeds, and compose's Loki
+and OTLP collector for workload logs, traces and metrics. The node registers with the server and
+shows `ONLINE` in the system console under **Platform → Worker nodes**. Guests reach the server
+at `192.168.127.254`, boxlite's alias for the host, which is the `development` profile's
+`kinotic.systemApi.deployment.serverHost`.
+
+A push to a project's repository then deploys it: a sync workload checks the commit out, installs
+it and syncs its entities, and a runtime workload starts each microservice. The first deployment
+pulls `kinoticai/workload-runner`, which takes about a minute. A workload's logs are written under
+`/tmp/kinotic-vm-logs/<workload id>` and shipped to Loki, where the logs on a project's deployment
+page read them. A deployment that fails records why on its job run, under **Jobs** in the portal.
+
+- The `development` profile marks a project's UIs deployed without serving them; microservices
+run for real.
+- The node keeps its image cache in `~/.boxlite`, which one process can hold at a time: stop the
+node before running the vm-manager tests, or give the tests their own `BOXLITE_HOME`.
+- The evaluator stack's sample nodes are marked unreachable on the server's first heartbeat pass,
+so deployments land on your node.
+
+### The override file
+
+`~/.kinotic/dev-environment/application.yml` is ordinary Spring configuration, and the one
+place your tunnel and App reach the server. `application-development.yml` imports it:
+
+```yaml
+spring:
+  config:
+    import: optional:file:${user.home}/.kinotic/dev-environment/application.yml
+```
+
+The compose server loads the same file: `compose.kinotic-server.yml` mounts
+`~/.kinotic/dev-environment` read-only at `/workspace/config`, and Spring reads
+`./config/application.yml` from the server's working directory ahead of every file packaged in
+the jar, so the file replaces the compose profile's `http://localhost:9090` origin too. Change
+the file and restart whichever server you run.
+
+`create` writes it like this:
+
+```yaml
+# The github-platform sign-in row's OAuth client secret
+KINOTIC_AKV_GITHUB_PLATFORM: "<client secret>"
+kinotic:
+  domain:
+    appBaseUrl: https://you.ngrok-free.dev
+    apiBaseUrl: https://you.ngrok-free.dev
+  managementApi:
+    github:
+      appId: "1234567"
+      appSlug: kinotic-dev-you
+      webhookSecret: "<generated by GitHub>"
+      appPrivateKey: |
+        -----BEGIN RSA PRIVATE KEY-----
+        ...
+        -----END RSA PRIVATE KEY-----
+```
+
+In the IDE server an imported file takes precedence over the file that imports it, so these
+values replace the `development` profile's `http://localhost:5173` origin and its placeholder
+App key; `application-local.yml` (the `local` profile comes after
+`development`) and environment variables still win over it. Without the file both servers run
+on their localhost origins. In development, named secrets such as
+the sign-in row's `github-platform` resolve from `KINOTIC_AKV_<NAME>` properties, which is
+why the client secret can sit at the top of this file rather than in an environment variable.
+
+You can edit the file by hand, for example to put your own values in place of what `create`
+wrote. The origins must match the App's URLs on GitHub, so moving to another domain means
+editing both the file and the App's callback and webhook URLs, or registering a new App.
+
+On Linux the compose server reads the file as its image's own user, so `create` makes
+`application.yml` readable to other users there; elsewhere it and `github-app.json` are yours
+alone. If compose starts before `create` has run, Docker creates `~/.kinotic/dev-environment`
+owned by root, and `create` says so and prints the `chown` that fixes it.
 
 ### Publishing UIs against Azure
 
@@ -219,6 +676,21 @@ up, which shows as the deployment turning from provisioning to ready within mome
 
 `terraform destroy` removes the resource group with the account, the profile and the key
 vault, and the wildcard records under `apps-<environment>` in the platform's DNS zone.
+
+## Testing
+
+### Java/Kotlin
+
+```bash
+./gradlew test
+```
+
+### TypeScript (Vitest)
+
+```bash
+cd kinotic-js
+bun test
+```
 
 ## Submitting Changes
 
