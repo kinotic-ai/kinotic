@@ -101,6 +101,7 @@ public class ProjectDeployJobDefinitionFactory {
                 // re-derive it and risk landing on a different node
                 .task(Tasks.fromCallable("Resolve deployment target",
                                          () -> resolveTarget(projectId, existing)
+                                                 .compose(target -> recordTarget(project, target))
                                                  .toCompletionStage().toCompletableFuture()),
                       Store.state(ProjectDeployStores.DEPLOY_TARGET).wire())
                 // Store.state: a resume after a later failure replays the synced checkout
@@ -201,6 +202,14 @@ public class ProjectDeployJobDefinitionFactory {
         }
 
         return ret;
+    }
+
+    // The microservice workers read the target from the project's deployment, and this run's
+    // "Ensure runtime workloads" waits on them, so the target is written before any workload runs
+    private Future<DeployTarget> recordTarget(Project project, DeployTarget target) {
+        return projectDeploymentRepository.recordTarget(project.getId(), project.getOrganizationId(), target.nodeId(),
+                                                        target.hostDir(), target.syncWorkloadId(), target.uiPublishWorkloadId())
+                                          .map(target);
     }
 
     /**
