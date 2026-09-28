@@ -1,0 +1,24 @@
+# General properties shared by all profiles
+kinotic:
+  domain:
+    oauth:
+      # Clients permitted to start an authorization-code flow, by Client ID Metadata Document URL.
+      # Listing any client closes the endpoint to every client not listed.
+      allowedClientIds:
+        # Claude Code
+        - https://claude.ai/oauth/claude-code-client-metadata
+        # Claude web, desktop, and mobile custom connectors
+        - https://claude.ai/oauth/mcp-oauth-client-metadata
+  apiGateway:
+    # Off the org server's 58503 and the system server's 58504, so the servers run side by side
+    # on one machine
+    stompPort: 58505
+    # Applications' UIs are published to the sites domain, never served from a server
+    webServer:
+      enabled: false
+
+
+logging:
+  level:
+    com:
+      kinotic: INFO
