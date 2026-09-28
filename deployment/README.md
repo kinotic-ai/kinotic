@@ -7,7 +7,7 @@
 | **Docker Compose** | `docker-compose/` | Local development (Elasticsearch, the observability stack, Keycloak); the development server runs the same images and config files as containers |
 | **KinD** | `kind/` | Local Kubernetes via Kubernetes in Docker, for rehearsing the Helm charts |
 | **Development server** | `terraform/proxmox/` + `terraform/azure/dev-server/` | One Proxmox host with a container per service, workload nodes on their own machines, Front Door and email kept in Azure ([design](https://kinotic.ai/platform/development-server)) |
-| **Developer's Azure side** | `terraform/azure/dev/` | Front Door, sites account, and email for a kinotic-server on a developer machine |
+| **Developer's Azure side** | `terraform/azure/dev/` | Front Door, sites account, and email for the servers on a developer machine |
 | **Azure** | `terraform/azure/` | Production AKS cluster |
 
 KinD and Azure are deployed with Terraform and share the same Helm charts. The development
@@ -29,7 +29,7 @@ helm/
 │   ├── values-kind.yaml
 │   ├── values-azure.yaml
 │   └── values-azure-beta.yaml
-├── kinotic/            # Kinotic server (Deployment, Service, ConfigMap, RBAC)
+├── kinotic/            # The org, system and app servers (a Deployment, Service and ConfigMap each), one Ignite cluster, the migration Job, RBAC
 ├── es-secret-sync/     # ES credential copy (elastic → kinotic namespace)
 ├── load-generator/     # Load testing Job
 └── observability/      # Loki, Alloy, Grafana values + Alloy pipeline config
@@ -47,7 +47,7 @@ Both KinD and Azure use the same layout:
 |---|---|
 | `elastic-system` | ECK operator |
 | `elastic` | Elasticsearch cluster |
-| `kinotic` | Kinotic server, TLS certs, Keycloak (when enabled), load generator |
+| `kinotic` | The Kinotic servers, TLS certs, Keycloak (when enabled), load generator |
 | `observability` | Loki, Alloy, Grafana |
 
 ## Network Policy
@@ -57,7 +57,7 @@ Both environments enforce `NetworkPolicy` resources to restrict Elasticsearch ac
 - **KinD** — uses kindnet (supports NetworkPolicy since KinD v0.23+)
 - **Azure** — uses Azure CNI with Cilium (`network_data_plane = "cilium"`), which replaces Calico as the network policy engine. Cilium is eBPF-based, built into AKS, and fully managed by Azure.
 
-The ES NetworkPolicy allows ingress only from the `kinotic` namespace (server + migration) and `elastic-system` (ECK operator). All other namespaces are blocked.
+The ES NetworkPolicy allows ingress only from the `kinotic` namespace (the servers + migration) and `elastic-system` (ECK operator). All other namespaces are blocked.
 
 ## Elasticsearch Storage
 
@@ -137,6 +137,6 @@ See [terraform/proxmox/README.md](terraform/proxmox/README.md) for the whole run
 
 ## Firecracker
 
-`terraform/azure/` optionally deploys VM hosts with KVM and Firecracker for secure multi-tenant customer workloads. These VMs share the same VNet as AKS and can reach Elasticsearch and kinotic-server directly.
+`terraform/azure/` optionally deploys VM hosts with KVM and Firecracker for secure multi-tenant customer workloads. These VMs share the same VNet as AKS and can reach Elasticsearch and the servers directly.
 
 Scripts for building Firecracker VM images (kernel, rootfs, overlay) are in `firecracker/`.

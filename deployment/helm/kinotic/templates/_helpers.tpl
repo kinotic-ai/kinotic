@@ -1,21 +1,15 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "kinotic-server.name" -}}
+{{- define "kinotic.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
-Alias for compatibility with ignite-service.yaml
+Create a default fully qualified app name: what the servers share (the service account and its
+role) and the migration job are named after.
 */}}
-{{- define "kinotic.name" -}}
-{{- include "kinotic-server.name" . -}}
-{{- end -}}
-
-{{/*
-Create a default fully qualified app name.
-*/}}
-{{- define "kinotic-server.fullname" -}}
+{{- define "kinotic.fullname" -}}
 {{- $name := default .Chart.Name .Values.nameOverride -}}
 {{- if contains $name .Release.Name -}}
 {{- .Release.Name | trunc 63 | trimSuffix "-" -}}
@@ -32,15 +26,87 @@ Create chart name and version as used by the chart label.
 {{- end -}}
 
 {{/*
-Name of the k8s Secret holding platform secrets (JWT signing keys, masterKeys).
-Defaults to "<fullname>-platform-secrets"; can be overridden via platformSecrets.secretName
-when an externally-managed Secret must be mounted instead.
+The image reference for a repository, pinned to its sha when one is given.
+Takes (dict "image" <repository and sha> "root" $).
 */}}
-{{- define "kinotic-server.platformSecretsSecretName" -}}
-{{- if .Values.platformSecrets.secretName -}}
-{{- .Values.platformSecrets.secretName -}}
+{{- define "kinotic.image" -}}
+{{- if .image.sha -}}
+"{{ .image.repository }}@{{ .image.sha }}"
 {{- else -}}
-{{- printf "%s-platform-secrets" (include "kinotic-server.fullname" .) -}}
+"{{ .image.repository }}:{{ .root.Values.image.tag }}"
 {{- end -}}
 {{- end -}}
 
+{{/*
+A server's environment, the data of its ConfigMap: what every server shares and what is its
+own. Its checksum restarts the server's pods when it changes.
+Takes (dict "name" <server key> "server" <server values> "root" $).
+*/}}
+{{- define "kinotic.serverEnv" -}}
+{{- $root := .root -}}
+{{- $server := .server -}}
+# ── JVM / Buildpack ───────────────────────────────────────
+SPRING_PROFILES_ACTIVE: "{{ $root.Values.properties.springActiveProfiles }}"
+JAVA_TOOL_OPTIONS: "{{ $root.Values.properties.javaToolOptions }} {{ $root.Values.properties.javaModuleAccess }}"
+BPL_JVM_HEAD_ROOM: "{{ $root.Values.properties.bplJvmHeadRoom }}"
+BPL_JAVA_NMT_ENABLED: "{{ $root.Values.properties.enableNmt }}"
+BPL_JMX_ENABLED: "{{ $root.Values.properties.enableJmx }}"
+
+# ── The gateway ───────────────────────────────────────────
+KINOTIC_APIGATEWAY_STOMPPORT: "{{ $server.gatewayPort }}"
+KINOTIC_APIGATEWAY_WEBSERVER_ENABLED: "{{ $server.webServer.enabled }}"
+{{- if $server.webServer.enabled }}
+KINOTIC_APIGATEWAY_WEBSERVER_PORT: "{{ $server.webServer.port }}"
+{{- end }}
+
+# ── Public URLs + email ───────────────────────────────────
+{{- with $server.domain.appBaseUrl }}
+KINOTIC_DOMAIN_APPBASEURL: "{{ . }}"
+{{- end }}
+{{- with $server.domain.apiBaseUrl }}
+KINOTIC_DOMAIN_APIBASEURL: "{{ . }}"
+{{- end }}
+{{- with $root.Values.kinotic.domain.appApiBaseUrl }}
+KINOTIC_DOMAIN_APPAPIBASEURL: "{{ . }}"
+{{- end }}
+KINOTIC_DOMAIN_EMAIL_ENABLED: "{{ $root.Values.kinotic.domain.email.enabled }}"
+{{- if $root.Values.kinotic.domain.email.enabled }}
+KINOTIC_DOMAIN_EMAIL_ENDPOINT: "{{ required "kinotic.domain.email.endpoint is required when email is enabled" $root.Values.kinotic.domain.email.endpoint }}"
+KINOTIC_DOMAIN_EMAIL_SENDERADDRESS: "{{ required "kinotic.domain.email.senderAddress is required when email is enabled" $root.Values.kinotic.domain.email.senderAddress }}"
+{{- if $root.Values.kinotic.domain.email.managedIdentityClientId }}
+KINOTIC_DOMAIN_EMAIL_MANAGEDIDENTITYCLIENTID: "{{ $root.Values.kinotic.domain.email.managedIdentityClientId }}"
+{{- end }}
+{{- end }}
+
+# ── Elasticsearch connection ──────────────────────────────
+{{- range $index, $value := $root.Values.kinotic.elastic.connections }}
+KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_SCHEME: "{{ $value.scheme }}"
+KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_HOST: "{{ $value.host }}"
+KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
+{{- end }}
+
+# ── Loki (LogService) ─────────────────────────────────────
+KINOTIC_MANAGEMENTAPI_LOKIURL: "{{ $root.Values.kinotic.managementApi.lokiUrl }}"
+{{- if $root.Values.tls.enabled }}
+
+# ── SSL/TLS ──────────────────────────────────────────────
+KINOTIC_APIGATEWAY_SSL_ENABLED: "true"
+KINOTIC_APIGATEWAY_SSL_CERTPATH: "/certs/tls.crt"
+KINOTIC_APIGATEWAY_SSL_KEYPATH: "/certs/tls.key"
+{{- end }}
+{{- if $root.Values.evictionTracking.enabled }}
+
+# ── Eviction tracking ─────────────────────────────────────
+KINOTIC_CACHE_EVICTION_CSV_PATH: "{{ $root.Values.evictionTracking.mountPath | default "/eviction-data" }}/evictions-${POD_NAME}.csv"
+{{- end }}
+
+# ── Extra environment variables ───────────────────────────
+# Override any Spring property via env var naming convention:
+#   kinotic.apiGateway.webServer.port → KINOTIC_APIGATEWAY_WEBSERVER_PORT
+{{- range $key, $value := $root.Values.extraEnv }}
+{{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- range $key, $value := $server.extraEnv }}
+{{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end -}}
