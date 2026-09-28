@@ -1,7 +1,7 @@
 <template>
   <DiagramFrame>
   <div class="dev-server-diagram-wrap">
-    <svg class="dev-server-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1172 860" role="img" aria-label="Development server topology: peers and GitHub reach kinotic-server over two forwarded ports; Azure keeps Front Door, the sites storage account, email, DNS, a Key Vault and a snapshot container; one Proxmox host runs a container per service — kinotic-server, Loki, Tempo, Mimir, Grafana on the LAN, three Elasticsearch nodes and the one-shot migration on a private NAT-only network — with a ZFS pool on its own drive for each Elasticsearch node and a drive of Proxmox's own; two Intel NUCs beside it run the vm-manager with Cloud Hypervisor micro VMs.">
+    <svg class="dev-server-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1172 900" role="img" aria-label="Development server topology: GitHub, peers and application users reach one forwarded port, 443, on the edge, an HAProxy container that passes each TLS connection unopened to the server its SNI names; the org, system and app servers live on a private NAT-only network with three Elasticsearch nodes and the one-shot migration, and form one Ignite cluster; Loki, Tempo, Mimir and Grafana are containers on the LAN; Azure keeps Front Door, the sites storage account, email, DNS, a Key Vault and a snapshot container; each Elasticsearch node has a ZFS pool on its own drive and Proxmox a drive of its own; two Intel NUCs beside the host run the vm-manager with Cloud Hypervisor micro VMs, which reach their servers through the edge by name.">
 
       <defs>
         <marker id="ds-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -19,21 +19,27 @@
       </defs>
 
       <!-- ═════════ internet band ═════════ -->
-      <text class="t-tag" x="24" y="26">PEERS · INTERNET</text>
+      <text class="t-tag" x="24" y="26">PEERS · USERS · INTERNET</text>
 
       <rect class="chip" x="40" y="44" width="160" height="46" rx="8"></rect>
       <text class="t-chip" x="120" y="63" text-anchor="middle">GitHub</text>
       <text class="t-sub"  x="120" y="79" text-anchor="middle">App webhooks · repo fetch</text>
 
-      <rect class="chip" x="210" y="44" width="200" height="46" rx="8"></rect>
+      <rect class="chip" x="215" y="44" width="190" height="46" rx="8"></rect>
       <text class="t-chip" x="310" y="63" text-anchor="middle">Peers</text>
       <text class="t-sub"  x="310" y="79" text-anchor="middle">portal · CLI · MCP hosts</text>
 
-      <!-- inbound: two forwarded ports, no reverse proxy -->
+      <rect class="chip" x="420" y="44" width="180" height="46" rx="8"></rect>
+      <text class="t-chip" x="510" y="63" text-anchor="middle">Application users</text>
+      <text class="t-sub"  x="510" y="79" text-anchor="middle">published UIs</text>
+
+      <!-- inbound: one forwarded port, to the edge -->
       <line class="flow" x1="120" y1="90" x2="120" y2="344" marker-end="url(#ds-ink)"></line>
-      <text class="t-tiny" x="128" y="256">POST /api/github/webhook</text>
+      <text class="t-tiny" x="128" y="256">webhook → dev-api</text>
       <line class="flow" x1="310" y1="90" x2="310" y2="344" marker-end="url(#ds-ink)"></line>
-      <text class="t-tiny" x="318" y="256">:443 → 9090 · :58503 → 58503</text>
+      <text class="t-tiny" x="318" y="256">dev-api · dev-system-api</text>
+      <line class="flow" x1="510" y1="90" x2="510" y2="344" marker-end="url(#ds-ink)"></line>
+      <text class="t-tiny" x="518" y="256">*.dev-apps-api</text>
 
       <!-- ═════════ Azure, kept ═════════ -->
       <rect class="encl-plat" x="660" y="24" width="488" height="202" rx="10"></rect>
@@ -54,7 +60,7 @@
 
       <rect class="chip" x="676" y="148" width="136" height="46" rx="8"></rect>
       <text class="t-chip" x="744" y="167" text-anchor="middle">Key Vault</text>
-      <text class="t-sub"  x="744" y="183" text-anchor="middle">server secret storage</text>
+      <text class="t-sub"  x="744" y="183" text-anchor="middle">servers' secret storage</text>
 
       <rect class="chip" x="828" y="148" width="140" height="46" rx="8"></rect>
       <text class="t-chip" x="898" y="167" text-anchor="middle">Blob container</text>
@@ -62,74 +68,109 @@
 
       <rect class="chip" x="984" y="148" width="148" height="46" rx="8"></rect>
       <text class="t-chip" x="1058" y="167" text-anchor="middle">DNS zone</text>
-      <text class="t-sub"  x="1058" y="183" text-anchor="middle">A record · DNS-01 certs</text>
+      <text class="t-sub"  x="1058" y="183" text-anchor="middle">A records · DNS-01 certs</text>
 
       <!-- ═════════ the host ═════════ -->
-      <rect class="wall" x="24" y="262" width="696" height="580" rx="12"></rect>
-      <rect class="wall" x="740" y="262" width="408" height="580" rx="12"></rect>
+      <rect class="wall" x="24" y="262" width="696" height="620" rx="12"></rect>
+      <rect class="wall" x="740" y="262" width="408" height="620" rx="12"></rect>
 
       <!-- the containers -->
-      <rect class="encl-app" x="40" y="306" width="580" height="396" rx="10"></rect>
-      <text class="t-plane-a" x="590" y="330" text-anchor="end">CONTAINERS · ONE PER SERVICE · OCI IMAGES</text>
+      <rect class="encl-app" x="40" y="306" width="580" height="444" rx="10"></rect>
+      <!-- the header sits between the inbound lines -->
+      <text class="t-plane-a" x="215" y="330" text-anchor="middle">CONTAINERS</text>
+      <text class="t-plane-a" x="410" y="330" text-anchor="middle">ONE PER SERVICE</text>
+      <text class="t-plane-a" x="565" y="330" text-anchor="middle">OCI IMAGES</text>
 
-      <rect class="gw gw-app" x="60" y="344" width="290" height="112" rx="8"></rect>
-      <text class="t-name" x="205" y="367" text-anchor="middle">kinotic-server</text>
-      <text class="t-sub"  x="205" y="383" text-anchor="middle">UI :9090 · REST · STOMP · MCP :58503</text>
-      <line class="sep" x1="78" y1="392" x2="332" y2="392"></line>
-      <text class="t-mono" x="205" y="409" text-anchor="middle">Vert.x terminates TLS on both ports</text>
-      <text class="t-mono" x="205" y="424" text-anchor="middle">profiles: production · dev-server</text>
-      <text class="t-mono" x="205" y="439" text-anchor="middle">secrets → Key Vault · mail → ACS</text>
+      <!-- the edge, on the LAN and the private network -->
+      <rect class="gw gw-edge" x="60" y="344" width="540" height="40" rx="8"></rect>
+      <text class="t-name" x="330" y="361" text-anchor="middle">edge · HAProxy :443</text>
+      <text class="t-mono" x="330" y="376" text-anchor="middle">reads each connection's SNI and passes it, unopened, to that server</text>
 
       <!-- the stores, on the LAN -->
-      <rect class="chip" x="60" y="470" width="124" height="40" rx="8"></rect>
-      <text class="t-chip" x="122" y="487" text-anchor="middle">Loki</text>
-      <text class="t-tiny" x="122" y="501" text-anchor="middle">:3100 · logs</text>
+      <text class="t-tiny" x="102" y="413" text-anchor="middle">stores on</text>
+      <text class="t-tiny" x="102" y="426" text-anchor="middle">the LAN</text>
 
-      <rect class="chip" x="198" y="470" width="124" height="40" rx="8"></rect>
-      <text class="t-chip" x="260" y="487" text-anchor="middle">Tempo</text>
-      <text class="t-tiny" x="260" y="501" text-anchor="middle">:4318 OTLP · :3200</text>
+      <rect class="chip" x="155" y="396" width="80" height="40" rx="8"></rect>
+      <text class="t-chip" x="195" y="413" text-anchor="middle">Loki</text>
+      <text class="t-tiny" x="195" y="428" text-anchor="middle">:3100 · logs</text>
 
-      <rect class="chip" x="336" y="470" width="124" height="40" rx="8"></rect>
-      <text class="t-chip" x="398" y="487" text-anchor="middle">Mimir</text>
-      <text class="t-tiny" x="398" y="501" text-anchor="middle">:9009 · OTLP · PromQL</text>
+      <rect class="chip" x="240" y="396" width="80" height="40" rx="8"></rect>
+      <text class="t-chip" x="280" y="413" text-anchor="middle">Tempo</text>
+      <text class="t-tiny" x="280" y="428" text-anchor="middle">:4318 · :3200</text>
 
-      <rect class="chip" x="474" y="470" width="124" height="40" rx="8"></rect>
-      <text class="t-chip" x="536" y="487" text-anchor="middle">Grafana</text>
-      <text class="t-tiny" x="536" y="501" text-anchor="middle">:3000 · login</text>
+      <rect class="chip" x="340" y="396" width="80" height="40" rx="8"></rect>
+      <text class="t-chip" x="380" y="413" text-anchor="middle">Mimir</text>
+      <text class="t-tiny" x="380" y="428" text-anchor="middle">:9009</text>
 
-      <text class="t-tiny" x="330" y="525" text-anchor="middle">LAN · the node's Alloy and the server's agent push OTLP here · X-Scope-OrgID per tenant</text>
+      <rect class="chip" x="425" y="396" width="80" height="40" rx="8"></rect>
+      <text class="t-chip" x="465" y="413" text-anchor="middle">Grafana</text>
+      <text class="t-tiny" x="465" y="428" text-anchor="middle">:3000 · login</text>
 
-      <!-- the private network: three ES nodes on a whole disk each, and the migration -->
-      <rect class="encl-priv" x="48" y="536" width="564" height="150" rx="8"></rect>
-      <text class="t-plane-v" x="56" y="552">PRIVATE NETWORK · NAT OUT</text>
+      <text class="t-tiny" x="558" y="413" text-anchor="middle">OTLP from</text>
+      <text class="t-tiny" x="558" y="426" text-anchor="middle">servers, nodes</text>
 
-      <rect class="chip" x="452" y="544" width="148" height="30" rx="8"></rect>
-      <text class="t-tiny" x="526" y="563" text-anchor="middle">migration · runs once</text>
+      <!-- the edge → each server, by SNI -->
+      <line class="flow" x1="145" y1="384" x2="145" y2="480" marker-end="url(#ds-ink)"></line>
+      <line class="flow" x1="330" y1="384" x2="330" y2="480" marker-end="url(#ds-ink)"></line>
+      <line class="flow" x1="515" y1="384" x2="515" y2="480" marker-end="url(#ds-ink)"></line>
 
-      <path class="cyl" d="M 54 602 a 56 9 0 0 0 112 0 v 38 a 56 9 0 0 1 -112 0 z"></path>
-      <ellipse class="cyl" cx="110" cy="602" rx="56" ry="9"></ellipse>
-      <text class="t-chip" x="110" y="622" text-anchor="middle">es-1</text>
-      <text class="t-tiny" x="110" y="636" text-anchor="middle">master + data</text>
+      <!-- the private network: the servers, three ES nodes on a whole disk each, and the migration -->
+      <rect class="encl-priv" x="48" y="452" width="564" height="290" rx="8"></rect>
+      <text class="t-plane-v" x="237" y="468" text-anchor="middle">PRIVATE NETWORK</text>
+      <text class="t-plane-v" x="422" y="468" text-anchor="middle">NAT OUT</text>
 
-      <path class="cyl" d="M 234 602 a 56 9 0 0 0 112 0 v 38 a 56 9 0 0 1 -112 0 z"></path>
-      <ellipse class="cyl" cx="290" cy="602" rx="56" ry="9"></ellipse>
-      <text class="t-chip" x="290" y="622" text-anchor="middle">es-2</text>
-      <text class="t-tiny" x="290" y="636" text-anchor="middle">master + data</text>
+      <rect class="gw gw-app" x="60" y="480" width="170" height="76" rx="8"></rect>
+      <text class="t-chip" x="145" y="499" text-anchor="middle">kinotic-org-server</text>
+      <text class="t-sub"  x="145" y="514" text-anchor="middle">dev-api · :58503</text>
+      <text class="t-mono" x="145" y="531" text-anchor="middle">portal · CLI · MCP</text>
+      <text class="t-mono" x="145" y="545" text-anchor="middle">GitHub webhook</text>
 
-      <path class="cyl" d="M 414 602 a 56 9 0 0 0 112 0 v 38 a 56 9 0 0 1 -112 0 z"></path>
-      <ellipse class="cyl" cx="470" cy="602" rx="56" ry="9"></ellipse>
-      <text class="t-chip" x="470" y="622" text-anchor="middle">es-3</text>
-      <text class="t-tiny" x="470" y="636" text-anchor="middle">master + data</text>
+      <rect class="gw gw-app" x="245" y="480" width="170" height="76" rx="8"></rect>
+      <text class="t-chip" x="330" y="499" text-anchor="middle">kinotic-system-server</text>
+      <text class="t-sub"  x="330" y="514" text-anchor="middle">dev-system-api · :58504</text>
+      <text class="t-mono" x="330" y="531" text-anchor="middle">console · vm-manager</text>
+      <text class="t-mono" x="330" y="545" text-anchor="middle">workload orchestration</text>
 
-      <text class="t-tiny" x="200" y="678" text-anchor="middle">1 shard · 1 replica per index · no TLS</text>
+      <rect class="gw gw-app" x="430" y="480" width="170" height="76" rx="8"></rect>
+      <text class="t-chip" x="515" y="499" text-anchor="middle">kinotic-app-server</text>
+      <text class="t-sub"  x="515" y="514" text-anchor="middle">*.dev-apps-api · :58505</text>
+      <text class="t-mono" x="515" y="531" text-anchor="middle">every application's API</text>
+      <text class="t-mono" x="515" y="545" text-anchor="middle">UIs · runtime workloads</text>
 
-      <line class="link" x1="329" y1="456" x2="329" y2="540"></line>
-      <line class="link" x1="329" y1="540" x2="110" y2="593"></line>
-      <line class="link" x1="329" y1="540" x2="290" y2="593"></line>
-      <line class="link" x1="329" y1="540" x2="470" y2="593"></line>
+      <!-- the servers to one another and to Elasticsearch -->
+      <line class="link" x1="145" y1="556" x2="145" y2="576"></line>
+      <line class="link" x1="330" y1="556" x2="330" y2="576"></line>
+      <line class="link" x1="515" y1="556" x2="515" y2="576"></line>
+      <line class="link" x1="110" y1="576" x2="515" y2="576"></line>
+      <line class="link" x1="110" y1="576" x2="110" y2="603"></line>
+      <line class="link" x1="290" y1="576" x2="290" y2="603"></line>
+      <line class="link" x1="470" y1="576" x2="470" y2="603"></line>
+      <text class="t-tiny" x="422" y="570" text-anchor="middle">one Ignite cluster</text>
+      <text class="t-tiny" x="200" y="592" text-anchor="middle">Elasticsearch :9200</text>
+
+      <rect class="chip" x="534" y="560" width="70" height="36" rx="8"></rect>
+      <text class="t-tiny" x="569" y="575" text-anchor="middle">migration</text>
+      <text class="t-tiny" x="569" y="588" text-anchor="middle">runs once</text>
+
+      <path class="cyl" d="M 54 612 a 56 9 0 0 0 112 0 v 38 a 56 9 0 0 1 -112 0 z"></path>
+      <ellipse class="cyl" cx="110" cy="612" rx="56" ry="9"></ellipse>
+      <text class="t-chip" x="110" y="632" text-anchor="middle">es-1</text>
+      <text class="t-tiny" x="110" y="646" text-anchor="middle">master + data</text>
+
+      <path class="cyl" d="M 234 612 a 56 9 0 0 0 112 0 v 38 a 56 9 0 0 1 -112 0 z"></path>
+      <ellipse class="cyl" cx="290" cy="612" rx="56" ry="9"></ellipse>
+      <text class="t-chip" x="290" y="632" text-anchor="middle">es-2</text>
+      <text class="t-tiny" x="290" y="646" text-anchor="middle">master + data</text>
+
+      <path class="cyl" d="M 414 612 a 56 9 0 0 0 112 0 v 38 a 56 9 0 0 1 -112 0 z"></path>
+      <ellipse class="cyl" cx="470" cy="612" rx="56" ry="9"></ellipse>
+      <text class="t-chip" x="470" y="632" text-anchor="middle">es-3</text>
+      <text class="t-tiny" x="470" y="646" text-anchor="middle">master + data</text>
+
+      <text class="t-tiny" x="290" y="690" text-anchor="middle">1 shard · 1 replica per index · no TLS</text>
 
       <!-- the nodes: their own machines -->
-      <rect class="wbox" x="756" y="306" width="376" height="396" rx="10"></rect>
+      <rect class="wbox" x="756" y="306" width="376" height="444" rx="10"></rect>
       <text class="t-plane-w" x="772" y="330">NODES · UBUNTU 22.04 · KVM</text>
 
       <rect class="chip" x="776" y="344" width="180" height="62" rx="8"></rect>
@@ -141,8 +182,8 @@
       <text class="t-name" x="944" y="449" text-anchor="middle">Cloud Hypervisor micro VMs</text>
       <line class="sep" x1="794" y1="458" x2="1094" y2="458"></line>
       <text class="t-mono" x="944" y="475" text-anchor="middle">sync VM · runtime VM per microservice · publish VM</text>
-      <text class="t-mono" x="944" y="490" text-anchor="middle">reach the gateway at kinotic-server's LAN IPv4</text>
-      <text class="t-mono" x="944" y="505" text-anchor="middle">egress denied by default · allowlisted CIDRs only</text>
+      <text class="t-mono" x="944" y="490" text-anchor="middle">dial their server by name, through the edge</text>
+      <text class="t-mono" x="944" y="505" text-anchor="middle">egress denied by default · allowlisted names only</text>
       <text class="t-mono" x="944" y="520" text-anchor="middle">stdout and stderr captured, shipped by Alloy</text>
 
       <rect class="chip" x="776" y="558" width="336" height="62" rx="8"></rect>
@@ -153,20 +194,20 @@
       <line class="link" x1="866" y1="406" x2="866" y2="426" marker-end="url(#ds-ink)"></line>
       <line class="link" x1="944" y1="538" x2="944" y2="558" marker-end="url(#ds-ink)"></line>
 
-      <!-- nodes → server, across the LAN -->
-      <line class="flow-vio" x1="776" y1="372" x2="350" y2="372" marker-end="url(#ds-vio)"></line>
-      <text class="t-tiny" x="560" y="386" text-anchor="middle">STOMP · machine credentials · heartbeat</text>
-      <line class="flow-amb" x1="776" y1="470" x2="350" y2="430" marker-end="url(#ds-amb)"></line>
-      <text class="t-tiny" x="490" y="418" text-anchor="middle">gateway = server IPv4 · :58503 · TLS</text>
+      <!-- nodes → the edge, across the LAN, by the names each node pins to the edge's address -->
+      <line class="flow-vio" x1="776" y1="356" x2="600" y2="356" marker-end="url(#ds-vio)"></line>
+      <text class="t-tiny" x="688" y="350" text-anchor="middle">dev-system-api</text>
+      <polyline class="flow-amb" points="776,470 660,470 660,372 600,372" marker-end="url(#ds-amb)"></polyline>
+      <text class="t-tiny" x="706" y="486" text-anchor="middle">dev-api,</text>
+      <text class="t-tiny" x="706" y="498" text-anchor="middle">dev-apps-api</text>
 
-      <!-- server → Azure: one service principal -->
-      <polyline class="flow-ind" points="350,350 600,350 600,171 660,171" marker-end="url(#ds-ind)"></polyline>
-      <text class="t-tiny" x="594" y="276" text-anchor="end">service principal</text>
-      <text class="t-tiny" x="594" y="288" text-anchor="end">Key Vault · ACS · site URLs</text>
+      <!-- servers → Azure: one service principal -->
+      <polyline class="flow-ind" points="600,520 632,520 632,171 676,171" marker-end="url(#ds-ind)"></polyline>
+      <text class="t-tiny" x="626" y="300" text-anchor="end">servers' principal</text>
 
       <!-- ES → snapshot container, out through the host's NAT -->
-      <polyline class="data" points="526,602 630,602 630,254 898,254 898,194" marker-end="url(#ds-ink)"></polyline>
-      <text class="t-tiny" x="764" y="247" text-anchor="middle">SLM daily snapshot</text>
+      <polyline class="data" points="526,626 646,626 646,254 898,254 898,194" marker-end="url(#ds-ink)"></polyline>
+      <text class="t-tiny" x="772" y="247" text-anchor="middle">SLM daily snapshot</text>
 
       <!-- publish workload → sites account -->
       <polyline class="flow-amb" points="1112,482 1140,482 1140,87 1132,87" marker-end="url(#ds-amb)"></polyline>
@@ -174,27 +215,27 @@
 
       <!-- ═════════ disks ═════════ -->
 
-      <rect class="disk" x="35" y="756" width="150" height="44" rx="8"></rect>
-      <text class="t-chip" x="110" y="774" text-anchor="middle">drive 2 · pool es1</text>
-      <text class="t-tiny" x="110" y="790" text-anchor="middle">/es1/data → es-1</text>
-      <line class="data" x1="110" y1="756" x2="110" y2="652"></line>
+      <rect class="disk" x="35" y="796" width="150" height="44" rx="8"></rect>
+      <text class="t-chip" x="110" y="814" text-anchor="middle">drive 2 · pool es1</text>
+      <text class="t-tiny" x="110" y="830" text-anchor="middle">/es1/data → es-1</text>
+      <line class="data" x1="110" y1="796" x2="110" y2="660"></line>
 
-      <rect class="disk" x="215" y="756" width="150" height="44" rx="8"></rect>
-      <text class="t-chip" x="290" y="774" text-anchor="middle">drive 3 · pool es2</text>
-      <text class="t-tiny" x="290" y="790" text-anchor="middle">/es2/data → es-2</text>
-      <line class="data" x1="290" y1="756" x2="290" y2="652"></line>
+      <rect class="disk" x="215" y="796" width="150" height="44" rx="8"></rect>
+      <text class="t-chip" x="290" y="814" text-anchor="middle">drive 3 · pool es2</text>
+      <text class="t-tiny" x="290" y="830" text-anchor="middle">/es2/data → es-2</text>
+      <line class="data" x1="290" y1="796" x2="290" y2="660"></line>
 
-      <rect class="disk" x="395" y="756" width="150" height="44" rx="8"></rect>
-      <text class="t-chip" x="470" y="774" text-anchor="middle">drive 4 · pool es3</text>
-      <text class="t-tiny" x="470" y="790" text-anchor="middle">/es3/data → es-3</text>
-      <line class="data" x1="470" y1="756" x2="470" y2="652"></line>
+      <rect class="disk" x="395" y="796" width="150" height="44" rx="8"></rect>
+      <text class="t-chip" x="470" y="814" text-anchor="middle">drive 4 · pool es3</text>
+      <text class="t-tiny" x="470" y="830" text-anchor="middle">/es3/data → es-3</text>
+      <line class="data" x1="470" y1="796" x2="470" y2="660"></line>
 
-      <rect class="disk" x="556" y="756" width="150" height="44" rx="8"></rect>
-      <text class="t-chip" x="631" y="774" text-anchor="middle">drive 1</text>
-      <text class="t-tiny" x="631" y="790" text-anchor="middle">Proxmox · rootfs · stores</text>
+      <rect class="disk" x="556" y="796" width="150" height="44" rx="8"></rect>
+      <text class="t-chip" x="631" y="814" text-anchor="middle">drive 1</text>
+      <text class="t-tiny" x="631" y="830" text-anchor="middle">Proxmox · rootfs · stores</text>
 
-      <text class="t-tag" x="36" y="826">HOST · PROXMOX VE · RYZEN 9 · 96 GB · 4 × 512 GB NVME</text>
-      <text class="t-tag" x="752" y="826">2 × INTEL NUC · 32 GB · 250 GB SSD</text>
+      <text class="t-tag" x="36" y="866">HOST · PROXMOX VE · RYZEN 9 · 96 GB · 4 × 512 GB NVME</text>
+      <text class="t-tag" x="752" y="866">2 × INTEL NUC · 32 GB · 250 GB SSD</text>
     </svg>
   </div>
   </DiagramFrame>
@@ -245,6 +286,7 @@ svg.dev-server-diagram { min-width: 700px; width: 100%; height: auto; display: b
   svg.dev-server-diagram .gw        { fill: var(--surface);    stroke-width: 2; }
   svg.dev-server-diagram .gw-app    { stroke: var(--green); }
   svg.dev-server-diagram .gw-node   { stroke: var(--amber); }
+  svg.dev-server-diagram .gw-edge   { stroke: var(--violet); }
   svg.dev-server-diagram .encl-app  { fill: var(--green-tint);  stroke: var(--green);  stroke-width: 1.25; stroke-dasharray: 6 5; }
   svg.dev-server-diagram .encl-plat { fill: var(--indigo-tint); stroke: var(--indigo); stroke-width: 1.25; stroke-dasharray: 6 5; }
   svg.dev-server-diagram .wbox      { fill: var(--amber-tint);  stroke: var(--amber);  stroke-width: 1.25; stroke-dasharray: 6 5; }

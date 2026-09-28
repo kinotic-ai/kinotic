@@ -24,8 +24,8 @@ kinotic:
     webServer:
       enabled: false
     ssl:
-      # certbot's certificate for the API's hostname, mounted from the host; Vert.x terminates
-      # TLS and there is no reverse proxy
+      # certbot's certificate for the org server's hostname, mounted from the host; Vert.x
+      # terminates TLS, and the edge passes each connection through unopened
       enabled: true
       certPath: /etc/kinotic/certs/fullchain.pem
       keyPath: /etc/kinotic/certs/privkey.pem

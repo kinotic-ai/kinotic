@@ -91,10 +91,10 @@ output "dev_server_env" {
   }
 }
 
-# The operator places this on the host as kinotic-server.env (sync-secrets.sh in the proxmox
-# root); it never goes through that root or its state.
+# The operator places this on the host as kinotic-servers.env (sync-secrets.sh in the proxmox
+# root), which every server's environment merges; it never goes through that root or its state.
 output "secrets_env" {
-  description = "The Azure half of the server's secrets, as an env-file line"
+  description = "The Azure half of the servers' secrets, as an env-file line"
   value       = "AZURE_CLIENT_SECRET=${module.environment.server_client_secret}\n"
   sensitive   = true
 }

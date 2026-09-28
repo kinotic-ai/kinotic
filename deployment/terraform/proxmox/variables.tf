@@ -44,13 +44,13 @@ variable "snippets_dir" {
 # ── Network ───────────────────────────────────────────────────────────────────
 
 variable "bridge" {
-  description = "The LAN bridge: the server, Loki, Tempo, Mimir and Grafana attach to it"
+  description = "The LAN bridge: the edge, Loki, Tempo, Mimir and Grafana attach to it"
   type        = string
   default     = "vmbr0"
 }
 
 variable "private_network" {
-  description = "The name of the SDN zone and VNet the Elasticsearch nodes, the migration, and the server's second interface attach to: a bridge with no physical port that the host gateways and source-NATs"
+  description = "The name of the SDN zone and VNet the Elasticsearch nodes, the migration, the servers, and the edge's second interface attach to: a bridge with no physical port that the host gateways and source-NATs"
   type        = string
   default     = "kinotic"
   validation {
@@ -60,18 +60,18 @@ variable "private_network" {
 }
 
 variable "private_cidr" {
-  description = "The private network; the host takes .1, the ES nodes .11 to .13, the server .20, the migration .21"
+  description = "The private network; the host takes .1, the edge .10, the ES nodes .11 to .13, the servers .20, .22 and .23, the migration .21"
   type        = string
   default     = "10.10.0.0/24"
 }
 
-variable "server_ip" {
-  description = "The LAN address the router reserves for kinotic-server's MAC, in CIDR notation; the interface takes it by DHCP, since the router forwards by device and reserves the address when it does, and workloads on the nodes dial it"
+variable "edge_ip" {
+  description = "The LAN address the router reserves for the edge's MAC, in CIDR notation; the interface takes it by DHCP, since the router forwards by device and reserves the address when it does, and the nodes dial every server there"
   type        = string
 }
 
-variable "server_mac" {
-  description = "kinotic-server's LAN MAC address, fixed so the router's reservation and forward survive a container replacement"
+variable "edge_mac" {
+  description = "The edge's LAN MAC address, fixed so the router's reservation and forward survive a container replacement"
   type        = string
 }
 
@@ -93,12 +93,6 @@ variable "mimir_ip" {
 variable "grafana_ip" {
   description = "Grafana's LAN address in CIDR notation"
   type        = string
-}
-
-variable "api_port" {
-  description = "The port kinotic-server's API listens on; the router forwards its public 443 to the same port, since it does not translate ports"
-  type        = number
-  default     = 443
 }
 
 variable "gateway" {
@@ -138,7 +132,7 @@ variable "secrets_dir" {
 # ── Images ────────────────────────────────────────────────────────────────────
 
 variable "kinotic_version" {
-  description = "Tag of the kinotic-server and kinotic-migration images"
+  description = "Tag of the three servers' images and kinotic-migration's"
   type        = string
   default     = "5.0.0-SNAPSHOT"
 }
@@ -168,16 +162,24 @@ variable "grafana_version" {
   default = "12.3.1"
 }
 
+variable "haproxy_version" {
+  description = "The edge's HAProxy, from the 3.2 LTS line"
+  type        = string
+  default     = "3.2.24"
+}
+
 # ── Sizing ────────────────────────────────────────────────────────────────────
 
 variable "server_cores" {
-  type    = number
-  default = 4
+  description = "Per server"
+  type        = number
+  default     = 4
 }
 
 variable "server_memory_mb" {
-  type    = number
-  default = 4096
+  description = "Per server"
+  type        = number
+  default     = 4096
 }
 
 variable "es_cores" {
@@ -192,7 +194,7 @@ variable "es_memory_mb" {
 }
 
 variable "azure_state_path" {
-  description = "The dev-server Azure root's state file, whose outputs configure the server"
+  description = "The dev-server Azure root's state file, whose outputs configure the servers"
   type        = string
   default     = "../azure/dev-server/terraform.tfstate"
 }

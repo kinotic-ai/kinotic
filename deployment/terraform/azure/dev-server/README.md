@@ -53,7 +53,7 @@ so both are applied from the same checkout. Two outputs feed the servers:
 
 ```bash
 terraform output dev_server_env         # merged into every server's environment by the proxmox root
-terraform output -raw secrets_env       # → kinotic-server.env in the secrets directory, placed by sync-secrets.sh
+terraform output -raw secrets_env       # → kinotic-servers.env in the secrets directory, placed by sync-secrets.sh
 ```
 
 The social sign-in providers the migration seeds (`kinotic_org_signup_oidc_configuration`)
