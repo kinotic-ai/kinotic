@@ -28,6 +28,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.Metadata;
+import org.kinotic.core.api.event.ZonePartition;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.internal.api.service.json.JacksonExceptionConverter;
@@ -128,7 +129,7 @@ public class EndpointConnectionHandlerTests {
         services.apiGatewayProperties.setSessionTimeout(SESSION_TIMEOUT_MS);
         services.jsonMapper = jsonMapper;
         services.exceptionConverter = new JacksonExceptionConverter(new KinoticProperties(), jsonMapper);
-        services.stompAuthorizerFactory = new StompAuthorizerFactory();
+        services.stompAuthorizerFactory = new StompAuthorizerFactory(ZonePartition.everyZone("test"));
         services.securityService = mock(SecurityService.class);
         when(services.securityService.authenticate(any())).thenReturn(Future.succeededFuture(participant()));
         services.eventBusService = eventBusService;
