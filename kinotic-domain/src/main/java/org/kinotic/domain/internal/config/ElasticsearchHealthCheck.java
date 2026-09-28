@@ -1,10 +1,7 @@
-package org.kinotic.persistence.internal;
+package org.kinotic.domain.internal.config;
 
-import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
@@ -13,17 +10,18 @@ import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.healthchecks.Status;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * This class is responsible for initializing the Persistence endpoints.
+ * Registers the {@code elasticsearch} procedure of the server's {@link HealthChecks}, which reports the
+ * Elasticsearch cluster healthy while its last periodic health request for the platform's indices succeeded.
  * Created by Navíd Mitchell 🤪 on 5/30/23.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
-public class PersistenceInitializer {
+public class ElasticsearchHealthCheck {
 
-    private static final Logger log = LoggerFactory.getLogger(PersistenceInitializer.class);
-    private final KinoticProperties kinoticProperties;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final HealthChecks healthChecks;
     private final KinoticDomainProperties domainProperties;
@@ -33,9 +31,6 @@ public class PersistenceInitializer {
 
     @PostConstruct
     public void init(){
-        int numToDeploy = kinoticProperties.getMaxNumberOfCoresToUse();
-        log.info("{} Cores will be used for Persistence Endpoints", numToDeploy);
-
         healthChecks.register("elasticsearch", future -> {
             if(lastEsStatus){
                 future.complete(Status.OK());
