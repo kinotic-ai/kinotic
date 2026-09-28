@@ -3,10 +3,10 @@ package org.kinotic.domain.api.rest;
 import io.vertx.ext.web.Router;
 
 /**
- * Contract for any component that contributes REST routes to the API gateway. The gateway collects
- * every {@link SuppliesGatewayRoutes} bean and mounts them, so a module adds routes simply by
- * publishing an implementation — no edits to the gateway are required, and the gateway still boots
- * when a module (and therefore its routes) is absent.
+ * Contract for a handler that contributes REST routes to the API gateway. The gateway collects every
+ * {@link SuppliesGatewayRoutes} bean and mounts them. A handler is not a scanned component: a server serves
+ * it by importing it on its application class, {@code @Import(OrganizationLoginHandler.class)}, so the routes
+ * a server serves are read from that one class.
  */
 public interface SuppliesGatewayRoutes {
 

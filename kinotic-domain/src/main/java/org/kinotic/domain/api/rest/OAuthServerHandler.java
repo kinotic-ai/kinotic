@@ -13,7 +13,6 @@ import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.domain.api.services.security.OAuthAuthorizationService;
 import org.kinotic.domain.api.services.security.RefreshTokenService;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
-import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -39,7 +38,6 @@ import java.util.Optional;
  * <p>Error responses use the RFC 6749 shape {@code {"error":"<code>"}}.
  */
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class OAuthServerHandler implements SuppliesGatewayRoutes {
 

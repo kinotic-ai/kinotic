@@ -21,7 +21,6 @@ import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.domain.internal.api.rest.mcp.McpToolInvoker;
 import org.kinotic.domain.internal.api.rest.mcp.model.*;
-import org.springframework.stereotype.Component;
 import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -38,7 +37,6 @@ import java.util.Set;
  * host obtains its bearer token from.
  */
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 

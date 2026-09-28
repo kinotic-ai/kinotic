@@ -81,9 +81,8 @@ public class ApiGatewayVertcleFactory {
         Handler<RoutingContext> sessionBinding = SessionBinding.handler(sessionCookieName);
         router.route("/api/*").handler(sessionHandler).handler(sessionBinding);
 
-        // REST endpoints under /api — every bean supplying gateway routes is collected and mounted
-        // here, so a module absent from the server's classpath contributes nothing and the gateway
-        // still boots.
+        // REST endpoints under /api — every handler the server module imports is collected and
+        // mounted here
         gatewayRoutes.forEach(routes -> routes.mountRoutes(router));
 
         // The STOMP WebSocket handshake authenticates from the browser session, so the

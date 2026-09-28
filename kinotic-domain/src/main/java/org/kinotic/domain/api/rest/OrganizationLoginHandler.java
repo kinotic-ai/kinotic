@@ -19,7 +19,6 @@ import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
-import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -31,7 +30,6 @@ import java.util.Set;
  * here return to this handler's own callbacks.
  */
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
 
