@@ -10,6 +10,7 @@ import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
@@ -24,14 +25,17 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
 
     private final ProjectService projectService;
     private final OidcConfigurationService oidcConfigurationService;
+    private final UiDeploymentRepository uiDeploymentRepository;
 
     public DefaultApplicationService(ApplicationRepository repository,
                                      ProjectService projectService,
                                      OidcConfigurationService oidcConfigurationService,
+                                     UiDeploymentRepository uiDeploymentRepository,
                                      SecurityContext securityContext) {
         super(repository, securityContext);
         this.projectService = projectService;
         this.oidcConfigurationService = oidcConfigurationService;
+        this.uiDeploymentRepository = uiDeploymentRepository;
     }
 
     @Override
@@ -104,7 +108,27 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                         "The application's host label '%s' is longer than %d characters; shorten the application name",
                         appHost.label(), AppHost.MAX_LABEL_LENGTH);
         entity.setUpdated(new Date());
-        return Future.succeededFuture();
+        Future<Void> ret;
+        if (entity.getPrimaryUiId() == null) {
+            ret = Future.succeededFuture();
+        } else {
+            // checked only when it changes, so removing the primary UI's deployment never fails the application's other edits
+            ret = findById(entity.getId())
+                    .compose(stored -> stored != null && entity.getPrimaryUiId().equals(stored.getPrimaryUiId())
+                            ? Future.succeededFuture()
+                            : requirePublishedUi(appHost, entity.getPrimaryUiId()));
+        }
+        return ret;
+    }
+
+    private Future<Void> requirePublishedUi(AppHost appHost, String uiName) {
+        // a site's label names its application and UI, so a site with this label is one of this application's UIs
+        return uiDeploymentRepository.findById(appHost.siteLabel(uiName))
+                .compose(site -> {
+                    Validate.isTrue(site != null, "The application '%s' has no published UI named '%s'",
+                                    appHost.applicationId(), uiName);
+                    return Future.succeededFuture();
+                });
     }
 
     @Override

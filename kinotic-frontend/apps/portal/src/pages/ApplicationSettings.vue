@@ -1,7 +1,7 @@
 <template>
   <div :class="['application-settings', isDark ? 'application-settings--dark' : 'application-settings--light']">
     <PageHeader title="Settings"
-                description="Name, description, tenancy, and the emails this application sends." />
+                description="Name, description, tenancy, primary UI, and the emails this application sends." />
 
     <Tabs lazy :value="activeTab" @update:value="selectTab">
       <TabList>
@@ -44,6 +44,19 @@
               </span>
             </div>
           </div>
+          <div class="application-settings__field">
+            <label class="application-settings__label">Primary UI</label>
+            <Select
+              v-model="primaryUiId"
+              :options="uiOptions"
+              placeholder="Not set"
+              showClear
+              class="application-settings__input w-full"
+            />
+            <span class="text-sm text-muted-color">
+              The published UI this application's browser flows, such as OAuth consent, return to.
+            </span>
+          </div>
         </div>
         <div class="application-settings__actions">
           <Button
@@ -69,9 +82,10 @@
 
 <script setup lang="ts">
 // @ts-ignore
-import { ref, defineProps, onMounted, watch } from 'vue'
+import { ref, defineProps, computed, watch } from 'vue'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
 import { InputText, Textarea, Button, ToggleSwitch } from 'primevue'
+import Select from 'primevue/select'
 import Tab from 'primevue/tab'
 import TabList from 'primevue/tablist'
 import TabPanel from 'primevue/tabpanel'
@@ -86,7 +100,7 @@ import { Kinotic } from '@kinotic-ai/core'
 import { useToast } from 'primevue/usetoast'
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 
-defineProps({
+const props = defineProps({
   applicationId: {
     type: String,
     required: true
@@ -98,25 +112,35 @@ const activeTab = useQueryTab(['general', 'invitation-email'] as const)
 const appName = ref('')
 const appDescription = ref('')
 const tenantPerUser = ref(false)
+const primaryUiId = ref<string | null>(null)
+const publishedUiNames = ref<string[]>([])
 const loading = ref(false)
 const isDark = darkMode
+
+// a primary UI whose deployment was removed stays designated, so it stays selectable
+const uiOptions = computed(() => primaryUiId.value && !publishedUiNames.value.includes(primaryUiId.value)
+  ? [...publishedUiNames.value, primaryUiId.value]
+  : publishedUiNames.value)
 
 watch(() => APPLICATION_STATE.currentApplication, (newApp) => {
   if (newApp) {
     appName.value = newApp.id || ''
     appDescription.value = newApp.description || ''
     tenantPerUser.value = Boolean(newApp.tenantPerUser)
+    primaryUiId.value = newApp.primaryUiId ?? null
   }
 }, { immediate: true })
 
-onMounted(() => {
-  if (APPLICATION_STATE.currentApplication) {
-    const app = APPLICATION_STATE.currentApplication
-    appName.value = app.id || ''
-    appDescription.value = app.description || ''
-    tenantPerUser.value = Boolean(app.tenantPerUser)
+watch(() => props.applicationId, loadPublishedUiNames, { immediate: true })
+
+async function loadPublishedUiNames(applicationId: string): Promise<void> {
+  try {
+    const published = await Kinotic.uiDeployments.findAllForApplication(applicationId)
+    publishedUiNames.value = published.map(ui => ui.name)
+  } catch (error) {
+    showErrorToast(toast, 'Failed to load the application\'s UIs', error)
   }
-})
+}
 
 function selectTab(value: string | number): void {
   activeTab.value = value === 'invitation-email' ? 'invitation-email' : 'general'
@@ -139,7 +163,8 @@ const saveSettings = async () => {
       ...APPLICATION_STATE.currentApplication,
       organizationId: USER_STATE.getOrganizationId(),
       description: appDescription.value,
-      tenantPerUser: tenantPerUser.value
+      tenantPerUser: tenantPerUser.value,
+      primaryUiId: primaryUiId.value
     }
 
     await Kinotic.applications.save(updatedApplication)
