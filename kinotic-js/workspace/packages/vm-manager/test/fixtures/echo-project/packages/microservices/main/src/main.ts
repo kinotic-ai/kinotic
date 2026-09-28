@@ -17,8 +17,8 @@ class EchoService {
 ensureNodeWebSocket()
 // A project's services live in its application's zone, and the application id comes from the
 // project's own configuration rather than from the identity it connects with: the workload
-// runs as an organization user, and naming an application in the credentials would scope the
-// connection to that application instead.
+// runs as its organization's runtime machine, and naming an application in the credentials would
+// scope the connection to that application instead.
 Kinotic.zonePrefix = appZone(process.env.KINOTIC_ORGANIZATION_ID!,
                              process.env.KINOTIC_PROJECT_APPLICATION_ID!)
 await Kinotic.connect()
