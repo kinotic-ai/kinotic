@@ -35,6 +35,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
     private final SignUpService signUpService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
+    private final ServerSurface serverSurface;
 
     @Override
     public void mountRoutes(Router router) {
@@ -116,7 +117,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
      * browser to the chosen Kinotic-curated social IdP.
      */
     private void handleSocialStart(RoutingContext ctx) {
-        authEndpointSupport.handleSocialStart(ctx, this::callbackUrl);
+        authEndpointSupport.handleSocialStart(ctx, configId -> callbackUrl(ctx, configId));
     }
 
     /**
@@ -128,7 +129,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.handleCallback(
-                ctx, pathConfigId, callbackUrl(pathConfigId),
+                ctx, pathConfigId, callbackUrl(ctx, pathConfigId),
                 _ -> orgSignupOidcConfigurationService.findById(pathConfigId))
                 .onSuccess(result -> createPendingSignUp(ctx, result))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
@@ -206,16 +207,13 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
               .onFailure(ex -> authEndpointSupport.respondError(ctx, 400, ex.getMessage()));
     }
 
-    private String callbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl("/api/auth/org/signup/social/callback/" + configId);
+    private String callbackUrl(RoutingContext ctx, String configId) {
+        return serverSurface.apiBaseUrl(ctx) + "/api/auth/org/signup/social/callback/" + configId;
     }
 
     /** Sends the browser to the org-naming page with the pending sign-up token. */
     private void redirectToCompleteOrg(RoutingContext ctx, String token) {
-        ctx.response().setStatusCode(302)
-           .putHeader("Location", authEndpointSupport.appUrl("/register")
-                   + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8))
-           .end();
+        authEndpointSupport.redirectToUi(ctx, "/register?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8));
     }
 
     private static class AccountExistsException extends RuntimeException {}

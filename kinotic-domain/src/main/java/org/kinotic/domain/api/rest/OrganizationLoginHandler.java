@@ -36,6 +36,7 @@ import java.util.Set;
 public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
 
     private final AuthEndpointSupport authEndpointSupport;
+    private final ServerSurface serverSurface;
     private final ParticipantIdentityService identityService;
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcConfigurationService oidcConfigurationService;
@@ -105,7 +106,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
 
         oidcFlowOrchestrator.handleCallback(ctx,
                                             pathConfigId,
-                                            socialCallbackUrl(pathConfigId),
+                                            socialCallbackUrl(ctx, pathConfigId),
                                             _ -> orgSignupOidcConfigurationService.findById(pathConfigId))
                             .onSuccess(result -> completeSocialLogin(ctx, result))
                             .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
@@ -121,7 +122,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
      * browser to the chosen Kinotic-curated provider.
      */
     private void handleSocialStart(RoutingContext ctx) {
-        authEndpointSupport.handleSocialStart(ctx, this::socialCallbackUrl);
+        authEndpointSupport.handleSocialStart(ctx, configId -> socialCallbackUrl(ctx, configId));
     }
 
     /**
@@ -136,7 +137,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
         // The configId is trusted — it came from the IdP redirect we issued ourselves.
         oidcFlowOrchestrator.handleCallback(ctx,
                                             pathConfigId,
-                                            ssoCallbackUrl(pathConfigId),
+                                            ssoCallbackUrl(ctx, pathConfigId),
                                             orgId -> oidcConfigurationRepository.findById(pathConfigId, orgId))
                             .onSuccess(result -> completeSsoLogin(ctx, result))
                             .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
@@ -180,17 +181,17 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
                          }
                          return oidcFlowOrchestrator.startFlow(ctx,
                                                                match,
-                                                               ssoCallbackUrl(match.getId()),
+                                                               ssoCallbackUrl(ctx, match.getId()),
                                                                orgId)
                                                     .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
                      });
     }
 
-    private String socialCallbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl("/api/auth/org/login/social/callback/" + configId);
+    private String socialCallbackUrl(RoutingContext ctx, String configId) {
+        return serverSurface.apiBaseUrl(ctx) + "/api/auth/org/login/social/callback/" + configId;
     }
 
-    private String ssoCallbackUrl(String configId) {
-        return authEndpointSupport.absoluteUrl("/api/auth/org/login/sso/callback/" + configId);
+    private String ssoCallbackUrl(RoutingContext ctx, String configId) {
+        return serverSurface.apiBaseUrl(ctx) + "/api/auth/org/login/sso/callback/" + configId;
     }
 }

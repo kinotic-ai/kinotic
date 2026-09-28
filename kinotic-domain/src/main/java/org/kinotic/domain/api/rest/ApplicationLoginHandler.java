@@ -38,6 +38,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
+    private final ServerSurface serverSurface;
 
     @Override
     public void mountRoutes(Router router) {
@@ -99,7 +100,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
                          if (match == null || !match.isEnabled()) {
                              return authEndpointSupport.respondPasswordPath(ctx);
                          }
-                         return oidcFlowOrchestrator.startFlow(ctx, match, callbackUrl(orgId, appId, match.getId()), null)
+                         return oidcFlowOrchestrator.startFlow(ctx, match, callbackUrl(ctx, orgId, appId, match.getId()), null)
                                  .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
                      });
     }
@@ -127,7 +128,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
-                ctx, pathConfigId, callbackUrl(orgId, appId, pathConfigId),
+                ctx, pathConfigId, callbackUrl(ctx, orgId, appId, pathConfigId),
                 _ -> oidcConfigurationRepository.findById(pathConfigId, orgId))
                 .onSuccess(result -> completeAppLogin(ctx, result, orgId, appId))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
@@ -141,7 +142,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
                 sub -> identityService.findByOidcIdentity(sub, result.config().getId(), orgId, appId));
     }
 
-    private String callbackUrl(String orgId, String appId, String configId) {
-        return authEndpointSupport.absoluteUrl("/api/auth/app/" + orgId + "/" + appId + "/login/oidc/callback/" + configId);
+    private String callbackUrl(RoutingContext ctx, String orgId, String appId, String configId) {
+        return serverSurface.apiBaseUrl(ctx) + "/api/auth/app/" + orgId + "/" + appId + "/login/oidc/callback/" + configId;
     }
 }

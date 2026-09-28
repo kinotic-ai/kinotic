@@ -21,7 +21,6 @@ import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.domain.internal.api.rest.mcp.McpToolInvoker;
 import org.kinotic.domain.internal.api.rest.mcp.model.*;
-import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.json.JsonMapper;
@@ -71,7 +70,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
     private final ServiceDirectory serviceDirectory;
     private final McpToolInvoker mcpToolInvoker;
     private final JsonMapper jsonMapper;
-    private final AuthEndpointSupport authEndpointSupport;
+    private final ServerSurface serverSurface;
 
     @Override
     public void mountRoutes(Router router) {
@@ -90,7 +89,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 
     /** {@code GET /.well-known/oauth-protected-resource[/mcp]} — RFC 9728 metadata for {@code /mcp}. */
     private void handleProtectedResourceMetadata(RoutingContext ctx) {
-        String issuer = issuer();
+        String issuer = serverSurface.issuerBaseUrl(ctx);
         ctx.json(new JsonObject()
                 .put("resource", issuer + MCP_ROUTE)
                 .put("authorization_servers", new JsonArray().add(issuer))
@@ -108,7 +107,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
             if (ctx.response().getStatusCode() == 401) {
                 // points MCP hosts at the document that starts the OAuth discovery flow
                 ctx.response().putHeader("WWW-Authenticate", "Bearer resource_metadata=\""
-                        + issuer() + PROTECTED_RESOURCE_METADATA_ROUTE + MCP_ROUTE + "\"");
+                        + serverSurface.issuerBaseUrl(ctx) + PROTECTED_RESOURCE_METADATA_ROUTE + MCP_ROUTE + "\"");
             }
         });
         ctx.next();
@@ -227,11 +226,5 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
             ret = Future.succeededFuture(JsonRpcResponse.error(id, INVALID_PARAMS, "tools/call requires a tool name"));
         }
         return ret;
-    }
-
-    // FIXME: shotgun surgery — one of five places that know the OAuth surface has its own base URL.
-    // See "OAuth base URL split" in docs/NavidNotes.md for the topologies that would remove it.
-    private String issuer() {
-        return authEndpointSupport.issuerUrl("");
     }
 }
