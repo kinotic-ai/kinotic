@@ -21,6 +21,11 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 public final class MachineParticipantIdentity extends ParticipantIdentity {
 
+    /**
+     * What the machine is for; set when it is provisioned.
+     */
+    private MachineKind machineKind;
+
     @Override
     public ParticipantIdentityType getType() {
         return ParticipantIdentityType.MACHINE;
