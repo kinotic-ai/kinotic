@@ -1,10 +1,10 @@
-# What a kinotic-server outside AKS needs from Azure to publish UIs and send email: a resource
-# group its organizations' storage accounts are created in, the Front Door Standard profile
+# What the Kinotic servers outside AKS need from Azure to publish UIs and send email: a resource
+# group the organizations' storage accounts are created in, the Front Door Standard profile
 # and endpoint every site is served through under apps-<environment>.<zone>, the key vault
-# the wildcard certificate is issued into, and a service principal for the server holding the
-# roles it needs on them and on the email service. The server creates the rest at runtime, as
-# it does in the cluster. There is no VNet: the server reaches the accounts over their public
-# endpoints and creates no private endpoints.
+# the wildcard certificate is issued into, and a service principal for the servers holding the
+# roles they need on them and on the email service. The system server creates the rest at
+# runtime, as it does in the cluster. There is no VNet: the servers reach the accounts over their
+# public endpoints and create no private endpoints.
 #
 # Two roots use it: dev/ for a developer's own machine, dev-server/ for the shared
 # development server. Each picks an environment name, since a site hostname is bound to one
@@ -82,8 +82,8 @@ module "sites" {
   hostnames                       = var.ui_hostnames
 }
 
-# ── Service principal for kinotic-server ──────────────────────────────────────
-# The server authenticates as this principal: DefaultAzureCredential takes AZURE_CLIENT_ID,
+# ── Service principal for the Kinotic servers ─────────────────────────────────
+# The servers authenticate as this principal: DefaultAzureCredential takes AZURE_CLIENT_ID,
 # AZURE_CLIENT_SECRET and AZURE_TENANT_ID before anything else. One per environment, holding
 # roles on nothing but what this module creates and the email service.
 
@@ -100,8 +100,8 @@ resource "azuread_application_password" "server" {
   display_name   = "${local.name_prefix}-server"
 }
 
-# ── Roles for kinotic-server ──────────────────────────────────────────────────
-# What the cluster grants the kinotic-server workload identity: the sites module gives it
+# ── Roles for the Kinotic servers ─────────────────────────────────────────────
+# What the cluster grants the servers' workload identity: the sites module gives it
 # Storage Blob Data Contributor on the sites account, where it signs each site's upload and
 # removal URLs; Contributor on the email service sends mail.
 

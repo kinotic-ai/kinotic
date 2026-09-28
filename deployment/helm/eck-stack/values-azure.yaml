@@ -9,7 +9,7 @@
 
 eck-elasticsearch:
   # HTTP TLS disabled — ES is cluster-internal only (behind the VNet).
-  # External TLS is handled by Vert.x on the kinotic-server pods.
+  # External TLS is handled by Vert.x on the Kinotic server pods.
   http:
     tls:
       selfSignedCertificate:

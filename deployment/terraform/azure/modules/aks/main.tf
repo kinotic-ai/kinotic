@@ -51,7 +51,7 @@ resource "azurerm_kubernetes_cluster" "main" {
 
   # Secrets Store CSI Driver with the Azure Key Vault provider plugin.
   # Used to project platform secrets (JWT signing keys, masterKeys) from the global
-  # Key Vault into kinotic-server pods as files, with automatic rotation.
+  # Key Vault into the Kinotic server pods as files, with automatic rotation.
   key_vault_secrets_provider {
     secret_rotation_enabled  = true
     secret_rotation_interval = "2m"
