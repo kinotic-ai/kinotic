@@ -29,10 +29,11 @@ x-kinotic-server-e2e-environment: &kinotic-server-e2e-environment
   KINOTIC_SYSTEMAPI_UIDEPLOYMENT_DISABLEPROVISIONER: "true"
   KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN: apps.localhost
   KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT: "-"
-  # DeploymentProperties.serverHost is @NotBlank and validated at boot. It is set in the
-  # `development` profile, which e2e drops in favor of `test,e2e-tests,compose`, so supply it
-  # here. No e2e test deploys a workload, so the value only has to bind.
-  KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERHOST: localhost
+  # The workloads' server hosts are @NotBlank and validated at boot. They are set in the
+  # `development` profile, which e2e drops in favor of `test,e2e-tests,compose`, so supply them
+  # here. No e2e test deploys a workload, so the values only have to bind.
+  KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST: localhost
+  KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST: localhost
   # KinoticJwtIssuer signs every access token with these keys. DevPlatformSecretsGenerator seeds
   # them under the `development` profile, which e2e drops, so mount the dummy set below; without
   # it the OAuth token endpoints cannot mint a token.

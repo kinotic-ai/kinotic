@@ -13,6 +13,7 @@ import org.kinotic.management.api.model.workload.VolumeMount;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.config.DeploymentProperties;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
+import org.kinotic.system.api.config.ServerAddressProperties;
 import org.kinotic.system.api.model.deployment.DeployTarget;
 import org.springframework.stereotype.Component;
 
@@ -21,8 +22,9 @@ import java.util.List;
 
 /**
  * Builds the workloads a project runs on its node: the foreground sync workload of a deployment
- * run, and the long-lived runtime workload of one microservice. Each connects to Kinotic as the
- * machine whose credentials it is given, sized by {@link ProjectWorkloadSizes}.
+ * run, which connects to the org server, and the long-lived runtime workload of one microservice,
+ * which connects to the app server. Each connects as the machine whose credentials it is given,
+ * sized by {@link ProjectWorkloadSizes}.
  */
 @Component
 @RequiredArgsConstructor
@@ -60,12 +62,12 @@ public class ProjectWorkloadFactory {
         // address the workload itself dials is not
         workload.getEnvironment().put("KINOTIC_UI_SERVER_URL",
                                       domainProperties.getDomain().resolveAppApiUrl(new AppHost(project.getOrganizationId(), project.getApplicationId())));
-        putKinoticConnection(workload, deployment, credentials);
+        putKinoticConnection(workload, deployment.getOrgServer(), credentials);
         workload.getSecrets().put("GIT_TOKEN", token.getToken());
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/workspace")
                                                         .setSizeLimitMb(ProjectWorkloadSizes.SYNC_MOUNT_LIMIT_MB));
-        workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getSyncAllowedHosts(), deployment));
+        workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getSyncAllowedHosts(), deployment.getOrgServer()));
         return workload;
     }
 
@@ -97,24 +99,24 @@ public class ProjectWorkloadFactory {
         // export nothing
         workload.setTelemetry(true);
         workload.getEnvironment().put("OTEL_SERVICE_NAME", project.getName());
-        putKinoticConnection(workload, deployment, credentials);
+        putKinoticConnection(workload, deployment.getAppServer(), credentials);
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(hostDir)
                                                         .setGuestPath("/app")
                                                         .setReadOnly(true));
-        workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getRuntimeAllowedHosts(), deployment));
+        workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getRuntimeAllowedHosts(), deployment.getAppServer()));
         return workload;
     }
 
     /**
-     * Configures how the workload reaches Kinotic and who it connects as. Requires the
+     * Configures which server the workload reaches and who it connects as. Requires the
      * workload's {@code organizationId} to already be set.
      */
     private static void putKinoticConnection(Workload workload,
-                                             DeploymentProperties deployment,
+                                             ServerAddressProperties server,
                                              MachineProvisionResult credentials) {
-        workload.getEnvironment().put("KINOTIC_SERVER_HOST", deployment.getServerHost());
-        workload.getEnvironment().put("KINOTIC_SERVER_PORT", String.valueOf(deployment.getServerPort()));
-        workload.getEnvironment().put("KINOTIC_SERVER_USE_SSL", String.valueOf(deployment.isServerUseSsl()));
+        workload.getEnvironment().put("KINOTIC_SERVER_HOST", server.getHost());
+        workload.getEnvironment().put("KINOTIC_SERVER_PORT", String.valueOf(server.getPort()));
+        workload.getEnvironment().put("KINOTIC_SERVER_USE_SSL", String.valueOf(server.isUseSsl()));
         workload.getEnvironment().put("KINOTIC_ORGANIZATION_ID", workload.getOrganizationId());
         workload.getEnvironment().put("KINOTIC_CLIENT_ID", credentials.machine().getId());
         // a workload's environment is persisted verbatim and readable by anyone who can read
@@ -123,9 +125,9 @@ public class ProjectWorkloadFactory {
         workload.getSecrets().put("KINOTIC_CLIENT_SECRET", credentials.clientSecret());
     }
 
-    private static List<String> allowedHosts(List<String> workloadHosts, DeploymentProperties deployment) {
+    private static List<String> allowedHosts(List<String> workloadHosts, ServerAddressProperties server) {
         List<String> hosts = new ArrayList<>(workloadHosts);
-        hosts.add(deployment.getServerHost());
+        hosts.add(server.getHost());
         return hosts;
     }
 

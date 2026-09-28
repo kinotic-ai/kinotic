@@ -1,6 +1,6 @@
 package org.kinotic.system.api.config;
 
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -26,34 +26,29 @@ public class DeploymentProperties {
     private String workloadRunnerImage = "kinoticai/workload-runner:latest";
 
     /**
-     * Host the deployed workloads use to reach the api-gateway ({@code KINOTIC_SERVER_HOST}
-     * in the guest), and the one destination every workload's egress policy always permits.
-     * There is no advertised-address the server knows about itself, so deployments must
-     * configure how workloads reach it. An IPv4 address or a hostname, on either provider.
+     * How the sync workload reaches the org server, which it synchronizes the project's entity
+     * definitions and reports the project's artifacts through.
      */
-    @NotBlank
-    private String serverHost;
+    @Valid
+    private ServerAddressProperties orgServer = new ServerAddressProperties().setPort(58503);
 
     /**
-     * Port the deployed workloads use to reach the api-gateway.
+     * How a microservice's runtime workload reaches the app server, which it publishes the
+     * project's services through.
      */
-    private int serverPort = 58503;
-
-    /**
-     * Whether the deployed workloads reach the api-gateway over TLS.
-     */
-    private boolean serverUseSsl = false;
+    @Valid
+    private ServerAddressProperties appServer = new ServerAddressProperties().setPort(58505);
 
     /**
      * Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond
-     * the gateway — the repository and package registry hosts, so {@code git fetch} and
+     * the org server — the repository and package registry hosts, so {@code git fetch} and
      * {@code bun install} work on nodes that deny workload egress by default.
      */
     private List<String> syncAllowedHosts = new ArrayList<>();
 
     /**
      * Destinations (IPv4 addresses, CIDRs, or hostnames) the runtime workload may reach
-     * beyond the gateway.
+     * beyond the app server.
      */
     private List<String> runtimeAllowedHosts = new ArrayList<>();
 
