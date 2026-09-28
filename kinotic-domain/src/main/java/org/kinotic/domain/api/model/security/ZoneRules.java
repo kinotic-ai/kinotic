@@ -97,19 +97,8 @@ public class ZoneRules {
         return EventConstants.SERVICE_DESTINATION_SCHEME.equals(scheme);
     }
 
-    // A zone is allowed when it is an allowed zone or a sub-zone of one; the dot boundary keeps
-    // 'app.acme-org.orders-app-2' from matching 'app.acme-org.orders-app'
     private static boolean zoneAllowed(String zone, Set<String> allowedZones) {
-        boolean ret = false;
-        if (zone != null) {
-            for (String allowed : allowedZones) {
-                if (zone.equals(allowed) || zone.startsWith(allowed + ".")) {
-                    ret = true;
-                    break;
-                }
-            }
-        }
-        return ret;
+        return zone != null && ZoneUtil.zoneMatches(zone, allowedZones);
     }
 
     /**
