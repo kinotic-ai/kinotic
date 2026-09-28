@@ -78,17 +78,17 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     }
 
     @Override
-    public Future<PendingOAuthAuthorization> findPending(String requestId) {
-        return loadPendingGrant(requestId)
+    public Future<PendingOAuthAuthorization> findPending(String issuer, String requestId) {
+        return loadPendingGrant(issuer, requestId)
                 .map(grant -> new PendingOAuthAuthorization(grant.getClientName(),
                                                             grant.getClientId(),
                                                             grant.getScope()));
     }
 
     @Override
-    public Future<String> approve(String requestId, String identityId) {
+    public Future<String> approve(String issuer, String requestId, String identityId) {
         Validate.notBlank(identityId, "identityId is required");
-        return loadPendingGrant(requestId)
+        return loadPendingGrant(issuer, requestId)
                 .compose(grant -> {
                     String code = DomainUtil.generateUrlSafeToken(TOKEN_BYTES);
                     grant.setIdentityId(identityId)
@@ -101,8 +101,8 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     }
 
     @Override
-    public Future<String> deny(String requestId) {
-        return loadPendingGrant(requestId)
+    public Future<String> deny(String issuer, String requestId) {
+        return loadPendingGrant(issuer, requestId)
                 .compose(grant -> grantRepository.deleteById(grant.getId())
                                                  .map(redirectUrl(grant, "error", "access_denied")));
     }
@@ -191,11 +191,13 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
         return ret;
     }
 
-    private Future<OAuthAuthorizationGrant> loadPendingGrant(String requestId) {
+    private Future<OAuthAuthorizationGrant> loadPendingGrant(String issuer, String requestId) {
+        Validate.notBlank(issuer, "issuer is required");
         Validate.notBlank(requestId, "requestId is required");
         return grantRepository.findById(requestId)
                 .compose(grant -> {
-                    if (grant == null) {
+                    // a request another server began is decided only on that server's consent page
+                    if (grant == null || !issuer.equals(grant.getIssuer())) {
                         return Future.failedFuture(new IllegalArgumentException("Unknown authorization request"));
                     }
                     if (grant.getExpiresAt().before(new Date())) {

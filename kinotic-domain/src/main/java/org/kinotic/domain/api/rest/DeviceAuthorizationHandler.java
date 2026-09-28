@@ -5,6 +5,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.services.security.DeviceCodeGrantService;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
@@ -14,9 +15,10 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * The RFC 8628 device grant the Kinotic CLI logs in through: the device authorization endpoint, the
- * redemption of its device codes at the token endpoint of {@link OAuthServerHandler}, and the entries
- * advertising both in that handler's RFC 8414 metadata. The CLI is a pre-registered public client and
- * the only one the grant serves; the user approves the device on the SPA's {@code /device} page.
+ * approval the SPA's {@code /device} page sends as its signed-in user, the redemption of device codes at
+ * the token endpoint of {@link OAuthServerHandler}, and the entries advertising the grant in that
+ * handler's RFC 8414 metadata. The CLI is a pre-registered public client and the only one the grant
+ * serves.
  *
  * <p>A server serves the device grant by importing this class with
  * {@code @Import(DeviceAuthorizationHandler.class)}.
@@ -31,6 +33,7 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {
     static final String DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 
     private static final String DEVICE_AUTHORIZATION_ROUTE = "/api/auth/oauth/device_authorization";
+    private static final String DEVICE_APPROVAL_ROUTE = "/api/auth/oauth/device/approve";
 
     /**
      * The {@code client_id} of the Kinotic CLI, the only client the device grant serves. Constant
@@ -48,6 +51,7 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {
     @Override
     public void mountRoutes(Router router) {
         router.post(DEVICE_AUTHORIZATION_ROUTE).handler(this::handleDeviceAuthorization);
+        router.post(DEVICE_APPROVAL_ROUTE).handler(this::handleApprove);
     }
 
     /**
@@ -93,6 +97,18 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {
     }
 
     /**
+     * {@code POST /api/auth/oauth/device/approve} ({@code {"userCode"}}) — approves the pending grant
+     * the signed-in user confirmed on the {@code /device} page; {@code 204} once approved.
+     */
+    private void handleApprove(RoutingContext ctx) {
+        Participant approver = authEndpointSupport.requireSessionUser(ctx);
+        String userCode = authEndpointSupport.readJsonBody(ctx).getString("userCode");
+        deviceCodeGrantService.approve(serverSurface.issuerBaseUrl(ctx), userCode, approver.getId())
+              .onSuccess(v -> ctx.response().setStatusCode(204).end())
+              .onFailure(err -> authEndpointSupport.respondError(ctx, 400, err.getMessage()));
+    }
+
+    /**
      * {@code POST /api/auth/oauth/device_authorization} — RFC 8628 §3.1/§3.2. Serves the Kinotic
      * CLI, a pre-registered public client, so {@code client_id} is required and must name it. A
      * device grant has no redirect URI to protect; its authority is the browser approval on the
@@ -105,8 +121,8 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {
         }
         deviceCodeGrantService.start(serverSurface.issuerBaseUrl(ctx), ctx.request().getFormAttribute("device_name"))
               // /device is a kinotic-frontend SPA route (DeviceVerification.vue), not a gateway
-              // route — hence the UI's URL, not the API's. The signed-in browser approves there via
-              // OAuthApprovalService.approveDevice over STOMP; this gateway only emits the URL.
+              // route — hence the UI's URL, not the API's. The signed-in browser approves there
+              // through handleApprove; this route only emits the URL.
               .compose(start -> serverSurface.uiUrl(ctx, "/device").map(verificationUri -> new JsonObject()
                       .put("device_code", start.deviceCode())
                       .put("user_code", start.userCode())

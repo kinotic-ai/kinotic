@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SessionBinding;
@@ -167,6 +168,21 @@ public class AuthEndpointSupport {
     }
 
     // ── Request bodies ────────────────────────────────────────────────────────
+
+    /**
+     * The person signed in on the page that sent the request. A page without a login fails the
+     * request with {@code 401}, and a login that is not a person with {@code 400}.
+     */
+    public Participant requireSessionUser(RoutingContext ctx) {
+        ConnectedInfo connectedInfo = SessionBinding.connectedInfo(ctx);
+        if (connectedInfo == null || connectedInfo.getParticipant() == null) {
+            throw new AuthenticationException("Sign in to continue");
+        }
+        // consent must come from a person: a delegate approving grants could mint itself further
+        // delegates on the user's behalf without the user ever seeing a consent screen
+        DomainUtil.requireUserParticipant(connectedInfo.getParticipant());
+        return connectedInfo.getParticipant();
+    }
 
     /**
      * The request body parsed as JSON, so the caller can read its fields directly. A body that is
