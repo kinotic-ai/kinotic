@@ -3,7 +3,7 @@ import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import { KinoticClusterInfo } from '@/api/model/cluster/KinoticClusterInfo'
 
 /**
- * Queries the kinotic-server cluster's topology and state.
+ * Queries the topology and state of the cluster the org, system and app servers form.
  */
 export interface IKinoticClusterInfoService {
 

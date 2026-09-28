@@ -148,7 +148,7 @@ tunnel host) and leaves the development topology different from production — t
 nowhere else — so it removes the property without removing the underlying asymmetry.
 
 **Option C — one origin everywhere, via path-based routing at the ingress.** SPA and API behind a
-single hostname, `/api` and `/v1` routed to kinotic-server and everything else to the SPA. Then
+single hostname, `/api` and `/v1` routed to the server and everything else to the SPA. Then
 `appBaseUrl`, `apiBaseUrl` and `issuerBaseUrl` collapse to one value, and so do `ServerSurface`'s
 `apiBaseUrl` and `issuerBaseUrl`. On
 Azure this means a layer-7 front end (Application Gateway or Front Door) where today's LoadBalancer
@@ -204,7 +204,7 @@ revocation check at the entry points are two different answers and only the seco
 ### Alert on `OutOfDirectMemoryError` in the gateway logs
 
 Set up an alert that fires when `io.netty.util.internal.OutOfDirectMemoryError` appears in a
-kinotic-server log. It is logged at ERROR by `DefaultStompServerHandler` as "Client Caused
+server's log. It is logged at ERROR by `DefaultStompServerHandler` as "Client Caused
 Exception", so the string is there to match on without any code change.
 
 It needs an alert because nothing else will tell us. Verified by exhausting a gateway's direct
