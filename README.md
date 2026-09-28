@@ -321,7 +321,7 @@ Kinotic is built as an open platform rather than a single monolithic runtime.
   <source media="(min-width: 1000px) and (prefers-color-scheme: dark)" srcset=".github/assets/diagrams/architecture-wide-dark.png" width="880">
   <source media="(min-width: 1000px)" srcset=".github/assets/diagrams/architecture-wide-light.png" width="880">
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/architecture-dark.png" width="440">
-  <img alt="Consoles, CLI and SDKs, and AI agents reach the kinotic-api-gateway over STOMP, REST and MCP; the gateway dispatches through kinotic-core to the domain, persistence and management modules inside kinotic-server, which read and write Elasticsearch, Loki, Mimir, Tempo and the VM nodes" src=".github/assets/diagrams/architecture-light.png" width="440">
+  <img alt="Consoles, CLI and SDKs, and AI agents reach the kinotic-api-gateway over STOMP, REST and MCP; the gateway dispatches through kinotic-core to the domain, persistence and management modules inside the org, system and app servers, which read and write Elasticsearch, Loki, Mimir, Tempo and the VM nodes" src=".github/assets/diagrams/architecture-light.png" width="440">
 </picture>
 
 </div>
