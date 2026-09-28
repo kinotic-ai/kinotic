@@ -4,7 +4,7 @@
 
 This is a pnpm workspace:
 
-- `apps/portal` — the Kinotic OS dashboard (organization users). Built into the api-gateway
+- `apps/portal` — the Kinotic OS dashboard (organization users). Built into the org server's
   `webroot` for docker-compose; deployed to Azure static hosting in production.
 - `apps/system` — the platform-operator console (system users). Deployed to VPN-restricted
   static hosting only; never baked into the server jar.

@@ -23,21 +23,7 @@ dependencies {
 	implementation project(':kinotic-core')
 	implementation project(':kinotic-domain')
 	implementation project(':kinotic-management-api')
-	implementation project(':kinotic-persistence')
-	implementation project(':kinotic-system-api')
-    implementation project(':kinotic-api-gateway')
-
-	implementation 'com.github.ben-manes.caffeine:caffeine'
-
-	implementation 'io.jsonwebtoken:jjwt-api'
-	implementation 'io.jsonwebtoken:jjwt-impl'
-	implementation 'io.jsonwebtoken:jjwt-jackson'
-
-	implementation 'io.vertx:vertx-core'
-
-	implementation 'io.projectreactor:reactor-core'
-
-	implementation 'tools.jackson.core:jackson-databind'
+	implementation project(':kinotic-api-gateway')
 
 	// The agent version tracks the instrumentation BOM version
 	otelAgent "io.opentelemetry.javaagent:opentelemetry-javaagent:${otelInstrumentationBomVersion}"
@@ -53,6 +39,7 @@ tasks.register('otelAgentJar', Sync) {
 }
 
 tasks.named('processResources') {
+	// The portal is served from this server's webroot, which kinotic-frontend's copyDist fills.
 	// kinotic-frontend is excluded from the build when CLAUDE_CLOUD_COMPILE=true
 	if (findProject(':kinotic-frontend') != null) {
 		dependsOn ":kinotic-frontend:copyDist"

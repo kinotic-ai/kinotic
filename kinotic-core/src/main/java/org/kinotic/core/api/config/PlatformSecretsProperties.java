@@ -23,4 +23,11 @@ public class PlatformSecretsProperties {
      * Consumed by the Kinotic JWT issuer for signing STOMP-CONNECT tickets.
      */
     private Path jwtSigningKeysPath;
+
+    /**
+     * When true, each secret file that does not exist at startup is generated with a fresh random
+     * key, so a development server starts with no setup step. Never set where the files are
+     * provisioned: a generated key is known only to the machine that generated it.
+     */
+    private boolean generateMissing = false;
 }
