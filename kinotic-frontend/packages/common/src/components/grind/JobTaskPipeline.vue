@@ -2,7 +2,7 @@
   <div class="pipeline-canvas overflow-x-auto rounded-xl border border-sky-100 px-8 pb-6 pt-12 dark:border-sky-400/10">
     <!-- labels hang below their tiles, so connectors run edge to edge between the tiles themselves -->
     <div class="flex min-w-max items-center pb-16">
-      <div class="relative shrink-0" :style="stepColor(START_COLOR)">
+      <div class="relative shrink-0" :style="stepColor(DONE_COLOR)">
         <div class="tile tile--flag relative z-[1] flex h-11 w-11 items-center justify-center rounded-xl">
           <Flag :size="20" :stroke-width="2" class="fill-current" aria-hidden="true" />
         </div>
@@ -14,7 +14,7 @@
           <span class="line h-1 flex-1" />
         </div>
 
-        <div class="relative shrink-0" :style="stepColor(colorOf(index))">
+        <div class="relative shrink-0" :style="stepColor(task.status === ExecutionStatus.COMPLETED ? DONE_COLOR : colorOf(index))">
           <div :class="['tile relative z-[1] flex h-11 w-11 items-center justify-center rounded-xl', `tile--${task.status.toLowerCase()}`]">
             <component :is="taskIcon?.(task) ?? Workflow" :size="20" :stroke-width="1.75" aria-hidden="true" />
             <span v-if="TASK_STATUS_STYLE[task.status].badge"
@@ -36,7 +36,7 @@
       <div class="flex h-2.5 min-w-[6.75rem] flex-1 items-center" :style="connectorStyle(tasks.length)">
         <span class="line h-1 flex-1" />
       </div>
-      <div class="relative shrink-0" :style="stepColor(START_COLOR)">
+      <div class="relative shrink-0" :style="stepColor(DONE_COLOR)">
         <div :class="['tile relative z-[1] flex h-11 w-11 items-center justify-center rounded-xl', finished ? 'tile--flag' : 'tile--pending']">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M5 21V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -60,8 +60,9 @@ import { TASK_STATUS_STYLE } from './jobRunDisplay'
 
 /**
  * The run's top-level tasks as a pipeline on a dotted canvas, from a start flag to a finish
- * flag: one tile per task in a color of its own, with its icon and its status on the corner,
- * joined by connectors that turn green as the run gets past each task.
+ * flag: one tile per task with its icon and its status badge, in a color of its own until the
+ * task completes and green from then on, joined by connectors that turn green as the run
+ * gets past each task.
  */
 const props = defineProps<{
   tasks: JobTaskNode[]
@@ -69,7 +70,8 @@ const props = defineProps<{
   taskIcon?: (node: JobTaskNode) => Component | undefined
 }>()
 
-const START_COLOR = 'emerald'
+/** The color of a completed step and of the flags. */
+const DONE_COLOR = 'emerald'
 const STEP_COLORS = ['sky', 'violet', 'amber', 'pink', 'indigo', 'teal']
 
 const finished = computed(() => props.tasks.every(task => task.status === ExecutionStatus.COMPLETED))
