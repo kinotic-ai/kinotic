@@ -31,11 +31,8 @@ import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRunHandle;
-import org.kinotic.grind.api.model.events.TaskCompletedEvent;
 import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.services.JobService;
-import org.kinotic.management.api.model.deployment.DeployTarget;
-import org.kinotic.system.api.model.deployment.ProjectDeployStores;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -43,7 +40,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Deploys a project whenever a commit lands on its repository's default branch, and keeps it
@@ -200,10 +196,6 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
         log.debug("Deploying project {} at commit {} in job run {}", projectId, commitSha, jobRunId);
         running.add(projectId);
 
-        // Captured from the run's TaskCompletedEvents as the task stores it in the job scope,
-        // so the outcome record reflects how far the run got whatever the outcome
-        AtomicReference<DeployTarget> target = new AtomicReference<>();
-
         Promise<Void> outcome = Promise.promise();
         recordDeploying(existing, jobRunId, generation)
                 .onFailure(error -> {
@@ -213,17 +205,11 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                 // The job starts when its events are subscribed, so the DEPLOYING record
                 // is in place before any task runs
                 .onSuccess(unused -> handle.getEvents().subscribe(
-                        event -> {
-                            if (event instanceof TaskCompletedEvent completed) {
-                                if (ProjectDeployStores.DEPLOY_TARGET.equals(completed.storedName())
-                                        && completed.storedValue() instanceof DeployTarget resolved) {
-                                    target.set(resolved);
-                                }
-                            }
+                        ignored -> {
                         },
                         error -> {
                             log.error("Deployment of project {} at commit {} failed", projectId, commitSha, error);
-                            recordOutcome(existing, jobRunId, generation, target.get(),
+                            recordOutcome(existing, jobRunId, generation,
                                           new DeploymentState(DeploymentStatusType.FAILED, DeploymentState.commitOf(existing.getState().getObserved())),
                                           error.getMessage())
                                     .onComplete(recorded -> {
@@ -234,7 +220,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                         },
                         () -> {
                             log.debug("Deployed project {} at commit {}", projectId, commitSha);
-                            recordOutcome(existing, jobRunId, generation, target.get(),
+                            recordOutcome(existing, jobRunId, generation,
                                           new DeploymentState(DeploymentStatusType.RUNNING, commitSha), null)
                                     .onComplete(recorded -> {
                                         running.remove(projectId);
@@ -331,18 +317,11 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
     private Future<Void> recordOutcome(ProjectDeployment deployment,
                                        String jobRunId,
                                        long generation,
-                                       DeployTarget target,
                                        DeploymentState observed,
                                        String failure) {
         String projectId = deployment.getId();
         String organizationId = deployment.getOrganizationId();
-        Future<Void> ret;
-        if (target != null) {
-            ret = projectDeploymentRepository.recordTarget(projectId, organizationId, target);
-        } else {
-            ret = Future.succeededFuture();
-        }
-        return ret.compose(v -> projectDeploymentRepository.recordFailure(projectId, organizationId, failure))
+        return projectDeploymentRepository.recordFailure(projectId, organizationId, failure)
                   .compose(v -> projectDeploymentRepository.reportObserved(projectId, organizationId, observed, generation,
                                                                            "deploy job " + jobRunId))
                   .onFailure(error -> log.error("Failed to record deployment outcome for project {}", projectId, error));

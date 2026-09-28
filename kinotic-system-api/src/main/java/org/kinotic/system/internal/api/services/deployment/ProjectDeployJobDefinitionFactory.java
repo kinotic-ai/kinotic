@@ -59,8 +59,8 @@ import java.util.stream.Collectors;
  * environment has no Azure storage, keep the project's SBOM current with a foreground SBOM
  * workload. The resolved {@link DeployTarget}, the artifacts, the microservice deployments, the UI
  * deployments and the SBOM are stored in the job scope under the {@link ProjectDeployStores}
- * names, so the run's {@code TaskCompletedEvent}s and {@code TaskRecord}s carry them to the
- * caller and the console.
+ * names, so the run's {@code TaskRecord}s carry them to the console. The target is also recorded
+ * on the project's deployment as soon as it is resolved.
  */
 @Slf4j
 @Component
@@ -107,6 +107,7 @@ public class ProjectDeployJobDefinitionFactory {
                 // re-derive it and risk landing on a different node
                 .task(Tasks.fromCallable("Resolve deployment target",
                                          () -> resolveTarget(projectId, existing)
+                                                 .compose(target -> recordTarget(project, target))
                                                  .toCompletionStage().toCompletableFuture()),
                       Store.state(ProjectDeployStores.DEPLOY_TARGET).wire())
                 // Store.state: a resume after a later failure replays the synced checkout
@@ -229,6 +230,13 @@ public class ProjectDeployJobDefinitionFactory {
         }
 
         return ret;
+    }
+
+    // The microservice workers read the target from the project's deployment, and this run's
+    // "Ensure runtime workloads" waits on them, so the target is written before any workload runs
+    private Future<DeployTarget> recordTarget(Project project, DeployTarget target) {
+        return projectDeploymentRepository.recordTarget(project.getId(), project.getOrganizationId(), target)
+                                          .map(target);
     }
 
     /**
