@@ -33,19 +33,11 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     Future<UserParticipantIdentity> findByEmail(String email, String organizationId, String applicationId);
 
     /**
-     * Finds the first ORG-scope user with the given email across all organizations. Used by
-     * the sign-up flow to enforce one user per email at organization-creation time, before
-     * the new organization's id exists.
+     * Finds the first ORG-scope user with the given email across all organizations, for a flow
+     * that runs before an organization is known: the sign-up flow enforcing one user per email
+     * before the new organization's id exists, and organization login.
      */
     Future<UserParticipantIdentity> findFirstOrgUserByEmail(String email);
-
-    /**
-     * Finds the {@link UserParticipantIdentity} record for the given email, across all scopes. Returns
-     * the first match. Used by the email-first login lookup to decide between password vs
-     * SSO redirect — the service-layer uniqueness rule (one row per email + scope) makes
-     * this an unambiguous lookup for the org-login flow.
-     */
-    Future<UserParticipantIdentity> findByEmail(String email);
 
     /**
      * Finds the {@link UserParticipantIdentity} (if any) with the given OIDC identity within a specific

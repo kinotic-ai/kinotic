@@ -6,7 +6,6 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.api.services.OrganizationService;
@@ -92,9 +91,9 @@ public class InviteHandler implements SuppliesGatewayRoutes {
 
     /**
      * {@code POST /api/auth/invite/accept {token, password, displayName?}} — accept by setting a
-     * password. Both scopes get a browser session, same as logging in. Org invitees get a
-     * {@code 204}; app invitees get a payload identifying the application, which the accept
-     * page uses for its confirmation state since the web app is not their UI.
+     * password. Org invitees get a browser session, same as logging in, and a {@code 204}; app
+     * invitees get a payload identifying the application, which the accept page uses for its
+     * confirmation state, and sign in at the application's own UI.
      */
     private void handleLocalAccept(RoutingContext ctx) {
         JsonObject body = authEndpointSupport.readJsonBody(ctx);
@@ -109,9 +108,8 @@ public class InviteHandler implements SuppliesGatewayRoutes {
         inviteService.acceptLocalInvite(token, password, displayName)
               .onSuccess(user -> {
                   if (user.getApplicationId() != null) {
-                      // Session established like any login (ApplicationParticipant); the payload
-                      // tells the accept page which application to point the invitee at.
-                      authEndpointSupport.establishSession(ctx, SessionBinding.origin(ctx), user);
+                      // the org server holds organization logins only, so an application member
+                      // signs in at the application; the payload names it for the accept page
                       ctx.response().putHeader("Content-Type", "application/json")
                          .end(new JsonObject()
                                  .put("scope", "APPLICATION")
@@ -177,11 +175,10 @@ public class InviteHandler implements SuppliesGatewayRoutes {
      * <p>Three steps remain. First, confirm the IdP gave us a usable identity — a subject
      * id and a verified email (the same checks a normal OIDC login performs). Second, ask
      * {@link InviteService#acceptOidcInvite} to create the member; it also rejects the
-     * acceptance when the IdP-verified email is not the email that was invited. Third,
-     * establish the browser session (same as logging in — the participant type follows the
-     * member's scope) and send the browser onward: an organization member lands in the web
-     * app; an application member is sent to the accept page's confirmation state, since the
-     * web app is not their UI.
+     * acceptance when the IdP-verified email is not the email that was invited. Third, send the
+     * browser onward: an organization member gets the browser session, same as logging in, and
+     * lands in the web app; an application member is sent to the accept page's confirmation
+     * state and signs in at the application's own UI.
      */
     private void completeOidcAccept(RoutingContext ctx, CallbackResult<BaseOidcConfiguration> result) {
         String token = result.inviteToken();
@@ -206,9 +203,8 @@ public class InviteHandler implements SuppliesGatewayRoutes {
         inviteService.acceptOidcInvite(token, sub, result.config().getId(), email)
               .onSuccess(user -> {
                   if (user.getApplicationId() != null) {
-                      // Session established like any login (ApplicationParticipant); the redirect
-                      // shows the confirmation state since the web app is not an app user's UI.
-                      authEndpointSupport.establishSession(ctx, result.origin(), user);
+                      // the org server holds organization logins only, so an application member
+                      // signs in at the application
                       authEndpointSupport.redirectToUi(ctx, INVITE_ACCEPT_PATH + "?accepted=app&application="
                               + URLEncoder.encode(user.getApplicationId(), StandardCharsets.UTF_8));
                   } else {
