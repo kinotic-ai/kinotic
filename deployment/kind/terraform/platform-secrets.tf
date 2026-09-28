@@ -1,8 +1,8 @@
 # ── Platform secrets (KinD) ───────────────────────────────
-# Generates each server's JWT signing keys and the secret-storage master keys as a K8s Secret
-# the servers mount as a volume, each only its own key set. Matches the shape produced by the
-# Azure Key Vault CSI driver, so the helm chart's pod spec and file-watch code path are identical
-# across environments — only the source of the Secret differs.
+# Generates each server's JWT signing keys, the secret-storage master key and the GitHub App's
+# secrets as a K8s Secret the servers mount as a volume, each only its own key set. Holds the
+# objects the Azure Key Vault holds, under the same names, so the helm chart's pod spec is
+# identical across environments — only the source of the files differs.
 
 locals {
   servers = ["kinotic-org-server", "kinotic-system-server", "kinotic-app-server"]
@@ -19,8 +19,13 @@ moved {
   to   = random_id.jwt_signing_key_v1["kinotic-org-server"]
 }
 
-resource "random_id" "secret_storage_master_key_v1" {
+resource "random_id" "secret_storage_master_key" {
   byte_length = 32
+}
+
+moved {
+  from = random_id.secret_storage_master_key_v1
+  to   = random_id.secret_storage_master_key
 }
 
 locals {
@@ -30,13 +35,6 @@ locals {
       { id = "v1", key = random_id.jwt_signing_key_v1[server].b64_std },
     ]
   }) }
-
-  secret_storage_master_keys_json = jsonencode({
-    activeKeyId = "v1"
-    keys = [
-      { id = "v1", key = random_id.secret_storage_master_key_v1.b64_std },
-    ]
-  })
 }
 
 resource "kubernetes_secret" "platform_secrets" {
@@ -50,6 +48,13 @@ resource "kubernetes_secret" "platform_secrets" {
 
   data = merge(
     { for server, json in local.jwt_signing_keys_json : "${server}-jwt-signing-keys" => json },
-    { "kinotic-secret-storage-master-keys" = local.secret_storage_master_keys_json },
+    {
+      # SecretNameDeriver derives every stored secret's name from it, so every server holds the same key
+      "kinotic-secret-storage-master-key" = random_id.secret_storage_master_key.b64_std
+      # KinD runs no GitHub App: the placeholders the development profile uses too, which the org
+      # and system servers boot with; a real App's values go here to exercise GitHub
+      "kinotic-github-app-private-key" = "-"
+      "kinotic-github-webhook-secret"  = "-"
+    },
   )
 }

@@ -38,6 +38,27 @@ Takes (dict "image" <repository and sha> "root" $).
 {{- end -}}
 
 {{/*
+The files a server's platform-secrets volume holds, as a YAML list of the Key Vault secret or
+Secret key each comes from and the file name it is mounted as: the server's own JWT key set, and
+the properties Spring imports from the directory as a config tree, each file named after the
+property it sets. The GitHub App's secrets go only to a server with githubApp set.
+Takes (dict "name" <server key> "server" <server values> "root" $).
+*/}}
+{{- define "kinotic.platformSecretFiles" -}}
+{{- $objects := .root.Values.platformSecrets.objects -}}
+- object: {{ .name }}-jwt-signing-keys
+  path: jwt-signing-keys
+- object: {{ $objects.secretStorageMasterKey }}
+  path: kinotic.domain.secretStorage.masterKey
+{{- if .server.githubApp }}
+- object: {{ $objects.githubAppPrivateKey }}
+  path: kinotic.managementApi.github.appPrivateKey
+- object: {{ $objects.githubWebhookSecret }}
+  path: kinotic.managementApi.github.webhookSecret
+{{- end }}
+{{- end -}}
+
+{{/*
 A server's environment, the data of its ConfigMap: what every server shares and what is its
 own. Its checksum restarts the server's pods when it changes.
 Takes (dict "name" <server key> "server" <server values> "root" $).

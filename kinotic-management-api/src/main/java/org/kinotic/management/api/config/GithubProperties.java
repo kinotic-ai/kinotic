@@ -9,11 +9,11 @@ import lombok.experimental.Accessors;
 /**
  * Non-secret + secret configuration for the single platform GitHub App.
  * <p>
- * In production the secret values ({@link #appPrivateKey}, {@link #webhookSecret})
- * are mounted by the AKS Secret Store CSI driver as environment variables and bound
- * via Spring's relaxed property binding (e.g. {@code KINOTIC_MANAGEMENTAPI_GITHUB_APPPRIVATEKEY}).
- * For local dev they can also be set via {@code application.yml} or any other
- * Spring-supported source.
+ * In Kubernetes the secret values ({@link #appPrivateKey}, {@link #webhookSecret}) are
+ * files of the server's platform-secrets volume, each named after its property
+ * (e.g. {@code kinotic.managementApi.github.appPrivateKey}), which the server imports as
+ * a config tree. For local dev they can also be set via {@code application.yml} or any
+ * other Spring-supported source.
  * <p>
  * Bound under {@code kinotic.managementApi.github.*} via {@link KinoticManagementApiProperties}; required
  * fields are validated at boot via Jakarta Bean Validation.

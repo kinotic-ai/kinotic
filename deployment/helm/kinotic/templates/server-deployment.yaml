@@ -102,8 +102,9 @@ spec:
                   key: {{ $.Values.kinotic.elastic.secretKey }}
             - name: KINOTIC_PLATFORMSECRETS_JWTSIGNINGKEYSPATH
               value: "{{ $.Values.platformSecrets.mountPath }}/jwt-signing-keys"
-            - name: KINOTIC_PLATFORMSECRETS_SECRETSTORAGEMASTERKEYSPATH
-              value: "{{ $.Values.platformSecrets.mountPath }}/{{ $.Values.platformSecrets.objects.secretStorageMasterKeys }}"
+            # Each file of the platform-secrets volume sets the property it is named after
+            - name: SPRING_CONFIG_IMPORT
+              value: "configtree:{{ $.Values.platformSecrets.mountPath }}/"
           volumeMounts:
             - name: tmp-work
               mountPath: /workspace/ignite/work
@@ -136,8 +137,8 @@ spec:
             path: {{ $.Values.evictionTracking.hostPath | default "/tmp/kinotic-eviction-data" }}
             type: DirectoryOrCreate
         {{- end }}
-        # This server's JWT key set, as jwt-signing-keys, and the secret-storage master keys: the
-        # server reads no other server's key set
+        # The files kinotic.platformSecretFiles lists for this server: its own JWT key set, never
+        # another server's, and the secret properties it imports
         - name: platform-secrets
           {{- if $.Values.platformSecrets.keyVault.name }}
           # Azure: the CSI driver projects this server's SecretProviderClass objects from Key Vault
@@ -153,10 +154,10 @@ spec:
           secret:
             secretName: {{ required "platformSecrets.secretName or platformSecrets.keyVault.name is required" $.Values.platformSecrets.secretName }}
             items:
-              - key: {{ $name }}-jwt-signing-keys
-                path: jwt-signing-keys
-              - key: {{ $.Values.platformSecrets.objects.secretStorageMasterKeys }}
-                path: {{ $.Values.platformSecrets.objects.secretStorageMasterKeys }}
+              {{- range $file := include "kinotic.platformSecretFiles" (dict "name" $name "server" $server "root" $) | fromYamlArray }}
+              - key: {{ $file.object }}
+                path: {{ $file.path }}
+              {{- end }}
           {{- end }}
 {{- end }}
 {{- end }}
