@@ -27,7 +27,7 @@ public class UiDeploymentProperties {
 
     /**
      * The domain every site is a label under, e.g. {@code apps.kinotic.ai}: a UI published as
-     * {@code acme-shop-admin} is served at {@code acme-shop-admin.apps.kinotic.ai}.
+     * {@code acme--shop--admin} is served at {@code acme--shop--admin.apps.kinotic.ai}.
      */
     @NotBlank
     private String sitesDomain;

@@ -5,7 +5,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
+import org.kinotic.domain.api.model.AppHost;
 
+import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 
@@ -35,6 +37,14 @@ public class DomainProperties {
      * where the SPA is served from the same origin as the API.
      */
     private String apiBaseUrl = null;
+
+    /**
+     * Base URL every application's API host is a label under (scheme + domain + optional port, no
+     * trailing slash): with {@code https://apps-api.kinotic.ai}, application {@code orders} of
+     * organization {@code acme} is reached at {@code https://acme--orders.apps-api.kinotic.ai}.
+     */
+    @NotBlank
+    private String appApiBaseUrl = "http://localhost:58505";
 
     /**
      * Email / outbound-mail configuration.
@@ -88,6 +98,15 @@ public class DomainProperties {
      */
     public String resolveApiBaseUrl() {
         return (apiBaseUrl != null && !apiBaseUrl.isBlank()) ? apiBaseUrl : appBaseUrl;
+    }
+
+    /**
+     * The URL a browser reaches the application's API on: its {@link AppHost#label()} under
+     * {@link #appApiBaseUrl}, with that URL's scheme and port.
+     */
+    public String resolveAppApiUrl(AppHost appHost) {
+        URI base = URI.create(appApiBaseUrl);
+        return base.getScheme() + "://" + appHost.label() + "." + base.getRawAuthority();
     }
 
     /**
