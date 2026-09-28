@@ -1,0 +1,77 @@
+# YAML Reference http://www.yaml.org/refcard.html
+kinotic:
+  debug: true
+  traceLog:
+    excludes:
+      - "srv://system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService/heartbeat"
+      - "srv://system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService/reportWorkloadStatus"
+  managementApi:
+    entityDefinition:
+      # A single-node dev cluster cannot assign replicas, and every published EntityDefinition costs
+      # numberOfShards * (1 + numberOfReplicas) against the 1000-shard default. 1/0 keeps the cluster
+      # green and lets a developer publish far more definitions before hitting the cap.
+      numberOfShards: 1
+      numberOfReplicas: 0
+    github:
+      webhookSecret: "-"
+      appPrivateKey: "-"
+  systemApi:
+    # No sites account in development: a published UI is marked ready without being uploaded
+    # or served. To publish to a real subscription instead, run with the `local` profile as well
+    # and set the real values in the git-ignored application-local.yml (see the contributing
+    # guide, "Publishing UIs against Azure")
+    uiDeployment:
+      disableProvisioner: true
+      sitesDomain: apps.localhost
+      # validated at boot; nothing reads it while the provisioner is disabled
+      sitesStorageEndpoint: "-"
+    deployment:
+      # A workload runs inside a micro VM, so "localhost" there is the guest, not this machine.
+      # Local development runs the BOXLITE provider, whose guests reach the host on the
+      # gvisor-tap-vsock host alias; boxlite's proxy completes the last hop over this machine's
+      # loopback, so the servers need no exposure beyond it.
+      #
+      # A CLOUD_HYPERVISOR node instead puts its workloads on the node's docker bridge, where
+      # they reach the servers at 172.17.0.1.
+      orgServer:
+        host: 192.168.127.254
+      appServer:
+        host: 192.168.127.254
+      # The sync workload fetches the project from GitHub and runs bun install
+      syncAllowedHosts:
+        - github.com
+        - registry.npmjs.org
+  domain:
+    # The system console's vite dev server (pnpm dev:system), which system logins return to
+    appBaseUrl: http://localhost:5174
+    apiBaseUrl: http://localhost:58504
+    elastic-connections:
+      - scheme: "http"
+        host: "localhost"
+        port: "9200"
+    secretStorage:
+      backend: ~
+      # The org server's dev key: SecretNameDeriver must derive the same storage names on every
+      # server. Dev-only value — production supplies this via Azure Key Vault.
+      masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
+  apiGateway:
+    cors:
+      # The system console's vite dev server
+      allowedOriginPattern: "http:\\/\\/localhost:5174"
+      allowCredentials: true
+  maxNumberOfCoresToUse: 4
+  ignite:
+    discoveryType: SHAREDFS
+  platformSecrets:
+    # Seeded on first boot by DevPlatformSecretsGenerator, or by whichever server boots first: every
+    # server on the machine reads the same file. Production uses Azure Key Vault via the Secrets
+    # Store CSI driver — same file layout, different origin.
+    generateMissing: true
+    jwtSigningKeysPath: ${user.home}/.kinotic/dev-platform-secrets/jwt-signing-keys
+
+logging:
+  level:
+    org:
+      kinotic: TRACE
+      # Logs every classpath resource it scans at TRACE, which drowns the rest of the log
+      kinotic.core.internal.utils.ClassPathScanningMetadataReaderProvider: DEBUG

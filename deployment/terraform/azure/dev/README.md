@@ -1,6 +1,6 @@
 # Developer UI Publishing
 
-Everything a kinotic-server on your machine needs to publish UIs to a real Azure
+Everything the system server on your machine needs to publish UIs to a real Azure
 subscription, instead of the no-op site provisioner the development profile uses. One apply
 creates:
 
@@ -52,7 +52,7 @@ lets_encrypt_email = "you@example.com"   # the Let's Encrypt account the wildcar
 terraform init
 terraform apply -target=module.sites.azurerm_cdn_frontdoor_profile.sites   # the profile first: the roles need its identity's principal id
 terraform apply
-terraform output -raw application_local_yml > ../../../../kinotic-server/src/main/resources/application-local.yml
+terraform output -raw application_local_yml > ../../../../kinotic-system-server/src/main/resources/application-local.yml
 ```
 
 The last command writes the `local` Spring profile, gitignored, which turns the site
@@ -76,7 +76,9 @@ is quick.
 
 ## Running the server
 
-Start kinotic-server with `.env.local` in its environment and both profiles active:
+Start the system server with `.env.local` in its environment and both profiles active (the
+IDE's `SystemServerApplication` run configuration does); the org server reads the same
+`.env.local` to send email:
 
 ```bash
 SPRING_PROFILES_ACTIVE=development,local

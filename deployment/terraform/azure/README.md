@@ -156,7 +156,7 @@ terraform apply     # creates Static Web App + DNS CNAME (first time only)
 
 ## Developer UI Publishing
 
-A kinotic-server on a developer machine publishes UIs to a real subscription with the `dev`
+The system server on a developer machine publishes UIs to a real subscription with the `dev`
 root: a resource group the organization storage accounts are created in, a Front Door
 Standard profile and endpoint under `apps-<environment>.<zone>`, and a service principal
 for the server holding Contributor and Storage Blob Data Contributor on the group, DNS Zone
@@ -172,10 +172,10 @@ picks them up through `DefaultAzureCredential`. Its secret is also in this root'
 cd dev
 terraform init
 terraform apply   # environment = "local" in terraform.tfvars; pick a name of your own
-terraform output -raw application_local_yml > ../../../../kinotic-server/src/main/resources/application-local.yml
+terraform output -raw application_local_yml > ../../../../kinotic-system-server/src/main/resources/application-local.yml
 ```
 
-Then run the server with `SPRING_PROFILES_ACTIVE=development,local`. [dev/README.md](dev/README.md)
+Then run the system server with `SPRING_PROFILES_ACTIVE=development,local`. [dev/README.md](dev/README.md)
 has the full walkthrough, from prerequisites to teardown.
 
 ## Deploy Options
