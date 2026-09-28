@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services.github;
+package org.kinotic.management.api.services.github;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.management.api.config.GithubProperties;
 import org.kinotic.management.api.model.github.GitHubWebhookEvent;
+import org.kinotic.management.internal.api.services.github.GitHubWebhookProcessor;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;

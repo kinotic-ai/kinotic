@@ -1,4 +1,4 @@
-package org.kinotic.domain.internal.api.rest;
+package org.kinotic.domain.internal.api.rest.support;
 
 /**
  * The {@code ?error=} codes the auth flows surface back to the SPA on failure. The SPA

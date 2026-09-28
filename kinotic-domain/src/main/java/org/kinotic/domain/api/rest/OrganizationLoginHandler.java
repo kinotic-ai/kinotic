@@ -1,10 +1,9 @@
-package org.kinotic.domain.internal.api.rest;
+package org.kinotic.domain.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

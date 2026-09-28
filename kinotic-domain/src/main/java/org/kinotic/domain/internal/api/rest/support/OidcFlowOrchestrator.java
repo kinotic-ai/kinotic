@@ -22,7 +22,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
