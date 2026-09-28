@@ -10,4 +10,6 @@ services:
       KINOTIC_MIGRATION_ELASTIC_SCHEME: http
       KINOTIC_MIGRATION_ELASTIC_HOST: kinotic-elasticsearch
       KINOTIC_MIGRATION_ELASTIC_PORT: 9200
-      SPRING_PROFILES_ACTIVE: development,compose
+      # compose.yml adds `fixtures` through evaluation.env, seeding sample data for evaluators;
+      # the test stacks include this file without it
+      SPRING_PROFILES_ACTIVE: ${KINOTIC_MIGRATION_PROFILES:-development,compose}

@@ -56,8 +56,8 @@ import java.util.stream.Collectors;
  * long-lived runtime workload per microservice of the commit and wait for the microservices'
  * workers to answer, and upload its UIs and ask for their sites to serve them. The resolved {@link DeployTarget}, the artifacts, the
  * microservice deployments and the UI deployments are stored in the job scope under the
- * {@link ProjectDeployStores} names, so the run's {@code TaskCompletedEvent}s and
- * {@code TaskRecord}s carry them to the caller and the console.
+ * {@link ProjectDeployStores} names, so the run's {@code TaskRecord}s carry them to the console.
+ * The target is also recorded on the project's deployment as soon as it is resolved.
  */
 @Slf4j
 @Component
@@ -101,6 +101,7 @@ public class ProjectDeployJobDefinitionFactory {
                 // re-derive it and risk landing on a different node
                 .task(Tasks.fromCallable("Resolve deployment target",
                                          () -> resolveTarget(projectId, existing)
+                                                 .compose(target -> recordTarget(project, target))
                                                  .toCompletionStage().toCompletableFuture()),
                       Store.state(ProjectDeployStores.DEPLOY_TARGET).wire())
                 // Store.state: a resume after a later failure replays the synced checkout
@@ -201,6 +202,14 @@ public class ProjectDeployJobDefinitionFactory {
         }
 
         return ret;
+    }
+
+    // The microservice workers read the target from the project's deployment, and this run's
+    // "Ensure runtime workloads" waits on them, so the target is written before any workload runs
+    private Future<DeployTarget> recordTarget(Project project, DeployTarget target) {
+        return projectDeploymentRepository.recordTarget(project.getId(), project.getOrganizationId(), target.nodeId(),
+                                                        target.hostDir(), target.syncWorkloadId(), target.uiPublishWorkloadId())
+                                          .map(target);
     }
 
     /**
