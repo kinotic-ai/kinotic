@@ -5,7 +5,8 @@
 export interface UiArtifact {
     /**
      * The artifact's identity, the unscoped part of the name in the package's package.json:
-     * "@acme/admin" is "admin". Always a single zone label.
+     * "@acme/admin" is "admin". Always a single zone label without "--", unique among the UIs
+     * of the project's application.
      */
     name: string
     /**

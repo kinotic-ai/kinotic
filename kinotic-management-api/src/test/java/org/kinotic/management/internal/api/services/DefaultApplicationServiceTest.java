@@ -1,7 +1,9 @@
 package org.kinotic.management.internal.api.services;
 
 import org.junit.jupiter.api.Test;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Application;
+import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 
 import java.util.List;
 
@@ -9,16 +11,29 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Covers id handling in {@link DefaultApplicationService#beforeSave}: minting the id from the
  * slugified name, rejecting ids that are not lowercase letters, digits, and interior dashes,
- * and rejecting the reserved {@code system} label. The collaborators are unused by beforeSave,
- * so none are given.
+ * rejecting the reserved {@code system} label, and rejecting ids that cannot form the
+ * application's host label. beforeSave reads no collaborator but the caller's organization, so
+ * no other is given.
  */
 class DefaultApplicationServiceTest {
 
-    private final DefaultApplicationService service = new DefaultApplicationService(null, null, null, null);
+    private static final String CALLER_ORG = "acme";
+
+    private final DefaultApplicationService service = new DefaultApplicationService(null, null, null, callerContext());
+
+    private static SecurityContext callerContext() {
+        OrganizationParticipant participant = mock(OrganizationParticipant.class);
+        when(participant.getOrganizationId()).thenReturn(CALLER_ORG);
+        SecurityContext securityContext = mock(SecurityContext.class);
+        when(securityContext.requireParticipant(OrganizationParticipant.class)).thenReturn(participant);
+        return securityContext;
+    }
 
     @Test
     void mintsIdFromSlugifiedName() {
@@ -68,6 +83,26 @@ class DefaultApplicationServiceTest {
             assertDoesNotThrow(() -> service.beforeSave(new Application(name, "desc")),
                                "expected '" + name + "' to be allowed");
         }
+    }
+
+    @Test
+    void rejectsIdsHoldingTheHostLabelSeparator() {
+        Application application = new Application("Orders App", "desc");
+        application.setId("orders--app");
+
+        assertThrows(IllegalArgumentException.class, () -> service.beforeSave(application));
+    }
+
+    @Test
+    void rejectsIdsWhoseHostLabelIsLongerThanDnsAllows() {
+        // "acme--" leaves 57 characters of the 63 a label may hold
+        Application fits = new Application("Orders App", "desc");
+        fits.setId("a".repeat(57));
+        assertDoesNotThrow(() -> service.beforeSave(fits));
+
+        Application tooLong = new Application("Orders App", "desc");
+        tooLong.setId("a".repeat(58));
+        assertThrows(IllegalArgumentException.class, () -> service.beforeSave(tooLong));
     }
 
     @Test

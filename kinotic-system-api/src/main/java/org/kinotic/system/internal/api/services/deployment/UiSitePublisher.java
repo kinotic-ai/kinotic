@@ -4,7 +4,7 @@ import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
-import org.kinotic.core.api.utils.ZoneUtil;
+import org.kinotic.domain.api.model.AppHost;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.management.api.model.Project;
@@ -26,15 +26,14 @@ import java.util.Map;
 
 /**
  * The site side of publishing a project's UIs: the deployment row a UI publishes to, minted on the
- * UI's first publish with a hostname label of its own, and the upload of the built UIs through a
- * foreground publish workload holding nothing but a short-lived upload URL per site.
+ * UI's first publish with the hostname label that names its application and UI, and the upload of
+ * the built UIs through a foreground publish workload holding nothing but a short-lived upload URL
+ * per site.
  */
 @Component
 @RequiredArgsConstructor
 public class UiSitePublisher {
 
-    /** Hostname labels are limited by DNS. */
-    private static final int MAX_LABEL_LENGTH = 63;
     /** Longer than any upload takes, and short enough that a leaked URL is soon worthless. */
     private static final Duration UPLOAD_URL_TTL = Duration.ofHours(1);
 
@@ -44,7 +43,10 @@ public class UiSitePublisher {
     private final WorkloadOrchestrationService workloadOrchestrationService;
     private final KinoticSystemApiProperties properties;
 
-    /** The row a UI publishes to: its existing site, or one minted for its first publish. */
+    /**
+     * The row a UI publishes to: its existing site, or one minted for its first publish. Fails when
+     * the site of a UI of the same name belongs to another project of the application.
+     */
     public Future<UiDeployment> deploymentFor(Project project, UiArtifact ui, UiDeployment existing) {
         return existing == null ? mintDeployment(project, ui) : Future.succeededFuture(existing);
     }
@@ -73,23 +75,16 @@ public class UiSitePublisher {
     }
 
     /**
-     * Mints the site's label, {@code <org>-<app>-<ui>}, taking the first free numeric suffix
-     * when another site holds it, and its URL under the sites domain. The store enforces the
-     * label's uniqueness on create.
+     * Mints the site's label, {@code <org>--<app>--<ui>}, and its URL under the sites domain. The store
+     * enforces the label's uniqueness on create, which keeps a UI name to one project of the application.
      */
     private Future<UiDeployment> mintDeployment(Project project, UiArtifact ui) {
-        String base = project.getOrganizationId() + "-" + project.getApplicationId() + "-" + ui.name();
-        ZoneUtil.validateLabel(base);
-        return mintWithSuffix(project, ui, base, 1);
-    }
-
-    private Future<UiDeployment> mintWithSuffix(Project project, UiArtifact ui, String base, int attempt) {
-        String label = attempt == 1 ? base : base + "-" + attempt;
+        String label = new AppHost(project.getOrganizationId(), project.getApplicationId()).siteLabel(ui.name());
         Future<UiDeployment> ret;
-        if (label.length() > MAX_LABEL_LENGTH) {
+        if (label.length() > AppHost.MAX_LABEL_LENGTH) {
             ret = Future.failedFuture(new IllegalStateException("The hostname label " + label + " for UI " + ui.name()
                     + " of application " + project.getApplicationId() + " of organization " + project.getOrganizationId()
-                    + " is longer than " + MAX_LABEL_LENGTH + " characters; shorten the application or UI name"));
+                    + " is longer than " + AppHost.MAX_LABEL_LENGTH + " characters; shorten the application or UI name"));
         } else {
             UiDeployment deployment = new UiDeployment()
                     .setId(label)
@@ -102,9 +97,10 @@ public class UiSitePublisher {
                     .setUpdated(new Date());
             deployment.getState().setParent(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getOrganizationId(), project.getId()));
             ret = uiDeploymentRepository.create(deployment)
-                    .recover(error -> error instanceof AlreadyExistsException
-                            ? mintWithSuffix(project, ui, base, attempt + 1)
-                            : Future.failedFuture(error));
+                    .recover(error -> Future.failedFuture(error instanceof AlreadyExistsException
+                            ? new IllegalStateException("The site of UI " + ui.name() + " of application " + project.getApplicationId()
+                                    + " belongs to another project of the application; UI names are unique within an application")
+                            : error));
         }
         return ret;
     }
