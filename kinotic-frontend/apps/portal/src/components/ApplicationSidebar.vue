@@ -53,6 +53,7 @@ async function handleSubmit(): Promise<void> {
       description: form.description,
       tenantPerUser: false,
       primaryUiId: null,
+      primaryUiUrl: null,
       updated: null
     }
 

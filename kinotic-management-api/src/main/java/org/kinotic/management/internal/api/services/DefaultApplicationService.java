@@ -108,26 +108,29 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                         "The application's host label '%s' is longer than %d characters; shorten the application name",
                         appHost.label(), AppHost.MAX_LABEL_LENGTH);
         entity.setUpdated(new Date());
-        Future<Void> ret;
+        Future<String> primaryUiUrl;
         if (entity.getPrimaryUiId() == null) {
-            ret = Future.succeededFuture();
+            primaryUiUrl = Future.succeededFuture();
         } else {
-            // checked only when it changes, so removing the primary UI's deployment never fails the application's other edits
-            ret = findById(entity.getId())
+            // resolved only when it changes, so removing the primary UI's deployment never fails the application's other edits
+            primaryUiUrl = findById(entity.getId())
                     .compose(stored -> stored != null && entity.getPrimaryUiId().equals(stored.getPrimaryUiId())
-                            ? Future.succeededFuture()
-                            : requirePublishedUi(appHost, entity.getPrimaryUiId()));
+                            ? Future.succeededFuture(stored.getPrimaryUiUrl())
+                            : publishedUiUrl(appHost, entity.getPrimaryUiId()));
         }
-        return ret;
+        return primaryUiUrl.compose(url -> {
+            entity.setPrimaryUiUrl(url);
+            return Future.succeededFuture();
+        });
     }
 
-    private Future<Void> requirePublishedUi(AppHost appHost, String uiName) {
+    private Future<String> publishedUiUrl(AppHost appHost, String uiName) {
         // a site's label names its application and UI, so a site with this label is one of this application's UIs
         return uiDeploymentRepository.findById(appHost.siteLabel(uiName))
-                .compose(site -> {
+                .map(site -> {
                     Validate.isTrue(site != null, "The application '%s' has no published UI named '%s'",
                                     appHost.applicationId(), uiName);
-                    return Future.succeededFuture();
+                    return site.getUrl();
                 });
     }
 
