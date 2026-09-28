@@ -9,6 +9,7 @@ import java.util.function.Function;
 
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.security.DelegateKind;
@@ -28,7 +29,6 @@ import io.vertx.ext.auth.JWTOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -94,42 +94,47 @@ public class AuthEndpointSupport {
     // ── Browser session login ─────────────────────────────────────────────────
 
     /**
-     * Authenticates the browser by placing the logged-in user's {@link Participant} into the
-     * Vert.x session. The subsequent STOMP WebSocket handshake reads it back from the session,
-     * so the browser is authenticated by its session cookie and never handles a token. The
-     * participant type follows the user's scope (org users get an OrganizationParticipant,
-     * app users an ApplicationParticipant), which is what scopes their authority.
+     * Authenticates the page at {@code origin} by binding the logged-in user's {@link Participant}
+     * to it in the Vert.x session (see {@link SessionBinding}). The subsequent STOMP WebSocket
+     * handshake from that page reads it back, so the browser is authenticated by its session
+     * cookie and never handles a token. The participant type follows the user's scope (org users
+     * get an OrganizationParticipant, app users an ApplicationParticipant), which is what scopes
+     * their authority.
      */
-    public void establishSession(RoutingContext ctx, UserParticipantIdentity user) {
-        Session session = ctx.session();
+    public void establishSession(RoutingContext ctx, String origin, UserParticipantIdentity user) {
         // Rotate the session id on the privilege change so a pre-auth (possibly fixed)
         // id cannot be reused to ride the now-authenticated session.
-        session.regenerateId();
+        ctx.session().regenerateId();
         Participant participant = DomainUtil.createParticipant(user);
         ConnectedInfo connectedInfo = new ConnectedInfo();
         connectedInfo.setParticipant(participant);
-        session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
+        SessionBinding.bind(ctx, origin, connectedInfo);
     }
 
-    /** Establishes the browser session for {@code user} and writes {@code 204 No Content}. */
+    /**
+     * Establishes the browser session for {@code user}, bound to the page that sent the request,
+     * and writes {@code 204 No Content}.
+     */
     public void respondSuccess(RoutingContext ctx, UserParticipantIdentity user) {
-        establishSession(ctx, user);
+        establishSession(ctx, SessionBinding.origin(ctx), user);
         ctx.response().setStatusCode(204).end();
     }
 
     // ── Redirects ─────────────────────────────────────────────────────────────
 
     /**
-     * Establishes the browser session and redirects to the SPA — to the path the login started
-     * from when there was one, otherwise the SPA root. No token travels in the URL — the browser
-     * is authenticated by its session cookie.
+     * Establishes the browser session, bound to the page at {@code origin} that started the
+     * login, and redirects back to that page's origin (the SPA when the start named no page) —
+     * to the path the login started from when there was one, otherwise the root. No token
+     * travels in the URL — the browser is authenticated by its session cookie.
      */
-    public void redirectSuccess(RoutingContext ctx, UserParticipantIdentity user) {
+    public void redirectSuccess(RoutingContext ctx, String origin, UserParticipantIdentity user) {
         // read before establishSession, which regenerates the session id
         String returnPath = ctx.session().remove(RETURN_PATH_SESSION_KEY);
-        establishSession(ctx, user);
+        establishSession(ctx, origin, user);
+        String path = returnPath != null ? returnPath : "/";
         ctx.response().setStatusCode(302)
-           .putHeader("Location", appUrl(returnPath != null ? returnPath : "/"))
+           .putHeader("Location", origin != null ? origin + path : appUrl(path))
            .end();
     }
 
@@ -390,21 +395,21 @@ public class AuthEndpointSupport {
     /**
      * "After the IdP returned" composite flow used by every login callback: validates
      * {@code sub} + {@code email_verified}, looks up the {@link UserParticipantIdentity} via the
-     * supplied function, and redirects success or error accordingly. Never creates
-     * users — the signup path owns provisioning.
+     * supplied function, and redirects success or error accordingly. A successful login is bound
+     * to the page that started the flow. Never creates users — the signup path owns provisioning.
      *
      * @param userLookup takes the OIDC {@code sub} claim and returns the UserParticipantIdentity (or null).
      */
     public void completeOidcLogin(RoutingContext ctx,
-                                  BaseOidcConfiguration config,
-                                  Map<String, Object> claims,
+                                  CallbackResult<? extends BaseOidcConfiguration> result,
                                   Function<String, Future<UserParticipantIdentity>> userLookup) {
+        Map<String, Object> claims = result.claims();
         String sub = OAuth2Util.stringClaim(claims, "sub");
         if (sub == null) {
             redirectError(ctx, OidcErrorCodes.INVALID_TOKEN);
             return;
         }
-        if (!OAuth2Util.isEmailVerified(claims, config.getProvider())) {
+        if (!OAuth2Util.isEmailVerified(claims, result.config().getProvider())) {
             redirectError(ctx, OidcErrorCodes.EMAIL_NOT_VERIFIED);
             return;
         }
@@ -415,7 +420,7 @@ public class AuthEndpointSupport {
                   } else if (!user.isEnabled()) {
                       redirectError(ctx, OidcErrorCodes.ACCOUNT_DISABLED);
                   } else {
-                      redirectSuccess(ctx, user);
+                      redirectSuccess(ctx, result.origin(), user);
                   }
               })
               .onFailure(err -> {

@@ -18,6 +18,7 @@ import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.SecurityService;
+import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.endpoints.Services;
@@ -60,9 +61,10 @@ public class EndpointConnectionHandler {
 
     public Future<MultiMap> handshake(RoutingContext routingContext) {
         session = routingContext.session();
-        this.connectedInfo = connectedInfoFromSession();
-        // a session with no login behind it was created for this upgrade
-        sessionCreatedHere = connectedInfo == null;
+        // the login the upgrading page made, carried by its session cookie
+        this.connectedInfo = SessionBinding.connectedInfo(routingContext);
+        // an upgrade that presented no session cookie got a session created for it
+        sessionCreatedHere = !SessionBinding.sessionPresented(routingContext);
 
         // vertx-stomp-lite upgrades the request only after this future completes, and the
         // ServerWebSocket it creates keeps the request's header MultiMap for the life of the
@@ -92,8 +94,10 @@ public class EndpointConnectionHandler {
                               .map(participant -> {
                                   connectedInfo = new ConnectedInfo();
                                   connectedInfo.setParticipant(participant);
-                                  if (session != null) {
-                                      session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
+                                  // a client outside a browser presents no session cookie and keeps its
+                                  // login on this connection only
+                                  if (SessionBinding.sessionPresented(routingContext)) {
+                                      SessionBinding.bind(routingContext, SessionBinding.origin(routingContext), connectedInfo);
                                   }
                                   return MultiMap.caseInsensitiveMultiMap();
                               });
@@ -115,9 +119,6 @@ public class EndpointConnectionHandler {
                 // or colliding value
                 if (connectedInfo.getReplyToId() == null) {
                     connectedInfo.setReplyToId(UUID.randomUUID().toString());
-                }
-                if (session != null) {
-                    session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
                 }
                 stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
 
@@ -142,8 +143,7 @@ public class EndpointConnectionHandler {
         // a login session the client presented belongs to the browser, not to this connection
         if (sessionKeepAliveMode == SessionKeepAliveMode.NONE && session != null && sessionCreatedHere) {
             // The Vert.x SessionHandler deletes a destroyed session from the store when the response
-            // ends. A WebSocket's response ended at the upgrade, so the store entry is removed here,
-            // which keeps a reconnect within the timeout from resuming the session and its replyToId.
+            // ends. A WebSocket's response ended at the upgrade, so the store entry is removed here.
             services.sessionStore.delete(session.id())
                                  .onFailure(throwable -> log.warn("Session {} could not be removed from the store", session.id(), throwable));
             session.destroy();
@@ -355,17 +355,6 @@ public class EndpointConnectionHandler {
             ret.put(entry.getKey(), entry.getValue());
         }
         return ret;
-    }
-
-    private ConnectedInfo connectedInfoFromSession() {
-        if (session == null) {
-            return null;
-        }
-        Object value = session.get(ConnectedInfo.SESSION_KEY);
-        if (value instanceof ConnectedInfo storedConnectedInfo) {
-            return storedConnectedInfo;
-        }
-        return null;
     }
 
     private void signalActivity() {

@@ -32,7 +32,7 @@ public class StompAuthorizerFactoryTest {
                                                                                  .metadata(Map.of())
                                                                                  .roles(List.of())
                                                                                  .build();
-        return factory.create(new ConnectedInfo(participant, REPLY_TO_ID));
+        return factory.create(new ConnectedInfo(participant, REPLY_TO_ID, null));
     }
 
     private StompAuthorizer organizationAuthorizer(String organizationId) {
@@ -42,7 +42,7 @@ public class StompAuthorizerFactoryTest {
                                                                                    .metadata(Map.of())
                                                                                    .roles(List.of())
                                                                                    .build();
-        return factory.create(new ConnectedInfo(participant, REPLY_TO_ID));
+        return factory.create(new ConnectedInfo(participant, REPLY_TO_ID, null));
     }
 
     private StompAuthorizer systemAuthorizer() {
@@ -51,7 +51,7 @@ public class StompAuthorizerFactoryTest {
                                                                        .metadata(Map.of())
                                                                        .roles(List.of())
                                                                        .build();
-        return factory.create(new ConnectedInfo(participant, REPLY_TO_ID));
+        return factory.create(new ConnectedInfo(participant, REPLY_TO_ID, null));
     }
 
     @Test

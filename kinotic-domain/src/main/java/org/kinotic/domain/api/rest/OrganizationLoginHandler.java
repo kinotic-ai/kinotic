@@ -112,7 +112,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
     }
 
     private void completeSocialLogin(RoutingContext ctx, CallbackResult<OrgSignupOidcConfiguration> result) {
-        authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
+        authEndpointSupport.completeOidcLogin(ctx, result,
                 sub -> identityService.findOrgUserByOidcIdentity(sub, result.config().getId()));
     }
 
@@ -143,7 +143,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
     }
 
     private void completeSsoLogin(RoutingContext ctx, CallbackResult<OidcConfiguration> result) {
-        authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
+        authEndpointSupport.completeOidcLogin(ctx, result,
                 sub -> identityService.findByOidcIdentity(sub, result.config().getId(), result.orgId(), null));
     }
 

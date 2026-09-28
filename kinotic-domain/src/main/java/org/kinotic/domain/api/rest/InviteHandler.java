@@ -6,6 +6,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.api.services.OrganizationService;
@@ -111,7 +112,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                   if (user.getApplicationId() != null) {
                       // Session established like any login (ApplicationParticipant); the payload
                       // tells the accept page which application to point the invitee at.
-                      authEndpointSupport.establishSession(ctx, user);
+                      authEndpointSupport.establishSession(ctx, SessionBinding.origin(ctx), user);
                       ctx.response().putHeader("Content-Type", "application/json")
                          .end(new JsonObject()
                                  .put("scope", "APPLICATION")
@@ -208,14 +209,14 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                   if (user.getApplicationId() != null) {
                       // Session established like any login (ApplicationParticipant); the redirect
                       // shows the confirmation state since the web app is not an app user's UI.
-                      authEndpointSupport.establishSession(ctx, user);
+                      authEndpointSupport.establishSession(ctx, result.origin(), user);
                       ctx.response().setStatusCode(302)
                          .putHeader("Location", authEndpointSupport.appUrl(
                                  INVITE_ACCEPT_PATH + "?accepted=app&application="
                                          + URLEncoder.encode(user.getApplicationId(), StandardCharsets.UTF_8)))
                          .end();
                   } else {
-                      authEndpointSupport.redirectSuccess(ctx, user);
+                      authEndpointSupport.redirectSuccess(ctx, result.origin(), user);
                   }
               })
               .onFailure(err -> {
