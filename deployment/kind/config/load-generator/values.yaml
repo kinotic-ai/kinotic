@@ -1,10 +1,10 @@
 # Kind-specific values for the load-generator chart
-# Connects directly to kinotic-server service (TLS enabled)
+# Connects directly to the org server's service (TLS enabled)
 
 kinotic:
   useSsl: true
   tlsInsecure: true  # Accept mkcert self-signed certs
-  host: kinotic-server
+  host: kinotic-org-server
   port: 58503
 
 loadGenerator:

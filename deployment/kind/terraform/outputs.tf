@@ -12,13 +12,17 @@ output "kubeconfig" {
 output "endpoints" {
   description = "Kinotic service endpoints"
   value = var.use_mkcert ? {
-    ui        = "https://localhost/"
-    ui_direct = "https://localhost:9090/"
-    stomp     = "wss://localhost:58503/v1"
-  } : {
-    ui        = "http://localhost:9090/"
-    ui_direct = "http://localhost:9090/"
-    stomp     = "ws://localhost:58503/v1"
+    ui           = "https://localhost/"
+    ui_direct    = "https://localhost:9090/"
+    org_stomp    = "wss://localhost:58503/v1"
+    system_stomp = "wss://localhost:58504/v1"
+    app_stomp    = "wss://localhost:58505/v1"
+    } : {
+    ui           = "http://localhost:9090/"
+    ui_direct    = "http://localhost:9090/"
+    org_stomp    = "ws://localhost:58503/v1"
+    system_stomp = "ws://localhost:58504/v1"
+    app_stomp    = "ws://localhost:58505/v1"
   }
 }
 
