@@ -1,7 +1,7 @@
-# ── RBAC: kinotic-server can send email ───────────────────────────────────────
+# ── RBAC: the servers can send email ──────────────────────────────────────────
 # The email infrastructure (ACS, email service, domain, DNS, verification) lives
 # in the global terraform — see global/email.tf. Each cluster grants its own
-# kinotic-server identity send permission on the shared communication service.
+# servers' identity send permission on the shared communication service.
 
 resource "azurerm_role_assignment" "kinotic_server_email_contributor" {
   scope                = local.global.email_communication_service_id

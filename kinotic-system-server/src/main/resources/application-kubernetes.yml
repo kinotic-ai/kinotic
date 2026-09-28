@@ -17,3 +17,9 @@ kinotic:
     kubernetesNamespace: kinotic
     kubernetesServiceName: kinotic
     kubernetesIncludeNotReadyAddresses: true
+
+  apiGateway:
+    cors:
+      # the system console alone, which signs in with the session cookie
+      allowedOriginPattern: "https:\\/\\/console\\.kinotic\\.ai"
+      allowCredentials: true

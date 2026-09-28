@@ -124,6 +124,7 @@ resource "terraform_data" "cert_manager_issuer_and_cert" {
         dnsNames:
           - ${local.global.dns_zone_name}
           - "*.${local.global.dns_zone_name}"
+          - "*.apps-api.${local.global.dns_zone_name}"
       YAML
 
       echo "ClusterIssuer and Certificate created"
@@ -140,7 +141,7 @@ resource "terraform_data" "cert_manager_issuer_and_cert" {
 # cert-manager issues the cert asynchronously after the Certificate resource
 # is created. On first deploy, this requires DNS propagation (NS records
 # pointing to Azure DNS). This resource blocks until the TLS secret exists
-# with data, ensuring kinotic-server only starts after TLS is ready.
+# with data, ensuring the servers only start after TLS is ready.
 
 resource "terraform_data" "tls_cert_ready" {
   provisioner "local-exec" {
@@ -171,7 +172,7 @@ resource "terraform_data" "tls_cert_ready" {
 # ── Reloader ──────────────────────────────────────────────────────────────────
 # Watches Kubernetes Secrets and ConfigMaps, triggers rolling restarts
 # on Deployments that reference them via annotations.
-# When cert-manager renews the TLS cert, Reloader restarts kinotic-server
+# When cert-manager renews the TLS cert, Reloader restarts the servers
 # so Vert.x picks up the new cert/key files.
 
 resource "helm_release" "reloader" {

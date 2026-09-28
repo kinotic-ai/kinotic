@@ -189,7 +189,7 @@ resource "azuread_service_principal" "kinotic_platform" {
   client_id = azuread_application.kinotic_platform.client_id
 }
 
-# OAuth2 client secret for the platform Entra app. Consumed by the kinotic-server
+# OAuth2 client secret for the platform Entra app. Consumed by the servers'
 # OIDC bootstrap as the "entra-platform" config's clientSecret.
 resource "azuread_application_password" "kinotic_platform" {
   application_id = azuread_application.kinotic_platform.id

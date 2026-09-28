@@ -4,7 +4,7 @@
 # No manual steps after terraform apply.
 #
 # Lives in global because the email service is shared across all clusters and
-# bound to the global DNS zone. Per-cluster RBAC (granting kinotic-server
+# bound to the global DNS zone. Per-cluster RBAC (granting the servers'
 # identity send permission) lives in the cluster terraform.
 
 resource "azurerm_email_communication_service" "main" {

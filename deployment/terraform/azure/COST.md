@@ -19,7 +19,7 @@ Estimated monthly costs for `centralus` (the `location` in `cluster/terraform.tf
 | System Node Pool (3x VMs) | Virtual Machines | **Paid** |
 | System OS Disks | Managed Disks | **Paid** |
 | Azure DNS Zone | Azure DNS (kinotic.ai) | **~$0.50/mo** |
-| DNS A Record (api.kinotic.ai) | Azure DNS | Included in zone |
+| DNS A Records (api, system-api, apps-api, *.apps-api) | Azure DNS | Included in zone |
 | DNS CNAME (portal.kinotic.ai) | Azure DNS | Included in zone |
 | DNS Queries | Azure DNS | **~$0.40/mo per 1M queries** |
 | Load Balancer (STOMP only) | Standard LB + Public IP | **~$22/mo** |
@@ -98,17 +98,19 @@ Memory reservations (requests) determine scheduling, not actual usage.
 |---|---|---|---|
 | ES master | 2 GB | 1 | 2 GB |
 | ES data | 6 GB | 3 | 18 GB |
-| kinotic-server | 2 GB | 2 | 4 GB |
+| kinotic-org-server | 2 GB | 2 | 4 GB |
+| kinotic-system-server | 2 GB | 1 | 2 GB |
+| kinotic-app-server | 2 GB | 2 | 4 GB |
 | Loki | 512 MB | 1 | 0.5 GB |
 | Grafana | 256 MB | 1 | 0.25 GB |
 | Alloy (per node) | 256 MB | 3 | 0.75 GB |
 | System (kube, ECK, cert-mgr, Reloader, Cilium) | — | — | ~5 GB |
-| **Reserved** | | | **~30.5 GB** |
-| **Available for rolling updates** | | | **~11.5 GB** |
+| **Reserved** | | | **~36.5 GB** |
+| **Available for rolling updates** | | | **~5.5 GB** |
 
 **Beta sizing notes:**
 - ES data reduced from 8 GB to 6 GB (actual usage ~4.6 GB per pod)
-- kinotic-server at 2 replicas (3 in production)
+- The org and app servers at 2 replicas, the system server at 1 (more in production); a rolling update surges one 2 GB pod at a time
 - Loki caches disabled (chunksCache, resultsCache) — not needed at beta volume
 - Alloy DaemonSet runs on every node, minimal memory
 

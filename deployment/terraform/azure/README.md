@@ -208,7 +208,7 @@ terraform apply -var="beta_mode=false"
 | VNet, subnet, identities | `cluster/` | Disposable |
 | cert-manager + TLS cert | `cluster/` | Disposable (re-issued on rebuild) |
 | Elasticsearch + ECK | `cluster/` | Disposable (data lost on destroy) |
-| kinotic-server | `cluster/` | Disposable |
+| The Kinotic servers (org, system, app) | `cluster/` | Disposable |
 | Observability (Loki, Alloy, Grafana) | `cluster/` | Disposable |
 | Firecracker VMs | `cluster/` | Disposable |
 | Static Web App (SPA) | `frontend/` | Independent |

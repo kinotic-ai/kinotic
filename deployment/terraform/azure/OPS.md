@@ -16,8 +16,8 @@ Adds dedicated ES node pool (3x Standard_E8s_v5), ECK migrates ES pods, system p
 **Expand ES storage:**
 Increase `storage:` in the eck-stack values overlay, then `terraform apply`. ECK expands PVCs online with zero downtime. You can only grow, never shrink.
 
-**Scale kinotic-server replicas:**
-Change `replicaCount` in `config/kinotic-server/values.yaml`, then `terraform apply`.
+**Scale a server's replicas:**
+Change `servers.<server>.replicaCount` in `config/kinotic/values.yaml`, then `terraform apply`.
 
 **Scale ES data nodes:**
 Change `count:` in the eck-stack values overlay, then `terraform apply`. ECK rebalances shards automatically.
@@ -29,7 +29,7 @@ terraform apply -var="enable_firecracker=true" -var="firecracker_node_count=3"
 
 ## Upgrades
 
-**Kinotic server version:**
+**Kinotic servers' version:**
 1. Push new image to Docker Hub
 2. Update `kinotic_version` in `terraform.tfvars`
 3. `terraform apply`
@@ -46,7 +46,7 @@ Update `kubernetes_version` in `terraform.tfvars`, then `terraform apply`. AKS u
 Re-run the ES secret sync to copy the updated secret:
 ```bash
 helm upgrade es-secret-sync ../../helm/es-secret-sync -n kinotic
-kubectl rollout restart deployment kinotic-server -n kinotic
+kubectl rollout restart deployment kinotic-org-server kinotic-system-server kinotic-app-server -n kinotic
 ```
 
 **Grafana Entra ID:**
@@ -68,10 +68,10 @@ kubectl port-forward svc/grafana -n observability 3000:3000
 
 **Useful Loki queries:**
 ```
-{namespace="kinotic"}                          # All kinotic-server logs
+{namespace="kinotic"}                          # All the servers' logs
 {namespace="kinotic"} | json | level="ERROR"   # Errors only
 {namespace="elastic"}                          # Elasticsearch logs
-{app="kinotic-server"} | json | level="WARN"   # Warnings
+{app="kinotic-org-server"} | json | level="WARN"   # One server's warnings
 ```
 
 **kubectl:**
@@ -95,13 +95,13 @@ terraform destroy
 terraform apply
 ```
 
-`cluster/dns.tf` re-creates the `api` A record against the new LoadBalancer IP on the way
+`cluster/dns.tf` re-creates each server's A records against its new LoadBalancer IP on the way
 back up.
 
 ## Certificate Renewal
 
 cert-manager auto-renews ~30 days before expiry. Reloader detects the secret change
-and triggers a rolling restart of kinotic-server.
+and triggers a rolling restart of the servers.
 
 If renewal fails, check:
 ```bash
