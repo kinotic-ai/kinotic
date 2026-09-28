@@ -10,7 +10,7 @@ No phase may rewrite, refactor or restructure what an earlier phase produced. If
 ### IamUser refactor
 
 * Fix DefaultPendingRegistrationService.applyPendingScope (Should not be needed)
-* Review login handlers and KinoticSecurityService in detail.
+* Review login handlers and the per-server security services in detail.
 * Verify DefaultOpenAPIService.addNamedQueryPathItems (call looks up named queries without org)
 * No OpenAPI routes have the org in the path.
 
@@ -39,8 +39,8 @@ token names, while nothing verifies the name, describes the gap precisely enough
 It belongs back in `website/content/02.platform/05.system-security.md` once the check is enforced,
 where it reads as a security property rather than an inventory.
 
-Only the check was dropped because enforcing it requires the entry point to tell
-`KinoticSecurityService` which surface it serves, and the only channel for that was the
+Only the check was dropped because enforcing it requires the entry point to tell the server's
+`SecurityService` which surface it serves, and the only channel for that was the
 `SecurityService` contract — a change worth designing properly rather than rushing. The contract
 stays `authenticate(Map<String, String>)`.
 
@@ -70,7 +70,7 @@ the signature check. Signature verification is the right guard, but the audience
 cheaper one that did not depend on key hygiene being perfect.
 
 **What restoring the check needs.** The blocker is getting the audience from the entry point to
-`KinoticSecurityService` without putting a JWT concern in `kinotic-core`, since core is used without
+`CredentialAuthenticationService` without putting a JWT concern in `kinotic-core`, since core is used without
 the OS and authenticates for one reason only. The direction we converged on:
 
 - `SecurityService.authenticate(AuthenticationContext, Map<String, String>)` — the map stays a

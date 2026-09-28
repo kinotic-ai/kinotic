@@ -8,4 +8,6 @@ dependencies {
 	implementation project(':kinotic-management-api')
 	implementation project(':kinotic-system-api')
 	implementation project(':kinotic-api-gateway')
+
+	implementation 'io.vertx:vertx-core'
 }

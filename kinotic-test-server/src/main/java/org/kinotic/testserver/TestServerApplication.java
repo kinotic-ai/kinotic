@@ -10,8 +10,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * {@link TestSecurityService} authenticating connections and {@link ITestService} to call.
  * It needs no Elasticsearch.
  */
-// Only kinotic-domain's model types are used here; its services need Elasticsearch and would
-// bring the real SecurityService in place of TestSecurityService
+// Only kinotic-domain's model types are used here; its services need Elasticsearch
 @SpringBootApplication(exclude = KinoticDomainAutoConfiguration.class)
 @EnableKinotic
 public class TestServerApplication {

@@ -37,7 +37,7 @@ import java.util.UUID;
 public class EndpointConnectionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(EndpointConnectionHandler.class);
-    /** Upgrade header carrying the client secret; also read by name in KinoticSecurityService. */
+    /** Upgrade header carrying the client secret; also read by name in DefaultCredentialAuthenticationService. */
     private static final String CLIENT_SECRET_HEADER = "clientSecret";
     private final SecurityService securityService;
     private final Services services;
