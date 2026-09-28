@@ -220,7 +220,7 @@ onMounted(() => {
       <button
         @click.stop="emit('delete', widget.id!)"
         :class="['absolute right-2 top-2 p-1 transition-colors', isDark ? 'text-surface-500 hover:text-red-500' : 'text-surface-400 hover:text-red-500']"
-        title="Delete Widget"
+        v-tooltip.top="'Delete Widget'" aria-label="Delete Widget"
       >
         <i class="pi pi-trash text-xs"></i>
       </button>

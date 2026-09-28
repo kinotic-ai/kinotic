@@ -1,5 +1,9 @@
+import type { Component } from 'vue'
 import { type RouteMeta, type RouteRecordRaw } from 'vue-router'
-import type { SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import {
+    ChartLine, CloudUpload, LayoutDashboard, LayoutGrid, Link, Server, Settings, Table, User, Users
+} from '@lucide/vue'
+import { JobsIcon, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
 /**
  * The portal's navigation has four scopes, each with its own sidebar group: the
@@ -12,19 +16,19 @@ import type { SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
 const layout = () => import('@/layouts/LayoutForPage.vue')
 
-function organizationItem(label: string, icon: string, order: number, section: string): SidebarItemMeta {
+function organizationItem(label: string, icon: Component, order: number, section: string): SidebarItemMeta {
   return { group: 'organization', section, label, icon, order }
 }
 
-function applicationItem(label: string, icon: string, order: number, section?: string): SidebarItemMeta {
+function applicationItem(label: string, icon: Component, order: number, section?: string): SidebarItemMeta {
   return { group: 'application', section, label, icon, order }
 }
 
-function projectItem(label: string, icon: string, order: number): SidebarItemMeta {
+function projectItem(label: string, icon: Component, order: number): SidebarItemMeta {
   return { group: 'project', label, icon, order }
 }
 
-function accountItem(label: string, icon: string, order: number): SidebarItemMeta {
+function accountItem(label: string, icon: Component, order: number): SidebarItemMeta {
   return { group: 'account', section: 'Account', label, icon, order }
 }
 
@@ -39,7 +43,7 @@ function organizationPage(path: string, sidebar: SidebarItemMeta, children: Rout
 }
 
 const pageRoutes: RouteRecordRaw[] = [
-  organizationPage('/applications', organizationItem('Applications', 'pi-th-large', 10, 'Organization'), [
+  organizationPage('/applications', organizationItem('Applications', LayoutGrid, 10, 'Organization'), [
     {
       name: 'applications',
       path: '',
@@ -47,7 +51,7 @@ const pageRoutes: RouteRecordRaw[] = [
     }
   ]),
 
-  organizationPage('/jobs', organizationItem('Jobs', 'pi-list-check', 20, 'Organization'), [
+  organizationPage('/jobs', organizationItem('Jobs', JobsIcon, 20, 'Organization'), [
     {
       name: 'jobs',
       path: '',
@@ -61,7 +65,7 @@ const pageRoutes: RouteRecordRaw[] = [
     }
   ]),
 
-  organizationPage('/observability', organizationItem('Observability', 'pi-chart-line', 30, 'Organization'), [
+  organizationPage('/observability', organizationItem('Observability', ChartLine, 30, 'Organization'), [
     {
       name: 'organization-observability',
       path: '',
@@ -75,7 +79,7 @@ const pageRoutes: RouteRecordRaw[] = [
     }
   ]),
 
-  organizationPage('/members', organizationItem('Members', 'pi-users', 40, 'People & access'), [
+  organizationPage('/members', organizationItem('Members', Users, 40, 'People & access'), [
     {
       name: 'organization-members',
       path: '',
@@ -84,7 +88,7 @@ const pageRoutes: RouteRecordRaw[] = [
     }
   ]),
 
-  organizationPage('/organization-settings', organizationItem('Organization settings', 'pi-cog', 50, 'Settings'), [
+  organizationPage('/organization-settings', organizationItem('Organization settings', Settings, 50, 'Settings'), [
     {
       name: 'organization-settings',
       path: '',
@@ -106,6 +110,19 @@ const pageRoutes: RouteRecordRaw[] = [
   },
 
   {
+    path: '/openapi',
+    component: layout,
+    meta: { sidebarGroup: 'organization', fullWidth: true } as RouteMeta,
+    children: [
+      {
+        name: 'openapi-playground',
+        path: '',
+        component: () => import('@/pages/OpenAPIPlayground.vue')
+      }
+    ]
+  },
+
+  {
     path: '/account',
     redirect: '/account/profile',
     component: layout,
@@ -114,13 +131,13 @@ const pageRoutes: RouteRecordRaw[] = [
       {
         name: 'account-profile',
         path: 'profile',
-        meta: { sidebar: accountItem('Profile', 'pi-user', 10) } as RouteMeta,
+        meta: { sidebar: accountItem('Profile', User, 10) } as RouteMeta,
         component: () => import('@/pages/ProfilePage.vue')
       },
       {
         name: 'account-connected-apps',
         path: 'connected-apps',
-        meta: { sidebar: accountItem('Connected apps', 'pi-link', 20) } as RouteMeta,
+        meta: { sidebar: accountItem('Connected apps', Link, 20) } as RouteMeta,
         component: () => import('@kinotic-ai/frontend-common').then(m => m.ConnectedAppsPage)
       }
     ]
@@ -134,21 +151,21 @@ const pageRoutes: RouteRecordRaw[] = [
       {
         name: 'application-overview',
         path: '',
-        meta: { sidebar: applicationItem('Overview', 'pi-objects-column', 10) } as RouteMeta,
+        meta: { sidebar: applicationItem('Overview', LayoutDashboard, 10) } as RouteMeta,
         component: () => import('@/pages/ApplicationOverview.vue'),
         props: true
       },
       {
         name: 'application-projects',
         path: 'projects',
-        meta: { sidebar: applicationItem('Projects', 'pi-folder', 20) } as RouteMeta,
+        meta: { sidebar: applicationItem('Projects', ProjectsIcon, 20) } as RouteMeta,
         component: () => import('@/pages/ProjectsPage.vue'),
         props: true
       },
       {
         name: 'application-entities',
         path: 'entities',
-        meta: { sidebar: applicationItem('Entities', 'pi-table', 30) } as RouteMeta,
+        meta: { sidebar: applicationItem('Entities', Table, 30) } as RouteMeta,
         component: () => import('@/pages/ApplicationEntitiesPage.vue'),
         props: true
       },
@@ -161,7 +178,7 @@ const pageRoutes: RouteRecordRaw[] = [
       {
         name: 'application-observability',
         path: 'observability',
-        meta: { sidebar: applicationItem('Observability', 'pi-chart-line', 40) } as RouteMeta,
+        meta: { sidebar: applicationItem('Observability', ChartLine, 40) } as RouteMeta,
         component: () => import('@/pages/ObservabilityPage.vue'),
         props: true
       },
@@ -174,21 +191,21 @@ const pageRoutes: RouteRecordRaw[] = [
       {
         name: 'application-users',
         path: 'users',
-        meta: { sidebar: applicationItem('Users', 'pi-users', 50, 'Access') } as RouteMeta,
+        meta: { sidebar: applicationItem('Users', Users, 50, 'Access') } as RouteMeta,
         component: () => import('@/pages/MembersPage.vue'),
         props: true
       },
       {
         name: 'application-machines',
         path: 'machines',
-        meta: { sidebar: applicationItem('Machines', 'pi-server', 60, 'Access') } as RouteMeta,
+        meta: { sidebar: applicationItem('Machines', Server, 60, 'Access') } as RouteMeta,
         component: () => import('@/pages/MachinesPage.vue'),
         props: true
       },
       {
         name: 'application-settings',
         path: 'settings',
-        meta: { sidebar: applicationItem('Settings', 'pi-cog', 70, 'Settings') } as RouteMeta,
+        meta: { sidebar: applicationItem('Settings', Settings, 70, 'Settings') } as RouteMeta,
         component: () => import('@/pages/ApplicationSettings.vue'),
         props: true
       }
@@ -203,14 +220,14 @@ const pageRoutes: RouteRecordRaw[] = [
       {
         name: 'project-overview',
         path: '',
-        meta: { sidebar: projectItem('Overview', 'pi-objects-column', 10) } as RouteMeta,
+        meta: { sidebar: projectItem('Overview', LayoutDashboard, 10) } as RouteMeta,
         component: () => import('@/pages/ProjectOverview.vue'),
         props: true
       },
       {
         name: 'project-entities',
         path: 'entities',
-        meta: { sidebar: projectItem('Entities', 'pi-table', 20) } as RouteMeta,
+        meta: { sidebar: projectItem('Entities', Table, 20) } as RouteMeta,
         component: () => import('@/pages/ProjectEntitiesPage.vue'),
         props: true
       },
@@ -223,7 +240,7 @@ const pageRoutes: RouteRecordRaw[] = [
       {
         name: 'project-deployment',
         path: 'deployment',
-        meta: { sidebar: projectItem('Deployment', 'pi-cloud-upload', 30) } as RouteMeta,
+        meta: { sidebar: projectItem('Deployment', CloudUpload, 30) } as RouteMeta,
         component: () => import('@/pages/ProjectDeploymentPage.vue'),
         props: true
       }

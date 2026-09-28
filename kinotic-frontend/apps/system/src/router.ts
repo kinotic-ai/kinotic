@@ -1,5 +1,9 @@
+import type { Component } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-import { ConnectedAppsPage, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import {
+    Box, Building2, ChartLine, CloudUpload, Cpu, LayoutDashboard, LayoutGrid, Link, Network, Server, Users
+} from '@lucide/vue'
+import { ConnectedAppsPage, JobsIcon, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
 /**
  * The console has five scopes, each with its own sidebar group: the platform, one organization,
@@ -9,23 +13,23 @@ import { ConnectedAppsPage, type SidebarItemMeta } from '@kinotic-ai/frontend-co
  * point back to it.
  */
 
-function consoleItem(label: string, icon: string, order: number, section?: string): SidebarItemMeta {
+function consoleItem(label: string, icon: Component, order: number, section?: string): SidebarItemMeta {
     return { group: 'console', section, label, icon, order }
 }
 
-function organizationItem(label: string, icon: string, order: number, section?: string): SidebarItemMeta {
+function organizationItem(label: string, icon: Component, order: number, section?: string): SidebarItemMeta {
     return { group: 'organization', section, label, icon, order }
 }
 
-function applicationItem(label: string, icon: string, order: number, section?: string): SidebarItemMeta {
+function applicationItem(label: string, icon: Component, order: number, section?: string): SidebarItemMeta {
     return { group: 'application', section, label, icon, order }
 }
 
-function projectItem(label: string, icon: string, order: number, section?: string): SidebarItemMeta {
+function projectItem(label: string, icon: Component, order: number, section?: string): SidebarItemMeta {
     return { group: 'project', section, label, icon, order }
 }
 
-function accountItem(label: string, icon: string, order: number): SidebarItemMeta {
+function accountItem(label: string, icon: Component, order: number): SidebarItemMeta {
     return { group: 'account', section: 'Account', label, icon, order }
 }
 
@@ -37,7 +41,7 @@ const PROJECT = `${APPLICATION}/project/:projectId`
  * The pages every scope has, under the scope's path: the workloads and job runs it owns with
  * their detail pages, and, where given, its observability with the traces opened from it.
  */
-function runtimeRoutes(prefix: string, name: string, item: (label: string, icon: string, order: number, section?: string) => SidebarItemMeta,
+function runtimeRoutes(prefix: string, name: string, item: (label: string, icon: Component, order: number, section?: string) => SidebarItemMeta,
                        group: string, order: number, observability: boolean): RouteRecordRaw[] {
     const at = (path: string) => prefix ? `${prefix}/${path}` : path
     const ret: RouteRecordRaw[] = [
@@ -46,7 +50,7 @@ function runtimeRoutes(prefix: string, name: string, item: (label: string, icon:
             path: at('workloads'),
             component: () => import('./pages/WorkloadsPage.vue'),
             props: true,
-            meta: { sidebar: item('Workloads', 'pi-box', order, 'Runtime') }
+            meta: { sidebar: item('Workloads', Box, order, 'Runtime') }
         },
         {
             name: `${name}workload`,
@@ -60,7 +64,7 @@ function runtimeRoutes(prefix: string, name: string, item: (label: string, icon:
             path: at('jobs'),
             component: () => import('./pages/JobsPage.vue'),
             props: true,
-            meta: { sidebar: item('Jobs', 'pi-list-check', order + 10, 'Runtime') }
+            meta: { sidebar: item('Jobs', JobsIcon, order + 10, 'Runtime') }
         },
         {
             name: `${name}job-run`,
@@ -77,7 +81,7 @@ function runtimeRoutes(prefix: string, name: string, item: (label: string, icon:
                 path: at('observability'),
                 component: () => import('./pages/ObservabilityPage.vue'),
                 props: true,
-                meta: { sidebar: item('Observability', 'pi-chart-line', order + 20, 'Runtime') }
+                meta: { sidebar: item('Observability', ChartLine, order + 20, 'Runtime') }
             },
             {
                 name: `${name}trace`,
@@ -107,19 +111,19 @@ const routes: RouteRecordRaw[] = [
                 name: 'dashboard',
                 path: 'dashboard',
                 component: () => import('./pages/Dashboard.vue'),
-                meta: { sidebar: consoleItem('Dashboard', 'pi-objects-column', 10) }
+                meta: { sidebar: consoleItem('Dashboard', LayoutDashboard, 10) }
             },
             {
                 name: 'cluster',
                 path: 'cluster',
                 component: () => import('./pages/ClusterPage.vue'),
-                meta: { sidebar: consoleItem('Cluster', 'pi-sitemap', 20, 'Platform') }
+                meta: { sidebar: consoleItem('Cluster', Network, 20, 'Platform') }
             },
             {
                 name: 'worker-nodes',
                 path: 'worker-nodes',
                 component: () => import('./pages/NodesPage.vue'),
-                meta: { sidebar: consoleItem('Worker nodes', 'pi-server', 30, 'Platform') }
+                meta: { sidebar: consoleItem('Worker nodes', Server, 30, 'Platform') }
             },
             {
                 name: 'worker-node',
@@ -134,20 +138,20 @@ const routes: RouteRecordRaw[] = [
                 name: 'organizations',
                 path: 'organizations',
                 component: () => import('./pages/OrganizationsPage.vue'),
-                meta: { sidebar: consoleItem('Organizations', 'pi-building', 70, 'Tenants') }
+                meta: { sidebar: consoleItem('Organizations', Building2, 70, 'Tenants') }
             },
             // The platform's own members: MembersPage with no scope lists the operators
             {
                 name: 'platform-users',
                 path: 'members/users',
                 component: () => import('./pages/MembersPage.vue'),
-                meta: { sidebar: consoleItem('Users', 'pi-users', 80, 'Members') }
+                meta: { sidebar: consoleItem('Users', Users, 80, 'Members') }
             },
             {
                 name: 'platform-machines',
                 path: 'members/machines',
                 component: () => import('./pages/MachinesPage.vue'),
-                meta: { sidebar: consoleItem('Machines', 'pi-microchip', 90, 'Members') }
+                meta: { sidebar: consoleItem('Machines', Cpu, 90, 'Members') }
             },
 
             {
@@ -155,28 +159,28 @@ const routes: RouteRecordRaw[] = [
                 path: ORGANIZATION,
                 component: () => import('./pages/OrgOverview.vue'),
                 props: true,
-                meta: { sidebar: organizationItem('Overview', 'pi-objects-column', 10) }
+                meta: { sidebar: organizationItem('Overview', LayoutDashboard, 10) }
             },
             {
                 name: 'org-applications',
                 path: `${ORGANIZATION}/applications`,
                 component: () => import('./pages/OrgApplicationsPage.vue'),
                 props: true,
-                meta: { sidebar: organizationItem('Applications', 'pi-th-large', 20) }
+                meta: { sidebar: organizationItem('Applications', LayoutGrid, 20) }
             },
             {
                 name: 'org-projects',
                 path: `${ORGANIZATION}/projects`,
                 component: () => import('./pages/ProjectsPage.vue'),
                 props: true,
-                meta: { sidebar: organizationItem('Projects', 'pi-folder', 30) }
+                meta: { sidebar: organizationItem('Projects', ProjectsIcon, 30) }
             },
             {
                 name: 'org-members',
                 path: `${ORGANIZATION}/members`,
                 component: () => import('./pages/MembersPage.vue'),
                 props: true,
-                meta: { sidebar: organizationItem('Members', 'pi-users', 40) }
+                meta: { sidebar: organizationItem('Members', Users, 40) }
             },
             ...runtimeRoutes(ORGANIZATION, 'org-', organizationItem, 'organization', 50, true),
 
@@ -185,21 +189,21 @@ const routes: RouteRecordRaw[] = [
                 path: APPLICATION,
                 component: () => import('./pages/AppOverview.vue'),
                 props: true,
-                meta: { sidebar: applicationItem('Overview', 'pi-objects-column', 10) }
+                meta: { sidebar: applicationItem('Overview', LayoutDashboard, 10) }
             },
             {
                 name: 'app-projects',
                 path: `${APPLICATION}/projects`,
                 component: () => import('./pages/ProjectsPage.vue'),
                 props: true,
-                meta: { sidebar: applicationItem('Projects', 'pi-folder', 20) }
+                meta: { sidebar: applicationItem('Projects', ProjectsIcon, 20) }
             },
             {
                 name: 'app-users',
                 path: `${APPLICATION}/users`,
                 component: () => import('./pages/MembersPage.vue'),
                 props: true,
-                meta: { sidebar: applicationItem('Users', 'pi-users', 30, 'Access') }
+                meta: { sidebar: applicationItem('Users', Users, 30, 'Access') }
             },
             ...runtimeRoutes(APPLICATION, 'app-', applicationItem, 'application', 40, true),
 
@@ -208,14 +212,14 @@ const routes: RouteRecordRaw[] = [
                 path: PROJECT,
                 component: () => import('./pages/ProjectOverview.vue'),
                 props: true,
-                meta: { sidebar: projectItem('Overview', 'pi-objects-column', 10) }
+                meta: { sidebar: projectItem('Overview', LayoutDashboard, 10) }
             },
             {
                 name: 'project-deployment',
                 path: `${PROJECT}/deployment`,
                 component: () => import('./pages/ProjectDeploymentPage.vue'),
                 props: true,
-                meta: { sidebar: projectItem('Deployment', 'pi-cloud-upload', 20) }
+                meta: { sidebar: projectItem('Deployment', CloudUpload, 20) }
             },
             ...runtimeRoutes(PROJECT, 'project-', projectItem, 'project', 30, false),
 
@@ -223,7 +227,7 @@ const routes: RouteRecordRaw[] = [
                 name: 'account-connected-apps',
                 path: 'account/connected-apps',
                 component: ConnectedAppsPage,
-                meta: { sidebar: accountItem('Connected apps', 'pi-link', 10) }
+                meta: { sidebar: accountItem('Connected apps', Link, 10) }
             }
         ]
     },

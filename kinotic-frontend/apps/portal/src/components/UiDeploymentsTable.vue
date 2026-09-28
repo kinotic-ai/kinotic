@@ -5,7 +5,7 @@
     </Column>
     <Column header="Status" style="width: 14%">
       <template #body="{ data }">
-        <span :title="data.observation ?? undefined">
+        <span v-tooltip.top="data.observation ?? undefined">
           <Tag :value="observedPhase(data.state.observed)" :severity="observedPhaseSeverity(data.state.observed)" />
         </span>
         <Tag v-if="data.state.deletionRequested" value="removing" severity="secondary" class="ml-1" />
@@ -18,7 +18,7 @@
     </Column>
     <Column header="Commit" style="width: 12%">
       <template #body="{ data }">
-        <span class="font-mono text-sm text-muted-color" :title="data.state.observed?.commitSha ?? undefined">
+        <span class="font-mono text-sm text-muted-color" v-tooltip.top="data.state.observed?.commitSha ?? undefined">
           {{ data.state.observed?.commitSha ? shortSha(data.state.observed.commitSha) : '—' }}
         </span>
       </template>

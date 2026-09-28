@@ -552,7 +552,8 @@ async function saveWidgetAsEntity(component: DataInsightsComponent): Promise<voi
                 icon="pi pi-times"
                 size="small"
                 class="p-button-text"
-                title="Clear date range"
+                v-tooltip.top="'Clear date range'"
+                aria-label="Clear date range"
               />
             </div>
           </div>

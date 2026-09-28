@@ -5,11 +5,14 @@
  * route. Routes that should display a group's sidebar without being an item themselves
  * (detail/editor children) declare {@code meta.sidebarGroup} instead.
  */
+import type { Component } from 'vue'
+
 export interface SidebarItemMeta {
   /** Which sidebar this item belongs to (e.g. 'organization', 'application'). */
   group: string
   label: string
-  icon: string
+  /** Line icon component (a Lucide icon); rendered with the sidebar's size and stroke width. */
+  icon: Component
   /** Position within the group, ascending. */
   order: number
   /** Optional section heading the item renders under. */

@@ -68,9 +68,9 @@ export const KinoticPreset = definePreset(KinoticTheme, {
                 },
                 formField: {
                     background: '#ffffff',
-                    borderColor: '#d8dce6',
-                    hoverBorderColor: '#d8dce6',
-                    focusBorderColor: '#52525b',
+                    borderColor: '{surface.300}',
+                    hoverBorderColor: '{surface.400}',
+                    focusBorderColor: '{sky.500}',
                     color: '#101010',
                     placeholderColor: '#9ca3af',
                     shadow: 'none'
@@ -106,17 +106,50 @@ export const KinoticPreset = definePreset(KinoticTheme, {
                 },
                 formField: {
                     background: '#262626',
-                    borderColor: '#434349',
-                    hoverBorderColor: '#434349',
-                    focusBorderColor: '#52525b',
+                    borderColor: '{surface.700}',
+                    hoverBorderColor: '{surface.600}',
+                    focusBorderColor: '{sky.400}',
                     color: '#ffffff',
                     placeholderColor: '#8d8d96',
-                    shadow: 'none'
+                    shadow: 'none',
+                    focusRing: {
+                        color: '{sky.900}',
+                        shadow: '0 0 0 3px {sky.900}'
+                    }
                 }
             }
         }
     },
     css: ({ dt }) => `
+        /* One control height for inputs, selects, segmented toggles and bordered buttons.
+           Line heights differ by a pixel between components, so padding alone lands at 34-37px. */
+        .p-inputtext,
+        .p-select,
+        .p-multiselect,
+        .p-selectbutton,
+        .p-button:not(.p-button-text):not(.p-button-link) {
+            min-height: 2.25rem;
+        }
+
+        /* Every tooltip reads as a compact dark label */
+        .p-tooltip-text {
+            font-size: 0.75rem;
+            font-weight: 500;
+            line-height: 1rem;
+        }
+
+        /* Tabs carry no side padding, so the strip spaces them apart */
+        .p-tablist-tab-list {
+            gap: 1.75rem;
+        }
+
+        /* A selected option's checkmark sits at the right edge of the row, after the label */
+        .p-select-option-check-icon,
+        .p-select-option-blank-icon {
+            order: 1;
+            margin-inline: auto 0 !important;
+        }
+
         .app-surface-panel {
             background: ${dt('surface.0')};
             color: ${dt('surface.950')};
@@ -197,24 +230,6 @@ export const KinoticPreset = definePreset(KinoticTheme, {
             color: ${dt('surface.400')};
         }
 
-        .app-sidebar-toggle {
-            border-color: ${dt('surface.200')};
-            color: ${dt('surface.500')};
-        }
-
-        .app-sidebar-toggle:hover {
-            background: ${dt('surface.100')};
-        }
-
-        html.dark .app-sidebar-toggle {
-            border-color: ${dt('surface.800')};
-            color: ${dt('surface.400')};
-        }
-
-        html.dark .app-sidebar-toggle:hover {
-            background: ${dt('surface.800')};
-        }
-
         .app-sidebar-item-label {
             color: ${dt('surface.800')};
             font-weight: 600;
@@ -229,23 +244,23 @@ export const KinoticPreset = definePreset(KinoticTheme, {
         }
 
         html.dark .app-sidebar-item-label-active-expanded {
-            color: ${dt('primary.300')};
+            color: ${dt('surface.0')};
         }
 
         .app-sidebar-item-icon {
-            color: ${dt('surface.400')};
+            color: ${dt('surface.800')};
         }
 
         html.dark .app-sidebar-item-icon {
-            color: ${dt('surface.500')};
+            color: ${dt('surface.200')};
         }
 
         .app-sidebar-item-icon-active {
-            color: ${dt('primary.500')};
+            color: ${dt('surface.950')};
         }
 
         html.dark .app-sidebar-item-icon-active {
-            color: ${dt('primary.300')};
+            color: ${dt('surface.0')};
         }
 
         .app-sidebar-item--inactive:hover {
@@ -265,7 +280,7 @@ export const KinoticPreset = definePreset(KinoticTheme, {
         }
 
         .app-sidebar-item--active-collapsed {
-            background: ${dt('primary.50')};
+            background: ${dt('surface.100')};
         }
 
         html.dark .app-sidebar-item--active-collapsed {
@@ -273,11 +288,11 @@ export const KinoticPreset = definePreset(KinoticTheme, {
         }
 
         .app-sidebar-active-rail {
-            background: ${dt('primary.500')};
+            background: ${dt('surface.800')};
         }
 
         html.dark .app-sidebar-active-rail {
-            background: ${dt('primary.300')};
+            background: ${dt('surface.200')};
         }
 
         .p-button.app-neutral-button {
@@ -354,7 +369,7 @@ export const KinoticPreset = definePreset(KinoticTheme, {
             --lp-radial-opacity: 0;
             --lp-input-bg: ${dt('surface.0')};
             --lp-input-border: ${dt('surface.300')};
-            --lp-input-focus-border: ${dt('surface.400')};
+            --lp-input-focus-border: ${dt('sky.500')};
             --lp-input-color: ${dt('surface.950')};
             --lp-input-placeholder: ${dt('surface.400')};
             --lp-input-disabled-bg: ${dt('surface.200')};
@@ -384,7 +399,7 @@ export const KinoticPreset = definePreset(KinoticTheme, {
             --lp-radial-opacity: 0;
             --lp-input-bg: transparent;
             --lp-input-border: ${dt('surface.600')};
-            --lp-input-focus-border: ${dt('surface.500')};
+            --lp-input-focus-border: ${dt('sky.400')};
             --lp-input-color: ${dt('surface.0')};
             --lp-input-placeholder: ${dt('surface.400')};
             --lp-input-disabled-bg: ${dt('surface.800')};

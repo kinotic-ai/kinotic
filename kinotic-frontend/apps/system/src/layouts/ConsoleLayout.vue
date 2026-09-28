@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, type Component } from 'vue'
+import { Building2, LayoutGrid, Shield, User } from '@lucide/vue'
 import { useRoute } from 'vue-router'
-import { SideBar, SidebarScope } from '@kinotic-ai/frontend-common'
+import { ProjectsIcon, SideBar, SidebarScope } from '@kinotic-ai/frontend-common'
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 
 import Header from './Header.vue'
@@ -11,7 +12,7 @@ import { applicationPath, organizationPath } from '@/util/scope'
 interface SidebarScopeProps {
     name: string
     kind: string
-    icon: string
+    icon: Component
     backTo?: string
     backLabel?: string
 }
@@ -42,7 +43,7 @@ function scopeFor(group: string | null): SidebarScopeProps {
         ret = {
             name: projectId,
             kind: 'Project',
-            icon: 'pi-folder',
+            icon: ProjectsIcon,
             backTo: applicationPath(organizationId, applicationId),
             backLabel: applicationId
         }
@@ -50,7 +51,7 @@ function scopeFor(group: string | null): SidebarScopeProps {
         ret = {
             name: applicationId,
             kind: 'Application',
-            icon: 'pi-th-large',
+            icon: LayoutGrid,
             backTo: organizationPath(organizationId),
             backLabel: organizationId
         }
@@ -58,7 +59,7 @@ function scopeFor(group: string | null): SidebarScopeProps {
         ret = {
             name: organizationId,
             kind: 'Organization',
-            icon: 'pi-building',
+            icon: Building2,
             backTo: '/organizations',
             backLabel: 'System'
         }
@@ -66,12 +67,12 @@ function scopeFor(group: string | null): SidebarScopeProps {
         ret = {
             name: 'Account',
             kind: 'Operator',
-            icon: 'pi-user',
+            icon: User,
             backTo: '/dashboard',
             backLabel: 'System'
         }
     } else {
-        ret = { name: 'Kinotic', kind: 'System', icon: 'pi-shield' }
+        ret = { name: 'Kinotic', kind: 'System', icon: Shield }
     }
     return ret
 }
@@ -83,20 +84,20 @@ function scopeFor(group: string | null): SidebarScopeProps {
             <Header @toggle-nav="navOpen = !navOpen" />
         </div>
         <SideBar ref="sidebarRef" :mobile-open="navOpen" @close="navOpen = false">
-            <template #scope="{ collapsed, group }">
-                <SidebarScope v-bind="scopeFor(group)" :collapsed="collapsed" />
+            <template #scope="{ collapsed, group, toggle }">
+                <SidebarScope v-bind="scopeFor(group)" :collapsed="collapsed" @toggle="toggle" />
             </template>
         </SideBar>
         <div
             :class="[
                 'pt-[64px] h-full transition-all duration-300',
-                isSidebarCollapsed ? 'md:pl-[64px]' : 'md:pl-[256px]'
+                isSidebarCollapsed ? 'md:pl-[73px]' : 'md:pl-[256px]'
             ]"
         >
             <div :class="['h-[calc(100vh-64px)] overflow-y-auto px-4 py-4 transition-colors md:px-8 md:py-6', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
                 <!-- flex + flex-1 (rather than min-h-full on the page root) so short pages still
                      stretch to the bottom of the viewport inside this auto-height wrapper. -->
-                <div class="mx-auto flex min-h-full w-full max-w-[1200px] flex-col">
+                <div class="flex min-h-full w-full flex-col">
                     <router-view class="min-w-0 flex-1" />
                 </div>
             </div>

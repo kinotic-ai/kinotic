@@ -29,14 +29,14 @@
           </span>
           <span 
             class="truncate-text flex-1" 
-            :title="header.header"
+            v-tooltip.top="header.header"
             :class="{ 'cursor-pointer': header.isCollapsable && !el.isPrimitiveArray(header.field) }"
             @click.stop="(header.isCollapsable && !el.isPrimitiveArray(header.field)) ? el.toggleColumnExpansion(header.field) : null"
           >{{ header.header }}</span>
           <div
             class="resize-handle"
             @mousedown.stop.prevent="el.startColumnResize($event, header)"
-            title="Drag to resize"
+            v-tooltip.top="'Drag to resize'"
           ></div>
         </div>
       </th>

@@ -1,8 +1,6 @@
 <template>
-  <AuthPageShell>
+  <AuthPageShell :art="loginArt">
     <div class="login-form">
-      <!-- One button per enabled platform provider, so invitees can sign back in the
-           same way they accepted their invitation. -->
       <div v-if="providers.length > 0" class="login-providers">
         <SocialAuthButton
           v-for="provider in providers"
@@ -28,7 +26,7 @@
           />
         </IconField>
 
-        <IconField class="login-field">
+        <IconField class="login-field login-field--last">
           <Password
             ref="passwordInput"
             v-model="password"
@@ -51,7 +49,7 @@
 
       <div class="login-signup-link">
         <span>New to Kinotic?</span>
-        <router-link to="/signup">Create an organization</router-link>
+        <router-link to="/signup">Create Account</router-link>
       </div>
     </div>
   </AuthPageShell>
@@ -73,8 +71,12 @@ import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, postCredentials } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
+import loginArt from '@/assets/login-background.svg'
 
 const debug = createDebug('login')
+
+/** Providers offered on this page; any other enabled provider is omitted. */
+const LOGIN_PROVIDERS = ['github']
 
 const email = ref<string>('')
 const password = ref<string>('')
@@ -147,7 +149,7 @@ async function loadProviders() {
       return
     }
     const data = await res.json()
-    if (Array.isArray(data)) providers.value = data
+    if (Array.isArray(data)) providers.value = data.filter(p => LOGIN_PROVIDERS.includes(p))
   } catch (err) {
     debug('Failed to load providers: %O', err)
   }
@@ -193,3 +195,69 @@ function displayError(text: string) {
   toast.add({ severity: 'error', summary: 'Error', detail: text, life: 10000 })
 }
 </script>
+
+<style scoped>
+.login-form {
+  margin-top: 1rem;
+}
+
+.login-providers {
+  margin: 0 0 3.25rem;
+}
+
+.login-providers :deep(.social-auth-button-form),
+.login-providers :deep(.social-auth-button--gh) {
+  width: 100%;
+}
+
+.login-providers :deep(.social-auth-button--gh) {
+  height: 3.5rem;
+  border-radius: 5px;
+  border-color: var(--lp-provider-border);
+  font-weight: 400;
+}
+
+.login-providers :deep(.social-auth-button--gh:hover) {
+  border-color: var(--lp-provider-border-hover);
+}
+
+.login-divider {
+  margin: 2.25rem 0 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.login-field--last {
+  margin-bottom: 1.5rem;
+}
+
+/* Chrome paints autofilled fields yellow; keep them on the input surface. */
+.login-form :deep(input:-webkit-autofill) {
+  box-shadow: 0 0 0 1000px var(--lp-input-bg) inset;
+  -webkit-text-fill-color: var(--lp-input-color);
+}
+
+.login-signup-link {
+  flex-direction: row;
+  justify-content: center;
+  gap: 0.375rem;
+  margin-top: 1rem;
+  font-size: 1rem;
+  color: var(--lp-text);
+}
+
+.login-signup-link a {
+  color: var(--p-teal-400);
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+/* Sign in is the page's primary action, drawn like every other primary button: near-black */
+.login-submit.p-button {
+  background: var(--p-surface-950);
+}
+
+.login-submit.p-button:hover {
+  background: var(--p-surface-800);
+}
+</style>

@@ -1,16 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, shallowRef, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SidebarItem from './SidebarItem.vue'
 import type { SidebarItemMeta } from '../types/SidebarItemMeta'
-import strCollapse from '../assets/str-collapse.svg'
-import strExpand from '../assets/str-expand.svg'
-import { isDark as darkMode } from '../composables/useTheme'
 
 const COLLAPSE_KEY = 'sidebar-collapsed'
 
 interface SidebarNavItem {
-  icon: string
+  icon: Component
   label: string
   path: string
   section?: string
@@ -33,7 +30,8 @@ const route = useRoute()
 const router = useRouter()
 
 const collapsed = ref(false)
-const sidebarItems = ref<SidebarNavItem[]>([])
+// shallow, so the icon components the items carry are not wrapped in reactive proxies
+const sidebarItems = shallowRef<SidebarNavItem[]>([])
 /** The sidebar group the current route resolved to; null when falling back to the main nav. */
 const group = ref<string | null>(null)
 
@@ -50,11 +48,14 @@ watch(route, () => {
   emit('close')
 }, { immediate: true })
 
-const isDark = darkMode
-
+/** Collapses or expands the docked sidebar; in the small-screen drawer it closes the drawer. */
 function toggleSidebar() {
-  collapsed.value = !collapsed.value
-  localStorage.setItem(COLLAPSE_KEY, String(collapsed.value))
+  if (props.mobileOpen) {
+    emit('close')
+  } else {
+    collapsed.value = !collapsed.value
+    localStorage.setItem(COLLAPSE_KEY, String(collapsed.value))
+  }
 }
 
 function navigateTo(path: string) {
@@ -154,7 +155,7 @@ defineExpose({ collapsed })
     <div
       class="fixed top-[64px] left-0 z-40 h-[calc(100vh-64px)] w-[min(85vw,320px)] box-border transition-transform duration-200 md:translate-x-0"
       :class="[
-        collapsed ? 'md:w-[75px]' : 'md:w-[256px]',
+        collapsed ? 'md:w-[73px]' : 'md:w-[256px]',
         mobileOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full'
       ]"
     >
@@ -164,8 +165,9 @@ defineExpose({ collapsed })
       ]">
         <div class="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
           <!-- The app names the owner of this sidebar (the organization, application, ...)
-               and the way up to its parent; the items below are the owner's sections. -->
-          <slot name="scope" :collapsed="compact" :group="group" />
+               and the way up to its parent; the items below are the owner's sections.
+               toggle collapses the sidebar, so the scope block can offer it. -->
+          <slot name="scope" :collapsed="compact" :group="group" :toggle="toggleSidebar" />
 
           <div class="flex flex-col w-full gap-0" :class="compact ? 'justify-center items-center' : ''">
             <div
@@ -210,15 +212,9 @@ defineExpose({ collapsed })
           </div>
         </div>
 
-        <div
-          @click="toggleSidebar"
-          :class="[
-            'app-sidebar-toggle hidden w-full items-center gap-2 cursor-pointer border-t px-2 py-3 transition-colors md:flex',
-            compact ? 'justify-center' : 'justify-start'
-          ]"
-        >
-          <img :style="{ width: '14px', height: '14px' }" :src="compact ? strExpand : strCollapse" alt="Toggle Sidebar" class="w-5 h-5 transition-transform duration-300" :class="[compact ? 'rotate-180' : '', isDark ? 'opacity-70 invert' : 'opacity-70']"/>
-          <span v-if="!compact" class="text-sm font-medium">Collapse</span>
+        <!-- Pinned below the items, e.g. the signed-in user's menu -->
+        <div v-if="$slots.footer" class="app-surface-divider w-full shrink-0 border-t pt-2">
+          <slot name="footer" :collapsed="compact" />
         </div>
       </div>
     </div>

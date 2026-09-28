@@ -38,7 +38,7 @@
               <Skeleton v-if="loading" height="1rem" width="7rem" />
               <button v-else-if="detail.copyable" type="button"
                       class="group flex w-full min-w-0 items-center gap-2 text-left font-mono text-xs text-surface-700 dark:text-surface-300"
-                      :title="detail.value" :aria-label="`Copy ${detail.label.toLowerCase()}`"
+                      v-tooltip.top="detail.value" :aria-label="`Copy ${detail.label.toLowerCase()}`"
                       @click="copy(detail.label, detail.value)">
                 <span class="truncate">{{ detail.value }}</span>
                 <i :class="[copied === detail.label ? 'pi pi-check text-green-500' : 'pi pi-copy opacity-50 group-hover:opacity-100',

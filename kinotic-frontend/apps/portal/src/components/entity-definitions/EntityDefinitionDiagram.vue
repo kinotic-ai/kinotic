@@ -389,14 +389,14 @@ function applyAutoLayout(direction: "LR" | "TB" = "LR") {
       <Controls position="top-right" :show-zoom="false" :show-fit-view="false" :show-interactive="false" class="flex gap-2">
         <button
           @click="applyAutoLayout('LR')"
-          title="Horizontal layout"
+          v-tooltip.top="'Horizontal layout'" aria-label="Horizontal layout"
           class="p-2 bg-gray-400 rounded hover:bg-gray-500"
         >
           <ArrowsRightLeftIcon class="w-5 h-5 text-white" />
         </button>
         <button
           @click="applyAutoLayout('TB')"
-          title="Vertical layout"
+          v-tooltip.top="'Vertical layout'" aria-label="Vertical layout"
           class="p-2 bg-gray-400 rounded hover:bg-gray-500"
         >
           <ArrowsUpDownIcon class="w-5 h-5 text-white" />

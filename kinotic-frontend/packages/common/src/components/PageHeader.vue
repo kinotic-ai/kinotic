@@ -19,8 +19,8 @@ defineProps<{
       <div v-if="$slots.eyebrow" class="mb-2 flex items-center gap-1.5 text-sm text-surface-500 dark:text-surface-400">
         <slot name="eyebrow" />
       </div>
-      <h1 class="text-2xl font-semibold tracking-tight text-surface-950 dark:text-surface-0">{{ title }}</h1>
-      <p v-if="description" class="mt-2 max-w-[640px] text-sm text-surface-500 dark:text-surface-400">
+      <h1 class="text-[1.875rem] font-medium leading-9 tracking-[-0.01em] text-surface-950 dark:text-surface-0">{{ title }}</h1>
+      <p v-if="description" class="mt-3 max-w-[800px] text-[0.9375rem] leading-[1.375rem] text-surface-600 dark:text-surface-400">
         {{ description }}
       </p>
     </div>

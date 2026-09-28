@@ -6,10 +6,10 @@
     <Tabs lazy :value="activeTab" @update:value="selectTab">
       <TabList>
         <Tab value="general">
-          <span class="flex items-center gap-2"><i class="pi pi-sliders-h" />General</span>
+          <span class="flex items-center gap-2"><SlidersHorizontal :size="18" :stroke-width="1.75" aria-hidden="true" />General</span>
         </Tab>
         <Tab value="invitation-email">
-          <span class="flex items-center gap-2"><i class="pi pi-envelope" />Invitation email</span>
+          <span class="flex items-center gap-2"><Mail :size="18" :stroke-width="1.75" aria-hidden="true" />Invitation email</span>
         </Tab>
       </TabList>
       <TabPanels>
@@ -68,6 +68,7 @@
 </template>
 
 <script setup lang="ts">
+import { Mail, SlidersHorizontal } from '@lucide/vue'
 // @ts-ignore
 import { ref, defineProps, onMounted, watch } from 'vue'
 import { showErrorToast } from '@kinotic-ai/frontend-common'

@@ -24,7 +24,7 @@
                           v-for="(arrItem, arrIdx) in item[header.field]"
                           :key="arrIdx"
                           class="w-full py-1 text-xs cursor-pointer hover:bg-gray-100 border-b last:border-b-0 border-gray-200"
-                          :title="String(arrItem)"
+                          v-tooltip.top="String(arrItem)"
                           @click="el.toggleRowExpansion(item.id, header.field)"
                         >
                           <div class="px-2 flex items-center justify-between">
@@ -40,7 +40,7 @@
                       <div
                         :class="{ 'cursor-pointer hover:bg-gray-100': item[header.field].length > 1 }"
                         class="rounded px-1 flex items-center justify-between"
-                        :title="String(item[header.field][0])"
+                        v-tooltip.top="String(item[header.field][0])"
                         @click="item[header.field].length > 1 ? el.toggleRowExpansion(item.id, header.field) : null"
                       >
                         <span class="truncate">{{ item[header.field][0] }}</span>
@@ -98,10 +98,10 @@
                     >
                       <div class="px-2 flex items-center justify-between">
                         <template v-if="typeof arrItem !== 'object'">
-                          <span class="truncate" :title="String(arrItem)">{{ arrItem }}</span>
+                          <span class="truncate" v-tooltip.top="String(arrItem)">{{ arrItem }}</span>
                         </template>
                         <template v-else>
-                          <span class="truncate" :title="el.getArrayObjectLabel(arrItem, header.field)">{{ el.getArrayObjectLabel(arrItem, header.field) }}</span>
+                          <span class="truncate" v-tooltip.top="el.getArrayObjectLabel(arrItem, header.field)">{{ el.getArrayObjectLabel(arrItem, header.field) }}</span>
                         </template>
                         <span v-if="arrIdx === 0" class="text-gray-500 ml-2 flex-shrink-0">^</span>
                       </div>
@@ -116,7 +116,7 @@
                   <div
                     :class="{ 'cursor-pointer hover:bg-gray-100 rounded px-1': Array.isArray(item[header.field]) && item[header.field].length > 1 }"
                     class="truncate w-full"
-                    :title="el.getCellTitleValue(item, header.field)"
+                    v-tooltip.top="el.getCellTitleValue(item, header.field)"
                     @click="(Array.isArray(item[header.field]) && item[header.field].length > 1) ? el.toggleRowExpansion(item.id, header.field) : null"
                   >
                     {{

@@ -5,17 +5,17 @@
     </Column>
     <Column header="Status" style="width: 14%">
       <template #body="{ data }">
-        <span :title="data.failureMessage ?? undefined">
+        <span v-tooltip.top="data.failureMessage ?? undefined">
           <Tag :value="observedPhase(data.state.observed)" :severity="observedPhaseSeverity(data.state.observed)" />
         </span>
         <Tag v-if="unreachable(data)" value="node unreachable" severity="warn" icon="pi pi-exclamation-triangle"
-             class="ml-1" :title="unreachable(data)?.message" />
+             class="ml-1" v-tooltip.top="unreachable(data)?.message" />
         <Tag v-if="data.state.deletionRequested" value="removing" severity="secondary" class="ml-1" />
       </template>
     </Column>
     <Column header="Commit" style="width: 12%">
       <template #body="{ data }">
-        <span class="font-mono text-sm text-muted-color" :title="data.state.observed?.commitSha ?? undefined">
+        <span class="font-mono text-sm text-muted-color" v-tooltip.top="data.state.observed?.commitSha ?? undefined">
           {{ data.state.observed?.commitSha ? shortSha(data.state.observed.commitSha) : '—' }}
         </span>
       </template>

@@ -7,12 +7,12 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
         gap: "0.5rem",
         paddingX: "{form.field.padding.x}",
         paddingY: "{form.field.padding.y}",
-        iconOnlyWidth: "2.5rem",
+        iconOnlyWidth: "2.25rem",
         sm: {
             fontSize: "{form.field.sm.font.size}",
             paddingX: "{form.field.sm.padding.x}",
             paddingY: "{form.field.sm.padding.y}",
-            iconOnlyWidth: "2rem"
+            iconOnlyWidth: "2.25rem"
         },
         lg: {
             fontSize: "{form.field.lg.font.size}",
@@ -35,18 +35,19 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
     colorScheme: {
         light: {
             root: {
+                // Primary actions are near-black, not the brand colour
                 primary: {
-                    background: "{primary.color}",
-                    hoverBackground: "{primary.hover.color}",
-                    activeBackground: "{primary.active.color}",
-                    borderColor: "{primary.color}",
-                    hoverBorderColor: "{primary.hover.color}",
-                    activeBorderColor: "{primary.active.color}",
-                    color: "{primary.contrast.color}",
-                    hoverColor: "{primary.contrast.color}",
-                    activeColor: "{primary.contrast.color}",
+                    background: "{surface.950}",
+                    hoverBackground: "{surface.800}",
+                    activeBackground: "{surface.700}",
+                    borderColor: "{surface.950}",
+                    hoverBorderColor: "{surface.800}",
+                    activeBorderColor: "{surface.700}",
+                    color: "{surface.0}",
+                    hoverColor: "{surface.0}",
+                    activeColor: "{surface.0}",
                     focusRing: {
-                        color: "{primary.color}",
+                        color: "{surface.950}",
                         shadow: "none"
                     }
                 },
@@ -166,7 +167,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                 secondary: {
                     hoverBackground: "{surface.50}",
                     activeBackground: "{surface.100}",
-                    borderColor: "{surface.200}",
+                    borderColor: "{form.field.border.color}",
                     color: "{surface.500}"
                 },
                 success: {
@@ -267,18 +268,19 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
         },
         dark: {
             root: {
+                // Inverted in dark mode: a white button with dark text
                 primary: {
-                    background: "{primary.color}",
-                    hoverBackground: "{primary.hover.color}",
-                    activeBackground: "{primary.active.color}",
-                    borderColor: "{primary.color}",
-                    hoverBorderColor: "{primary.hover.color}",
-                    activeBorderColor: "{primary.active.color}",
-                    color: "{primary.contrast.color}",
-                    hoverColor: "{primary.contrast.color}",
-                    activeColor: "{primary.contrast.color}",
+                    background: "{surface.0}",
+                    hoverBackground: "{surface.200}",
+                    activeBackground: "{surface.300}",
+                    borderColor: "{surface.0}",
+                    hoverBorderColor: "{surface.200}",
+                    activeBorderColor: "{surface.300}",
+                    color: "{surface.950}",
+                    hoverColor: "{surface.950}",
+                    activeColor: "{surface.950}",
                     focusRing: {
-                        color: "{primary.color}",
+                        color: "{surface.0}",
                         shadow: "none"
                     }
                 },
