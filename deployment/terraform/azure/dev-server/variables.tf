@@ -17,9 +17,21 @@ variable "location" {
 }
 
 variable "api_label" {
-  description = "The API's label in the platform zone: dev-api for dev-api.kinotic.ai, the name the router's public address answers to"
+  description = "The org server's label in the platform zone: dev-api for dev-api.kinotic.ai, the API of the portal, the CLI and MCP hosts, and the GitHub App's webhook"
   type        = string
   default     = "dev-api"
+}
+
+variable "system_api_label" {
+  description = "The system server's label in the platform zone: dev-system-api for dev-system-api.kinotic.ai, the system console's API"
+  type        = string
+  default     = "dev-system-api"
+}
+
+variable "apps_api_label" {
+  description = "The app server's label in the platform zone: dev-apps-api for dev-apps-api.kinotic.ai, the name runtime workloads dial, under which every application's API host is a label (<organizationId>--<applicationId>.dev-apps-api.kinotic.ai)"
+  type        = string
+  default     = "dev-apps-api"
 }
 
 variable "portal_label" {
@@ -35,7 +47,7 @@ variable "console_label" {
 }
 
 variable "public_ip" {
-  description = "The public IPv4 address the router forwards 443 from, as the API record's first value; kinotic-dyndns.timer on the host keeps the record current afterwards"
+  description = "The public IPv4 address the router forwards 443 from, as the first value of every server's record; kinotic-dyndns.timer on the host keeps the records current afterwards"
   type        = string
 }
 
