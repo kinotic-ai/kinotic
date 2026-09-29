@@ -29,7 +29,7 @@
         </StatCard>
         <StatCard :icon="Server" :tint="TINTS.orange" label="Microservices" :value="services.length"
                   :detail="`${runningServices} running, each in a VM of its own`" />
-        <StatCard :icon="JobsIcon" :tint="TINTS.purple" label="Deploy runs" :value="deployRuns.length"
+        <StatCard :icon="LaptopMinimalCheck" :tint="TINTS.purple" label="Deploy runs" :value="deployRuns.length"
                   :detail="`${failedRuns} failed`" :to="`${basePath}/jobs`" />
       </div>
 
@@ -81,7 +81,7 @@
       </div>
 
       <div class="flex flex-col gap-4">
-        <DashboardSection :icon="JobsIcon" :tint="TINTS.blue" title="Latest deployment run"
+        <DashboardSection :icon="LaptopMinimalCheck" :tint="TINTS.blue" title="Latest deployment run"
                           description="Each step of the latest deploy run, live while it runs; open a step for its detail.">
           <div class="p-5">
             <JobRunProgress :key="latestRun.id ?? ''" :job-run-id="latestRun.id ?? ''" :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf">
@@ -135,11 +135,11 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import { Activity, Ban, CircleCheck, CircleX, Clock, CloudUpload, GitCommitHorizontal, History, LoaderCircle, Network, Server } from '@lucide/vue'
+import { Activity, Ban, CircleCheck, CircleX, Clock, CloudUpload, GitCommitHorizontal, History, LaptopMinimalCheck, LoaderCircle, Network, Server } from '@lucide/vue'
 
 import { ExecutionStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DashboardSection, DatetimeUtil, JobRunProgress, JobsIcon, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
+import { DashboardSection, DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
          StatCard, TimePill, TINTS, errorMessage, executionStatusSeverity, scanJobRuns, shortSha } from '@kinotic-ai/frontend-common'
 
 import WorkloadsTable from '@/components/WorkloadsTable.vue'

@@ -1,9 +1,7 @@
 import type { Component } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-import {
-    Box, Building2, ChartLine, CloudUpload, Cpu, LayoutDashboard, LayoutGrid, Link, Network, Server, Users
-} from '@lucide/vue'
-import { ConnectedAppsPage, JobsIcon, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import { Box, Building2, ChartLine, CloudUpload, Cpu, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, Server, Users } from '@lucide/vue'
+import { ConnectedAppsPage, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
 /**
  * The console has five scopes, each with its own sidebar group: the platform, one organization,
@@ -64,7 +62,7 @@ function runtimeRoutes(prefix: string, name: string, item: (label: string, icon:
             path: at('jobs'),
             component: () => import('./pages/JobsPage.vue'),
             props: true,
-            meta: { sidebar: item('Jobs', JobsIcon, order + 10, 'Runtime') }
+            meta: { sidebar: item('Jobs', LaptopMinimalCheck, order + 10, 'Runtime') }
         },
         {
             name: `${name}job-run`,

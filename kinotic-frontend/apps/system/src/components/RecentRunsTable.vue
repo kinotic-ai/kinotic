@@ -1,5 +1,5 @@
 <template>
-  <DashboardSection :icon="JobsIcon" :tint="TINTS.blue" title="Recent runs" :count="runs.length"
+  <DashboardSection :icon="LaptopMinimalCheck" :tint="TINTS.blue" title="Recent runs" :count="runs.length"
                     description="The latest job runs; open one for its tasks." :link-to="listPath">
     <div v-if="runs.length === 0" class="py-8 text-center text-sm text-muted-color">No runs yet</div>
     <DataTable v-else :value="runs" size="small" class="text-sm" row-hover @row-click="open($event.data)">
@@ -42,7 +42,8 @@ import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
 
 import { StatusConditionType, findStatusCondition, type JobRun, type StatusCondition } from '@kinotic-ai/management-api'
-import { DashboardSection, DatetimeUtil, JobsIcon, TimePill, TINTS, executionStatusSeverity } from '@kinotic-ai/frontend-common'
+import { LaptopMinimalCheck } from '@lucide/vue'
+import { DashboardSection, DatetimeUtil, TimePill, TINTS, executionStatusSeverity } from '@kinotic-ai/frontend-common'
 
 import { scopePath, type Scope } from '@/util/scope'
 

@@ -37,11 +37,11 @@
 import { computed, markRaw, ref, watch, type Component } from 'vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
-import { Boxes, Building2, CalendarClock, FileText, Hash, LayoutGrid, Tag as TagIcon, UserRound, Users } from '@lucide/vue'
+import { Boxes, Building2, CalendarClock, FileText, Hash, LaptopMinimalCheck, LayoutGrid, Tag as TagIcon, UserRound, Users } from '@lucide/vue'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { ExecutionStatus, WorkloadStatus, type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
-import { DashboardSection, DatetimeUtil, FactList, JobsIcon, PageHeader, StatCard, TINTS, errorMessage, scanJobRuns } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, errorMessage, scanJobRuns } from '@kinotic-ai/frontend-common'
 
 import AttentionList from '@/components/AttentionList.vue'
 import JobRunsByDayChart from '@/components/JobRunsByDayChart.vue'
@@ -118,7 +118,7 @@ const stats = computed<Stat[]>(() => {
       value: `${runs.value.length}`,
       detail: `${runningRuns} running now`,
       to: `${basePath.value}/jobs`,
-      icon: markRaw(JobsIcon),
+      icon: markRaw(LaptopMinimalCheck),
       tint: TINTS.purple
     }
   ]

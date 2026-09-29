@@ -84,7 +84,7 @@
       </div>
 
       <div class="flex flex-col gap-4">
-        <DashboardSection v-if="deployment.lastJobRunId" :icon="JobsIcon" :tint="TINTS.blue" title="Latest deployment run"
+        <DashboardSection v-if="deployment.lastJobRunId" :icon="LaptopMinimalCheck" :tint="TINTS.blue" title="Latest deployment run"
                           description="Each step of the run the last push started, live while it runs; open a step for its detail.">
           <div class="p-5">
           <JobRunProgress :key="deployment.lastJobRunId"
@@ -154,8 +154,8 @@ import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
-import { Activity, Boxes, CircleCheck, CircleOff, Clock, CloudUpload, GitCommitHorizontal, Globe, KeyRound, Server } from '@lucide/vue'
-import { DatetimeUtil, JobRunProgress, JobsIcon, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
+import { Activity, Boxes, CircleCheck, CircleOff, Clock, CloudUpload, GitCommitHorizontal, Globe, KeyRound, LaptopMinimalCheck, Server } from '@lucide/vue'
+import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
          WatchEventsTable, WorkloadLogsDialog, deploymentStatusSeverity, observedPhaseSeverity, shortSha, showErrorToast } from '@kinotic-ai/frontend-common'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DeploymentStatusType,

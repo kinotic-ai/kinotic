@@ -57,12 +57,12 @@ import { computed, markRaw, onMounted, ref, type Component } from 'vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import { Boxes, Building2, Gauge, Server, Shield } from '@lucide/vue'
+import { Boxes, Building2, Gauge, LaptopMinimalCheck, Server, Shield } from '@lucide/vue'
 
 import { Kinotic } from '@kinotic-ai/core'
 import { ExecutionStatus, WorkloadStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
 import type { KinoticClusterInfo, VmNode } from '@kinotic-ai/system-api'
-import { DashboardSection, DatetimeUtil, JobsIcon, PageHeader, StatCard, TINTS, accentColor, errorMessage, isDark, scanJobRuns } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, PageHeader, StatCard, TINTS, accentColor, errorMessage, isDark, scanJobRuns } from '@kinotic-ai/frontend-common'
 
 import AttentionList from '@/components/AttentionList.vue'
 import CapacityRows from '@/components/CapacityRows.vue'
@@ -154,7 +154,7 @@ const stats = computed<Stat[]>(() => {
       value: `${today.length}`,
       detail: `${runningRuns} running now`,
       to: '/jobs',
-      icon: markRaw(JobsIcon),
+      icon: markRaw(LaptopMinimalCheck),
       tint: TINTS.purple
     },
     {

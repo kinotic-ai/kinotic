@@ -20,7 +20,7 @@
         </StatCard>
         <StatCard :icon="Server" :tint="TINTS.orange" label="Services running" :value="runningServices" :loading="loading"
                   :detail="`of ${services.length} microservice workload${services.length === 1 ? '' : 's'}`" :to="`${basePath}/workloads`" />
-        <StatCard :icon="JobsIcon" :tint="TINTS.purple" label="Deploy runs" :value="deployRuns.length" :loading="loading"
+        <StatCard :icon="LaptopMinimalCheck" :tint="TINTS.purple" label="Deploy runs" :value="deployRuns.length" :loading="loading"
                   :detail="`${failedRuns} failed`" :to="`${basePath}/jobs`" />
         <StatCard :icon="GitBranch" :tint="TINTS.green" label="Repository" :loading="loading"
                   :detail="project?.repoFullName ?? '—'" mono-detail
@@ -65,12 +65,12 @@ import { computed, markRaw, ref, watch } from 'vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import { Building2, CalendarClock, CloudUpload, FileCode, GitBranch, Hash, LayoutGrid, Server } from '@lucide/vue'
+import { Building2, CalendarClock, CloudUpload, FileCode, GitBranch, Hash, LaptopMinimalCheck, LayoutGrid, Server } from '@lucide/vue'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { ExecutionStatus, RepositoryConnectionStatus, WorkloadStatus,
          type JobRun, type Project, type Workload } from '@kinotic-ai/management-api'
-import { DashboardSection, DatetimeUtil, FactList, InitialsTile, JobsIcon, PageHeader, ProjectsIcon, StatCard, TimePill, TINTS,
+import { DashboardSection, DatetimeUtil, FactList, InitialsTile, PageHeader, ProjectsIcon, StatCard, TimePill, TINTS,
          errorMessage, executionStatusSeverity, scanJobRuns, shortSha } from '@kinotic-ai/frontend-common'
 
 import { commitShaOf, isDeployRun } from '@/util/runs'

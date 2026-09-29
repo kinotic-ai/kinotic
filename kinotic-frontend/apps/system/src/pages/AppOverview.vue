@@ -68,12 +68,12 @@ import { computed, markRaw, ref, watch, type Component } from 'vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import { Boxes, Building2, CalendarClock, ChevronRight, Hash, LayoutGrid, Tag as TagIcon, Users, Waypoints } from '@lucide/vue'
+import { Boxes, Building2, CalendarClock, ChevronRight, Hash, LaptopMinimalCheck, LayoutGrid, Tag as TagIcon, Users, Waypoints } from '@lucide/vue'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { ExecutionStatus, RepositoryConnectionStatus, WorkloadStatus,
          type Application, type JobRun, type Project, type Workload } from '@kinotic-ai/management-api'
-import { DashboardSection, DatetimeUtil, FactList, InitialsTile, JobsIcon, PageHeader, ProjectsIcon, StatCard, TINTS,
+import { DashboardSection, DatetimeUtil, FactList, InitialsTile, PageHeader, ProjectsIcon, StatCard, TINTS,
          errorMessage, executionStatusSeverity, scanJobRuns } from '@kinotic-ai/frontend-common'
 
 import { deployRunsByProject } from '@/util/runs'
@@ -197,7 +197,7 @@ const stats = computed<Stat[]>(() => {
       value: `${runs.value.length}`,
       detail: `${failed} failed · ${runningRuns} running`,
       to: `${basePath.value}/jobs`,
-      icon: markRaw(JobsIcon),
+      icon: markRaw(LaptopMinimalCheck),
       tint: TINTS.purple
     }
   ]
