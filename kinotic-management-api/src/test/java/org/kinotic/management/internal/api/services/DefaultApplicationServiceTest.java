@@ -94,14 +94,14 @@ class DefaultApplicationServiceTest {
     }
 
     @Test
-    void rejectsIdsWhoseHostLabelIsLongerThanDnsAllows() {
-        // "acme--" leaves 57 characters of the 63 a label may hold
+    void rejectsIdsWhoseSiteLabelsLeaveNoRoomForAUiName() {
+        // a site label "acme--<app>--<ui>" with a one-character UI name leaves 54 of the 63 characters a label may hold
         Application fits = new Application("Orders App", "desc");
-        fits.setId("a".repeat(57));
+        fits.setId("a".repeat(54));
         assertDoesNotThrow(() -> service.beforeSave(fits));
 
         Application tooLong = new Application("Orders App", "desc");
-        tooLong.setId("a".repeat(58));
+        tooLong.setId("a".repeat(55));
         assertThrows(IllegalArgumentException.class, () -> service.beforeSave(tooLong));
     }
 
