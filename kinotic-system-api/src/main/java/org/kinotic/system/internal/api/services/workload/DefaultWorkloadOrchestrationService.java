@@ -1,7 +1,7 @@
 package org.kinotic.system.internal.api.services.workload;
 
 import io.vertx.core.Future;
-import org.kinotic.core.api.event.ZonePartitioning;
+import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.domain.api.model.StatusCondition;
@@ -59,7 +59,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     // the only ones whose context holds the beans the sweep is injected with
     @EventListener(ApplicationReadyEvent.class)
     public void deployRetentionSweep() {
-        ignite.services(ignite.cluster().forAttribute(ZonePartitioning.hostsAttribute(DomainUtil.SYSTEM_API_ZONE), true))
+        ignite.services(ignite.cluster().forAttribute(ZonePartitioningService.hostsAttribute(DomainUtil.SYSTEM_API_ZONE), true))
               .deployClusterSingleton(WorkloadCleanupService.SINGLETON_NAME, new WorkloadCleanupService());
     }
 

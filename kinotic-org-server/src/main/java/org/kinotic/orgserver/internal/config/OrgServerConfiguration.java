@@ -1,6 +1,6 @@
 package org.kinotic.orgserver.internal.config;
 
-import org.kinotic.core.api.event.ZonePartitioning;
+import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.orgserver.api.config.OrgServerProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -21,9 +21,9 @@ public class OrgServerConfiguration {
 	 * app-api services the portal's entity browser calls.
 	 */
 	@Bean
-	public ZonePartitioning zonePartitioning() {
-		return ZonePartitioning.of("org",
-								   Set.of(DomainUtil.MANAGEMENT_API_ZONE),
-								   Set.of(DomainUtil.MANAGEMENT_API_ZONE, DomainUtil.SYSTEM_API_ZONE, DomainUtil.APP_API_ZONE));
+	public ZonePartitioningService zonePartitioningService() {
+		return ZonePartitioningService.of("org",
+								          Set.of(DomainUtil.MANAGEMENT_API_ZONE),
+								          Set.of(DomainUtil.MANAGEMENT_API_ZONE, DomainUtil.SYSTEM_API_ZONE, DomainUtil.APP_API_ZONE));
 	}
 }

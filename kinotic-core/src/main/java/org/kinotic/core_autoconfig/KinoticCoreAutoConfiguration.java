@@ -1,7 +1,7 @@
 package org.kinotic.core_autoconfig;
 
 import org.kinotic.core.KinoticCoreLibrary;
-import org.kinotic.core.api.event.ZonePartitioning;
+import org.kinotic.core.api.event.ZonePartitioningService;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -16,10 +16,10 @@ import org.springframework.context.annotation.Import;
 public class KinoticCoreAutoConfiguration {
 
     // Declared here rather than scanned: auto-configuration runs after the server module's own beans are
-    // registered, so @ConditionalOnMissingBean sees a server's ZonePartitioning whatever the scan order
+    // registered, so @ConditionalOnMissingBean sees a server's ZonePartitioningService whatever the scan order
     @Bean
-    @ConditionalOnMissingBean(ZonePartitioning.class)
-    public ZonePartitioning everyZonePartitioning() {
-        return ZonePartitioning.everyZone("kinotic");
+    @ConditionalOnMissingBean(ZonePartitioningService.class)
+    public ZonePartitioningService everyZonePartitioningService() {
+        return ZonePartitioningService.everyZone("kinotic");
     }
 }

@@ -13,11 +13,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Verifies which addresses a partitioning hosts and reaches, and the node attributes it advertises.
  */
-public class ZonePartitioningTest {
+public class ZonePartitioningServiceTest {
 
-    private static final ZonePartitioning ORG = ZonePartitioning.of("org",
-                                                                    Set.of("management-api"),
-                                                                    Set.of("management-api", "system-api", "app-api"));
+    private static final ZonePartitioningService ORG = ZonePartitioningService.of("org",
+                                                                           Set.of("management-api"),
+                                                                           Set.of("management-api", "system-api", "app-api"));
 
     @Test
     public void hostsOnlyItsZones() {
@@ -42,14 +42,14 @@ public class ZonePartitioningTest {
 
     @Test
     public void coversSubZones() {
-        ZonePartitioning app = ZonePartitioning.of("app", Set.of("app-api", "app"), Set.of("app-api", "app"));
+        ZonePartitioningService app = ZonePartitioningService.of("app", Set.of("app-api", "app"), Set.of("app-api", "app"));
         assertTrue(app.hosts("srv://app.acme.orders.billing~com.acme.Billing"));
         assertFalse(app.hosts("srv://management-api~org.kinotic.management.api.services.ProjectService"));
     }
 
     @Test
     public void everyZoneHostsAndReachesAnything() {
-        ZonePartitioning every = ZonePartitioning.everyZone("kinotic");
+        ZonePartitioningService every = ZonePartitioningService.everyZone("kinotic");
         assertTrue(every.hosts("srv://evil~com.example.Service"));
         assertTrue(every.reaches("srv://app.acme.orders~com.acme.Orders"));
         assertEquals(Map.of(), every.nodeAttributes());
@@ -57,9 +57,9 @@ public class ZonePartitioningTest {
 
     @Test
     public void advertisesAnAttributePerHostedZone() {
-        ZonePartitioning system = ZonePartitioning.of("system",
-                                                      Set.of("system-api", "management-api"),
-                                                      Set.of("system-api", "management-api"));
+        ZonePartitioningService system = ZonePartitioningService.of("system",
+                                                             Set.of("system-api", "management-api"),
+                                                             Set.of("system-api", "management-api"));
         assertEquals(Map.of("kinotic.zone.system-api", true, "kinotic.zone.management-api", true),
                      system.nodeAttributes());
     }
@@ -67,6 +67,6 @@ public class ZonePartitioningTest {
     @Test
     public void mustReachWhatItHosts() {
         assertThrows(IllegalArgumentException.class,
-                     () -> ZonePartitioning.of("broken", Set.of("app-api"), Set.of("management-api")));
+                     () -> ZonePartitioningService.of("broken", Set.of("app-api"), Set.of("management-api")));
     }
 }

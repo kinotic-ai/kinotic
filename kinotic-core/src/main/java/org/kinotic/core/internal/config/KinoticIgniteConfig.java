@@ -20,7 +20,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.config.IgniteClusterDiscoveryType;
 import org.kinotic.core.api.config.IgniteProperties;
-import org.kinotic.core.api.event.ZonePartitioning;
+import org.kinotic.core.api.event.ZonePartitioningService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -102,7 +102,7 @@ public class KinoticIgniteConfig {
     public IgniteConfiguration igniteConfiguration(DiscoverySpi discoverySpi,
             TcpCommunicationSpi tcpCommunicationSpi,
             FailureHandler failureHandler,
-            ZonePartitioning zonePartitioning) {
+            ZonePartitioningService zonePartitioningService) {
         // Set up a few system schema Ignite uses
         System.setProperty(IgniteSystemProperties.IGNITE_NO_ASCII, "true");// Turn off ignite console banner
 
@@ -157,7 +157,7 @@ public class KinoticIgniteConfig {
         cfg.setFailureHandler(failureHandler);
 
         // lets a cluster singleton be deployed only to the nodes hosting its zone
-        cfg.setUserAttributes(zonePartitioning.nodeAttributes());
+        cfg.setUserAttributes(zonePartitioningService.nodeAttributes());
 
         cfg.setWorkDirectory(properties.getIgnite().getWorkDirectory());
 

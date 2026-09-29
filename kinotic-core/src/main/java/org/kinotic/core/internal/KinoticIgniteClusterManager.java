@@ -18,7 +18,7 @@ import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.ServiceListenerChange;
 import org.kinotic.core.api.event.ServiceListenerContinuityLost;
 import org.kinotic.core.api.event.ServiceListenerEvent;
-import org.kinotic.core.api.event.ZonePartitioning;
+import org.kinotic.core.api.event.ZonePartitioningService;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
@@ -30,7 +30,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * An {@link IgniteClusterManager} confined to this server's {@link ZonePartitioning}: it advertises a consumer to the
+ * An {@link IgniteClusterManager} confined to this server's {@link ZonePartitioningService}: it advertises a consumer to the
  * cluster only in a zone the server hosts, and routes sends and publishes only to zones the server reaches. It
  * additionally provides a {@link Flux} of {@link ListenerStatus} for any event bus address, fed by the
  * registration updates it already receives for message routing, and a {@link Flux} of the cluster membership,
@@ -55,7 +55,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     private static final String SERVICE_ADDRESS_PREFIX = EventConstants.SERVICE_DESTINATION_SCHEME + "://";
 
     private final Ignite ignite;
-    private final ZonePartitioning partitioning;
+    private final ZonePartitioningService partitioning;
     private final Map<String, AddressMonitor> monitors = new ConcurrentHashMap<>();
     // Hot sink shared by every serviceListenerEventsFlux subscriber; never terminates
     private final Sinks.Many<ServiceListenerEvent> serviceListenerSink = Sinks.many().multicast().directBestEffort();
@@ -66,7 +66,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     private volatile Vertx vertx;
     private volatile Context deliveryContext;
 
-    public KinoticIgniteClusterManager(Ignite ignite, ZonePartitioning partitioning) {
+    public KinoticIgniteClusterManager(Ignite ignite, ZonePartitioningService partitioning) {
         super(ignite);
         this.ignite = ignite;
         this.partitioning = partitioning;

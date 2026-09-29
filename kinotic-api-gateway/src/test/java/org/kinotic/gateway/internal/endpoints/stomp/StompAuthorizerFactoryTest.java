@@ -2,7 +2,7 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.event.CRI;
-import org.kinotic.core.api.event.ZonePartitioning;
+import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
@@ -25,7 +25,7 @@ public class StompAuthorizerFactoryTest {
 
     private static final String REPLY_TO_ID = "reply-to-1";
 
-    private StompAuthorizerFactory factory = new StompAuthorizerFactory(ZonePartitioning.everyZone("test"));
+    private StompAuthorizerFactory factory = new StompAuthorizerFactory(ZonePartitioningService.everyZone("test"));
 
     private StompAuthorizer applicationAuthorizer(String organizationId, String applicationId) {
         DefaultApplicationParticipant participant = DefaultApplicationParticipant.builder()
@@ -188,9 +188,9 @@ public class StompAuthorizerFactoryTest {
 
     @Test
     public void theOrgServerRoutesOnlyToZonesItReaches() {
-        factory = new StompAuthorizerFactory(ZonePartitioning.of("org",
-                                                                 Set.of("management-api"),
-                                                                 Set.of("management-api", "system-api", "app-api")));
+        factory = new StompAuthorizerFactory(ZonePartitioningService.of("org",
+                                                                        Set.of("management-api"),
+                                                                        Set.of("management-api", "system-api", "app-api")));
         StompAuthorizer organization = organizationAuthorizer("acme-org");
 
         assertTrue(organization.sendAllowed(CRI.create("srv://management-api~org.kinotic.management.api.services.iam.MemberService/findMembers#1.0.0")));
@@ -205,7 +205,7 @@ public class StompAuthorizerFactoryTest {
 
     @Test
     public void theAppServerHostsApplicationZonesOnly() {
-        factory = new StompAuthorizerFactory(ZonePartitioning.of("app", Set.of("app-api", "app"), Set.of("app-api", "app")));
+        factory = new StompAuthorizerFactory(ZonePartitioningService.of("app", Set.of("app-api", "app"), Set.of("app-api", "app")));
         StompAuthorizer organization = organizationAuthorizer("acme-org");
 
         assertTrue(organization.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));

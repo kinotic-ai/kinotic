@@ -3,7 +3,7 @@ package org.kinotic.domain.api.model.security;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.core.api.event.ZonePartitioning;
+import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
@@ -17,19 +17,19 @@ import java.util.Set;
 /**
  * The zones a participant may address, derived once from the participant type: the zones it may send to and the
  * zones it may subscribe in. Zones come from the CRI itself, so an un-zoned address is only ever sendable by a
- * participant that may send to any zone. {@link #restrictedTo(ZonePartitioning)} narrows the rules to what one server
+ * participant that may send to any zone. {@link #restrictedTo(ZonePartitioningService)} narrows the rules to what one server
  * serves.
  */
 public class ZoneRules {
 
-    private static final ZonePartitioning EVERY_ZONE = ZonePartitioning.everyZone("every-zone");
+    private static final ZonePartitioningService EVERY_ZONE = ZonePartitioningService.everyZone("every-zone");
 
     private final boolean sendAnyZone;
     private final Set<String> sendZones;
     private final Set<String> subscribableZones;
-    private final ZonePartitioning partitioning;
+    private final ZonePartitioningService partitioning;
 
-    private ZoneRules(boolean sendAnyZone, Set<String> sendZones, Set<String> subscribableZones, ZonePartitioning partitioning) {
+    private ZoneRules(boolean sendAnyZone, Set<String> sendZones, Set<String> subscribableZones, ZonePartitioningService partitioning) {
         this.sendAnyZone = sendAnyZone;
         this.sendZones = sendZones;
         this.subscribableZones = subscribableZones;
@@ -87,7 +87,7 @@ public class ZoneRules {
      * @param partitioning the server's zone partitioning
      * @return the narrowed rules
      */
-    public ZoneRules restrictedTo(ZonePartitioning partitioning) {
+    public ZoneRules restrictedTo(ZonePartitioningService partitioning) {
         Validate.notNull(partitioning, "partitioning must not be null");
         return new ZoneRules(sendAnyZone, sendZones, subscribableZones, partitioning);
     }

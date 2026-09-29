@@ -14,7 +14,7 @@ import java.util.Set;
  * {@code app} covers {@code app.acme.orders}, and an address without a zone is platform-internal and passes both.
  * The server module declares its partitioning as a bean; a server that declares none hosts and reaches every zone.
  */
-public final class ZonePartitioning {
+public final class ZonePartitioningService {
 
     private static final String HOSTS_ATTRIBUTE_PREFIX = "kinotic.zone.";
 
@@ -22,7 +22,7 @@ public final class ZonePartitioning {
     private final Set<String> hostedZones;
     private final Set<String> reachableZones;
 
-    private ZonePartitioning(String name, Set<String> hostedZones, Set<String> reachableZones) {
+    private ZonePartitioningService(String name, Set<String> hostedZones, Set<String> reachableZones) {
         this.name = name;
         this.hostedZones = hostedZones;
         this.reachableZones = reachableZones;
@@ -48,7 +48,7 @@ public final class ZonePartitioning {
      * @param reachableZones the zones the server routes to, which must cover every hosted zone
      * @return the partitioning
      */
-    public static ZonePartitioning of(String name, Set<String> hostedZones, Set<String> reachableZones) {
+    public static ZonePartitioningService of(String name, Set<String> hostedZones, Set<String> reachableZones) {
         Validate.notBlank(name, "name must not be blank");
         Validate.notEmpty(hostedZones, "hostedZones must not be empty");
         Validate.notEmpty(reachableZones, "reachableZones must not be empty");
@@ -58,7 +58,7 @@ public final class ZonePartitioning {
         for (String zone : hostedZones) {
             Validate.isTrue(ZoneUtil.zoneMatches(zone, reachableZones), "The hosted zone '%s' is not reachable", zone);
         }
-        return new ZonePartitioning(name, Set.copyOf(hostedZones), Set.copyOf(reachableZones));
+        return new ZonePartitioningService(name, Set.copyOf(hostedZones), Set.copyOf(reachableZones));
     }
 
     /**
@@ -67,9 +67,9 @@ public final class ZonePartitioning {
      * @param name names the server kind
      * @return the partitioning
      */
-    public static ZonePartitioning everyZone(String name) {
+    public static ZonePartitioningService everyZone(String name) {
         Validate.notBlank(name, "name must not be blank");
-        return new ZonePartitioning(name, null, null);
+        return new ZonePartitioningService(name, null, null);
     }
 
     /**
