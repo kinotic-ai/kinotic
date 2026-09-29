@@ -1,3 +1,5 @@
+import { markRaw, type Component } from 'vue'
+import { Crosshair, FolderGit2, Globe, Package, Server } from '@lucide/vue'
 import type { ProjectArtifacts } from '@kinotic-ai/management-api'
 import type { JobTaskNode } from '../grind/JobTaskNode'
 
@@ -19,8 +21,22 @@ export default class ProjectDeployStores {
 
   public static readonly ARTIFACTS = 'artifacts'
   public static readonly DEPLOY_TARGET = 'deployTarget'
+  public static readonly MICROSERVICE_DEPLOYMENTS = 'microserviceDeployments'
   public static readonly SYNC_WORKLOAD_ID = 'syncWorkloadId'
   public static readonly UI_DEPLOYMENTS = 'uiDeployments'
+
+  private static readonly ICONS: Record<string, Component> = {
+    [ProjectDeployStores.DEPLOY_TARGET]: markRaw(Crosshair),
+    [ProjectDeployStores.SYNC_WORKLOAD_ID]: markRaw(FolderGit2),
+    [ProjectDeployStores.ARTIFACTS]: markRaw(Package),
+    [ProjectDeployStores.MICROSERVICE_DEPLOYMENTS]: markRaw(Server),
+    [ProjectDeployStores.UI_DEPLOYMENTS]: markRaw(Globe)
+  }
+
+  /** The icon of the deployment step the task is, or undefined for a task outside the five steps. */
+  public static iconOf(node: JobTaskNode): Component | undefined {
+    return node.storedName ? ProjectDeployStores.ICONS[node.storedName] : undefined
+  }
 
   /** The artifacts the task bound into the run, or null while the task has not completed. */
   public static artifactsOf(node: JobTaskNode): ProjectArtifacts | null {

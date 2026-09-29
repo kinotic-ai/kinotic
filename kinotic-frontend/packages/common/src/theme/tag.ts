@@ -2,11 +2,11 @@ import type { TagDesignTokens } from '@primeuix/themes/types/tag';
 
  export default {
     root: {
-        fontSize: "0.875rem",
-        fontWeight: "700",
-        padding: "0.25rem 0.5rem",
+        fontSize: "0.8125rem",
+        fontWeight: "500",
+        padding: "0.125rem 0.375rem",
         gap: "0.25rem",
-        borderRadius: "{content.border.radius}",
+        borderRadius: "{border.radius.sm}",
         roundedBorderRadius: "{border.radius.xl}"
     },
     icon: {

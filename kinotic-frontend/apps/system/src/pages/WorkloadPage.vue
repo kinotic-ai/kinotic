@@ -21,9 +21,9 @@
 
     <Tabs v-model:value="tab">
       <TabList>
-        <Tab value="overview"><i class="pi pi-objects-column mr-2" />Overview</Tab>
-        <Tab value="logs"><i class="pi pi-align-left mr-2" />Logs</Tab>
-        <Tab value="history"><i class="pi pi-history mr-2" />History</Tab>
+        <Tab value="overview"><span class="flex items-center gap-2"><LayoutDashboard :size="18" :stroke-width="1.75" aria-hidden="true" />Overview</span></Tab>
+        <Tab value="logs"><span class="flex items-center gap-2"><ScrollText :size="18" :stroke-width="1.75" aria-hidden="true" />Logs</span></Tab>
+        <Tab value="history"><span class="flex items-center gap-2"><Clock :size="18" :stroke-width="1.75" aria-hidden="true" />History</span></Tab>
       </TabList>
       <TabPanels>
         <TabPanel value="overview">
@@ -116,6 +116,7 @@
 </template>
 
 <script setup lang="ts">
+import { Clock, LayoutDashboard, ScrollText } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'

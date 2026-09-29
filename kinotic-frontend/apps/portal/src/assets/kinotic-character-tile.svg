@@ -1,0 +1,100 @@
+<svg width="139" height="139" viewBox="0 0 139 139" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Kinotic character">
+<rect width="138.824" height="138.824" rx="32.3922" fill="url(#paint0_linear_576_1682)"/>
+<svg x="13.19" y="19.48" width="105.69" height="105.69" viewBox="0 0 300 300" fill="none">
+  <style>
+    /*
+      GrokBot-inspired eye behavior:
+      - shared wandering gaze
+      - fast blink / softer reopen
+      - occasional subtle expression squeeze/tilt
+      This stays self-contained and works without JavaScript.
+    */
+    #eyes-gaze {
+      transform-box: view-box;
+      transform-origin: 150px 175px;
+      animation: gaze 11.8s cubic-bezier(.4,0,.2,1) infinite;
+    }
+
+    .eye-expression {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation-duration: 11.8s;
+      animation-timing-function: cubic-bezier(.34,1.56,.64,1);
+      animation-iteration-count: infinite;
+    }
+    .eye-expression.left  { animation-name: expression-left; }
+    .eye-expression.right { animation-name: expression-right; }
+
+    .blink {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: blink 6.4s cubic-bezier(.4,0,.2,1) infinite;
+    }
+    .blink.delay {
+      animation-delay: 0.018s;
+    }
+
+    @keyframes gaze {
+      0%, 8%   { transform: translate(0px, 0px); }
+      13%, 24% { transform: translate(5.8px, -1.2px); }
+      29%, 39% { transform: translate(0px, 0px); }
+      45%, 58% { transform: translate(-6.6px, -2.8px); }
+      63%, 70% { transform: translate(-2px, 1.5px); }
+      75%, 86% { transform: translate(5px, 2.2px); }
+      91%, 100%{ transform: translate(0px, 0px); }
+    }
+
+    @keyframes blink {
+      0%, 44%, 48%, 76%, 80%, 100% { transform: scaleY(1); }
+      45.0% { transform: scaleY(.14); }
+      46.1% { transform: scaleY(.06); }
+      47.3% { transform: scaleY(1); }
+      77.0% { transform: scaleY(.18); }
+      78.0% { transform: scaleY(.08); }
+      79.1% { transform: scaleY(1); }
+    }
+
+    @keyframes expression-left {
+      0%, 37%, 100% { transform: rotate(0deg) scaleX(1); }
+      45%, 58% { transform: rotate(-1.6deg) scaleX(.96); }
+      75%, 86% { transform: rotate(.9deg) scaleX(1.025); }
+      92% { transform: rotate(0deg) scaleX(1); }
+    }
+
+    @keyframes expression-right {
+      0%, 37%, 100% { transform: rotate(0deg) scaleX(1); }
+      45%, 58% { transform: rotate(1.6deg) scaleX(.96); }
+      75%, 86% { transform: rotate(-.9deg) scaleX(1.025); }
+      92% { transform: rotate(0deg) scaleX(1); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #eyes-gaze, .eye-expression, .blink { animation: none !important; }
+    }
+  </style>
+
+  <!-- Animated eyes -->
+  <g id="eyes-gaze">
+    <g class="eye-expression left">
+      <g class="blink">
+        <path d="M140.051 161.501H99.9532C98.3692 161.501 97.0851 162.786 97.0851 164.37V184.953C97.0851 186.537 98.3692 187.822 99.9532 187.822H140.051C141.635 187.822 142.919 186.537 142.919 184.953V164.37C142.919 162.786 141.635 161.501 140.051 161.501Z" fill="#28FEB4"/>
+      </g>
+    </g>
+    <g class="eye-expression right">
+      <g class="blink delay">
+        <path d="M200.587 161.501H160.489C158.905 161.501 157.621 162.786 157.621 164.37V184.953C157.621 186.537 158.905 187.822 160.489 187.822H200.587C202.171 187.822 203.455 186.537 203.455 184.953V164.37C203.455 162.786 202.171 161.501 200.587 161.501Z" fill="#28FEB4"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- Original character artwork, unchanged -->
+  <path d="M217.544 142.226V204.95C217.544 205.689 217.251 206.397 216.729 206.919C216.207 207.442 215.498 207.735 214.76 207.735H85.6684C84.9298 207.735 84.2216 207.442 83.6994 206.919C83.1772 206.397 82.8838 205.689 82.8838 204.95V149.997C82.8826 149.442 83.0474 148.898 83.3571 148.437L116.159 98.0245C116.471 97.5993 116.656 97.094 116.692 96.5678C116.728 96.0416 116.614 95.5161 116.363 95.0521C116.112 94.5882 115.735 94.2051 115.275 93.9473C114.815 93.6895 114.291 93.5676 113.764 93.5959H89.2048C88.7295 93.5873 88.2599 93.7004 87.8407 93.9247C87.4215 94.149 87.0667 94.4769 86.8101 94.8772L57.0433 140.499C56.7373 140.973 56.5729 141.524 56.5698 142.087V231.215C56.5698 231.953 56.8632 232.662 57.3854 233.184C57.9076 233.707 58.6159 234 59.3544 234H240.99C241.729 234 242.437 233.707 242.959 233.184C243.482 232.662 243.775 231.953 243.775 231.215V150.109C243.774 149.553 243.938 149.01 244.248 148.549L262.069 121.17C262.39 120.745 262.581 120.237 262.622 119.706C262.663 119.175 262.55 118.644 262.298 118.175C262.046 117.706 261.665 117.319 261.2 117.06C260.735 116.801 260.206 116.681 259.675 116.714H235.115C234.635 116.718 234.164 116.84 233.742 117.068C233.319 117.296 232.959 117.624 232.692 118.023L218.018 140.499C217.685 141.012 217.52 141.616 217.544 142.226Z" fill="#28FEB4"/>
+  <path d="M196.911 49.5057H172.379C171.897 49.4952 171.42 49.6103 170.995 49.8398C170.57 50.0693 170.213 50.4052 169.957 50.8147L113.18 138.021C112.858 138.448 112.665 138.958 112.625 139.492C112.586 140.026 112.7 140.559 112.956 141.03C113.211 141.5 113.597 141.886 114.066 142.143C114.536 142.399 115.069 142.516 115.602 142.477H140.162C140.64 142.483 141.111 142.365 141.531 142.136C141.95 141.907 142.304 141.573 142.557 141.168L199.334 53.9342C199.647 53.507 199.833 52.9991 199.868 52.4702C199.903 51.9412 199.787 51.4132 199.532 50.9482C199.278 50.4831 198.896 50.1004 198.432 49.8449C197.968 49.5893 197.44 49.4718 196.911 49.5057Z" fill="#28FEB4"/>
+  <path d="M233.695 77.4418H209.135C208.657 77.4361 208.186 77.5535 207.767 77.7828C207.347 78.0121 206.994 78.3455 206.74 78.7509L168.147 138.021C167.826 138.446 167.635 138.954 167.594 139.485C167.553 140.016 167.666 140.547 167.918 141.016C168.17 141.485 168.551 141.872 169.016 142.131C169.481 142.39 170.01 142.51 170.541 142.477H195.101C195.579 142.483 196.05 142.365 196.47 142.136C196.889 141.907 197.243 141.574 197.496 141.168L236.229 81.8704C236.551 81.4356 236.74 80.9161 236.772 80.3758C236.804 79.8354 236.678 79.2974 236.409 78.8276C236.14 78.3578 235.74 77.9765 235.258 77.7304C234.776 77.4843 234.233 77.3839 233.695 77.4418Z" fill="#28FEB4"/>
+</svg>
+<defs>
+<linearGradient id="paint0_linear_576_1682" x1="47.4091" y1="-12.7032" x2="91.4144" y2="151.527" gradientUnits="userSpaceOnUse">
+<stop offset="0.7" stop-color="#101012" stop-opacity="0.9"/>
+</linearGradient>
+</defs>
+</svg>

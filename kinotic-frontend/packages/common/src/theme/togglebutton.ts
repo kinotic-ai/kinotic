@@ -3,7 +3,7 @@ import type { ToggleButtonDesignTokens } from '@primeuix/themes/types/togglebutt
  export default {
     root: {
         padding: "0.25rem",
-        borderRadius: "{content.border.radius}",
+        borderRadius: "{form.field.border.radius}",
         gap: "0.5rem",
         fontWeight: "500",
         disabledBackground: "{form.field.disabled.background}",
@@ -31,8 +31,8 @@ import type { ToggleButtonDesignTokens } from '@primeuix/themes/types/togglebutt
         disabledColor: "{form.field.disabled.color}"
     },
     content: {
-        padding: "0.25rem 0.75rem",
-        borderRadius: "{content.border.radius}",
+        padding: "0.375rem 0.75rem",
+        borderRadius: "{border.radius.sm}",
         checkedShadow: "0px 1px 2px 0px rgba(0, 0, 0, 0.02), 0px 1px 2px 0px rgba(0, 0, 0, 0.04)",
         sm: {
             padding: "0.25rem 0.75rem"

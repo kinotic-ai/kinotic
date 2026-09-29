@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import Tooltip from 'primevue/tooltip'
+import type { Component } from 'vue'
 
-const vTooltip = Tooltip
 
 const props = defineProps<{
-  icon: string,
+  icon: Component,
   label: string,
   collapsed: boolean,
   textColor?: string,
@@ -19,10 +18,7 @@ const props = defineProps<{
       'relative flex w-full cursor-pointer',
       props.collapsed ? 'min-h-[46px] items-center justify-center px-[10px]' : 'min-h-[36px]'
     ]"
-    v-tooltip.right="{
-      value: props.collapsed ? label : null,
-      pt: { text: '!bg-surface-900 !text-surface-0 !text-xs !font-medium', arrow: '!border-r-surface-900' }
-    }"
+    v-tooltip.right="props.collapsed ? label : null"
     @click="$emit('click')"
   >
     <span
@@ -40,9 +36,12 @@ const props = defineProps<{
       ]"
     >
       <div class="min-w-[20px] flex justify-center items-center h-[24px]">
-        <i
-          :class="['pi', icon, props.collapsed ? '' : 'text-base', props.isActive ? 'app-sidebar-item-icon-active' : 'app-sidebar-item-icon']"
-          :style="{ fontSize: '14px', lineHeight: '14px' }"
+        <component
+          :is="icon"
+          :size="20"
+          :stroke-width="1.75"
+          :class="props.isActive ? 'app-sidebar-item-icon-active' : 'app-sidebar-item-icon'"
+          aria-hidden="true"
         />
       </div>
       <div v-if="!props.collapsed" class="w-[8px]"></div>
