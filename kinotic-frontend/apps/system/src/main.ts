@@ -1,5 +1,6 @@
 import './style.css'
 import 'primeicons/primeicons.css'
+import '@fontsource-variable/jetbrains-mono'
 import { createKinoticApp } from '@kinotic-ai/frontend-common'
 import { Kinotic } from '@kinotic-ai/core'
 import { ManagementApiPlugin } from '@kinotic-ai/management-api'
