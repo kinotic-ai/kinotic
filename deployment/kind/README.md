@@ -150,7 +150,7 @@ Keycloak and redeploy the servers with OIDC -- no manual steps needed.
 |----------|---------|-------------|
 | `cluster_name` | `kinotic-cluster` | KinD cluster name |
 | `node_image` | `""` | KinD node image override (empty = provider default) |
-| `kinotic_version` | `latest` | Kinotic server image tag |
+| `kinotic_version` | `5.0.0-SNAPSHOT`, set in `terraform.tfvars` | Kinotic server and migration image tag, the `kinoticVersion` CI publishes the images at |
 | `worker_count` | `3` | Number of worker nodes |
 | `enable_keycloak` | `false` | Deploy Keycloak + PostgreSQL for OIDC |
 | `enable_load_generator` | `false` | Run load generator via Terraform |
