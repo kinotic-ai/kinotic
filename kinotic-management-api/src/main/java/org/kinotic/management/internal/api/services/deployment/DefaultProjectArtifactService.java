@@ -36,14 +36,14 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
         Validate.notNull(artifacts, "artifacts is required");
         Validate.notBlank(artifacts.commitSha(), "artifacts.commitSha is required");
         validate(artifacts);
-        OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
-        return loadOwned(projectId, participant)
+        String organizationId = securityContext.requireParticipant(OrganizationParticipant.class).getOrganizationId();
+        return findForProjectAndOrg(projectId, organizationId)
                 .compose(deployment -> {
                     // the SBOM lists the dependencies it was generated from, so a report of other
                     // dependencies drops it and the deployment generates it again
                     boolean sameDependencies = deployment.getArtifacts() != null
                             && Objects.equals(deployment.getArtifacts().dependencyHash(), artifacts.dependencyHash());
-                    return projectDeploymentRepository.recordArtifacts(projectId, participant.getOrganizationId(), artifacts,
+                    return projectDeploymentRepository.recordArtifacts(projectId, organizationId, artifacts,
                                                                        sameDependencies && deployment.isSbomGenerated());
                 });
     }
@@ -54,9 +54,8 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
         Validate.notBlank(dependencyHash, "dependencyHash is required");
         Validate.notNull(dependencies, "dependencies is required");
         validate(dependencies);
-        OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
-        String organizationId = participant.getOrganizationId();
-        return loadOwned(projectId, participant)
+        String organizationId = securityContext.requireParticipant(OrganizationParticipant.class).getOrganizationId();
+        return findForProjectAndOrg(projectId, organizationId)
                 .compose(deployment -> {
                     // the SBOM is recorded as the one of the dependencies the artifacts list, so it
                     // must have been generated from those
@@ -70,10 +69,10 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
                 });
     }
 
-    /** Loads the deployment of a project of the participant's organization; another organization's is indistinguishable from none. */
-    private Future<ProjectDeployment> loadOwned(String projectId, OrganizationParticipant participant) {
-        return projectDeploymentRepository.findById(projectId, participant.getOrganizationId())
-                .map(deployment -> DomainUtil.requireOwned(deployment, participant.getOrganizationId(), "Project deployment not found."));
+    /** Finds the project's deployment in the organization, failing as not found when there is none. */
+    private Future<ProjectDeployment> findForProjectAndOrg(String projectId, String organizationId) {
+        return projectDeploymentRepository.findById(projectId, organizationId)
+                .map(deployment -> DomainUtil.requireOwned(deployment, organizationId, "Project deployment not found."));
     }
 
     // A name becomes a workload name and a hostname label, and two artifacts of one kind with
