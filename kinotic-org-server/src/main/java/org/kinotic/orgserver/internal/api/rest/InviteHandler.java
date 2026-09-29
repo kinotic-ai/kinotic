@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.rest;
+package org.kinotic.orgserver.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -12,14 +12,16 @@ import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.exceptions.InviteEmailMismatchException;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
-import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
-import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
-import org.kinotic.domain.internal.api.rest.support.CallbackResult;
-import org.kinotic.domain.internal.api.rest.support.OAuth2Util;
-import org.kinotic.domain.internal.api.rest.support.OidcCallbackException;
-import org.kinotic.domain.internal.api.rest.support.OidcErrorCodes;
-import org.kinotic.domain.internal.api.rest.support.OidcFlowOrchestrator;
+import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
+import org.kinotic.domain.api.rest.support.CallbackResult;
+import org.kinotic.domain.api.rest.support.OAuth2Util;
+import org.kinotic.domain.api.rest.support.OidcCallbackException;
+import org.kinotic.domain.api.rest.support.OidcErrorCodes;
+import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.domain.api.rest.ServerSurface;
+import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -33,6 +35,7 @@ import java.util.Map;
  * callback.
  */
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class InviteHandler implements SuppliesGatewayRoutes {
 
@@ -42,7 +45,6 @@ public class InviteHandler implements SuppliesGatewayRoutes {
     private final InviteService inviteService;
     private final OrganizationService organizationService;
     private final OidcConfigurationService oidcConfigurationService;
-    private final OidcConfigurationRepository oidcConfigurationRepository;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
@@ -265,12 +267,12 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                         ret = Future.succeededFuture(social);
                     } else if (orgId == null) {
                         // Invite flows always stash an orgId; this guard only turns a corrupted
-                        // session into config_not_found instead of a repository exception.
+                        // session into config_not_found instead of a failed lookup.
                         ret = Future.succeededFuture(null);
                     } else {
                         // The cast widens the future's element type — Future is invariant.
-                        ret = oidcConfigurationRepository.findById(configId, orgId)
-                                                         .map(c -> (BaseOidcConfiguration) c);
+                        ret = oidcConfigurationService.findById(configId, orgId)
+                                                      .map(c -> (BaseOidcConfiguration) c);
                     }
                     return ret;
                 });

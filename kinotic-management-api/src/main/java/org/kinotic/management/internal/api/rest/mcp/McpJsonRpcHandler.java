@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.rest;
+package org.kinotic.management.internal.api.rest.mcp;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.DecodeException;
@@ -19,8 +19,10 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
-import org.kinotic.domain.internal.api.rest.mcp.McpToolInvoker;
-import org.kinotic.domain.internal.api.rest.mcp.model.*;
+import org.kinotic.domain.api.rest.ServerSurface;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.management.internal.api.rest.mcp.model.*;
+import org.springframework.stereotype.Component;
 import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -37,6 +39,7 @@ import java.util.Set;
  * host obtains its bearer token from.
  */
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 

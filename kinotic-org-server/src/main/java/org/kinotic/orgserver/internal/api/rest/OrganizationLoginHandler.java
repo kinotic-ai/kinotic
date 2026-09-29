@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.rest;
+package org.kinotic.orgserver.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
@@ -7,9 +7,9 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
-import org.kinotic.domain.internal.api.rest.support.CallbackResult;
-import org.kinotic.domain.internal.api.rest.support.OidcFlowOrchestrator;
+import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
+import org.kinotic.domain.api.rest.support.CallbackResult;
+import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.security.AuthType;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
@@ -18,7 +18,9 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
-import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.domain.api.rest.ServerSurface;
+import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -30,6 +32,7 @@ import java.util.Set;
  * here return to this handler's own callbacks.
  */
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
 
@@ -40,7 +43,6 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
     private final OidcConfigurationService oidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
-    private final OidcConfigurationRepository oidcConfigurationRepository;
 
     @Override
     public void mountRoutes(Router router) {
@@ -136,7 +138,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
         oidcFlowOrchestrator.handleCallback(ctx,
                                             pathConfigId,
                                             ssoCallbackUrl(ctx, pathConfigId),
-                                            orgId -> oidcConfigurationRepository.findById(pathConfigId, orgId))
+                                            orgId -> oidcConfigurationService.findById(pathConfigId, orgId))
                             .onSuccess(result -> completeSsoLogin(ctx, result))
                             .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }

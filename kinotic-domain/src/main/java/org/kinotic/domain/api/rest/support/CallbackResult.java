@@ -1,4 +1,4 @@
-package org.kinotic.domain.internal.api.rest.support;
+package org.kinotic.domain.api.rest.support;
 
 import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
 

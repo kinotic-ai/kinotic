@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.rest;
+package org.kinotic.domain.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
@@ -10,34 +10,38 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.model.security.KinoticAudience;
+import org.kinotic.domain.api.rest.OAuthExtensionGrant;
+import org.kinotic.domain.api.rest.ServerSurface;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.services.security.OAuthAuthorizationService;
 import org.kinotic.domain.api.services.security.RefreshTokenService;
-import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
+import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
+import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Optional;
+import java.util.List;
 
 /**
  * The OAuth 2.1 authorization server MCP hosts discover and drive to reach {@code POST /mcp}: its
  * RFC 8414 metadata document, the PKCE authorization-code flow whose consent step is the
  * {@code /oauth/consent} page on this server's UI, the routes that page describes, approves and
- * denies the request with as its signed-in user, and the token endpoint. On a server that imports
- * {@link DeviceAuthorizationHandler}, the token endpoint also redeems the RFC 8628 device codes it
- * issues to the CLI, and the metadata advertises the device grant. There is no registration
- * endpoint: an MCP host identifies itself with a Client ID Metadata Document URL
- * (draft-ietf-oauth-client-id-metadata-document) the authorize endpoint fetches. Token responses
- * carry a Kinotic access token plus a rotating refresh token, so clients requesting
+ * denies the request with as its signed-in user, and the token endpoint. The token endpoint also
+ * redeems every {@link OAuthExtensionGrant} a module publishes, and the metadata advertises each.
+ * There is no registration endpoint: an MCP host identifies itself with a Client ID Metadata
+ * Document URL (draft-ietf-oauth-client-id-metadata-document) the authorize endpoint fetches. Token
+ * responses carry a Kinotic access token plus a rotating refresh token, so clients requesting
  * {@code offline_access} refresh without re-consent.
  *
  * <p>Each grant stamps the audience of the surface it serves: the authorization-code grant issues
- * {@link KinoticAudience#MCP_TOOLS} tokens, the device grant {@link KinoticAudience#PUBLISHED_SERVICES}
- * tokens, and the refresh grant re-mints whichever audience its lineage was issued for. Every token
- * acts as the user who approved the grant.
+ * {@link KinoticAudience#MCP_TOOLS} tokens, an extension grant the audience of the surface it serves,
+ * and the refresh grant re-mints whichever audience its lineage was issued for. Every token acts as
+ * the user who approved the grant.
  *
  * <p>Error responses use the RFC 6749 shape {@code {"error":"<code>"}}.
  */
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class OAuthServerHandler implements SuppliesGatewayRoutes {
 
@@ -45,8 +49,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
     private final ServerSurface serverSurface;
     private final OAuthAuthorizationService oauthAuthorizationService;
     private final RefreshTokenService refreshTokenService;
-    // present only on a server that imports DeviceAuthorizationHandler
-    private final Optional<DeviceAuthorizationHandler> deviceAuthorization;
+    private final List<OAuthExtensionGrant> extensionGrants;
 
     @Override
     public void mountRoutes(Router router) {
@@ -61,6 +64,9 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
     /** {@code GET /.well-known/oauth-authorization-server} — RFC 8414 metadata. */
     private void handleAuthorizationServerMetadata(RoutingContext ctx) {
         String issuer = serverSurface.issuerBaseUrl(ctx);
+        JsonArray grantTypes = new JsonArray().add("authorization_code")
+                                              .add("refresh_token");
+        extensionGrants.forEach(grant -> grantTypes.add(grant.grantType()));
         JsonObject metadata = new JsonObject()
                 .put("issuer", issuer)
                 .put("authorization_endpoint", issuer + "/api/auth/oauth/authorize")
@@ -69,12 +75,11 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
                 // support before sending the user somewhere that would reject its client_id
                 .put("client_id_metadata_document_supported", true)
                 .put("response_types_supported", new JsonArray().add("code"))
-                .put("grant_types_supported", new JsonArray().add("authorization_code")
-                                                             .add("refresh_token"))
+                .put("grant_types_supported", grantTypes)
                 .put("code_challenge_methods_supported", new JsonArray().add("S256"))
                 .put("token_endpoint_auth_methods_supported", new JsonArray().add("none"))
                 .put("scopes_supported", new JsonArray().add("offline_access"));
-        deviceAuthorization.ifPresent(device -> device.advertise(metadata, issuer));
+        extensionGrants.forEach(grant -> grant.advertise(metadata, issuer));
         ctx.json(metadata);
     }
 
@@ -154,8 +159,8 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
 
     /**
      * {@code POST /api/auth/oauth/token} — form-encoded per RFC 6749. Supports the
-     * {@code authorization_code} (PKCE) and {@code refresh_token} grants, plus the RFC 8628
-     * device-code grant on a server that imports {@link DeviceAuthorizationHandler}.
+     * {@code authorization_code} (PKCE) and {@code refresh_token} grants, plus every
+     * {@link OAuthExtensionGrant} a module publishes.
      */
     private void handleToken(RoutingContext ctx) {
         String grantType = ctx.request().getFormAttribute("grant_type");
@@ -163,10 +168,12 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
             handleAuthorizationCodeGrant(ctx);
         } else if ("refresh_token".equals(grantType)) {
             handleRefreshTokenGrant(ctx);
-        } else if (DeviceAuthorizationHandler.DEVICE_CODE_GRANT_TYPE.equals(grantType) && deviceAuthorization.isPresent()) {
-            deviceAuthorization.get().redeem(ctx);
         } else {
-            authEndpointSupport.respondError(ctx, 400, "unsupported_grant_type");
+            extensionGrants.stream()
+                           .filter(grant -> grant.grantType().equals(grantType))
+                           .findFirst()
+                           .ifPresentOrElse(grant -> grant.redeem(ctx),
+                                            () -> authEndpointSupport.respondError(ctx, 400, "unsupported_grant_type"));
         }
     }
 

@@ -1,11 +1,13 @@
-package org.kinotic.domain.api.rest;
+package org.kinotic.systemserver.internal.api.services.security;
 
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
-import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
+import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.springframework.stereotype.Component;
 
 /**
  * Login route for platform operators (a SYSTEM-scope {@link UserParticipantIdentity} —
@@ -13,6 +15,7 @@ import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
  * provisioned by Kinotic, so there is no signup, SSO, or social path. On success the browser
  * session is established; the STOMP WebSocket handshake then authenticates from that session cookie.
  */
+@Component
 @RequiredArgsConstructor
 public class SystemLoginHandler implements SuppliesGatewayRoutes {
 

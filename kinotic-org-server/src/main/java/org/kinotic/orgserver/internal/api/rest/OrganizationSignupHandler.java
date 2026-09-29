@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.rest;
+package org.kinotic.orgserver.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -7,13 +7,16 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.Organization;
-import org.kinotic.domain.internal.api.rest.support.*;
+import org.kinotic.domain.api.rest.support.*;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.security.PendingSignUp;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.services.security.SignUpService;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.domain.api.rest.ServerSurface;
+import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +28,7 @@ import java.util.Map;
  * {@link UserParticipantIdentity}; each handler method documents its own step.
  */
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
 

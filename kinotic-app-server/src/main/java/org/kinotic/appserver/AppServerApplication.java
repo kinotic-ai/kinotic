@@ -3,9 +3,6 @@ package org.kinotic.appserver;
 import org.kinotic.core.api.annotations.EnableKinotic;
 import org.kinotic.core.api.event.ZonePartitioning;
 import org.kinotic.domain.api.rest.AppServerSurface;
-import org.kinotic.domain.api.rest.ApplicationLoginHandler;
-import org.kinotic.domain.api.rest.OAuthServerHandler;
-import org.kinotic.domain.api.rest.SessionEndpointHandler;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -21,10 +18,9 @@ import java.util.Set;
  */
 @SpringBootApplication()
 @EnableKinotic
-@Import({AppServerSurface.class,
-		 ApplicationLoginHandler.class,
-		 OAuthServerHandler.class,
-		 SessionEndpointHandler.class})
+// the app server derives its URLs from the application a request addresses, in place of the
+// configured ServerSurface domain auto-configures
+@Import(AppServerSurface.class)
 public class AppServerApplication {
 	static void main(String[] args) {
 		SpringApplication.run(AppServerApplication.class, args);

@@ -1,4 +1,4 @@
-package org.kinotic.domain.internal.api.rest.support;
+package org.kinotic.domain.api.rest.support;
 
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -24,6 +24,7 @@ import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
+import org.kinotic.domain.internal.api.rest.support.OidcFlowSession;
 
 import java.time.Duration;
 import java.util.HashMap;

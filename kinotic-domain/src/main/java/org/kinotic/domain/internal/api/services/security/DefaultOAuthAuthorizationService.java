@@ -12,7 +12,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.OAuthAuthorizationGrant;
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.repositories.OAuthAuthorizationGrantRepository;
-import org.kinotic.domain.internal.api.rest.support.OAuth2Util;
+import org.kinotic.domain.api.rest.support.OAuth2Util;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;

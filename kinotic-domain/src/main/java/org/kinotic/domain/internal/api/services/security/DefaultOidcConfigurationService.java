@@ -59,6 +59,13 @@ public class DefaultOidcConfigurationService extends AbstractOrganizationScopedS
     }
 
     @Override
+    public Future<OidcConfiguration> findById(String id, String organizationId) {
+        Validate.notBlank(id, "id cannot be blank");
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return oidcRepository.findById(id, organizationId);
+    }
+
+    @Override
     public Future<OidcConfiguration> findOrgLoginConfig(String organizationId) {
         Validate.notBlank(organizationId, "organizationId cannot be blank");
         return organizationService.findById(organizationId).compose(org -> {

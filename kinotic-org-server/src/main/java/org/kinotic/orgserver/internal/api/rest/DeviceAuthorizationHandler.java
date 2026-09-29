@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.rest;
+package org.kinotic.orgserver.internal.api.rest;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
@@ -7,26 +7,31 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.DelegateKind;
+import org.kinotic.domain.api.rest.OAuthExtensionGrant;
+import org.kinotic.domain.api.rest.ServerSurface;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.services.security.DeviceCodeGrantService;
-import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
+import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
+import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 /**
  * The RFC 8628 device grant the Kinotic CLI logs in through: the device authorization endpoint, the
- * approval the SPA's {@code /device} page sends as its signed-in user, the redemption of device codes at
- * the token endpoint of {@link OAuthServerHandler}, and the entries advertising the grant in that
- * handler's RFC 8414 metadata. The CLI is a pre-registered public client and the only one the grant
- * serves.
+ * approval the SPA's {@code /device} page sends as its signed-in user, and, as an
+ * {@link OAuthExtensionGrant}, the redemption of device codes at the OAuth token endpoint and the entries
+ * advertising the grant in its RFC 8414 metadata. The CLI is a pre-registered public client and the only
+ * one the grant serves.
  *
  * <p>Error responses use the RFC 6749 shape {@code {"error":"<code>"}}.
  */
 @Slf4j
+@Component
 @RequiredArgsConstructor
-public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {
+public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes, OAuthExtensionGrant {
 
-    static final String DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
+    private static final String DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 
     private static final String DEVICE_AUTHORIZATION_ROUTE = "/api/auth/oauth/device_authorization";
     private static final String DEVICE_APPROVAL_ROUTE = "/api/auth/oauth/device/approve";
@@ -50,13 +55,17 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {
         router.post(DEVICE_APPROVAL_ROUTE).handler(this::handleApprove);
     }
 
+    @Override
+    public String grantType() {
+        return DEVICE_CODE_GRANT_TYPE;
+    }
+
     /**
-     * Adds the device grant to RFC 8414 authorization-server metadata: the device authorization
-     * endpoint under {@code issuer}, and the device-code grant type in {@code grant_types_supported}.
+     * Adds the device authorization endpoint under {@code issuer} to RFC 8414 authorization-server metadata.
      */
-    void advertise(JsonObject metadata, String issuer) {
+    @Override
+    public void advertise(JsonObject metadata, String issuer) {
         metadata.put("device_authorization_endpoint", issuer + DEVICE_AUTHORIZATION_ROUTE);
-        metadata.getJsonArray("grant_types_supported").add(DEVICE_CODE_GRANT_TYPE);
     }
 
     /**
@@ -64,7 +73,8 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes {
      * for the code's state ({@code authorization_pending}, {@code slow_down}, {@code expired_token},
      * {@code invalid_grant}), or, once the user has approved the code, a token pair acting as that user.
      */
-    void redeem(RoutingContext ctx) {
+    @Override
+    public void redeem(RoutingContext ctx) {
         String deviceCode = ctx.request().getFormAttribute("device_code");
         if (deviceCode == null || deviceCode.isBlank()) {
             authEndpointSupport.respondError(ctx, 400, "invalid_request");

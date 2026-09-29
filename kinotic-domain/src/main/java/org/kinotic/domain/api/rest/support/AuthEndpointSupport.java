@@ -1,4 +1,4 @@
-package org.kinotic.domain.internal.api.rest.support;
+package org.kinotic.domain.api.rest.support;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;

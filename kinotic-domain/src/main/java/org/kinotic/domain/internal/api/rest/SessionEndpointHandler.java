@@ -1,9 +1,11 @@
-package org.kinotic.domain.api.rest;
+package org.kinotic.domain.internal.api.rest;
 
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.SessionBinding;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.springframework.stereotype.Component;
 
 /**
  * Browser session-lifecycle routes (named to avoid clashing with Vert.x's own {@code SessionHandler}).
@@ -17,6 +19,7 @@ import org.kinotic.core.api.security.SessionBinding;
  *       once no page's login remains.</li>
  * </ul>
  */
+@Component
 public class SessionEndpointHandler implements SuppliesGatewayRoutes {
 
     @Override

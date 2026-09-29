@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.rest;
+package org.kinotic.appserver.internal.api.services.security;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -11,16 +11,18 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.AppHost;
-import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
-import org.kinotic.domain.internal.api.rest.support.CallbackResult;
-import org.kinotic.domain.internal.api.rest.support.OidcFlowOrchestrator;
+import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
+import org.kinotic.domain.api.rest.support.CallbackResult;
+import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.security.AuthType;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
-import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.domain.api.rest.AppServerSurface;
+import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.util.regex.Pattern;
@@ -35,12 +37,12 @@ import java.util.regex.Pattern;
  * that application's UIs, and OIDC flows started here return to this handler's own callback.
  */
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
 
     private final ParticipantIdentityService identityService;
     private final OidcConfigurationService oidcConfigurationService;
-    private final OidcConfigurationRepository oidcConfigurationRepository;
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
@@ -101,7 +103,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
         }
 
         String configId = user.getOidcConfigId();
-        return oidcConfigurationRepository.findById(configId, appHost.organizationId())
+        return oidcConfigurationService.findById(configId, appHost.organizationId())
                      .compose(match -> {
                          if (match == null || !match.isEnabled()) {
                              return authEndpointSupport.respondPasswordPath(ctx);
@@ -134,7 +136,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
 
         oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
                 ctx, pathConfigId, callbackUrl(ctx, pathConfigId),
-                _ -> oidcConfigurationRepository.findById(pathConfigId, appHost.organizationId()))
+                _ -> oidcConfigurationService.findById(pathConfigId, appHost.organizationId()))
                 .onSuccess(result -> completeAppLogin(ctx, result, appHost))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }

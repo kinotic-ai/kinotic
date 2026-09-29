@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services.github;
+package org.kinotic.management.api.services.github;
 
 import io.vertx.core.Future;
 import org.kinotic.management.api.model.deployment.ProjectPushEvent;

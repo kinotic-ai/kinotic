@@ -1,4 +1,4 @@
-package org.kinotic.domain.internal.api.rest.mcp.model;
+package org.kinotic.management.internal.api.rest.mcp.model;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

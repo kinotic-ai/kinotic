@@ -10,4 +10,5 @@ dependencies {
 	implementation project(':kinotic-api-gateway')
 
 	implementation 'io.vertx:vertx-core'
+	implementation 'io.vertx:vertx-web'
 }
