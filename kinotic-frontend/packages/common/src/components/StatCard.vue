@@ -9,7 +9,9 @@
   >
     <div class="flex items-start justify-between">
       <span :class="['flex h-10 w-10 items-center justify-center rounded-lg', tint]">
-        <component :is="icon" :size="20" :stroke-width="1.75" aria-hidden="true" />
+        <slot name="icon">
+          <component :is="icon" :size="20" :stroke-width="1.75" aria-hidden="true" />
+        </slot>
       </span>
       <ArrowUpRight v-if="to || href" :size="16" :stroke-width="1.75"
                     class="text-surface-300 transition-colors group-hover:text-surface-600 dark:text-surface-600 dark:group-hover:text-surface-300" aria-hidden="true" />
@@ -37,7 +39,8 @@ import { ArrowUpRight } from '@lucide/vue'
  * in a new tab when either is set.
  */
 defineProps<{
-  icon: Component
+  /** The tile's icon; the icon slot replaces it, e.g. with a HeartbeatIcon. */
+  icon?: Component
   /** Classes of the icon tile's colour, one of TINTS. */
   tint: string
   label: string

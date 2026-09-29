@@ -14,8 +14,9 @@
 
     <template v-if="deployment">
       <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard :icon="CloudUpload" :tint="TINTS.sky" label="Status"
+        <StatCard :tint="phase === StatusType.RUNNING ? TINTS.purple : TINTS.surface" label="Status"
                   :detail="deployment.updated ? `Updated ${DatetimeUtil.formatRelativeDate(deployment.updated)}` : undefined">
+          <template #icon><HeartbeatIcon :alive="phase === StatusType.RUNNING" :size="20" :stroke-width="1.75" /></template>
           <Tag :value="phase ?? 'UNKNOWN'" :severity="phase ? deploymentStatusSeverity(phase) : 'secondary'" />
         </StatCard>
         <StatCard :icon="GitCommitHorizontal" :tint="TINTS.green" label="Live commit"
@@ -155,7 +156,7 @@ import Tag from 'primevue/tag'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { Activity, Boxes, CircleCheck, CircleOff, Clock, CloudUpload, GitCommitHorizontal, Globe, KeyRound, LaptopMinimalCheck, Server } from '@lucide/vue'
-import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
+import { DatetimeUtil, HeartbeatIcon, JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
          WatchEventsTable, WorkloadLogsDialog, deploymentStatusSeverity, observedPhaseSeverity, shortSha, showErrorToast } from '@kinotic-ai/frontend-common'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DeploymentStatusType,

@@ -31,6 +31,9 @@
             <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
               <StatCard v-for="stat in stats" :key="stat.label" :icon="stat.icon" :tint="stat.tint" :label="stat.label"
                         :value="stat.tag ? undefined : stat.value" :detail="stat.detail" :to="stat.to">
+                <template v-if="stat.alive !== undefined" #icon>
+                  <HeartbeatIcon :alive="stat.alive" :size="20" :stroke-width="1.75" />
+                </template>
                 <template v-if="stat.tag" #default>
                   <Tag :value="stat.value" :severity="stat.tag" />
                 </template>
@@ -106,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { Activity, Building2, CalendarClock, CalendarPlus, Clock, Cpu, FileText, HardDrive, KeyRound, LayoutDashboard, LayoutGrid,
+import { Building2, CalendarClock, CalendarPlus, Clock, Cpu, FileText, HardDrive, KeyRound, LayoutDashboard, LayoutGrid,
          Network, Package, Radio, Repeat, ScrollText, Server, Shield, Terminal } from '@lucide/vue'
 import { computed, markRaw, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -124,7 +127,7 @@ import { useToast } from 'primevue/usetoast'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { NetworkMode, WorkloadStatus, type WatchEvent, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DashboardSection, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, WatchEventsTable, WorkloadLogView, errorMessage,
+import { DashboardSection, HeartbeatIcon, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, WatchEventsTable, WorkloadLogView, errorMessage,
          formatMb, showErrorToast, workloadRun } from '@kinotic-ai/frontend-common'
 
 import { formatCpus, nodeHealth } from '@/util/nodes'
@@ -205,7 +208,9 @@ interface Stat {
   /** Renders the value as a Tag of this severity instead of a number. */
   tag?: string
   to?: string
-  icon: Component
+  icon?: Component
+  /** Shows a HeartbeatIcon in place of the icon: beating while true, flat while false. */
+  alive?: boolean
   /** One of TINTS. */
   tint: string
 }
@@ -239,8 +244,8 @@ const stats = computed<Stat[]>(() => {
       value: w.status,
       detail: w.exitCode !== null ? `exit code ${w.exitCode}` : `since ${formatEpochDateTime(w.updated ?? w.created)}`,
       tag: workloadSeverity(w.status),
-      icon: markRaw(Activity),
-      tint: w.status === WorkloadStatus.FAILED ? TINTS.red : TINTS.green
+      alive: w.status === WorkloadStatus.RUNNING,
+      tint: w.status === WorkloadStatus.RUNNING ? TINTS.purple : TINTS.surface
     },
     {
       label: 'Node',

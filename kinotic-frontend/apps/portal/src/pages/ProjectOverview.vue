@@ -11,8 +11,9 @@
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
     <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <StatCard :icon="CloudUpload" :tint="TINTS.sky" label="Deployment" :loading="loading" :to="`${basePath}/deployment`"
+      <StatCard :tint="alive ? TINTS.purple : TINTS.surface" label="Deployment" :loading="loading" :to="`${basePath}/deployment`"
                 :detail="deployment ? deploymentDetail : 'Pushing to the default branch deploys it'">
+        <template #icon><HeartbeatIcon :alive="alive" :size="20" :stroke-width="1.75" /></template>
         <Tag v-if="deployment" :value="deployment.state.observed?.phase ?? 'UNKNOWN'"
              :severity="observedPhaseSeverity(deployment.state.observed)" />
         <Tag v-else value="Never deployed" severity="secondary" />
@@ -71,14 +72,14 @@
 
 <script setup lang="ts">
 import { computed, markRaw, ref, watch } from 'vue'
-import { CalendarClock, ChevronRight, CloudUpload, FileCode, GitBranch, Globe, Hash, LayoutGrid, Server, Table } from '@lucide/vue'
+import { CalendarClock, ChevronRight, FileCode, GitBranch, Globe, Hash, LayoutGrid, Server, Table } from '@lucide/vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
-import { type Project, type ProjectDeployment, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
-import { DatetimeUtil, FactList, observedPhase, observedPhaseSeverity, PageHeader, StatCard, TINTS } from '@kinotic-ai/frontend-common'
+import { DeploymentStatusType, type Project, type ProjectDeployment, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
+import { DatetimeUtil, FactList, HeartbeatIcon, observedPhase, observedPhaseSeverity, PageHeader, StatCard, TINTS } from '@kinotic-ai/frontend-common'
 
 /**
  * The landing page of one project: its repository, its deployment state, how many entities
@@ -98,6 +99,8 @@ const basePath = computed(() => `/application/${encodeURIComponent(props.applica
 
 const project = ref<Project | null>(null)
 const deployment = ref<ProjectDeployment | null>(null)
+/** Whether the deployment reports it is running, which the Deployment card shows as a live heartbeat. */
+const alive = computed(() => deployment.value?.state.observed?.phase === DeploymentStatusType.RUNNING)
 const microserviceCount = ref(0)
 const uis = ref<UiDeployment[]>([])
 const entityCount = ref<number | null>(null)

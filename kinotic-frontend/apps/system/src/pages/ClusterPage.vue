@@ -13,6 +13,9 @@
         <StatCard v-for="stat in stats" :key="stat.label" :icon="stat.icon" :tint="stat.tint" :label="stat.label"
                   :value="stat.tag ? undefined : stat.value" :detail="stat.detail"
                   :loading="loading && !cluster">
+          <template v-if="stat.alive !== undefined" #icon>
+            <HeartbeatIcon :alive="stat.alive" :size="20" :stroke-width="1.75" />
+          </template>
           <template v-if="stat.tag" #default>
             <Tag :value="stat.value" :severity="stat.tag" />
           </template>
@@ -93,11 +96,11 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import { Activity, Boxes, Network, Server, Shield, Tag as TagIcon } from '@lucide/vue'
+import { Activity, Boxes, Network, Server, Tag as TagIcon } from '@lucide/vue'
 
 import { Kinotic } from '@kinotic-ai/core'
 import type { KinoticClusterInfo } from '@kinotic-ai/system-api'
-import { DashboardSection, PageHeader, StatCard, TINTS, errorMessage } from '@kinotic-ai/frontend-common'
+import { DashboardSection, HeartbeatIcon, PageHeader, StatCard, TINTS, errorMessage } from '@kinotic-ai/frontend-common'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
 import { PLATFORM_ONLY } from '@/util/workloads'
@@ -134,7 +137,9 @@ interface Stat {
   detail: string
   /** Renders the value as a Tag of this severity instead of a number. */
   tag?: string
-  icon: Component
+  icon?: Component
+  /** Shows a HeartbeatIcon in place of the icon: beating while true, flat while false. */
+  alive?: boolean
   /** One of TINTS. */
   tint: string
 }
@@ -145,8 +150,8 @@ const stats = computed<Stat[]>(() => [
     value: cluster.value?.clusterState ?? '—',
     detail: 'Whether the cluster is serving requests',
     tag: cluster.value ? (cluster.value.active ? 'success' : 'danger') : 'secondary',
-    icon: markRaw(Shield),
-    tint: cluster.value && !cluster.value.active ? TINTS.red : TINTS.green
+    alive: cluster.value?.active ?? false,
+    tint: cluster.value?.active ? TINTS.purple : TINTS.surface
   },
   {
     label: 'Server nodes',

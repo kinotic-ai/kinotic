@@ -14,6 +14,9 @@
       <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         <StatCard v-for="stat in stats" :key="stat.label" :icon="stat.icon" :tint="stat.tint" :label="stat.label"
                   :value="stat.tag ? undefined : stat.value" :detail="stat.detail" :to="stat.to" :loading="loading && stat.value === '—'">
+          <template v-if="stat.alive !== undefined" #icon>
+            <HeartbeatIcon :alive="stat.alive" :size="20" :stroke-width="1.75" />
+          </template>
           <template v-if="stat.tag" #default>
             <Tag :value="stat.value" :severity="stat.tag" />
           </template>
@@ -57,12 +60,12 @@ import { computed, markRaw, onMounted, ref, type Component } from 'vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import { Boxes, Building2, Gauge, LaptopMinimalCheck, Server, Shield } from '@lucide/vue'
+import { Boxes, Building2, Gauge, LaptopMinimalCheck, Server } from '@lucide/vue'
 
 import { Kinotic } from '@kinotic-ai/core'
 import { ExecutionStatus, WorkloadStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
 import type { KinoticClusterInfo, VmNode } from '@kinotic-ai/system-api'
-import { DashboardSection, DatetimeUtil, PageHeader, StatCard, TINTS, accentColor, errorMessage, isDark, scanJobRuns } from '@kinotic-ai/frontend-common'
+import { DashboardSection, HeartbeatIcon, DatetimeUtil, PageHeader, StatCard, TINTS, accentColor, errorMessage, isDark, scanJobRuns } from '@kinotic-ai/frontend-common'
 
 import AttentionList from '@/components/AttentionList.vue'
 import CapacityRows from '@/components/CapacityRows.vue'
@@ -113,7 +116,9 @@ interface Stat {
   /** Renders the value as a Tag of this severity instead of a number. */
   tag?: string
   to: string
-  icon: Component
+  icon?: Component
+  /** Shows a HeartbeatIcon in place of the icon: beating while true, flat while false. */
+  alive?: boolean
   /** One of TINTS. */
   tint: string
 }
@@ -130,8 +135,8 @@ const stats = computed<Stat[]>(() => {
       detail: cluster.value ? `${cluster.value.serverNodeCount} server nodes` : 'Whether the cluster is serving requests',
       tag: cluster.value ? (cluster.value.active ? 'success' : 'danger') : 'secondary',
       to: '/cluster',
-      icon: markRaw(Shield),
-      tint: cluster.value && !cluster.value.active ? TINTS.red : TINTS.green
+      alive: cluster.value?.active ?? false,
+      tint: cluster.value?.active ? TINTS.purple : TINTS.surface
     },
     {
       label: 'Worker nodes',
