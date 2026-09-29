@@ -1,8 +1,9 @@
 # ── Platform Key Vault ────────────────────────────────────────────────────────
-# Holds platform-wide secrets (JWT signing keys, secret-storage master keys) that every
-# kinotic cluster consumes via the Secrets Store CSI driver. Rotation is performed
-# out-of-band (`az keyvault secret set ...`); terraform intentionally does not manage the
-# secret values after initial seeding — hence `lifecycle.ignore_changes = [value]`.
+# Holds platform-wide secrets (each server's JWT signing keys, the secret-storage master key, the
+# GitHub App's private key and webhook secret) that every kinotic cluster consumes via the
+# Secrets Store CSI driver. Rotation is performed out-of-band (`az keyvault secret set ...`);
+# terraform intentionally does not manage the secret values after initial seeding — hence
+# `lifecycle.ignore_changes = [value]`.
 
 resource "azurerm_key_vault" "platform" {
   name                       = "kv-${var.project}-platform"
@@ -66,14 +67,20 @@ moved {
   to   = random_id.jwt_signing_key_v1["kinotic-org-server"]
 }
 
-resource "random_id" "secret_storage_master_key_v1" {
+resource "random_id" "secret_storage_master_key" {
   byte_length = 32
 }
 
-# ── Secrets ───────────────────────────────────────────────────────────────────
-# VersionedKeySet JSON documents. Adding a new version later = az cli update to add `v2`
-# and flip `activeKeyId`; terraform does not revisit the value because of ignore_changes.
+moved {
+  from = random_id.secret_storage_master_key_v1
+  to   = random_id.secret_storage_master_key
+}
 
+# ── Secrets ───────────────────────────────────────────────────────────────────
+
+# Each server's JWT signing keys, a VersionedKeySet JSON document. Adding a new version later =
+# az cli update to add `v2` and flip `activeKeyId`; terraform does not revisit the value because
+# of ignore_changes.
 resource "azurerm_key_vault_secret" "jwt_signing_keys" {
   for_each = toset(local.servers)
 
@@ -96,16 +103,49 @@ resource "azurerm_key_vault_secret" "jwt_signing_keys" {
   depends_on = [terraform_data.wait_for_kv_rbac]
 }
 
-resource "azurerm_key_vault_secret" "secret_storage_master_keys" {
-  name         = "kinotic-secret-storage-master-keys"
+# The secret-storage master key, which every server imports as
+# kinotic.domain.secretStorage.masterKey. SecretNameDeriver derives every stored secret's name
+# from it, so a new key orphans every secret stored under the old one.
+resource "azurerm_key_vault_secret" "secret_storage_master_key" {
+  name         = "kinotic-secret-storage-master-key"
   key_vault_id = azurerm_key_vault.platform.id
-  content_type = "application/json"
-  value = jsonencode({
-    activeKeyId = "v1"
-    keys = [
-      { id = "v1", key = random_id.secret_storage_master_key_v1.b64_std },
-    ]
-  })
+  value        = random_id.secret_storage_master_key.b64_std
+
+  tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+
+  depends_on = [terraform_data.wait_for_kv_rbac]
+}
+
+# The kinotic-ai GitHub App's private key and webhook secret, which the servers that load
+# management-api import as kinotic.managementApi.github.appPrivateKey and webhookSecret when they
+# start, so a rotation takes effect as each restarts. Operator supplies the values via the
+# github_app_private_key and github_webhook_secret variables on first apply; rotations happen
+# out-of-band via `az keyvault secret set ...` and lifecycle.ignore_changes prevents terraform
+# from reverting them.
+resource "azurerm_key_vault_secret" "github_app_private_key" {
+  name         = "kinotic-github-app-private-key"
+  key_vault_id = azurerm_key_vault.platform.id
+  content_type = "Private key of the kinotic-ai GitHub App"
+  value        = var.github_app_private_key
+
+  tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+
+  depends_on = [terraform_data.wait_for_kv_rbac]
+}
+
+resource "azurerm_key_vault_secret" "github_webhook_secret" {
+  name         = "kinotic-github-webhook-secret"
+  key_vault_id = azurerm_key_vault.platform.id
+  content_type = "Webhook secret of the kinotic-ai GitHub App"
+  value        = var.github_webhook_secret
 
   tags = local.common_tags
 

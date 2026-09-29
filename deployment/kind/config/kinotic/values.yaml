@@ -78,7 +78,8 @@ kinotic:
         scheme: "http"
 
 # Platform secrets — KinD path: terraform creates a k8s Secret named below with every server's
-# JWT signing keys and the secret-storage master keys. Each pod mounts its own (no CSI).
+# JWT signing keys, the secret-storage master key and the GitHub App's secrets. Each pod mounts
+# the files the chart lists for its server (no CSI).
 platformSecrets:
   secretName: kinotic-platform-secrets
 

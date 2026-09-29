@@ -74,10 +74,14 @@ services:
       KINOTIC_MANAGEMENTAPI_TEMPOURL: http://tempo:3200
       KINOTIC_MANAGEMENTAPI_MIMIRURL: http://mimir:9009
       KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9090
-      KINOTIC_DOMAIN_APPBASEURL: "http://localhost:9090"
       OTEL_SERVICE_NAME: kinotic-org-server
       OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-org-server
       THC_PORT: 58503 # Paketo health-check probe — health endpoint is mounted on the api-gateway router
+    volumes:
+      # The developer's tunnel origin and GitHub App (dev-tools/github-app/dev-github-app.ts).
+      # Spring loads ./config/application.yml from the working directory, /workspace, above every
+      # packaged file, so it replaces application-compose.yml's localhost:9090 origin
+      - ${HOME}/.kinotic/dev-environment/kinotic-org-server:/workspace/config:ro
 
   kinotic-system-server:
     <<: *kinotic-server
@@ -93,6 +97,11 @@ services:
       OTEL_SERVICE_NAME: kinotic-system-server
       OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-system-server
       THC_PORT: 58504
+    volumes:
+      # The developer's GitHub App (dev-tools/github-app/dev-github-app.ts), with which this server
+      # mints the tokens deployments fetch their repositories with; Spring loads it as
+      # ./config/application.yml
+      - ${HOME}/.kinotic/dev-environment/kinotic-system-server:/workspace/config:ro
 
   kinotic-app-server:
     <<: *kinotic-server

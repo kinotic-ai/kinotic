@@ -87,6 +87,25 @@ variable "github_client_secret" {
   default     = ""
 }
 
+# Operator-supplied: the private key PEM and the webhook secret of the kinotic-ai GitHub App,
+# from the App's settings page. Provide via `TF_VAR_github_app_private_key` and
+# `TF_VAR_github_webhook_secret` at apply time — never commit a value here. After the first
+# apply the AKV secrets are managed via `az keyvault secret set ...`; lifecycle.ignore_changes
+# on the resources stops terraform from clobbering rotations.
+variable "github_app_private_key" {
+  description = "Private key PEM of the kinotic-ai GitHub App, which the org and system servers sign App JWTs with"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "github_webhook_secret" {
+  description = "Webhook secret of the kinotic-ai GitHub App, which the org server verifies webhook deliveries with"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 data "azurerm_client_config" "current" {}
 
 locals {

@@ -270,7 +270,7 @@ deployment/kind/
 ├── terraform/
 │   ├── main.tf                      # KinD cluster + providers + port mappings
 │   ├── tls.tf                       # mkcert certificate generation (declares use_mkcert)
-│   ├── platform-secrets.tf          # Each server's JWT signing keys + secret-storage master key Secret
+│   ├── platform-secrets.tf          # Secret of JWT signing keys, secret-storage master key, GitHub App secrets
 │   ├── elasticsearch.tf             # ECK operator + Elasticsearch (eck-stack chart)
 │   ├── kinotic.tf                   # The Kinotic servers (NodePort + TLS)
 │   ├── observability.tf             # Loki + Alloy + Grafana (TLS)

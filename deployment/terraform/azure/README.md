@@ -91,10 +91,13 @@ az ad group member add --group kinotic-terraform-operators \
 ```bash
 cd global
 terraform init
-TF_VAR_google_client_secret=... TF_VAR_github_client_secret=... terraform apply
+TF_VAR_google_client_secret=... TF_VAR_github_client_secret=... \
+  TF_VAR_github_app_private_key="$(cat <the App's private-key .pem>)" TF_VAR_github_webhook_secret=... \
+  terraform apply
 ```
 
-This creates the DNS zone and Entra ID app registrations. Copy the nameservers
+This creates the DNS zone, the Entra ID app registrations, and the platform Key Vault
+holding the secrets the servers mount. Copy the nameservers
 to your domain registrar:
 
 ```bash

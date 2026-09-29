@@ -74,6 +74,14 @@ docker compose down -v && docker compose up -d
 | Grafana | <http://localhost:3000> | When `compose-otel.yml` is included. Anonymous auth with the Admin role — no login |
 | Keycloak | <http://keycloak:8888> | When `compose.keycloak.yml` is included; requires `127.0.0.1 keycloak` in `/etc/hosts` per `KEYCLOAK_HOSTS_SETUP.md` |
 
+## Sample data
+
+The full stack seeds the `kinotic-test` organization for evaluators: `compose.yml` runs the
+migration with the `fixtures` profile (set in `evaluation.env`), and `kinotic-gen-schemas`
+adds the `ecommerce` and `healthcare` applications with entity data. Sign in at
+<http://localhost:9090> as `kinotic@kinotic.local` / `kinotic` to see it. The other stacks
+include `compose.kinotic-migration.yml` without `evaluation.env` and seed none of it.
+
 ## Try the auth flow (UI devs)
 
 The full compose stack (`docker compose up -d`) gives you a working signup/login flow out
@@ -232,15 +240,20 @@ verification URL to the IntelliJ console instead — which is what the compose s
 
 If you also run the Vite frontend (`pnpm dev` on `:5173`), it calls the server directly at
 `localhost:58503` via `VITE_KINOTIC_HOST`/`VITE_KINOTIC_PORT` — see
-`kinotic-frontend/apps/portal/ENV_SETUP.md`. For flows where the IdP has to call back into
-your machine, use `pnpm dev:tunnel` and set `KINOTIC_DOMAIN_APPBASEURL` on the IntelliJ run
-config to the tunnel origin so OIDC redirect URIs match what's registered with the IdP.
+`kinotic-frontend/apps/portal/ENV_SETUP.md`. For flows where the IdP or GitHub has to call back into
+your machine, use `pnpm dev:tunnel` behind your ngrok tunnel, with the tunnel origin in
+`~/.kinotic/dev-environment/kinotic-org-server/application.yml` — see "Local development
+environment" in the contributing guide (`website/content/02.platform/09.contributing.md`).
 
 ## Storage paths
 
 - `kinotic-elastic-data` — Elasticsearch data, a Docker named volume. Survives
   `docker compose down`; removed by `docker compose down -v`.
-- No host volumes for the server containers — they're stateless.
+- `~/.kinotic/dev-environment/kinotic-org-server` and `~/.kinotic/dev-environment/kinotic-system-server`
+  are bind-mounted read-only into the org and system server containers as `/workspace/config`:
+  a developer's tunnel origin and GitHub App, and the App alone, when
+  `dev-tools/github-app/dev-github-app.ts create` has written them. The servers keep no state
+  of their own there.
 
 ## When you outgrow docker-compose
 

@@ -43,7 +43,9 @@ services:
   kinotic-org-server:
     environment:
       <<: [*kinotic-server-e2e-environment, *kinotic-management-api-e2e-environment]
-    volumes:
+    # Replaces compose.kinotic-servers.yml's mount of the developer's tunnel and GitHub App,
+    # which would otherwise configure the e2e server on a developer machine
+    volumes: !override
       - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
   kinotic-system-server:
     environment:
@@ -58,7 +60,8 @@ services:
       # here. No e2e test deploys a workload, so the values only have to bind.
       KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST: localhost
       KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST: localhost
-    volumes:
+    # Replaces compose.kinotic-servers.yml's mount of the developer's GitHub App
+    volumes: !override
       - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
   kinotic-app-server:
     environment: *kinotic-server-e2e-environment
