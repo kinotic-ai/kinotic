@@ -24,7 +24,7 @@
         {{ latestRun.error }}
       </Message>
 
-      <JobRunProgress :key="latestRun.id ?? ''" :job-run-id="latestRun.id ?? ''" :expandable="ProjectDeployStores.hasDetail">
+      <JobRunProgress :key="latestRun.id ?? ''" :job-run-id="latestRun.id ?? ''" :expandable="ProjectDeployResultNames.hasDetail">
         <template #detail="{ node, root }">
           <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
         </template>
@@ -77,7 +77,7 @@ import Tag from 'primevue/tag'
 
 import { ExecutionStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail,
+import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
          errorMessage, executionStatusSeverity, scanJobRuns, shortSha } from '@kinotic-ai/frontend-common'
 
 import WorkloadsTable from '@/components/WorkloadsTable.vue'

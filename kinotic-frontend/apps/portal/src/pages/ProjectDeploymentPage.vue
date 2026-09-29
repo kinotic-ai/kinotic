@@ -26,7 +26,7 @@
       <JobRunProgress v-if="deployment.lastJobRunId"
                       :key="deployment.lastJobRunId"
                       :job-run-id="deployment.lastJobRunId"
-                      :expandable="ProjectDeployStores.hasDetail">
+                      :expandable="ProjectDeployResultNames.hasDetail">
         <template #detail="{ node, root }">
           <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
         </template>
@@ -109,7 +109,7 @@ import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
-import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail,
+import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
          WatchEventsTable, WorkloadLogsDialog, deploymentStatusSeverity, shortSha, showErrorToast } from '@kinotic-ai/frontend-common'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DeploymentStatusType,

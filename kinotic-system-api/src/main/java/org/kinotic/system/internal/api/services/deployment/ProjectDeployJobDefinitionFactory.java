@@ -31,7 +31,7 @@ import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
 import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.kinotic.system.api.model.deployment.MicroserviceDeployments;
-import org.kinotic.system.api.model.deployment.ProjectDeployStores;
+import org.kinotic.system.api.model.deployment.ProjectDeployResultNames;
 import org.kinotic.system.api.model.deployment.UiDeployments;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -57,7 +57,7 @@ import java.util.stream.Collectors;
  * workers to answer, upload its UIs and ask for their sites to serve them, and keep the
  * project's SBOM current with a foreground SBOM workload. The resolved {@link DeployTarget}, the
  * artifacts, the microservice deployments, the UI deployments and the SBOM are stored in the job
- * scope under the {@link ProjectDeployStores} names, so the run's {@code TaskRecord}s carry them
+ * scope under their {@link ProjectDeployResultNames}, so the run's {@code TaskRecord}s carry them
  * to the console. The target is also recorded on the project's deployment as soon as it is
  * resolved.
  */
@@ -105,7 +105,7 @@ public class ProjectDeployJobDefinitionFactory {
                                          () -> resolveTarget(projectId, existing)
                                                  .compose(target -> recordTarget(project, target))
                                                  .toCompletionStage().toCompletableFuture()),
-                      Store.state(ProjectDeployStores.DEPLOY_TARGET).wire())
+                      Store.state(ProjectDeployResultNames.DEPLOY_TARGET).wire())
                 // Store.state: a resume after a later failure replays the synced checkout
                 // rather than syncing it again
                 .task(Tasks.fromCallable("Sync project source", new Callable<CompletableFuture<String>>() {
@@ -117,13 +117,13 @@ public class ProjectDeployJobDefinitionFactory {
                     public CompletableFuture<String> call() {
                         return syncSource(project, target, commitSha);
                     }
-                }), Store.state(ProjectDeployStores.SYNC_WORKLOAD_ID).wire())
+                }), Store.state(ProjectDeployResultNames.SYNC_WORKLOAD_ID).wire())
                 // Store.state: what the sync workload found in the commit, bound to the run so a
                 // resume replays it alongside the replayed sync; wired so the console lists it
                 .task(Tasks.fromCallable("Resolve artifacts",
                                          () -> resolveArtifacts(project, commitSha)
                                                  .toCompletionStage().toCompletableFuture()),
-                      Store.state(ProjectDeployStores.ARTIFACTS).wire())
+                      Store.state(ProjectDeployResultNames.ARTIFACTS).wire())
                 // Store.state: the rows carry what the pass left, so a resume keeps them rather
                 // than asking again; wired so the console lists each microservice's workload as
                 // soon as the pass ends
@@ -137,7 +137,7 @@ public class ProjectDeployJobDefinitionFactory {
                         return ensureRuntimeWorkloads(project, artifacts, commitSha)
                                 .toCompletionStage().toCompletableFuture();
                     }
-                }), Store.state(ProjectDeployStores.MICROSERVICE_DEPLOYMENTS).wire())
+                }), Store.state(ProjectDeployResultNames.MICROSERVICE_DEPLOYMENTS).wire())
                 // Store.state: the rows carry what the pass published, so a resume keeps them;
                 // wired so the console lists each site as soon as the pass ends, and can tail the
                 // publish workload's logs before that through the target
@@ -153,7 +153,7 @@ public class ProjectDeployJobDefinitionFactory {
                     public CompletableFuture<UiDeployments> call() {
                         return publishUis(project, target, artifacts, commitSha).toCompletionStage().toCompletableFuture();
                     }
-                }), Store.state(ProjectDeployStores.UI_DEPLOYMENTS).wire())
+                }), Store.state(ProjectDeployResultNames.UI_DEPLOYMENTS).wire())
                 // Store.state: whether the run generated the SBOM, so a resume keeps the outcome rather
                 // than generating it again; wired so the console shows it, and can tail the SBOM
                 // workload's logs before that through the target
@@ -169,7 +169,7 @@ public class ProjectDeployJobDefinitionFactory {
                     public CompletableFuture<Boolean> call() {
                         return generateSbom(project, target, artifacts).toCompletionStage().toCompletableFuture();
                     }
-                }), Store.state(ProjectDeployStores.SBOM).wire());
+                }), Store.state(ProjectDeployResultNames.SBOM).wire());
     }
 
     /**

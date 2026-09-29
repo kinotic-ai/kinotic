@@ -11,12 +11,12 @@ export interface DeployTarget {
 }
 
 /**
- * The job scope names a project deployment run stores its outcomes under, mirroring
- * ProjectDeployStores on the server, and what they mean for the job page: a task node
- * carrying one of them is a task that ran a workload, which is how the page attaches that
- * workload's log to the task's row.
+ * The names a project deployment run's tasks store their results under, mirroring
+ * ProjectDeployResultNames on the server, and what those results mean for the job page: which
+ * task's row lists the deployed commit's artifacts, and which rows attach the log of the
+ * workload their task ran.
  */
-export default class ProjectDeployStores {
+export default class ProjectDeployResultNames {
 
   public static readonly ARTIFACTS = 'artifacts'
   public static readonly DEPLOY_TARGET = 'deployTarget'
@@ -27,7 +27,7 @@ export default class ProjectDeployStores {
   /** The artifacts the task bound into the run, or null while the task has not completed. */
   public static artifactsOf(node: JobTaskNode): ProjectArtifacts | null {
     let ret: ProjectArtifacts | null = null
-    if (ProjectDeployStores.hasArtifacts(node) && node.storedValue !== null && node.storedValue !== undefined) {
+    if (ProjectDeployResultNames.hasArtifacts(node) && node.storedValue !== null && node.storedValue !== undefined) {
       ret = node.storedValue as ProjectArtifacts
     }
     return ret
@@ -39,7 +39,7 @@ export default class ProjectDeployStores {
    */
   public static sbomGeneratedOf(node: JobTaskNode): boolean | null {
     let ret: boolean | null = null
-    if (node.storedName === ProjectDeployStores.SBOM && typeof node.storedValue === 'boolean') {
+    if (node.storedName === ProjectDeployResultNames.SBOM && typeof node.storedValue === 'boolean') {
       ret = node.storedValue
     }
     return ret
@@ -47,12 +47,12 @@ export default class ProjectDeployStores {
 
   /** Whether the task's row lists the artifacts the deployed commit contains. */
   public static hasArtifacts(node: JobTaskNode): boolean {
-    return node.storedName === ProjectDeployStores.ARTIFACTS
+    return node.storedName === ProjectDeployResultNames.ARTIFACTS
   }
 
   /** Whether the task's row has a detail pane: the artifacts it bound, or the workload log it ran. */
   public static hasDetail(node: JobTaskNode): boolean {
-    return ProjectDeployStores.hasArtifacts(node) || ProjectDeployStores.hasWorkloadLog(node)
+    return ProjectDeployResultNames.hasArtifacts(node) || ProjectDeployResultNames.hasWorkloadLog(node)
   }
 
   /**
@@ -60,9 +60,9 @@ export default class ProjectDeployStores {
    * publish task's is the upload log, the SBOM task's is the log of its generation.
    */
   public static hasWorkloadLog(node: JobTaskNode): boolean {
-    return node.storedName === ProjectDeployStores.SYNC_WORKLOAD_ID
-      || node.storedName === ProjectDeployStores.UI_DEPLOYMENTS
-      || node.storedName === ProjectDeployStores.SBOM
+    return node.storedName === ProjectDeployResultNames.SYNC_WORKLOAD_ID
+      || node.storedName === ProjectDeployResultNames.UI_DEPLOYMENTS
+      || node.storedName === ProjectDeployResultNames.SBOM
   }
 
   /**
@@ -73,13 +73,13 @@ export default class ProjectDeployStores {
   public static workloadLogOf(node: JobTaskNode, root: JobTaskNode | null): string | null {
     let ret: string | null = null
     const target = root?.children
-      .find(child => child.storedName === ProjectDeployStores.DEPLOY_TARGET)
+      .find(child => child.storedName === ProjectDeployResultNames.DEPLOY_TARGET)
       ?.storedValue as DeployTarget | undefined
-    if (node.storedName === ProjectDeployStores.SYNC_WORKLOAD_ID) {
+    if (node.storedName === ProjectDeployResultNames.SYNC_WORKLOAD_ID) {
       ret = typeof node.storedValue === 'string' ? node.storedValue : target?.syncWorkloadId ?? null
-    } else if (node.storedName === ProjectDeployStores.UI_DEPLOYMENTS) {
+    } else if (node.storedName === ProjectDeployResultNames.UI_DEPLOYMENTS) {
       ret = target?.uiPublishWorkloadId ?? null
-    } else if (node.storedName === ProjectDeployStores.SBOM) {
+    } else if (node.storedName === ProjectDeployResultNames.SBOM) {
       ret = target?.sbomWorkloadId ?? null
     }
     return ret
