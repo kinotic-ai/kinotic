@@ -89,6 +89,10 @@ every server's pods.
 | Keycloak Admin | https://localhost:8888/auth/admin |
 | Grafana | https://localhost:3000/ |
 
+Each application's API host, `https://<organizationId>--<applicationId>.localhost:58505`, is outside the
+mkcert certificate, which names `localhost`, `kinotic.local`, `127.0.0.1` and `::1` alone, so a UI calling
+its application's host, or an application's OAuth flow, works only without mkcert.
+
 ### Without mkcert (`-var="use_mkcert=false"`)
 
 | Service | URL |
