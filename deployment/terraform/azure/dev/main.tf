@@ -229,8 +229,8 @@ output "application_local_yml" {
   value       = <<-EOT
     kinotic:
       systemApi:
+        disableAzureStorage: false
         uiDeployment:
-          disableProvisioner: false
           sitesDomain: ${module.environment.sites_domain}
           sitesStorageEndpoint: ${module.environment.sites_storage_blob_endpoint}
   EOT

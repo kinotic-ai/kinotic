@@ -169,6 +169,8 @@ describe('Server planes', () => {
                                 {Cookie: orgSession})).status).toBe(401)
         expect((await requestAt(appServer(), apiHost(APP_ID), 'GET', '/api/auth/me',
                                 {Cookie: `__Host-kinotic-app-session=${sessionId}`})).status).toBe(401)
+        // an app server that found the org session would have destroyed it on the host mismatch
+        expect((await fetch(`${restBase(orgServer())}/api/auth/me`, {headers: {Cookie: orgSession}})).status).toBe(204)
     })
 
     it('serves each application\'s OAuth metadata at its own API host', async () => {

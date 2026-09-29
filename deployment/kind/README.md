@@ -89,6 +89,10 @@ every server's pods.
 | Keycloak Admin | https://localhost:8888/auth/admin |
 | Grafana | https://localhost:3000/ |
 
+Each application's API host, `https://<organizationId>--<applicationId>.localhost:58505`, is outside the
+mkcert certificate, which names `localhost`, `kinotic.local`, `127.0.0.1` and `::1` alone, so a UI calling
+its application's host, or an application's OAuth flow, works only without mkcert.
+
 ### Without mkcert (`-var="use_mkcert=false"`)
 
 | Service | URL |
@@ -150,7 +154,7 @@ Keycloak and redeploy the servers with OIDC -- no manual steps needed.
 |----------|---------|-------------|
 | `cluster_name` | `kinotic-cluster` | KinD cluster name |
 | `node_image` | `""` | KinD node image override (empty = provider default) |
-| `kinotic_version` | `latest` | Kinotic server image tag |
+| `kinotic_version` | `5.0.0-SNAPSHOT`, set in `terraform.tfvars` | Kinotic server and migration image tag, the `kinoticVersion` CI publishes the images at |
 | `worker_count` | `3` | Number of worker nodes |
 | `enable_keycloak` | `false` | Deploy Keycloak + PostgreSQL for OIDC |
 | `enable_load_generator` | `false` | Run load generator via Terraform |

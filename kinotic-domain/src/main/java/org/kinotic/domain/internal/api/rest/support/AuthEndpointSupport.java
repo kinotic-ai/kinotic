@@ -104,12 +104,7 @@ public class AuthEndpointSupport {
         // read before establishSession, which regenerates the session id
         String returnPath = ctx.session().remove(RETURN_PATH_SESSION_KEY);
         establishSession(ctx, origin, user);
-        String path = returnPath != null ? returnPath : "/";
-        if (origin != null) {
-            ctx.response().setStatusCode(302).putHeader("Location", origin + path).end();
-        } else {
-            redirectToUi(ctx, path);
-        }
+        redirectToPage(ctx, origin, returnPath != null ? returnPath : "/");
     }
 
     /**
@@ -137,25 +132,38 @@ public class AuthEndpointSupport {
         return ret;
     }
 
-    /** {@code 302 Location: <this server's UI>/login?error=<code>}. */
-    public void redirectError(RoutingContext ctx, String errorCode) {
+    /**
+     * {@code 302 Location: <origin>/login?error=<code>}, the login page of the page at {@code origin}
+     * that started the flow, or of this server's UI when {@code origin} is null.
+     */
+    public void redirectError(RoutingContext ctx, String origin, String errorCode) {
         // the flow that stored a return path ends here, so it must not outlive it and send an
         // unrelated later login somewhere the user never asked for
         ctx.session().remove(RETURN_PATH_SESSION_KEY);
-        redirectToUi(ctx, "/login?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8));
+        redirectToPage(ctx, origin, "/login?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8));
+    }
+
+    // the path on the page that started the flow, or on this server's UI when the flow named no page
+    private void redirectToPage(RoutingContext ctx, String origin, String path) {
+        if (origin != null) {
+            ctx.response().setStatusCode(302).putHeader("Location", origin + path).end();
+        } else {
+            redirectToUi(ctx, path);
+        }
     }
 
     /**
-     * Maps an OIDC callback failure to the right error redirect. {@link OidcCallbackException}
+     * Maps an OIDC callback failure to the right error redirect, to this server's UI. {@link OidcCallbackException}
      * carries a typed code; everything else gets logged and falls through to
      * {@link OidcErrorCodes#EXCHANGE_FAILED}.
      */
     public void redirectCallbackFailure(RoutingContext ctx, Throwable ex) {
+        // a callback that failed produced no flow result, so no starting page is known
         if (ex instanceof OidcCallbackException oce) {
-            redirectError(ctx, oce.getErrorCode());
+            redirectError(ctx, null, oce.getErrorCode());
         } else {
             log.warn("OIDC callback failed: {}", ex.getMessage());
-            redirectError(ctx, OidcErrorCodes.EXCHANGE_FAILED);
+            redirectError(ctx, null, OidcErrorCodes.EXCHANGE_FAILED);
         }
     }
 
@@ -402,26 +410,26 @@ public class AuthEndpointSupport {
         Map<String, Object> claims = result.claims();
         String sub = OAuth2Util.stringClaim(claims, "sub");
         if (sub == null) {
-            redirectError(ctx, OidcErrorCodes.INVALID_TOKEN);
+            redirectError(ctx, result.origin(), OidcErrorCodes.INVALID_TOKEN);
             return;
         }
         if (!OAuth2Util.isEmailVerified(claims, result.config().getProvider())) {
-            redirectError(ctx, OidcErrorCodes.EMAIL_NOT_VERIFIED);
+            redirectError(ctx, result.origin(), OidcErrorCodes.EMAIL_NOT_VERIFIED);
             return;
         }
         userLookup.apply(sub)
               .onSuccess(user -> {
                   if (user == null) {
-                      redirectError(ctx, OidcErrorCodes.NO_ACCOUNT);
+                      redirectError(ctx, result.origin(), OidcErrorCodes.NO_ACCOUNT);
                   } else if (!user.isEnabled()) {
-                      redirectError(ctx, OidcErrorCodes.ACCOUNT_DISABLED);
+                      redirectError(ctx, result.origin(), OidcErrorCodes.ACCOUNT_DISABLED);
                   } else {
                       redirectSuccess(ctx, result.origin(), user);
                   }
               })
               .onFailure(err -> {
                   log.warn("Login resolution failed: {}", err.getMessage());
-                  redirectError(ctx, OidcErrorCodes.LOOKUP_FAILED);
+                  redirectError(ctx, result.origin(), OidcErrorCodes.LOOKUP_FAILED);
               });
     }
 }

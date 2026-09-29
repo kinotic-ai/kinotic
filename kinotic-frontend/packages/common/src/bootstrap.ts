@@ -1,6 +1,7 @@
 import PrimeVue from 'primevue/config'
 import ConfirmationService from 'primevue/confirmationservice'
 import ToastService from 'primevue/toastservice'
+import Tooltip from 'primevue/tooltip'
 import { type App, type Component, createApp } from 'vue'
 import type { Router } from 'vue-router'
 import { KinoticPreset } from './KinoticPreset'
@@ -43,6 +44,8 @@ export function createKinoticApp({ root, router, sessionState }: KinoticAppOptio
     })
 
     app.use(ToastService)
+    // v-tooltip everywhere, so every hover label shares the theme's tooltip style
+    app.directive('tooltip', Tooltip)
     // Installed before the probe below opens the first connection, so that connection is reported like
     // any other. ToastService above supplies $toast, through which the handler surfaces why a session ended.
     installConnectionHandler(router, sessionState, app.config.globalProperties.$toast)

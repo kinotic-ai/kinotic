@@ -6,6 +6,7 @@
       <TabList>
         <Tab v-for="tab in TABS" :key="tab.id" :value="tab.id">
           <span class="flex items-center gap-2">
+            <component :is="tab.icon" :size="18" :stroke-width="1.75" aria-hidden="true" />
             {{ tab.label }}
             <Tag v-if="tab.description" value="Soon" severity="secondary" class="!text-[10px]" />
           </span>
@@ -26,6 +27,8 @@
 </template>
 
 <script setup lang="ts">
+import { markRaw, type Component } from 'vue'
+import { CreditCard, IdCard, KeyRound, Plug, ShieldCheck } from '@lucide/vue'
 import Tab from 'primevue/tab'
 import TabList from 'primevue/tablist'
 import TabPanel from 'primevue/tabpanel'
@@ -40,15 +43,16 @@ import { useQueryTab } from '@/composables/useQueryTab'
 interface SettingsTab {
   id: 'integrations' | 'authentication' | 'identity-mapping' | 'roles' | 'billing'
   label: string
+  icon: Component
   description?: string
 }
 
 const TABS: SettingsTab[] = [
-  { id: 'integrations', label: 'Integrations' },
-  { id: 'authentication', label: 'Authentication providers', description: 'Configure the identity providers available to this organization.' },
-  { id: 'identity-mapping', label: 'Identity mapping', description: 'Map external identities to your organization users and roles.' },
-  { id: 'roles', label: 'Roles & permissions', description: 'Define roles and control access across your organization.' },
-  { id: 'billing', label: 'Billing & plan', description: 'Review subscription, billing, and usage details for this organization.' }
+  { id: 'integrations', label: 'Integrations', icon: markRaw(Plug) },
+  { id: 'authentication', label: 'Authentication providers', icon: markRaw(KeyRound), description: 'Configure the identity providers available to this organization.' },
+  { id: 'identity-mapping', label: 'Identity mapping', icon: markRaw(IdCard), description: 'Map external identities to your organization users and roles.' },
+  { id: 'roles', label: 'Roles & permissions', icon: markRaw(ShieldCheck), description: 'Define roles and control access across your organization.' },
+  { id: 'billing', label: 'Billing & plan', icon: markRaw(CreditCard), description: 'Review subscription, billing, and usage details for this organization.' }
 ]
 
 const upcomingTabs = TABS.filter(tab => tab.description)

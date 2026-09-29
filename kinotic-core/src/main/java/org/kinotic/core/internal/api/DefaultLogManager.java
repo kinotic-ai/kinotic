@@ -1,17 +1,17 @@
 
 
-package org.kinotic.system.internal.api.services;
+package org.kinotic.core.internal.api;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
 import org.kinotic.core.api.config.TraceLogProperties;
 import org.kinotic.core.api.event.TraceLogFilter;
-import org.kinotic.system.api.model.log.GroupLoggerLevelsDescriptor;
-import org.kinotic.system.api.model.log.LogLevel;
-import org.kinotic.system.api.model.log.LoggerLevelsDescriptor;
-import org.kinotic.system.api.model.log.LoggersDescriptor;
-import org.kinotic.system.api.model.log.SingleLoggerLevelsDescriptor;
-import org.kinotic.system.api.services.LogManager;
+import org.kinotic.core.api.log.GroupLoggerLevelsDescriptor;
+import org.kinotic.core.api.log.LogLevel;
+import org.kinotic.core.api.log.LoggerLevelsDescriptor;
+import org.kinotic.core.api.log.LoggersDescriptor;
+import org.kinotic.core.api.log.SingleLoggerLevelsDescriptor;
+import org.kinotic.core.api.log.LogManager;
 import org.springframework.boot.logging.*;
 import org.springframework.stereotype.Component;
 

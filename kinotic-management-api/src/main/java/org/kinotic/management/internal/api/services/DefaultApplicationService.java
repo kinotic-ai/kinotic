@@ -23,6 +23,9 @@ import java.util.List;
 @Component
 public class DefaultApplicationService extends AbstractOrganizationScopedService<Application> implements ApplicationService {
 
+    // every site label, <org>--<app>--<ui>, must leave room for at least this long a UI name
+    private static final int MIN_UI_NAME_LENGTH = 1;
+
     private final ProjectService projectService;
     private final OidcConfigurationService oidcConfigurationService;
     private final UiDeploymentRepository uiDeploymentRepository;
@@ -104,8 +107,10 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
         // Validate only; re-minting an update's id would silently write a new document
         DomainUtil.validateApplicationId(entity.getId());
         AppHost appHost = new AppHost(requireOrganizationId(), entity.getId());
-        Validate.isTrue(appHost.label().length() <= AppHost.MAX_LABEL_LENGTH,
-                        "The application's host label '%s' is longer than %d characters; shorten the application name",
+        // neither id changes after creation, so an application too long for a site label could never publish a UI
+        Validate.isTrue(appHost.label().length() + AppHost.SEPARATOR.length() + MIN_UI_NAME_LENGTH <= AppHost.MAX_LABEL_LENGTH,
+                        "The application's host label '%s' leaves no room for a UI name in its sites' labels, which DNS limits"
+                                + " to %d characters; shorten the application name",
                         appHost.label(), AppHost.MAX_LABEL_LENGTH);
         entity.setUpdated(new Date());
         Future<String> primaryUiUrl;

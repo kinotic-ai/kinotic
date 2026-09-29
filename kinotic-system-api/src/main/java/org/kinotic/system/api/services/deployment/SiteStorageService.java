@@ -6,8 +6,8 @@ import java.time.Duration;
 
 /**
  * Issues the credentials workloads act on one site's files with. A site's files live in the
- * platform's sites storage account under the site's hostname, as {@link UiStoragePaths} lays
- * them out; the server itself never reads, writes or deletes them.
+ * platform's sites storage account, in a directory named by the site's hostname; the server
+ * itself never reads, writes or deletes them.
  */
 public interface SiteStorageService {
 

@@ -5,7 +5,7 @@
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
     <div v-if="organizationId && !applicationId" class="mb-4 flex items-center gap-3">
-      <Select
+      <Select checkmark
         v-model="selectedApplicationId"
         :options="applications"
         option-label="name"

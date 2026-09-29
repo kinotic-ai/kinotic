@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col gap-3">
     <div class="flex flex-wrap items-center gap-3">
-      <Select
+      <Select checkmark
         v-model="presetMs"
         :options="TIME_RANGE_PRESETS"
         optionLabel="label"
@@ -15,8 +15,8 @@
 
     <Tabs v-model:value="activeTab">
       <TabList>
-        <Tab value="traces">Traces</Tab>
-        <Tab value="metrics">Metrics</Tab>
+        <Tab value="traces"><span class="flex items-center gap-2"><ChartGantt :size="18" :stroke-width="1.75" aria-hidden="true" />Traces</span></Tab>
+        <Tab value="metrics"><span class="flex items-center gap-2"><ChartLine :size="18" :stroke-width="1.75" aria-hidden="true" />Metrics</span></Tab>
       </TabList>
       <!-- Each view mounts when first opened and is kept, so flipping tabs does not refetch -->
       <TabPanels>
@@ -36,6 +36,7 @@
 </template>
 
 <script setup lang="ts">
+import { ChartGantt, ChartLine } from '@lucide/vue'
 import { nextTick, ref, watch } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import Button from 'primevue/button'

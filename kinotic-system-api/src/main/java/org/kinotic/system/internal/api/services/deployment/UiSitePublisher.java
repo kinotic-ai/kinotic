@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
+import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.AppHost;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
@@ -14,7 +15,7 @@ import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.config.UiDeploymentProperties;
-import org.kinotic.system.api.model.deployment.DeployTarget;
+import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.kinotic.system.api.services.deployment.SiteStorageService;
 import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 import org.springframework.stereotype.Component;
@@ -80,6 +81,9 @@ public class UiSitePublisher {
      */
     private Future<UiDeployment> mintDeployment(Project project, UiArtifact ui) {
         String label = new AppHost(project.getOrganizationId(), project.getApplicationId()).siteLabel(ui.name());
+        // guards rows written around the services that validate each part, such as a migration's seed data:
+        // a label outside DNS's grammar names no host under the sites domain
+        ZoneUtil.validateLabel(label);
         Future<UiDeployment> ret;
         if (label.length() > AppHost.MAX_LABEL_LENGTH) {
             ret = Future.failedFuture(new IllegalStateException("The hostname label " + label + " for UI " + ui.name()

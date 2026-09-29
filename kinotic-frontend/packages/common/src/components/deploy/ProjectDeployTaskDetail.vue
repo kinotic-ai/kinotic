@@ -1,11 +1,16 @@
 <template>
-  <template v-if="ProjectDeployStores.hasArtifacts(node)">
+  <template v-if="ProjectDeployResultNames.hasArtifacts(node)">
     <ProjectArtifactsDetail v-if="artifacts" :artifacts="artifacts" />
     <span v-else class="text-xs text-muted-color">Waiting for the sync workload's artifact report</span>
   </template>
   <template v-else>
-    <WorkloadLogView v-if="workloadId" :key="workloadId" :organization-id="organizationId" :workload-id="workloadId" :run="run" />
-    <span v-else class="text-xs text-muted-color">Waiting for the deployment target</span>
+    <div v-if="sbomGenerated !== null" class="mb-2 text-xs text-muted-color">
+      {{ sbomGenerated ? 'Generated the SBOM' : 'The dependencies are unchanged' }}
+    </div>
+    <template v-if="sbomGenerated !== false">
+      <WorkloadLogView v-if="workloadId" :key="workloadId" :organization-id="organizationId" :workload-id="workloadId" :run="run" />
+      <span v-else class="text-xs text-muted-color">Waiting for the deployment target</span>
+    </template>
   </template>
 </template>
 
@@ -15,12 +20,14 @@ import type { JobTaskNode } from '../grind/JobTaskNode'
 import WorkloadLogView from '../WorkloadLogView.vue'
 import type { WorkloadRun } from '../WorkloadRun'
 import ProjectArtifactsDetail from './ProjectArtifactsDetail.vue'
-import ProjectDeployStores from './ProjectDeployStores'
+import ProjectDeployResultNames from './ProjectDeployResultNames'
 
 /**
  * The detail pane of one task row of a project deployment run: the artifacts the run bound,
- * or the log of the workload the task ran, with a placeholder until either is known. Pages
- * pair it with ProjectDeployStores.hasDetail as the JobRunProgress expandable predicate.
+ * or the log of the workload the task ran, with a placeholder until either is known; the SBOM
+ * task's row says whether the run generated the SBOM or kept one whose dependencies were the
+ * same. Pages pair it with ProjectDeployResultNames.hasDetail as the JobRunProgress expandable
+ * predicate.
  */
 const props = defineProps<{
   /** The organization the run deployed for, whose log store holds the workloads' logs. */
@@ -29,8 +36,9 @@ const props = defineProps<{
   root: JobTaskNode | null
 }>()
 
-const artifacts = computed(() => ProjectDeployStores.artifactsOf(props.node))
-const workloadId = computed(() => ProjectDeployStores.workloadLogOf(props.node, props.root))
+const artifacts = computed(() => ProjectDeployResultNames.artifactsOf(props.node))
+const sbomGenerated = computed(() => ProjectDeployResultNames.sbomGeneratedOf(props.node))
+const workloadId = computed(() => ProjectDeployResultNames.workloadLogOf(props.node, props.root))
 // The workload ran for this task, so the task's own span is the window its log falls in
 const run = computed<WorkloadRun>(() => ({ started: props.node.started, finished: props.node.finished }))
 </script>

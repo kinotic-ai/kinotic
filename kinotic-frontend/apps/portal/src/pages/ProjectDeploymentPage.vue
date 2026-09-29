@@ -4,89 +4,134 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <div v-if="!loading && !deployment" class="p-6 text-sm text-muted-color">
-      This project has never been deployed. Pushing to its repository's default branch deploys it.
+    <div v-if="!loading && !deployment" class="flex flex-col items-center rounded-xl border border-dashed border-surface-300 px-6 py-14 text-center dark:border-surface-700">
+      <span :class="['flex h-12 w-12 items-center justify-center rounded-xl', TINTS.sky]">
+        <CloudUpload :size="24" :stroke-width="1.75" aria-hidden="true" />
+      </span>
+      <p class="mt-4 text-sm font-medium text-surface-950 dark:text-surface-0">Never deployed</p>
+      <p class="mt-1 text-sm text-muted-color">Pushing to the repository's default branch deploys this project.</p>
     </div>
 
     <template v-if="deployment">
-      <div class="mb-4 flex flex-wrap items-center gap-4">
-        <Tag :value="phase ?? 'UNKNOWN'" :severity="phase ? deploymentStatusSeverity(phase) : 'secondary'" />
-        <span v-if="liveCommit" class="font-mono text-sm text-muted-color"
-              :title="liveCommit">{{ shortSha(liveCommit) }}</span>
-        <span v-if="phase === StatusType.DEPLOYING && deployment.state.desired?.commitSha" class="text-xs text-muted-color"
-              :title="deployment.state.desired.commitSha">deploying {{ shortSha(deployment.state.desired.commitSha) }}</span>
-        <span v-if="deployment.updated" class="text-xs text-muted-color">
-          Updated {{ DatetimeUtil.formatRelativeDate(deployment.updated) }}
-        </span>
+      <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard :icon="CloudUpload" :tint="TINTS.sky" label="Status"
+                  :detail="deployment.updated ? `Updated ${DatetimeUtil.formatRelativeDate(deployment.updated)}` : undefined">
+          <Tag :value="phase ?? 'UNKNOWN'" :severity="phase ? deploymentStatusSeverity(phase) : 'secondary'" />
+        </StatCard>
+        <StatCard :icon="GitCommitHorizontal" :tint="TINTS.green" label="Live commit"
+                  :detail="deployingCommit ? `deploying ${shortSha(deployingCommit)}` : 'the commit being served'">
+          <span class="font-mono text-2xl font-semibold tracking-tight text-surface-950 dark:text-surface-0"
+                v-tooltip.top="liveCommit ?? undefined">{{ liveCommit ? shortSha(liveCommit) : '—' }}</span>
+        </StatCard>
+        <StatCard :icon="Server" :tint="TINTS.orange" label="Microservices" :value="microservices.length"
+                  detail="each running in a VM of its own" />
+        <StatCard :icon="Globe" :tint="TINTS.purple" label="UIs" :value="uis.length"
+                  detail="each served from a site of its own" />
       </div>
 
       <Message v-if="phase === StatusType.FAILED && deployment.failureMessage"
                severity="error" :closable="false" class="mb-4">{{ deployment.failureMessage }}</Message>
 
-      <JobRunProgress v-if="deployment.lastJobRunId"
-                      :key="deployment.lastJobRunId"
-                      :job-run-id="deployment.lastJobRunId"
-                      :expandable="ProjectDeployStores.hasDetail">
-        <template #detail="{ node, root }">
-          <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
-        </template>
-      </JobRunProgress>
+      <div class="mb-4 grid gap-4 lg:grid-cols-3">
+        <DashboardSection :icon="Activity" :tint="TINTS.green" title="Workloads by status" :count="workloads.length">
+          <div class="flex flex-col gap-4 p-5">
+            <div v-for="bucket in statusBuckets" :key="bucket.label" :class="['border-l-[3px] pl-3', bucket.border]">
+              <div class="text-2xl font-semibold leading-7 tabular-nums text-surface-950 dark:text-surface-0">{{ bucket.count }}</div>
+              <div class="text-xs text-muted-color">{{ bucket.label }}</div>
+            </div>
+          </div>
+        </DashboardSection>
 
-      <section class="mt-8">
-        <h2 class="text-base font-medium mb-1">Microservices</h2>
-        <p class="text-sm text-muted-color mt-0 mb-3">
-          Each microservice the deployment has ensured runs in a VM of its own, kept running by
-          the platform: a VM that exits is replaced. Restart stops the VM and a fresh one takes
-          its place; Remove stops the VM and deletes its machine identity — a microservice the
-          current commit still contains comes back with the next deployment.
-        </p>
-        <MicroserviceDeploymentsTable v-if="microservices.length" :deployments="microservices"
-                                      @logs="openLogs" @restart="confirmRestart" @remove="confirmRemove" />
-        <div v-else class="text-sm text-muted-color">No microservice has been deployed yet.</div>
-      </section>
+        <DashboardSection :icon="GitCommitHorizontal" :tint="TINTS.sky" title="On the live commit"
+                          :description="liveCommit ? `Workloads serving ${shortSha(liveCommit)}` : 'No commit is live yet'">
+          <div class="p-5">
+            <div class="flex items-end justify-between gap-4">
+              <div class="min-w-0 flex-1">
+                <div class="text-xs text-muted-color">{{ onCommit.total.current }} of {{ onCommit.total.all }} workloads</div>
+                <div class="mt-2 h-2 overflow-hidden rounded-full bg-surface-200 dark:bg-surface-700">
+                  <div class="h-full rounded-full bg-sky-500" :style="{ width: `${onCommit.total.percent}%` }" />
+                </div>
+              </div>
+              <div class="text-4xl font-light tabular-nums tracking-tight text-surface-950 dark:text-surface-0">{{ onCommit.total.percent }}%</div>
+            </div>
+            <div class="mt-5 divide-y divide-surface-100 border-t border-surface-100 text-sm dark:divide-surface-800 dark:border-surface-800">
+              <div v-for="row in onCommit.rows" :key="row.label" class="flex items-center gap-3 py-2.5">
+                <component :is="row.icon" :size="16" :stroke-width="1.75" class="shrink-0 text-surface-400" aria-hidden="true" />
+                <span class="w-24 shrink-0 text-surface-800 dark:text-surface-100">{{ row.label }}</span>
+                <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-200 dark:bg-surface-700">
+                  <div class="h-full rounded-full bg-sky-500" :style="{ width: `${row.percent}%` }" />
+                </div>
+                <span class="w-10 text-right text-xs tabular-nums text-muted-color">{{ row.percent }}%</span>
+                <span class="w-12 text-right text-xs font-medium tabular-nums text-surface-800 dark:text-surface-100">{{ row.current }} of {{ row.all }}</span>
+              </div>
+            </div>
+          </div>
+        </DashboardSection>
 
-      <section class="mt-8">
-        <h2 class="text-base font-medium mb-1">UIs</h2>
-        <p class="text-sm text-muted-color mt-0 mb-3">
-          Each UI the deployment has published is served from a site of its own, checked until
-          it serves the published commit. Remove takes the site down and deletes its files — a UI
-          the current commit still contains comes back with the next deployment, at a new site.
-        </p>
-        <UiDeploymentsTable v-if="uis.length" :deployments="uis" @remove="confirmRemoveUi" />
-        <div v-else class="text-sm text-muted-color">No UI has been published yet.</div>
-      </section>
+        <DashboardSection :icon="KeyRound" :tint="TINTS.red" title="Machine identities" :count="machines.length">
+          <div class="flex flex-col gap-4 p-5">
+            <div v-for="row in machineSummary" :key="row.label" class="flex items-center gap-3">
+              <span :class="['flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', row.tint]">
+                <component :is="row.icon" :size="18" :stroke-width="1.75" aria-hidden="true" />
+              </span>
+              <div>
+                <div class="text-2xl font-semibold leading-7 tabular-nums text-surface-950 dark:text-surface-0">{{ row.count }}</div>
+                <div class="text-xs text-muted-color">{{ row.label }}</div>
+              </div>
+            </div>
+          </div>
+        </DashboardSection>
+      </div>
 
-      <section v-if="machines.length" class="mt-8">
-        <h2 class="text-base font-medium mb-1">Machine identities</h2>
-        <p class="text-sm text-muted-color mt-0 mb-3">
-          The deployment's workloads connect to Kinotic as these machines, on behalf of your
-          organization. They are created and their secrets reissued by the deployment itself —
-          a secret is never stored, so each one only ever exists inside the workload it was
-          issued for.
-        </p>
-        <DataTable :value="machines" size="small">
-          <Column field="usedFor" header="Used for" style="width: 20%" />
-          <Column header="Status" style="width: 14%">
-            <template #body="{ data }">
-              <Tag :value="data.enabled ? 'Active' : 'Disabled'"
-                   :severity="data.enabled ? 'success' : 'danger'" />
+      <div class="flex flex-col gap-4">
+        <DashboardSection v-if="deployment.lastJobRunId" :icon="JobsIcon" :tint="TINTS.blue" title="Latest deployment run"
+                          description="Each step of the run the last push started, live while it runs; open a step for its detail.">
+          <div class="p-5">
+          <JobRunProgress :key="deployment.lastJobRunId"
+                          :job-run-id="deployment.lastJobRunId"
+                          :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf">
+            <template #detail="{ node, root }">
+              <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
             </template>
-          </Column>
-          <Column field="displayName" header="Name" style="width: 26%" />
-          <Column header="Client ID" style="width: 40%">
-            <template #body="{ data }"><span class="font-mono text-sm">{{ data.id }}</span></template>
-          </Column>
-        </DataTable>
-      </section>
-      <section class="mt-8">
-        <h2 class="text-base font-medium mb-1">History</h2>
-        <p class="text-sm text-muted-color mt-0 mb-3">
-          What happened to the deployment and to what it made, newest first: each push and each answer to it, each
-          microservice VM's run, each UI's site, and each mark the platform set beside them, with what caused it. The
-          latest {{ HISTORY_PAGE_SIZE }} entries.
-        </p>
-        <WatchEventsTable :entries="history" show-record empty-text="Nothing has happened to the deployment yet." />
-      </section>
+          </JobRunProgress>
+          </div>
+        </DashboardSection>
+
+        <DashboardSection :icon="Server" :tint="TINTS.orange" title="Microservices" :count="microservices.length"
+                          description="Each microservice the deployment has ensured runs in a VM of its own, kept running by the platform: a VM that exits is replaced. Restart stops the VM and a fresh one takes its place; Remove stops the VM and deletes its machine identity — a microservice the current commit still contains comes back with the next deployment.">
+          <MicroserviceDeploymentsTable v-if="microservices.length" :deployments="microservices"
+                                        @logs="openLogs" @restart="confirmRestart" @remove="confirmRemove" />
+          <p v-else class="px-5 py-4 text-sm text-muted-color">No microservice has been deployed yet.</p>
+        </DashboardSection>
+
+        <DashboardSection :icon="Globe" :tint="TINTS.purple" title="UIs" :count="uis.length"
+                          description="Each UI the deployment has published is served from a site of its own, checked until it serves the published commit. Remove takes the site down and deletes its files — a UI the current commit still contains comes back with the next deployment, at a new site.">
+          <UiDeploymentsTable v-if="uis.length" :deployments="uis" @remove="confirmRemoveUi" />
+          <p v-else class="px-5 py-4 text-sm text-muted-color">No UI has been published yet.</p>
+        </DashboardSection>
+
+        <DashboardSection v-if="machines.length" :icon="KeyRound" :tint="TINTS.red" title="Machine identities" :count="machines.length"
+                          description="The deployment's workloads connect to Kinotic as these machines, on behalf of your organization. They are created and their secrets reissued by the deployment itself — a secret is never stored, so each one only ever exists inside the workload it was issued for.">
+          <DataTable :value="machines" size="small">
+            <Column field="usedFor" header="Used for" style="width: 20%" />
+            <Column header="Status" style="width: 14%">
+              <template #body="{ data }">
+                <Tag :value="data.enabled ? 'Active' : 'Disabled'"
+                     :severity="data.enabled ? 'success' : 'danger'" />
+              </template>
+            </Column>
+            <Column field="displayName" header="Name" style="width: 26%" />
+            <Column header="Client ID" style="width: 40%">
+              <template #body="{ data }"><span class="font-mono text-sm">{{ data.id }}</span></template>
+            </Column>
+          </DataTable>
+        </DashboardSection>
+
+        <DashboardSection :icon="Clock" :tint="TINTS.sky" title="History" :count="history.length"
+                          :description="`What happened to the deployment and to what it made, newest first: each push and each answer to it, each microservice VM's run, each UI's site, and each mark the platform set beside them, with what caused it. The latest ${HISTORY_PAGE_SIZE} entries.`">
+          <WatchEventsTable :entries="history" show-record empty-text="Nothing has happened to the deployment yet." />
+        </DashboardSection>
+      </div>
     </template>
 
     <div v-else-if="loading" class="p-6 text-sm text-muted-color">Loading deployment…</div>
@@ -101,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, markRaw, onUnmounted, ref } from 'vue'
 import Column from 'primevue/column'
 import ConfirmDialog from 'primevue/confirmdialog'
 import DataTable from 'primevue/datatable'
@@ -109,8 +154,9 @@ import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
-import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail,
-         WatchEventsTable, WorkloadLogsDialog, deploymentStatusSeverity, shortSha, showErrorToast } from '@kinotic-ai/frontend-common'
+import { Activity, Boxes, CircleCheck, CircleOff, Clock, CloudUpload, GitCommitHorizontal, Globe, KeyRound, Server } from '@lucide/vue'
+import { DatetimeUtil, JobRunProgress, JobsIcon, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
+         WatchEventsTable, WorkloadLogsDialog, deploymentStatusSeverity, observedPhaseSeverity, shortSha, showErrorToast } from '@kinotic-ai/frontend-common'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DeploymentStatusType,
          type MachineParticipantIdentity,
@@ -121,6 +167,9 @@ import { DeploymentStatusType,
 import MicroserviceDeploymentsTable from '@/components/MicroserviceDeploymentsTable.vue'
 import { KinoticStates } from '@/states'
 import UiDeploymentsTable from '@/components/UiDeploymentsTable.vue'
+import DashboardSection from '@/components/DashboardSection.vue'
+import StatCard from '@/components/StatCard.vue'
+import { TINTS } from '@/util/tints'
 
 /** One row — a machine the deployment provisioned, labelled by the workload it authenticates. */
 interface MachineRow extends MachineParticipantIdentity {
@@ -153,11 +202,57 @@ const deployment = ref<ProjectDeployment | null>(null)
 const phase = computed(() => deployment.value?.state.observed?.phase ?? null)
 /** The commit the deployment serves, or null while none is served. */
 const liveCommit = computed(() => deployment.value?.state.observed?.commitSha ?? null)
+/** The commit a deployment still in progress is rolling out, or null when none is. */
+const deployingCommit = computed(() =>
+    phase.value === DeploymentStatusType.DEPLOYING ? deployment.value?.state.desired?.commitSha ?? null : null)
 const microservices = ref<MicroserviceDeployment[]>([])
 const uis = ref<UiDeployment[]>([])
 const machines = ref<MachineRow[]>([])
 const history = ref<WatchEvent[]>([])
 const loading = ref(true)
+
+/** The phase groups a workload's status falls in, worst last, with the colour of each. */
+const STATUS_BUCKETS = [
+  { severity: 'success', label: 'Running', border: 'border-green-500' },
+  { severity: 'info', label: 'In progress', border: 'border-sky-500' },
+  { severity: 'warn', label: 'Needs attention', border: 'border-amber-500' },
+  { severity: 'danger', label: 'Failed', border: 'border-red-500' },
+  { severity: 'secondary', label: 'Pending', border: 'border-surface-300 dark:border-surface-600' }
+]
+
+const workloads = computed(() => [...microservices.value, ...uis.value])
+/** How many microservices and UIs report a phase in each bucket; buckets past Failed show only when used. */
+const statusBuckets = computed(() => {
+  const severities = workloads.value.map(workload => observedPhaseSeverity(workload.state.observed))
+  return STATUS_BUCKETS
+      .map(bucket => ({ ...bucket, count: severities.filter(severity => severity === bucket.severity).length }))
+      .filter(bucket => bucket.count > 0 || bucket.severity !== 'secondary')
+})
+
+/** How many workloads of each kind serve the live commit, as counts and a rounded percentage. */
+const onCommit = computed(() => {
+  const share = (list: (MicroserviceDeployment | UiDeployment)[]) => {
+    const current = liveCommit.value ? list.filter(item => item.state.observed?.commitSha === liveCommit.value).length : 0
+    return { current, all: list.length, percent: list.length ? Math.round(current / list.length * 100) : 0 }
+  }
+  return {
+    total: share(workloads.value),
+    rows: [
+      { label: 'Microservices', icon: markRaw(Server), ...share(microservices.value) },
+      { label: 'UIs', icon: markRaw(Globe), ...share(uis.value) }
+    ]
+  }
+})
+
+const machineSummary = computed(() => {
+  const active = machines.value.filter(machine => machine.enabled).length
+  return [
+    { label: 'Active, connecting on the organization\'s behalf', icon: markRaw(CircleCheck), tint: TINTS.green, count: active },
+    { label: 'Disabled', icon: markRaw(CircleOff), tint: TINTS.red, count: machines.value.length - active },
+    { label: 'Issued to microservices', icon: markRaw(Boxes), tint: TINTS.orange,
+      count: microservices.value.filter(microservice => microservice.machineIdentityId).length }
+  ]
+})
 const error = ref<string | null>(null)
 const logsFor = ref<MicroserviceDeployment | null>(null)
 const logsVisible = ref(false)

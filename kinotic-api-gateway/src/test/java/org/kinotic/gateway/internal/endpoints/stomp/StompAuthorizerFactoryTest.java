@@ -148,7 +148,7 @@ public class StompAuthorizerFactoryTest {
 
         // never another organization's applications or the platform internals
         assertFalse(authorizer.sendAllowed(CRI.create("srv://app.other-org.orders-app~OrderService/create#1.0.0")));
-        assertFalse(authorizer.sendAllowed(CRI.create("srv://system-api~org.kinotic.system.api.services.LogManager/query#1.0.0")));
+        assertFalse(authorizer.sendAllowed(CRI.create("srv://system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService/query#1.0.0")));
     }
 
     @Test
@@ -214,7 +214,7 @@ public class StompAuthorizerFactoryTest {
 
         // system participants may send anywhere, but only where this server reaches
         StompAuthorizer system = systemAuthorizer();
-        assertFalse(system.sendAllowed(CRI.create("srv://system-api~org.kinotic.system.api.services.LogManager/query#1.0.0")));
+        assertFalse(system.sendAllowed(CRI.create("srv://system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService/query#1.0.0")));
         assertFalse(system.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
     }
 

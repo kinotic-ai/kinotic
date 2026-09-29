@@ -22,13 +22,13 @@ public class ZonePartitionTest {
     @Test
     public void hostsOnlyItsZones() {
         assertTrue(ORG.hosts("srv://management-api~org.kinotic.management.api.services.ProjectService"));
-        assertFalse(ORG.hosts("srv://system-api~org.kinotic.system.api.services.LogManager"));
+        assertFalse(ORG.hosts("srv://system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService"));
         assertFalse(ORG.hosts("srv://app.acme.orders~com.acme.Orders"));
     }
 
     @Test
     public void reachesItsReachableZones() {
-        assertTrue(ORG.reaches("srv://system-api~org.kinotic.system.api.services.LogManager"));
+        assertTrue(ORG.reaches("srv://system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService"));
         assertTrue(ORG.reaches("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository"));
         assertFalse(ORG.reaches("srv://app.acme.orders~com.acme.Orders"));
     }

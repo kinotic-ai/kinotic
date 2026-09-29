@@ -20,10 +20,10 @@ kinotic:
     # or served. To publish to a real subscription instead, run with the `local` profile as well
     # and set the real values in the git-ignored application-local.yml (see the contributing
     # guide, "Publishing UIs against Azure")
+    disableAzureStorage: true
     uiDeployment:
-      disableProvisioner: true
       sitesDomain: apps.localhost
-      # validated at boot; nothing reads it while the provisioner is disabled
+      # validated at boot; nothing reads it while Azure storage is disabled
       sitesStorageEndpoint: "-"
     deployment:
       # A workload runs inside a micro VM, so "localhost" there is the guest, not this machine.

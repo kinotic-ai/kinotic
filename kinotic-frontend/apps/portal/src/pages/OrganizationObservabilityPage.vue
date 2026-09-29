@@ -2,7 +2,7 @@
   <div class="flex flex-col">
     <PageHeader title="Observability" description="The traces and metrics of your organization's workloads.">
       <template #actions>
-        <Select
+        <Select checkmark
           v-model="applicationId"
           :options="APPLICATION_STATE.allApplications"
           optionLabel="id"

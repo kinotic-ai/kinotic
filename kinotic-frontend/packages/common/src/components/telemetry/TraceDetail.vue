@@ -84,7 +84,7 @@
             <template v-for="(value, key) in selected.resource" :key="key">
               <dt class="text-muted-color">{{ key }}</dt>
               <dd :class="['break-all font-mono', expandedKeys.has(key) ? '' : 'line-clamp-2 cursor-pointer']"
-                  :title="expandedKeys.has(key) ? undefined : 'Click to show the whole value'"
+                  v-tooltip.top="expandedKeys.has(key) ? undefined : 'Click to show the whole value'"
                   @click="expandedKeys.add(key)">{{ value }}</dd>
             </template>
           </dl>

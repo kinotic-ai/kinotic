@@ -33,7 +33,8 @@ public class SessionEndpointHandler implements SuppliesGatewayRoutes {
         boolean authenticated = connectedInfo != null && connectedInfo.getParticipant() != null;
         if (!authenticated) {
             // a cookie with no login behind it (stale, or freshly created because the prior session was
-            // gone) clears, so nothing empty is persisted; another page's login keeps the session
+            // gone) clears, so nothing empty is persisted; another page's login or sign-in in progress
+            // keeps the session
             SessionBinding.unbind(ctx);
         }
         ctx.response().setStatusCode(authenticated ? 204 : 401).end();

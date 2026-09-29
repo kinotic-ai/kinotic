@@ -12,7 +12,7 @@
       </template>
     </PageHeader>
 
-    <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployStores.hasDetail">
+    <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf">
       <template #detail="{ node, root }">
         <ProjectDeployTaskDetail :organization-id="scope.organizationId ?? owningOrganizationId" :node="node" :root="root" />
       </template>
@@ -26,7 +26,7 @@ import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 
 import { Kinotic } from '@kinotic-ai/core'
-import { JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail, createDebug } from '@kinotic-ai/frontend-common'
+import { JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail, createDebug } from '@kinotic-ai/frontend-common'
 
 import { organizationPath, scopePath, type Scope } from '@/util/scope'
 

@@ -12,7 +12,7 @@
       />
       <SelectButton v-model="span" :options="spanOptions" option-label="label" option-value="value"
                     :allow-empty="false" size="small" />
-      <Select v-model="limit" :options="LIMIT_OPTIONS" option-label="label" option-value="value" size="small" />
+      <Select checkmark v-model="limit" :options="LIMIT_OPTIONS" option-label="label" option-value="value" size="small" />
       <Button label="Reload" icon="pi pi-refresh" severity="secondary" outlined size="small"
               :loading="loadingHistory" @click="loadHistory" />
       <span class="text-xs text-muted-color">{{ lineCountText }}</span>

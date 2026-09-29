@@ -1,3 +1,5 @@
+import { markRaw, type Component } from 'vue'
+import { Ban, Check, CircleCheck, CircleDot, CircleSlash, CircleX, Clock, LoaderCircle, X } from '@lucide/vue'
 import { ExecutionStatus } from '@kinotic-ai/management-api'
 
 /**
@@ -17,4 +19,49 @@ export function executionStatusSeverity(status: ExecutionStatus): string {
     ret = 'secondary'
   }
   return ret
+}
+
+/** How a task of each status renders: the badge on its pipeline tile, and the circled icon of its ledger row. */
+export interface TaskStatusStyle {
+  /** The icon inside the status badge on the tile's corner. */
+  icon: Component
+  /** Classes of the status badge on the tile's corner, null for a task with nothing to report. */
+  badge: string | null
+  /** The circled icon beside the task's row in the ledger. */
+  rowIcon: Component
+  /** Classes of the ledger row's icon. */
+  row: string
+}
+
+export const TASK_STATUS_STYLE: Record<ExecutionStatus, TaskStatusStyle> = {
+  [ExecutionStatus.PENDING]: {
+    icon: markRaw(Clock),
+    badge: null,
+    rowIcon: markRaw(CircleDot),
+    row: 'text-surface-300 dark:text-surface-600'
+  },
+  [ExecutionStatus.RUNNING]: {
+    icon: markRaw(LoaderCircle),
+    badge: 'bg-surface-0 text-sky-600 dark:bg-surface-900 dark:text-sky-300',
+    rowIcon: markRaw(LoaderCircle),
+    row: 'animate-spin text-sky-500'
+  },
+  [ExecutionStatus.COMPLETED]: {
+    icon: markRaw(Check),
+    badge: 'bg-emerald-500 text-white',
+    rowIcon: markRaw(CircleCheck),
+    row: 'text-emerald-500'
+  },
+  [ExecutionStatus.FAILED]: {
+    icon: markRaw(X),
+    badge: 'bg-red-500 text-white',
+    rowIcon: markRaw(CircleX),
+    row: 'text-red-500'
+  },
+  [ExecutionStatus.CANCELLED]: {
+    icon: markRaw(Ban),
+    badge: 'bg-amber-500 text-white',
+    rowIcon: markRaw(CircleSlash),
+    row: 'text-amber-500'
+  }
 }

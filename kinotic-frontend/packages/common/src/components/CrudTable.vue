@@ -14,7 +14,10 @@ import Card from "primevue/card";
 import Menu from "primevue/menu";
 import type { MenuItem } from "primevue/menuitem";
 import type { DataTableSortMeta } from "primevue/datatable";
-import Paginator, { type PageState } from "primevue/paginator";
+import type { PageState } from "primevue/paginator";
+import TablePaginator from "./TablePaginator.vue";
+import GraphQLIcon from "./GraphQLIcon.vue";
+import { BookOpenText } from "@lucide/vue";
 import SelectButton from "primevue/selectbutton";
 import Skeleton from "primevue/skeleton";
 import { useConfirm } from "primevue/useconfirm";
@@ -49,7 +52,6 @@ const props = withDefaults(defineProps<{
   disableModifications?: boolean
   isShowAddNew?: boolean
   initialSearch?: string
-  rowHoverColor?: string
   createNewButtonText?: string
   enableViewSwitcher?: boolean
   emptyStateText?: string
@@ -78,7 +80,6 @@ const props = withDefaults(defineProps<{
   isShowAddNew: true,
   isShowDelete: false,
   initialSearch: '',
-  rowHoverColor: '#f5f5f5',
   createNewButtonText: 'Add new',
   enableViewSwitcher: false,
   emptyStateText: 'No items yet',
@@ -167,12 +168,6 @@ const displayRows = computed<DescriptiveIdentifiable[]>(() => {
   return showSkeleton.value ? skeletonRows.value : items.value;
 });
 
-// The paginator disables itself at a count of zero, so a real count would switch it out of
-// its greyed-out state on arrival. Standing in a full page keeps it enabled throughout.
-const displayTotal = computed<number>(() => {
-  return isInitialLoad.value ? options.value.rows : totalItems.value;
-});
-
 function rowMenuItems(item: DescriptiveIdentifiable): MenuItem[] {
   const menuItems = props.rowActions ? [...props.rowActions(item)] : [];
   if (props.isShowDelete) {
@@ -219,6 +214,7 @@ const paginationOptions = computed<number[]>(() => {
 
 const isDark = darkMode;
 
+
 const dataTablePt = computed(() => {
   return {
     root: {
@@ -236,24 +232,10 @@ const dataTablePt = computed(() => {
     header: {
       class: 'hidden'
     },
-    // The header row is sticky over the scrolling rows, so it carries the surface colour the
-    // shell sits on rather than being transparent — otherwise rows show through it.
-    headerCell: {
-      class: [
-        'px-[14px] pb-[0.9rem] pt-4 text-sm font-semibold',
-        isDark.value ? 'bg-surface-900 border-surface-700 text-surface-100' : 'bg-surface-0 border-surface-200 text-surface-950'
-      ]
-    },
     bodyRow: {
       class: [
         'bg-transparent',
-        isDark.value ? 'border-surface-800 text-surface-200' : 'border-surface-100 text-surface-950'
-      ]
-    },
-    bodyCell: {
-      class: [
-        'bg-transparent px-[14px] py-2 text-sm align-middle',
-        isDark.value ? 'border-surface-700 text-surface-200' : 'border-surface-200 text-surface-950'
+        isDark.value ? 'border-surface-800 text-surface-200' : 'border-surface-100 text-surface-800'
       ]
     },
     // The empty state renders outside the DataTable (in the flex filler below it),
@@ -385,12 +367,13 @@ defineExpose({ find });
        chain down to here; in a plain block parent the flex classes are inert. min-h-0 runs
        down that chain so the rows scroll inside the shell instead of stretching it past the
        viewport, which would carry the paginator off screen. -->
-  <div class="crud-table flex min-h-0 flex-1 flex-col" :class="isDark ? 'crud-table--dark' : 'crud-table--light'" :style="{ '--row-hover-color': rowHoverColor }">
-    <div class="crud-table__toolbar flex items-center justify-between mb-6 gap-4">
-      <IconField class="crud-table__search w-[236px] max-w-sm">
+  <div class="crud-table flex min-h-0 flex-1 flex-col" :class="isDark ? 'crud-table--dark' : 'crud-table--light'">
+    <div class="crud-table__toolbar flex items-center justify-between mb-4 gap-2">
+      <IconField class="crud-table__search min-w-0 flex-1">
         <InputIcon class="pi pi-search" />
         <InputText
           v-model="searchText"
+          class="w-full"
           placeholder="Search"
           size="small"
           name="search"
@@ -416,12 +399,6 @@ defineExpose({ find });
           </template>
         </SelectButton>
         <Button
-          :class="[
-            '!border-transparent !shadow-none',
-            isDark
-              ? 'hover:!bg-primary-600'
-              : 'hover:!bg-primary-600'
-          ]"
           size="small"
           v-if="!disableModifications && isShowAddNew"
           @click="addItem"
@@ -441,7 +418,8 @@ defineExpose({ find });
             v-for="(item, index) in displayRows"
             :key="item.id || index"
             :class="[
-              'relative flex h-[170px] flex-col justify-between border transition-shadow',
+              'relative flex flex-col justify-between border transition-shadow',
+              $slots['card.icon'] ? 'h-[226px]' : 'h-[170px]',
               showSkeleton ? '' : 'cursor-pointer',
               isDark
                 ? [
@@ -454,7 +432,13 @@ defineExpose({ find });
           >
             <template #title>
               <Skeleton v-if="showSkeleton" height="1.25rem" width="55%" />
-              <h3 v-else :class="isDark ? 'text-surface-0 font-semibold' : ''">{{ item?.id }}</h3>
+              <template v-else>
+                <!-- An optional mark above the card's title, e.g. an application's initials tile -->
+                <div v-if="$slots['card.icon']" class="mb-4">
+                  <slot name="card.icon" :item="item" :index="index" />
+                </div>
+                <h3 :class="isDark ? 'text-surface-0 font-semibold' : ''">{{ item?.id }}</h3>
+              </template>
             </template>
 
             <template #content>
@@ -465,37 +449,30 @@ defineExpose({ find });
             </template>
 
             <template #footer>
-              <div v-if="!showSkeleton" class="flex p-5 gap-4 absolute bottom-0 left-0">
+              <div v-if="!showSkeleton" class="absolute bottom-0 left-0 flex gap-2 p-5">
                 <Button
                   severity="secondary"
-                  text
-                  class="!p-0"
-                  @click.stop="
-                    $router.push({
-                      path: '/graphql',
-                      query: { namespace: item.id },
-                    })
-                  "
+                  variant="outlined"
+                  size="small"
+                  class="!min-h-0 !h-7 !gap-1.5 !px-2.5 !text-xs"
+                  aria-label="Open the GraphQL playground for this application"
+                  v-tooltip.top="'Query this application\'s data in the GraphQL playground'"
+                  @click.stop="$router.push({ path: '/graphql', query: { namespace: item.id } })"
                 >
-                  <img
-                    src="../assets/graphql.svg"
-                    alt="GraphQL"
-                    class="w-5 h-5"
-                  />
+                  <GraphQLIcon :size="14" :stroke-width="1.75" />
+                  GraphQL
                 </Button>
                 <Button
                   severity="secondary"
-                  text
-                  class="!p-0"
-                  @click.stop="
-                    $router.push('/scalar-ui.html?namespace=' + item.id)
-                  "
+                  variant="outlined"
+                  size="small"
+                  class="!min-h-0 !h-7 !gap-1.5 !px-2.5 !text-xs"
+                  aria-label="Open the OpenAPI reference for this application"
+                  v-tooltip.top="'Browse and try this application\'s REST API in its OpenAPI reference'"
+                  @click.stop="$router.push({ path: '/openapi', query: { namespace: item.id } })"
                 >
-                  <img
-                    src="../assets/scalar.svg"
-                    alt="OpenAPI"
-                    class="w-5 h-5"
-                  />
+                  <BookOpenText :size="14" :stroke-width="1.75" aria-hidden="true" />
+                  OpenAPI
                 </Button>
               </div>
             </template>
@@ -508,21 +485,22 @@ defineExpose({ find });
           <p class="text-sm">{{ emptyStateText }}</p>
         </div>
 
-        <Paginator
+        <TablePaginator
+          v-if="showPagination"
+          :first="options.first"
           :rows="options.rows"
-          :totalRecords="displayTotal"
+          :totalRecords="totalItems"
           :rowsPerPageOptions="paginationOptions"
           @page="onPaginatorPage"
           class="mt-auto pt-4"
-          v-if="showPagination"
         />
       </div>
 
       <div v-if="isBurgerView" class="flex min-h-0 flex-1 flex-col">
         <div
           :class="[
-            'crud-table__table-shell flex min-h-0 flex-1 flex-col rounded-[14px] border px-4 py-2 transition-colors',
-            isDark ? 'border-surface-700 bg-transparent text-surface-0 shadow-[0_0_0_1px_rgba(58,58,64,0.15)]' : 'border-surface-200 bg-transparent text-surface-950'
+            'crud-table__table-shell flex min-h-0 flex-col overflow-hidden rounded-lg border transition-colors',
+            isDark ? 'border-surface-700 bg-transparent text-surface-0' : 'border-surface-300 bg-transparent text-surface-950'
           ]"
         >
           <DataTable
@@ -555,15 +533,15 @@ defineExpose({ find });
               :bodyClass="col.optional ? 'hidden md:table-cell' : undefined"
             >
               <template #body="slotProps">
-                <div :class="['flex min-h-[48px] items-center', col.centered ? 'w-full justify-center' : '']">
+                <div :class="['flex min-h-6 items-center', col.centered ? 'w-full justify-center' : '']">
                   <Skeleton v-if="showSkeleton" height="0.875rem" width="60%" />
-                  <!-- min-w-0 lets this shrink below its min-content width, so a long
-                       unbreakable value wraps inside the column instead of spilling into
-                       the next one. Wrapping the slot rather than the flex row itself keeps
-                       badges and buttons at their natural width. -->
-                  <div v-else class="min-w-0 break-words">
-                    <slot :name="`item.${col.field}`" :item="slotProps.data">
-                      {{ slotProps.data[col.field] }}
+                  <!-- min-w-0 lets this shrink below its min-content width. A plain value is cut
+                       off with an ellipsis inside its column and its title shows it whole; a
+                       slotted cell (a tag, a link, a button) keeps its natural width instead of
+                       being clipped. -->
+                  <div v-else :class="['min-w-0 font-mono text-[0.8125rem] leading-5', $slots[`item.${col.field}`] ? '' : 'truncate']">
+                    <slot :name="`item.${col.field}`" :item="slotProps.data" :index="slotProps.index">
+                      <span v-tooltip.top="String(slotProps.data[col.field] ?? '')">{{ slotProps.data[col.field] }}</span>
                     </slot>
                   </div>
                 </div>
@@ -572,11 +550,13 @@ defineExpose({ find });
 
             <Column v-if="hasRowMenu" header="" :style="{ width: ROW_MENU_COLUMN_WIDTH }">
               <template #body="slotProps">
-                <div class="flex min-h-[48px] w-full items-center justify-center">
+                <div class="flex min-h-6 w-full items-center justify-center">
                   <Skeleton v-if="showSkeleton" shape="circle" size="1.25rem" />
                   <template v-else-if="rowMenuItems(slotProps.data).length > 0">
                     <Button
                       icon="pi pi-ellipsis-v"
+                      size="small"
+                      class="!h-6 !w-6"
                       @click.stop="(event) => toggleRowMenu(event, slotProps.data.id)"
                       aria-haspopup="true"
                       :aria-controls="'action_menu_' + slotProps.data.id"
@@ -606,14 +586,14 @@ defineExpose({ find });
           </div>
         </div>
 
-        <Paginator
+        <TablePaginator
           v-if="showPagination"
-          :rows="options.rows"
           :first="options.first"
-          :totalRecords="displayTotal"
+          :rows="options.rows"
+          :totalRecords="totalItems"
           :rowsPerPageOptions="paginationOptions"
           @page="onPaginatorPage"
-          class="border-0 bg-transparent px-0 pb-[0.875rem] pt-3 shadow-none"
+          class="pb-[0.875rem] pt-3"
         />
       </div>
     </div>
@@ -623,21 +603,24 @@ defineExpose({ find });
 </template>
 
 <style>
+/* Status tags read as part of the row's monospace data */
+.crud-table__datatable .p-tag {
+  font-family: var(--font-mono);
+}
+
+/* The shell's border closes the table, so the last row draws no line of its own */
+.crud-table__table-shell .p-datatable-tbody > tr:last-child > td {
+  border-bottom-width: 0;
+}
+
 .p-datatable-paginator-bottom {
   border: none !important;
   box-shadow: none !important;
 }
 
-/* Anchors the rows-per-page select to the table's right edge, so the page buttons grow
-   leftward as the record count arrives rather than pushing the select sideways. Two class
-   selectors to outweigh the theme's own centring on .p-paginator. */
-.crud-table .p-paginator {
-  justify-content: flex-end;
-}
-
 .crud-table--light .crud-table__view-switcher.p-selectbutton {
-  border-radius: 0.625rem;
-  border: 1px solid var(--p-surface-200);
+  border-radius: var(--p-form-field-border-radius);
+  border: 1px solid var(--p-form-field-border-color);
   background: var(--p-surface-50);
 }
 
@@ -652,20 +635,9 @@ defineExpose({ find });
   color: var(--p-surface-950);
 }
 
-.crud-table--light .crud-table__add-button.p-button {
-  border: none;
-  background: var(--p-primary-500);
-  color: var(--p-surface-0);
-  box-shadow: none;
-}
-
-.crud-table--light .crud-table__add-button.p-button:hover {
-  background: var(--p-primary-600);
-}
-
 html.dark .p-selectbutton {
-  border-radius: 0.625rem;
-  border: 1px solid var(--p-surface-700);
+  border-radius: var(--p-form-field-border-radius);
+  border: 1px solid var(--p-form-field-border-color);
   background: var(--p-surface-900);
 }
 
@@ -680,19 +652,6 @@ html.dark .p-selectbutton .p-togglebutton.p-togglebutton-checked {
   color: var(--p-surface-0);
 }
 
-html.dark .crud-table .p-button {
-  border-color: transparent;
-}
-
-html.dark .crud-table .p-button.p-button-sm:not(.p-button-text):not(.p-selectbutton-button) {
-  background: var(--p-primary-500);
-  color: var(--p-surface-0);
-}
-
-html.dark .crud-table .p-button.p-button-sm:not(.p-button-text):not(.p-selectbutton-button):hover {
-  background: var(--p-primary-600);
-}
-
 html.dark .p-paginator .p-paginator-page,
 html.dark .p-paginator .p-paginator-next,
 html.dark .p-paginator .p-paginator-prev,
@@ -703,7 +662,7 @@ html.dark .p-paginator .p-paginator-last {
 
 .dynamic-hover:hover {
   cursor: pointer;
-  background-color: var(--row-hover-color, #eff6ff) !important;
+  background-color: var(--p-surface-100) !important;
   transition: background-color 0.3s ease !important;
 }
 

@@ -5,6 +5,8 @@ import { showErrorToast } from '@kinotic-ai/frontend-common'
 import { useToast } from 'primevue/usetoast'
 import { CrudTable } from '@kinotic-ai/frontend-common'
 import NewProjectSidebar from '@/components/NewProjectSidebar.vue'
+import InitialsTile from '@/components/InitialsTile.vue'
+import TimePill from '@/components/TimePill.vue'
 import type { IDataSource, Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { Kinotic } from '@kinotic-ai/core'
@@ -51,9 +53,9 @@ onMounted(() => {
 })
 
 /**
- * Honors the post-install handoff from `GitHubInstallCallback`. When the user
- * started a GitHub link from the new-project sidebar, the callback redirects
- * back here with `?openNewProject=1` so we re-open the sidebar automatically.
+ * Opens the new-project sidebar when the page is reached with `?openNewProject=1`: after a
+ * GitHub link started from that sidebar (`GitHubInstallCallback` redirects back here), and
+ * straight after creating an application, so the user carries on to its first project.
  */
 function handleOpenNewProjectQuery(): void {
   if (route.query.openNewProject === '1') {
@@ -182,7 +184,6 @@ async function retryRepoInit(project: Project): Promise<void> {
   <div class="flex flex-1 flex-col">
     <CrudTable
       ref="crudTable"
-      rowHoverColor=""
       :data-source="dataSource"
       :headers="projectTableHeaders"
       :singleExpand="false"
@@ -197,6 +198,12 @@ async function retryRepoInit(project: Project): Promise<void> {
       :isShowAddNew="true"
       class="!text-sm"
     >
+      <template #item.name="{ item, index }">
+        <span class="flex min-w-0 items-center gap-2.5">
+          <InitialsTile :name="item.name || item.id" :index="index" />
+          <span class="truncate" v-tooltip.top="item.name">{{ item.name }}</span>
+        </span>
+      </template>
       <template #item.id="{ item }">
         <span>{{ item.id }}</span>
       </template>
@@ -205,7 +212,7 @@ async function retryRepoInit(project: Project): Promise<void> {
           v-if="item.repoConnectionStatus === RepoStatus.INITIALIZATION_FAILED"
           class="flex items-center gap-2"
         >
-          <Tag value="Init failed" severity="warn" />
+          <Tag value="Init failed" severity="danger" />
           <Button
             label="Retry"
             size="small"
@@ -215,14 +222,13 @@ async function retryRepoInit(project: Project): Promise<void> {
         </div>
         <Tag
           v-else-if="item.repoConnectionStatus === RepoStatus.DISCONNECTED"
-          value="Disconnected"
+          value="Not connected"
           severity="danger"
         />
+        <Tag v-else value="Connected" severity="success" />
       </template>
       <template #item.updated="{ item }">
-        <span>
-          {{ DatetimeUtil.formatRelativeDate(item.updated) }}
-        </span>
+        <TimePill :date="item.updated" />
       </template>
       <template #item.created="{ item }">
         <span>
