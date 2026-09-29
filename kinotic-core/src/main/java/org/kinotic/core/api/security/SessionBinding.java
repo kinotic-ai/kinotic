@@ -97,15 +97,15 @@ public final class SessionBinding {
     }
 
     /**
-     * Ends the login of the page that sent the request. The session, and its cookie, end once it holds no
-     * page's login.
+     * Ends the login of the page that sent the request. The session, and its cookie, end once it holds
+     * nothing else: no page's login and no sign-in another page has in progress.
      */
     public static void unbind(RoutingContext ctx) {
         if (sessionPresented(ctx)) {
             Session session = ctx.session();
             session.remove(loginKey(origin(ctx)));
             ctx.remove(LOGIN_KEY);
-            if (logins(session).findAny().isEmpty()) {
+            if (session.isEmpty()) {
                 session.destroy();
             }
         }
