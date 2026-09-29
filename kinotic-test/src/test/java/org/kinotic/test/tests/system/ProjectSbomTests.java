@@ -34,8 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The SBOM a project's deployment keeps, and what the organization's members read of it: only the
- * machine the project's sync workload runs as records an SBOM, only of the dependencies that
+ * The SBOM a project's deployment keeps, and what the organization's members read of it: only a
+ * participant of the project's organization records an SBOM, only of the dependencies the sync
  * workload last reported, and a report of other dependencies drops it.
  */
 @SpringBootTest
@@ -98,12 +98,18 @@ public class ProjectSbomTests extends KinoticTestBase {
     }
 
     @Test
-    public void onlyTheProjectsSyncMachineRecordsItsSbom() throws Exception {
-        String projectId = deployedProject("sbom-member");
+    public void anSbomFromAnotherOrganizationIsRefused() throws Exception {
+        String projectId = deployedProject("sbom-outsider");
+        OrganizationParticipant outsider = new DefaultOrganizationParticipant("outsider",
+                                                                              "outsider-org",
+                                                                              Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                                     ParticipantConstants.PARTICIPANT_TYPE_USER),
+                                                                              List.of("ADMIN"));
 
-        assertThrows(Exception.class, () -> await(runAsOrganization(
+        Exception failure = assertThrows(Exception.class, () -> await(runAs(outsider,
                 () -> projectArtifactService.recordSbom(projectId, "hash-1", tree()))));
 
+        assertTrue(failure.getMessage().contains("Project deployment not found"), failure.getMessage());
         assertFalse(await(projectDeployments.findById(projectId, TEST_ORG_ID)).isSbomGenerated());
         assertNull(await(projectDependencies.findById(projectId, TEST_ORG_ID)));
     }
@@ -165,9 +171,9 @@ public class ProjectSbomTests extends KinoticTestBase {
     }
 
     /**
-     * A project deployment whose sync workload runs as {@link #SYNC_MACHINE_ID} and reported the
-     * artifacts of {@link #COMMIT}, whose dependencies hash to {@code hash-1}. No project record
-     * exists, so the reconcile master leaves it be.
+     * A project deployment whose sync workload reported the artifacts of {@link #COMMIT}, whose
+     * dependencies hash to {@code hash-1}. No project record exists, so the reconcile master leaves
+     * it be.
      */
     private String deployedProject(String projectId) throws Exception {
         ProjectDeployment upsert = new ProjectDeployment().setId(projectId)
@@ -178,7 +184,6 @@ public class ProjectSbomTests extends KinoticTestBase {
         projectIds.add(projectId);
         await(projectDeployments.updateDesired(projectId, TEST_ORG_ID, new DeploymentState(DeploymentStatusType.RUNNING, COMMIT),
                                                upsert, "push of " + COMMIT));
-        await(projectDeployments.recordSyncMachine(projectId, TEST_ORG_ID, SYNC_MACHINE_ID));
         await(projectDeployments.recordArtifacts(projectId, TEST_ORG_ID, artifacts(COMMIT, "hash-1"), false));
         return projectId;
     }

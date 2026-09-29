@@ -2,12 +2,11 @@ package org.kinotic.management.internal.api.services.deployment;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.deployment.MicroserviceArtifact;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
 import org.kinotic.management.api.model.deployment.ProjectDependencies;
@@ -23,7 +22,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DefaultProjectArtifactService implements ProjectArtifactService {
@@ -38,10 +36,8 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
         Validate.notNull(artifacts, "artifacts is required");
         Validate.notBlank(artifacts.commitSha(), "artifacts.commitSha is required");
         validate(artifacts);
-        // A project's machines are ORGANIZATION scope, so an application participant is a
-        // caller that can never be the sync workload
         OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
-        return findForSyncMachine(projectId, participant)
+        return loadOwned(projectId, participant)
                 .compose(deployment -> {
                     // the SBOM lists the dependencies it was generated from, so a report of other
                     // dependencies drops it and the deployment generates it again
@@ -60,7 +56,7 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
         validate(dependencies);
         OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
         String organizationId = participant.getOrganizationId();
-        return findForSyncMachine(projectId, participant)
+        return loadOwned(projectId, participant)
                 .compose(deployment -> {
                     // the SBOM is recorded as the one of the dependencies the artifacts list, so it
                     // must have been generated from those
@@ -74,20 +70,10 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
                 });
     }
 
-    /**
-     * The project's deployment when the participant is the machine its sync workload runs as. Only
-     * the workloads the deployment issued those credentials to may report for the project; an org
-     * member or another project's machine gets the same answer as a project that does not exist.
-     */
-    private Future<ProjectDeployment> findForSyncMachine(String projectId, OrganizationParticipant participant) {
+    /** Loads the deployment of a project of the participant's organization; another organization's is indistinguishable from none. */
+    private Future<ProjectDeployment> loadOwned(String projectId, OrganizationParticipant participant) {
         return projectDeploymentRepository.findById(projectId, participant.getOrganizationId())
-                .map(deployment -> {
-                    if (deployment == null || !participant.getId().equals(deployment.getSyncMachineIdentityId())) {
-                        log.error("Participant {} may not report for project {}", participant.getId(), projectId);
-                        throw new AuthorizationException("Access denied");
-                    }
-                    return deployment;
-                });
+                .map(deployment -> DomainUtil.requireOwned(deployment, participant.getOrganizationId(), "Project deployment not found."));
     }
 
     // A name becomes a workload name and a hostname label, and two artifacts of one kind with

@@ -9,15 +9,15 @@ import org.kinotic.management.api.model.deployment.ProjectDeployment;
 /**
  * Records the artifacts a project's deployment workloads find on the project's
  * {@link ProjectDeployment}, and the SBOM they generate as its {@link ProjectDependencies}. Every
- * call is authorized against the machine identities the deployment recorded for the project, so
- * only a workload the deployment issued credentials to can report on the project's behalf.
+ * call is authorized by the caller's organization alone, so any participant of the project's
+ * organization can report on the project's behalf.
  */
 @Publish
 public interface ProjectArtifactService {
 
     /**
      * Records the artifacts the sync workload found in the checkout of a commit, replacing what an
-     * earlier sync reported. The caller must be the project's sync machine identity.
+     * earlier sync reported.
      *
      * @param projectId the project whose checkout was synced
      * @param artifacts the artifacts found, with the full 40-character SHA of the synced commit;
@@ -28,8 +28,7 @@ public interface ProjectArtifactService {
 
     /**
      * Records the SBOM the SBOM workload generated from the project's checkout, replacing the one an
-     * earlier run recorded. The caller must be the project's sync machine identity, and the
-     * dependency hash the one the sync workload last reported.
+     * earlier run recorded. The dependency hash must be the one the sync workload last reported.
      *
      * @param projectId      the project whose checkout the SBOM was generated from
      * @param dependencyHash the fingerprint of the dependencies the tree lists
