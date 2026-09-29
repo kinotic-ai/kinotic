@@ -30,6 +30,18 @@ public final class ZonePartitioning {
 
     /**
      * A server that hosts {@code hostedZones} and routes to {@code reachableZones}.
+     * <p>
+     * The two sets answer different questions. Hosting is about the services this server itself serves: a
+     * consumer registers an address only in a hosted zone, the gateway lets a connection subscribe only in one,
+     * and the node carries a {@link #hostsAttribute(String)} for each so the cluster can select the nodes hosting a
+     * zone. Reaching is about the services a caller may call through this server: a send or publish looks up
+     * handlers only in a reachable zone, on whichever node in the cluster registered them, the gateway lets a
+     * connection send only to one, and the service listings narrow to them. So a server reaches a zone it does
+     * not host whenever the services it hosts, or the connections it serves, call services another server hosts
+     * in that zone.
+     * <p>
+     * Every hosted zone must also be reachable, because a send to a consumer on this same node goes through the
+     * same routing lookup as a send to any other node.
      *
      * @param name           names the server kind, such as {@code org}
      * @param hostedZones    the zones the server hosts consumers in
