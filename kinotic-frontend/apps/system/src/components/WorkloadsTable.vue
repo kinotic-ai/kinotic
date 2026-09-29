@@ -15,14 +15,14 @@
       @on-row-click="open"
     >
       <template #item.name="{ item }">
-        <span class="block max-w-[16rem] truncate" :title="item.name">{{ item.name }}</span>
+        <span class="block max-w-[16rem] truncate" v-tooltip.top="item.name">{{ item.name }}</span>
         <span v-if="!item.detached" class="block text-xs text-muted-color">one-off</span>
       </template>
 
       <template #item.status="{ item }">
         <Tag :value="item.status" :severity="workloadSeverity(item.status)" />
         <Tag v-if="item.unreachable" value="node unreachable" severity="warn" icon="pi pi-exclamation-triangle"
-             class="ml-1" :title="item.unreachable.message" />
+             class="ml-1" v-tooltip.top="item.unreachable.message" />
       </template>
 
       <template #item.node="{ item }">
@@ -37,7 +37,7 @@
       </template>
 
       <template #item.image="{ item }">
-        <span class="block max-w-[16rem] truncate font-mono text-xs" :title="item.image">{{ shortImage(item.image) }}</span>
+        <span class="block max-w-[16rem] truncate font-mono text-xs" v-tooltip.top="item.image">{{ shortImage(item.image) }}</span>
       </template>
 
       <template #item.created="{ item }">

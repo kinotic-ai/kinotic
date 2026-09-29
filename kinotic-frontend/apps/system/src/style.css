@@ -1,4 +1,5 @@
 @import 'primeicons/primeicons.css';
+@import '@fontsource-variable/jetbrains-mono';
 
 @import "tailwindcss";
 @import "tailwindcss-primeui";
@@ -10,6 +11,11 @@
 /* useTheme toggles .dark on <html> and PrimeVue's darkModeSelector follows it. Tailwind v4
    defaults dark: to prefers-color-scheme, so bind it to the class instead. */
 @custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Tables, ids and code render in JetBrains Mono */
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
 
 html,
 body {

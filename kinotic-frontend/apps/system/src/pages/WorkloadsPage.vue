@@ -11,7 +11,7 @@
     <div class="mb-4 flex flex-wrap items-center gap-3">
       <StatusChips v-model="statusFilter" :chips="chips" />
       <div class="flex flex-wrap items-center gap-2 md:ml-auto">
-        <Select
+        <Select checkmark
           v-if="!scope.organizationId"
           v-model="organizationFilter"
           :options="organizationOptions"
@@ -22,7 +22,7 @@
           size="small"
           class="w-56"
         />
-        <Select
+        <Select checkmark
           v-model="nodeFilter"
           :options="nodeOptions"
           option-label="label"

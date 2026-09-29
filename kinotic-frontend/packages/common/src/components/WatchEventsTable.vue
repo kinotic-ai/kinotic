@@ -3,19 +3,19 @@
   <DataTable v-else :value="entries" size="small" class="text-sm">
     <Column header="When" style="width: 11rem">
       <template #body="{ data }">
-        <span :title="formatEpochDateTime(data['@timestamp'])">{{ formatRelativeDate(data['@timestamp']) }}</span>
+        <span v-tooltip.top="formatEpochDateTime(data['@timestamp'])">{{ formatRelativeDate(data['@timestamp']) }}</span>
       </template>
     </Column>
     <Column v-if="showRecord" header="Record" class="hidden md:table-cell" style="width: 18rem">
       <template #body="{ data }">
         <span class="block text-xs text-muted-color">{{ recordKind(data.type) }}</span>
-        <span class="block max-w-[16rem] truncate font-mono text-xs" :title="data.id">{{ data.id }}</span>
+        <span class="block max-w-[16rem] truncate font-mono text-xs" v-tooltip.top="data.id">{{ data.id }}</span>
       </template>
     </Column>
     <Column header="What happened">
       <template #body="{ data }">
         <Tag :value="kindLabel(data.kind)" :severity="kindSeverity(data.kind)" class="mr-2" />
-        <span :title="valueOf(data)">{{ data.message }}</span>
+        <span v-tooltip.top="valueOf(data)">{{ data.message }}</span>
       </template>
     </Column>
     <Column header="Source" class="hidden md:table-cell" style="width: 14rem">

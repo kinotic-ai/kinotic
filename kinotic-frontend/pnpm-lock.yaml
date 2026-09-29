@@ -28,6 +28,9 @@ importers:
 
   apps/portal:
     dependencies:
+      '@fontsource-variable/jetbrains-mono':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@headlessui/vue':
         specifier: ^1.7.23
         version: 1.7.23(vue@3.5.41(typescript@5.8.3))
@@ -49,6 +52,9 @@ importers:
       '@kinotic-ai/persistence':
         specifier: 'catalog:'
         version: 5.0.0-beta.11(@kinotic-ai/core@5.0.0-beta.17)
+      '@lucide/vue':
+        specifier: ^1.48.0
+        version: 1.48.0(vue@3.5.41(typescript@5.8.3))
       '@mdi/js':
         specifier: ^7.4.47
         version: 7.4.47
@@ -158,6 +164,9 @@ importers:
 
   apps/system:
     dependencies:
+      '@fontsource-variable/jetbrains-mono':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@kinotic-ai/core':
         specifier: 'catalog:'
         version: 5.0.0-beta.17
@@ -170,6 +179,9 @@ importers:
       '@kinotic-ai/system-api':
         specifier: 'catalog:'
         version: 5.0.0-beta.19(@kinotic-ai/core@5.0.0-beta.17)(@kinotic-ai/management-api@5.0.0-beta.40(@kinotic-ai/core@5.0.0-beta.17))
+      '@lucide/vue':
+        specifier: ^1.48.0
+        version: 1.48.0(vue@3.5.41(typescript@5.8.3))
       '@primeuix/themes':
         specifier: ^2.0.3
         version: 2.0.3
@@ -234,6 +246,9 @@ importers:
       '@kinotic-ai/management-api':
         specifier: 'catalog:'
         version: 5.0.0-beta.40(@kinotic-ai/core@5.0.0-beta.17)
+      '@lucide/vue':
+        specifier: ^1.48.0
+        version: 1.48.0(vue@3.5.41(typescript@5.8.3))
       '@primeuix/themes':
         specifier: ^2.0.3
         version: 2.0.3
@@ -307,6 +322,9 @@ packages:
     resolution: {integrity: sha512-eY+Yn3dCqTGmyiq2QRU66lA5FL8lqqqvecHt0fF3uHONIa7ToYsaCiWV8lOKqAs0Rb2SjixiKFROngnulPtt2g==}
     engines: {node: ^22.18.0 || >=24.11.0}
 
+  '@fontsource-variable/jetbrains-mono@5.3.0':
+    resolution: {integrity: sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==}
+
   '@headlessui/vue@1.7.23':
     resolution: {integrity: sha512-JzdCNqurrtuu0YW6QaDtR2PIYCKPUWq28csDyMvN4zmGccmE7lz40Is6hc3LA4HFeCI7sekZ/PQMTNmn9I/4Wg==}
     engines: {node: '>=10'}
@@ -355,6 +373,11 @@ packages:
     peerDependencies:
       '@kinotic-ai/core': ^5.0.0-beta.17
       '@kinotic-ai/management-api': ^5.0.0-beta.40
+
+  '@lucide/vue@1.48.0':
+    resolution: {integrity: sha512-3/Nwx/RsqQ4ZrrSML1GNsSWCSDyLnBgoF/eEr1q9G6iZymn3+WKtzIj7Dbc/Nxrt9WOPuGrJ58S+CBiamK+36w==}
+    peerDependencies:
+      vue: '>=3.0.1'
 
   '@mdi/js@7.4.47':
     resolution: {integrity: sha512-KPnNOtm5i2pMabqZxpUz7iQf+mfrYZyKCZ8QNz85czgEt7cuHcGorWfdzUMWYA0SD+a6Hn4FmJ+YhzzzjkTZrQ==}
@@ -1650,6 +1673,8 @@ snapshots:
       '@babel/helper-string-parser': 8.0.0
       '@babel/helper-validator-identifier': 8.0.4
 
+  '@fontsource-variable/jetbrains-mono@5.3.0': {}
+
   '@headlessui/vue@1.7.23(vue@3.5.41(typescript@5.8.3))':
     dependencies:
       '@tanstack/vue-virtual': 3.13.9(vue@3.5.41(typescript@5.8.3))
@@ -1714,6 +1739,10 @@ snapshots:
     dependencies:
       '@kinotic-ai/core': 5.0.0-beta.17
       '@kinotic-ai/management-api': 5.0.0-beta.40(@kinotic-ai/core@5.0.0-beta.17)
+
+  '@lucide/vue@1.48.0(vue@3.5.41(typescript@5.8.3))':
+    dependencies:
+      vue: 3.5.41(typescript@5.8.3)
 
   '@mdi/js@7.4.47': {}
 

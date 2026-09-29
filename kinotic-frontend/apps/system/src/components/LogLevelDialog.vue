@@ -19,7 +19,7 @@
         autofocus
         @keyup.enter="applyLevel"
       />
-      <Select v-model="level" :options="levels" placeholder="Level" />
+      <Select checkmark v-model="level" :options="levels" placeholder="Level" />
       <div>
         <Button label="Set level" size="small" :disabled="!canApplyLevel" :loading="applyingLevel"
                 @click="applyLevel" />

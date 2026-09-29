@@ -32,7 +32,7 @@ export class ProfileState implements IProfileState {
 
     public load(): Promise<void> {
         if (this.inFlight === null) {
-            // the header and the profile page mount together, so they share one request;
+            // the sidebar user menu and the profile page mount together, so they share one request;
             // clearing it on failure lets the next mount retry
             this.inFlight = Kinotic.profile.findMyProfile()
                                    .then(profile => { this.profile = profile })

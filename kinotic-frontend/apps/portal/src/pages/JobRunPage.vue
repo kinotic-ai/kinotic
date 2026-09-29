@@ -12,7 +12,7 @@
       </template>
     </PageHeader>
 
-    <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployResultNames.hasDetail">
+    <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf">
       <template #detail="{ node, root }">
         <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
       </template>

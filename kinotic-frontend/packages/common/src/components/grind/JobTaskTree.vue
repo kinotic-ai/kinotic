@@ -1,32 +1,33 @@
 <template>
-  <div class="rounded-lg border border-surface">
-    <div v-for="row in rows" :key="row.node.taskPath" class="border-b border-surface last:border-b-0">
-      <div class="flex items-center gap-2 py-2 pr-3"
+  <div class="overflow-hidden rounded-xl border border-surface-200 dark:border-surface-700">
+    <div v-for="row in rows" :key="row.node.taskPath"
+         class="border-b border-surface-200 last:border-b-0 dark:border-surface-700"
+         :class="row.node.status === ExecutionStatus.RUNNING ? 'bg-sky-50 dark:bg-sky-500/10' : ''">
+      <div class="flex items-center gap-2.5 py-2.5 pr-3"
            :style="{ paddingLeft: `${row.depth * 1.25 + 0.75}rem` }">
         <button v-if="row.node.children.length > 0"
                 class="w-5 shrink-0 text-muted-color hover:text-color"
                 type="button"
                 @click="toggle(row.node.taskPath)">
-          <i :class="collapsed.has(row.node.taskPath) ? 'pi pi-angle-right' : 'pi pi-angle-down'"
-             class="text-xs" />
+          <component :is="collapsed.has(row.node.taskPath) ? ChevronRight : ChevronDown" :size="14" :stroke-width="2" aria-hidden="true" />
         </button>
         <span v-else class="w-5 shrink-0" />
 
-        <span class="relative flex h-2.5 w-2.5 shrink-0">
-          <span v-if="row.node.status === ExecutionStatus.RUNNING"
-                class="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-60" />
-          <span class="relative inline-flex h-2.5 w-2.5 rounded-full" :class="dotClass(row.node)" />
+        <span class="flex h-5 w-5 shrink-0 items-center justify-center">
+          <component :is="TASK_STATUS_STYLE[row.node.status].rowIcon" :size="18" :stroke-width="2"
+                     :class="TASK_STATUS_STYLE[row.node.status].row" aria-hidden="true" />
         </span>
 
         <span class="truncate text-sm"
-              :class="row.node.status === ExecutionStatus.PENDING ? 'text-muted-color' : ''"
-              :title="row.node.description">{{ row.node.description || `Task ${row.node.sequence}` }}</span>
+              :class="row.node.status === ExecutionStatus.PENDING ? 'text-muted-color' : 'font-medium text-surface-900 dark:text-surface-50'"
+              v-tooltip.top="row.node.description">{{ row.node.description || `Task ${row.node.sequence}` }}</span>
         <i v-if="row.node.dynamicTasks"
            v-tooltip.top="'This task generated further tasks while running'"
            class="pi pi-sitemap shrink-0 text-xs text-muted-color" />
 
         <span class="ml-auto shrink-0 font-mono text-xs text-muted-color">{{ row.node.taskPath }}</span>
-        <span class="w-16 shrink-0 text-right text-xs text-muted-color">
+        <span class="w-16 shrink-0 text-right font-mono text-xs tabular-nums"
+              :class="row.node.status === ExecutionStatus.RUNNING ? 'text-sky-600 dark:text-sky-300' : 'text-muted-color'">
           {{ formatDuration(row.node.started, row.node.finished, now) }}
         </span>
         <button v-if="props.expandable?.(row.node)"
@@ -34,7 +35,7 @@
                 type="button"
                 :aria-expanded="detailOpen(row.node)"
                 @click="toggleDetail(row.node.taskPath)">
-          <i :class="detailOpen(row.node) ? 'pi pi-angle-up' : 'pi pi-angle-down'" class="text-xs" />
+          <component :is="detailOpen(row.node) ? ChevronUp : ChevronDown" :size="14" :stroke-width="2" aria-hidden="true" />
         </button>
         <span v-else class="w-5 shrink-0" />
       </div>
@@ -52,7 +53,7 @@
       </div>
 
       <div v-if="row.node.error"
-           class="pb-2 pr-3 text-xs text-red-400"
+           class="pb-2 pr-3 text-xs text-red-500"
            :style="{ paddingLeft: `${row.depth * 1.25 + 2.5}rem` }">
         {{ row.node.error }}
       </div>
@@ -67,9 +68,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import ProgressBar from 'primevue/progressbar'
+import { ChevronDown, ChevronRight, ChevronUp } from '@lucide/vue'
 import { ExecutionStatus } from '@kinotic-ai/management-api'
 import type { JobTaskNode } from './JobTaskNode'
 import DatetimeUtil from '../../util/DatetimeUtil'
+import { TASK_STATUS_STYLE } from './jobRunDisplay'
 
 const formatDuration = DatetimeUtil.formatDuration
 
@@ -134,21 +137,5 @@ function toggleDetail(taskPath: string): void {
     next.add(taskPath)
   }
   detailToggled.value = next
-}
-
-function dotClass(node: JobTaskNode): string {
-  let ret: string
-  if (node.status === ExecutionStatus.COMPLETED) {
-    ret = 'bg-emerald-500'
-  } else if (node.status === ExecutionStatus.RUNNING) {
-    ret = 'bg-sky-400'
-  } else if (node.status === ExecutionStatus.FAILED) {
-    ret = 'bg-red-500'
-  } else if (node.status === ExecutionStatus.CANCELLED) {
-    ret = 'bg-amber-500'
-  } else {
-    ret = 'bg-[var(--p-content-border-color)]'
-  }
-  return ret
 }
 </script>

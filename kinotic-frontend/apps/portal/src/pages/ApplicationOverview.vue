@@ -2,42 +2,57 @@
   <div class="flex flex-col">
     <PageHeader :title="applicationId" :description="application?.description">
       <template #actions>
-        <Button label="Settings" icon="pi pi-cog" severity="secondary" outlined
-                @click="router.push(`${basePath}/settings`)" />
+        <Button label="Settings" severity="secondary" outlined
+                @click="router.push(`${basePath}/settings`)">
+          <template #icon><Settings :size="16" :stroke-width="1.75" aria-hidden="true" /></template>
+        </Button>
       </template>
     </PageHeader>
 
-    <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <RouterLink v-for="tile in tiles" :key="tile.label" :to="tile.to" :class="tileClass">
-        <div class="flex items-center gap-2 text-xs text-muted-color">
-          <i :class="tile.icon" />
-          {{ tile.label }}
-        </div>
-        <Skeleton v-if="tile.value === null" height="1.75rem" width="3rem" class="mt-2" />
-        <div v-else class="mt-2 text-2xl font-semibold tabular-nums text-surface-950 dark:text-surface-0">{{ tile.value }}</div>
-        <div class="mt-1 text-xs text-muted-color">{{ tile.detail }}</div>
-      </RouterLink>
+    <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatCard v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :tint="tile.tint" :label="tile.label"
+                :value="tile.value" :loading="tile.value === null" :detail="tile.detail" :to="tile.to" />
     </div>
 
-    <div class="grid gap-4 lg:grid-cols-2">
-      <section :class="cardClass">
+    <div class="grid gap-4 lg:grid-cols-3">
+      <section :class="[cardClass, 'lg:col-span-2']">
         <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold text-surface-950 dark:text-surface-0">Projects</h2>
-          <RouterLink :to="`${basePath}/projects`" class="text-xs font-medium text-primary-500 hover:underline">View all</RouterLink>
+          <div class="flex items-center gap-2">
+            <h2 class="text-sm font-semibold text-surface-950 dark:text-surface-0">Projects</h2>
+            <span v-if="projectsCount !== null" class="rounded-md bg-surface-100 px-1.5 text-xs font-medium tabular-nums text-surface-600 dark:bg-surface-800 dark:text-surface-300">{{ projectsCount }}</span>
+          </div>
+          <RouterLink :to="`${basePath}/projects`" class="flex items-center gap-1 text-xs font-medium text-surface-600 hover:text-surface-950 dark:text-surface-300 dark:hover:text-surface-0">
+            View all <ChevronRight :size="14" :stroke-width="1.75" aria-hidden="true" />
+          </RouterLink>
         </div>
+
+        <!-- The listed projects' latest deployment phases, as one bar and its legend -->
+        <div v-if="!loadingProjects && projects.length > 0" class="mt-4">
+          <div class="flex h-2 overflow-hidden rounded-full bg-surface-100 dark:bg-surface-800" role="img"
+               :aria-label="health.map(segment => `${segment.count} ${segment.label.toLowerCase()}`).join(', ')">
+            <div v-for="segment in health" :key="segment.label" :class="segment.bar" :style="{ width: `${(segment.count / projects.length) * 100}%` }" />
+          </div>
+          <div class="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-color">
+            <span v-for="segment in health" :key="segment.label" class="flex items-center gap-1.5">
+              <span :class="['h-2 w-2 rounded-full', segment.bar]" aria-hidden="true" />
+              {{ segment.label }} <span class="font-medium tabular-nums text-surface-800 dark:text-surface-100">{{ segment.count }}</span>
+            </span>
+          </div>
+        </div>
+
         <div v-if="loadingProjects" class="mt-4 flex flex-col gap-3">
-          <Skeleton v-for="n in 3" :key="n" height="2.25rem" />
+          <Skeleton v-for="n in 3" :key="n" height="2.5rem" />
         </div>
         <p v-else-if="projects.length === 0" class="mt-4 text-sm text-muted-color">
           No projects yet. Create one from the Projects page.
         </p>
-        <ul v-else class="mt-2 divide-y divide-surface-200 dark:divide-surface-700">
-          <li v-for="project in projects" :key="project.id ?? ''">
+        <ul v-else class="-mx-2 mt-3">
+          <li v-for="(project, position) in projects" :key="project.id ?? ''">
             <RouterLink :to="`${basePath}/project/${encodeURIComponent(project.id ?? '')}`"
-                        class="group flex items-center gap-3 py-3">
-              <i class="pi pi-folder text-surface-400" />
+                        class="group flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-50 dark:hover:bg-surface-800/60">
+              <InitialsTile :name="project.name || project.id || ''" :index="position" />
               <div class="min-w-0 flex-1">
-                <div class="truncate text-sm font-medium group-hover:underline">{{ project.name }}</div>
+                <div class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">{{ project.name }}</div>
                 <div v-if="project.description" class="truncate text-xs text-muted-color">{{ project.description }}</div>
               </div>
               <Tag v-if="project.repoConnectionStatus === RepoStatus.INITIALIZATION_FAILED" value="Init failed" severity="warn" />
@@ -46,6 +61,7 @@
                    :value="deploymentStatus[project.id ?? '']"
                    :severity="deploymentStatusSeverity(deploymentStatus[project.id ?? ''])" />
               <span v-else class="text-xs text-muted-color">Not deployed</span>
+              <ChevronRight :size="16" :stroke-width="1.75" class="shrink-0 text-surface-300 group-hover:text-surface-600 dark:text-surface-600 dark:group-hover:text-surface-300" aria-hidden="true" />
             </RouterLink>
           </li>
         </ul>
@@ -53,36 +69,32 @@
 
       <section :class="cardClass">
         <h2 class="text-sm font-semibold text-surface-950 dark:text-surface-0">About</h2>
-        <dl class="mt-3 grid grid-cols-[9rem_1fr] gap-x-4 gap-y-2 text-sm">
-          <dt class="text-muted-color">Name</dt>
-          <dd class="m-0">{{ application?.name ?? '—' }}</dd>
-          <dt class="text-muted-color">Zone</dt>
-          <dd class="m-0 font-mono">app.{{ organizationId }}.{{ applicationId }}</dd>
-          <dt class="text-muted-color">Tenancy</dt>
-          <dd class="m-0">{{ application?.tenantPerUser ? 'Tenant per user' : 'Shared tenant' }}</dd>
-          <dt class="text-muted-color">Updated</dt>
-          <dd class="m-0">{{ application?.updated ? DatetimeUtil.formatRelativeDate(application.updated) : '—' }}</dd>
-        </dl>
+        <FactList :facts="facts" />
       </section>
     </div>
 
     <section :class="cardClass" class="mt-4">
-      <h2 class="text-sm font-semibold text-surface-950 dark:text-surface-0">UIs</h2>
+      <div class="flex items-center gap-2">
+        <h2 class="text-sm font-semibold text-surface-950 dark:text-surface-0">UIs</h2>
+        <span v-if="!loadingProjects" class="rounded-md bg-surface-100 px-1.5 text-xs font-medium tabular-nums text-surface-600 dark:bg-surface-800 dark:text-surface-300">{{ uis.length }}</span>
+      </div>
       <div v-if="loadingProjects" class="mt-4 flex flex-col gap-3">
-        <Skeleton v-for="n in 2" :key="n" height="2.25rem" />
+        <Skeleton v-for="n in 2" :key="n" height="2.5rem" />
       </div>
       <p v-else-if="uis.length === 0" class="mt-4 text-sm text-muted-color">
         No UI has been published yet. A UI a project contains is published with that project's next deployment.
       </p>
-      <ul v-else class="mt-2 divide-y divide-surface-200 dark:divide-surface-700">
-        <li v-for="ui in uis" :key="ui.id ?? `${ui.projectId}/${ui.name}`" class="flex items-center gap-3 py-3">
-          <i class="pi pi-globe text-surface-400" />
+      <ul v-else class="mt-3 grid gap-3 md:grid-cols-2">
+        <li v-for="ui in uis" :key="ui.id ?? `${ui.projectId}/${ui.name}`" class="flex items-center gap-3 rounded-lg border border-surface-200 px-3 py-2.5 dark:border-surface-700">
+          <span :class="['flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', TINTS.sky]">
+            <Globe :size="18" :stroke-width="1.75" aria-hidden="true" />
+          </span>
           <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-medium">
+            <div class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">
               {{ ui.name }}
               <RouterLink :to="`${basePath}/project/${encodeURIComponent(ui.projectId)}`" class="ml-2 text-xs font-normal text-muted-color hover:underline">{{ ui.projectId }}</RouterLink>
             </div>
-            <a :href="ui.url" target="_blank" rel="noopener" class="block truncate font-mono text-xs text-primary-500 hover:underline">{{ ui.url }}</a>
+            <a :href="ui.url" target="_blank" rel="noopener" class="block truncate font-mono text-xs text-sky-600 hover:underline dark:text-sky-300">{{ ui.url }}</a>
           </div>
           <Tag :value="observedPhase(ui.state.observed)" :severity="observedPhaseSeverity(ui.state.observed)" />
         </li>
@@ -92,14 +104,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, markRaw, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { CalendarClock, ChevronRight, Globe, Server, Settings, Table, Tag as TagIcon, Users, Waypoints } from '@lucide/vue'
 import Button from 'primevue/button'
 import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { type Project, DeploymentStatusType, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
-import { createDebug, DatetimeUtil, deploymentStatusSeverity, observedPhase, observedPhaseSeverity, PageHeader } from '@kinotic-ai/frontend-common'
+import { createDebug, DatetimeUtil, deploymentStatusSeverity, observedPhase, observedPhaseSeverity, PageHeader, ProjectsIcon } from '@kinotic-ai/frontend-common'
+import FactList from '@/components/FactList.vue'
+import InitialsTile from '@/components/InitialsTile.vue'
+import StatCard from '@/components/StatCard.vue'
+import { TINTS } from '@/util/tints'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 
@@ -120,8 +137,16 @@ const PROJECT_PREVIEW_COUNT = 5
 const router = useRouter()
 const RepoStatus = RepositoryConnectionStatus
 
-const tileClass = 'rounded-2xl border border-surface-200 bg-surface-0 px-5 py-4 transition-colors hover:bg-surface-50 dark:border-surface-700 dark:bg-surface-800/30 dark:hover:bg-surface-800/60'
-const cardClass = 'rounded-2xl border border-surface-200 bg-surface-0 px-5 py-4 dark:border-surface-700 dark:bg-surface-800/30'
+const cardClass = 'rounded-xl border border-surface-200 bg-surface-0 p-5 dark:border-surface-700 dark:bg-surface-800/30'
+
+// The health bar's buckets, in the order they stack, keyed by the Tag severity a phase maps to
+const HEALTH_BUCKETS = [
+  { severity: 'success', label: 'Running', bar: 'bg-green-500' },
+  { severity: 'info', label: 'In progress', bar: 'bg-sky-500' },
+  { severity: 'warn', label: 'Needs attention', bar: 'bg-amber-500' },
+  { severity: 'danger', label: 'Failed', bar: 'bg-red-500' },
+  { severity: 'none', label: 'Not deployed', bar: 'bg-surface-300 dark:bg-surface-600' }
+]
 
 const organizationId = computed(() => USER_STATE.getOrganizationId())
 const basePath = computed(() => `/application/${encodeURIComponent(props.applicationId)}`)
@@ -137,26 +162,52 @@ const uis = ref<UiDeployment[]>([])
 const usersCount = ref<number | null>(null)
 const machinesCount = ref<number | null>(null)
 
+const projectsCount = computed(() =>
+    application.value !== null && APPLICATION_STATE.countsLoaded ? APPLICATION_STATE.projectsCount : null)
+
+/** How many listed projects fall in each health bucket; empty buckets are left out. */
+const health = computed(() => {
+  const severities = projects.value.map(project => {
+    const phase = deploymentStatus.value[project.id ?? '']
+    return phase ? deploymentStatusSeverity(phase) : 'none'
+  })
+  return HEALTH_BUCKETS
+      .map(bucket => ({ ...bucket, count: severities.filter(severity => severity === bucket.severity).length }))
+      .filter(bucket => bucket.count > 0)
+})
+
+const facts = computed(() => [
+  { label: 'Name', icon: markRaw(TagIcon), value: application.value?.name ?? '—', mono: false },
+  { label: 'Zone', icon: markRaw(Waypoints), value: `app.${organizationId.value}.${props.applicationId}`, mono: true },
+  { label: 'Tenancy', icon: markRaw(Users), value: application.value?.tenantPerUser ? 'Tenant per user' : 'Shared tenant', mono: false },
+  { label: 'Updated', icon: markRaw(CalendarClock),
+    value: application.value?.updated ? DatetimeUtil.formatRelativeDate(application.value.updated) : '—', mono: false }
+])
+
 const tiles = computed(() => {
   const countsLoaded = application.value !== null && APPLICATION_STATE.countsLoaded
-  const deploying = Object.values(deploymentStatus.value).filter(s => s === DeploymentStatusType.DEPLOYING).length
-  const failed = Object.values(deploymentStatus.value).filter(s => s === DeploymentStatusType.FAILED).length
-  let health: string
-  if (failed > 0) {
-    health = `${failed} failed`
-  } else if (deploying > 0) {
-    health = `${deploying} deploying`
+  // Summarises the same phases as the health bar, worst news first
+  const count = (label: string) => health.value.find(bucket => bucket.label === label)?.count ?? 0
+  let projectsDetail: string
+  if (count('Failed') > 0) {
+    projectsDetail = `${count('Failed')} failed`
+  } else if (count('In progress') > 0) {
+    projectsDetail = `${count('In progress')} deploying`
+  } else if (count('Needs attention') > 0) {
+    projectsDetail = `${count('Needs attention')} need attention`
+  } else if (count('Running') > 0) {
+    projectsDetail = count('Running') === projects.value.length ? 'all running' : `${count('Running')} running`
   } else {
-    health = 'deployments healthy'
+    projectsDetail = 'none deployed yet'
   }
   return [
-    { label: 'Projects', icon: 'pi pi-folder', to: `${basePath.value}/projects`,
-      value: countsLoaded ? APPLICATION_STATE.projectsCount : null, detail: health },
-    { label: 'Entities', icon: 'pi pi-table', to: `${basePath.value}/entities`,
+    { label: 'Projects', icon: markRaw(ProjectsIcon), tint: TINTS.blue, to: `${basePath.value}/projects`,
+      value: countsLoaded ? APPLICATION_STATE.projectsCount : null, detail: projectsDetail },
+    { label: 'Entities', icon: markRaw(Table), tint: TINTS.purple, to: `${basePath.value}/entities`,
       value: countsLoaded ? APPLICATION_STATE.entityDefinitionsCount : null, detail: 'across all projects' },
-    { label: 'Users', icon: 'pi pi-users', to: `${basePath.value}/users`,
+    { label: 'Users', icon: markRaw(Users), tint: TINTS.green, to: `${basePath.value}/users`,
       value: usersCount.value, detail: 'people who sign in to this application' },
-    { label: 'Machines', icon: 'pi pi-server', to: `${basePath.value}/machines`,
+    { label: 'Machines', icon: markRaw(Server), tint: TINTS.orange, to: `${basePath.value}/machines`,
       value: machinesCount.value, detail: 'client-credential callers' }
   ]
 })

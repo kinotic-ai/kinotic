@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, type Component } from 'vue'
+import { Building2, LayoutGrid, User } from '@lucide/vue'
 import { useRoute } from 'vue-router'
-import { SideBar, SidebarScope } from '@kinotic-ai/frontend-common'
+import { ProjectsIcon, SideBar, SidebarScope } from '@kinotic-ai/frontend-common'
 import Header from './Header.vue'
+import SidebarUserMenu from '@/components/SidebarUserMenu.vue'
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 import { PROFILE_STATE } from '@/states/IProfileState'
 import { USER_STATE } from '@/states/IUserState'
@@ -11,7 +13,7 @@ import { USER_STATE } from '@/states/IUserState'
 interface SidebarScopeProps {
     name: string
     kind: string
-    icon?: string
+    icon?: Component
     initials?: string
     backTo?: string
     backLabel?: string
@@ -45,7 +47,7 @@ function scopeFor(group: string | null): SidebarScopeProps {
         ret = {
             name: applicationId,
             kind: 'Application',
-            icon: 'pi-th-large',
+            icon: LayoutGrid,
             backTo: '/applications',
             backLabel: organizationId
         }
@@ -53,7 +55,7 @@ function scopeFor(group: string | null): SidebarScopeProps {
         ret = {
             name: projectId,
             kind: 'Project',
-            icon: 'pi-folder',
+            icon: ProjectsIcon,
             backTo: `/application/${encodeURIComponent(applicationId)}`,
             backLabel: applicationId
         }
@@ -62,12 +64,12 @@ function scopeFor(group: string | null): SidebarScopeProps {
             name: PROFILE_STATE.profile?.displayName ?? PROFILE_STATE.profile?.email ?? 'Account',
             kind: 'Account',
             initials: PROFILE_STATE.initials || undefined,
-            icon: 'pi-user',
+            icon: User,
             backTo: '/applications',
             backLabel: organizationId
         }
     } else {
-        ret = { name: organizationId, kind: 'Organization', icon: 'pi-building' }
+        ret = { name: organizationId, kind: 'Organization', icon: Building2 }
     }
     return ret
 }
@@ -79,14 +81,17 @@ function scopeFor(group: string | null): SidebarScopeProps {
             <Header @toggle-nav="navOpen = !navOpen" />
         </div>
         <SideBar ref="sidebarRef" :mobile-open="navOpen" @close="navOpen = false">
-            <template #scope="{ collapsed, group }">
-                <SidebarScope v-bind="scopeFor(group)" :collapsed="collapsed" />
+            <template #scope="{ collapsed, group, toggle }">
+                <SidebarScope v-bind="scopeFor(group)" :collapsed="collapsed" @toggle="toggle" />
+            </template>
+            <template #footer="{ collapsed }">
+                <SidebarUserMenu :collapsed="collapsed" />
             </template>
         </SideBar>
         <div
             :class="[
                 'pt-[64px] h-full transition-all duration-300',
-                isSidebarCollapsed ? 'md:pl-[64px]' : 'md:pl-[256px]'
+                isSidebarCollapsed ? 'md:pl-[73px]' : 'md:pl-[256px]'
             ]"
         >
             <div :class="['h-[calc(100vh-64px)] overflow-y-auto px-4 pt-4 transition-colors md:px-8 md:pt-6', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
@@ -97,7 +102,7 @@ function scopeFor(group: string | null): SidebarScopeProps {
                      pages overflow and scroll in the wrapper above. The bottom padding sits on
                      the page for that reason: a scroll container pads after its child's box,
                      and a tall page's content ends past that box. -->
-                <div v-else class="mx-auto flex h-full w-full max-w-[1200px] flex-col">
+                <div v-else class="flex h-full w-full flex-col">
                     <router-view class="min-h-0 flex-1 pb-4 md:pb-6" />
                 </div>
             </div>

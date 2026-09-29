@@ -5,13 +5,13 @@ import type { TooltipDesignTokens } from '@primeuix/themes/types/tooltip';
         maxWidth: "12.5rem",
         gutter: "0.25rem",
         shadow: "{overlay.popover.shadow}",
-        padding: "0.5rem 0.75rem",
-        borderRadius: "{overlay.popover.border.radius}"
+        padding: "0.375rem 0.625rem",
+        borderRadius: "{border.radius.lg}"
     },
     colorScheme: {
         light: {
             root: {
-                background: "{surface.700}",
+                background: "{surface.900}",
                 color: "{surface.0}"
             }
         },

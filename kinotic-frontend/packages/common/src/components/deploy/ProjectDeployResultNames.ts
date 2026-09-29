@@ -1,3 +1,5 @@
+import { markRaw, type Component } from 'vue'
+import { Crosshair, FolderGit2, Globe, ListTree, Package, Server } from '@lucide/vue'
 import type { ProjectArtifacts } from '@kinotic-ai/management-api'
 import type { JobTaskNode } from '../grind/JobTaskNode'
 
@@ -12,17 +14,32 @@ export interface DeployTarget {
 
 /**
  * The names a project deployment run's tasks store their results under, mirroring
- * ProjectDeployResultNames on the server, and what those results mean for the job page: which
- * task's row lists the deployed commit's artifacts, and which rows attach the log of the
- * workload their task ran.
+ * ProjectDeployResultNames on the server, and what those results mean for the job page: each
+ * step's icon, which task's row lists the deployed commit's artifacts, and which rows attach the
+ * log of the workload their task ran.
  */
 export default class ProjectDeployResultNames {
 
   public static readonly ARTIFACTS = 'artifacts'
   public static readonly DEPLOY_TARGET = 'deployTarget'
+  public static readonly MICROSERVICE_DEPLOYMENTS = 'microserviceDeployments'
   public static readonly SYNC_WORKLOAD_ID = 'syncWorkloadId'
   public static readonly UI_DEPLOYMENTS = 'uiDeployments'
   public static readonly SBOM = 'sbom'
+
+  private static readonly ICONS: Record<string, Component> = {
+    [ProjectDeployResultNames.DEPLOY_TARGET]: markRaw(Crosshair),
+    [ProjectDeployResultNames.SYNC_WORKLOAD_ID]: markRaw(FolderGit2),
+    [ProjectDeployResultNames.ARTIFACTS]: markRaw(Package),
+    [ProjectDeployResultNames.MICROSERVICE_DEPLOYMENTS]: markRaw(Server),
+    [ProjectDeployResultNames.UI_DEPLOYMENTS]: markRaw(Globe),
+    [ProjectDeployResultNames.SBOM]: markRaw(ListTree)
+  }
+
+  /** The icon of the deployment step the task is, or undefined for a task outside the six steps. */
+  public static iconOf(node: JobTaskNode): Component | undefined {
+    return node.storedName ? ProjectDeployResultNames.ICONS[node.storedName] : undefined
+  }
 
   /** The artifacts the task bound into the run, or null while the task has not completed. */
   public static artifactsOf(node: JobTaskNode): ProjectArtifacts | null {

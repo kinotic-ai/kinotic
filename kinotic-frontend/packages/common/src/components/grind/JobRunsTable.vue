@@ -13,7 +13,7 @@
     @on-row-click="row => emit('open', row.id)"
   >
     <template #item.name="{ item }">
-      <span class="block max-w-[24rem] truncate" :title="item.description || item.name">{{ item.name }}</span>
+      <span class="block max-w-[24rem] truncate" v-tooltip.top="item.description || item.name">{{ item.name }}</span>
     </template>
 
     <template #item.status="{ item }">

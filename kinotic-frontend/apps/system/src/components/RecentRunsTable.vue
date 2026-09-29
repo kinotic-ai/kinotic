@@ -8,14 +8,14 @@
     <DataTable v-else :value="runs" size="small" class="text-sm" row-hover @row-click="open($event.data)">
       <Column header="Run">
         <template #body="{ data }">
-          <span class="block max-w-[24rem] cursor-pointer truncate" :title="data.description ?? data.name">{{ data.name }}</span>
+          <span class="block max-w-[24rem] cursor-pointer truncate" v-tooltip.top="data.description ?? data.name">{{ data.name }}</span>
         </template>
       </Column>
       <Column header="Status">
         <template #body="{ data }">
           <Tag :value="data.status" :severity="executionStatusSeverity(data.status)" />
           <Tag v-if="nodeLeft(data)" value="node left" severity="warn" icon="pi pi-exclamation-triangle" class="ml-1"
-               :title="nodeLeft(data)?.message" />
+               v-tooltip.top="nodeLeft(data)?.message" />
         </template>
       </Column>
       <Column :header="ownerHeader" class="hidden md:table-cell">
