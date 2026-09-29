@@ -1,8 +1,9 @@
-package org.kinotic.domain.internal.api.repositories;
+package org.kinotic.domain.api.repositories;
 
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.Application;
+import org.kinotic.domain.internal.api.repositories.AbstractOrganizationScopedRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 

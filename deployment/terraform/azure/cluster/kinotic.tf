@@ -35,14 +35,16 @@ resource "helm_release" "kinotic" {
     { name = "image.tag", value = var.kinotic_version },
     # The portal is hosted outside the cluster — no static server inside.
     { name = "servers.kinotic-org-server.webServer.enabled", value = "false" },
-    # Where the portal and the console live — verification email links and post-OIDC redirects —
-    # and where each server's REST endpoints live, the OIDC redirect_uri
-    { name = "servers.kinotic-org-server.domain.appBaseUrl", value = "https://portal.${local.global.dns_zone_name}" },
-    { name = "servers.kinotic-org-server.domain.apiBaseUrl", value = "https://api.${local.global.dns_zone_name}" },
-    { name = "servers.kinotic-system-server.domain.appBaseUrl", value = "https://console.${local.global.dns_zone_name}" },
-    { name = "servers.kinotic-system-server.domain.apiBaseUrl", value = "https://system-api.${local.global.dns_zone_name}" },
-    # Every application's API host, <organizationId>--<applicationId>.apps-api.<zone>
-    { name = "kinotic.domain.appApiBaseUrl", value = "https://apps-api.${local.global.dns_zone_name}" },
+    # Where the portal and the console live — post-OIDC redirects and the emailed links — and
+    # where each server's REST endpoints live, the OIDC redirect_uri
+    { name = "servers.kinotic-org-server.orgServer.portalBaseUrl", value = "https://portal.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-org-server.orgServer.apiBaseUrl", value = "https://api.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-system-server.systemServer.consoleBaseUrl", value = "https://console.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-system-server.systemServer.apiBaseUrl", value = "https://system-api.${local.global.dns_zone_name}" },
+    # Every application's API host, <organizationId>--<applicationId>.apps-api.<zone>: what the app
+    # server serves, and what the system server hands each UI build
+    { name = "servers.kinotic-app-server.appServer.apiBaseUrl", value = "https://apps-api.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-system-server.deployment.appApiBaseUrl", value = "https://apps-api.${local.global.dns_zone_name}" },
     # What a workload dials: the org server for sync, the app server for runtime
     { name = "servers.kinotic-system-server.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST", value = "api.${local.global.dns_zone_name}" },
     { name = "servers.kinotic-system-server.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_PORT", value = "443" },

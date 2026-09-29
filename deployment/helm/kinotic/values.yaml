@@ -22,13 +22,14 @@ servers:
     webServer:
       enabled: true
       port: 9090
-    domain:
-      # kinotic.domain.appBaseUrl: the portal (no trailing slash) — verification email links and
-      # post-OIDC redirects
-      appBaseUrl: "http://localhost:9090"
-      # kinotic.domain.apiBaseUrl: this server's REST endpoints (no trailing slash) — the OIDC
-      # redirect_uri. Empty falls back to appBaseUrl, which is correct for a same-origin deploy.
-      apiBaseUrl: ""
+    # kinotic.orgServer.*: the URLs this server is reached at (no trailing slashes)
+    orgServer:
+      # this server's REST endpoints, the base of its OIDC redirect_uris; the portal's own origin
+      # for a same-origin deploy
+      apiBaseUrl: "http://localhost:9090"
+      # the portal, where browser flows return and where the emailed verification and invite
+      # links open
+      portalBaseUrl: "http://localhost:9090"
     # The Secret holding this server's certificate when tls.enabled
     tlsSecretName: kinotic-org-server-tls
     # Mounts the platform GitHub App's private key and webhook secret, which a server loading
@@ -53,10 +54,17 @@ servers:
     gatewayPort: 58504
     webServer:
       enabled: false
-    domain:
-      # the system console, and this server's REST endpoints
-      appBaseUrl: ""
-      apiBaseUrl: ""
+    # kinotic.systemServer.*: the URLs this server is reached at (no trailing slashes)
+    systemServer:
+      # this server's REST endpoints, the base of its OIDC redirect_uris and its OAuth issuer
+      apiBaseUrl: "http://localhost:58504"
+      # the system console, where browser flows return
+      consoleBaseUrl: "http://localhost:5174"
+    # kinotic.systemApi.deployment.appApiBaseUrl: the base every application's API host is a label
+    # under, as a browser reaches it, which each UI build is handed; the app server serves it under
+    # kinotic.appServer.apiBaseUrl
+    deployment:
+      appApiBaseUrl: "http://localhost:58505"
     tlsSecretName: kinotic-system-server-tls
     githubApp: true
     service:
@@ -75,10 +83,10 @@ servers:
     gatewayPort: 58505
     webServer:
       enabled: false
-    # Every application's host is its own base URL and issuer, under kinotic.domain.appApiBaseUrl
-    domain:
-      appBaseUrl: ""
-      apiBaseUrl: ""
+    # kinotic.appServer.apiBaseUrl: the base every application's API host is a label under
+    # (https://<organizationId>--<applicationId>.<domain>); each host is its own OAuth issuer
+    appServer:
+      apiBaseUrl: "http://localhost:58505"
     tlsSecretName: kinotic-app-server-tls
     githubApp: false
     service:
@@ -108,16 +116,14 @@ properties:
   bplJvmHeadRoom: 10
 
 # What every server shares — mirrors the Spring property structure:
-#   kinotic.domain.*       → application API hosts, email, Elasticsearch
+#   kinotic.domain.*       → email, Elasticsearch
 #   kinotic.managementApi.* → the stores LogService queries
 #   kinotic.ignite.*       → the cluster (set in each server's application-kubernetes.yml)
 kinotic:
   domain:
-    # kinotic.domain.appApiBaseUrl: the base URL every application's API host is a label under
-    # (https://<organizationId>--<applicationId>.<domain>). The app server serves those hosts and
-    # the system server hands them to UI builds. Empty keeps the property's default.
-    appApiBaseUrl: ""
-    # kinotic.domain.email.* — outbound mail via Azure Communication Services
+    # kinotic.domain.email.* — outbound mail via Azure Communication Services. The links in the
+    # mail open in the portal, so each server that sends mail is handed the org server's
+    # portalBaseUrl as kinotic.domain.email.linkBaseUrl.
     email:
       # When false, EmailService logs verification URLs instead of sending. Required for
       # local/dev environments without a real ACS resource.

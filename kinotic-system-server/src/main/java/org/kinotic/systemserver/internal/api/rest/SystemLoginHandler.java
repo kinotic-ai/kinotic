@@ -1,4 +1,4 @@
-package org.kinotic.systemserver.internal.api.services.security;
+package org.kinotic.systemserver.internal.api.rest;
 
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;

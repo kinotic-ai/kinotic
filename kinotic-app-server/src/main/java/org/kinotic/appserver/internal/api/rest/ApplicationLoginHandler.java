@@ -1,4 +1,4 @@
-package org.kinotic.appserver.internal.api.services.security;
+package org.kinotic.appserver.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -9,9 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SessionBinding;
-import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.appserver.api.config.AppServerProperties;
 import org.kinotic.domain.api.model.AppHost;
-import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.api.rest.support.CallbackResult;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.security.AuthType;
@@ -21,7 +20,6 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
-import org.kinotic.domain.api.rest.AppServerSurface;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
@@ -33,7 +31,7 @@ import java.util.regex.Pattern;
  * Distinct from the org-login handler: the user is logging into an application's own user base (an
  * APP-scope {@link UserParticipantIdentity} — {@code organizationId} + {@code applicationId} both set),
  * not into the platform-managed org admin surface. The application is the one whose API host the request
- * was addressed to (see {@link AppServerSurface#appHost}), a login is made only from a page that is one of
+ * was addressed to (see {@link ApplicationAuthEndpointSupport#appHost}), a login is made only from a page that is one of
  * that application's UIs, and OIDC flows started here return to this handler's own callback.
  */
 @Slf4j
@@ -45,9 +43,8 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     private final OidcConfigurationService oidcConfigurationService;
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
-    private final AuthEndpointSupport authEndpointSupport;
-    private final AppServerSurface appServerSurface;
-    private final KinoticDomainProperties domainProperties;
+    private final ApplicationAuthEndpointSupport authEndpointSupport;
+    private final AppServerProperties properties;
 
     @Override
     public void mountRoutes(Router router) {
@@ -63,7 +60,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
      * {@code Application.oidcConfigurationIds}.
      */
     private void handleProviders(RoutingContext ctx) {
-        AppHost appHost = appServerSurface.appHost(ctx);
+        AppHost appHost = authEndpointSupport.appHost(ctx);
         oidcConfigurationService.findEnabledForScope(appHost.organizationId(), appHost.applicationId())
               .onSuccess(configs -> authEndpointSupport.respondProvidersList(ctx, configs))
               .onFailure(err -> {
@@ -108,7 +105,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
                          if (match == null || !match.isEnabled()) {
                              return authEndpointSupport.respondPasswordPath(ctx);
                          }
-                         return oidcFlowOrchestrator.startFlow(ctx, match, callbackUrl(ctx, match.getId()), null)
+                         return oidcFlowOrchestrator.startFlow(ctx, match, callbackUrl(appHost, match.getId()), null)
                                  .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
                      });
     }
@@ -131,11 +128,11 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
      * no participant bound, so the config lookup is scoped by the application's organization.
      */
     private void handleCallback(RoutingContext ctx) {
-        AppHost appHost = appServerSurface.appHost(ctx);
+        AppHost appHost = authEndpointSupport.appHost(ctx);
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
-                ctx, pathConfigId, callbackUrl(ctx, pathConfigId),
+                ctx, pathConfigId, callbackUrl(appHost, pathConfigId),
                 _ -> oidcConfigurationService.findById(pathConfigId, appHost.organizationId()))
                 .onSuccess(result -> completeAppLogin(ctx, result, appHost))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
@@ -154,7 +151,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
      * page that sent it is not one of the application's UIs.
      */
     private AppHost requireApplicationUi(RoutingContext ctx) {
-        AppHost appHost = appServerSurface.appHost(ctx);
+        AppHost appHost = authEndpointSupport.appHost(ctx);
         String origin = SessionBinding.origin(ctx);
         // a login authenticates the page that made it, so a login made from another application's UI would
         // hand that UI this application's user; a request naming no page comes from a client outside a browser
@@ -166,13 +163,14 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
 
     private boolean isApplicationUi(AppHost appHost, String origin) {
         String host = URI.create(origin).getHost();
-        Pattern localUiOrigins = domainProperties.getDomain().getLocalAppUiOriginPattern();
+        Pattern localUiOrigins = properties.getLocalUiOriginPattern();
         // the CORS pattern holds sites to the sites domain, so a site is named by the first label of its host
         return (host != null && appHost.isSiteLabel(StringUtils.substringBefore(host, ".")))
                 || (localUiOrigins != null && localUiOrigins.matcher(origin).matches());
     }
 
-    private String callbackUrl(RoutingContext ctx, String configId) {
-        return appServerSurface.apiBaseUrl(ctx) + "/api/auth/app/login/oidc/callback/" + configId;
+    // the application's API host is the callback's base, so the IdP returns the browser to the host it left
+    private String callbackUrl(AppHost appHost, String configId) {
+        return appHost.apiUrl(properties.getApiBaseUrl()) + "/api/auth/app/login/oidc/callback/" + configId;
     }
 }

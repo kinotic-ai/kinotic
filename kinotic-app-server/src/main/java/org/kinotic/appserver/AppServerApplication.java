@@ -1,15 +1,8 @@
 package org.kinotic.appserver;
 
 import org.kinotic.core.api.annotations.EnableKinotic;
-import org.kinotic.core.api.event.ZonePartitioning;
-import org.kinotic.domain.api.rest.AppServerSurface;
-import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-
-import java.util.Set;
 
 /**
  * The app server: the API every application's users, UIs and microservices call, the app-api
@@ -18,21 +11,8 @@ import java.util.Set;
  */
 @SpringBootApplication()
 @EnableKinotic
-// the app server derives its URLs from the application a request addresses, in place of the
-// configured ServerSurface domain auto-configures
-@Import(AppServerSurface.class)
 public class AppServerApplication {
 	static void main(String[] args) {
 		SpringApplication.run(AppServerApplication.class, args);
-	}
-
-	/**
-	 * Hosts and reaches the app-api services and the services every application publishes in its
-	 * {@code app.<organizationId>.<applicationId>} zone.
-	 */
-	@Bean
-	public ZonePartitioning zonePartitioning() {
-		Set<String> zones = Set.of(DomainUtil.APP_API_ZONE, DomainUtil.APP_ZONE_PREFIX);
-		return ZonePartitioning.of("app", zones, zones);
 	}
 }

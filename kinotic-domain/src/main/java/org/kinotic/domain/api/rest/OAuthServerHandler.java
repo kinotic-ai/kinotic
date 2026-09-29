@@ -1,22 +1,19 @@
-package org.kinotic.domain.internal.api.rest;
+package org.kinotic.domain.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.model.security.KinoticAudience;
-import org.kinotic.domain.api.rest.OAuthExtensionGrant;
-import org.kinotic.domain.api.rest.ServerSurface;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.services.security.OAuthAuthorizationService;
 import org.kinotic.domain.api.services.security.RefreshTokenService;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
-import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -38,18 +35,27 @@ import java.util.List;
  * and the refresh grant re-mints whichever audience its lineage was issued for. Every token acts as
  * the user who approved the grant.
  *
+ * <p>Each server subclasses it once, supplying {@link #issuer}: the identifier it answers under.
+ *
  * <p>Error responses use the RFC 6749 shape {@code {"error":"<code>"}}.
  */
 @Slf4j
-@Component
-@RequiredArgsConstructor
-public class OAuthServerHandler implements SuppliesGatewayRoutes {
+@RequiredArgsConstructor(access = AccessLevel.PROTECTED)
+public abstract class OAuthServerHandler implements SuppliesGatewayRoutes {
 
     private final AuthEndpointSupport authEndpointSupport;
-    private final ServerSurface serverSurface;
     private final OAuthAuthorizationService oauthAuthorizationService;
     private final RefreshTokenService refreshTokenService;
     private final List<OAuthExtensionGrant> extensionGrants;
+
+    /**
+     * This authorization server's issuer identifier for the request: the base of every endpoint its RFC 8414
+     * metadata advertises, and what the RFC 9728 metadata of a protected resource on this server names.
+     *
+     * @param ctx the request
+     * @return the issuer, an absolute URL with no trailing slash
+     */
+    public abstract String issuer(RoutingContext ctx);
 
     @Override
     public void mountRoutes(Router router) {
@@ -63,7 +69,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
 
     /** {@code GET /.well-known/oauth-authorization-server} — RFC 8414 metadata. */
     private void handleAuthorizationServerMetadata(RoutingContext ctx) {
-        String issuer = serverSurface.issuerBaseUrl(ctx);
+        String issuer = issuer(ctx);
         JsonArray grantTypes = new JsonArray().add("authorization_code")
                                               .add("refresh_token");
         extensionGrants.forEach(grant -> grantTypes.add(grant.grantType()));
@@ -108,9 +114,9 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
             authEndpointSupport.respondError(ctx, 400, "invalid_request");
             return;
         }
-        oauthAuthorizationService.createAuthorizationRequest(serverSurface.issuerBaseUrl(ctx), clientId, redirectUri,
+        oauthAuthorizationService.createAuthorizationRequest(issuer(ctx), clientId, redirectUri,
                                                              codeChallenge, scope, resource, state)
-              .compose(requestId -> serverSurface.uiUrl(ctx, "/oauth/consent?request_id="
+              .compose(requestId -> authEndpointSupport.uiUrl(ctx, "/oauth/consent?request_id="
                       + URLEncoder.encode(requestId, StandardCharsets.UTF_8)))
               .onSuccess(consentUrl -> ctx.response().setStatusCode(302).putHeader("Location", consentUrl).end())
               .onFailure(err -> {
@@ -125,7 +131,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
      */
     private void handleDescribe(RoutingContext ctx) {
         authEndpointSupport.requireSessionUser(ctx);
-        oauthAuthorizationService.findPending(serverSurface.issuerBaseUrl(ctx), ctx.pathParam("requestId"))
+        oauthAuthorizationService.findPending(issuer(ctx), ctx.pathParam("requestId"))
               .onSuccess(ctx::json)
               .onFailure(err -> authEndpointSupport.respondError(ctx, 400, err.getMessage()));
     }
@@ -138,7 +144,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
     private void handleApprove(RoutingContext ctx) {
         Participant approver = authEndpointSupport.requireSessionUser(ctx);
         String requestId = authEndpointSupport.readJsonBody(ctx).getString("requestId");
-        respondRedirectUrl(ctx, oauthAuthorizationService.approve(serverSurface.issuerBaseUrl(ctx), requestId,
+        respondRedirectUrl(ctx, oauthAuthorizationService.approve(issuer(ctx), requestId,
                                                                   approver.getId()));
     }
 
@@ -149,7 +155,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
     private void handleDeny(RoutingContext ctx) {
         authEndpointSupport.requireSessionUser(ctx);
         String requestId = authEndpointSupport.readJsonBody(ctx).getString("requestId");
-        respondRedirectUrl(ctx, oauthAuthorizationService.deny(serverSurface.issuerBaseUrl(ctx), requestId));
+        respondRedirectUrl(ctx, oauthAuthorizationService.deny(issuer(ctx), requestId));
     }
 
     private void respondRedirectUrl(RoutingContext ctx, Future<String> redirectUrl) {
@@ -182,7 +188,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
         String clientId = ctx.request().getFormAttribute("client_id");
         String redirectUri = ctx.request().getFormAttribute("redirect_uri");
         String codeVerifier = ctx.request().getFormAttribute("code_verifier");
-        oauthAuthorizationService.exchangeCode(serverSurface.issuerBaseUrl(ctx), code, clientId, redirectUri, codeVerifier)
+        oauthAuthorizationService.exchangeCode(issuer(ctx), code, clientId, redirectUri, codeVerifier)
               .compose(exchange -> authEndpointSupport.issueDelegateTokens(ctx, exchange.approver(),
                                                                            DelegateKind.MCP_CLIENT,
                                                                            exchange.clientId(),

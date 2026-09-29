@@ -16,6 +16,9 @@ kinotic:
   debug: true
   maxNumberOfCoresToUse: 4
   domain:
+    email:
+      # the UI the emailed links open; the test node presents the org server's development UI
+      linkBaseUrl: http://localhost:9090
     oauth:
       # Placeholder for tests only; nothing here drives the authorization-code flow, but the list
       # is validated non-empty so the context starts.

@@ -7,7 +7,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.AppHost;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
-import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
+import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
@@ -108,10 +108,10 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
         DomainUtil.validateApplicationId(entity.getId());
         AppHost appHost = new AppHost(requireOrganizationId(), entity.getId());
         // neither id changes after creation, so an application too long for a site label could never publish a UI
-        Validate.isTrue(appHost.label().length() + AppHost.SEPARATOR.length() + MIN_UI_NAME_LENGTH <= AppHost.MAX_LABEL_LENGTH,
+        Validate.isTrue(appHost.label().length() + DomainUtil.HOST_LABEL_SEPARATOR.length() + MIN_UI_NAME_LENGTH <= DomainUtil.MAX_HOST_LABEL_LENGTH,
                         "The application's host label '%s' leaves no room for a UI name in its sites' labels, which DNS limits"
                                 + " to %d characters; shorten the application name",
-                        appHost.label(), AppHost.MAX_LABEL_LENGTH);
+                        appHost.label(), DomainUtil.MAX_HOST_LABEL_LENGTH);
         entity.setUpdated(new Date());
         Future<String> primaryUiUrl;
         if (entity.getPrimaryUiId() == null) {

@@ -1,4 +1,4 @@
-package org.kinotic.domain.internal.api.services.security;
+package org.kinotic.domain.api.services.security;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;

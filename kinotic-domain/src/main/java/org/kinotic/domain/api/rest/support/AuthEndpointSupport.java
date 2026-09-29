@@ -17,19 +17,18 @@ import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.domain.api.model.security.OidcProviderKind;
-import org.kinotic.domain.api.rest.ServerSurface;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.RefreshTokenService;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.domain.internal.api.services.security.KinoticJwtIssuer;
-import org.springframework.stereotype.Component;
+import org.kinotic.domain.api.services.security.KinoticJwtIssuer;
 
 import io.vertx.core.Future;
 import io.vertx.ext.auth.JWTOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -39,11 +38,11 @@ import lombok.extern.slf4j.Slf4j;
  * issuance, and the standard "after-callback" flow.
  * Each individual handler delegates the boilerplate here so its body keeps only the
  * route-specific decisions (which config to start with, which UserParticipantIdentity lookup to run).
+ * Each server subclasses it once, supplying {@link #uiUrl}: where its browser flows send the user.
  */
 @Slf4j
-@Component
-@RequiredArgsConstructor
-public class AuthEndpointSupport {
+@RequiredArgsConstructor(access = AccessLevel.PROTECTED)
+public abstract class AuthEndpointSupport {
 
     /** Access-token TTL for OAuth-issued tokens; clients refresh via the rotating refresh token. */
     private static final int ACCESS_TOKEN_TTL_SECONDS = 3600;
@@ -55,7 +54,6 @@ public class AuthEndpointSupport {
      */
     private static final String RETURN_PATH_SESSION_KEY = "loginReturnPath";
 
-    private final ServerSurface serverSurface;
     private final KinoticJwtIssuer jwtIssuer;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
@@ -95,6 +93,17 @@ public class AuthEndpointSupport {
     // ── Redirects ─────────────────────────────────────────────────────────────
 
     /**
+     * Absolute URL of {@code path} on the UI this server's browser flows send the user to. Each server
+     * implements it: the portal, the console, or the primary UI of the application the request is
+     * addressed to.
+     *
+     * @param ctx  the request
+     * @param path the path on that UI, beginning with {@code /}
+     * @return the URL, or a failed future when the request has no UI to send the browser to
+     */
+    public abstract Future<String> uiUrl(RoutingContext ctx, String path);
+
+    /**
      * Establishes the browser session, bound to the page at {@code origin} that started the
      * login, and redirects back to that page's origin (this server's UI when the start named no
      * page) — to the path the login started from when there was one, otherwise the root. No token
@@ -108,13 +117,13 @@ public class AuthEndpointSupport {
     }
 
     /**
-     * {@code 302 Location: <this server's UI><path>}, resolved through {@link ServerSurface#uiUrl}. A
-     * request with no UI to send the browser to fails with the reason {@code uiUrl} gives.
+     * {@code 302 Location: <this server's UI><path>}, resolved through {@link #uiUrl}. A request with no
+     * UI to send the browser to fails with the reason {@code uiUrl} gives.
      */
     public void redirectToUi(RoutingContext ctx, String path) {
-        serverSurface.uiUrl(ctx, path)
-                     .onSuccess(url -> ctx.response().setStatusCode(302).putHeader("Location", url).end())
-                     .onFailure(ctx::fail);
+        uiUrl(ctx, path)
+                .onSuccess(url -> ctx.response().setStatusCode(302).putHeader("Location", url).end())
+                .onFailure(ctx::fail);
     }
 
     /**
@@ -123,7 +132,7 @@ public class AuthEndpointSupport {
      */
     private static String safeReturnPath(String referer) {
         String ret = null;
-        // concatenated onto appBaseUrl, so a value that could open an authority ("//host") or
+        // concatenated onto the UI's URL, so a value that could open an authority ("//host") or
         // break out of the Location header is dropped rather than sanitized
         if (referer != null && referer.startsWith("/") && !referer.startsWith("//")
                 && referer.indexOf('\\') < 0 && referer.chars().noneMatch(Character::isISOControl)) {

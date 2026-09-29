@@ -18,6 +18,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.InviteEmailTemplate;
 import org.kinotic.domain.api.model.security.PendingInvite;
@@ -79,7 +80,7 @@ public class EmailService {
     public Future<Void> sendVerificationEmail(String email,
                                               String displayName,
                                               String verificationToken) {
-        String verificationUrl = properties.getDomain().getAppBaseUrl() + VERIFICATION_PATH + verificationToken;
+        String verificationUrl = linkBaseUrl() + VERIFICATION_PATH + verificationToken;
 
         if (!properties.getDomain().getEmail().isEnabled()) {
             log.warn("Email sending is disabled; verification URL for {} <{}>: {}",
@@ -107,7 +108,7 @@ public class EmailService {
      * @return a future that completes once the send has finished (or fails if ACS rejects it)
      */
     public Future<Void> sendInviteEmail(PendingInvite invite, String organizationName) {
-        String acceptUrl = properties.getDomain().getAppBaseUrl() + INVITE_PATH + invite.getVerificationToken();
+        String acceptUrl = linkBaseUrl() + INVITE_PATH + invite.getVerificationToken();
         String toName = invite.getDisplayName() != null ? invite.getDisplayName() : invite.getEmail();
 
         if (!properties.getDomain().getEmail().isEnabled()) {
@@ -152,6 +153,13 @@ public class EmailService {
                                 renderInline(HTML_TEMPLATES, template.getHtmlBody(), variables),
                                 renderInline(TEXT_TEMPLATES, template.getTextBody(), variables));
                 });
+    }
+
+    // checked per send: a server that sends no mail leaves it unset
+    private String linkBaseUrl() {
+        String ret = properties.getDomain().getEmail().getLinkBaseUrl();
+        Validate.notBlank(ret, "kinotic.domain.email.linkBaseUrl must be set on a server that sends email");
+        return ret;
     }
 
     /**

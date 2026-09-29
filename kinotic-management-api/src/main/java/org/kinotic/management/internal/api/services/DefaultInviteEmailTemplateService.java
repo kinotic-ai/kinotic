@@ -4,7 +4,7 @@ import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.InviteEmailTemplate;
-import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
+import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.InviteEmailTemplateRepository;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
 import org.kinotic.domain.internal.api.services.EmailService;

@@ -20,7 +20,7 @@ import org.kinotic.domain.api.rest.support.OidcErrorCodes;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
-import org.kinotic.domain.api.rest.ServerSurface;
+import org.kinotic.orgserver.api.config.OrgServerProperties;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
@@ -48,7 +48,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
-    private final ServerSurface serverSurface;
+    private final OrgServerProperties properties;
 
     @Override
     public void mountRoutes(Router router) {
@@ -157,7 +157,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.<BaseOidcConfiguration>handleCallback(
-                ctx, pathConfigId, inviteCallbackUrl(ctx, pathConfigId),
+                ctx, pathConfigId, inviteCallbackUrl(pathConfigId),
                 orgId -> resolveCallbackConfig(pathConfigId, orgId))
                 .onSuccess(result -> completeOidcAccept(ctx, result))
                 .onFailure(ex -> {
@@ -243,7 +243,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                          if (chosen == null) {
                              ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
                          } else {
-                             ret = oidcFlowOrchestrator.startFlow(ctx, chosen, inviteCallbackUrl(ctx, configId),
+                             ret = oidcFlowOrchestrator.startFlow(ctx, chosen, inviteCallbackUrl(configId),
                                                                   invite.getOrganizationId(), token);
                          }
                          return ret;
@@ -278,8 +278,8 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                 });
     }
 
-    private String inviteCallbackUrl(RoutingContext ctx, String configId) {
-        return serverSurface.apiBaseUrl(ctx) + "/api/auth/invite/oidc/callback/" + configId;
+    private String inviteCallbackUrl(String configId) {
+        return properties.getApiBaseUrl() + "/api/auth/invite/oidc/callback/" + configId;
     }
 
     /**

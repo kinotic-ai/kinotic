@@ -14,7 +14,7 @@ import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.internal.api.model.IdentityCredential;
-import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
+import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.IdentityCredentialRepository;
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;

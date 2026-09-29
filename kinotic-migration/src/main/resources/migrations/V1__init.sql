@@ -519,7 +519,7 @@ INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId,
 -- users in AND verifies installation ownership at link time (see the Defense in Depth
 -- doc). Required App settings: a client secret (AKV name = secretNameRef); "Request
 -- user authorization (OAuth) during installation" checked; callback URLs under
--- "Identifying and authorizing users" = <appBaseUrl>/github/install/callback FIRST
+-- "Identifying and authorizing users" = <portalBaseUrl>/github/install/callback FIRST
 -- (install redirects go to the first callback URL) plus the URLs above; the
 -- "Email addresses: read-only" account permission. Scopes are inert for GitHub Apps.
 

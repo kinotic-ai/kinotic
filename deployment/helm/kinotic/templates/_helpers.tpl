@@ -81,14 +81,26 @@ KINOTIC_APIGATEWAY_WEBSERVER_PORT: "{{ $server.webServer.port }}"
 {{- end }}
 
 # ── Public URLs + email ───────────────────────────────────
-{{- with $server.domain.appBaseUrl }}
-KINOTIC_DOMAIN_APPBASEURL: "{{ . }}"
+{{- with $server.orgServer }}
+KINOTIC_ORGSERVER_APIBASEURL: "{{ .apiBaseUrl }}"
+KINOTIC_ORGSERVER_PORTALBASEURL: "{{ .portalBaseUrl }}"
+KINOTIC_DOMAIN_EMAIL_LINKBASEURL: "{{ .portalBaseUrl }}"
 {{- end }}
-{{- with $server.domain.apiBaseUrl }}
-KINOTIC_DOMAIN_APIBASEURL: "{{ . }}"
+{{- with $server.systemServer }}
+KINOTIC_SYSTEMSERVER_APIBASEURL: "{{ .apiBaseUrl }}"
+KINOTIC_SYSTEMSERVER_CONSOLEBASEURL: "{{ .consoleBaseUrl }}"
 {{- end }}
-{{- with $root.Values.kinotic.domain.appApiBaseUrl }}
-KINOTIC_DOMAIN_APPAPIBASEURL: "{{ . }}"
+{{- with $server.deployment }}
+KINOTIC_SYSTEMAPI_DEPLOYMENT_APPAPIBASEURL: "{{ .appApiBaseUrl }}"
+{{- end }}
+{{- if $server.systemServer }}
+{{- with (index $root.Values.servers "kinotic-org-server").orgServer }}
+# invites the member service this server hosts sends are accepted in the portal
+KINOTIC_DOMAIN_EMAIL_LINKBASEURL: "{{ .portalBaseUrl }}"
+{{- end }}
+{{- end }}
+{{- with $server.appServer }}
+KINOTIC_APPSERVER_APIBASEURL: "{{ .apiBaseUrl }}"
 {{- end }}
 KINOTIC_DOMAIN_EMAIL_ENABLED: "{{ $root.Values.kinotic.domain.email.enabled }}"
 {{- if $root.Values.kinotic.domain.email.enabled }}
