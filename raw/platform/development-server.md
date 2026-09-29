@@ -939,11 +939,25 @@ snapshot of every index with 30 days' retention.
   <tr>
     <td>
       <code>
-        kinotic.systemApi.uiDeployment.disableProvisioner
+        kinotic.systemApi.disableAzureStorage
       </code>
-      
-       / <code>
-        sitesDomain
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      Front Door serves the published UIs from the sites account
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.systemApi.uiDeployment.sitesDomain
       </code>
       
        / <code>
@@ -953,10 +967,6 @@ snapshot of every index with 30 days' retention.
     
     <td>
       <code>
-        false
-      </code>
-      
-      , <code>
         apps-dev.kinotic.ai
       </code>
       
@@ -1674,7 +1684,7 @@ Everything a peer has lives in one of these places, and moves as follows:
 <tbody>
   <tr>
     <td>
-      Organizations, identities, credentials, OIDC configurations, applications, projects, entity definitions, named queries, refresh tokens, GitHub installations, job runs
+      Organizations, identities, credentials, OIDC configurations, applications, projects, project SBOMs, entity definitions, named queries, refresh tokens, GitHub installations, job runs
     </td>
     
     <td>
@@ -1822,10 +1832,10 @@ The cutover, in order:
 2. Restore the snapshot into the cloud os-data and entity clusters. Both clusters must be at the
 development server's migration version or carry only appended migrations beyond it.
 3. Delete the restored `kinotic_vm_node` and `kinotic_workload` rows and clear `nodeId`,
-`hostDir`, `syncWorkloadId`, and `uiPublishWorkloadId` on every `kinotic_project_deployment`
-row. `resolveTarget` reuses an existing deployment's node without checking it exists, so a row
-still pointing at the development node would fail its next deployment. A re-home operation
-is the durable version of this step.
+`hostDir`, `syncWorkloadId`, `uiPublishWorkloadId`, and `sbomWorkloadId` on every
+`kinotic_project_deployment` row. `resolveTarget` reuses an existing deployment's node
+without checking it exists, so a row still pointing at the development node would fail its
+next deployment. A re-home operation is the durable version of this step.
 4. Add the development server's signing key to the cloud `jwt-signing-keys` set, inactive; drop
 it a day later.
 5. Point the GitHub App's webhook URL at the cloud gateway.

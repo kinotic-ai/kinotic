@@ -670,8 +670,8 @@ On `BOXLITE` nodes a workload may declare at most one entry in `volumeMounts`: t
 
 The system server deploys a project on every push to its repository's default branch (see
 [Push to Deploy](/apps/deployment/push-to-deploy)). The pipeline runs a short-lived sync VM
-per deployment and one long-lived runtime VM per microservice, configured under
-`kinotic.systemApi.deployment.*`:
+per deployment, one long-lived runtime VM per microservice, and a short-lived SBOM VM when the
+project's dependencies changed, configured under `kinotic.systemApi.deployment.*`:
 
 <table>
 <thead>
@@ -763,7 +763,7 @@ per deployment and one long-lived runtime VM per microservice, configured under
     </td>
     
     <td>
-      OCI image both workloads run — the checkout/sync entrypoint and the microservice supervisor
+      OCI image every deployment workload runs — the checkout/sync, UI publish and SBOM entrypoints and the microservice supervisor
     </td>
   </tr>
   
@@ -821,7 +821,7 @@ per deployment and one long-lived runtime VM per microservice, configured under
 </tbody>
 </table>
 
-The VMs are the same size in every environment; what differs between nodes is how many fit. The sync VM gets half a core, 2 GB of memory and a 2 GB root filesystem, where the package manager keeps its cache, with the project checkout mount (clone plus installs) capped at 4 GB; each runtime VM, and each site publish or removal VM, gets half a core, 1 GB of memory and a 512 MB root filesystem — the checkout is a read-only mount, so the root holds only what the microservice writes. The disk caps are enforced where the node's filesystem carries project quotas.
+The VMs are the same size in every environment; what differs between nodes is how many fit. The sync VM gets half a core, 2 GB of memory and a 2 GB root filesystem, where the package manager keeps its cache, with the project checkout mount (clone plus installs) capped at 4 GB; each runtime VM, and each site publish or removal VM and SBOM VM, gets half a core, 1 GB of memory and a 512 MB root filesystem — the checkout is a read-only mount, so the root holds only what the microservice writes. The disk caps are enforced where the node's filesystem carries project quotas.
 
 The pipeline also requires the GitHub module (it mints the short-lived fetch token from
 the org's App installation) and at least one online node advertising a workload data
@@ -853,24 +853,6 @@ fronted by Azure Front Door. Both are configured under `kinotic.systemApi.uiDepl
 </thead>
 
 <tbody>
-  <tr>
-    <td>
-      <code>
-        disableProvisioner
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        false
-      </code>
-    </td>
-    
-    <td>
-      When true nothing is uploaded or served; every published UI is marked ready at once, so publishing works in development and tests without Azure
-    </td>
-  </tr>
-  
   <tr>
     <td>
       <code>
@@ -914,17 +896,63 @@ fronted by Azure Front Door. Both are configured under `kinotic.systemApi.uiDepl
 </table>
 
 The required settings are validated at boot, like the GitHub App settings, so an environment
-that disables the provisioner still sets them, to placeholders; nothing reads them while it
-is disabled. In the Azure deployment terraform creates the account, the Front Door profile
-and the wildcard domain and passes the account and domain to the server (see the
-[deployment guide](/platform/deployment-guide)); the development profile disables the
-provisioner, and the `local` profile of the
-[contributing guide](/platform/contributing#publishing-uis-against-azure) enables it against a
-developer's own subscription. The server never reads or writes the account itself: it holds
-Storage Blob Data Contributor on it only to sign the URLs, scoped to one site's directory,
-that the publish and removal workloads act through. Front Door reads the account as the
-profile's managed identity, which holds Storage Blob Data Reader on it; the account's public
-network is open to both, with anonymous access off.
+[without Azure storage](#without-azure-storage) still sets them, to placeholders. In the Azure
+deployment terraform creates the account, the Front Door profile and the wildcard domain and
+passes the account and domain to the server (see the
+[deployment guide](/platform/deployment-guide)); the `local` profile of the
+[contributing guide](/platform/contributing#publishing-uis-against-azure) names a developer's
+own. The server never reads or writes the account itself: it holds Storage Blob Data
+Contributor on it only to sign the URLs, scoped to one site's directory, that the publish and
+removal workloads act through. Front Door reads the account as the profile's managed
+identity, which holds Storage Blob Data Reader on it; the account's public network is open to
+both, with anonymous access off.
+
+## Without Azure storage
+
+An environment without the sites storage account, such as development and the tests, turns off
+everything that uses it with one property:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Property
+    </th>
+    
+    <th>
+      Default
+    </th>
+    
+    <th>
+      Meaning
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        kinotic.systemApi.disableAzureStorage
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      When true nothing is written to or deleted from the account: every published UI is marked ready at once and nothing serves it, and a removed UI's record is deleted without a removal workload
+    </td>
+  </tr>
+</tbody>
+</table>
+
+The development profile and the tests set it; the `local` profile of the
+[contributing guide](/platform/contributing#publishing-uis-against-azure) turns it off against
+a developer's own subscription.
 
 ## Workload storage and log limits
 

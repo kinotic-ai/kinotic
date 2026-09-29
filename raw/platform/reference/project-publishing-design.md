@@ -55,8 +55,10 @@ An artifact's identity is the unscoped part of the `name` in its `package.json`
 (`@acme/admin` is `admin`), a single zone label; a name that is not one fails the deploy
 naming the package. The directory name never matters. The sync VM reports what it found
 through `ProjectArtifactService.recordArtifacts`, authenticated as the project's sync
-machine identity, and the server records it on `ProjectDeployment` with the commit it was
-found in; the server applies the same name rule to what it is told.
+machine identity, as one `ProjectArtifacts`: the commit it was found in, the artifacts, and the
+`dependencyHash` of the checkout (a SHA-256 of `bun.lock` and of the version of the tree the SBOM
+reads from it). The server
+records it on `ProjectDeployment` and applies the same name rule to what it is told.
 
 ## The deploy job
 
@@ -89,7 +91,7 @@ found in; the server applies the same name rule to what it is told.
     
     <td>
       <code>
-        DeployTarget(nodeId, hostDir, syncWorkloadId, uiPublishWorkloadId)
+        DeployTarget(nodeId, hostDir, syncWorkloadId, uiPublishWorkloadId, sbomWorkloadId)
       </code>
       
       , recorded on the <code>
@@ -114,7 +116,7 @@ found in; the server applies the same name rule to what it is told.
         kinotic sync --publish
       </code>
       
-       · build UIs · report artifacts · write the sentinel (still last)
+       · build UIs · report artifacts and the dependency hash · write the sentinel (still last)
     </td>
   </tr>
   
@@ -129,7 +131,7 @@ found in; the server applies the same name rule to what it is told.
     
     <td>
       binds the <code>
-        ProjectArtifacts(microservices, uis)
+        ProjectArtifacts(commitSha, microservices, uis, dependencyHash)
       </code>
       
        the sync VM reported for the commit into the run; fails when the record names another commit. <code>
@@ -175,6 +177,44 @@ found in; the server applies the same name rule to what it is told.
       . <code>
         Store.state(UI_DEPLOYMENTS).wire()
       </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      6
+    </td>
+    
+    <td>
+      Generate SBOM
+    </td>
+    
+    <td>
+      while <code>
+        ProjectDeployment.sbomGenerated
+      </code>
+      
+       is false, which <code>
+        recordArtifacts
+      </code>
+      
+       makes it whenever the reported <code>
+        dependencyHash
+      </code>
+      
+       changes: SBOM VM reads the dependency tree of <code>
+        bun.lock
+      </code>
+      
+       and records it through <code>
+        ProjectArtifactService.recordSbom
+      </code>
+      
+       → verify the flag is set; otherwise nothing runs. <code>
+        Store.state(SBOM).wire()
+      </code>
+      
+      , whether the run generated the SBOM
     </td>
   </tr>
 </tbody>
@@ -299,8 +339,9 @@ deployment is not orphaned.
 
 ## Properties and dependencies
 
-`kinotic.systemApi.uiDeployment.*`: `sitesDomain`, `sitesStorageEndpoint`,
-`disableProvisioner`. Nothing else is a property; an organization has no storage of its own,
+`kinotic.systemApi.uiDeployment.*`: `sitesDomain`, `sitesStorageEndpoint`; and
+`kinotic.systemApi.disableAzureStorage`, which turns off the sites account's uses for an
+environment without it. Nothing else is a property; an organization has no storage of its own,
 and nothing is provisioned when one is created.
 
 Managed artifacts, each a `*Version` in `gradle.properties` and one line in the conventions
@@ -317,8 +358,8 @@ push notification of publishes.
 
 - **Artifact discovery.** The sync VM finds the commit's artifacts (`src/artifacts.ts` in the
 workload-runner, the naive rule above) and reports them through
-`ProjectArtifactService.recordArtifacts`, which records `artifacts` and
-`artifactsCommitSha` on `ProjectDeployment`. The deploy job's third task, **Resolve
+`ProjectArtifactService.recordArtifacts`, which records `artifacts`, the commit they were found
+in included, on `ProjectDeployment`. The deploy job's third task, **Resolve
 artifacts**, binds them into the run as a `ProjectArtifacts` (its `MicroserviceArtifact`s
 and `UiArtifact`s) under the `artifacts` store name, wired to watchers. The job run page
 of the portal and of the system console lists what the commit contains on that task's row,
@@ -341,11 +382,12 @@ split from the `KINOTIC_UI_SERVER_URL` placed on the sync workload from
 `dist/index.html`.
 - **UI deployments and the storage credentials.** `UiDeployment` rows keyed by the site's
 hostname label, `SiteStorageService` (`issueUploadUrl`, `issueRemovalUrl`) signing
-directory-scoped SAS through the Data Lake SDK on the sites account, `UiStoragePaths` as
-the one home of the container layout, and the `UiDeploymentProvisioner` contract with a
-mock that marks sites ready at once. `AzureProvisioningIntegrationTest` in system-api
-publishes a site and checks the scope of the URLs against a developer's subscription, from
-the `local` profile and `.env.local`, and skips elsewhere.
+directory-scoped SAS through the Data Lake SDK on the sites account, each site's directory
+named by its hostname, and the `UiDeploymentProvisioner` contract with a mock that marks
+sites ready at once.
+`AzureProvisioningIntegrationTest` in system-api publishes a site and checks the scope of
+the URLs against a developer's subscription, from the `local` profile and `.env.local`, and
+skips elsewhere.
 - **The publish task.** The deploy job's fifth task, **Publish UIs**, mints a label with a
 numeric suffix on collision for each UI published for the first time, then runs
 `project-ui-publish-<projectId>` under `DeployTarget.uiPublishWorkloadId` with
@@ -353,10 +395,26 @@ numeric suffix on collision for each UI published for the first time, then runs
 `KINOTIC_UI_UPLOAD_URLS` (one one-hour directory SAS per site, by UI name) and the sites
 account's hosts as its only egress, then finalizes: waits for new sites to serve, adopts
 returning ones and orphans vanished ones; the workload itself deletes the files of other
-commits once the index has switched. While the site provisioner is disabled nothing
-serves, so nothing is uploaded. The exit check is shared with the sync task, and the
-previous publish workload is retired by the next run's target resolution.
+commits once the index has switched. Without Azure storage
+(`kinotic.systemApi.disableAzureStorage`) nothing serves, so nothing is uploaded. The exit
+check is shared with the sync task, and the previous publish workload is retired by the next
+run's target resolution.
 `SiteWorkloadFactory` builds the publish workload and the removal workload alike.
+- **The project SBOM.** A project has one commit and one dependency hash, both on
+`ProjectDeployment.artifacts`; `ProjectDeployment.sbomGenerated` says whether the project's
+`ProjectDependencies` list those dependencies, and `recordArtifacts` clears it when a sync
+reports another hash. The deploy job's sixth task, **Generate SBOM**, runs
+`project-sbom-<projectId>` under `DeployTarget.sbomWorkloadId` only while the flag is clear:
+`generate-sbom.ts` reads the dependency tree of the read-only checkout's `bun.lock`, resolving
+each dependency the way bun loads it (for a package at key `a/b`, the first of `a/b/d`, `a/d`
+and `d` the lockfile holds), and records it with `recordSbom` as the sync machine, whose
+secret is reissued for it; the workload's only egress is the server, and the record is refused
+unless its hash is the one the sync reported. The server stores the tree as one document per
+project in `kinotic_project_dependencies`: `packages`, a keyword list of package URLs, so the
+projects holding a package are one term query, and `direct`, `development`, `optional` and
+`edges` as unindexed positions in it. The portal's SBOM page reads the tree through
+`ProjectService.findDependencies` and builds the CycloneDX document it downloads in the
+browser. A project's deletion deletes the tree with its deployment.
 - **Sites on Front Door.** Terraform's `modules/sites` owns everything a site needs, once
 per environment: the profile and its identity, the sites account and that identity's
 Storage Blob Data Reader on it, the server identity's Storage Blob Data Contributor on it,
