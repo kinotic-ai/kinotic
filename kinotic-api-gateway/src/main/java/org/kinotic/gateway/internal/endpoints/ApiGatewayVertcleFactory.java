@@ -15,7 +15,7 @@ import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import io.vertx.ext.web.sstore.SessionStore;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.core.api.event.ZonePartition;
+import org.kinotic.core.api.event.ZonePartitioning;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.gateway.api.utils.ApiGatewayUtil;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
@@ -40,7 +40,7 @@ public class ApiGatewayVertcleFactory {
     private final HealthChecks healthChecks;
     private final Vertx vertx;
     private final SessionStore sessionStore;
-    private final ZonePartition zonePartition;
+    private final ZonePartitioning zonePartitioning;
 
     public StompServerVerticle createApiGatewayVerticle(){
         // Router arrives pre-wired with CORS and the exception-converting failure handler, so an
@@ -67,7 +67,7 @@ public class ApiGatewayVertcleFactory {
         // of the sites domain from planting a session cookie the api host would read. Each server kind
         // names its own cookie: cookies ignore the port, so servers sharing a development host would
         // otherwise overwrite each other's session.
-        String sessionCookieName = "__Host-kinotic-" + zonePartition.name() + "-session";
+        String sessionCookieName = "__Host-kinotic-" + zonePartitioning.name() + "-session";
         SessionHandler sessionHandler = SessionHandler.create(sessionStore)
                       .setSessionCookieName(sessionCookieName)
                       .setCookieHttpOnlyFlag(true)

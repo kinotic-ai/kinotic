@@ -3,7 +3,7 @@ package org.kinotic.domain.api.model.security;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.core.api.event.ZonePartition;
+import org.kinotic.core.api.event.ZonePartitioning;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
@@ -17,23 +17,23 @@ import java.util.Set;
 /**
  * The zones a participant may address, derived once from the participant type: the zones it may send to and the
  * zones it may subscribe in. Zones come from the CRI itself, so an un-zoned address is only ever sendable by a
- * participant that may send to any zone. {@link #restrictedTo(ZonePartition)} narrows the rules to what one server
+ * participant that may send to any zone. {@link #restrictedTo(ZonePartitioning)} narrows the rules to what one server
  * serves.
  */
 public class ZoneRules {
 
-    private static final ZonePartition EVERY_ZONE = ZonePartition.everyZone("every-zone");
+    private static final ZonePartitioning EVERY_ZONE = ZonePartitioning.everyZone("every-zone");
 
     private final boolean sendAnyZone;
     private final Set<String> sendZones;
     private final Set<String> subscribableZones;
-    private final ZonePartition partition;
+    private final ZonePartitioning partitioning;
 
-    private ZoneRules(boolean sendAnyZone, Set<String> sendZones, Set<String> subscribableZones, ZonePartition partition) {
+    private ZoneRules(boolean sendAnyZone, Set<String> sendZones, Set<String> subscribableZones, ZonePartitioning partitioning) {
         this.sendAnyZone = sendAnyZone;
         this.sendZones = sendZones;
         this.subscribableZones = subscribableZones;
-        this.partition = partition;
+        this.partitioning = partitioning;
     }
 
     /**
@@ -81,21 +81,21 @@ public class ZoneRules {
     }
 
     /**
-     * These rules narrowed to what one server serves: a send only to a zone the partition reaches, a subscription
+     * These rules narrowed to what one server serves: a send only to a zone the partitioning reaches, a subscription
      * only in a zone it hosts.
      *
-     * @param partition the server's zone partition
+     * @param partitioning the server's zone partitioning
      * @return the narrowed rules
      */
-    public ZoneRules restrictedTo(ZonePartition partition) {
-        Validate.notNull(partition, "partition must not be null");
-        return new ZoneRules(sendAnyZone, sendZones, subscribableZones, partition);
+    public ZoneRules restrictedTo(ZonePartitioning partitioning) {
+        Validate.notNull(partitioning, "partitioning must not be null");
+        return new ZoneRules(sendAnyZone, sendZones, subscribableZones, partitioning);
     }
 
     public boolean sendAllowed(CRI cri) {
         boolean ret;
         if (isRoutableScheme(cri.scheme())) {
-            ret = (sendAnyZone || zoneAllowed(cri.zone(), sendZones)) && partition.reaches(cri.baseResource());
+            ret = (sendAnyZone || zoneAllowed(cri.zone(), sendZones)) && partitioning.reaches(cri.baseResource());
         } else {
             ret = false;
         }
@@ -105,7 +105,7 @@ public class ZoneRules {
     public boolean subscribeAllowed(CRI cri) {
         boolean ret;
         if (isRoutableScheme(cri.scheme())) {
-            ret = zoneAllowed(cri.zone(), subscribableZones) && partition.hosts(cri.baseResource());
+            ret = zoneAllowed(cri.zone(), subscribableZones) && partitioning.hosts(cri.baseResource());
         } else {
             ret = false;
         }

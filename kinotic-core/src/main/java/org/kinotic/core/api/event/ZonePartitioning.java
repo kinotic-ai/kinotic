@@ -12,9 +12,9 @@ import java.util.Set;
  * The zones a server hosts and the zones it reaches. A node advertises an event bus consumer to the cluster only
  * in a zone it hosts, and routes a send or publish only to a zone it reaches. A zone covers its sub-zones, so
  * {@code app} covers {@code app.acme.orders}, and an address without a zone is platform-internal and passes both.
- * The server module declares its partition as a bean; a server that declares none hosts and reaches every zone.
+ * The server module declares its partitioning as a bean; a server that declares none hosts and reaches every zone.
  */
-public final class ZonePartition {
+public final class ZonePartitioning {
 
     private static final String HOSTS_ATTRIBUTE_PREFIX = "kinotic.zone.";
 
@@ -22,7 +22,7 @@ public final class ZonePartition {
     private final Set<String> hostedZones;
     private final Set<String> reachableZones;
 
-    private ZonePartition(String name, Set<String> hostedZones, Set<String> reachableZones) {
+    private ZonePartitioning(String name, Set<String> hostedZones, Set<String> reachableZones) {
         this.name = name;
         this.hostedZones = hostedZones;
         this.reachableZones = reachableZones;
@@ -34,9 +34,9 @@ public final class ZonePartition {
      * @param name           names the server kind, such as {@code org}
      * @param hostedZones    the zones the server hosts consumers in
      * @param reachableZones the zones the server routes to, which must cover every hosted zone
-     * @return the partition
+     * @return the partitioning
      */
-    public static ZonePartition of(String name, Set<String> hostedZones, Set<String> reachableZones) {
+    public static ZonePartitioning of(String name, Set<String> hostedZones, Set<String> reachableZones) {
         Validate.notBlank(name, "name must not be blank");
         Validate.notEmpty(hostedZones, "hostedZones must not be empty");
         Validate.notEmpty(reachableZones, "reachableZones must not be empty");
@@ -46,18 +46,18 @@ public final class ZonePartition {
         for (String zone : hostedZones) {
             Validate.isTrue(ZoneUtil.zoneMatches(zone, reachableZones), "The hosted zone '%s' is not reachable", zone);
         }
-        return new ZonePartition(name, Set.copyOf(hostedZones), Set.copyOf(reachableZones));
+        return new ZonePartitioning(name, Set.copyOf(hostedZones), Set.copyOf(reachableZones));
     }
 
     /**
      * A server that hosts and reaches every zone, as one server running every module does.
      *
      * @param name names the server kind
-     * @return the partition
+     * @return the partitioning
      */
-    public static ZonePartition everyZone(String name) {
+    public static ZonePartitioning everyZone(String name) {
         Validate.notBlank(name, "name must not be blank");
-        return new ZonePartition(name, null, null);
+        return new ZonePartitioning(name, null, null);
     }
 
     /**

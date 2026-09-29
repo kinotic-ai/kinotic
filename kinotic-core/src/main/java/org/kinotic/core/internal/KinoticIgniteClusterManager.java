@@ -18,7 +18,7 @@ import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.ServiceListenerChange;
 import org.kinotic.core.api.event.ServiceListenerContinuityLost;
 import org.kinotic.core.api.event.ServiceListenerEvent;
-import org.kinotic.core.api.event.ZonePartition;
+import org.kinotic.core.api.event.ZonePartitioning;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
@@ -30,12 +30,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * An {@link IgniteClusterManager} confined to this server's {@link ZonePartition}: it advertises a consumer to the
+ * An {@link IgniteClusterManager} confined to this server's {@link ZonePartitioning}: it advertises a consumer to the
  * cluster only in a zone the server hosts, and routes sends and publishes only to zones the server reaches. It
  * additionally provides a {@link Flux} of {@link ListenerStatus} for any event bus address, fed by the
  * registration updates it already receives for message routing, and a {@link Flux} of the cluster membership,
  * fed by the discovery events it already receives. Both fluxes, and {@link #getClusterRegistrations}, observe the
- * whole cluster whatever the partition.
+ * whole cluster whatever the partitioning.
  * Monitoring an address therefore costs a local map entry, no matter how many addresses are monitored or
  * how often monitors come and go. All monitor signals are delivered on a vertx context, never on the
  * cluster threads that observe registration changes.
@@ -55,7 +55,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     private static final String SERVICE_ADDRESS_PREFIX = EventConstants.SERVICE_DESTINATION_SCHEME + "://";
 
     private final Ignite ignite;
-    private final ZonePartition partition;
+    private final ZonePartitioning partitioning;
     private final Map<String, AddressMonitor> monitors = new ConcurrentHashMap<>();
     // Hot sink shared by every serviceListenerEventsFlux subscriber; never terminates
     private final Sinks.Many<ServiceListenerEvent> serviceListenerSink = Sinks.many().multicast().directBestEffort();
@@ -66,25 +66,25 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     private volatile Vertx vertx;
     private volatile Context deliveryContext;
 
-    public KinoticIgniteClusterManager(Ignite ignite, ZonePartition partition) {
+    public KinoticIgniteClusterManager(Ignite ignite, ZonePartitioning partitioning) {
         super(ignite);
         this.ignite = ignite;
-        this.partition = partition;
+        this.partitioning = partitioning;
     }
 
     @Override
     public void addRegistration(String address, RegistrationInfo registrationInfo, Completable<Void> promise) {
-        if(partition.hosts(address)){
+        if(partitioning.hosts(address)){
             super.addRegistration(address, registrationInfo, promise);
         }else{
-            promise.fail(new IllegalStateException("The " + partition.name() + " server does not host the zone of " + address));
+            promise.fail(new IllegalStateException("The " + partitioning.name() + " server does not host the zone of " + address));
         }
     }
 
     // Vert.x's node selector routes every send and publish through this lookup
     @Override
     public void getRegistrations(String address, Completable<List<RegistrationInfo>> promise) {
-        if(partition.reaches(address)){
+        if(partitioning.reaches(address)){
             super.getRegistrations(address, promise);
         }else{
             promise.succeed(List.of());
@@ -154,7 +154,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
             public boolean wantsUpdatesFor(String address) {
                 return monitors.containsKey(address)
                         || (serviceListenerSink.currentSubscriberCount() > 0 && address.startsWith(SERVICE_ADDRESS_PREFIX))
-                        || (partition.reaches(address) && registrationListener.wantsUpdatesFor(address));
+                        || (partitioning.reaches(address) && registrationListener.wantsUpdatesFor(address));
             }
 
             @Override
@@ -163,7 +163,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
                 // address, matching what the cluster manager would deliver without this wrapper. An unreachable
                 // zone is never forwarded: the node selector holds an entry for an address while its first
                 // lookup is in flight, and an update in that window would install a route getRegistrations refused
-                if(partition.reaches(event.address()) && registrationListener.wantsUpdatesFor(event.address())){
+                if(partitioning.reaches(event.address()) && registrationListener.wantsUpdatesFor(event.address())){
                     registrationListener.registrationsUpdated(event);
                 }
                 AddressMonitor monitor = monitors.get(event.address());

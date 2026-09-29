@@ -106,7 +106,7 @@
       <text class="t-mono" x="986" y="360" text-anchor="middle">deployments · cluster singletons</text>
       <text class="t-mono" x="986" y="375" text-anchor="middle">__Host-kinotic-system-session</text>
 
-      <!-- ═════════ the cluster: each server joins it with its zone partition ═════════ -->
+      <!-- ═════════ the cluster: each server joins it with its zone partitioning ═════════ -->
       <line class="link" x1="186" y1="390" x2="186" y2="470"></line>
       <text class="t-tiny" x="194" y="432">hosts app-api</text>
       <text class="t-tiny" x="194" y="444">and app.&lt;org&gt;.&lt;app&gt;</text>

@@ -10,7 +10,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
-import org.kinotic.core.api.event.ZonePartition;
+import org.kinotic.core.api.event.ZonePartitioning;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -57,14 +57,14 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     private static final int RESOLUTION_PAGE_SIZE = 25;
 
     private final ObjectMapper objectMapper;
-    private final ZonePartition zonePartition;
+    private final ZonePartitioning zonePartitioning;
 
     public ServiceDirectoryEntryRepository(CrudServiceTemplate crudServiceTemplate,
                                            ObjectMapper objectMapper,
-                                           ZonePartition zonePartition) {
+                                           ZonePartitioning zonePartitioning) {
         super("kinotic_service_directory", ServiceDirectoryEntry.class, crudServiceTemplate);
         this.objectMapper = objectMapper;
-        this.zonePartition = zonePartition;
+        this.zonePartitioning = zonePartitioning;
     }
 
     /**
@@ -236,13 +236,13 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     private Query zoneVisibilityFilter(String organizationId, String applicationId) {
         Optional<Set<String>> zones;
         if (organizationId == null) {
-            zones = zonePartition.reachableZones();
+            zones = zonePartitioning.reachableZones();
         } else {
             Set<String> callerZones = applicationId == null
                     ? Set.of(DomainUtil.MANAGEMENT_API_ZONE, DomainUtil.APP_API_ZONE)
                     : Set.of(DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId,
                              DomainUtil.APP_API_ZONE);
-            zones = Optional.of(callerZones.stream().filter(zonePartition::reachesZone).collect(Collectors.toSet()));
+            zones = Optional.of(callerZones.stream().filter(zonePartitioning::reachesZone).collect(Collectors.toSet()));
         }
         return zones.map(this::inZones).orElse(null);
     }

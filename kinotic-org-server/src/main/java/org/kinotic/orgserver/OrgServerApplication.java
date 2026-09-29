@@ -1,7 +1,7 @@
 package org.kinotic.orgserver;
 
 import org.kinotic.core.api.annotations.EnableKinotic;
-import org.kinotic.core.api.event.ZonePartition;
+import org.kinotic.core.api.event.ZonePartitioning;
 import org.kinotic.domain.api.rest.DeviceAuthorizationHandler;
 import org.kinotic.domain.api.rest.InviteHandler;
 import org.kinotic.domain.api.rest.McpJsonRpcHandler;
@@ -43,9 +43,9 @@ public class OrgServerApplication {
 	 * app-api services the portal's entity browser calls.
 	 */
 	@Bean
-	public ZonePartition zonePartition() {
-		return ZonePartition.of("org",
-								Set.of(DomainUtil.MANAGEMENT_API_ZONE),
-								Set.of(DomainUtil.MANAGEMENT_API_ZONE, DomainUtil.SYSTEM_API_ZONE, DomainUtil.APP_API_ZONE));
+	public ZonePartitioning zonePartitioning() {
+		return ZonePartitioning.of("org",
+								   Set.of(DomainUtil.MANAGEMENT_API_ZONE),
+								   Set.of(DomainUtil.MANAGEMENT_API_ZONE, DomainUtil.SYSTEM_API_ZONE, DomainUtil.APP_API_ZONE));
 	}
 }

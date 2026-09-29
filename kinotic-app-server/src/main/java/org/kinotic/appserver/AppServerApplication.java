@@ -1,7 +1,7 @@
 package org.kinotic.appserver;
 
 import org.kinotic.core.api.annotations.EnableKinotic;
-import org.kinotic.core.api.event.ZonePartition;
+import org.kinotic.core.api.event.ZonePartitioning;
 import org.kinotic.domain.api.rest.AppServerSurface;
 import org.kinotic.domain.api.rest.ApplicationLoginHandler;
 import org.kinotic.domain.api.rest.OAuthServerHandler;
@@ -35,8 +35,8 @@ public class AppServerApplication {
 	 * {@code app.<organizationId>.<applicationId>} zone.
 	 */
 	@Bean
-	public ZonePartition zonePartition() {
+	public ZonePartitioning zonePartitioning() {
 		Set<String> zones = Set.of(DomainUtil.APP_API_ZONE, DomainUtil.APP_ZONE_PREFIX);
-		return ZonePartition.of("app", zones, zones);
+		return ZonePartitioning.of("app", zones, zones);
 	}
 }
