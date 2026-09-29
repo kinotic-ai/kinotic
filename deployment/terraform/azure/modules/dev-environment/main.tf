@@ -1,9 +1,10 @@
-# What a kinotic-server outside AKS needs from Azure to publish UIs, keep organizations' files
-# and send email: a resource group, the sites account and the Front Door Standard profile and
-# endpoint every site is served through under apps-<environment>.<zone>, the key vault the
-# wildcard certificate is issued into, the organization storage account, and a service
-# principal for the server holding the roles it needs on them and on the email service. There
-# is no VNet: the server and the workloads reach the accounts over their public endpoints.
+# What a kinotic-server outside AKS needs from Azure to publish UIs and send email: a resource
+# group its organizations' storage accounts are created in, the Front Door Standard profile
+# and endpoint every site is served through under apps-<environment>.<zone>, the key vault
+# the wildcard certificate is issued into, and a service principal for the server holding the
+# roles it needs on them and on the email service. The server creates the rest at runtime, as
+# it does in the cluster. There is no VNet: the server reaches the accounts over their public
+# endpoints and creates no private endpoints.
 #
 # Two roots use it: dev/ for a developer's own machine, dev-server/ for the shared
 # development server. Each picks an environment name, since a site hostname is bound to one
@@ -37,7 +38,7 @@ locals {
 }
 
 # ── Resource Group ────────────────────────────────────────────────────────────
-# Holds the Front Door profile, the sites account and the organization storage account
+# Holds the Front Door profile and, created at runtime, one storage account per organization
 
 resource "azurerm_resource_group" "main" {
   name     = "rg-${local.name_prefix}"
@@ -81,18 +82,6 @@ module "sites" {
   hostnames                       = var.ui_hostnames
 }
 
-module "organizations_storage" {
-  source = "../organizations-storage"
-
-  name_prefix                     = local.name_prefix
-  location                        = var.location
-  resource_group_name             = azurerm_resource_group.main.name
-  tags                            = var.tags
-  portal_origins                  = var.portal_origins
-  server_principal_id             = azuread_service_principal.server.object_id
-  server_principal_skip_aad_check = true
-}
-
 # ── Service principal for kinotic-server ──────────────────────────────────────
 # The server authenticates as this principal: DefaultAzureCredential takes AZURE_CLIENT_ID,
 # AZURE_CLIENT_SECRET and AZURE_TENANT_ID before anything else. One per environment, holding
@@ -114,9 +103,7 @@ resource "azuread_application_password" "server" {
 # ── Roles for kinotic-server ──────────────────────────────────────────────────
 # What the cluster grants the kinotic-server workload identity: the sites module gives it
 # Storage Blob Data Contributor on the sites account, where it signs each site's upload and
-# removal URLs, and the organization storage module the same role on its account, where it
-# signs the URLs organizations' files are written and read through; Contributor on the email
-# service sends mail.
+# removal URLs; Contributor on the email service sends mail.
 
 resource "azurerm_role_assignment" "server_email" {
   scope                = var.email_communication_service_id

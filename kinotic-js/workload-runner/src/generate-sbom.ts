@@ -1,20 +1,14 @@
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { Kinotic } from '@kinotic-ai/core'
 import { ManagementApiPlugin } from '@kinotic-ai/management-api'
-import { uploadBlob } from './blob-directory.ts'
-import { dependencyHashOf, generateSbom } from './sbom.ts'
+import { dependencyHashOf, readDependencies } from './sbom.ts'
 import { log, logError } from './log.ts'
 
 /**
- * One-shot entrypoint of the SBOM workload: generates the project's SBOM from the checkout,
- * mounted read-only, uploads it over the project's SBOM file in the organization storage account
- * through the URL issued for that file, and records it with the server against the dependency
+ * One-shot entrypoint of the SBOM workload: reads the dependency tree of the checkout's bun.lock,
+ * mounted read-only, and records it with the server as the project's SBOM against the dependency
  * hash of the checkout.
  *
  * Environment:
- * - KINOTIC_SBOM_UPLOAD_URL  the project's SBOM file in the organization storage account, with a
- *                            SAS for that file as its query (required)
  * - KINOTIC_PROJECT_ID       the project the checkout belongs to (required)
  * - KINOTIC_WORKSPACE_DIR    the checkout (default /workspace)
  * - KINOTIC_SERVER_* / KINOTIC_CLIENT_ID / KINOTIC_CLIENT_SECRET — standard Kinotic connection
@@ -24,8 +18,12 @@ import { log, logError } from './log.ts'
 
 Kinotic.use(ManagementApiPlugin)
 
-/** The media type of a CycloneDX JSON document. */
-const CYCLONEDX_JSON = 'application/vnd.cyclonedx+json'
+/**
+ * The largest tree one report carries: the gateway takes frames of up to 2 MiB, the default of
+ * the server's maxEventPayloadSize, and the frame's headers and the call's other arguments need
+ * room beside the tree.
+ */
+const MAX_TREE_BYTES = 2 * 1024 * 1024 - 64 * 1024
 
 function require_(name: string): string {
     const value = process.env[name]
@@ -36,25 +34,26 @@ function require_(name: string): string {
 }
 
 async function main(): Promise<void> {
-    const uploadUrl = require_('KINOTIC_SBOM_UPLOAD_URL')
     const projectId = require_('KINOTIC_PROJECT_ID')
     const workspaceDir = process.env.KINOTIC_WORKSPACE_DIR ?? '/workspace'
 
     const dependencyHash = dependencyHashOf(workspaceDir)
     if (dependencyHash === null) {
-        throw new Error(`${workspaceDir} has no bun.lock to generate the SBOM from`)
+        throw new Error(`${workspaceDir} has no bun.lock to read the SBOM from`)
     }
-    log('[workload-runner] generating the SBOM')
-    const output = join(tmpdir(), 'sbom.cdx.json')
-    const document = await generateSbom(workspaceDir, output)
-    const componentCount = document.components?.length ?? 0
-    await uploadBlob(uploadUrl, Bun.file(output), 'no-cache', CYCLONEDX_JSON)
-    log(`[workload-runner] uploaded the SBOM: ${componentCount} components`)
+    const dependencies = readDependencies(workspaceDir)
+    const size = Buffer.byteLength(JSON.stringify(dependencies))
+    if (size > MAX_TREE_BYTES) {
+        throw new Error(`the SBOM of ${dependencies.packages.length} packages is ${size} bytes, `
+                        + `more than the ${MAX_TREE_BYTES} one report to the server carries`)
+    }
+    log(`[workload-runner] read the SBOM: ${dependencies.packages.length} packages, `
+        + `${dependencies.direct.length} declared by the project, ${dependencies.edges.length} dependencies between them`)
 
     // bounded so an unreachable server fails the run instead of retrying forever
     await Kinotic.connect({ maxConnectionAttempts: 3 })
     try {
-        await Kinotic.projectArtifacts.recordSbom(projectId, dependencyHash)
+        await Kinotic.projectArtifacts.recordSbom(projectId, dependencyHash, dependencies)
     } finally {
         await Kinotic.disconnect()
     }

@@ -10,13 +10,16 @@ import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.management.api.model.deployment.MicroserviceArtifact;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
+import org.kinotic.management.api.model.deployment.ProjectDependencies;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.management.api.model.deployment.UiArtifact;
+import org.kinotic.management.api.repositories.ProjectDependenciesRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.services.deployment.ProjectArtifactService;
 import org.springframework.stereotype.Component;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -26,6 +29,7 @@ import java.util.Set;
 public class DefaultProjectArtifactService implements ProjectArtifactService {
 
     private final ProjectDeploymentRepository projectDeploymentRepository;
+    private final ProjectDependenciesRepository projectDependenciesRepository;
     private final SecurityContext securityContext;
 
     @Override
@@ -49,17 +53,24 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
     }
 
     @Override
-    public Future<Void> recordSbom(String projectId, String dependencyHash) {
+    public Future<Void> recordSbom(String projectId, String dependencyHash, ProjectDependencies dependencies) {
         Validate.notBlank(projectId, "projectId is required");
         Validate.notBlank(dependencyHash, "dependencyHash is required");
+        Validate.notNull(dependencies, "dependencies is required");
+        validate(dependencies);
         OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
+        String organizationId = participant.getOrganizationId();
         return findForSyncMachine(projectId, participant)
                 .compose(deployment -> {
                     // the SBOM is recorded as the one of the dependencies the artifacts list, so it
                     // must have been generated from those
                     Validate.isTrue(deployment.getArtifacts() != null && dependencyHash.equals(deployment.getArtifacts().dependencyHash()),
                                     "Dependency hash %s is not the one the sync workload of project %s last reported", dependencyHash, projectId);
-                    return projectDeploymentRepository.recordSbomGenerated(projectId, participant.getOrganizationId());
+                    dependencies.setId(projectId)
+                                .setOrganizationId(organizationId)
+                                .setApplicationId(deployment.getApplicationId());
+                    return projectDependenciesRepository.save(dependencies, organizationId)
+                            .compose(saved -> projectDeploymentRepository.recordSbomGenerated(projectId, organizationId));
                 });
     }
 
@@ -100,6 +111,35 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
         ZoneUtil.validateLabel(name);
         Validate.notBlank(dir, "Artifact %s has no directory", name);
         Validate.isTrue(namesOfKind.add(name), "Two artifacts of one kind share the name '%s'", name);
+    }
+
+    // Readers resolve every position through packages, and look a package up by its URL, so a tree
+    // whose positions run past its packages or that lists a package twice is refused
+    private static void validate(ProjectDependencies dependencies) {
+        List<String> packages = dependencies.getPackages();
+        Validate.notNull(packages, "dependencies.packages is required");
+        Validate.noNullElements(packages, "dependencies.packages holds null at position %d");
+        Validate.isTrue(new HashSet<>(packages).size() == packages.size(), "dependencies.packages lists a package twice");
+        int count = packages.size();
+        requirePositions(dependencies.getDirect(), count, "direct");
+        requirePositions(dependencies.getDevelopment(), count, "development");
+        requirePositions(dependencies.getOptional(), count, "optional");
+        Validate.notNull(dependencies.getEdges(), "dependencies.edges is required");
+        for (int[] edge : dependencies.getEdges()) {
+            Validate.isTrue(edge != null && edge.length == 2 && isPosition(edge[0], count) && isPosition(edge[1], count),
+                            "dependencies.edges holds an edge that is not two positions in packages");
+        }
+    }
+
+    private static void requirePositions(List<Integer> positions, int count, String name) {
+        Validate.notNull(positions, "dependencies.%s is required", name);
+        for (Integer position : positions) {
+            Validate.isTrue(position != null && isPosition(position, count), "dependencies.%s holds %s, which is not a position in packages", name, position);
+        }
+    }
+
+    private static boolean isPosition(int position, int count) {
+        return position >= 0 && position < count;
     }
 
 }

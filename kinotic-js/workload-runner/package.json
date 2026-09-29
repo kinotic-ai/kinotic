@@ -17,7 +17,6 @@
     "coverage": "bun test --coverage --pass-with-no-tests"
   },
   "dependencies": {
-    "@cyclonedx/cdxgen": "12.8.4",
     "@kinotic-ai/core": "^5.0.0-beta.17",
     "@kinotic-ai/kinotic-cli": "5.2.0-beta.16",
     "@kinotic-ai/management-api": "5.0.0-beta.41",

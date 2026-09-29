@@ -16,11 +16,13 @@ import org.kinotic.management.api.model.deployment.DeploymentStatusType;
 import org.kinotic.management.api.model.deployment.MicroserviceArtifact;
 import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
+import org.kinotic.management.api.model.deployment.ProjectDependencies;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.management.api.model.deployment.UiDeployment;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
+import org.kinotic.management.api.repositories.ProjectDependenciesRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
@@ -82,6 +84,9 @@ public class DeployWorkerTests extends KinoticTestBase {
     private ProjectDeploymentRepository projectDeployments;
 
     @Autowired
+    private ProjectDependenciesRepository projectDependencies;
+
+    @Autowired
     private ProjectRepository projects;
 
     @Autowired
@@ -132,6 +137,7 @@ public class DeployWorkerTests extends KinoticTestBase {
             }
         }
         for (String id : projectIds) {
+            await(projectDependencies.deleteById(id, TEST_ORG_ID));
             if (await(projectDeployments.findById(id, TEST_ORG_ID)) != null) {
                 await(projectDeployments.deleteByIdSync(id, TEST_ORG_ID));
             }
@@ -264,10 +270,17 @@ public class DeployWorkerTests extends KinoticTestBase {
     public void aProjectDeploymentWithoutChildrenIsFinalizedByItsWorker() throws Exception {
         String projectId = "worker-project-removed";
         projectDeployment(projectId, new DeploymentState(DeploymentStatusType.RUNNING, COMMIT));
+        await(projectDependencies.saveSync(new ProjectDependencies().setId(projectId)
+                                                                    .setOrganizationId(TEST_ORG_ID)
+                                                                    .setApplicationId(TEST_APP_ID)
+                                                                    .setPackages(List.of("pkg:npm/express@5.1.0"))
+                                                                    .setDirect(List.of(0)),
+                                           TEST_ORG_ID));
 
         await(projectDeployments.requestDeletion(projectId, TEST_ORG_ID, "deletion of project " + projectId));
 
         awaitGone(() -> projectDeployments.findById(projectId, TEST_ORG_ID), "project deployment " + projectId);
+        assertNull(await(projectDependencies.findById(projectId, TEST_ORG_ID)), "the project's SBOM goes with its deployment");
     }
 
     @Test

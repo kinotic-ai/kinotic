@@ -1,6 +1,7 @@
 import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
 import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import { Project } from '@/api/model/Project'
+import type { ProjectDependencies } from '@/api/model/deployment/ProjectDependencies'
 import type { ProjectDeployment } from '@/api/model/deployment/ProjectDeployment'
 import type { WatchEvent } from '@/api/model/reconcile/WatchEvent'
 
@@ -48,12 +49,14 @@ export interface IProjectService extends ICrudServiceProxy<Project> {
     findDeploymentHistory(projectId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>>
 
     /**
-     * Finds a URL the CycloneDX JSON document of the given project's SBOM can be read from for the
-     * next fifteen minutes, by anyone holding it.
+     * Finds the SBOM of the given project in the current participant's organization: every package
+     * version its lockfile installs, how the project reaches each, and which package depends on
+     * which.
      * @param projectId id of the project the SBOM belongs to
-     * @return Promise emitting the URL, or null when the project has no SBOM
+     * @return Promise emitting the dependency tree, or null when the project has no SBOM of the
+     *         dependencies its last sync reported
      */
-    findSbomDocumentUrl(projectId: string): Promise<string | null>
+    findDependencies(projectId: string): Promise<ProjectDependencies | null>
 
     /**
      * Re-runs repository initialization for a project left
@@ -109,8 +112,8 @@ export class ProjectService extends CrudServiceProxy<Project> implements IProjec
         return this.serviceProxy.invoke('findDeploymentHistory', [projectId, pageable])
     }
 
-    public findSbomDocumentUrl(projectId: string): Promise<string | null> {
-        return this.serviceProxy.invoke('findSbomDocumentUrl', [projectId])
+    public findDependencies(projectId: string): Promise<ProjectDependencies | null> {
+        return this.serviceProxy.invoke('findDependencies', [projectId])
     }
 
     public retryRepoInitialization(projectId: string): Promise<Project> {

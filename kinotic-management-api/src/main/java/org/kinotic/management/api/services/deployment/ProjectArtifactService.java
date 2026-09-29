@@ -3,13 +3,14 @@ package org.kinotic.management.api.services.deployment;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
+import org.kinotic.management.api.model.deployment.ProjectDependencies;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
 
 /**
- * Records the artifacts a project's deployment workloads find, and the SBOM they generate, on the
- * project's {@link ProjectDeployment}. Every call is authorized against the machine identities the
- * deployment recorded for the project, so only a workload the deployment issued credentials to can
- * report on the project's behalf.
+ * Records the artifacts a project's deployment workloads find on the project's
+ * {@link ProjectDeployment}, and the SBOM they generate as its {@link ProjectDependencies}. Every
+ * call is authorized against the machine identities the deployment recorded for the project, so
+ * only a workload the deployment issued credentials to can report on the project's behalf.
  */
 @Publish
 public interface ProjectArtifactService {
@@ -26,14 +27,18 @@ public interface ProjectArtifactService {
     Future<Void> recordArtifacts(String projectId, ProjectArtifacts artifacts);
 
     /**
-     * Records the SBOM the SBOM workload generated from the project's checkout and uploaded to the
-     * organization's storage. The caller must be the project's sync machine identity, and the
+     * Records the SBOM the SBOM workload generated from the project's checkout, replacing the one an
+     * earlier run recorded. The caller must be the project's sync machine identity, and the
      * dependency hash the one the sync workload last reported.
      *
      * @param projectId      the project whose checkout the SBOM was generated from
-     * @param dependencyHash the fingerprint of the dependencies the document lists
-     * @return a future completing once the deployment record holds the SBOM
+     * @param dependencyHash the fingerprint of the dependencies the tree lists
+     * @param dependencies   the dependency tree, stored under the project's id, organization and
+     *                       application whatever ids it carries; no package may be listed twice,
+     *                       and every position must name one of its packages
+     * @return a future completing once the tree is stored and the deployment record says the
+     *         project has an SBOM of its dependencies
      */
-    Future<Void> recordSbom(String projectId, String dependencyHash);
+    Future<Void> recordSbom(String projectId, String dependencyHash, ProjectDependencies dependencies);
 
 }

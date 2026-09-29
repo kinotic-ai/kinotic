@@ -27,7 +27,6 @@ import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.Tasks;
-import org.kinotic.management.api.services.storage.OrganizationStorageService;
 import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
 import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 import org.kinotic.management.api.model.deployment.DeployTarget;
@@ -55,12 +54,12 @@ import java.util.stream.Collectors;
  * the target node and checkout directory, bring the checkout to the commit with a
  * foreground sync workload, bind the artifacts that workload found into the run, ask for one
  * long-lived runtime workload per microservice of the commit and wait for the microservices'
- * workers to answer, upload its UIs and ask for their sites to serve them, and, unless the
- * environment has no Azure storage, keep the project's SBOM current with a foreground SBOM
- * workload. The resolved {@link DeployTarget}, the artifacts, the microservice deployments, the UI
- * deployments and the SBOM are stored in the job scope under the {@link ProjectDeployStores}
- * names, so the run's {@code TaskRecord}s carry them to the console. The target is also recorded
- * on the project's deployment as soon as it is resolved.
+ * workers to answer, upload its UIs and ask for their sites to serve them, and keep the
+ * project's SBOM current with a foreground SBOM workload. The resolved {@link DeployTarget}, the
+ * artifacts, the microservice deployments, the UI deployments and the SBOM are stored in the job
+ * scope under the {@link ProjectDeployStores} names, so the run's {@code TaskRecord}s carry them
+ * to the console. The target is also recorded on the project's deployment as soon as it is
+ * resolved.
  */
 @Slf4j
 @Component
@@ -69,8 +68,6 @@ public class ProjectDeployJobDefinitionFactory {
 
     /** Longer than placing and booting every microservice's VM, or a first look at every site, takes. */
     private static final Duration CONVERGENCE_TIMEOUT = Duration.ofMinutes(10);
-    /** Longer than generating and uploading an SBOM takes, and short enough that a leaked URL is soon worthless. */
-    private static final Duration SBOM_UPLOAD_URL_TTL = Duration.ofHours(1);
     private static final Duration CONVERGENCE_POLL_INTERVAL = Duration.ofSeconds(2);
 
     private final Vertx vertx;
@@ -83,7 +80,6 @@ public class ProjectDeployJobDefinitionFactory {
     private final UiSitePublisher uiSitePublisher;
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final ProjectWorkloadFactory projectWorkloadFactory;
-    private final OrganizationStorageService organizationStorageService;
     private final KinoticSystemApiProperties properties;
 
     /**
@@ -98,7 +94,7 @@ public class ProjectDeployJobDefinitionFactory {
      */
     public JobDefinition createJobDefinition(Project project, ProjectDeployment existing, String commitSha) {
         String projectId = project.getId();
-        JobDefinition definition = JobDefinition.create("Deploy project " + projectId + " at " + commitSha)
+        return JobDefinition.create("Deploy project " + projectId + " at " + commitSha)
                 .name("project-deploy-" + projectId)
                 .version("1.0.0")
                 // Store.state: the target is a decision later effects are bound to - the sync
@@ -157,26 +153,23 @@ public class ProjectDeployJobDefinitionFactory {
                     public CompletableFuture<UiDeployments> call() {
                         return publishUis(project, target, artifacts, commitSha).toCompletionStage().toCompletableFuture();
                     }
-                }), Store.state(ProjectDeployStores.UI_DEPLOYMENTS).wire());
-        if (!properties.getSystemApi().isDisableAzureStorage()) {
-            // Store.state: whether the run generated the SBOM, so a resume keeps the outcome rather
-            // than generating it again; wired so the console shows it, and can tail the SBOM
-            // workload's logs before that through the target
-            definition.task(Tasks.fromCallable("Generate SBOM", new Callable<CompletableFuture<Boolean>>() {
+                }), Store.state(ProjectDeployStores.UI_DEPLOYMENTS).wire())
+                // Store.state: whether the run generated the SBOM, so a resume keeps the outcome rather
+                // than generating it again; wired so the console shows it, and can tail the SBOM
+                // workload's logs before that through the target
+                .task(Tasks.fromCallable("Generate SBOM", new Callable<CompletableFuture<Boolean>>() {
 
-                @Autowired
-                private DeployTarget target;
+                    @Autowired
+                    private DeployTarget target;
 
-                @Autowired
-                private ProjectArtifacts artifacts;
+                    @Autowired
+                    private ProjectArtifacts artifacts;
 
-                @Override
-                public CompletableFuture<Boolean> call() {
-                    return generateSbom(project, target, artifacts).toCompletionStage().toCompletableFuture();
-                }
-            }), Store.state(ProjectDeployStores.SBOM).wire());
-        }
-        return definition;
+                    @Override
+                    public CompletableFuture<Boolean> call() {
+                        return generateSbom(project, target, artifacts).toCompletionStage().toCompletableFuture();
+                    }
+                }), Store.state(ProjectDeployStores.SBOM).wire());
     }
 
     /**
@@ -401,11 +394,10 @@ public class ProjectDeployJobDefinitionFactory {
     }
 
     /**
-     * Keeps the project's SBOM current: when the project's SBOM file does not list the dependencies
-     * the sync workload reported, a foreground SBOM workload generates it from the checkout, uploads
-     * it over that file in the organization storage account through a URL scoped to the file, and
-     * records it; otherwise no workload runs and the SBOM stays. Emits whether this run generated
-     * the SBOM, and fails when the checkout has no bun.lock.
+     * Keeps the project's SBOM current: when the project's SBOM does not list the dependencies the
+     * sync workload reported, a foreground SBOM workload reads the dependency tree of the checkout's
+     * bun.lock and records it; otherwise no workload runs and the SBOM stays. Emits whether this run
+     * generated the SBOM, and fails when the checkout has no bun.lock.
      */
     private Future<Boolean> generateSbom(Project project, DeployTarget target, ProjectArtifacts artifacts) {
         return sbomGenerated(project)
@@ -419,10 +411,9 @@ public class ProjectDeployJobDefinitionFactory {
                         // means the SBOM lists the dependencies of this run
                         ret = Future.succeededFuture(false);
                     } else {
-                        ret = organizationStorageService.issueSbomWriteUrl(project.getOrganizationId(), project.getId(), SBOM_UPLOAD_URL_TTL)
-                                // the sync workload has exited, so the SBOM workload takes over its machine's credentials
-                                .compose(url -> projectDeployIdentityService.issueSyncCredentials(project)
-                                        .map(credentials -> projectWorkloadFactory.sbom(project, target, credentials, url)))
+                        // the sync workload has exited, so the SBOM workload takes over its machine's credentials
+                        ret = projectDeployIdentityService.issueSyncCredentials(project)
+                                .map(credentials -> projectWorkloadFactory.sbom(project, target, credentials))
                                 .compose(workloadOrchestrationService::deployWorkload)
                                 .compose(finished -> requireSucceeded(finished, "SBOM"))
                                 .compose(workloadId -> sbomGenerated(project))
@@ -438,7 +429,7 @@ public class ProjectDeployJobDefinitionFactory {
                 });
     }
 
-    // Whether the project's SBOM file lists the dependencies its deployment records
+    // Whether the project's SBOM lists the dependencies its deployment records
     private Future<Boolean> sbomGenerated(Project project) {
         return projectDeploymentRepository.findById(project.getId(), project.getOrganizationId())
                 .map(deployment -> deployment != null && deployment.isSbomGenerated());

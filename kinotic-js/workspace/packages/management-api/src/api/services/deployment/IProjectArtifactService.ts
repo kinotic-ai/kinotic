@@ -1,12 +1,13 @@
 import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import type { ProjectArtifacts } from '@/api/model/deployment/ProjectArtifacts'
+import type { ProjectDependencies } from '@/api/model/deployment/ProjectDependencies'
 
 /**
- * Records the artifacts a project's deployment workloads find, and the SBOM they generate, on the
- * project's ProjectDeployment. Every call is authorized against the machine identities the
- * deployment recorded for the project, so only a workload the deployment issued credentials to can
- * report on the project's behalf.
+ * Records the artifacts a project's deployment workloads find on the project's ProjectDeployment,
+ * and the SBOM they generate as its ProjectDependencies. Every call is authorized against the
+ * machine identities the deployment recorded for the project, so only a workload the deployment
+ * issued credentials to can report on the project's behalf.
  */
 export interface IProjectArtifactService {
 
@@ -21,14 +22,18 @@ export interface IProjectArtifactService {
     recordArtifacts(projectId: string, artifacts: ProjectArtifacts): Promise<void>
 
     /**
-     * Records the SBOM the SBOM workload generated from the project's checkout and uploaded to the
-     * organization's storage. The caller must be the project's sync machine identity, and the
+     * Records the SBOM the SBOM workload generated from the project's checkout, replacing the one an
+     * earlier run recorded. The caller must be the project's sync machine identity, and the
      * dependency hash the one the sync workload last reported.
      * @param projectId the project whose checkout the SBOM was generated from
-     * @param dependencyHash the fingerprint of the dependencies the document lists
-     * @return Promise resolving once the deployment record holds the SBOM
+     * @param dependencyHash the fingerprint of the dependencies the tree lists
+     * @param dependencies the dependency tree, stored under the project's id, organization and
+     *                     application whatever ids it carries; no package may be listed twice, and
+     *                     every position must name one of its packages
+     * @return Promise resolving once the tree is stored and the deployment record says the project
+     *         has an SBOM of its dependencies
      */
-    recordSbom(projectId: string, dependencyHash: string): Promise<void>
+    recordSbom(projectId: string, dependencyHash: string, dependencies: ProjectDependencies): Promise<void>
 
 }
 
@@ -44,8 +49,8 @@ export class ProjectArtifactService implements IProjectArtifactService {
         return this.serviceProxy.invoke('recordArtifacts', [projectId, artifacts])
     }
 
-    public recordSbom(projectId: string, dependencyHash: string): Promise<void> {
-        return this.serviceProxy.invoke('recordSbom', [projectId, dependencyHash])
+    public recordSbom(projectId: string, dependencyHash: string, dependencies: ProjectDependencies): Promise<void> {
+        return this.serviceProxy.invoke('recordSbom', [projectId, dependencyHash, dependencies])
     }
 
 }

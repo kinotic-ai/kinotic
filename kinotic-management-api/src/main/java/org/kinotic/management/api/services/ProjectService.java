@@ -7,6 +7,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.services.ApplicationScopedCrudService;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.deployment.ProjectDependencies;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.idl.api.annotations.McpTool;
 
@@ -61,13 +62,15 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
     Future<Page<WatchEvent>> findDeploymentHistory(String projectId, Pageable pageable);
 
     /**
-     * Finds a URL the CycloneDX JSON document of the given project's SBOM can be read from for the
-     * next fifteen minutes, by anyone holding it.
+     * Finds the SBOM of the given project in the current participant's organization: every
+     * package version its lockfile installs, how the project reaches each, and which package
+     * depends on which.
      *
      * @param projectId id of the project the SBOM belongs to
-     * @return a {@link Future} emitting the URL, or {@code null} when the project has no SBOM
+     * @return a {@link Future} emitting the dependency tree, or {@code null} when the project has
+     *         no SBOM of the dependencies its last sync reported
      */
-    Future<String> findSbomDocumentUrl(String projectId);
+    Future<ProjectDependencies> findDependencies(String projectId);
 
     /**
      * Re-runs repository initialization for a project left

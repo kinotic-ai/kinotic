@@ -44,9 +44,9 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
 -- reconcilable record what it should be (state.desired, the commit its last push asked for), what
 -- it is (state.observed, the phase it is in and the commit it serves), the generations that tie
 -- the two, deletionRequested and reconciled. failureMessage keeps the reason a deployment failed.
--- sbomGenerated says whether the project's SBOM, organizations/<organizationId>/sboms/<projectId>.cdx.json
--- in the organization storage account, lists the dependencies artifacts lists; a sync that reports
--- other dependencies clears it. One row per project; id equals the projectId.
+-- sbomGenerated says whether the project's SBOM, its kinotic_project_dependencies row, lists the
+-- dependencies artifacts lists; a sync that reports other dependencies clears it. One row per
+-- project; id equals the projectId.
 CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     id KEYWORD,
     organizationId KEYWORD,
@@ -69,6 +69,23 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
     created DATE,
     updated DATE
+);
+
+-- Each project's SBOM: the dependency tree of the lockfile a deployment read it from, current
+-- while the project's kinotic_project_deployment row has sbomGenerated set. packages lists every
+-- installed package version as a package URL and is indexed, so the projects holding a package
+-- are one term query; direct, development and optional are positions in packages, and edges holds
+-- [dependent, dependency] position pairs, read whole and never searched. One row per project; id
+-- equals the projectId.
+CREATE TABLE IF NOT EXISTS kinotic_project_dependencies (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    packages KEYWORD,
+    direct INTEGER NOT INDEXED,
+    development INTEGER NOT INDEXED,
+    optional INTEGER NOT INDEXED,
+    edges JSON NOT INDEXED
 );
 
 -- Microservice deployments: one row per microservice artifact a project deployment has ensured.

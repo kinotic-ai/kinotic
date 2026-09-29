@@ -100,8 +100,7 @@ module "environment" {
   dns_zone_subscription_id       = local.global.subscription_id
   email_communication_service_id = local.global.email_communication_service_id
 
-  ui_hostnames   = { portal = var.portal_label, console = var.console_label }
-  portal_origins = ["https://${var.portal_label}.${local.global.dns_zone_name}"]
+  ui_hostnames = { portal = var.portal_label, console = var.console_label }
 }
 
 # The operator uploads the two UIs into the sites account (deploy-ui.sh)

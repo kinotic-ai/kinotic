@@ -182,7 +182,8 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
 
     /**
      * Records the artifacts the sync workload found in a commit together with whether the project's
-     * SBOM file lists their dependencies, leaving every other field as it is.
+     * {@link org.kinotic.management.api.model.deployment.ProjectDependencies} list their
+     * dependencies, leaving every other field as it is.
      */
     public Future<Void> recordArtifacts(String projectId, String orgId, ProjectArtifacts artifacts, boolean sbomGenerated) {
         Validate.notNull(artifacts, "artifacts cannot be null");
@@ -194,8 +195,8 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
     }
 
     /**
-     * Records that the project's SBOM file lists the dependencies the artifacts list, leaving every
-     * other field as it is.
+     * Records that the project's {@link org.kinotic.management.api.model.deployment.ProjectDependencies}
+     * list the dependencies the artifacts list, leaving every other field as it is.
      */
     public Future<Void> recordSbomGenerated(String projectId, String orgId) {
         Map<String, Object> fields = new HashMap<>();

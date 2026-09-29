@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { Kinotic } from '@kinotic-ai/core'
@@ -6,7 +6,7 @@ import { ManagementApiPlugin, type ProjectArtifacts, type UiArtifact } from '@ki
 import { findArtifacts } from './artifacts.ts'
 import { dependencyHashOf } from './sbom.ts'
 import { writeSentinel } from './sentinel.ts'
-import { log, logError, run } from './log.ts'
+import { forwardOutput, log, logError } from './log.ts'
 
 /**
  * One-shot entrypoint of the sync workload: brings the shared checkout directory to the
@@ -41,6 +41,21 @@ function require_(name: string): string {
         throw new Error(`${name} must be set`)
     }
     return value
+}
+
+function run(command: string, args: string[], cwd: string, env: Record<string, string> = {}): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] })
+        forwardOutput(child)
+        child.on('error', reject)
+        child.on('exit', (code, signal) => {
+            if (code === 0) {
+                resolve()
+            } else {
+                reject(new Error(`${command} ${args.join(' ')} exited with ${code ?? signal}`))
+            }
+        })
+    })
 }
 
 function headCommit(workspaceDir: string): string {

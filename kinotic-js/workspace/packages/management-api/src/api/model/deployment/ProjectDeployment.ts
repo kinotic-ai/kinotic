@@ -47,9 +47,10 @@ export class ProjectDeployment implements Reconcilable<DeploymentState> {
     public uiPublishWorkloadId: string | null = null
 
     /**
-     * The id of the SBOM workload of the most recent deployment run, or null before a run has
-     * generated an SBOM. The workload is destroyed when its run ends; its logs stay in the
-     * organization's log store under this id.
+     * The id of the SBOM workload of the most recent deployment run, or null before the first run
+     * resolved its target. The workload runs only when the project has no SBOM of the dependencies
+     * its sync reported, and is destroyed when its run ends; its logs stay in the organization's
+     * log store under this id.
      */
     public sbomWorkloadId: string | null = null
 
@@ -66,8 +67,8 @@ export class ProjectDeployment implements Reconcilable<DeploymentState> {
     public artifacts: ProjectArtifacts | null = null
 
     /**
-     * Whether the project's SBOM file lists the dependencies artifacts list. A sync that reports
-     * other dependencies clears it until a deployment generates the SBOM again.
+     * Whether the project's ProjectDependencies list the dependencies artifacts list. A sync that
+     * reports other dependencies clears it until a deployment generates the SBOM again.
      */
     public sbomGenerated: boolean = false
 

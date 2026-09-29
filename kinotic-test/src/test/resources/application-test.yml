@@ -10,11 +10,9 @@ kinotic:
       appPrivateKey: "-"
       webhookSecret: "-"
       repoTemplate: "-"
-    # placeholder organization storage account, validated at boot; no test generates an SBOM
-    organizationsStorageEndpoint: "-"
   maxNumberOfCoresToUse: 4
   systemApi:
-    # no Azure storage accounts in tests: the site provisioner is the mock
+    # no sites account in tests: the site provisioner is the mock
     disableAzureStorage: true
     deployment:
       # required at boot; no deployment ever runs in tests, workloads would reach the local gateway

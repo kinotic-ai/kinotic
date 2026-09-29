@@ -25,28 +25,42 @@ describe('generate-sbom entrypoint', () => {
         rmSync(workspaceDir, { recursive: true, force: true })
     })
 
+    // no server is configured: each run fails before connecting to one
     function environment(): Record<string, string> {
         return {
-            // never contacted: each run fails before anything is uploaded
-            KINOTIC_SBOM_UPLOAD_URL: 'https://storage.example.test/organizations/acme/sboms/shop.cdx.json?sv=2020-12-06&sig=test',
             KINOTIC_PROJECT_ID: 'shop',
             KINOTIC_WORKSPACE_DIR: workspaceDir,
         }
     }
 
-    it('fails naming the variable when the upload URL is not given', () => {
-        const { KINOTIC_SBOM_UPLOAD_URL, ...rest } = environment()
+    it('fails naming the variable when the project is not given', () => {
+        const { KINOTIC_PROJECT_ID, ...rest } = environment()
 
         const result = runGenerateSbom(rest)
 
         expect(result.status).not.toBe(0)
-        expect(result.stderr).toContain('KINOTIC_SBOM_UPLOAD_URL must be set')
+        expect(result.stderr).toContain('KINOTIC_PROJECT_ID must be set')
     })
 
-    it('fails before uploading anything when the checkout has no bun.lock', () => {
+    it('fails before reporting anything when the checkout has no bun.lock', () => {
         const result = runGenerateSbom(environment())
 
         expect(result.status).not.toBe(0)
-        expect(result.stderr).toContain('has no bun.lock to generate the SBOM from')
+        expect(result.stderr).toContain('has no bun.lock to read the SBOM from')
+    })
+
+    it('fails before reporting anything when the tree is larger than one report carries', () => {
+        const packages = Array.from({ length: 40_000 }, (_, i) => `package-with-a-name-long-enough-${String(i).padStart(6, '0')}`)
+        writeFileSync(join(workspaceDir, 'bun.lock'), JSON.stringify({
+            lockfileVersion: 1,
+            workspaces: { '': { name: 'fixture' } },
+            packages: Object.fromEntries(packages.map(name => [name, [`${name}@1.0.0`, '', {}, 'sha512-test']])),
+        }))
+
+        const result = runGenerateSbom(environment())
+
+        expect(result.status).not.toBe(0)
+        expect(result.stderr).toContain('the SBOM of 40000 packages is')
+        expect(result.stderr).toContain('one report to the server carries')
     })
 })

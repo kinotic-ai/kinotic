@@ -15,7 +15,6 @@ import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.springframework.stereotype.Component;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -69,14 +68,12 @@ public class ProjectWorkloadFactory {
     }
 
     /**
-     * The SBOM workload of a deployment run: generates the project's SBOM from the checkout
-     * mounted read-only at {@code /workspace}, uploads it through {@code uploadUrl}, the project's
-     * SBOM file in the organization storage account, and records it as the project's sync machine.
+     * The SBOM workload of a deployment run: reads the dependency tree of the lockfile in the
+     * checkout mounted read-only at {@code /workspace} and records it as the project's sync machine.
      */
     public Workload sbom(Project project,
                          DeployTarget target,
-                         MachineProvisionResult credentials,
-                         String uploadUrl) {
+                         MachineProvisionResult credentials) {
         DeploymentProperties deployment = deployment();
         Workload workload = new Workload("project-sbom-" + project.getId(), deployment.getWorkloadRunnerImage());
         workload.setId(target.sbomWorkloadId());
@@ -92,16 +89,10 @@ public class ProjectWorkloadFactory {
         workload.setEntrypoint(List.of("bun", "src/generate-sbom.ts"));
         workload.getEnvironment().put("KINOTIC_PROJECT_ID", project.getId());
         putKinoticConnection(workload, deployment, credentials);
-        // the URL is a credential for the run's length, so it travels as a secret
-        workload.getSecrets().put("KINOTIC_SBOM_UPLOAD_URL", uploadUrl);
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/workspace")
                                                         .setReadOnly(true));
-        // the registry the sync installed from answers each package's license, and the document
-        // goes up to the account's blob host
-        List<String> hosts = new ArrayList<>(deployment.getSyncAllowedHosts());
-        hosts.add(URI.create(uploadUrl).getHost());
-        workload.getNetwork().setAllowedHosts(allowedHosts(hosts, deployment));
+        workload.getNetwork().setAllowedHosts(allowedHosts(List.of(), deployment));
         return workload;
     }
 

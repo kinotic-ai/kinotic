@@ -9,18 +9,18 @@ import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.deployment.ProjectDependencies;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
+import org.kinotic.management.api.repositories.ProjectDependenciesRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.services.ProjectRepoProvisioner;
 import org.kinotic.management.api.services.ProjectService;
-import org.kinotic.management.api.services.storage.OrganizationStorageService;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Function;
@@ -28,25 +28,22 @@ import java.util.function.Function;
 @Component
 public class DefaultProjectService extends AbstractApplicationScopedService<Project> implements ProjectService {
 
-    /** Long enough for a page to fetch the document, short enough that a leaked URL is soon worthless. */
-    private static final Duration SBOM_DOCUMENT_URL_TTL = Duration.ofMinutes(15);
-
     final Slugify slg = Slugify.builder().build();
 
     private final ProjectRepository projectRepository;
     private final ProjectDeploymentRepository projectDeploymentRepository;
-    private final OrganizationStorageService organizationStorageService;
+    private final ProjectDependenciesRepository projectDependenciesRepository;
     private final ProjectRepoProvisioner repoProvisioner;
 
     public DefaultProjectService(ProjectRepository repository,
                                  SecurityContext securityContext,
                                  ProjectDeploymentRepository projectDeploymentRepository,
-                                 OrganizationStorageService organizationStorageService,
+                                 ProjectDependenciesRepository projectDependenciesRepository,
                                  ProjectRepoProvisioner repoProvisioner) {
         super(repository, securityContext);
         this.projectRepository = repository;
         this.projectDeploymentRepository = projectDeploymentRepository;
-        this.organizationStorageService = organizationStorageService;
+        this.projectDependenciesRepository = projectDependenciesRepository;
         this.repoProvisioner = repoProvisioner;
     }
 
@@ -117,13 +114,14 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     }
 
     @Override
-    public Future<String> findSbomDocumentUrl(String projectId) {
+    public Future<ProjectDependencies> findDependencies(String projectId) {
         Validate.notBlank(projectId, "projectId must not be blank");
         String organizationId = requireOrganizationId();
-        // deployments are stored per organization, so another organization's project reads as one without an SBOM
+        // the tree of earlier dependencies stays stored after a sync reports new ones, until the
+        // deployment's next SBOM replaces it, so the deployment says whether it is current
         return projectDeploymentRepository.findById(projectId, organizationId)
                 .compose(deployment -> deployment != null && deployment.isSbomGenerated()
-                        ? organizationStorageService.issueSbomReadUrl(organizationId, projectId, SBOM_DOCUMENT_URL_TTL)
+                        ? projectDependenciesRepository.findById(projectId, organizationId)
                         : Future.succeededFuture());
     }
 
