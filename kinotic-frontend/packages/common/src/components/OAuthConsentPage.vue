@@ -22,8 +22,8 @@
         <Message v-if="systemAccount" severity="warn" :closable="false" class="consent-warning">
           This is a platform operator account. It is not scoped to an organization, so
           {{ pending.clientName }} would reach the MCP tools of every organization on this
-          platform. To authorize it for one organization, sign out and sign in to that
-          organization's portal account first.
+          platform. To authorize it for one organization, connect it to the organization API's
+          <code>/mcp</code> endpoint instead and approve there as a member of that organization.
         </Message>
         <Button
           label="Approve"
@@ -115,12 +115,16 @@ const clientHost = computed<string>(() => {
 
 onMounted(async () => {
   if (!requestId.value) return
-  const res = await fetch(apiUrl('/api/auth/oauth/request/' + encodeURIComponent(requestId.value)),
-                          { credentials: 'include' })
-  if (res.ok) {
-    pending.value = await res.json()
-  } else {
-    failed.value = await readAuthError(res, 'Could not load the authorization request')
+  try {
+    const res = await fetch(apiUrl('/api/auth/oauth/request/' + encodeURIComponent(requestId.value)),
+                            { credentials: 'include' })
+    if (res.ok) {
+      pending.value = await res.json()
+    } else {
+      failed.value = await readAuthError(res, 'Could not load the authorization request')
+    }
+  } catch {
+    failed.value = 'Could not load the authorization request'
   }
 })
 
@@ -128,16 +132,21 @@ async function decide(decision: Decision) {
   const id = requestId.value
   if (!id) return
   deciding.value = decision
-  const res = await fetch(apiUrl('/api/auth/oauth/' + decision), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ requestId: id })
-  })
-  if (res.ok) {
-    window.location.href = (await res.json()).redirectUrl
-  } else {
-    failed.value = await readAuthError(res, 'Could not complete the authorization')
+  try {
+    const res = await fetch(apiUrl('/api/auth/oauth/' + decision), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ requestId: id })
+    })
+    if (res.ok) {
+      window.location.href = (await res.json()).redirectUrl
+    } else {
+      failed.value = await readAuthError(res, 'Could not complete the authorization')
+      deciding.value = null
+    }
+  } catch {
+    failed.value = 'Could not complete the authorization'
     deciding.value = null
   }
 }
