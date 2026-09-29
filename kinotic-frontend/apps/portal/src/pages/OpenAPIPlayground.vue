@@ -31,8 +31,8 @@ onMounted(() => {
   const token = isOidcAuth ? Cookies.get('token') : null
   const sessionId = USER_STATE.connectedInfo?.sessionId
 
-  if (!token) {
-    debug('No token found in cookie')
+  if (!isOidcAuth && !sessionId) {
+    debug('No active session for playground')
     return
   }
 

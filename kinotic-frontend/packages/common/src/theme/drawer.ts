@@ -8,16 +8,16 @@ import type { DrawerDesignTokens } from '@primeuix/themes/types/drawer';
         shadow: "{overlay.modal.shadow}"
     },
     header: {
-        padding: "{overlay.modal.padding}"
+        padding: "1.25rem 1.5rem"
     },
     title: {
-        fontSize: "1.5rem",
-        fontWeight: "600"
+        fontSize: "1.125rem",
+        fontWeight: "500"
     },
     content: {
-        padding: "0 {overlay.modal.padding} {overlay.modal.padding} {overlay.modal.padding}"
+        padding: "1.5rem"
     },
     footer: {
-        padding: "{overlay.modal.padding}"
+        padding: "0.75rem 1.5rem"
     }
 } satisfies DrawerDesignTokens;

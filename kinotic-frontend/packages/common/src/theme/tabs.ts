@@ -16,12 +16,13 @@ import type { TabsDesignTokens } from '@primeuix/themes/types/tabs';
         borderWidth: "0 0 1px 0",
         borderColor: "{content.border.color}",
         hoverBorderColor: "{content.border.color}",
-        activeBorderColor: "{primary.color}",
+        activeBorderColor: "{text.color}",
         color: "{text.muted.color}",
         hoverColor: "{text.color}",
         activeColor: "{text.color}",
-        padding: "14px 15px",
-        fontWeight: "500",
+        // No side padding: the active bar spans exactly the icon and label
+        padding: "0.75rem 0",
+        fontWeight: "400",
         margin: "0 0 -1px 0",
         gap: "0.5rem",
         focusRing: {
@@ -58,9 +59,9 @@ import type { TabsDesignTokens } from '@primeuix/themes/types/tabs';
         }
     },
     activeBar: {
-        height: "1px",
+        height: "3px",
         bottom: "-1px",
-        background: "{primary.color}"
+        background: "{text.color}"
     },
     colorScheme: {
         light: {

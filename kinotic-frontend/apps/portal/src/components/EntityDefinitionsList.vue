@@ -99,7 +99,6 @@ function openEntity(item: EntityDefinition, tab: 'data' | 'schema' = 'data'): vo
   <div class="flex flex-1 flex-col">
     <CrudTable
       ref="crudTable"
-      rowHoverColor=""
       :data-source="dataSource"
       :headers="headers"
       :singleExpand="false"

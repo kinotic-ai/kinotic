@@ -42,7 +42,7 @@
       </template>
 
       <template #item.description="{ item }">
-        <span class="block max-w-[16rem] truncate" :title="item.description">{{ item.description || '—' }}</span>
+        <span class="block max-w-[16rem] truncate" v-tooltip.top="item.description">{{ item.description || '—' }}</span>
       </template>
 
       <template #item.updated="{ item }">

@@ -321,11 +321,13 @@ export default {
         950: "{emerald.950}"
     },
     formField: {
+        // Default and small controls share one 36px height; the padding brings each close and
+        // the control min-height rule in KinoticPreset makes it exact
         paddingX: "0.75rem",
-        paddingY: "0.5rem",
+        paddingY: "0.3125rem",
         sm: {
             fontSize: "0.875rem",
-            paddingX: "0.625rem",
+            paddingX: "0.75rem",
             paddingY: "0.375rem"
         },
         lg: {
@@ -333,13 +335,14 @@ export default {
             paddingX: "0.875rem",
             paddingY: "0.625rem"
         },
-        borderRadius: "{border.radius.lg}",
+        borderRadius: "{border.radius.md}",
+        // A focused field draws a 3px halo outside its focus-coloured border
         focusRing: {
             width: "0",
             style: "none",
-            color: "transparent",
+            color: "{sky.200}",
             offset: "0",
-            shadow: "none"
+            shadow: "0 0 0 3px {sky.200}"
         },
         transitionDuration: "{transition.duration}"
     },
@@ -351,7 +354,7 @@ export default {
         },
         option: {
             padding: "0.5rem 0.75rem",
-            borderRadius: "{border.radius.lg}"
+            borderRadius: "{border.radius.md}"
         },
         optionGroup: {
             padding: "0.5rem 0.75rem",
@@ -487,12 +490,12 @@ export default {
             list: {
                 option: {
                     focusBackground: "{surface.100}",
-                    selectedBackground: "{highlight.background}",
-                    selectedFocusBackground: "{highlight.focus.background}",
+                    selectedBackground: "{sky.100}",
+                    selectedFocusBackground: "{sky.100}",
                     color: "{text.color}",
                     focusColor: "{text.hover.color}",
-                    selectedColor: "{highlight.color}",
-                    selectedFocusColor: "{highlight.focus.color}",
+                    selectedColor: "{surface.950}",
+                    selectedFocusColor: "{surface.950}",
                     icon: {
                         color: "{surface.400}",
                         focusColor: "{surface.500}"
@@ -612,12 +615,12 @@ export default {
             list: {
                 option: {
                     focusBackground: "{surface.800}",
-                    selectedBackground: "{highlight.background}",
-                    selectedFocusBackground: "{highlight.focus.background}",
+                    selectedBackground: "color-mix(in srgb, {sky.400}, transparent 84%)",
+                    selectedFocusBackground: "color-mix(in srgb, {sky.400}, transparent 84%)",
                     color: "{text.color}",
                     focusColor: "{text.hover.color}",
-                    selectedColor: "{highlight.color}",
-                    selectedFocusColor: "{highlight.focus.color}",
+                    selectedColor: "{surface.0}",
+                    selectedFocusColor: "{surface.0}",
                     icon: {
                         color: "{surface.500}",
                         focusColor: "{surface.400}"

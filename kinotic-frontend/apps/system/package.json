@@ -10,10 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@kinotic-ai/core": "catalog:",
     "@kinotic-ai/frontend-common": "workspace:*",
     "@kinotic-ai/management-api": "catalog:",
     "@kinotic-ai/system-api": "catalog:",
+    "@lucide/vue": "^1.48.0",
     "@primeuix/themes": "^2.0.3",
     "echarts": "^6.1.0",
     "primeicons": "^7.0.0",

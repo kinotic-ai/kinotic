@@ -20,7 +20,7 @@
         'flex items-center gap-3 border-b border-l-[3px] border-b-surface px-3.5 py-2.5 text-color no-underline transition-colors last:border-b-0 hover:bg-emphasis',
         item.severity === 'danger' ? 'border-l-red-500' : 'border-l-amber-500'
       ]"
-      :title="item.detail"
+      v-tooltip.top="item.detail"
     >
       <i :class="['pi', item.icon, item.severity === 'danger' ? 'text-red-500' : 'text-amber-500']" />
       <span class="min-w-0 flex-1 truncate text-sm">

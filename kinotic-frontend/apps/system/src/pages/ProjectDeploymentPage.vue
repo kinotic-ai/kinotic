@@ -16,7 +16,7 @@
     <template v-if="latestRun">
       <div class="mb-4 flex flex-wrap items-center gap-4">
         <Tag :value="latestRun.status" :severity="executionStatusSeverity(latestRun.status)" />
-        <span v-if="latestSha" class="font-mono text-sm text-muted-color" :title="latestSha">{{ shortSha(latestSha) }}</span>
+        <span v-if="latestSha" class="font-mono text-sm text-muted-color" v-tooltip.top="latestSha">{{ shortSha(latestSha) }}</span>
         <span v-if="latestRun.started" class="text-xs text-muted-color">Started {{ formatEpochDateTime(latestRun.started) }}</span>
       </div>
 
@@ -24,7 +24,7 @@
         {{ latestRun.error }}
       </Message>
 
-      <JobRunProgress :key="latestRun.id ?? ''" :job-run-id="latestRun.id ?? ''" :expandable="ProjectDeployStores.hasDetail">
+      <JobRunProgress :key="latestRun.id ?? ''" :job-run-id="latestRun.id ?? ''" :expandable="ProjectDeployStores.hasDetail" :task-icon="ProjectDeployStores.iconOf">
         <template #detail="{ node, root }">
           <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
         </template>

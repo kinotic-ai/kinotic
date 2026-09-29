@@ -13,7 +13,7 @@
       <div class="flex min-w-0 flex-1 items-center gap-2 text-sm">
         <RouterLink :to="entitiesPath" class="text-surface-500 hover:underline dark:text-surface-400">Entities</RouterLink>
         <i class="pi pi-chevron-right text-surface-500 dark:text-surface-400" :style="{ fontSize: '10px' }" />
-        <span class="truncate font-semibold text-surface-950 dark:text-surface-0" :title="entity?.description || undefined">{{ entity?.name ?? entityDefinitionId }}</span>
+        <span class="truncate font-semibold text-surface-950 dark:text-surface-0" v-tooltip.top="entity?.description || undefined">{{ entity?.name ?? entityDefinitionId }}</span>
         <Tag v-if="entity" :value="entity.published ? 'Published' : 'Unpublished'"
              :severity="entity.published ? 'success' : 'secondary'" rounded />
       </div>
@@ -30,10 +30,10 @@
     <Tabs v-else-if="entity" lazy :value="activeTab" class="flex min-h-0 flex-1 flex-col" @update:value="selectTab">
       <TabList>
         <Tab value="data">
-          <span class="flex items-center gap-2"><i class="pi pi-table" />Data</span>
+          <span class="flex items-center gap-2"><Table :size="18" :stroke-width="1.75" aria-hidden="true" />Data</span>
         </Tab>
         <Tab value="schema">
-          <span class="flex items-center gap-2"><i class="pi pi-sitemap" />Schema</span>
+          <span class="flex items-center gap-2"><Braces :size="18" :stroke-width="1.75" aria-hidden="true" />Schema</span>
         </Tab>
       </TabList>
       <TabPanels class="flex min-h-0 flex-1 flex-col">
@@ -52,6 +52,7 @@
 </template>
 
 <script setup lang="ts">
+import { Braces, Table } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'

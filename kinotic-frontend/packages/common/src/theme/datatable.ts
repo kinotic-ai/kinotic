@@ -26,7 +26,7 @@ import type { DataTableDesignTokens } from '@primeuix/themes/types/datatable';
         hoverColor: "{content.hover.color}",
         selectedColor: "{highlight.color}",
         gap: "0.5rem",
-        padding: "0.75rem 1rem",
+        padding: "0.625rem 0.75rem",
         focusRing: {
             width: "{focus.ring.width}",
             style: "{focus.ring.style}",
@@ -42,7 +42,7 @@ import type { DataTableDesignTokens } from '@primeuix/themes/types/datatable';
         }
     },
     columnTitle: {
-        fontWeight: "600"
+        fontWeight: "400"
     },
     row: {
         background: "{content.background}",
@@ -61,7 +61,7 @@ import type { DataTableDesignTokens } from '@primeuix/themes/types/datatable';
     },
     bodyCell: {
         borderColor: "{datatable.border.color}",
-        padding: "0.75rem 1rem",
+        padding: "0.5rem 0.75rem",
         sm: {
             padding: "0.375rem 0.5rem"
         },
@@ -184,6 +184,15 @@ import type { DataTableDesignTokens } from '@primeuix/themes/types/datatable';
             root: {
                 borderColor: "{content.border.color}"
             },
+            headerCell: {
+                background: "{surface.50}",
+                hoverBackground: "{surface.100}",
+                color: "{surface.600}",
+                hoverColor: "{surface.800}",
+                // The sorted column reads as a darker grey band, not the brand highlight
+                selectedBackground: "{surface.200}",
+                selectedColor: "{surface.950}"
+            },
             row: {
                 stripedBackground: "{surface.50}"
             },
@@ -194,6 +203,14 @@ import type { DataTableDesignTokens } from '@primeuix/themes/types/datatable';
         dark: {
             root: {
                 borderColor: "{surface.800}"
+            },
+            headerCell: {
+                background: "{surface.800}",
+                hoverBackground: "{surface.700}",
+                color: "{surface.300}",
+                hoverColor: "{surface.100}",
+                selectedBackground: "{surface.700}",
+                selectedColor: "{surface.0}"
             },
             row: {
                 stripedBackground: "{surface.950}"

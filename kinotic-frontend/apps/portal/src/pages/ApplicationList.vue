@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { CrudTable } from "@kinotic-ai/frontend-common";
 import ApplicationSidebar from "@/components/ApplicationSidebar.vue";
+import InitialsTile from "@/components/InitialsTile.vue";
+import TimePill from "@/components/TimePill.vue";
 import { PageHeader } from "@kinotic-ai/frontend-common";
 import { Kinotic } from "@kinotic-ai/core";
 import {
@@ -8,10 +10,9 @@ import {
   type Application,
 } from "@kinotic-ai/management-api";
 import { APPLICATION_STATE } from "@/states/IApplicationState";
-import { onClickOutside } from "@vueuse/core";
 import type { CrudHeader } from "@kinotic-ai/frontend-common";
 import type { Identifiable } from "@kinotic-ai/core";
-import { onMounted, ref, shallowRef, watch } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useToast } from "primevue/usetoast";
 import { showErrorToast } from "@kinotic-ai/frontend-common";
@@ -36,19 +37,11 @@ const headers: CrudHeader[] = [
 const dataSource: IApplicationService = Kinotic.applications;
 const showSidebar = ref(false);
 const searchText = ref<string>((route.query.search as string) || "");
-const sidebarWrapper = ref<HTMLElement>();
 const crudTable = ref<InstanceType<typeof CrudTable>>();
 
 onMounted(async () => {
   try {
     refreshTable();
-    const el = shallowRef<HTMLElement | null>(sidebarWrapper.value ?? null);
-
-    onClickOutside(el, () => {
-      if (showSidebar.value) {
-        onSidebarClose();
-      }
-    });
 
     if (route.query.add === "true") {
       showSidebar.value = true;
@@ -115,8 +108,9 @@ function onApplicationSubmit(created: Application): void {
       ];
     }
   }
-  refreshTable();
   showSidebar.value = false;
+  // An application is only useful once it has a project, so carry straight on to creating one
+  router.push(`/application/${encodeURIComponent(created.id)}/projects?openNewProject=1`);
 }
 
 async function deleteApplication(item: Application): Promise<void> {
@@ -140,7 +134,6 @@ async function deleteApplication(item: Application): Promise<void> {
     <CrudTable
       ref="crudTable"
       createNewButtonText="New application"
-      rowHoverColor=""
       transparent-dark-cards
       :data-source="dataSource"
       :headers="headers"
@@ -155,6 +148,15 @@ async function deleteApplication(item: Application): Promise<void> {
       @onRowClick="toApplicationPage"
       class="application-list__table !text-sm"
     >
+    <template #item.name="{ item, index }">
+      <span class="flex min-w-0 items-center gap-2.5">
+        <InitialsTile :name="item.name || item.id" :index="index" />
+        <span class="truncate" v-tooltip.top="item.name">{{ item.name }}</span>
+      </span>
+    </template>
+    <template #card.icon="{ item, index }">
+      <InitialsTile :name="item.name || item.id || ''" :index="index" size="lg" />
+    </template>
     <template #item.id="{ item }">
       <span>{{ item.id }}</span>
     </template>
@@ -171,18 +173,14 @@ async function deleteApplication(item: Application): Promise<void> {
       </span>
     </template>
     <template #item.updated="{ item }">
-      <span>
-        {{ DatetimeUtil.formatRelativeDate(item.updated) }}
-      </span>
+      <TimePill :date="item.updated" />
     </template>
     </CrudTable>
 
-    <div v-show="showSidebar" ref="sidebarWrapper">
-      <ApplicationSidebar
-        :visible="showSidebar"
-        @close="onSidebarClose"
-        @submit="onApplicationSubmit"
-      />
-    </div>
+    <ApplicationSidebar
+      :visible="showSidebar"
+      @close="onSidebarClose"
+      @submit="onApplicationSubmit"
+    />
   </div>
 </template>
