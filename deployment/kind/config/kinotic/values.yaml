@@ -34,6 +34,19 @@ servers:
       type: NodePort
       nodePorts:
         gateway: 30504
+    extraEnv:
+      # No Azure storage accounts: the site provisioner is the mock, and the site settings, validated
+      # at boot, are placeholders
+      KINOTIC_SYSTEMAPI_DISABLEAZURESTORAGE: "true"
+      KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN: apps.localhost
+      KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT: "-"
+      # What a workload dials, on the ports KinD maps on the host: the org server for sync and SBOM,
+      # the app server for runtime. A workload runs in a micro VM outside the cluster; a BOXLITE
+      # node on this machine reaches the host on the gvisor-tap-vsock host alias, and boxlite's
+      # proxy completes the last hop over the loopback. A CLOUD_HYPERVISOR node reaches it at
+      # 172.17.0.1 instead.
+      KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST: 192.168.127.254
+      KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST: 192.168.127.254
     resources:
       requests:
         cpu: 500m

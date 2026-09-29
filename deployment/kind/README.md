@@ -129,6 +129,20 @@ To disable TLS: `terraform apply -var="use_mkcert=false"`
 export NODE_EXTRA_CA_CERTS=~/.kinotic/kind/ca.crt
 ```
 
+## Project deployments
+
+KinD has no Azure storage accounts, so the system server runs with
+`kinotic.systemApi.disableAzureStorage` set (`config/kinotic/values.yaml`): a published UI is marked
+ready without being uploaded or served.
+
+A deployment's workloads run in micro VMs on a vm-manager node outside the cluster. They dial the
+org server (sync, SBOM) and the app server (runtime) at `192.168.127.254`, the host alias through
+which a BOXLITE node on this machine reaches the host, on the ports KinD maps there. A
+CLOUD_HYPERVISOR node reaches the host at `172.17.0.1` instead; set
+`KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST` and `_APPSERVER_HOST` in the system server's
+`extraEnv` to match. The mkcert certificate does not name either address, so the workloads reach
+the servers only without mkcert.
+
 ## OIDC / Keycloak
 
 Keycloak provides OIDC authentication. When enabled, Terraform deploys PostgreSQL + Keycloak
