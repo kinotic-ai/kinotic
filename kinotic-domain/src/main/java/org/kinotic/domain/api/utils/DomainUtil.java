@@ -6,7 +6,6 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
-import org.kinotic.domain.api.model.AppHost;
 import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
@@ -58,6 +57,16 @@ public class DomainUtil {
      * The leading label of application zones, which follow the form app.&lt;organizationId&gt;.&lt;applicationId&gt;
      */
     public static final String APP_ZONE_PREFIX = "app";
+
+    /**
+     * Separates the names a host label joins, {@code <organizationId>--<applicationId>} for an application's API
+     * host and {@code <organizationId>--<applicationId>--<uiName>} for the site of one of its UIs. No name
+     * contains it, so a label names exactly one application, and one UI.
+     */
+    public static final String HOST_LABEL_SEPARATOR = "--";
+
+    /** The longest label DNS allows, which bounds every host label the platform mints. */
+    public static final int MAX_HOST_LABEL_LENGTH = 63;
 
     /**
      * The prefix of the Elasticsearch indices the platform creates, including the index that holds
@@ -135,11 +144,11 @@ public class DomainUtil {
         Validate.isTrue(!SYSTEM_API_ZONE.equals(id), "Id '%s' is reserved by the platform", id);
     }
 
-    // AppHost joins ids and UI names with "--" into one host label, so a name holding it would let
+    // ids and UI names are joined with the separator into one host label, so a name holding it would let
     // two applications form the same label: org "a" with app "b--c" and org "a--b" with app "c"
     private static void validateHostLabelPart(String name) {
         ZoneUtil.validateLabel(name);
-        Validate.isTrue(!name.contains(AppHost.SEPARATOR), "'%s' must not contain '%s'", name, AppHost.SEPARATOR);
+        Validate.isTrue(!name.contains(HOST_LABEL_SEPARATOR), "'%s' must not contain '%s'", name, HOST_LABEL_SEPARATOR);
     }
 
     public static void validateProjectId(String projectId){

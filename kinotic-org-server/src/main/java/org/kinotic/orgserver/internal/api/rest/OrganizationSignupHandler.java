@@ -15,7 +15,7 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.services.security.SignUpService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
-import org.kinotic.domain.api.rest.ServerSurface;
+import org.kinotic.orgserver.api.config.OrgServerProperties;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
@@ -37,7 +37,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
     private final SignUpService signUpService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
-    private final ServerSurface serverSurface;
+    private final OrgServerProperties properties;
 
     @Override
     public void mountRoutes(Router router) {
@@ -119,7 +119,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
      * browser to the chosen Kinotic-curated social IdP.
      */
     private void handleSocialStart(RoutingContext ctx) {
-        authEndpointSupport.handleSocialStart(ctx, configId -> callbackUrl(ctx, configId));
+        authEndpointSupport.handleSocialStart(ctx, this::callbackUrl);
     }
 
     /**
@@ -131,7 +131,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
         String pathConfigId = ctx.pathParam("configId");
 
         oidcFlowOrchestrator.handleCallback(
-                ctx, pathConfigId, callbackUrl(ctx, pathConfigId),
+                ctx, pathConfigId, callbackUrl(pathConfigId),
                 _ -> orgSignupOidcConfigurationService.findById(pathConfigId))
                 .onSuccess(result -> createPendingSignUp(ctx, result))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
@@ -209,8 +209,8 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
               .onFailure(ex -> authEndpointSupport.respondError(ctx, 400, ex.getMessage()));
     }
 
-    private String callbackUrl(RoutingContext ctx, String configId) {
-        return serverSurface.apiBaseUrl(ctx) + "/api/auth/org/signup/social/callback/" + configId;
+    private String callbackUrl(String configId) {
+        return properties.getApiBaseUrl() + "/api/auth/org/signup/social/callback/" + configId;
     }
 
     /** Sends the browser to the org-naming page with the pending sign-up token. */

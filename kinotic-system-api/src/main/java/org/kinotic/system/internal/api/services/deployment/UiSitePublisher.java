@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.AppHost;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.management.api.model.Project;
@@ -85,10 +86,10 @@ public class UiSitePublisher {
         // a label outside DNS's grammar names no host under the sites domain
         ZoneUtil.validateLabel(label);
         Future<UiDeployment> ret;
-        if (label.length() > AppHost.MAX_LABEL_LENGTH) {
+        if (label.length() > DomainUtil.MAX_HOST_LABEL_LENGTH) {
             ret = Future.failedFuture(new IllegalStateException("The hostname label " + label + " for UI " + ui.name()
                     + " of application " + project.getApplicationId() + " of organization " + project.getOrganizationId()
-                    + " is longer than " + AppHost.MAX_LABEL_LENGTH + " characters; shorten the application or UI name"));
+                    + " is longer than " + DomainUtil.MAX_HOST_LABEL_LENGTH + " characters; shorten the application or UI name"));
         } else {
             UiDeployment deployment = new UiDeployment()
                     .setId(label)

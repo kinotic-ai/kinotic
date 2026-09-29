@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.services.security;
 
+import org.kinotic.domain.api.services.security.KinoticJwtIssuer;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;

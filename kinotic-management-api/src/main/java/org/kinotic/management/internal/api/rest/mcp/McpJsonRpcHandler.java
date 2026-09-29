@@ -19,7 +19,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
-import org.kinotic.domain.api.rest.ServerSurface;
+import org.kinotic.domain.api.rest.OAuthServerHandler;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.management.internal.api.rest.mcp.model.*;
 import org.springframework.stereotype.Component;
@@ -71,7 +71,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
     private final ServiceDirectory serviceDirectory;
     private final McpToolInvoker mcpToolInvoker;
     private final JsonMapper jsonMapper;
-    private final ServerSurface serverSurface;
+    private final OAuthServerHandler authorizationServer;
 
     @Override
     public void mountRoutes(Router router) {
@@ -90,7 +90,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 
     /** {@code GET /.well-known/oauth-protected-resource[/mcp]} — RFC 9728 metadata for {@code /mcp}. */
     private void handleProtectedResourceMetadata(RoutingContext ctx) {
-        String issuer = serverSurface.issuerBaseUrl(ctx);
+        String issuer = authorizationServer.issuer(ctx);
         ctx.json(new JsonObject()
                 .put("resource", issuer + MCP_ROUTE)
                 .put("authorization_servers", new JsonArray().add(issuer))
@@ -108,7 +108,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
             if (ctx.response().getStatusCode() == 401) {
                 // points MCP hosts at the document that starts the OAuth discovery flow
                 ctx.response().putHeader("WWW-Authenticate", "Bearer resource_metadata=\""
-                        + serverSurface.issuerBaseUrl(ctx) + PROTECTED_RESOURCE_METADATA_ROUTE + MCP_ROUTE + "\"");
+                        + authorizationServer.issuer(ctx) + PROTECTED_RESOURCE_METADATA_ROUTE + MCP_ROUTE + "\"");
             }
         });
         ctx.next();

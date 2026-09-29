@@ -7,7 +7,7 @@ import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.services.OrganizationService;
-import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
+import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;

@@ -1,6 +1,7 @@
 package org.kinotic.system.api.config;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -38,6 +39,14 @@ public class DeploymentProperties {
      */
     @Valid
     private ServerAddressProperties appServer = new ServerAddressProperties().setPort(58505);
+
+    /**
+     * Base URL every application's API host is a label under, as a browser reaches it: the URL each UI is built
+     * against. The same value the app server serves under {@code kinotic.appServer.apiBaseUrl}; the address a
+     * runtime workload dials is {@link #appServer}.
+     */
+    @NotBlank
+    private String appApiBaseUrl;
 
     /**
      * Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond

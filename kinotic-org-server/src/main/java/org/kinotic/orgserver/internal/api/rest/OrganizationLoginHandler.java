@@ -19,7 +19,7 @@ import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
-import org.kinotic.domain.api.rest.ServerSurface;
+import org.kinotic.orgserver.api.config.OrgServerProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
@@ -37,7 +37,7 @@ import java.util.Set;
 public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
 
     private final AuthEndpointSupport authEndpointSupport;
-    private final ServerSurface serverSurface;
+    private final OrgServerProperties properties;
     private final ParticipantIdentityService identityService;
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcConfigurationService oidcConfigurationService;
@@ -106,7 +106,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
 
         oidcFlowOrchestrator.handleCallback(ctx,
                                             pathConfigId,
-                                            socialCallbackUrl(ctx, pathConfigId),
+                                            socialCallbackUrl(pathConfigId),
                                             _ -> orgSignupOidcConfigurationService.findById(pathConfigId))
                             .onSuccess(result -> completeSocialLogin(ctx, result))
                             .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
@@ -122,7 +122,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
      * browser to the chosen Kinotic-curated provider.
      */
     private void handleSocialStart(RoutingContext ctx) {
-        authEndpointSupport.handleSocialStart(ctx, configId -> socialCallbackUrl(ctx, configId));
+        authEndpointSupport.handleSocialStart(ctx, this::socialCallbackUrl);
     }
 
     /**
@@ -137,7 +137,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
         // The configId is trusted — it came from the IdP redirect we issued ourselves.
         oidcFlowOrchestrator.handleCallback(ctx,
                                             pathConfigId,
-                                            ssoCallbackUrl(ctx, pathConfigId),
+                                            ssoCallbackUrl(pathConfigId),
                                             orgId -> oidcConfigurationService.findById(pathConfigId, orgId))
                             .onSuccess(result -> completeSsoLogin(ctx, result))
                             .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
@@ -178,17 +178,17 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
                          }
                          return oidcFlowOrchestrator.startFlow(ctx,
                                                                match,
-                                                               ssoCallbackUrl(ctx, match.getId()),
+                                                               ssoCallbackUrl(match.getId()),
                                                                orgId)
                                                     .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
                      });
     }
 
-    private String socialCallbackUrl(RoutingContext ctx, String configId) {
-        return serverSurface.apiBaseUrl(ctx) + "/api/auth/org/login/social/callback/" + configId;
+    private String socialCallbackUrl(String configId) {
+        return properties.getApiBaseUrl() + "/api/auth/org/login/social/callback/" + configId;
     }
 
-    private String ssoCallbackUrl(RoutingContext ctx, String configId) {
-        return serverSurface.apiBaseUrl(ctx) + "/api/auth/org/login/sso/callback/" + configId;
+    private String ssoCallbackUrl(String configId) {
+        return properties.getApiBaseUrl() + "/api/auth/org/login/sso/callback/" + configId;
     }
 }

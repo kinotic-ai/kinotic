@@ -123,36 +123,38 @@ of the climb tells us what the right mechanism is.
 
 ### OAuth base URL split (`issuerBaseUrl`)
 
-`kinotic.domain.oauth.issuerBaseUrl` exists because two different parties reach the gateway and,
+`kinotic.orgServer.issuerBaseUrl` exists because two different parties reach the org server and,
 today, they can reach it at different URLs. A browser follows the OIDC `redirect_uri`s built from
-`apiBaseUrl`; an MCP host's backend calls the token endpoint built from `issuerBaseUrl`, having never
-been near the browser. A development gateway on `localhost` whose OAuth surface is tunnelled is the
-case that forced the split: one value cannot be both browser-local and internet-reachable.
+`kinotic.orgServer.apiBaseUrl`; an MCP host's backend calls the token endpoint built from
+`issuerBaseUrl`, having never been near the browser. A development gateway on `localhost` whose OAuth
+surface is tunnelled is the case that forced the split: one value cannot be both browser-local and
+internet-reachable.
 
-`ServerSurface` holds the split: `apiBaseUrl(ctx)` and `issuerBaseUrl(ctx)` name the two URLs, and
-`ConfiguredServerSurface` is the one reader of `issuerBaseUrl` and its fallback. Nothing enforces the
-choice at a call site: every externally reached URL added from here on has to pick `issuerBaseUrl`
-over `apiBaseUrl`, and picking wrong fails only in the tunnelled topology, which is exactly the one
-nobody runs in CI.
+`OrgServerProperties.resolveIssuerBaseUrl` holds the fallback, read by `OrgOAuthServerHandler.issuer`
+and `DeviceAuthorizationHandler`. Nothing enforces the choice at a call site: every externally reached
+URL added to the org server from here on has to pick the issuer over `apiBaseUrl`, and picking wrong
+fails only in the tunnelled topology, which is exactly the one nobody runs in CI. The other two servers
+have no split: the system server's issuer is its `apiBaseUrl`, and on the app server each application's
+API host is its own issuer.
 
 **The split disappears if the browser and the internet reach the gateway at one URL.** That is a
 topology decision, not a code one.
 
 **Option A — keep the split.** No infrastructure change. Development works today; production sets
-nothing and falls back. Keeps two base URLs on `ServerSurface` indefinitely.
+nothing and falls back. Keeps `issuerBaseUrl` on `OrgServerProperties` indefinitely.
 
-**Option B — dev-server proxy.** Have the vite dev server proxy `/api`, `/mcp`, `/.well-known` and
-the `/v1` STOMP upgrade to the gateway, and tunnel the dev server rather than the gateway. One origin
-in development, so `issuerBaseUrl` is never needed. Costs a second IdP callback registration (the
-tunnel host) and leaves the development topology different from production — the proxy hop exists
-nowhere else — so it removes the property without removing the underlying asymmetry.
+**Option B — dev-server proxy.** This is what development runs now: vite serves the portal and proxies
+`/api`, `/mcp`, `/.well-known` and the `/v1` STOMP upgrade to the gateway, and `dev-github-app.ts`
+writes the tunnel's origin as both `apiBaseUrl` and `portalBaseUrl`, so a tunnelled dev server is one
+origin and `issuerBaseUrl` is never needed. It costs a second IdP callback registration (the tunnel
+host) and leaves the development topology different from production — the proxy hop exists nowhere
+else — so it removes the need for the property without removing the underlying asymmetry.
 
 **Option C — one origin everywhere, via path-based routing at the ingress.** SPA and API behind a
 single hostname, `/api` and `/v1` routed to the server and everything else to the SPA. Then
-`appBaseUrl`, `apiBaseUrl` and `issuerBaseUrl` collapse to one value, and so do `ServerSurface`'s
-`apiBaseUrl` and `issuerBaseUrl`. On
-Azure this means a layer-7 front end (Application Gateway or Front Door) where today's LoadBalancer
-is layer 4 — a real, recurring cost, which is the thing to price before choosing this.
+`portalBaseUrl`, `apiBaseUrl` and `issuerBaseUrl` collapse to one value. On Azure this means a
+layer-7 front end (Application Gateway or Front Door) where today's LoadBalancer is layer 4 — a real,
+recurring cost, which is the thing to price before choosing this.
 
 **On making the session cookie stricter.** Worth recording because it is the natural next thought and
 it does not work: `SameSite=Strict` is not available to us at any topology, single origin or not.

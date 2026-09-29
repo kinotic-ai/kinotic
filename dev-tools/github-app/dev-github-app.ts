@@ -215,9 +215,12 @@ function orgServerYml(origin: string, app: CreatedApp): string {
 # The github-platform sign-in row's OAuth client secret, resolved by EnvVarSecretReferenceResolver
 KINOTIC_AKV_GITHUB_PLATFORM: ${JSON.stringify(app.client_secret)}
 kinotic:
-  domain:
-    appBaseUrl: ${origin}
+  orgServer:
     apiBaseUrl: ${origin}
+    portalBaseUrl: ${origin}
+  domain:
+    email:
+      linkBaseUrl: ${origin}
 ${githubYml(app)}`
 }
 
