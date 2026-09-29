@@ -63,7 +63,22 @@ resource "helm_release" "cert_manager" {
 # These are cert-manager CRDs — kubernetes_manifest tries to validate at plan
 # time before the cluster exists. Using kubectl apply instead.
 
+locals {
+  # The names the servers' certificate covers: the zone, the hosts under it, and every
+  # application's API host under apps-api
+  tls_dns_names = [
+    local.global.dns_zone_name,
+    "*.${local.global.dns_zone_name}",
+    "*.apps-api.${local.global.dns_zone_name}",
+  ]
+}
+
 resource "terraform_data" "cert_manager_issuer_and_cert" {
+  # A create-time provisioner runs again only when the resource is replaced, so a change to the
+  # names re-applies the Certificate; cert-manager then reissues it, and Reloader restarts the
+  # servers onto the new secret
+  triggers_replace = local.tls_dns_names
+
   provisioner "local-exec" {
     command = <<-EOT
       set -e
@@ -121,10 +136,7 @@ resource "terraform_data" "cert_manager_issuer_and_cert" {
         issuerRef:
           name: letsencrypt-prod
           kind: ClusterIssuer
-        dnsNames:
-          - ${local.global.dns_zone_name}
-          - "*.${local.global.dns_zone_name}"
-          - "*.apps-api.${local.global.dns_zone_name}"
+        dnsNames: ${jsonencode(local.tls_dns_names)}
       YAML
 
       echo "ClusterIssuer and Certificate created"
