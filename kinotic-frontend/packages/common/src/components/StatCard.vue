@@ -18,7 +18,8 @@
     <div v-else-if="$slots.default" class="mt-4 flex h-9 items-center">
       <slot />
     </div>
-    <div v-else class="mt-4 text-3xl font-semibold tabular-nums tracking-tight text-surface-950 dark:text-surface-0">{{ value }}</div>
+    <div v-else class="mt-4 truncate text-3xl font-semibold tabular-nums tracking-tight text-surface-950 dark:text-surface-0"
+         :title="value?.toString()">{{ value }}</div>
     <div class="mt-1 text-sm font-medium text-surface-800 dark:text-surface-100">{{ label }}</div>
     <div v-if="detail" :class="['mt-0.5 truncate text-xs text-muted-color', monoDetail ? 'font-mono' : '']">{{ detail }}</div>
   </component>
@@ -26,7 +27,7 @@
 
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import Skeleton from 'primevue/skeleton'
 import { ArrowUpRight } from '@lucide/vue'
 
@@ -45,7 +46,7 @@ defineProps<{
   /** Renders the detail in the monospace font, for ids and repository names. */
   monoDetail?: boolean
   loading?: boolean
-  to?: string
+  to?: RouteLocationRaw
   href?: string
 }>()
 </script>

@@ -11,6 +11,13 @@
       empty-state-text="No members"
       @update:search="tableSearch = $event"
     >
+      <template #item.email="{ item, index }">
+        <span class="flex min-w-0 items-center gap-2.5">
+          <InitialsTile :name="item.displayName || item.email" :index="index" />
+          <span class="truncate" v-tooltip.top="item.email">{{ item.email }}</span>
+        </span>
+      </template>
+
       <template #item.displayName="{ item }">
         {{ item.displayName || '—' }}
       </template>
@@ -24,7 +31,7 @@
       </template>
 
       <template #item.created="{ item }">
-        {{ item.created ? formatDate(item.created) : '—' }}
+        <TimePill :date="item.created" />
       </template>
     </CrudTable>
   </div>
@@ -44,8 +51,9 @@ import {
 import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/management-api'
 import {
   CrudTable,
+  InitialsTile,
   PageHeader,
-  DatetimeUtil,
+  TimePill,
   pageNumberOf,
   statusSeverity,
   useCrudTablePage,
@@ -102,8 +110,6 @@ const description = computed(() => {
 })
 
 const { tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
-
-const formatDate = DatetimeUtil.formatEpochDate
 
 async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
   const organizationId = props.organizationId

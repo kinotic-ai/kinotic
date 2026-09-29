@@ -167,9 +167,7 @@ import { DeploymentStatusType,
 import MicroserviceDeploymentsTable from '@/components/MicroserviceDeploymentsTable.vue'
 import { KinoticStates } from '@/states'
 import UiDeploymentsTable from '@/components/UiDeploymentsTable.vue'
-import DashboardSection from '@/components/DashboardSection.vue'
-import StatCard from '@/components/StatCard.vue'
-import { TINTS } from '@/util/tints'
+import { DashboardSection, StatCard, TINTS } from '@kinotic-ai/frontend-common'
 
 /** One row — a machine the deployment provisioned, labelled by the workload it authenticates. */
 interface MachineRow extends MachineParticipantIdentity {

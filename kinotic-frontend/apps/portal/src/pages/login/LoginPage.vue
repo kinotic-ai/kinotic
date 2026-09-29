@@ -251,13 +251,4 @@ function displayError(text: string) {
   font-weight: 500;
   text-decoration: underline;
 }
-
-/* Sign in is the page's primary action, drawn like every other primary button: near-black */
-.login-submit.p-button {
-  background: var(--p-surface-950);
-}
-
-.login-submit.p-button:hover {
-  background: var(--p-surface-800);
-}
 </style>

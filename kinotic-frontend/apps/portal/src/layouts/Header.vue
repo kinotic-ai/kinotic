@@ -48,7 +48,7 @@
           <RouterLink :to="applicationPath"
             class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100">
             {{ applicationId }}
-            <span :class="[PILL_CLASS, 'hidden border-blue-200 bg-blue-50 text-blue-600 sm:inline-flex dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300']">Application</span>
+            <ScopePill kind="application" />
           </RouterLink>
           <BreadcrumbSwitcher
             :items="applicationItems"
@@ -86,7 +86,7 @@
           <RouterLink :to="`${applicationPath}/project/${encodeURIComponent(projectId)}`"
             class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100">
             {{ currentProjectName }}
-            <span :class="[PILL_CLASS, 'hidden border-purple-200 bg-purple-50 text-purple-600 sm:inline-flex dark:border-purple-500/30 dark:bg-purple-500/10 dark:text-purple-300']">Project</span>
+            <ScopePill kind="project" />
           </RouterLink>
           <BreadcrumbSwitcher
             :items="projectItems"
@@ -104,65 +104,29 @@
     </div>
 
     <div class="flex items-center gap-2">
-      <!-- Looks like a search box; opens the search dialog, as does ⌘K / Ctrl K -->
-      <button
-        type="button"
-        class="hidden h-9 w-60 items-center gap-2 rounded-md border border-surface-200 bg-surface-50 px-3 text-sm text-surface-500 transition-colors hover:border-surface-300 md:flex dark:border-surface-800 dark:bg-surface-900 dark:text-surface-400 dark:hover:border-surface-700"
-        aria-label="Search"
-        aria-keyshortcuts="Meta+K Control+K"
-        @click="searchOpen = true"
-      >
-        <Search :size="16" :stroke-width="1.75" aria-hidden="true" />
-        <span class="flex-1 text-left">Search</span>
-        <kbd class="rounded border border-surface-300 bg-surface-0 px-1.5 font-sans text-[11px] text-surface-600 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300">{{ shortcutModifier }}</kbd>
-        <kbd class="rounded border border-surface-300 bg-surface-0 px-1.5 font-sans text-[11px] text-surface-600 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300">K</kbd>
-      </button>
-      <button
-        type="button"
-        class="flex h-9 w-9 items-center justify-center rounded-md text-surface-600 transition-colors hover:bg-surface-100 hover:text-surface-950 md:hidden dark:text-surface-300 dark:hover:bg-surface-800 dark:hover:text-surface-0"
-        aria-label="Search"
-        @click="searchOpen = true"
-      >
-        <Search :size="18" :stroke-width="1.75" aria-hidden="true" />
-      </button>
+      <HeaderSearchButton @open="searchOpen = true" />
 
-      <a
-        :href="DOCUMENTATION_URL"
-        target="_blank"
-        rel="noopener"
-        class="flex h-9 w-9 items-center justify-center rounded-full border border-surface-200 bg-transparent text-surface-600 transition-colors hover:border-surface-300 hover:text-surface-950 dark:border-surface-800 dark:text-surface-400 dark:hover:border-surface-700 dark:hover:text-surface-0"
-        aria-label="Help (opens the documentation in a new tab)"
-        v-tooltip.bottom="'Help'"
-      >
+      <HeaderIconButton :href="DOCUMENTATION_URL" label="Help (opens the documentation in a new tab)" tooltip="Help">
         <CircleHelp :size="18" :stroke-width="1.75" aria-hidden="true" />
-      </a>
-
-      <button
-        type="button"
-        class="flex h-9 w-9 items-center justify-center rounded-full border border-surface-200 bg-transparent text-surface-600 transition-colors hover:border-surface-300 hover:text-surface-950 dark:border-surface-800 dark:text-surface-400 dark:hover:border-surface-700 dark:hover:text-surface-0"
-        :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-        v-tooltip.bottom="isDark ? 'Light mode' : 'Dark mode'"
-        @click="toggleTheme"
-      >
-        <span :class="isDark ? 'pi pi-sun' : 'pi pi-moon'"></span>
-      </button>
+      </HeaderIconButton>
+      <ThemeToggleButton />
     </div>
 
-    <CommandPalette v-model:visible="searchOpen" />
+    <CommandPalette v-model:visible="searchOpen" :groups="searchGroups" label="Search applications, pages and actions"
+                    @show="onSearchShow" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, markRaw, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { APPLICATION_STATE } from '@/states/IApplicationState';
 import { USER_STATE } from '@/states/IUserState';
 import { Kinotic, Pageable } from '@kinotic-ai/core';
 import type { Project } from '@kinotic-ai/management-api';
-import { createDebug, isDark as darkMode, toggleDark } from '@kinotic-ai/frontend-common'
-import { CircleHelp, Search } from '@lucide/vue';
-import BreadcrumbSwitcher from '@/components/BreadcrumbSwitcher.vue';
-import CommandPalette from '@/components/CommandPalette.vue';
+import { BreadcrumbSwitcher, CommandPalette, type CommandPaletteGroup, createDebug, HeaderIconButton, HeaderSearchButton, ScopePill,
+         sidebarPageEntries, ThemeToggleButton } from '@kinotic-ai/frontend-common'
+import { BookOpenText, CircleHelp, Plus } from '@lucide/vue';
 import { DOCUMENTATION_URL } from '@/util/externalLinks';
 
 const debug = createDebug('header');
@@ -181,13 +145,38 @@ const router = useRouter();
 
 const searchOpen = ref(false);
 
-// A breadcrumb segment's kind, shown as a small outlined pill after its name
-const PILL_CLASS = 'items-center rounded-full border px-2 py-px text-[10px] font-semibold uppercase leading-4 tracking-[0.08em]';
-
-// Apple keyboards label the shortcut's modifier ⌘; everywhere else it is Ctrl
-const shortcutModifier = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
-
 const projectsForCurrentApp = ref<Project[]>([]);
+
+const searchGroups = computed<CommandPaletteGroup[]>(() => [
+  {
+    label: 'Applications',
+    entries: APPLICATION_STATE.allApplications.map((app, position) => ({
+      key: `app:${app.id}`,
+      label: app.name || app.id,
+      hint: app.id,
+      tileIndex: position,
+      run: () => router.push(`/application/${encodeURIComponent(app.id)}`)
+    }))
+  },
+  {
+    label: 'Pages',
+    entries: sidebarPageEntries(router, { organization: 'Organization', account: 'Account' }, path => router.push(path))
+  },
+  {
+    label: 'Actions',
+    entries: [
+      { key: 'action:new-application', label: 'New application', icon: markRaw(Plus), run: () => router.push('/applications?add=true') },
+      { key: 'action:docs', label: 'Open documentation', icon: markRaw(BookOpenText), external: true,
+        run: () => window.open(DOCUMENTATION_URL, '_blank', 'noopener') }
+    ]
+  }
+]);
+
+function onSearchShow() {
+  if (APPLICATION_STATE.allApplications.length === 0) {
+    void APPLICATION_STATE.loadAllApplications();
+  }
+}
 
 const organizationId = computed(() => USER_STATE.getOrganizationId());
 const applicationId = computed(() => route.params.applicationId as string | undefined);
@@ -211,12 +200,6 @@ const currentProjectName = computed(() => {
   const project = projectsForCurrentApp.value.find(p => p.id === projectId.value);
   return project?.name ?? projectId.value ?? '';
 });
-
-const isDark = darkMode;
-
-function toggleTheme() {
-  toggleDark();
-}
 
 watch(applicationId, onApplicationChanged, { immediate: true });
 async function onApplicationChanged(id: string | undefined) {

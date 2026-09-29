@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { computed, ref, type Component } from 'vue'
-import { Building2, LayoutGrid, Shield, User } from '@lucide/vue'
-import { useRoute } from 'vue-router'
-import { ProjectsIcon, SideBar, SidebarScope } from '@kinotic-ai/frontend-common'
+import { computed, markRaw, onMounted, ref, type Component } from 'vue'
+import { Building2, LayoutGrid, Link, LogOut, Shield, User } from '@lucide/vue'
+import { useRoute, useRouter } from 'vue-router'
+import type { MenuItem } from 'primevue/menuitem'
+import { Kinotic } from '@kinotic-ai/core'
+import type { UserParticipantIdentity } from '@kinotic-ai/management-api'
+import { avatarInitials, createDebug, ProjectsIcon, SideBar, SidebarScope, SidebarUserMenu } from '@kinotic-ai/frontend-common'
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 
 import Header from './Header.vue'
 import { applicationPath, organizationPath } from '@/util/scope'
+import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
 
 /** What the sidebar's scope block shows for the current route's sidebar group. */
 interface SidebarScopeProps {
@@ -17,8 +21,40 @@ interface SidebarScopeProps {
     backLabel?: string
 }
 
+const debug = createDebug('console-layout')
+
 const sidebarRef = ref<InstanceType<typeof SideBar> | null>(null)
 const route = useRoute()
+const router = useRouter()
+
+const profile = ref<UserParticipantIdentity | null>(null)
+const profileName = computed(() => profile.value?.displayName ?? 'System operator')
+const profileDetail = computed(() => profile.value?.email ?? SYSTEM_USER_STATE.connectedInfo?.participant?.id ?? '')
+const initials = computed(() => avatarInitials(profile.value?.displayName, profile.value?.email))
+
+// lucideIcon is rendered by SidebarUserMenu's item slot
+const accountMenuItems: MenuItem[] = [
+    { label: 'Connected apps', lucideIcon: markRaw(Link), command: () => router.push('/account/connected-apps') },
+    { separator: true },
+    { label: 'Log out', lucideIcon: markRaw(LogOut), command: logout }
+]
+
+onMounted(async () => {
+    try {
+        profile.value = await Kinotic.profile.findMyProfile()
+    } catch (error) {
+        // the participant id in profileDetail keeps the menu meaningful
+        debug('Failed to load profile: %O', error)
+    }
+})
+
+async function logout() {
+    try {
+        await SYSTEM_USER_STATE.logout()
+    } finally {
+        await router.push('/login')
+    }
+}
 
 // Small screens keep the sidebar in a drawer the header's menu button opens
 const navOpen = ref(false)
@@ -86,6 +122,10 @@ function scopeFor(group: string | null): SidebarScopeProps {
         <SideBar ref="sidebarRef" :mobile-open="navOpen" @close="navOpen = false">
             <template #scope="{ collapsed, group, toggle }">
                 <SidebarScope v-bind="scopeFor(group)" :collapsed="collapsed" @toggle="toggle" />
+            </template>
+            <template #footer="{ collapsed }">
+                <SidebarUserMenu :collapsed="collapsed" :name="profileName" :detail="profileDetail"
+                                 :initials="initials" :items="accountMenuItems" />
             </template>
         </SideBar>
         <div

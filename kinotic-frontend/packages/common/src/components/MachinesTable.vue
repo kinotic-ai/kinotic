@@ -23,7 +23,7 @@
     </template>
 
     <template #item.created="{ item }">
-      {{ item.created ? formatDate(item.created) : '—' }}
+      <TimePill :date="item.created" />
     </template>
   </CrudTable>
 
@@ -65,7 +65,7 @@ import MachineSecretDialog, { type MachineSecret } from './MachineSecretDialog.v
 import { filteredPageLoader, statusSeverity, useCrudTablePage } from './useCrudTablePage'
 import type { CrudHeader } from '../types/CrudHeader'
 import type { DescriptiveIdentifiable } from '../types/DescriptiveIdentifiable'
-import DatetimeUtil from '../util/DatetimeUtil'
+import TimePill from './TimePill.vue'
 import { showErrorToast } from '../util/helpers'
 
 /**
@@ -123,7 +123,6 @@ const { tableSearch, dataSource, refreshTable, run } = useCrudTablePage(
   )
 )
 
-const formatDate = DatetimeUtil.formatEpochDate
 
 function toRow(machine: MachineParticipantIdentity): MachineRow {
   return {

@@ -9,73 +9,73 @@
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
     <div class="flex flex-col gap-4">
-      <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard v-for="stat in stats" :key="stat.label" :icon="stat.icon" :tint="stat.tint" :label="stat.label"
+                  :value="stat.value" :detail="stat.detail" :to="stat.to" :loading="loading && stat.value === '—'" />
       </div>
 
-      <div class="grid gap-4 lg:grid-cols-2">
-        <section class="rounded-lg border border-surface p-4">
-          <div class="mb-2 flex items-start justify-between gap-3">
-            <div>
-              <h2 class="text-base font-semibold">Projects</h2>
-              <p class="text-xs text-muted-color">Each with the state of its last deploy run.</p>
+      <div class="grid gap-4 lg:grid-cols-3">
+        <DashboardSection :icon="ProjectsIcon" :tint="TINTS.blue" title="Projects" :count="projects.length"
+                          description="Each with the state of its last deploy run." :link-to="`${basePath}/projects`"
+                          class="lg:col-span-2">
+          <!-- The projects' last deploy runs, as one bar and its legend -->
+          <div v-if="projects.length > 0" class="px-5 pt-4">
+            <div class="flex h-2 overflow-hidden rounded-full bg-surface-100 dark:bg-surface-800" role="img"
+                 :aria-label="health.map(segment => `${segment.count} ${segment.label.toLowerCase()}`).join(', ')">
+              <div v-for="segment in health" :key="segment.label" :class="segment.bar" :style="{ width: `${(segment.count / projects.length) * 100}%` }" />
             </div>
-            <RouterLink :to="`${basePath}/projects`" class="whitespace-nowrap text-sm text-muted-color hover:text-color">View all</RouterLink>
+            <div class="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-color">
+              <span v-for="segment in health" :key="segment.label" class="flex items-center gap-1.5">
+                <span :class="['h-2 w-2 rounded-full', segment.bar]" aria-hidden="true" />
+                {{ segment.label }} <span class="font-medium tabular-nums text-surface-800 dark:text-surface-100">{{ segment.count }}</span>
+              </span>
+            </div>
           </div>
-          <p v-if="projects.length === 0 && !loading" class="text-sm text-muted-color">No projects yet.</p>
-          <ul v-else class="divide-y divide-surface-200 dark:divide-surface-700">
-            <li v-for="project in projects" :key="project.id ?? ''">
+
+          <p v-if="projects.length === 0 && !loading" class="px-5 py-4 text-sm text-muted-color">No projects yet.</p>
+          <ul v-else class="px-3 py-2">
+            <li v-for="(project, position) in projects" :key="project.id ?? ''">
               <RouterLink :to="projectPath(organizationId, applicationId, project.id ?? '')"
-                          class="group flex items-center gap-3 py-3 text-color no-underline">
-                <i class="pi pi-folder text-surface-400" />
+                          class="group flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-50 dark:hover:bg-surface-800/60">
+                <InitialsTile :name="project.name || project.id || ''" :index="position" />
                 <div class="min-w-0 flex-1">
-                  <div class="truncate text-sm font-medium group-hover:underline">{{ project.name }}</div>
+                  <div class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">{{ project.name }}</div>
                   <div v-if="project.description" class="truncate text-xs text-muted-color">{{ project.description }}</div>
                 </div>
                 <Tag v-if="project.repoConnectionStatus === RepoStatus.INITIALIZATION_FAILED" value="Init failed" severity="warn" />
                 <Tag v-else-if="project.repoConnectionStatus === RepoStatus.DISCONNECTED" value="Disconnected" severity="danger" />
                 <Tag v-else-if="lastRunOf(project)" :value="lastRunOf(project)!.status" :severity="executionStatusSeverity(lastRunOf(project)!.status)" />
                 <span v-else class="text-xs text-muted-color">Never deployed</span>
+                <ChevronRight :size="16" :stroke-width="1.75" class="shrink-0 text-surface-300 group-hover:text-surface-600 dark:text-surface-600 dark:group-hover:text-surface-300" aria-hidden="true" />
               </RouterLink>
             </li>
           </ul>
-        </section>
+        </DashboardSection>
 
-        <section class="rounded-lg border border-surface p-4">
-          <h2 class="text-base font-semibold">About</h2>
-          <p class="mb-2 text-xs text-muted-color">As the organization configured it; the settings are theirs to change.</p>
-          <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
-            <dt class="text-muted-color">Name</dt>
-            <dd>{{ application?.name ?? '—' }}</dd>
-            <dt class="text-muted-color">Application id</dt>
-            <dd class="font-mono">{{ applicationId }}</dd>
-            <dt class="text-muted-color">Organization</dt>
-            <dd><RouterLink :to="organizationPath(organizationId)" class="hover:underline">{{ organizationId }}</RouterLink></dd>
-            <dt class="text-muted-color">Zone</dt>
-            <dd class="font-mono">app.{{ organizationId }}.{{ applicationId }}</dd>
-            <dt class="text-muted-color">Tenancy</dt>
-            <dd>{{ application ? (application.tenantPerUser ? 'Tenant per user' : 'Shared tenant') : '—' }}</dd>
-            <dt class="text-muted-color">Updated</dt>
-            <dd>{{ application?.updated ? formatEpochDate(application.updated) : '—' }}</dd>
-          </dl>
-        </section>
+        <DashboardSection :icon="LayoutGrid" :tint="TINTS.purple" title="About"
+                          description="As the organization configured it; the settings are theirs to change.">
+          <div class="px-5 pb-2">
+            <FactList :facts="facts" />
+          </div>
+        </DashboardSection>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, markRaw, ref, watch, type Component } from 'vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
+import { Boxes, Building2, CalendarClock, ChevronRight, Hash, LayoutGrid, Tag as TagIcon, Users, Waypoints } from '@lucide/vue'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { ExecutionStatus, RepositoryConnectionStatus, WorkloadStatus,
          type Application, type JobRun, type Project, type Workload } from '@kinotic-ai/management-api'
-import { DatetimeUtil, PageHeader, errorMessage, executionStatusSeverity, scanJobRuns } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, FactList, InitialsTile, JobsIcon, PageHeader, ProjectsIcon, StatCard, TINTS,
+         errorMessage, executionStatusSeverity, scanJobRuns } from '@kinotic-ai/frontend-common'
 
-import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import { deployRunsByProject } from '@/util/runs'
 import { applicationPath, organizationPath, projectPath } from '@/util/scope'
 import { scanWorkloads } from '@/util/workloads'
@@ -94,7 +94,15 @@ const props = defineProps<{
 const PAGE_SIZE = 200
 
 const RepoStatus = RepositoryConnectionStatus
-const formatEpochDate = DatetimeUtil.formatEpochDate
+
+// The health bar's buckets, in the order they stack, keyed by the Tag severity a run status maps to
+const HEALTH_BUCKETS = [
+  { severity: 'success', label: 'Completed', bar: 'bg-green-500' },
+  { severity: 'info', label: 'Running', bar: 'bg-sky-500' },
+  { severity: 'warn', label: 'Cancelled', bar: 'bg-amber-500' },
+  { severity: 'danger', label: 'Failed', bar: 'bg-red-500' },
+  { severity: 'none', label: 'Never deployed', bar: 'bg-surface-300 dark:bg-surface-600' }
+]
 
 const basePath = computed(() => applicationPath(props.organizationId, props.applicationId))
 
@@ -112,13 +120,45 @@ function lastRunOf(project: Project): JobRun | null {
   return runsByProject.value.get(project.id ?? '')?.[0] ?? null
 }
 
+/** How many projects fall in each health bucket by their last deploy run; empty buckets are left out. */
+const health = computed(() => {
+  const severities = projects.value.map(project => {
+    const run = lastRunOf(project)
+    return run ? executionStatusSeverity(run.status) : 'none'
+  })
+  return HEALTH_BUCKETS
+      .map(bucket => ({ ...bucket, count: severities.filter(severity => severity === bucket.severity).length }))
+      .filter(bucket => bucket.count > 0)
+})
+
+const facts = computed(() => {
+  const app = application.value
+  let tenancy: string
+  if (!app) {
+    tenancy = '—'
+  } else if (app.tenantPerUser) {
+    tenancy = 'Tenant per user'
+  } else {
+    tenancy = 'Shared tenant'
+  }
+  return [
+    { label: 'Name', icon: markRaw(TagIcon), value: app?.name ?? '—' },
+    { label: 'Application id', icon: markRaw(Hash), value: props.applicationId, mono: true },
+    { label: 'Organization', icon: markRaw(Building2), value: props.organizationId, to: organizationPath(props.organizationId) },
+    { label: 'Zone', icon: markRaw(Waypoints), value: `app.${props.organizationId}.${props.applicationId}`, mono: true },
+    { label: 'Tenancy', icon: markRaw(Users), value: tenancy },
+    { label: 'Updated', icon: markRaw(CalendarClock), value: app?.updated ? DatetimeUtil.formatRelativeDate(app.updated) : '—' }
+  ]
+})
+
 interface Stat {
   label: string
   value: string
-  description: string
-  to?: string
-  icon?: string
-  accent?: StatTileAccent
+  detail: string
+  to: string
+  icon: Component
+  /** One of TINTS. */
+  tint: string
 }
 
 const stats = computed<Stat[]>(() => {
@@ -131,34 +171,34 @@ const stats = computed<Stat[]>(() => {
     {
       label: 'Projects',
       value: `${projects.value.length}`,
-      description: `${deployed} deployed at least once`,
+      detail: `${deployed} deployed at least once`,
       to: `${basePath.value}/projects`,
-      icon: 'pi-folder',
-      accent: 'violet'
+      icon: markRaw(ProjectsIcon),
+      tint: TINTS.blue
     },
     {
       label: 'Users',
       value: userCount.value?.toString() ?? '—',
-      description: pending === 1 ? '1 pending invite' : `${pending} pending invites`,
+      detail: pending === 1 ? '1 pending invite' : `${pending} pending invites`,
       to: `${basePath.value}/users`,
-      icon: 'pi-users',
-      accent: 'green'
+      icon: markRaw(Users),
+      tint: TINTS.green
     },
     {
       label: 'Workloads',
       value: `${running}`,
-      description: `running of ${workloads.value.length}`,
+      detail: `running of ${workloads.value.length}`,
       to: `${basePath.value}/workloads`,
-      icon: 'pi-box',
-      accent: 'amber'
+      icon: markRaw(Boxes),
+      tint: TINTS.sky
     },
     {
       label: 'Jobs',
       value: `${runs.value.length}`,
-      description: `${failed} failed · ${runningRuns} running`,
+      detail: `${failed} failed · ${runningRuns} running`,
       to: `${basePath.value}/jobs`,
-      icon: 'pi-list-check',
-      accent: 'sky'
+      icon: markRaw(JobsIcon),
+      tint: TINTS.purple
     }
   ]
 })

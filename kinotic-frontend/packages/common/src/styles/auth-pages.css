@@ -157,13 +157,14 @@
   min-height: 3.5rem;
   border-radius: 5px;
   border: none;
-  background: var(--p-primary-500);
-  color: #ffffff;
+  /* drawn like every other primary button: near-black, inverted in dark mode */
+  background: var(--p-button-primary-background);
+  color: var(--p-button-primary-color);
   font-weight: 600;
 }
 
 .login-submit.p-button:hover {
-  background: var(--p-primary-600);
+  background: var(--p-button-primary-hover-background);
 }
 
 .login-provider__button {

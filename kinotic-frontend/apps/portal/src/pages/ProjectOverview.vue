@@ -78,10 +78,7 @@ import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
 import { type Project, type ProjectDeployment, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
-import { DatetimeUtil, observedPhase, observedPhaseSeverity, PageHeader } from '@kinotic-ai/frontend-common'
-import FactList from '@/components/FactList.vue'
-import StatCard from '@/components/StatCard.vue'
-import { TINTS } from '@/util/tints'
+import { DatetimeUtil, FactList, observedPhase, observedPhaseSeverity, PageHeader, StatCard, TINTS } from '@kinotic-ai/frontend-common'
 
 /**
  * The landing page of one project: its repository, its deployment state, how many entities

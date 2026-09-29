@@ -10,22 +10,30 @@
 
     <div class="flex flex-col gap-4">
       <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
+        <StatCard v-for="stat in stats" :key="stat.label" :icon="stat.icon" :tint="stat.tint" :label="stat.label"
+                  :value="stat.tag ? undefined : stat.value" :detail="stat.detail"
+                  :loading="loading && !cluster">
+          <template v-if="stat.tag" #default>
+            <Tag :value="stat.value" :severity="stat.tag" />
+          </template>
+        </StatCard>
       </div>
 
-      <div class="rounded-lg border border-surface">
-        <div class="px-4 pt-4 pb-2">
-          <h2 class="text-base font-semibold">Server nodes</h2>
-          <p class="text-xs text-muted-color">
-            One node serves this console's connection. Logging opens that node's logger levels and trace-log filters.
-          </p>
-        </div>
+      <DashboardSection :icon="Server" :tint="TINTS.sky" title="Server nodes" :count="cluster?.nodes.length"
+                        description="One node serves this console's connection. Logging opens that node's logger levels and trace-log filters.">
         <DataTable :value="cluster?.nodes ?? []" size="small" class="text-sm" data-key="nodeId">
           <template #empty>
             <div class="py-6 text-center text-sm text-muted-color">{{ loading ? 'Loading cluster topology…' : 'No server nodes reported' }}</div>
           </template>
           <Column header="Node">
-            <template #body="{ data }"><span class="font-mono text-xs">{{ data.nodeId }}</span></template>
+            <template #body="{ data }">
+              <span class="flex items-center gap-2.5">
+                <span :class="['flex h-7 w-7 shrink-0 items-center justify-center rounded-md', TINTS.sky]">
+                  <Server :size="14" :stroke-width="1.75" aria-hidden="true" />
+                </span>
+                <span class="font-mono text-xs">{{ data.nodeId }}</span>
+              </span>
+            </template>
           </Column>
           <Column header="Version">
             <template #body="{ data }">
@@ -53,26 +61,23 @@
             </template>
           </Column>
         </DataTable>
-      </div>
+      </DashboardSection>
 
       <div class="grid gap-4 lg:grid-cols-2">
-        <div class="rounded-lg border border-surface p-4">
-          <h2 class="text-base font-semibold">Platform observability</h2>
-          <p class="mt-1 mb-3 text-sm text-muted-color">
-            Traces and metrics of the servers themselves live in the system tenant, the same one the
-            workload log and telemetry queries fall back to for a platform operator.
-          </p>
-          <Button label="Open observability" icon="pi pi-chart-line" severity="secondary" outlined size="small"
-                  @click="router.push('/observability')" />
-        </div>
-        <div class="rounded-lg border border-surface p-4">
-          <h2 class="text-base font-semibold">Platform workloads</h2>
-          <p class="mt-1 mb-3 text-sm text-muted-color">
-            Workloads the platform runs for itself, with no organization.
-          </p>
-          <Button label="Show platform workloads" icon="pi pi-box" severity="secondary" outlined size="small"
-                  @click="router.push({ path: '/workloads', query: { org: PLATFORM_ONLY } })" />
-        </div>
+        <DashboardSection :icon="Activity" :tint="TINTS.purple" title="Platform observability"
+                          description="Traces and metrics of the servers themselves live in the system tenant, the same one the workload log and telemetry queries fall back to for a platform operator.">
+          <div class="p-5">
+            <Button label="Open observability" icon="pi pi-chart-line" severity="secondary" outlined size="small"
+                    @click="router.push('/observability')" />
+          </div>
+        </DashboardSection>
+        <DashboardSection :icon="Boxes" :tint="TINTS.green" title="Platform workloads"
+                          description="Workloads the platform runs for itself, with no organization.">
+          <div class="p-5">
+            <Button label="Show platform workloads" icon="pi pi-box" severity="secondary" outlined size="small"
+                    @click="router.push({ path: '/workloads', query: { org: PLATFORM_ONLY } })" />
+          </div>
+        </DashboardSection>
       </div>
     </div>
 
@@ -81,20 +86,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, markRaw, onMounted, ref, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
+import { Activity, Boxes, Network, Server, Shield, Tag as TagIcon } from '@lucide/vue'
 
 import { Kinotic } from '@kinotic-ai/core'
 import type { KinoticClusterInfo } from '@kinotic-ai/system-api'
-import { PageHeader, errorMessage } from '@kinotic-ai/frontend-common'
+import { DashboardSection, PageHeader, StatCard, TINTS, errorMessage } from '@kinotic-ai/frontend-common'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
-import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import { PLATFORM_ONLY } from '@/util/workloads'
 
 const router = useRouter()
@@ -126,58 +131,60 @@ function splitVersion(version: string): { release: string; build: string | null 
 interface Stat {
   label: string
   value: string
-  description: string
+  detail: string
+  /** Renders the value as a Tag of this severity instead of a number. */
   tag?: string
-  icon?: string
-  accent?: StatTileAccent
+  icon: Component
+  /** One of TINTS. */
+  tint: string
 }
 
 const stats = computed<Stat[]>(() => [
   {
     label: 'Cluster state',
     value: cluster.value?.clusterState ?? '—',
-    description: 'Whether the cluster is serving requests',
+    detail: 'Whether the cluster is serving requests',
     tag: cluster.value ? (cluster.value.active ? 'success' : 'danger') : 'secondary',
-    icon: 'pi-shield',
-    accent: cluster.value && !cluster.value.active ? 'red' : 'green'
+    icon: markRaw(Shield),
+    tint: cluster.value && !cluster.value.active ? TINTS.red : TINTS.green
   },
   {
     label: 'Server nodes',
     value: cluster.value?.serverNodeCount?.toString() ?? '—',
-    description: 'kinotic-server instances in the cluster',
-    icon: 'pi-server',
-    accent: 'sky'
+    detail: 'kinotic-server instances in the cluster',
+    icon: markRaw(Server),
+    tint: TINTS.sky
   },
   {
     label: 'Topology version',
     value: cluster.value?.topologyVersion?.toString() ?? '—',
-    description: 'Increments each time a node joins or leaves',
-    icon: 'pi-sync',
-    accent: 'violet'
+    detail: 'Increments each time a node joins or leaves',
+    icon: markRaw(Network),
+    tint: TINTS.purple
   },
   versionStat.value
 ])
 
-// The release reads at display size; the build stamp behind the '#' goes in the caption
+// The release reads at display size; the build stamp behind the '#' goes in the detail
 const versionStat = computed<Stat>(() => {
   let ret: Stat
   if (mixedVersions.value) {
     ret = {
       label: 'Versions',
       value: 'Mixed',
-      description: 'Not every node runs the same build',
+      detail: 'Not every node runs the same build',
       tag: 'warn',
-      icon: 'pi-tag',
-      accent: 'amber'
+      icon: markRaw(TagIcon),
+      tint: TINTS.orange
     }
   } else {
     const common = commonVersion.value ? splitVersion(commonVersion.value) : null
     ret = {
       label: 'Version',
       value: common?.release ?? '—',
-      description: common?.build ? `build ${common.build} · every node runs it` : 'Every node runs this build',
-      icon: 'pi-tag',
-      accent: 'teal'
+      detail: common?.build ? `build ${common.build} · every node runs it` : 'Every node runs this build',
+      icon: markRaw(TagIcon),
+      tint: TINTS.blue
     }
   }
   return ret

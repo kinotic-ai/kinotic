@@ -16,7 +16,7 @@
           v-model="query"
           type="text"
           placeholder="Search"
-          aria-label="Search applications, pages and actions"
+          :aria-label="label"
           class="min-w-0 flex-1 border-0 bg-transparent text-base text-surface-950 outline-none placeholder:text-surface-400 dark:text-surface-0"
         />
         <button type="button" class="flex h-9 w-9 items-center justify-center rounded-md text-surface-700 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
@@ -27,7 +27,7 @@
 
       <div class="flex gap-1 border-b border-surface-200 px-6 pb-3 pt-3 dark:border-surface-800" role="tablist">
         <button
-          v-for="filter in FILTERS"
+          v-for="filter in filters"
           :key="filter.id"
           type="button"
           role="tab"
@@ -59,7 +59,7 @@
             @mousemove="activeIndex = entry.index"
             @click="run(entry)"
           >
-            <InitialsTile v-if="entry.kind === 'application'" :name="entry.label" :index="entry.tileIndex ?? 0" />
+            <InitialsTile v-if="entry.tileIndex !== undefined" :name="entry.label" :index="entry.tileIndex" />
             <component :is="entry.icon" v-else :size="18" :stroke-width="1.75" class="shrink-0" aria-hidden="true" />
             <span class="truncate">{{ entry.label }}</span>
             <span v-if="entry.hint" class="truncate font-mono text-xs text-surface-500 dark:text-surface-400">{{ entry.hint }}</span>
@@ -83,57 +83,37 @@
 </template>
 
 <script setup lang="ts">
-import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Dialog from 'primevue/dialog'
-import { ArrowUpRight, BookOpenText, CornerDownLeft, Plus, Search, X } from '@lucide/vue'
-import type { SidebarItemMeta } from '@kinotic-ai/frontend-common'
-import InitialsTile from '@/components/InitialsTile.vue'
-import { APPLICATION_STATE } from '@/states/IApplicationState'
-import { DOCUMENTATION_URL } from '@/util/externalLinks'
+import { ArrowUpRight, CornerDownLeft, Search, X } from '@lucide/vue'
+import type { CommandPaletteEntry } from '../types/CommandPaletteEntry'
+import type { CommandPaletteGroup } from '../types/CommandPaletteGroup'
+import InitialsTile from './InitialsTile.vue'
 
 /**
- * The ⌘K / Ctrl K search: finds applications, the organization and account pages, and common
- * actions, filtered by a tab row and driven entirely from the keyboard (arrows, Enter, Tab, Esc).
- * Also opens itself on ⌘K / Ctrl K anywhere in the portal.
+ * The ⌘K / Ctrl K search: lists the given groups' entries, filtered by the query and by a tab
+ * per group, and driven entirely from the keyboard (arrows, Enter, Tab, Esc). Opens itself on
+ * ⌘K / Ctrl K anywhere in the app, and emits show each time it opens so the caller can load
+ * what its groups list.
  */
 const props = defineProps<{
   visible: boolean
+  groups: CommandPaletteGroup[]
+  /** The search box's accessible name, e.g. "Search applications, pages and actions". */
+  label: string
 }>()
 
 const emit = defineEmits<{
   (e: 'update:visible', visible: boolean): void
+  (e: 'show'): void
 }>()
 
-type FilterId = 'all' | 'applications' | 'pages' | 'actions'
-type EntryKind = 'application' | 'page' | 'action'
-
-interface PaletteEntry {
-  key: string
-  kind: EntryKind
-  label: string
-  /** Secondary text beside the label, e.g. an application's id. */
-  hint?: string
-  icon?: Component
-  /** Colour position of an application's tile. */
-  tileIndex?: number
-  /** Opens in a new tab rather than navigating inside the portal. */
-  external?: boolean
-  run: () => void
-  /** Position in the flat, keyboard-navigable list. */
+/** An entry placed in the flat, keyboard-navigable list. */
+interface PlacedEntry extends CommandPaletteEntry {
   index: number
 }
 
-const FILTERS: { id: FilterId, label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'applications', label: 'Applications' },
-  { id: 'pages', label: 'Pages' },
-  { id: 'actions', label: 'Actions' }
-]
-
-// Sidebar groups whose pages need no route params, so they can be opened from anywhere; listed in this order
-const PAGE_GROUPS: Record<string, string> = { organization: 'Organization', account: 'Account' }
-const PAGE_GROUP_ORDER = Object.keys(PAGE_GROUPS)
+const ALL = 'all'
 
 const DIALOG_PT = {
   root: { class: '!w-[min(640px,calc(100vw-2rem))] !rounded-2xl !border-surface-200 !p-0 overflow-hidden dark:!border-surface-800' },
@@ -143,75 +123,27 @@ const DIALOG_PT = {
 
 const KBD_CLASS = 'rounded border border-surface-300 px-1 py-px font-sans text-[11px] text-surface-600 dark:border-surface-700 dark:text-surface-300'
 
-const router = useRouter()
-
 const query = ref('')
-const activeFilter = ref<FilterId>('all')
+const activeFilter = ref(ALL)
 const activeIndex = ref(0)
 const inputRef = ref<HTMLInputElement | null>(null)
 const listRef = ref<HTMLElement | null>(null)
 
-function go(path: string) {
-  setVisible(false)
-  router.push(path)
-}
-
-const applicationEntries = computed(() =>
-    APPLICATION_STATE.allApplications.map((app, position) => ({
-      key: `app:${app.id}`,
-      kind: 'application' as const,
-      label: app.name || app.id,
-      hint: app.id,
-      tileIndex: position,
-      run: () => go(`/application/${encodeURIComponent(app.id)}`)
-    })))
-
-const pageEntries = computed(() =>
-    router.getRoutes()
-          .filter(record => {
-            const sidebar = record.meta?.sidebar as SidebarItemMeta | undefined
-            return sidebar && PAGE_GROUPS[sidebar.group] && !record.path.includes(':')
-          })
-          .sort((a, b) => {
-            const left = a.meta.sidebar as SidebarItemMeta
-            const right = b.meta.sidebar as SidebarItemMeta
-            return PAGE_GROUP_ORDER.indexOf(left.group) - PAGE_GROUP_ORDER.indexOf(right.group) || left.order - right.order
-          })
-          .map(record => {
-            const sidebar = record.meta.sidebar as SidebarItemMeta
-            return {
-              key: `page:${record.path}`,
-              kind: 'page' as const,
-              label: sidebar.label,
-              hint: PAGE_GROUPS[sidebar.group],
-              icon: markRaw(sidebar.icon),
-              run: () => go(record.path)
-            }
-          }))
-
-const actionEntries = [
-  { key: 'action:new-application', kind: 'action' as const, label: 'New application', icon: markRaw(Plus),
-    run: () => go('/applications?add=true') },
-  { key: 'action:docs', kind: 'action' as const, label: 'Open documentation', icon: markRaw(BookOpenText), external: true,
-    run: () => { setVisible(false); window.open(DOCUMENTATION_URL, '_blank', 'noopener') } }
-]
+const filters = computed(() => [{ id: ALL, label: 'All' }, ...props.groups.map(group => ({ id: group.label, label: group.label }))])
 
 const sections = computed(() => {
   const needle = query.value.trim().toLowerCase()
-  const matches = (entry: { label: string, hint?: string }) =>
+  const matches = (entry: CommandPaletteEntry) =>
       !needle || entry.label.toLowerCase().includes(needle) || (entry.hint?.toLowerCase().includes(needle) ?? false)
-  const groups: { label: string, filter: FilterId, entries: Omit<PaletteEntry, 'index'>[] }[] = [
-    { label: 'Applications', filter: 'applications', entries: applicationEntries.value.filter(matches) },
-    { label: 'Pages', filter: 'pages', entries: pageEntries.value.filter(matches) },
-    { label: 'Actions', filter: 'actions', entries: actionEntries.filter(matches) }
-  ]
   let index = 0
-  return groups
-      .filter(group => (activeFilter.value === 'all' || activeFilter.value === group.filter) && group.entries.length > 0)
+  return props.groups
+      .filter(group => activeFilter.value === ALL || activeFilter.value === group.label)
+      .map(group => ({ label: group.label, entries: group.entries.filter(matches) }))
+      .filter(group => group.entries.length > 0)
       .map(group => ({ label: group.label, entries: group.entries.map(entry => ({ ...entry, index: index++ })) }))
 })
 
-const flatEntries = computed<PaletteEntry[]>(() => sections.value.flatMap(section => section.entries))
+const flatEntries = computed<PlacedEntry[]>(() => sections.value.flatMap(section => section.entries))
 
 // A new query or filter starts over at the first result
 watch([query, activeFilter], () => { activeIndex.value = 0 })
@@ -222,20 +154,19 @@ function setVisible(visible: boolean) {
 
 function onShow() {
   query.value = ''
-  activeFilter.value = 'all'
+  activeFilter.value = ALL
   activeIndex.value = 0
-  if (APPLICATION_STATE.allApplications.length === 0) {
-    void APPLICATION_STATE.loadAllApplications()
-  }
+  emit('show')
   nextTick(() => inputRef.value?.focus())
 }
 
-function selectFilter(filter: FilterId) {
+function selectFilter(filter: string) {
   activeFilter.value = filter
   inputRef.value?.focus()
 }
 
-function run(entry: PaletteEntry) {
+function run(entry: CommandPaletteEntry) {
+  setVisible(false)
   entry.run()
 }
 
@@ -260,9 +191,9 @@ function onKeydown(event: KeyboardEvent) {
   } else if (event.key === 'Tab') {
     // Tab cycles the filters instead of leaving the input
     event.preventDefault()
-    const position = FILTERS.findIndex(filter => filter.id === activeFilter.value)
+    const position = filters.value.findIndex(filter => filter.id === activeFilter.value)
     const step = event.shiftKey ? -1 : 1
-    activeFilter.value = FILTERS[(position + step + FILTERS.length) % FILTERS.length].id
+    activeFilter.value = filters.value[(position + step + filters.value.length) % filters.value.length].id
   }
 }
 

@@ -41,7 +41,7 @@
       </template>
 
       <template #item.created="{ item }">
-        {{ formatEpochDateTime(item.created) }}
+        <TimePill :date="item.created" />
       </template>
     </CrudTable>
 
@@ -66,7 +66,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import { Direction, FunctionalIterablePage, Kinotic, Order,
          type IterablePage, type Page, type Pageable, type Sort } from '@kinotic-ai/core'
 import { WorkloadStatus, type StatusCondition, type Workload } from '@kinotic-ai/management-api'
-import { CrudTable, DatetimeUtil, WorkloadLogsDialog, formatMb, pageNumberOf, useCrudTablePage,
+import { CrudTable, DatetimeUtil, TimePill, WorkloadLogsDialog, formatMb, pageNumberOf, useCrudTablePage,
          type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
 
 import { formatCpus } from '@/util/nodes'
@@ -112,7 +112,6 @@ const DEFAULT_SORT = [new Order('created', Direction.DESC)]
 
 const router = useRouter()
 const confirm = useConfirm()
-const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
 
 const logsWorkload = ref<Workload | null>(null)
 const logsVisible = ref(false)

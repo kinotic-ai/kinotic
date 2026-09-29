@@ -17,6 +17,13 @@
       @update:search="tableSearch = $event"
       @on-row-click="openProject"
     >
+      <template #item.name="{ item, index }">
+        <span class="flex min-w-0 items-center gap-2.5">
+          <InitialsTile :name="item.name || item.id" :index="index" />
+          <span class="truncate" v-tooltip.top="item.name">{{ item.name }}</span>
+        </span>
+      </template>
+
       <template #item.applicationId="{ item }">
         <RouterLink :to="applicationPath(organizationId, item.applicationId)" class="font-mono text-sm hover:underline" @click.stop>
           {{ item.applicationId }}
@@ -46,7 +53,7 @@
       </template>
 
       <template #item.updated="{ item }">
-        {{ item.updated ? formatDate(item.updated) : '—' }}
+        <TimePill :date="item.updated" />
       </template>
     </CrudTable>
   </div>
@@ -62,8 +69,10 @@ import { Direction, FunctionalIterablePage, Kinotic, Order, Pageable, type Itera
 import { RepositoryConnectionStatus, type JobRun, type Project } from '@kinotic-ai/management-api'
 import {
   CrudTable,
-  PageHeader,
   DatetimeUtil,
+  InitialsTile,
+  PageHeader,
+  TimePill,
   errorMessage,
   executionStatusSeverity,
   pageNumberOf,
@@ -105,7 +114,6 @@ interface ProjectRow extends DescriptiveIdentifiable {
 const DEFAULT_SORT = [new Order('name', Direction.ASC)]
 
 const router = useRouter()
-const formatDate = DatetimeUtil.formatEpochDate
 
 const description = computed(() => props.applicationId
     ? 'The functional units that make up this application, each backed by a GitHub repository, with the state of its last deploy run.'
@@ -163,7 +171,7 @@ function repoStatusLabel(status: RepositoryConnectionStatus | null): string {
   if (status === RepositoryConnectionStatus.INITIALIZATION_FAILED) {
     ret = 'Init failed'
   } else if (status === RepositoryConnectionStatus.DISCONNECTED) {
-    ret = 'Disconnected'
+    ret = 'Not connected'
   } else {
     ret = 'Connected'
   }
@@ -172,9 +180,7 @@ function repoStatusLabel(status: RepositoryConnectionStatus | null): string {
 
 function repoStatusSeverity(status: RepositoryConnectionStatus | null): string {
   let ret: string
-  if (status === RepositoryConnectionStatus.INITIALIZATION_FAILED) {
-    ret = 'warn'
-  } else if (status === RepositoryConnectionStatus.DISCONNECTED) {
+  if (status === RepositoryConnectionStatus.INITIALIZATION_FAILED || status === RepositoryConnectionStatus.DISCONNECTED) {
     ret = 'danger'
   } else {
     ret = 'success'

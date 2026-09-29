@@ -31,11 +31,11 @@
     </template>
 
     <template #item.started="{ item }">
-      {{ formatEpochDateTime(item.started) }}
+      <TimePill :date="item.started" />
     </template>
 
     <template #item.duration="{ item }">
-      {{ formatDuration(item.started, item.finished) }}
+      <span class="font-mono text-xs tabular-nums">{{ formatDuration(item.started, item.finished) }}</span>
     </template>
   </CrudTable>
 </template>
@@ -51,6 +51,7 @@ import { pageNumberOf, useCrudTablePage } from '../useCrudTablePage'
 import type { CrudHeader } from '../../types/CrudHeader'
 import type { DescriptiveIdentifiable } from '../../types/DescriptiveIdentifiable'
 import DatetimeUtil from '../../util/DatetimeUtil'
+import TimePill from '../TimePill.vue'
 import { executionStatusSeverity } from './jobRunDisplay'
 import { scanJobRuns, type JobRunFilter } from './jobRunScan'
 
@@ -85,7 +86,6 @@ interface RunRow extends DescriptiveIdentifiable {
   finished: number | null
 }
 
-const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
 const formatDuration = DatetimeUtil.formatDuration
 
 const DEFAULT_SORT = [new Order('started', Direction.DESC)]

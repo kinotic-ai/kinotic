@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, type Component } from 'vue'
-import { Building2, LayoutGrid, User } from '@lucide/vue'
-import { useRoute } from 'vue-router'
-import { ProjectsIcon, SideBar, SidebarScope } from '@kinotic-ai/frontend-common'
+import { computed, markRaw, onMounted, ref, type Component } from 'vue'
+import { Building2, LayoutGrid, Link, LogOut, User } from '@lucide/vue'
+import { useRoute, useRouter } from 'vue-router'
+import type { MenuItem } from 'primevue/menuitem'
+import { createDebug, ProjectsIcon, SideBar, SidebarScope, SidebarUserMenu } from '@kinotic-ai/frontend-common'
 import Header from './Header.vue'
-import SidebarUserMenu from '@/components/SidebarUserMenu.vue'
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 import { PROFILE_STATE } from '@/states/IProfileState'
 import { USER_STATE } from '@/states/IUserState'
@@ -19,8 +19,35 @@ interface SidebarScopeProps {
     backLabel?: string
 }
 
+const debug = createDebug('layout')
+
 const sidebarRef = ref<InstanceType<typeof SideBar> | null>(null)
 const route = useRoute()
+const router = useRouter()
+
+const displayName = computed(() =>
+    PROFILE_STATE.profile?.displayName || PROFILE_STATE.profile?.email || 'Account')
+
+// lucideIcon is rendered by SidebarUserMenu's item slot
+const accountMenuItems: MenuItem[] = [
+    { label: 'Profile', lucideIcon: markRaw(User), command: () => router.push('/account/profile') },
+    { label: 'Connected apps', lucideIcon: markRaw(Link), command: () => router.push('/account/connected-apps') },
+    { separator: true },
+    { label: 'Log out', lucideIcon: markRaw(LogOut), command: logout }
+]
+
+onMounted(() => {
+    PROFILE_STATE.load().catch(error => debug('Failed to load profile: %O', error))
+})
+
+async function logout() {
+    try {
+        await USER_STATE.logout()
+    } catch (error) {
+        debug('Logout failed: %O', error)
+    }
+    await router.push('/login')
+}
 
 // Small screens keep the sidebar in a drawer the header's menu button opens
 const navOpen = ref(false)
@@ -85,7 +112,8 @@ function scopeFor(group: string | null): SidebarScopeProps {
                 <SidebarScope v-bind="scopeFor(group)" :collapsed="collapsed" @toggle="toggle" />
             </template>
             <template #footer="{ collapsed }">
-                <SidebarUserMenu :collapsed="collapsed" />
+                <SidebarUserMenu :collapsed="collapsed" :name="displayName" :detail="USER_STATE.getOrganizationId()"
+                                 :initials="PROFILE_STATE.initials" :items="accountMenuItems" />
             </template>
         </SideBar>
         <div

@@ -59,7 +59,7 @@
           {{ allLabel }}
         </RouterLink>
       </div>
-      <div class="border-t border-surface-200 p-1.5 dark:border-surface-800">
+      <div v-if="createTo" class="border-t border-surface-200 p-1.5 dark:border-surface-800">
         <RouterLink :to="createTo" class="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-surface-800 hover:bg-surface-100 dark:text-surface-100 dark:hover:bg-surface-800" @click="close">
           <Plus :size="16" :stroke-width="1.75" aria-hidden="true" />
           {{ createLabel }}
@@ -76,7 +76,7 @@ import { Check, ChevronsUpDown, Plus, Search } from '@lucide/vue'
 
 /**
  * The ⌃⌄ button beside a breadcrumb segment: a searchable list of that segment's siblings with the
- * current one ticked, then a link to the full list and a link to create a new one. Emits
+ * current one ticked, then a link to the full list and, when createTo is set, a link to create a new one. Emits
  * {@code select} with the id picked from the list.
  */
 const props = defineProps<{
@@ -89,8 +89,8 @@ const props = defineProps<{
   searchPlaceholder: string
   allLabel: string
   allTo: string
-  createLabel: string
-  createTo: string
+  createLabel?: string
+  createTo?: string
 }>()
 
 const emit = defineEmits<{

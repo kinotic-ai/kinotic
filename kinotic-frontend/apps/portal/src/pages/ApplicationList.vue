@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { CrudTable } from "@kinotic-ai/frontend-common";
 import ApplicationSidebar from "@/components/ApplicationSidebar.vue";
-import InitialsTile from "@/components/InitialsTile.vue";
-import TimePill from "@/components/TimePill.vue";
-import { PageHeader } from "@kinotic-ai/frontend-common";
+import { InitialsTile, PageHeader, TimePill } from "@kinotic-ai/frontend-common";
 import { Kinotic } from "@kinotic-ai/core";
 import {
   type IApplicationService,

@@ -13,7 +13,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Clock } from '@lucide/vue'
-import { DatetimeUtil } from '@kinotic-ai/frontend-common'
+import DatetimeUtil from '../util/DatetimeUtil'
 
 /**
  * A timestamp as a soft pill with a clock, reading relatively ("Today", "3 days ago"); the exact
