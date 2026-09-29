@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
@@ -53,16 +54,25 @@ public class DevPlatformSecretsGenerator {
         }
         try {
             Files.createDirectories(path.getParent());
-            VersionedKeySet set = newKeySet();
-            objectMapper.writeValue(path.toFile(), set);
+            // Written whole under a temporary name, then linked into place: a server reading the file never sees
+            // it half written, and of servers starting together only the first to link publishes its keys
+            Path tmp = Files.createTempFile(path.getParent(), path.getFileName().toString(), ".tmp");
             try {
-                Files.setPosixFilePermissions(path, java.util.Set.of(
-                        java.nio.file.attribute.PosixFilePermission.OWNER_READ,
-                        java.nio.file.attribute.PosixFilePermission.OWNER_WRITE));
-            } catch (UnsupportedOperationException ignored) {
-                // non-POSIX FS (Windows); rely on directory ACLs
+                try {
+                    Files.setPosixFilePermissions(tmp, java.util.Set.of(
+                            java.nio.file.attribute.PosixFilePermission.OWNER_READ,
+                            java.nio.file.attribute.PosixFilePermission.OWNER_WRITE));
+                } catch (UnsupportedOperationException ignored) {
+                    // non-POSIX FS (Windows); rely on directory ACLs
+                }
+                objectMapper.writeValue(tmp.toFile(), newKeySet());
+                Files.createLink(path, tmp);
+                log.warn("Generated dev {} at {} — DO NOT USE IN PRODUCTION", label, path);
+            } catch (FileAlreadyExistsException e) {
+                log.info("Dev {} file at {} was created by another server first, leaving it untouched", label, path);
+            } finally {
+                Files.deleteIfExists(tmp);
             }
-            log.warn("Generated dev {} at {} — DO NOT USE IN PRODUCTION", label, path);
         } catch (IOException e) {
             throw new IllegalStateException("Failed to seed dev platform secret file: " + path, e);
         }
