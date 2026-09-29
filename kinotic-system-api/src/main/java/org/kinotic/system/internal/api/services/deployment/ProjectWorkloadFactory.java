@@ -14,17 +14,17 @@ import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.config.DeploymentProperties;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.config.ServerAddressProperties;
-import org.kinotic.system.api.model.deployment.DeployTarget;
+import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Builds the workloads a project runs on its node: the foreground sync workload of a deployment
- * run, which connects to the org server, and the long-lived runtime workload of one microservice,
- * which connects to the app server. Each connects as the machine whose credentials it is given,
- * sized by {@link ProjectWorkloadSizes}.
+ * Builds the workloads a project runs on its node: the foreground sync and SBOM workloads of a
+ * deployment run, which connect to the org server, and the long-lived runtime workload of one
+ * microservice, which connects to the app server. Each connects as the machine whose credentials it
+ * is given, sized by {@link ProjectWorkloadSizes}.
  */
 @Component
 @RequiredArgsConstructor
@@ -68,6 +68,35 @@ public class ProjectWorkloadFactory {
                                                         .setGuestPath("/workspace")
                                                         .setSizeLimitMb(ProjectWorkloadSizes.SYNC_MOUNT_LIMIT_MB));
         workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getSyncAllowedHosts(), deployment.getOrgServer()));
+        return workload;
+    }
+
+    /**
+     * The SBOM workload of a deployment run: reads the dependency tree of the lockfile in the
+     * checkout mounted read-only at {@code /workspace} and records it as the project's sync machine.
+     */
+    public Workload sbom(Project project,
+                         DeployTarget target,
+                         MachineProvisionResult credentials) {
+        DeploymentProperties deployment = deployment();
+        Workload workload = new Workload("project-sbom-" + project.getId(), deployment.getWorkloadRunnerImage());
+        workload.setId(target.sbomWorkloadId());
+        workload.setDescription("SBOM of project " + project.getId());
+        workload.getState().setParent(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getOrganizationId(), project.getId()));
+        workload.setNodeId(target.nodeId());
+        workload.setOrganizationId(project.getOrganizationId());
+        workload.setApplicationId(project.getApplicationId());
+        workload.setDetached(false);
+        workload.setCpus(ProjectWorkloadSizes.RUNTIME_CPUS);
+        workload.setMemoryMb(ProjectWorkloadSizes.RUNTIME_MEMORY_MB);
+        workload.setDiskSizeMb(ProjectWorkloadSizes.RUNTIME_DISK_SIZE_MB);
+        workload.setEntrypoint(List.of("bun", "src/generate-sbom.ts"));
+        workload.getEnvironment().put("KINOTIC_PROJECT_ID", project.getId());
+        putKinoticConnection(workload, deployment.getOrgServer(), credentials);
+        workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
+                                                        .setGuestPath("/workspace")
+                                                        .setReadOnly(true));
+        workload.getNetwork().setAllowedHosts(allowedHosts(List.of(), deployment.getOrgServer()));
         return workload;
     }
 

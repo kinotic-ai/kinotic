@@ -5,6 +5,7 @@ import { createKinoticApp } from '@kinotic-ai/frontend-common'
 import router from '@/router'
 import { CONTINUUM_UI } from '@/IContinuumUI'
 import 'primeicons/primeicons.css'
+import '@fontsource-variable/jetbrains-mono'
 import App from './App.vue'
 import { KinoticStates } from '@/states'
 

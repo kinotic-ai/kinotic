@@ -23,7 +23,6 @@ import org.kinotic.management.api.model.deployment.DeploymentStatusType;
 import org.kinotic.management.api.model.deployment.UiDeployment;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.config.UiDeploymentProperties;
-import org.kinotic.system.api.services.deployment.UiStoragePaths;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
@@ -67,6 +66,7 @@ class AzureProvisioningIntegrationTest {
     private static final String PROJECT_ID = "azure-it-project";
     private static final String UI_NAME = "web";
     private static final String SITE_LABEL = "azure-it";
+    private static final String SITES_CONTAINER = "sites";
     private static final String COMMIT_SHA = "0000000000000000000000000000000000000000";
     private static final String INDEX_HTML = "<!doctype html><title>azure-it</title>";
     /** Longer than any upload or delete takes; a step past this is stuck. */
@@ -87,7 +87,7 @@ class AzureProvisioningIntegrationTest {
         assumeTrue(Files.exists(LOCAL_PROFILE), "no " + LOCAL_PROFILE + ": not a developer machine set up for Azure");
         assumeTrue(System.getenv("AZURE_CLIENT_ID") != null, "AZURE_CLIENT_ID is not set: .env.local is not in the environment");
         properties = load(LOCAL_PROFILE);
-        assumeFalse(uiProperties().isDisableProvisioner(), "the local profile disables the site provisioner");
+        assumeFalse(properties.getSystemApi().isDisableAzureStorage(), "the local profile disables Azure storage");
         assumeTrue(uiProperties().getSitesStorageEndpoint() != null, "the local profile names no sites account: apply the dev root first");
 
         vertx = Vertx.vertx();
@@ -147,7 +147,7 @@ class AzureProvisioningIntegrationTest {
     void issuesCredentialsScopedToOneSite() throws Exception {
         String hostname = uiProperties().resolveHostname(SITE_LABEL + "-scope");
         String other = uiProperties().resolveHostname(SITE_LABEL + "-other");
-        String container = uiProperties().getSitesStorageEndpoint().replaceAll("/$", "") + "/" + UiStoragePaths.SITES_CONTAINER;
+        String container = uiProperties().getSitesStorageEndpoint().replaceAll("/$", "") + "/" + SITES_CONTAINER;
 
         String uploadUrl = await(siteStorage.issueUploadUrl(hostname, Duration.ofMinutes(STEP_TIMEOUT_MINUTES)));
         assertTrue(uploadUrl.startsWith(container + "/" + hostname + "?"), "the upload URL names the site's directory: " + uploadUrl);
@@ -183,7 +183,7 @@ class AzureProvisioningIntegrationTest {
     /** A blob of the sites container, read as the test's own identity. */
     private BlobClient siteBlob(String name) {
         return new BlobClientBuilder().endpoint(uiProperties().getSitesStorageEndpoint())
-                                      .containerName(UiStoragePaths.SITES_CONTAINER)
+                                      .containerName(SITES_CONTAINER)
                                       .blobName(name)
                                       .credential(credential)
                                       .buildClient();
@@ -216,8 +216,9 @@ class AzureProvisioningIntegrationTest {
         Map<String, Object> sites = (Map<String, Object>) systemApi.get("uiDeployment");
 
         KinoticSystemApiProperties ret = new KinoticSystemApiProperties();
-        ret.getSystemApi().getUiDeployment()
-           .setDisableProvisioner(Boolean.TRUE.equals(sites.get("disableProvisioner")))
+        ret.getSystemApi()
+           .setDisableAzureStorage(Boolean.TRUE.equals(systemApi.get("disableAzureStorage")))
+           .getUiDeployment()
            .setSitesDomain((String) sites.get("sitesDomain"))
            .setSitesStorageEndpoint((String) sites.get("sitesStorageEndpoint"));
         return ret;

@@ -89,7 +89,7 @@
           <div class="p-5">
           <JobRunProgress :key="deployment.lastJobRunId"
                           :job-run-id="deployment.lastJobRunId"
-                          :expandable="ProjectDeployStores.hasDetail" :task-icon="ProjectDeployStores.iconOf">
+                          :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf">
             <template #detail="{ node, root }">
               <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
             </template>
@@ -155,7 +155,7 @@ import Tag from 'primevue/tag'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { Activity, Boxes, CircleCheck, CircleOff, Clock, CloudUpload, GitCommitHorizontal, Globe, KeyRound, Server } from '@lucide/vue'
-import { DatetimeUtil, JobRunProgress, JobsIcon, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail,
+import { DatetimeUtil, JobRunProgress, JobsIcon, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
          WatchEventsTable, WorkloadLogsDialog, deploymentStatusSeverity, observedPhaseSeverity, shortSha, showErrorToast } from '@kinotic-ai/frontend-common'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DeploymentStatusType,

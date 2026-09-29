@@ -23,6 +23,7 @@ import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.management.api.model.deployment.UiDeployment;
 import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
+import org.kinotic.management.api.repositories.ProjectDependenciesRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
@@ -59,7 +60,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>
  * A deployment whose removal was asked for, which a project's deletion asks, is finalized bottom-up:
  * the removal of its microservice and UI deployments is asked for and their workers carry it out,
- * then the sync and publish workloads are stopped, the sync machine removed and the record deleted.
+ * then the sync, publish and SBOM workloads are stopped, the sync machine removed, and the SBOM and
+ * the record deleted.
  */
 @Slf4j
 @Component
@@ -72,6 +74,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
     private final JobService jobService;
     private final ProjectDeployJobDefinitionFactory jobDefinitionFactory;
     private final ProjectDeploymentRepository projectDeploymentRepository;
+    private final ProjectDependenciesRepository projectDependenciesRepository;
     private final ProjectRepository projectRepository;
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
     private final UiDeploymentRepository uiDeploymentRepository;
@@ -231,8 +234,8 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
 
     /**
      * Asks for the removal of every microservice and UI deployment of the project and waits for their
-     * workers to finish, then stops the sync and publish workloads, removes the sync machine and
-     * deletes the record. What is already gone is not a failure.
+     * workers to finish, then stops the sync, publish and SBOM workloads, removes the sync machine and
+     * deletes the SBOM and the record. What is already gone is not a failure.
      */
     private Future<Requeue> finalizeRemoval(ProjectDeployment current) {
         String projectId = current.getId();
@@ -247,7 +250,9 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                         log.info("Removing the deployment of project {}: its children are gone", projectId);
                         ret = stop(current.getSyncWorkloadId())
                                 .compose(v -> stop(current.getUiPublishWorkloadId()))
+                                .compose(v -> stop(current.getSbomWorkloadId()))
                                 .compose(v -> removeMachine(current.getSyncMachineIdentityId()))
+                                .compose(v -> projectDependenciesRepository.deleteById(projectId, current.getOrganizationId()))
                                 .compose(v -> projectDeploymentRepository.deleteByIdSync(projectId, current.getOrganizationId()))
                                 .map(Requeue.NONE);
                     } else {

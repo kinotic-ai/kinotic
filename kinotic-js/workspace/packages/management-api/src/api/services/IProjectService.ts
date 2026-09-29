@@ -1,6 +1,7 @@
 import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
 import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import { Project } from '@/api/model/Project'
+import type { ProjectDependencies } from '@/api/model/deployment/ProjectDependencies'
 import type { ProjectDeployment } from '@/api/model/deployment/ProjectDeployment'
 import type { WatchEvent } from '@/api/model/reconcile/WatchEvent'
 
@@ -46,6 +47,16 @@ export interface IProjectService extends ICrudServiceProxy<Project> {
      * @param pageable the page to return
      */
     findDeploymentHistory(projectId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>>
+
+    /**
+     * Finds the SBOM of the given project in the current participant's organization: every package
+     * version its lockfile installs, how the project reaches each, and which package depends on
+     * which.
+     * @param projectId id of the project the SBOM belongs to
+     * @return Promise emitting the dependency tree, or null when the project has no SBOM of the
+     *         dependencies its last sync reported
+     */
+    findDependencies(projectId: string): Promise<ProjectDependencies | null>
 
     /**
      * Re-runs repository initialization for a project left
@@ -99,6 +110,10 @@ export class ProjectService extends CrudServiceProxy<Project> implements IProjec
 
     public findDeploymentHistorySinglePage(projectId: string, pageable: Pageable): Promise<Page<WatchEvent>> {
         return this.serviceProxy.invoke('findDeploymentHistory', [projectId, pageable])
+    }
+
+    public findDependencies(projectId: string): Promise<ProjectDependencies | null> {
+        return this.serviceProxy.invoke('findDependencies', [projectId])
     }
 
     public retryRepoInitialization(projectId: string): Promise<Project> {

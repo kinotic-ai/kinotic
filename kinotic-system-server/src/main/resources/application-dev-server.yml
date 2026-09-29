@@ -41,8 +41,7 @@ kinotic:
       # The master key SecretNameDeriver derives storage names with comes from secrets.yml.
       backend: AZURE
   systemApi:
-    uiDeployment:
-      disableProvisioner: false
+    disableAzureStorage: false
     deployment:
       # the servers' hostnames and ports arrive through the environment: each is the name the
       # server's certificate carries, at the port the edge serves every name on

@@ -10,7 +10,7 @@ import org.kinotic.management.api.model.workload.VolumeMount;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.config.DeploymentProperties;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
-import org.kinotic.system.api.model.deployment.DeployTarget;
+import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;

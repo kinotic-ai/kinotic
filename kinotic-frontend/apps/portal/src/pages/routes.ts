@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
 import { type RouteMeta, type RouteRecordRaw } from 'vue-router'
 import {
-    ChartLine, CloudUpload, LayoutDashboard, LayoutGrid, Link, Server, Settings, Table, User, Users
+    ChartLine, CloudUpload, LayoutDashboard, LayoutGrid, Link, ListTree, Server, Settings, Table, User, Users
 } from '@lucide/vue'
 import { JobsIcon, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
@@ -245,6 +245,13 @@ const pageRoutes: RouteRecordRaw[] = [
         path: 'deployment',
         meta: { sidebar: projectItem('Deployment', CloudUpload, 30) } as RouteMeta,
         component: () => import('@/pages/ProjectDeploymentPage.vue'),
+        props: true
+      },
+      {
+        name: 'project-sbom',
+        path: 'sbom',
+        meta: { sidebar: projectItem('SBOM', ListTree, 40) } as RouteMeta,
+        component: () => import('@/pages/ProjectSbomPage.vue'),
         props: true
       }
     ]

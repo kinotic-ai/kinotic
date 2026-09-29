@@ -1,5 +1,3 @@
-@import 'primeicons/primeicons.css';
-@import '@fontsource-variable/jetbrains-mono';
 @import '@kinotic-ai/frontend-common/src/styles/auth-pages.css';
 
 @import "tailwindcss";
