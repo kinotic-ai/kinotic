@@ -1,4 +1,3 @@
-import { SYSTEM_API_ZONE } from '@kinotic-ai/management-api'
 import {
     type ILogManager,
     LogLevel,
@@ -13,7 +12,8 @@ export class LogManager implements ILogManager {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.system.api.services.LogManager`)
+        // Every server node publishes it, without a zone
+        this.serviceProxy = kinotic.serviceProxy('org.kinotic.core.api.log.LogManager')
     }
 
     loggers(nodeId: string): Promise<LoggersDescriptor> {

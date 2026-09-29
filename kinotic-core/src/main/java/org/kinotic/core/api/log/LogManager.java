@@ -1,21 +1,19 @@
-package org.kinotic.system.api.services;
+package org.kinotic.core.api.log;
 
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.config.TraceLogProperties;
 import org.kinotic.core.api.annotations.Scope;
-import org.kinotic.core.api.annotations.Zone;
-import org.kinotic.system.api.model.log.LogLevel;
-import org.kinotic.system.api.model.log.LoggerLevelsDescriptor;
-import org.kinotic.system.api.model.log.LoggersDescriptor;
-import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.core.api.annotations.Version;
+import org.kinotic.core.api.config.TraceLogProperties;
 
 /**
- * Interface providing the ability to work with runtime logging configuration per node
+ * Interface providing the ability to work with runtime logging configuration per node. Every server node
+ * publishes it, scoped to its node id. It has no zone, so only system participants, which may send to any
+ * zone, can call it.
  *
  * Created by Navid Mitchell 🤪 on 7/9/20
  */
 @Publish
-@Zone(DomainUtil.SYSTEM_API_ZONE)
+@Version("1.0.0")
 public interface LogManager {
 
     @Scope
