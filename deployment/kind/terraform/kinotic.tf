@@ -33,6 +33,9 @@ resource "helm_release" "kinotic" {
       { name = "servers.kinotic-org-server.domain.appBaseUrl", value = var.use_mkcert ? "https://localhost" : "http://localhost:9090" },
       # The base every application's API host is a label under, on the app server's port, in the gateways' scheme
       { name = "kinotic.domain.appApiBaseUrl", value = var.use_mkcert ? "https://localhost:58505" : "http://localhost:58505" },
+      # The workloads dial the org and app servers in the gateways' scheme
+      { name = "servers.kinotic-system-server.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_USESSL", value = var.use_mkcert ? "true" : "false" },
+      { name = "servers.kinotic-system-server.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_USESSL", value = var.use_mkcert ? "true" : "false" },
     ],
     # When Keycloak is enabled, add kubernetes-oidc profile and set oidc.enabled
     var.enable_keycloak ? [
