@@ -9,8 +9,10 @@ import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.deployment.ProjectDependencies;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
+import org.kinotic.management.api.repositories.ProjectDependenciesRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
@@ -30,15 +32,18 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
 
     private final ProjectRepository projectRepository;
     private final ProjectDeploymentRepository projectDeploymentRepository;
+    private final ProjectDependenciesRepository projectDependenciesRepository;
     private final ProjectRepoProvisioner repoProvisioner;
 
     public DefaultProjectService(ProjectRepository repository,
                                  SecurityContext securityContext,
                                  ProjectDeploymentRepository projectDeploymentRepository,
+                                 ProjectDependenciesRepository projectDependenciesRepository,
                                  ProjectRepoProvisioner repoProvisioner) {
         super(repository, securityContext);
         this.projectRepository = repository;
         this.projectDeploymentRepository = projectDeploymentRepository;
+        this.projectDependenciesRepository = projectDependenciesRepository;
         this.repoProvisioner = repoProvisioner;
     }
 
@@ -106,6 +111,18 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         Validate.notBlank(projectId, "projectId must not be blank");
         Validate.notNull(pageable, "pageable must not be null");
         return projectDeploymentRepository.findHistory(projectId, requireOrganizationId(), pageable);
+    }
+
+    @Override
+    public Future<ProjectDependencies> findDependencies(String projectId) {
+        Validate.notBlank(projectId, "projectId must not be blank");
+        String organizationId = requireOrganizationId();
+        // the tree of earlier dependencies stays stored after a sync reports new ones, until the
+        // deployment's next SBOM replaces it, so the deployment says whether it is current
+        return projectDeploymentRepository.findById(projectId, organizationId)
+                .compose(deployment -> deployment != null && deployment.isSbomGenerated()
+                        ? projectDependenciesRepository.findById(projectId, organizationId)
+                        : Future.succeededFuture());
     }
 
     @Override

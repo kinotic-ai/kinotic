@@ -105,15 +105,16 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
     /**
      * Deletes the site's directory through a removal workload on the node its project deploys to,
      * with a URL scoped to that directory, then the record. A project never deployed has no node,
-     * and its site no files; a removal that fails leaves the files for a later publish of the same
-     * label to adopt; the removal workload's logs stay in the organization's log store.
+     * and its site no files, nor does a site in an environment without Azure storage; a removal
+     * that fails leaves the files for a later publish of the same label to adopt; the removal
+     * workload's logs stay in the organization's log store.
      */
     private Future<Requeue> finalizeRemoval(UiDeployment current) {
         log.info("Removing site {} of UI {} of project {}", current.getId(), current.getName(), current.getProjectId());
         return projectDeploymentRepository.findById(current.getProjectId(), current.getOrganizationId())
                 .compose(project -> {
                     Future<Void> ret;
-                    if (project == null || project.getNodeId() == null) {
+                    if (project == null || project.getNodeId() == null || properties.getSystemApi().isDisableAzureStorage()) {
                         ret = Future.succeededFuture();
                     } else {
                         ret = siteStorageService.issueRemovalUrl(properties.getSystemApi().getUiDeployment().resolveHostname(current.getId()), REMOVAL_URL_TTL)

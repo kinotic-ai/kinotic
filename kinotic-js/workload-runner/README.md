@@ -15,7 +15,7 @@ bun src/sync.ts                               bun src/supervise.ts   (image defa
 mounts <checkout> read-write                  mounts <checkout> read-only
 fetch + checkout GIT_REF                      runs the project's microservice entry
 bun install                                   polls .kinotic/reload for changes
-find artifacts                                restarts the process when it changes
+find artifacts, hash bun.lock                 restarts the process when it changes
 entity sync + publish
 build the UIs
 report artifacts to the server
@@ -58,7 +58,10 @@ each is identified by the unscoped `name` in its `package.json`, which must be l
 letters, digits, and interior dashes. A missing or invalid name, or two packages of one kind
 sharing a name, fails the run naming the package. The result is reported to the server
 through `ProjectArtifactService.recordArtifacts`, authenticated as the sync machine, so
-the deployment run can bind it once this workload exits.
+the deployment run can bind it once this workload exits. The report carries the synced
+commit and the checkout's `dependencyHash` (`src/sbom.ts`): a SHA-256 of `bun.lock` and of the
+version of the tree the SBOM reads from it, or null without a `bun.lock`, which the deployment
+compares with the one the project's SBOM was read from.
 
 Every UI artifact is then built in place with `bun run build`, handed the platform's
 address as `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and `VITE_KINOTIC_USE_SSL`, the
@@ -92,6 +95,29 @@ under it, through the removal URL issued for the site.
 | Variable | Meaning | Default |
 |---|---|---|
 | `KINOTIC_UI_REMOVAL_URL` | the site's directory in the sites account, with a SAS for that directory as its query | required |
+
+`generate-sbom.ts` — one-shot, exits 0 on success. Runs at the end of a deployment that has
+no SBOM for the dependencies its sync reported, on the same checkout mounted read-only. It reads
+the project's dependency tree from `bun.lock` (`src/sbom.ts`), so a project needs nothing of its
+own:
+
+- every package the lockfile installs, once, as a package URL (`pkg:npm/%40isaacs/cliui@8.0.2`);
+  the project's own workspace packages are the project and are not listed;
+- which of them the project's `package.json` files declare (direct), and which only
+  development or optional dependencies reach;
+- which package depends on which, resolved the way bun loads it: a package at lockfile key
+  `a/b` loads its dependency `d` from the first of `a/b/d`, `a/d` and `d` the lockfile holds.
+
+A `bun.lock` of another `lockfileVersion` than 1 fails the run. The run records the tree with
+the checkout's `dependencyHash` through `ProjectArtifactService.recordSbom`, authenticated as the
+project's sync machine; a tree too large for one message to the server fails the run before it
+connects.
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `KINOTIC_PROJECT_ID` | the project the checkout belongs to | required |
+| `KINOTIC_WORKSPACE_DIR` | the checkout | `/workspace` |
+| `KINOTIC_SERVER_HOST/PORT/USE_SSL`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET`, `KINOTIC_ORGANIZATION_ID` | the server and the sync machine identity the SBOM is recorded as | required |
 
 `supervise.ts` — long-lived:
 

@@ -10,20 +10,13 @@ import lombok.experimental.Accessors;
  * Where the platform serves each published UI from, bound under
  * {@code kinotic.systemApi.uiDeployment.*}. Every site is a hostname label under
  * {@link #sitesDomain}, and its files live in the sites storage account. Both are validated
- * at boot, so an environment that disables the provisioner still sets them, to placeholders.
+ * at boot, so an environment without Azure storage still sets them, to placeholders.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
 public class UiDeploymentProperties {
-
-    /**
-     * When true no site is provisioned for a published UI and
-     * {@code MockUiDeploymentProvisioner} marks every deployment ready at once, so publishing
-     * works in development and tests without Front Door.
-     */
-    private boolean disableProvisioner = false;
 
     /**
      * The domain every site is a label under, e.g. {@code apps.kinotic.ai}: a UI published as

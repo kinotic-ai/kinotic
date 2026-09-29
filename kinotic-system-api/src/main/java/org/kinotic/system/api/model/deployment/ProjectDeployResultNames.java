@@ -1,12 +1,15 @@
 package org.kinotic.system.api.model.deployment;
 
+import org.kinotic.management.api.model.deployment.DeployTarget;
+
 /**
- * The job scope names a project deployment run stores its outcomes under. They reach a
- * watcher of the run on its {@code TaskCompletedEvent}s and outlive it on its
- * {@code TaskRecord}s, which is how the console finds the workloads whose logs belong to a
- * run.
+ * The names a project deployment run's tasks store their results under in the job scope. A
+ * resumed run replays a stored result instead of running its task again, and each result reaches
+ * a watcher of the run on its {@code TaskCompletedEvent}s and outlives the run on its
+ * {@code TaskRecord}s, which is how the console shows what each task produced and finds the
+ * workloads whose logs belong to a run.
  */
-public final class ProjectDeployStores {
+public final class ProjectDeployResultNames {
 
     /** The resolved {@link DeployTarget}, including the id of the run's sync workload. */
     public static final String DEPLOY_TARGET = "deployTarget";
@@ -38,6 +41,14 @@ public final class ProjectDeployStores {
      */
     public static final String UI_DEPLOYMENTS = "uiDeployments";
 
-    private ProjectDeployStores() {
+    /**
+     * Whether the run generated the project's SBOM: {@code true} when its SBOM workload did,
+     * {@code false} when the SBOM already listed the dependencies the sync reported. The workload is
+     * known before the task completes through {@link DeployTarget#sbomWorkloadId()}, which is what
+     * lets a watcher follow its logs while the task runs.
+     */
+    public static final String SBOM = "sbom";
+
+    private ProjectDeployResultNames() {
     }
 }

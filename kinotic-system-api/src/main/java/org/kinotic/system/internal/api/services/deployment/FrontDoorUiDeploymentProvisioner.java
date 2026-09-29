@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(value = "kinotic.systemApi.uiDeployment.disableProvisioner",
+@ConditionalOnProperty(value = "kinotic.systemApi.disableAzureStorage",
                        havingValue = "false", matchIfMissing = true)
 public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner {
 

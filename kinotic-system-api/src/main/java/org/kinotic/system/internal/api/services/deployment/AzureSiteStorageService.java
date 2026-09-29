@@ -15,7 +15,6 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.config.UiDeploymentProperties;
 import org.kinotic.system.api.services.deployment.SiteStorageService;
-import org.kinotic.system.api.services.deployment.UiStoragePaths;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -31,6 +30,9 @@ import java.time.ZoneOffset;
 @Component
 @RequiredArgsConstructor
 public class AzureSiteStorageService implements SiteStorageService {
+
+    /** The one container of the sites account. */
+    private static final String CONTAINER = "sites";
 
     /** How far in the past a delegation key starts, so clock skew between server and storage never rejects a fresh SAS. */
     private static final Duration KEY_START_SKEW = Duration.ofMinutes(5);
@@ -56,18 +58,18 @@ public class AzureSiteStorageService implements SiteStorageService {
     }
 
     private Future<String> issue(String hostname, Duration ttl, PathSasPermission permission) {
+        Validate.notBlank(hostname, "hostname cannot be blank");
         Validate.notNull(ttl, "ttl is required");
-        String directory = UiStoragePaths.sitePrefix(hostname);
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         OffsetDateTime expiry = now.plus(ttl);
-        DataLakeDirectoryAsyncClient site = directories().getFileSystemAsyncClient(UiStoragePaths.SITES_CONTAINER)
-                                                         .getDirectoryAsyncClient(directory);
+        DataLakeDirectoryAsyncClient site = directories().getFileSystemAsyncClient(CONTAINER)
+                                                         .getDirectoryAsyncClient(hostname);
         DataLakeServiceSasSignatureValues values = new DataLakeServiceSasSignatureValues(expiry, permission);
         return Future.fromCompletionStage(directories().getUserDelegationKey(now.minus(KEY_START_SKEW), expiry)
                                                        .map(key -> site.generateUserDelegationSas(values, key))
                                                        .toFuture(), vertx.getOrCreateContext())
                      // the workloads act through the blob endpoint, which honors the directory SAS
-                     .map(token -> blobEndpoint() + "/" + UiStoragePaths.SITES_CONTAINER + "/" + directory + "?" + token);
+                     .map(token -> blobEndpoint() + "/" + CONTAINER + "/" + hostname + "?" + token);
     }
 
     private String blobEndpoint() {
