@@ -40,22 +40,22 @@ public class DefaultUiDeploymentService implements UiDeploymentService {
     public Future<Page<WatchEvent>> findHistory(String deploymentId, Pageable pageable) {
         Validate.notNull(pageable, "pageable is required");
         OrganizationParticipant participant = requireOrgParticipant();
-        return findByIdAndOrg(deploymentId, participant.getOrganizationId())
+        return loadOwned(deploymentId, participant)
                 .compose(deployment -> uiDeploymentRepository.findHistory(deployment, pageable));
     }
 
     @Override
     public Future<Void> remove(String deploymentId) {
         OrganizationParticipant participant = requireOrgParticipant();
-        return findByIdAndOrg(deploymentId, participant.getOrganizationId())
+        return loadOwned(deploymentId, participant)
                 .compose(deployment -> operations.removeUiSite(deployment.getId()));
     }
 
-    /** Finds the deployment with the id in the organization; a missing deployment and another organization's both fail as not found. */
-    private Future<UiDeployment> findByIdAndOrg(String deploymentId, String organizationId) {
+    /** Loads a deployment of the participant's organization; another organization's is indistinguishable from none. */
+    private Future<UiDeployment> loadOwned(String deploymentId, OrganizationParticipant participant) {
         Validate.notBlank(deploymentId, "deploymentId is required");
         return uiDeploymentRepository.findById(deploymentId)
-                .map(deployment -> DomainUtil.requireOwned(deployment, organizationId, "UI deployment not found."));
+                .map(deployment -> DomainUtil.requireOwned(deployment, participant.getOrganizationId(), "UI deployment not found."));
     }
 
     private OrganizationParticipant requireOrgParticipant() {

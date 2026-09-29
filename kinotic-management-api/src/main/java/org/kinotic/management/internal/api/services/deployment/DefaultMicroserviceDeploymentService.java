@@ -40,29 +40,29 @@ public class DefaultMicroserviceDeploymentService implements MicroserviceDeploym
     public Future<Page<WatchEvent>> findHistory(String deploymentId, Pageable pageable) {
         Validate.notNull(pageable, "pageable is required");
         OrganizationParticipant participant = requireOrgParticipant();
-        return findByIdAndOrg(deploymentId, participant.getOrganizationId())
+        return loadOwned(deploymentId, participant)
                 .compose(deployment -> microserviceDeploymentRepository.findHistory(deployment, pageable));
     }
 
     @Override
     public Future<MicroserviceDeployment> restart(String deploymentId) {
         OrganizationParticipant participant = requireOrgParticipant();
-        return findByIdAndOrg(deploymentId, participant.getOrganizationId())
+        return loadOwned(deploymentId, participant)
                 .compose(deployment -> operations.restartMicroservice(deployment.getId()).map(deployment));
     }
 
     @Override
     public Future<Void> remove(String deploymentId) {
         OrganizationParticipant participant = requireOrgParticipant();
-        return findByIdAndOrg(deploymentId, participant.getOrganizationId())
+        return loadOwned(deploymentId, participant)
                 .compose(deployment -> operations.removeMicroservice(deployment.getId()));
     }
 
-    /** Finds the deployment with the id in the organization; a missing deployment and another organization's both fail as not found. */
-    private Future<MicroserviceDeployment> findByIdAndOrg(String deploymentId, String organizationId) {
+    /** Loads a deployment of the participant's organization; another organization's is indistinguishable from none. */
+    private Future<MicroserviceDeployment> loadOwned(String deploymentId, OrganizationParticipant participant) {
         Validate.notBlank(deploymentId, "deploymentId is required");
         return microserviceDeploymentRepository.findById(deploymentId)
-                .map(deployment -> DomainUtil.requireOwned(deployment, organizationId, "Microservice deployment not found."));
+                .map(deployment -> DomainUtil.requireOwned(deployment, participant.getOrganizationId(), "Microservice deployment not found."));
     }
 
     private OrganizationParticipant requireOrgParticipant() {
