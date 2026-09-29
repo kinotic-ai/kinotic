@@ -148,11 +148,11 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
         String displayName = OAuth2Util.firstPresent(claims, "name", "preferred_username", "email");
 
         if (sub == null || email == null) {
-            authEndpointSupport.redirectError(ctx, OidcErrorCodes.INVALID_TOKEN);
+            authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.INVALID_TOKEN);
             return;
         }
         if (!OAuth2Util.isEmailVerified(claims, config.getProvider())) {
-            authEndpointSupport.redirectError(ctx, OidcErrorCodes.EMAIL_NOT_VERIFIED);
+            authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.EMAIL_NOT_VERIFIED);
             return;
         }
 
@@ -172,10 +172,10 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
               .onSuccess(pending -> redirectToCompleteOrg(ctx, pending.getVerificationToken()))
               .onFailure(ex -> {
                   if (ex instanceof AccountExistsException) {
-                      authEndpointSupport.redirectError(ctx, OidcErrorCodes.ACCOUNT_EXISTS);
+                      authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.ACCOUNT_EXISTS);
                   } else {
                       log.warn("Signup resolution failed: {}", ex.getMessage());
-                      authEndpointSupport.redirectError(ctx, OidcErrorCodes.SIGNUP_FAILED);
+                      authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.SIGNUP_FAILED);
                   }
               });
     }
