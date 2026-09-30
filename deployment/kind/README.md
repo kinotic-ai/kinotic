@@ -145,21 +145,27 @@ the servers only without mkcert.
 
 ## OIDC / Keycloak
 
-Keycloak provides OIDC authentication. When enabled, Terraform deploys PostgreSQL + Keycloak
-and redeploys the servers with the `kubernetes-oidc` Spring profile.
+Keycloak is an OIDC provider to test social sign-in against. When enabled, Terraform deploys
+PostgreSQL + Keycloak with the test realm from `deployment/docker-compose/keycloak-test-realm.json`
+(realm `test`, client `kinotic-client`, user `testuser@example.com` / `password123`), and gives
+the org server the client's secret under the secret name `keycloak`, the way the compose Keycloak
+overlay does.
 
 ```bash
 terraform apply -var="enable_keycloak=true"
 ```
 
-If the cluster is already running, re-running with `enable_keycloak=true` will deploy
-Keycloak and redeploy the servers with OIDC -- no manual steps needed.
+If the cluster is already running, re-running with `enable_keycloak=true` deploys Keycloak and
+redeploys the org server with the secret.
 
-**Credentials:**
+Signing in through it also needs an OIDC configuration whose authority is the realm and whose
+secret name is `keycloak`; none is seeded. Keycloak publishes its issuer as
+`https://localhost:8888/auth/realms/test`, which the browser reaches through the port mapping
+and the org server pod does not, so the token exchange fails until Keycloak is published under a
+host both resolve, as the compose stack does with the `keycloak` host.
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
-| Kinotic (OIDC login) | https://localhost/login | testuser@example.com / password123 |
 | Keycloak Admin | https://localhost:8888/auth/admin | admin / admin |
 
 ## Terraform Variables
@@ -170,7 +176,7 @@ Keycloak and redeploy the servers with OIDC -- no manual steps needed.
 | `node_image` | `""` | KinD node image override (empty = provider default) |
 | `kinotic_version` | `5.0.0-SNAPSHOT`, set in `terraform.tfvars` | Kinotic server and migration image tag, the `kinoticVersion` CI publishes the images at |
 | `worker_count` | `3` | Number of worker nodes |
-| `enable_keycloak` | `false` | Deploy Keycloak + PostgreSQL for OIDC |
+| `enable_keycloak` | `false` | Deploy Keycloak + PostgreSQL with the test realm |
 | `enable_load_generator` | `false` | Run load generator via Terraform |
 | `use_mkcert` | `true` | Generate browser-trusted certs with mkcert (declared in `tls.tf`) |
 | `keycloak_db_username` | `keycloak` | Keycloak PostgreSQL user |

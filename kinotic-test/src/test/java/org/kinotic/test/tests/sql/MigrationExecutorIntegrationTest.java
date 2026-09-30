@@ -365,7 +365,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         // neither of which the statement can infer — both are stated outright
         String insertContent = """
             INSERT INTO test_table_routed (id, organizationId, name) VALUES ('widget', 'acme', 'Widget')
-                WITH REFRESH, ROUTING 'acme', DOCUMENT_ID 'acme-widget';
+                WITH REFRESH, ROUTING 'acme', DOCUMENT_ID 'acme--widget';
             """;
 
         // When
@@ -384,7 +384,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         SearchResponse<Map> routed = client.search(s -> s.index("test_table_routed").routing("acme"), Map.class);
 
         assertEquals(1, routed.hits().hits().size());
-        assertEquals("acme-widget", routed.hits().hits().getFirst().id());
+        assertEquals("acme--widget", routed.hits().hits().getFirst().id());
         Map<?, ?> source = routed.hits().hits().getFirst().source();
         assertNotNull(source);
         assertEquals("widget", source.get("id"), "the id column stays the entity id, only _id is composite");

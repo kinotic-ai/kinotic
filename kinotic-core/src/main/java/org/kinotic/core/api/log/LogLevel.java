@@ -7,10 +7,13 @@ public
 enum LogLevel {
     TRACE, DEBUG, INFO, WARN, ERROR, FATAL, OFF;
 
-    public static LogLevel fromString(String level) {
-        if (level == null) {
-            throw new IllegalArgumentException("LogLevel cannot be null");
-        }
-        return LogLevel.valueOf(level.toUpperCase());
+    /**
+     * The level matching Spring Boot's, by name.
+     *
+     * @param level Spring Boot's level, or {@code null} for a logger that inherits its level
+     * @return the matching level, or {@code null} when {@code level} is {@code null}
+     */
+    public static LogLevel of(org.springframework.boot.logging.LogLevel level) {
+        return level == null ? null : LogLevel.valueOf(level.name());
     }
 }
