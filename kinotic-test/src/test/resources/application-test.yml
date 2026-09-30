@@ -20,6 +20,7 @@ kinotic:
         host: localhost
       appServer:
         host: localhost
+      appApiBaseUrl: http://localhost:58505
     # placeholder site config, validated at boot; no test deploys a UI
     uiDeployment:
       sitesDomain: apps.localhost
