@@ -1,0 +1,1 @@
+{"id":"00d20b7f2bb13b307a47ca2e1b7039cf","fullName":"org.kinotic.test.tests.sql.NamedParameterQueryTest.whenInsertBindsParameters_thenSuppliedValuesStored","name":"whenInsertBindsParameters_thenSuppliedValuesStored()","status":"passed","testResultsByEnv":{"default":"6e6beb1c78c42dcf56da8b753d17afbb"}}

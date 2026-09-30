@@ -1,0 +1,1 @@
+{"id":"b60ecae231da21998fe6c561a082fcab","fullName":"@kinotic-ai/core:test/ServiceIdentifier.test.ts#Kinotic JS packages/core ServiceIdentifier construction rejects a name or namespace containing the zone delimiter","name":"rejects a name or namespace containing the zone delimiter","status":"passed","testResultsByEnv":{"default":"0d8a6512d410f6bc2c294b0117ce971c"}}
