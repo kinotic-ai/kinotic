@@ -105,7 +105,7 @@ The optional zone places the resource in the isolation boundary the gateway vali
     </td>
     
     <td>
-      One application's services. Only that application (and system participants) can call them; they are hosted by the owning organization's runtime, which authenticates as an organization participant. Applications may nest their own sub-zones, e.g. <code>
+      One application's services. Only that application's participants and the owning organization's runtimes can call them, through the app server, the one server that reaches these zones; they are hosted by the owning organization's runtime, which authenticates as an organization participant. Applications may nest their own sub-zones, e.g. <code>
         app.acme-org.orders-app.billing
       </code>
       
@@ -238,6 +238,113 @@ Which zones a connection may address is determined by the authenticated particip
   </tr>
 </tbody>
 </table>
+
+Each server also has a zone partitioning, the zones it hosts and the zones it reaches. A node advertises a service
+to the cluster only in a zone its server hosts, and sends only to zones its server reaches: an address in any
+other zone has no handlers there. An address without a zone passes both.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Server
+    </th>
+    
+    <th>
+      Hosts
+    </th>
+    
+    <th>
+      Reaches
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      org
+    </td>
+    
+    <td>
+      <code>
+        management-api
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        management-api
+      </code>
+      
+      , <code>
+        system-api
+      </code>
+      
+      , <code>
+        app-api
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      system
+    </td>
+    
+    <td>
+      <code>
+        system-api
+      </code>
+      
+      , <code>
+        management-api
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        system-api
+      </code>
+      
+      , <code>
+        management-api
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      app
+    </td>
+    
+    <td>
+      <code>
+        app-api
+      </code>
+      
+      , <code>
+        app.*
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        app-api
+      </code>
+      
+      , <code>
+        app.*
+      </code>
+    </td>
+  </tr>
+</tbody>
+</table>
+
+The gateway applies the partitioning before a frame reaches the event bus: a send to a zone the server does not
+reach, or a subscription in a zone it does not host, is refused whatever the participant may address. The
+service directory and listener monitors still see every registration in the cluster, so a service hosted by one
+server shows as online from any other, while each server's MCP listing shows only the tools in zones it reaches.
 
 ### Resource Name
 

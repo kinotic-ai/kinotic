@@ -530,12 +530,12 @@ INSERT INTO products (name, sku, inStock)
     VALUES ('Widget', 'WDG-001', true) WITH REFRESH ;
 ```
 
-Seeding a row that a reader addresses by a composite `_id` and reaches with a routed search needs both options, since the statement has no knowledge of how the row will be read:
+Seeding a row that a reader addresses by a composite `_id` and reaches with a routed search needs both options, since the statement has no knowledge of how the row will be read. The platform's organization-scoped repositories address a row as `<organizationId>--<id>`, routed by the organization id:
 
 ```sql
 INSERT INTO kinotic_application (id, organizationId, name)
     VALUES ('atlas-crm', 'kinotic-test', 'Atlas CRM')
-    WITH REFRESH, ROUTING 'kinotic-test', DOCUMENT_ID 'kinotic-test-atlas-crm' ;
+    WITH REFRESH, ROUTING 'kinotic-test', DOCUMENT_ID 'kinotic-test--atlas-crm' ;
 ```
 
 ### Inserting composite columns

@@ -670,8 +670,9 @@ On `BOXLITE` nodes a workload may declare at most one entry in `volumeMounts`: t
 
 The system server deploys a project on every push to its repository's default branch (see
 [Push to Deploy](/apps/deployment/push-to-deploy)). The pipeline runs a short-lived sync VM
-per deployment, one long-lived runtime VM per microservice, and a short-lived SBOM VM when the
-project's dependencies changed, configured under `kinotic.systemApi.deployment.*`:
+per deployment and a short-lived SBOM VM when the project's dependencies changed, which connect to
+the management server, and one long-lived runtime VM per microservice, which connects to the app server,
+configured under `kinotic.systemApi.deployment.*`:
 
 <table>
 <thead>
@@ -694,7 +695,7 @@ project's dependencies changed, configured under `kinotic.systemApi.deployment.*
   <tr>
     <td>
       <code>
-        serverHost
+        managementServer.host
       </code>
     </td>
     
@@ -705,18 +706,18 @@ project's dependencies changed, configured under `kinotic.systemApi.deployment.*
     </td>
     
     <td>
-      Host the deployed workloads use to reach the api-gateway (<code>
+      Host the sync and SBOM workloads use to reach the management server (<code>
         KINOTIC_SERVER_HOST
       </code>
       
-       in the guest), and the one destination every workload's egress policy always permits. The server has no advertised address of its own, so startup fails without it. An IPv4 address or a hostname, on either provider
+       in the guest), and the one destination their egress policy always permits. A server has no advertised address of its own, so startup fails without it. An IPv4 address or a hostname, on either provider
     </td>
   </tr>
   
   <tr>
     <td>
       <code>
-        serverPort
+        managementServer.port
       </code>
     </td>
     
@@ -727,14 +728,14 @@ project's dependencies changed, configured under `kinotic.systemApi.deployment.*
     </td>
     
     <td>
-      Port the deployed workloads use to reach the api-gateway
+      Port the sync and SBOM workloads use to reach the management server
     </td>
   </tr>
   
   <tr>
     <td>
       <code>
-        serverUseSsl
+        managementServer.useSsl
       </code>
     </td>
     
@@ -745,7 +746,61 @@ project's dependencies changed, configured under `kinotic.systemApi.deployment.*
     </td>
     
     <td>
-      Whether the deployed workloads reach the api-gateway over TLS
+      Whether the sync and SBOM workloads reach the management server over TLS
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        appServer.host
+      </code>
+    </td>
+    
+    <td>
+      <strong>
+        required
+      </strong>
+    </td>
+    
+    <td>
+      Host the runtime workloads use to reach the app server, and the one destination their egress policy always permits. An IPv4 address or a hostname, on either provider
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        appServer.port
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        58505
+      </code>
+    </td>
+    
+    <td>
+      Port the runtime workloads use to reach the app server
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        appServer.useSsl
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      Whether the runtime workloads reach the app server over TLS
     </td>
   </tr>
   
@@ -781,7 +836,7 @@ project's dependencies changed, configured under `kinotic.systemApi.deployment.*
     </td>
     
     <td>
-      Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond the gateway — typically <code>
+      Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond the management server — typically <code>
         github.com
       </code>
       
@@ -815,7 +870,7 @@ project's dependencies changed, configured under `kinotic.systemApi.deployment.*
     </td>
     
     <td>
-      Destinations (IPv4 addresses, CIDRs, or hostnames) the runtime workloads may reach beyond the gateway
+      Destinations (IPv4 addresses, CIDRs, or hostnames) the runtime workloads may reach beyond the app server
     </td>
   </tr>
 </tbody>
@@ -828,6 +883,111 @@ the org's App installation) and at least one online node advertising a workload 
 directory — the project's checkout lives at `<workloadDataDir>/projects/<projectId>` on
 the node that first deployed it, mounted read-write into the sync VM and read-only into
 the runtime VMs.
+
+## Application API hosts
+
+Each application has an API host of its own, its `<organizationId>--<applicationId>` label
+under a platform domain, and every UI a deployment builds is handed its application's host
+to connect to (see [the UI build contract](/apps/application-structure/applications-and-projects#the-ui-build-contract)).
+The app server serves every application at its host: its login and OAuth routes take the
+application from the host a request is addressed to and answer `404` on any other host, and it
+signs an application's users in only from pages that are the application's own UIs. The app server
+configures both under `kinotic.appServer.*`; the system server is handed the same domain under
+`kinotic.systemApi.deployment.appApiBaseUrl`, which each UI build receives as the host to connect to:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Property
+    </th>
+    
+    <th>
+      Default
+    </th>
+    
+    <th>
+      Meaning
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        kinotic.appServer.apiBaseUrl
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      Scheme, domain and optional port every application's API host is a label under: with <code>
+        https://apps-api.kinotic.ai
+      </code>
+      
+      , application <code>
+        orders
+      </code>
+      
+       of organization <code>
+        acme
+      </code>
+      
+       is served at <code>
+        https://acme--orders.apps-api.kinotic.ai
+      </code>
+      
+      , which is also its OAuth issuer. The development profile sets <code>
+        http://localhost:58505
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.appServer.localUiOriginPattern
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      Origins admitted as a UI of every application, for UIs a developer serves from their own machine; the development profile sets <code>
+        http:\/\/localhost:\d+
+      </code>
+      
+      . Unset, an application's login is made only from its published sites, <code>
+        <organizationId>--<applicationId>--<uiName>
+      </code>
+      
+       under the sites domain
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.systemApi.deployment.appApiBaseUrl
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      The same base URL, on the system server: the host each UI build is handed as where its application's API is reached
+    </td>
+  </tr>
+</tbody>
+</table>
 
 ## UI sites
 
@@ -1102,6 +1262,7 @@ arguments, the values a streaming result emits, and the reply frame the client r
 patterns are consulted only while trace logging is enabled, and cost nothing at any other level.
 
 `kinotic.traceLog` is what a node starts with. The system console's **Logging** dialog, on each
-node in the Cluster page's server node table, edits the patterns on a running node the same way it
-sets log levels — see [Observability](/platform/observability#application-logs). Those edits last
-until the node restarts, which returns it to its configured `kinotic.traceLog`.
+node in the Cluster page's server node table, whichever of the three servers it runs, edits the
+patterns on a running node the same way it sets log levels — see
+[Observability](/platform/observability#application-logs). Those edits last until the node restarts,
+which returns it to its configured `kinotic.traceLog`.

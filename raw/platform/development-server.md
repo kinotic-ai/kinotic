@@ -20,10 +20,11 @@ two of the decisions below exist only because of it.
 
 <callout type="info">
 
-**Status.** The host, the Azure root and the nine containers are built and the portal is up;
-the nodes, the first system user and the end-to-end deployment are still to come. This page
-records the decisions, the target topology, and the steps that build it, in the order they
-have to happen.
+**Status.** The host and the Azure root are built, and the portal is up on the single
+`kinotic-server` this page first described; the move to the three servers behind the edge
+(the Proxmox root's README has the steps), the nodes, the first system user and the end-to-end
+deployment are still to come. This page records the decisions, the target topology, and the
+steps that build it, in the order they have to happen.
 
 </callout>
 
@@ -72,7 +73,7 @@ A node is never a container on the host: it needs its own kernel modules, sysctl
 
 ### No Kubernetes
 
-Nothing the server needs comes from Kubernetes. Ignite discovers peers by shared filesystem or
+Nothing the servers need comes from Kubernetes. Ignite discovers peers by shared filesystem or
 static addresses as readily as by the Kubernetes API (`KinoticIgniteConfig`), platform secrets
 are two JSON files at a path, TLS is two PEM files at a path, and the docker-compose stack in
 `deployment/docker-compose/` is the complete platform — with Tempo and Mimir, which the Helm
@@ -102,10 +103,29 @@ cap the peers' definitions early for no gain.
 ### Elasticsearch on a private network, with security off
 
 The three nodes attach only to a private network: a Proxmox SDN simple zone, a bridge with no
-physical port, whose subnet the host gateways and source-NATs. The migration and the server's
-second interface are on it; nothing on the LAN or the internet has a route to it. With that
-isolation the cluster runs the way the local compose stack does, `xpack.security.enabled: false`: no transport TLS to issue and rotate, no passwords to place. The NAT is for one
-direction only — the nodes reach the snapshot container in Azure.
+physical port, whose subnet the host gateways and source-NATs. The migration, the three
+servers and the edge's second interface are on it; nothing on the LAN or the internet has a
+route to it. With that isolation the cluster runs the way the local compose stack does,
+`xpack.security.enabled: false`: no transport TLS to issue and rotate, no passwords to place.
+The NAT is for one direction only — the nodes reach the snapshot container in Azure, and the
+servers reach Azure and the stores on the LAN.
+
+### Three servers on the private network, behind an SNI edge
+
+The platform is three servers — org, system and app — each at a hostname of its own, and the
+ISP's router forwards a port only to the same port on one device. An edge container takes that
+one forward: HAProxy on 443, in TCP mode, reads the SNI of each connection's ClientHello and
+passes the connection through unopened to the server the hostname belongs to, and closes a
+connection that names none of them. Every server still terminates TLS itself, with a
+certificate for its own names, as in the cluster, so the edge holds no key and reads no
+traffic. A forwarded port per server would work as well, at the cost of a port in every
+published application's API URL.
+
+The servers live on the private network alone. The edge is the only way in, from the LAN and
+the internet alike — for the peers, GitHub's webhook, and the nodes' vm-manager and workloads —
+so no server port and none of Ignite's is reachable from the LAN, and the three form their one
+Ignite cluster over their private addresses. The servers see the edge's address as every
+client's; the edge's log keeps the client's.
 
 ### The node runs the Cloud Hypervisor provider
 
@@ -122,11 +142,11 @@ The developer root `deployment/terraform/azure/dev` already builds everything a 
 needs to publish UIs and send email: a resource group, the sites module under
 `apps-<environment>.<zone>`, a Key Vault holding the wildcard certificate Front Door reads, and
 a service principal whose `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, and `AZURE_TENANT_ID``DefaultAzureCredential` takes before anything else. A `dev-server` root is that root plus
-four things: a Key Vault for the server, the portal and the system console on the sites
-module's Front Door, DNS rights for certificate issuance, and a container for Elasticsearch
-snapshots.
+four things: a Key Vault for the servers, the portal and the system console on the sites
+module's Front Door, the servers' hostnames with DNS rights for certificate issuance, and a
+container for Elasticsearch snapshots.
 
-The server's Key Vault is kept deliberately. Without it the secret storage backend is in-memory
+The servers' Key Vault is kept deliberately. Without it the secret storage backend is in-memory
 (`SecretStorageConfiguration`): nothing stored survives a restart and nothing can be carried to
 the cloud. Nothing calls `SecretStorageService` today, so the cost is nil this week; the first
 feature that stores a peer's secret would turn it into silent data loss. With the `AZURE`
@@ -144,8 +164,8 @@ of those tables is a new versioned file. Tables no peer writes (`kinotic_vm_node
 
 ### The same GitHub App as Kinotic Cloud
 
-`kinotic_github_app_installation.githubInstallationId` belongs to one App (the `appId` in
-`kinotic-server/src/main/resources/application.yml`), and one App has one webhook URL. Using
+`kinotic_github_app_installation.githubInstallationId` belongs to one App (the `appId` in the
+org and system servers' `application.yml`), and one App has one webhook URL. Using
 the cloud's App for the development server means the installation rows migrate untouched and
 cutover is a change of webhook URL; a separate App would mean every peer re-installs on their
 repos after migration. The cost is that while the development server owns the webhook URL,
@@ -320,7 +340,39 @@ allocation watermark, and the Proxmox drive's largest tenant is the stores' rete
   <tr>
     <td>
       <code>
-        kinotic-server
+        kinotic-server-management
+      </code>
+      
+      , <code>
+        kinotic-server-system
+      </code>
+      
+      , <code>
+        kinotic-server-app
+      </code>
+    </td>
+    
+    <td>
+      containers
+    </td>
+    
+    <td>
+      4 each
+    </td>
+    
+    <td>
+      4 GB each
+    </td>
+    
+    <td>
+      private
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        edge
       </code>
     </td>
     
@@ -329,11 +381,11 @@ allocation watermark, and the Proxmox drive's largest tenant is the stores' rete
     </td>
     
     <td>
-      4
+      1
     </td>
     
     <td>
-      4 GB
+      256 MB
     </td>
     
     <td>
@@ -415,7 +467,7 @@ allocation watermark, and the Proxmox drive's largest tenant is the stores' rete
     </td>
     
     <td>
-      the rest, ~70 GB
+      the rest, ~65 GB
     </td>
     
     <td>
@@ -425,18 +477,18 @@ allocation watermark, and the Proxmox drive's largest tenant is the stores' rete
 </tbody>
 </table>
 
-The stores have static addresses on `vmbr0`; the server's LAN interface takes its address by
+The stores have static addresses on `vmbr0`; the edge's LAN interface takes its address by
 DHCP under a fixed MAC, because the ISP's router forwards by device and reserves the
 device's address when the forward is saved. The private network is `10.10.0.0/24` with the
-host at `.1`. Only `kinotic-server` is reachable from the internet, on two forwarded
-ports.
+host at `.1`, the edge at `.10`, and the org, system and app servers at `.20`, `.22` and `.23`.
+Only the edge is reachable from the internet, on one forwarded port, 443.
 
 Proxmox itself is installed by hand, and `host/prepare-host.sh` runs once on it: the three ZFS
 pools, the directories, `vm.max_map_count`, the keepalive and address-updater timers, and the
 host's exposure, SSH by key alone and a firewall that admits SSH and the web UI from the LAN
 only. From there the host is a
 terraform root, `deployment/terraform/proxmox`, using `bpg/proxmox`: the private network, the
-seven images, the containers with their mounts, and the manifests and config files it uploads
+ten images, the containers with their mounts, and the manifests and config files it uploads
 to the host. Everything it uploads comes from this
 repository; nothing secret passes through it; its README is the runbook.
 
@@ -445,28 +497,29 @@ repository; nothing secret passes through it; its README is the runbook.
 ```text
 deployment/terraform/proxmox/
   main.tf                            # the network, images, containers, and the applier run
+  haproxy.cfg.tftpl                  # the edge: one route per server hostname, by SNI
   host/prepare-host.sh               # once on the host: ZFS pools, directories, sysctl, keepalive timer
   host/kinotic-apply-container.py    # on the host after every apply: environment, config files, ownership
-  generate-secrets.sh                # the JWT key set, the master key, Grafana's password
+  generate-secrets.sh                # a JWT key set per server, the master key, Grafana's password
   sync-secrets.sh                    # copies them to the host and re-applies the containers that read them
 deployment/docker-compose/
   tempo.yml, mimir.yml, grafana-*.yaml, dashboards/   # the stores' config files, addresses substituted
-kinotic-server/src/main/resources/
-  application-dev-server.yml         # the dev-server profile: what is fixed for this shape
+kinotic-{org,system,app}-server/src/main/resources/
+  application-dev-server.yml         # each server's dev-server profile: what is fixed for this shape
 /etc/kinotic/secrets/                # on the host, placed by hand
-  kinotic-server.env                 # AZURE_CLIENT_SECRET, merged into the server's environment
-  kinotic-server/                    # mounted at /etc/kinotic in the server: secrets.yml, platform-secrets/, certs/
+  kinotic-servers.env                # AZURE_CLIENT_SECRET, merged into every server's environment
+  kinotic-{org,system,app}-server/   # mounted at /etc/kinotic in that server: secrets.yml, platform-secrets/, certs/
   grafana.env                        # the admin password
 /var/lib/kinotic/{config,data}/<service>, /es{1,2,3}/data   # each container's files and state
 ```
 
-The server runs with `SPRING_PROFILES_ACTIVE=production,dev-server`. `production` is what
+Each server runs with `SPRING_PROFILES_ACTIVE=production,dev-server`. `production` is what
 takes it off the development conveniences: no auto-seeded platform secrets
-(`DevPlatformSecretsGenerator` is development-only), the halting Ignite failure handler, the
+(`kinotic.platformSecrets.generateMissing` is set by the development profile alone), the halting Ignite failure handler, the
 production shard defaults — which `dev-server` then overrides. Its environment is composed by
-terraform from the compose service's, the Azure root's outputs, and the addresses only the
-proxmox root knows; its secrets arrive through `secrets.yml`, which the profile imports, and
-the env file the applier merges.
+terraform from what the three share — the compose services', the Azure root's outputs, and the
+addresses only the proxmox root knows — and what is its own; its secrets arrive through
+`secrets.yml`, which the profile imports, and the env file the applier merges.
 
 ### Elasticsearch
 
@@ -594,7 +647,7 @@ Three containers from the same image, identical except for name, address and mou
     </td>
     
     <td>
-      The server, the migration, and the host reach the cluster on the private network; 9200 is never on the LAN
+      The servers, the migration, and the host reach the cluster on the private network; 9200 is never on the LAN
     </td>
   </tr>
   
@@ -620,7 +673,7 @@ Three containers from the same image, identical except for name, address and mou
 </tbody>
 </table>
 
-Server side, in `application-dev-server.yml` and the environment:
+Server side, in the servers' `application-dev-server.yml` and their environment:
 
 <table>
 <thead>
@@ -665,7 +718,7 @@ Server side, in `application-dev-server.yml` and the environment:
   <tr>
     <td>
       <code>
-        kinotic.persistence.numberOfShards
+        kinotic.managementApi.entityDefinition.numberOfShards
       </code>
       
        / <code>
@@ -706,7 +759,440 @@ The snapshot repository is registered once ES is up: an `azure` repository named
 environment, its account key in each node's keystore, and an SLM policy taking a daily
 snapshot of every index with 30 days' retention.
 
-### Server
+### Servers
+
+What differs between the three:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      
+    </th>
+    
+    <th>
+      <code>
+        kinotic-server-management
+      </code>
+    </th>
+    
+    <th>
+      <code>
+        kinotic-server-system
+      </code>
+    </th>
+    
+    <th>
+      <code>
+        kinotic-server-app
+      </code>
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      Hostnames, which its certificate carries
+    </td>
+    
+    <td>
+      <code>
+        dev-api.kinotic.ai
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        dev-system-api.kinotic.ai
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        dev-apps-api.kinotic.ai
+      </code>
+      
+      , <code>
+        *.dev-apps-api.kinotic.ai
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Serves
+    </td>
+    
+    <td>
+      the portal, the CLI, MCP hosts, the GitHub webhook
+    </td>
+    
+    <td>
+      the system console, the nodes' vm-manager
+    </td>
+    
+    <td>
+      every application at <code>
+        <organizationId>--<applicationId>.dev-apps-api.kinotic.ai
+      </code>
+      
+      , for its UIs and its runtime workloads
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Gateway port behind the edge, private address
+    </td>
+    
+    <td>
+      <code>
+        58503
+      </code>
+      
+      , <code>
+        10.10.0.20
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        58504
+      </code>
+      
+      , <code>
+        10.10.0.22
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        58505
+      </code>
+      
+      , <code>
+        10.10.0.23
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.managementServer.apiBaseUrl
+      </code>
+      
+      , <code>
+        portalBaseUrl
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        https://dev-api.kinotic.ai
+      </code>
+      
+      , the OIDC redirect URIs' base and, with no <code>
+        issuerBaseUrl
+      </code>
+      
+       set, the OAuth issuer; <code>
+        https://dev-portal.kinotic.ai
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      —
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.systemServer.apiBaseUrl
+      </code>
+      
+      , <code>
+        consoleBaseUrl
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      <code>
+        https://dev-system-api.kinotic.ai
+      </code>
+      
+      ; <code>
+        https://dev-console.kinotic.ai
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.appServer.apiBaseUrl
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      <code>
+        https://dev-apps-api.kinotic.ai
+      </code>
+      
+      : each application's host is its own issuer
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.systemApi.deployment.appApiBaseUrl
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      <code>
+        https://dev-apps-api.kinotic.ai
+      </code>
+      
+      , for the URL a UI build is handed
+    </td>
+    
+    <td>
+      —
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.domain.email.linkBaseUrl
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        https://dev-portal.kinotic.ai
+      </code>
+      
+      , where the emailed links open
+    </td>
+    
+    <td>
+      <code>
+        https://dev-portal.kinotic.ai
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.apiGateway.cors.allowedOriginPattern
+      </code>
+    </td>
+    
+    <td>
+      the portal
+    </td>
+    
+    <td>
+      the console
+    </td>
+    
+    <td>
+      <code>
+        https://[a-z0-9-]+\.
+      </code>
+      
+       and the sites domain: the published UIs
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.managementApi.github.appPrivateKey
+      </code>
+      
+       / <code>
+        webhookSecret
+      </code>
+    </td>
+    
+    <td>
+      from <code>
+        secrets.yml
+      </code>
+      
+      ; the cloud's App, whose webhook URL is <code>
+        https://dev-api.kinotic.ai/api/github/webhook
+      </code>
+    </td>
+    
+    <td>
+      from <code>
+        secrets.yml
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.systemApi.disableAzureStorage
+      </code>
+      
+      , <code>
+        uiDeployment.sitesDomain
+      </code>
+      
+       / <code>
+        sitesStorageEndpoint
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+      
+      , so Front Door serves the published UIs; <code>
+        apps-dev.kinotic.ai
+      </code>
+      
+      , the development server's sites account
+    </td>
+    
+    <td>
+      —
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.systemApi.deployment.managementServer
+      </code>
+      
+       and <code>
+        appServer
+      </code>
+      
+      : <code>
+        host
+      </code>
+      
+       / <code>
+        port
+      </code>
+      
+       / <code>
+        useSsl
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      <code>
+        dev-api.kinotic.ai
+      </code>
+      
+       and <code>
+        dev-apps-api.kinotic.ai
+      </code>
+      
+      , <code>
+        443
+      </code>
+      
+      , <code>
+        true
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.systemApi.deployment.syncAllowedHosts
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      <code>
+        github.com
+      </code>
+      
+      , <code>
+        registry.npmjs.org
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+  </tr>
+</tbody>
+</table>
+
+A workload dials its server by the name the server's certificate carries: each node pins every
+server's name to the edge's LAN address in its `/etc/hosts`, which its resolver answers guests
+from and the vm-manager admits in the name's egress set, so the traffic stays on the LAN, and
+the guest trusts the Let's Encrypt chain. The node's resolver admits what it answers for each
+of `syncAllowedHosts` too, so the same names serve `BOXLITE` development and the
+`CLOUD_HYPERVISOR` nodes here.
+
+What the three share:
 
 <table>
 <thead>
@@ -729,82 +1215,6 @@ snapshot of every index with 30 days' retention.
   <tr>
     <td>
       <code>
-        kinotic.domain.appBaseUrl
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        https://dev-portal.kinotic.ai
-      </code>
-    </td>
-    
-    <td>
-      The portal, served by Front Door from the sites account
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        kinotic.domain.apiBaseUrl
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        https://dev-api.kinotic.ai
-      </code>
-    </td>
-    
-    <td>
-      REST, STOMP, MCP, and the OIDC redirect URIs; <code>
-        issuerBaseUrl
-      </code>
-      
-       falls back to it
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        kinotic.apiGateway.stompPort
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        443
-      </code>
-    </td>
-    
-    <td>
-      The api-gateway port is the public one: a consumer router forwards a port to the same port only, and an LXC autodev hook lowers the container's unprivileged port floor so the server's user binds it
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        kinotic.apiGateway.webServer.enabled
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        false
-      </code>
-    </td>
-    
-    <td>
-      Nothing is served from the jar's webroot; the API port is the only one exposed, as in the cluster
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
         kinotic.apiGateway.ssl.enabled
       </code>
       
@@ -822,11 +1232,87 @@ snapshot of every index with 30 days' retention.
         true
       </code>
       
-      , the two certbot PEMs
+      , the two certbot PEMs of the server's own certificate
     </td>
     
     <td>
-      Vert.x terminates TLS, no reverse proxy, matching KinD and Azure
+      Vert.x terminates TLS, matching KinD and Azure; the edge passes each connection through unopened
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.apiGateway.webServer.enabled
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      Nothing is served from a jar's webroot; the gateway port is the only one a server listens on, as in the cluster
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.apiGateway.cors.allowCredentials
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+    </td>
+    
+    <td>
+      The <code>
+        kubernetes
+      </code>
+      
+       profile hardcodes <code>
+        kinotic.ai
+      </code>
+      
+       and is not active here
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.ignite.discoveryType
+      </code>
+      
+       / <code>
+        localAddresses
+      </code>
+      
+       / <code>
+        localAddress
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        LOCAL
+      </code>
+      
+      , the three private addresses on <code>
+        47500
+      </code>
+      
+      , the server's own
+    </td>
+    
+    <td>
+      The one Ignite cluster forms over the private network, and discovery binds the private address alone
     </td>
   </tr>
   
@@ -841,6 +1327,8 @@ snapshot of every index with 30 days' retention.
       <code>
         /etc/kinotic/platform-secrets/jwt-signing-keys
       </code>
+      
+      , a key set per server
     </td>
     
     <td>
@@ -856,7 +1344,7 @@ snapshot of every index with 30 days' retention.
         keys
       </code>
       
-       list
+       list. A token one server issued verifies at that server alone
     </td>
   </tr>
   
@@ -871,6 +1359,8 @@ snapshot of every index with 30 days' retention.
       from <code>
         secrets.yml
       </code>
+      
+      , one key for the three
     </td>
     
     <td>
@@ -878,7 +1368,9 @@ snapshot of every index with 30 days' retention.
         SecretNameDeriver
       </code>
       
-       derives every stored secret's name from it, so it is generated once and carried to the cloud
+       derives every stored secret's name from it, and the servers store and read the same secrets, so it is generated once and carried to the cloud, as the platform vault's <code>
+        kinotic-secret-storage-master-key
+      </code>
     </td>
   </tr>
   
@@ -939,182 +1431,6 @@ snapshot of every index with 30 days' retention.
   <tr>
     <td>
       <code>
-        kinotic.systemApi.disableAzureStorage
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        false
-      </code>
-    </td>
-    
-    <td>
-      Front Door serves the published UIs from the sites account
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        kinotic.systemApi.uiDeployment.sitesDomain
-      </code>
-      
-       / <code>
-        sitesStorageEndpoint
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        apps-dev.kinotic.ai
-      </code>
-      
-      , the development server's sites account
-    </td>
-    
-    <td>
-      The <code>
-        dev-server
-      </code>
-      
-       root's outputs, as the <code>
-        dev
-      </code>
-      
-       root emits them
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        kinotic.systemApi.deployment.serverHost
-      </code>
-      
-       / <code>
-        serverPort
-      </code>
-      
-       / <code>
-        serverUseSsl
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        dev-api.kinotic.ai
-      </code>
-      
-      , <code>
-        443
-      </code>
-      
-      , <code>
-        true
-      </code>
-    </td>
-    
-    <td>
-      Workloads dial the gateway by the name its certificate carries; each node pins that name to the server's LAN address in its <code>
-        /etc/hosts
-      </code>
-      
-      , which its resolver answers guests from and the vm-manager admits in the name's egress set, so the traffic stays on the LAN. The guest trusts the Let's Encrypt chain
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        kinotic.systemApi.deployment.syncAllowedHosts
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        github.com
-      </code>
-      
-      , <code>
-        registry.npmjs.org
-      </code>
-    </td>
-    
-    <td>
-      The node's resolver admits what it answers for each name, so the same names serve <code>
-        BOXLITE
-      </code>
-      
-       development and the <code>
-        CLOUD_HYPERVISOR
-      </code>
-      
-       nodes here
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        kinotic.apiGateway.cors.allowedOriginPattern
-      </code>
-      
-       / <code>
-        allowCredentials
-      </code>
-    </td>
-    
-    <td>
-      the portal, the console, and <code>
-        https://[a-z0-9-]+\.apps-dev\.kinotic\.ai
-      </code>
-      
-      ; <code>
-        true
-      </code>
-    </td>
-    
-    <td>
-      The <code>
-        kubernetes
-      </code>
-      
-       profile hardcodes <code>
-        kinotic.ai
-      </code>
-      
-       and is not active here
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        kinotic.managementApi.github.appPrivateKey
-      </code>
-      
-       / <code>
-        webhookSecret
-      </code>
-    </td>
-    
-    <td>
-      from <code>
-        secrets.yml
-      </code>
-    </td>
-    
-    <td>
-      The cloud's App; its webhook URL points at <code>
-        https://dev-api.kinotic.ai/api/github/webhook
-      </code>
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
         AZURE_CLIENT_ID
       </code>
       
@@ -1129,7 +1445,7 @@ snapshot of every index with 30 days' retention.
     
     <td>
       the Azure root's outputs; <code>
-        kinotic-server.env
+        kinotic-servers.env
       </code>
     </td>
     
@@ -1138,7 +1454,7 @@ snapshot of every index with 30 days' retention.
         dev-server
       </code>
       
-       root's service principal
+       root's service principal, which the three run as
     </td>
   </tr>
   
@@ -1150,6 +1466,10 @@ snapshot of every index with 30 days' retention.
       
       , <code>
         OTEL_EXPORTER_OTLP_HEADERS
+      </code>
+      
+      , <code>
+        OTEL_SERVICE_NAME
       </code>
     </td>
     
@@ -1169,6 +1489,8 @@ snapshot of every index with 30 days' retention.
       ; <code>
         X-Scope-OrgID=kinotic-system
       </code>
+      
+      ; the server's name
     </td>
     
     <td>
@@ -1190,10 +1512,12 @@ newer image keeps it.
 ### TLS
 
 certbot on the host with the `dns-azure` plugin, authenticating as the same service principal,
-which the `dev-server` root grants DNS Zone Contributor on `kinotic.ai`. One certificate for
-`dev-api.kinotic.ai`. The deploy hook installs the PEMs into the secrets directory the
-server's container mounts and reboots the container, which is the whole of what Reloader does
-in the cluster. The portal's and the console's certificates are Front Door's own, managed.
+which the `dev-server` root grants DNS Zone Contributor on `kinotic.ai`. A certificate per
+server, for its hostnames: `dev-api.kinotic.ai`, `dev-system-api.kinotic.ai`, and
+`dev-apps-api.kinotic.ai` with `*.dev-apps-api.kinotic.ai`. Each certificate's deploy hook
+installs the PEMs into the secrets directory that server's container mounts and reboots the
+container, which is the whole of what Reloader does in the cluster. The edge holds none of
+them. The portal's and the console's certificates are Front Door's own, managed.
 
 ## Nodes
 
@@ -1216,8 +1540,8 @@ on the first `ONLINE` node with room for it.
 
 The vm-manager runs as root under `kinotic-vm-manager.service` with Bun (root for iptables, the
 Docker socket, and project quotas). Its environment is `/etc/kinotic/vm-manager.env`: the
-proxmox root's `vm_manager_env` output, which carries the server's and the stores' addresses,
-plus the node's own id. The machine credentials go in `/etc/kinotic/vm-manager.secrets.env`,
+proxmox root's `vm_manager_env` output, which carries the system server's name and the stores'
+addresses, plus the node's own id. The machine credentials go in `/etc/kinotic/vm-manager.secrets.env`,
 which the service waits for:
 
 <table>
@@ -1282,13 +1606,23 @@ which the service waits for:
     </td>
     
     <td>
-      the server's LAN IPv4, <code>
+      <code>
+        dev-system-api.kinotic.ai
+      </code>
+      
+      , which the node's <code>
+        /etc/hosts
+      </code>
+      
+       pins to the edge's LAN address, <code>
         443
       </code>
       
       , <code>
         true
       </code>
+      
+      : the vm-manager connects to the system server
     </td>
   </tr>
   
@@ -1445,7 +1779,7 @@ vault, and the service principal — and adds what a server peers depend on need
     </td>
     
     <td>
-      The server's secret storage; the principal holds Key Vault Secrets Officer, as <code>
+      The servers' secret storage; the principal holds Key Vault Secrets Officer, as <code>
         cluster/keyvault.tf
       </code>
       
@@ -1495,19 +1829,35 @@ vault, and the service principal — and adds what a server peers depend on need
   
   <tr>
     <td>
-      DNS <code>
-        dev-api.<zone>
+      DNS A records <code>
+        dev-api
       </code>
       
-       A record
+      , <code>
+        dev-system-api
+      </code>
+      
+      , <code>
+        dev-apps-api
+      </code>
+      
+       and <code>
+        *.dev-apps-api
+      </code>
+      
+       under the zone
     </td>
     
     <td>
-      The host's public address; <code>
+      The host's public address, for the management server, the system server, and the app server with every application's API host, <code>
+        <organizationId>--<applicationId>.dev-apps-api.<zone>
+      </code>
+      
+      ; <code>
         kinotic-dyndns.timer
       </code>
       
-       on the host rewrites it when the ISP changes the address
+       on the host rewrites them when the ISP changes the address
     </td>
   </tr>
   
@@ -1519,34 +1869,37 @@ vault, and the service principal — and adds what a server peers depend on need
     </td>
     
     <td>
-      Storage Blob Data Contributor on the sites account, Contributor on the email service, Key Vault Secrets Officer on the server vault, DNS Zone Contributor on the zone for certbot and the address updater
+      Storage Blob Data Contributor on the sites account, Contributor on the email service, Key Vault Secrets Officer on the servers' vault, DNS Zone Contributor on the zone for certbot and the address updater
     </td>
   </tr>
 </tbody>
 </table>
 
-Its `dev_server_env` output is the non-secret half of the server's environment, which the
-proxmox root merges into the server container's; its `secrets_env` output is the principal's
-secret, which the operator places on the host in `kinotic-server.env` by hand.
+Its `dev_server_env` output is the non-secret half of the servers' environment, which the
+proxmox root merges into each server container's; its `secrets_env` output is the principal's
+secret, which the operator places on the host in `kinotic-servers.env` by hand.
 
 ## Network and access
 
-The router forwards one port to the server container, 443, on which the server itself
-listens (REST, STOMP, MCP, the GitHub webhook), so `https://dev-api.kinotic.ai` is the API
-with no port in the URL. The ISP's router forwards a port to the same port only and names
-its targets by device, so the server's MAC carries a name in the router's device list. The
-portal at `https://dev-portal.kinotic.ai` and the system console at
-`https://dev-console.kinotic.ai` are static files in the sites account that Front Door serves
-the way it serves every published site, so the host runs nothing for them and the router
-forwards nothing to them. This is the cloud's layout, a hosted SPA against an API host, with
-no reverse proxy on the host. The router's address is dynamic: a timer on the host rewrites
-the API's A record whenever it changes, as the server's principal.
+The router forwards one port to the edge container, 443, on which HAProxy listens and hands
+each TLS connection to the server its SNI names: `https://dev-api.kinotic.ai` is the org
+server (REST, STOMP, MCP, the GitHub webhook), `https://dev-system-api.kinotic.ai` the system
+server, and `https://dev-apps-api.kinotic.ai` with every application's
+`https://<organizationId>--<applicationId>.dev-apps-api.kinotic.ai` the app server, none with a
+port in the URL. The ISP's router forwards a port to the same port only and names its targets
+by device, so the edge's MAC carries a name in the router's device list. The portal at
+`https://dev-portal.kinotic.ai` and the system console at `https://dev-console.kinotic.ai` are
+static files in the sites account that Front Door serves the way it serves every published
+site, so the host runs nothing for them and the router forwards nothing to them. This is the
+cloud's layout, hosted SPAs against API hosts, each server terminating its own TLS; the edge
+stands in for the cloud's per-server load balancers. The router's address is dynamic: a timer
+on the host rewrites the servers' A records whenever it changes, as the servers' principal.
 
 Peers use `https://dev-portal.kinotic.ai`: organization sign-up with email verification
 through ACS, social login through the platform OIDC providers registered with
 `https://dev-api.kinotic.ai` redirect URIs, the CLI's device grant, and MCP hosts through the
-authorization-code grant. Nothing on the LAN besides the forwarded port is reachable from
-outside.
+authorization-code grant. Their applications' users sign in on the applications' own hosts.
+Nothing on the LAN besides the forwarded port is reachable from outside.
 
 ## Backups
 
@@ -1720,13 +2073,13 @@ Everything a peer has lives in one of these places, and moves as follows:
     </td>
     
     <td>
-      Signed with the development server's <code>
+      Signed with each server's own <code>
         jwt-signing-keys
       </code>
     </td>
     
     <td>
-      That key is added to the cloud key set as a non-active entry; <code>
+      Each server's key is added to the same server's cloud key set as a non-active entry; <code>
         KinoticJwtIssuer
       </code>
       
@@ -1836,12 +2189,12 @@ development server's migration version or carry only appended migrations beyond 
 `kinotic_project_deployment` row. `resolveTarget` reuses an existing deployment's node
 without checking it exists, so a row still pointing at the development node would fail its
 next deployment. A re-home operation is the durable version of this step.
-4. Add the development server's signing key to the cloud `jwt-signing-keys` set, inactive; drop
-it a day later.
+4. Add each server's signing key to the same server's cloud `jwt-signing-keys` set, inactive;
+drop them a day later.
 5. Point the GitHub App's webhook URL at the cloud gateway.
 6. Re-run the deployment of every project, which places it on a cloud node and republishes its
 UIs under `apps.kinotic.ai`.
-7. Change `dev-api.kinotic.ai` to a CNAME of the cloud gateway so the peers' CLI logins and
+7. Change `dev-api.kinotic.ai` to a CNAME of the cloud management server so the peers' CLI logins and
 project configuration keep resolving, and stop the address updater; they sign in again on
 `portal.kinotic.ai`, since sessions are `__Host-` cookies and the social-login redirect
 URIs are registered per host.
@@ -1867,7 +2220,8 @@ Elasticsearch disks.
 3. **Secrets and the certificate.** `generate-secrets.sh`, the Azure secret and the GitHub
 App's key filled in, `sync-secrets.sh`; certbot on the host.
 4. **The fleet.** `deployment/terraform/proxmox`; apply. The applier brings up the cluster,
-the stores, runs the migration to completion and verifies it, and starts the server.
+the stores, runs the migration to completion and verifies it, and starts the servers and
+the edge.
 Register the snapshot repository and SLM policy; `deploy-ui.sh` for the two UIs; confirm
 sign-up mail arrives and the portal loads on `https://dev-portal.kinotic.ai`.
 5. **Nodes.** Ubuntu 22.04 and the kit on each NUC, `vm-manager.env` from the terraform

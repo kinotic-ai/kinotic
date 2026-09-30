@@ -24,12 +24,36 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
 <tbody>
   <tr>
     <td>
-      Kinotic server
+      Kinotic management server
     </td>
     
     <td>
       <code>
-        kinoticai/kinotic-server
+        kinoticai/kinotic-server-management
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Kinotic system server
+    </td>
+    
+    <td>
+      <code>
+        kinoticai/kinotic-server-system
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Kinotic app server
+    </td>
+    
+    <td>
+      <code>
+        kinoticai/kinotic-server-app
       </code>
     </td>
   </tr>
@@ -123,7 +147,15 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
     
     <td>
       Workflow run artifacts named <code>
-        sbom-kinotic-server.cdx.json
+        sbom-kinotic-server-management.cdx.json
+      </code>
+      
+      , <code>
+        sbom-kinotic-server-system.cdx.json
+      </code>
+      
+      , <code>
+        sbom-kinotic-server-app.cdx.json
       </code>
       
        and <code>
@@ -201,7 +233,15 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
     
     <td>
       Findings of every severity are recorded as GitHub code scanning alerts in the categories <code>
-        image-kinotic-server
+        image-kinotic-server-management
+      </code>
+      
+      , <code>
+        image-kinotic-server-system
+      </code>
+      
+      , <code>
+        image-kinotic-server-app
       </code>
       
        and <code>

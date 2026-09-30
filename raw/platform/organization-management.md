@@ -6,7 +6,7 @@
 
 A Kinotic deployment hosts many customer organizations. Each org has its own users, applications, and (optionally) its own enterprise SSO configuration. This page describes how an org is created, who can log in to it, and how the OIDC plumbing is shared across orgs without leaking access between them.
 
-System-level platform operators (the people who run kinotic-server itself) have no login path today; it is planned to move to Microsoft Entra, separate from everything described here.
+System-level platform operators sign in to the system server, separately from everything described here; see [System Authentication](#system-authentication).
 
 ## Mental Model
 
@@ -246,7 +246,7 @@ There are two entry points, both producing an `Organization` and an admin `Parti
    userState.login() to open the realtime connection, authenticated by that session cookie.
 ```
 
-Email verification is the security gate — no `Organization` or `ParticipantIdentity` exists until the link is clicked. With `KINOTIC_EMAIL_ENABLED=false` (the local default) the verification URL is logged to the kinotic-server console instead of sent; copy it into the browser to finish the flow.
+Email verification is the security gate — no `Organization` or `ParticipantIdentity` exists until the link is clicked. With `KINOTIC_EMAIL_ENABLED=false` (the local default) the verification URL is logged to the management server's console instead of sent; copy it into the browser to finish the flow.
 
 ### Social-IdP signup
 
@@ -290,8 +290,8 @@ Email verification is the security gate — no `Organization` or `ParticipantIde
     token, and binds the installation only when GitHub's /user/installations reports
     that user can access it (see [Defense in Depth](/platform/defense-in-depth)). It
     then lands on /applications — project creation requires the install, so the new org
-    arrives ready. If the install can't start (e.g. a kinotic.disableManagement deployment)
-    the page falls back to /applications directly.
+    arrives ready. If the install can't start, the page falls back to /applications
+    directly.
 ```
 
 The `PendingSignUp` is consumed once. The `?token=` in the redirect to `/register` is the short-lived `PendingSignUp` verification token, not an auth credential — the actual login is established by the session cookie set when the org-naming POST succeeds.
@@ -309,7 +309,8 @@ The unrouted `Login.vue` shows a single email field plus the platform OIDC butto
 ```text
 1. POST /api/auth/org/login/lookup { email }
 2. OrganizationLoginHandler.handleLookup → resolveSsoOrPassword:
-   - finds the user's ParticipantIdentity at ORGANIZATION scope (iamUserService.findByEmail)
+   - finds the user's ParticipantIdentity at ORGANIZATION scope
+     (ParticipantIdentityService.findFirstOrgUserByEmail)
    - if user.authType=OIDC AND the org's ssoConfigId names an enabled OidcConfiguration:
        generate state/nonce/PKCE, stash on session, return
        { "type": "sso", "redirect": "<authority>/authorize?..." }
@@ -331,9 +332,10 @@ When `lookup` returns `{type: "password"}`, the frontend reveals the password fi
 ```text
 1. POST /api/auth/org/login { email, password }   (credentials: 'include')
 2. OrganizationLoginHandler.handleLogin → AuthEndpointSupport.handlePasswordLogin:
-   - LocalAuthenticationService.authenticateLocal(email, password)
-       finds the ParticipantIdentity, requires authType=LOCAL + enabled,
-       loads IdentityCredential, verifies the bcrypt hash
+   - LocalAuthenticationService.authenticateOrgUser(email, password)
+       finds the ORGANIZATION-scope ParticipantIdentity with that email, so a
+       SYSTEM- or APPLICATION-scope user never signs in here; requires
+       authType=LOCAL + enabled, loads IdentityCredential, verifies the bcrypt hash
    - on success: establishSession(ctx, user) puts the user's Participant on the
                  Vert.x session (regenerating the session id), then 204 + Set-Cookie
    - on any failure: 401 "Invalid credentials"
@@ -484,7 +486,7 @@ Authentication happens at the WebSocket upgrade (handshake), not in a STOMP CONN
 </tbody>
 </table>
 
-The browser SPA never holds a JWT — its login establishes a session cookie and that cookie authenticates the upgrade. The Bearer path is for non-browser clients: the CLI obtains an access token through the OAuth device-code grant at `POST /api/auth/oauth/token`, which mints a Kinotic JWT carrying `sub` / `email` / `organizationId` / `applicationId`. For that path the kinotic-server validates the JWT signature against its signing keys and creates the `Session`. The CLI persists a rotating refresh token to mint fresh access tokens before each connect.
+The browser SPA never holds a JWT — its login establishes a session cookie and that cookie authenticates the upgrade. The Bearer path is for non-browser clients: the CLI obtains an access token through the OAuth device-code grant at `POST /api/auth/oauth/token`, which mints a Kinotic JWT carrying `sub` / `email` / `organizationId` / `applicationId`. For that path the management server validates the JWT signature against its signing keys and creates the `Session`. Every path admits only the server's own kind of participant: a credential that proves an identity of another scope fails as invalid (see [System Security](/platform/system-security#authentication-methods)). The CLI persists a rotating refresh token to mint fresh access tokens before each connect.
 
 ## Provider-Specific Quirks
 
@@ -750,17 +752,199 @@ For now, per-org SSO can be wired manually:
 
 1. Create the `OidcConfiguration` directly in Elasticsearch (via a migration).
 2. Append its id to the org's `oidcConfigurationIds`.
-3. Add the redirect URI `https://<apiBaseUrl>/api/auth/org/login/sso/callback/<configId>` to the IdP app registration. For same-origin deploys (`kinotic.domain.apiBaseUrl` unset) this falls back to `<appBaseUrl>`; for split-origin deploys (SPA on Static Web Apps, backend on AKS) it must be the backend's hostname so the IdP returns the browser to the kinotic-server pod, not the SPA.
+3. Add the redirect URI `<kinotic.managementServer.apiBaseUrl>/api/auth/org/login/sso/callback/<configId>` to the IdP app registration. For a same-origin deploy that base is the portal's own origin; for a split-origin deploy (SPA on Static Web Apps, backend on AKS) it is the backend's hostname, so the IdP returns the browser to the management server, not the SPA.
 
 A user who logs in via this path lands at the `/api/auth/org/login/sso/callback/:configId` handler — the IdP doesn't care that the configId is org-scoped instead of platform.
 
 ## System Authentication
 
-Kinotic has no login path for system-level operators today; the plan is to move it to Microsoft Entra, separate from the routes documented above. The curated social providers are intentionally limited to end-user self-service signup and grant org-scoped access only, so no route here can produce a `SYSTEM`-scoped session.
+System-level operators sign in to the system server with an email and password, `POST /api/auth/system/login`; the plan is to move it to Microsoft Entra, separate from the routes documented above. The curated social providers are intentionally limited to end-user self-service signup and grant org-scoped access only, so no organization route can produce a `SYSTEM`-scoped session.
 
 ## Endpoint Reference
 
-All routes mount under `/api/*` on the api-gateway port (default `58503`). CORS for the SPA origin is applied at the router root. A Vert.x `SessionHandler` covers every `/api/*` route (and the STOMP WebSocket path), so the same session cookie carries the OIDC roundtrip state and the post-login identity; the cookie is `HttpOnly`, `Secure`, `SameSite=Lax`, with a configurable timeout (`kinotic.api-gateway.session-timeout`).
+Each handler is a component of the module that serves it, so a server mounts the routes of the modules it loads, on its own gateway port (org `58503`, system `58504`, app `58505` by default):
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Handler
+    </th>
+    
+    <th>
+      Module
+    </th>
+    
+    <th>
+      Management server
+    </th>
+    
+    <th>
+      System server
+    </th>
+    
+    <th>
+      App server
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        OrganizationLoginHandler
+      </code>
+      
+      , <code>
+        OrganizationSignupHandler
+      </code>
+      
+      , <code>
+        InviteHandler
+      </code>
+      
+      , <code>
+        DeviceAuthorizationHandler
+      </code>
+      
+      , <code>
+        GitHubWebhookHandler
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        kinotic-server-management
+      </code>
+    </td>
+    
+    <td>
+      ✓
+    </td>
+    
+    <td>
+      
+    </td>
+    
+    <td>
+      
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        SystemLoginHandler
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        kinotic-server-system
+      </code>
+    </td>
+    
+    <td>
+      
+    </td>
+    
+    <td>
+      ✓
+    </td>
+    
+    <td>
+      
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        ApplicationLoginHandler
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        kinotic-server-app
+      </code>
+    </td>
+    
+    <td>
+      
+    </td>
+    
+    <td>
+      
+    </td>
+    
+    <td>
+      ✓
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        SessionEndpointHandler
+      </code>
+      
+      , <code>
+        OAuthServerHandler
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        kinotic-domain
+      </code>
+    </td>
+    
+    <td>
+      ✓
+    </td>
+    
+    <td>
+      ✓
+    </td>
+    
+    <td>
+      ✓
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        McpJsonRpcHandler
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        kinotic-management-api
+      </code>
+    </td>
+    
+    <td>
+      ✓
+    </td>
+    
+    <td>
+      ✓
+    </td>
+    
+    <td>
+      
+    </td>
+  </tr>
+</tbody>
+</table>
+
+The app server serves every application at an API host of its own, `<organizationId>--<applicationId>` under `kinotic.appServer.apiBaseUrl` (see [Configuration](/platform/configuration#application-api-hosts)). Its login and OAuth routes act for the application whose host the request is addressed to and answer `404` on any other host, and that host is the application's OAuth issuer.
+
+CORS for the server's UI origin is applied at the router root. A Vert.x `SessionHandler` covers every `/api/*` route (and the STOMP WebSocket path), so the same session cookie carries the OIDC roundtrip state and the post-login identity; the cookie is `HttpOnly`, `Secure`, `SameSite=Lax`, with a configurable timeout (`kinotic.api-gateway.session-timeout`).
 
 Routes are namespaced under `/api/auth/...`. Organization login and signup are the SPA's paths; the application-login, OAuth, and invite routes are listed for completeness.
 
@@ -1061,13 +1245,37 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
   <tr>
     <td>
       <code>
+        POST
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/system/login
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        SystemLoginHandler
+      </code>
+    </td>
+    
+    <td>
+      System operator email + password; establishes session
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
         GET
       </code>
     </td>
     
     <td>
       <code>
-        /api/auth/app/:orgId/:appId/login/providers
+        /api/auth/app/login/providers
       </code>
     </td>
     
@@ -1091,7 +1299,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     
     <td>
       <code>
-        /api/auth/app/:orgId/:appId/login/lookup
+        /api/auth/app/login/lookup
       </code>
     </td>
     
@@ -1102,7 +1310,11 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      App-scoped email-first lookup
+      App-scoped email-first lookup; <code>
+        403
+      </code>
+      
+       from a page that is not one of the application's UIs
     </td>
   </tr>
   
@@ -1115,7 +1327,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     
     <td>
       <code>
-        /api/auth/app/:orgId/:appId/login
+        /api/auth/app/login
       </code>
     </td>
     
@@ -1126,7 +1338,11 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      App-scoped email + password; establishes session
+      App-scoped email + password; establishes session; <code>
+        403
+      </code>
+      
+       from a page that is not one of the application's UIs
     </td>
   </tr>
   
@@ -1139,7 +1355,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     
     <td>
       <code>
-        /api/auth/app/:orgId/:appId/login/oidc/callback/:configId
+        /api/auth/app/login/oidc/callback/:configId
       </code>
     </td>
     
@@ -1150,7 +1366,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      App IdP returns here; establishes session
+      App IdP returns here; establishes session, 302 to the page that started the login
     </td>
   </tr>
   
@@ -1193,7 +1409,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     
     <td>
       <code>
-        OAuthServerHandler
+        McpJsonRpcHandler
       </code>
     </td>
     
@@ -1201,6 +1417,34 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
       RFC 9728 resource metadata for <code>
         /mcp
       </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        POST
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /mcp
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        McpJsonRpcHandler
+      </code>
+    </td>
+    
+    <td>
+      MCP JSON-RPC endpoint (see <a href="/platform/mcp-tools">
+        MCP Tools
+      </a>
+      
+      )
     </td>
   </tr>
   
@@ -1224,11 +1468,89 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      PKCE authorization-code flow; redirects to the SPA <code>
+      PKCE authorization-code flow; redirects to the <code>
         /oauth/consent
       </code>
       
-       page
+       page on the server's UI, on the app server the application's primary UI (<code>
+        400
+      </code>
+      
+       until one is chosen)
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        GET
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/oauth/request/:requestId
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        OAuthServerHandler
+      </code>
+    </td>
+    
+    <td>
+      The request awaiting consent, for the consent page's signed-in user
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        POST
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/oauth/approve
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        OAuthServerHandler
+      </code>
+    </td>
+    
+    <td>
+      Approves the request as the consent page's signed-in user; answers the client redirect URL carrying the code
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        POST
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/oauth/deny
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        OAuthServerHandler
+      </code>
+    </td>
+    
+    <td>
+      Denies the request; answers the client redirect URL carrying <code>
+        error=access_denied
+      </code>
     </td>
   </tr>
   
@@ -1247,7 +1569,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     
     <td>
       <code>
-        OAuthServerHandler
+        DeviceAuthorizationHandler
       </code>
     </td>
     
@@ -1255,6 +1577,34 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
       RFC 8628 device grant — issue device/user codes; requires the CLI's <code>
         client_id
       </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        POST
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/oauth/device/approve
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        DeviceAuthorizationHandler
+      </code>
+    </td>
+    
+    <td>
+      Approves the user code the <code>
+        /device
+      </code>
+      
+       page's signed-in user confirmed
     </td>
   </tr>
   
@@ -1282,11 +1632,15 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
         authorization_code
       </code>
       
-      , <code>
+       and <code>
         refresh_token
       </code>
       
-      , and device-code grants
+       grants, plus every extension grant a module publishes — on the management server <code>
+        DeviceAuthorizationHandler
+      </code>
+      
+      's device-code grant
     </td>
   </tr>
   
@@ -1334,7 +1688,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      Accept by setting a password; establishes session
+      Accept by setting a password; establishes an organization member's session, while an application member signs in at the application
     </td>
   </tr>
   
@@ -1382,7 +1736,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      IdP returns here; accepts the invite, establishes session
+      IdP returns here; accepts the invite, establishes an organization member's session
     </td>
   </tr>
   
@@ -1410,7 +1764,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
         204
       </code>
       
-       if the session cookie authenticates the caller, else <code>
+       if the session cookie holds a login for the calling page, else <code>
         401
       </code>
     </td>
@@ -1436,7 +1790,31 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      Destroys the browser session
+      Ends the calling page's login; the session ends once no page's login or sign-in in progress remains
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        POST
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/github/webhook
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        GitHubWebhookHandler
+      </code>
+    </td>
+    
+    <td>
+      GitHub App webhook, verified against the App's webhook secret
     </td>
   </tr>
 </tbody>
