@@ -60,7 +60,7 @@ public class DefaultLogManager implements LogManager {
     private Map<String, GroupLoggerLevelsDescriptor> getGroups() {
         Map<String, GroupLoggerLevelsDescriptor> groups = new LinkedHashMap<>();
         this.loggerGroups.forEach((group) -> groups.put(group.getName(),
-                                                        new GroupLoggerLevelsDescriptor(LogLevel.fromString(group.getConfiguredLevel().name()), group.getMembers())));
+                                                        new GroupLoggerLevelsDescriptor(LogLevel.of(group.getConfiguredLevel()), group.getMembers())));
         return groups;
     }
 
@@ -68,7 +68,7 @@ public class DefaultLogManager implements LogManager {
         Validate.notNull(name, "Name must not be null");
         LoggerGroup group = this.loggerGroups.get(name);
         if (group != null) {
-            return new GroupLoggerLevelsDescriptor(LogLevel.fromString(group.getConfiguredLevel().name()), group.getMembers());
+            return new GroupLoggerLevelsDescriptor(LogLevel.of(group.getConfiguredLevel()), group.getMembers());
         }
         LoggerConfiguration configuration = this.loggingSystem.getLoggerConfiguration(name);
         return (configuration != null) ? new SingleLoggerLevelsDescriptor(configuration) : null;
@@ -98,7 +98,7 @@ public class DefaultLogManager implements LogManager {
     private NavigableSet<LogLevel> getLevels() {
         Set<LogLevel> levels = this.loggingSystem.getSupportedLogLevels()
                                                  .stream()
-                                                 .map(logLevel -> LogLevel.fromString(logLevel.name())).collect(Collectors.toSet());
+                                                 .map(LogLevel::of).collect(Collectors.toSet());
         return new TreeSet<>(levels).descendingSet();
     }
 

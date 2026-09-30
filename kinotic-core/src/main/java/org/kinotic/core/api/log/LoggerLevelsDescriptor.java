@@ -11,6 +11,9 @@ public class LoggerLevelsDescriptor {
         this.configuredLevel = configuredLevel;
     }
 
+    /**
+     * @return the level set on this logger, or {@code null} when it inherits its level
+     */
     public LogLevel getConfiguredLevel() {
         return this.configuredLevel;
     }
