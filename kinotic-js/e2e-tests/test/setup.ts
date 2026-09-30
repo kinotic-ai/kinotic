@@ -15,7 +15,7 @@ Kinotic.use(ManagementApiPlugin)
 
 /** The REST and STOMP port each server container listens on, by its compose service name. */
 const SERVER_PORTS = {
-    'kinotic-server-org': 58503,
+    'kinotic-server-management': 58503,
     'kinotic-server-system': 58504,
     'kinotic-server-app': 58505,
     'kinotic-server-app-2': 58505,
@@ -26,7 +26,7 @@ export type KinoticServerName = keyof typeof SERVER_PORTS
 
 /** The host port compose.kinotic-e2e-test.yml publishes each server on, for a stack started by hand. */
 const PUBLISHED_PORTS: Record<KinoticServerName, number> = {
-    'kinotic-server-org': 58503,
+    'kinotic-server-management': 58503,
     'kinotic-server-system': 58504,
     'kinotic-server-app': 58505,
     'kinotic-server-app-2': 58506,
@@ -118,7 +118,7 @@ function provideServers(project: TestProject, host: string, ports: Partial<Recor
     project.provide('KINOTIC_PORTS', ports)
 }
 
-const globalSetup = createGlobalSetup(['kinotic-server-org', 'kinotic-server-system', 'kinotic-server-app'])
+const globalSetup = createGlobalSetup(['kinotic-server-management', 'kinotic-server-system', 'kinotic-server-app'])
 
 // Run once before all tests
 export const setup = globalSetup.setup

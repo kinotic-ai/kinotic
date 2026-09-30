@@ -55,13 +55,13 @@ matching the Azure production deployment pattern. KinD `extraPortMappings` route
 host ports through NodePort services to the pods.
 
 ```
-localhost:443   ──> NodePort 30443 ──> kinotic-server-org    (Vert.x TLS, the portal)
-localhost:9090  ──> NodePort 30090 ──> kinotic-server-org    (plain HTTP, when use_mkcert=false)
-localhost:58503 ──> NodePort 30503 ──> kinotic-server-org    (Vert.x TLS, REST and STOMP/WS)
-localhost:58504 ──> NodePort 30504 ──> kinotic-server-system (Vert.x TLS, REST and STOMP/WS)
-localhost:58505 ──> NodePort 30505 ──> kinotic-server-app    (Vert.x TLS, REST and STOMP/WS)
-localhost:8888  ──> NodePort 30888 ──> keycloak              (Keycloak TLS, when enabled)
-localhost:3000  ──> NodePort 30300 ──> grafana               (Grafana TLS)
+localhost:443   ──> NodePort 30443 ──> kinotic-server-management (Vert.x TLS, the portal)
+localhost:9090  ──> NodePort 30090 ──> kinotic-server-management (plain HTTP, when use_mkcert=false)
+localhost:58503 ──> NodePort 30503 ──> kinotic-server-management (Vert.x TLS, REST and STOMP/WS)
+localhost:58504 ──> NodePort 30504 ──> kinotic-server-system     (Vert.x TLS, REST and STOMP/WS)
+localhost:58505 ──> NodePort 30505 ──> kinotic-server-app        (Vert.x TLS, REST and STOMP/WS)
+localhost:8888  ──> NodePort 30888 ──> keycloak                  (Keycloak TLS, when enabled)
+localhost:3000  ──> NodePort 30300 ──> grafana                   (Grafana TLS)
 ```
 
 The three servers form one Ignite cluster through the headless `kinotic` Service, which selects
@@ -222,7 +222,7 @@ Override values in `config/load-generator/values.yaml`:
 
 | Value | Default (KinD) | Description |
 |-------|----------------|-------------|
-| `kinotic.host` | `kinotic-server-org` | Service hostname (cluster-internal) |
+| `kinotic.host` | `kinotic-server-management` | Service hostname (cluster-internal) |
 | `kinotic.port` | `58503` | STOMP port |
 | `kinotic.useSsl` | `true` | Use TLS — the pods serve TLS even cluster-internally |
 | `kinotic.tlsInsecure` | `true` | Skip verification so the mkcert CA isn't needed in the Job |
@@ -263,7 +263,7 @@ kubectl describe pod <pod-name>
 **View logs:**
 ```bash
 # Each server's pods carry its name as the `app` label, and every server's the part-of label
-kubectl logs -l app=kinotic-server-org -n kinotic -f
+kubectl logs -l app=kinotic-server-management -n kinotic -f
 kubectl logs -l app.kubernetes.io/part-of=kinotic -n kinotic -f --max-log-requests 10
 kubectl logs -l app=keycloak -n kinotic -f        # if Keycloak enabled
 ```

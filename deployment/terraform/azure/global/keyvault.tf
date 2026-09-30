@@ -53,7 +53,7 @@ resource "terraform_data" "wait_for_kv_rbac" {
 
 locals {
   # Each server signs its tokens with a key set of its own
-  servers = ["kinotic-server-org", "kinotic-server-system", "kinotic-server-app"]
+  servers = ["kinotic-server-management", "kinotic-server-system", "kinotic-server-app"]
 }
 
 resource "random_id" "jwt_signing_key_v1" {
@@ -70,7 +70,7 @@ moved {
 # The servers' modules were renamed; each key set follows its server's new name
 moved {
   from = random_id.jwt_signing_key_v1["kinotic-org-server"]
-  to   = random_id.jwt_signing_key_v1["kinotic-server-org"]
+  to   = random_id.jwt_signing_key_v1["kinotic-server-management"]
 }
 
 moved {
@@ -123,7 +123,7 @@ resource "azurerm_key_vault_secret" "jwt_signing_keys" {
 # so each is recreated under the new name with the same key material, which the random_id above keeps
 moved {
   from = azurerm_key_vault_secret.jwt_signing_keys["kinotic-org-server"]
-  to   = azurerm_key_vault_secret.jwt_signing_keys["kinotic-server-org"]
+  to   = azurerm_key_vault_secret.jwt_signing_keys["kinotic-server-management"]
 }
 
 moved {

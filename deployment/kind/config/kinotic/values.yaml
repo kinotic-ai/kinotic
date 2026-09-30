@@ -6,7 +6,7 @@ image:
   pullPolicy: IfNotPresent
 
 servers:
-  kinotic-server-org:
+  kinotic-server-management:
     replicaCount: 1
     # The portal, served from the org server's jar: https://localhost (or http://localhost:9090)
     webServer:

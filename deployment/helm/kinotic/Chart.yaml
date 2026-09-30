@@ -1,6 +1,6 @@
 apiVersion: v2
 name: kinotic
-description: A Helm chart for deploying the Kinotic servers (kinoticai/kinotic-server-org, kinotic-server-system and kinotic-server-app) as one Ignite cluster, with the migration that precedes them
+description: A Helm chart for deploying the Kinotic servers (kinoticai/kinotic-server-management, kinotic-server-system and kinotic-server-app) as one Ignite cluster, with the migration that precedes them
 type: application
 
 # This is the chart version. This version number should be incremented each time you make changes

@@ -6,7 +6,7 @@
 
 locals {
   server_records = {
-    "api"        = "kinotic-server-org"
+    "api"        = "kinotic-server-management"
     "system-api" = "kinotic-server-system"
     "apps-api"   = "kinotic-server-app"
     "*.apps-api" = "kinotic-server-app"

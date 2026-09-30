@@ -1,6 +1,6 @@
 # Server Plane Architecture — Decision Record
 
-Status: **superseded** by the three-server split: `kinotic-server-org`, `kinotic-server-system`
+Status: **superseded** by the three-server split: `kinotic-server-management`, `kinotic-server-system`
 and `kinotic-server-app`, each public at its own host, in one Ignite cluster partitioned by zone.
 The current shape is on the website's Defense in Depth page, under Network Architecture
 (`website/content/02.platform/06.defense-in-depth.md`); this record keeps the reasoning of the

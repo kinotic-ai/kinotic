@@ -79,7 +79,7 @@ export function kinoticServer(name: KinoticServerName): ServerInfo {
 
 /** The org server, where an organization's users and machines connect. */
 export function orgServer(): ServerInfo {
-    return kinoticServer('kinotic-server-org')
+    return kinoticServer('kinotic-server-management')
 }
 
 /** The system server, where platform operators connect. */

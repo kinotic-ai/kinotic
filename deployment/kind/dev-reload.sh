@@ -39,7 +39,7 @@ for arg in "$@"; do
     *) echo "Unknown argument: $arg" >&2; exit 1 ;;
   esac
 done
-[ ${#SERVERS[@]} -eq 0 ] && SERVERS=(kinotic-server-org kinotic-server-system kinotic-server-app)
+[ ${#SERVERS[@]} -eq 0 ] && SERVERS=(kinotic-server-management kinotic-server-system kinotic-server-app)
 
 cd "$REPO_ROOT"
 for server in "${SERVERS[@]}"; do

@@ -172,7 +172,7 @@ locals {
   # the edge, under the hostnames its certificate carries, and adds what is its alone to the
   # environment every server shares.
   servers = {
-    kinotic-server-org = {
+    kinotic-server-management = {
       vm_id       = 121
       private_ip  = cidrhost(var.private_cidr, 20)
       port        = 58503
@@ -748,7 +748,7 @@ moved {
 # The servers' modules were renamed; each container follows its server's new name
 moved {
   from = proxmox_virtual_environment_container.fleet["kinotic-org-server"]
-  to   = proxmox_virtual_environment_container.fleet["kinotic-server-org"]
+  to   = proxmox_virtual_environment_container.fleet["kinotic-server-management"]
 }
 
 moved {

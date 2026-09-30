@@ -39,8 +39,8 @@ resource "helm_release" "kinotic" {
       # TLS — enable when mkcert is available
       { name = "tls.enabled", value = var.use_mkcert ? "true" : "false" },
       # The portal's URL, and the API behind it — switches scheme based on mkcert. KinD maps host 443 (TLS) and 9090 (plain).
-      { name = "servers.kinotic-server-org.orgServer.portalBaseUrl", value = var.use_mkcert ? "https://localhost" : "http://localhost:9090" },
-      { name = "servers.kinotic-server-org.orgServer.apiBaseUrl", value = var.use_mkcert ? "https://localhost" : "http://localhost:9090" },
+      { name = "servers.kinotic-server-management.orgServer.portalBaseUrl", value = var.use_mkcert ? "https://localhost" : "http://localhost:9090" },
+      { name = "servers.kinotic-server-management.orgServer.apiBaseUrl", value = var.use_mkcert ? "https://localhost" : "http://localhost:9090" },
       # The base every application's API host is a label under, on the app server's port, in the gateways' scheme:
       # what the app server serves, and what the system server hands each UI build
       { name = "servers.kinotic-server-app.appServer.apiBaseUrl", value = var.use_mkcert ? "https://localhost:58505" : "http://localhost:58505" },
@@ -52,7 +52,7 @@ resource "helm_release" "kinotic" {
     # With Keycloak, the org server resolves the secret named "keycloak" on an OIDC configuration row to
     # the test realm's client secret, the way the compose Keycloak overlay does
     var.enable_keycloak ? [
-      { name = "servers.kinotic-server-org.extraEnv.KINOTIC_AKV_KEYCLOAK", value = local.keycloak_client_secret },
+      { name = "servers.kinotic-server-management.extraEnv.KINOTIC_AKV_KEYCLOAK", value = local.keycloak_client_secret },
     ] : [],
   )
 

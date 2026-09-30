@@ -9,7 +9,7 @@
 // create runs GitHub's App manifest flow: a browser page posts the manifest below to GitHub,
 // the developer confirms, GitHub redirects back here with a code, and the code is exchanged
 // for the new App's id, key, webhook secret and OAuth credential. It writes
-//   ~/.kinotic/dev-environment/kinotic-server-org/application.yml      the tunnel origin, the
+//   ~/.kinotic/dev-environment/kinotic-server-management/application.yml      the tunnel origin, the
 //                                                                      sign-in secret and the App
 //   ~/.kinotic/dev-environment/kinotic-server-system/application.yml   the App, with which the
 //                                                                      system server mints fetch tokens
@@ -31,7 +31,7 @@ import { parseArgs } from 'node:util'
 const ENVIRONMENT_DIR = join(homedir(), '.kinotic', 'dev-environment')
 // The servers that load management-api, each reading its own application.yml under its name,
 // which is also its container's name in deployment/docker-compose/compose.kinotic-servers.yml
-const ORG_SERVER = 'kinotic-server-org'
+const ORG_SERVER = 'kinotic-server-management'
 const SYSTEM_SERVER = 'kinotic-server-system'
 const APP_JSON = join(ENVIRONMENT_DIR, 'github-app.json')
 // The OrgSignupOidcConfiguration row id and secretNameRef seeded in V1__init.sql

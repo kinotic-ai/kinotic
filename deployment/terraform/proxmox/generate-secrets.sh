@@ -30,7 +30,7 @@ password() { openssl rand -base64 24 | tr -d '/+=' | cut -c1-24; }
 # the same secrets, so there is one
 master_key="$(key)"
 
-for server in kinotic-server-org kinotic-server-system kinotic-server-app; do
+for server in kinotic-server-management kinotic-server-system kinotic-server-app; do
   mkdir -p "$OUT/$server/platform-secrets" "$OUT/$server/certs"
 
   cat > "$OUT/$server/platform-secrets/jwt-signing-keys" <<JSON
@@ -48,7 +48,7 @@ kinotic:
 YAML
 done
 
-for server in kinotic-server-org kinotic-server-system; do
+for server in kinotic-server-management kinotic-server-system; do
   cat >> "$OUT/$server/secrets.yml" <<YAML
   managementApi:
     github:
@@ -71,4 +71,4 @@ ENV
 
 chmod -R go-rwx "$OUT"
 echo "Written to $OUT. Fill in AZURE_CLIENT_SECRET, and the GitHub App values in both"
-echo "kinotic-server-org/secrets.yml and kinotic-server-system/secrets.yml, then: ./sync-secrets.sh $OUT"
+echo "kinotic-server-management/secrets.yml and kinotic-server-system/secrets.yml, then: ./sync-secrets.sh $OUT"

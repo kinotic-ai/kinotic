@@ -19,7 +19,7 @@ kinotic:
         scheme: "http"
 
 servers:
-  kinotic-server-org:
+  kinotic-server-management:
     replicaCount: 2
     service:
       type: LoadBalancer

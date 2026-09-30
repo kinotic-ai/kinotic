@@ -219,7 +219,7 @@ kubectl describe certificate kinotic-tls -n kinotic
 kubectl logs -l app.kubernetes.io/name=cert-manager -n cert-manager --tail=20
 
 # The servers
-kubectl logs -l app=kinotic-server-org -n kinotic --tail=20
+kubectl logs -l app=kinotic-server-management -n kinotic --tail=20
 curl -sk https://api.kinotic.ai/health          # org
 curl -sk https://system-api.kinotic.ai/health   # system
 curl -sk https://apps-api.kinotic.ai/health     # app

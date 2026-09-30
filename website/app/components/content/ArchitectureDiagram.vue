@@ -83,7 +83,7 @@
       <text class="t-plane-o" x="509" y="238" text-anchor="middle">ORG PLANE</text>
 
       <rect class="gw gw-org" x="368" y="250" width="436" height="140" rx="8"></rect>
-      <text class="t-name" x="586" y="273" text-anchor="middle">kinotic-server-org</text>
+      <text class="t-name" x="586" y="273" text-anchor="middle">kinotic-server-management</text>
       <text class="t-sub"  x="586" y="289" text-anchor="middle">api.kinotic.ai</text>
       <line class="sep" x1="386" y1="298" x2="786" y2="298"></line>
       <text class="t-mono" x="586" y="315" text-anchor="middle">OrganizationSecurityService</text>

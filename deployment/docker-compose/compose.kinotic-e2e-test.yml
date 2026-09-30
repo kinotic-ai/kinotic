@@ -22,7 +22,7 @@ x-kinotic-server-e2e-environment: &kinotic-server-e2e-environment
   # The nodes find each other over this static address list and form one Ignite cluster. A node
   # the running suite did not start does not resolve; Ignite logs the miss and carries on.
   KINOTIC_IGNITE_DISCOVERYTYPE: LOCAL
-  KINOTIC_IGNITE_LOCALADDRESSES: kinotic-server-org:47500,kinotic-server-system:47500,kinotic-server-app:47500,kinotic-server-app-2:47500
+  KINOTIC_IGNITE_LOCALADDRESSES: kinotic-server-management:47500,kinotic-server-system:47500,kinotic-server-app:47500,kinotic-server-app-2:47500
 
 # Placeholder GitHub App config for the servers that load management-api: GithubProperties validates
 # these @NotBlank at boot even though no e2e test calls GitHub. disableProvisioner swaps in
@@ -40,7 +40,7 @@ services:
     environment:
       # 'test' activates the e2e fixture migrations (V3__e2e_app_fixtures.test.sql).
       SPRING_PROFILES_ACTIVE: development,test,compose
-  kinotic-server-org:
+  kinotic-server-management:
     environment:
       <<: [*kinotic-server-e2e-environment, *kinotic-management-api-e2e-environment]
     # Replaces compose.kinotic-servers.yml's mount of the developer's tunnel and GitHub App,

@@ -9,11 +9,11 @@ image:
 # every server's pods join the headless `kinotic` Service, through which Ignite discovers its
 # peers, so the three form one cluster. What they share is configured further down.
 servers:
-  kinotic-server-org:
+  kinotic-server-management:
     enabled: true
     replicaCount: 1
     image:
-      repository: kinoticai/kinotic-server-org
+      repository: kinoticai/kinotic-server-management
       sha: ""
     # kinotic.apiGateway.stompPort: REST, STOMP and MCP
     gatewayPort: 58503
@@ -31,7 +31,7 @@ servers:
       # links open
       portalBaseUrl: "http://localhost:9090"
     # The Secret holding this server's certificate when tls.enabled
-    tlsSecretName: kinotic-server-org-tls
+    tlsSecretName: kinotic-server-management-tls
     # Mounts the platform GitHub App's private key and webhook secret, which a server loading
     # management-api requires
     githubApp: true

@@ -1,4 +1,4 @@
-# The development server's org server: kinotic-server-org as a container on one Proxmox host
+# The development server's org server: kinotic-server-management as a container on one Proxmox host
 # beside three Elasticsearch nodes and the observability stack (deployment/terraform/proxmox),
 # with Front Door, the sites storage account, email, and a Key Vault in Azure
 # (deployment/terraform/azure/dev-server). Activated as `production,dev-server`. Holds what is

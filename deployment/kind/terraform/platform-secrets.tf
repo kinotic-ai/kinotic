@@ -5,7 +5,7 @@
 # identical across environments — only the source of the files differs.
 
 locals {
-  servers = ["kinotic-server-org", "kinotic-server-system", "kinotic-server-app"]
+  servers = ["kinotic-server-management", "kinotic-server-system", "kinotic-server-app"]
 }
 
 resource "random_id" "jwt_signing_key_v1" {
@@ -22,7 +22,7 @@ moved {
 # The servers' modules were renamed; each key set follows its server's new name
 moved {
   from = random_id.jwt_signing_key_v1["kinotic-org-server"]
-  to   = random_id.jwt_signing_key_v1["kinotic-server-org"]
+  to   = random_id.jwt_signing_key_v1["kinotic-server-management"]
 }
 
 moved {
