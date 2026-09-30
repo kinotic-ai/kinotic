@@ -7,7 +7,7 @@ include:
 
 # Environment every server node of the e2e stack runs with, on top of compose.kinotic-servers.yml.
 x-kinotic-server-e2e-environment: &kinotic-server-e2e-environment
-  JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m # remove otel javaagent for test
+  JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=256m # remove otel javaagent for test
   SPRING_PROFILES_ACTIVE: test,e2e-tests,compose
   # SecretNameDeriver requires a master key at startup. The key lives in the `development`
   # profile (application-development.yml), which e2e deliberately drops in favor of
