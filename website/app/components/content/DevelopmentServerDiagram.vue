@@ -120,19 +120,19 @@
       <text class="t-plane-v" x="422" y="468" text-anchor="middle">NAT OUT</text>
 
       <rect class="gw gw-app" x="60" y="480" width="170" height="76" rx="8"></rect>
-      <text class="t-chip" x="145" y="499" text-anchor="middle">kinotic-org-server</text>
+      <text class="t-chip" x="145" y="499" text-anchor="middle">kinotic-server-org</text>
       <text class="t-sub"  x="145" y="514" text-anchor="middle">dev-api · :58503</text>
       <text class="t-mono" x="145" y="531" text-anchor="middle">portal · CLI · MCP</text>
       <text class="t-mono" x="145" y="545" text-anchor="middle">GitHub webhook</text>
 
       <rect class="gw gw-app" x="245" y="480" width="170" height="76" rx="8"></rect>
-      <text class="t-chip" x="330" y="499" text-anchor="middle">kinotic-system-server</text>
+      <text class="t-chip" x="330" y="499" text-anchor="middle">kinotic-server-system</text>
       <text class="t-sub"  x="330" y="514" text-anchor="middle">dev-system-api · :58504</text>
       <text class="t-mono" x="330" y="531" text-anchor="middle">console · vm-manager</text>
       <text class="t-mono" x="330" y="545" text-anchor="middle">workload orchestration</text>
 
       <rect class="gw gw-app" x="430" y="480" width="170" height="76" rx="8"></rect>
-      <text class="t-chip" x="515" y="499" text-anchor="middle">kinotic-app-server</text>
+      <text class="t-chip" x="515" y="499" text-anchor="middle">kinotic-server-app</text>
       <text class="t-sub"  x="515" y="514" text-anchor="middle">*.dev-apps-api · :58505</text>
       <text class="t-mono" x="515" y="531" text-anchor="middle">every application's API</text>
       <text class="t-mono" x="515" y="545" text-anchor="middle">UIs · runtime workloads</text>

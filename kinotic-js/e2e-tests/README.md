@@ -30,9 +30,9 @@ operators to the system server, and an application's users and machines to the a
 `test/node-failure/` proves that a service call fails instead of hanging when the node serving
 it, or the node the caller is connected to, dies mid-call, and that a stream's producer is
 cancelled when its caller unsubscribes, disconnects, or loses its node. It runs on its own
-config against two app server nodes (`kinotic-app-server` and `kinotic-app-server-2` from the
+config against two app server nodes (`kinotic-server-app` and `kinotic-server-app-2` from the
 same compose file), connected as the organization's runtime machine that hosts and calls the probe,
-and kills and restarts `kinotic-app-server-2` through the `docker` CLI, so it needs Docker either
+and kills and restarts `kinotic-server-app-2` through the `docker` CLI, so it needs Docker either
 way:
 
 ```bash
@@ -41,7 +41,7 @@ VITE_USE_KINOTIC_DOCKER=true pnpm test:node-failure
 
 # Against a stack started by hand on 127.0.0.1:58505 and 127.0.0.1:58506
 docker compose --env-file ../../gradle.properties \
-  -f ../../deployment/docker-compose/compose.kinotic-e2e-test.yml up kinotic-app-server kinotic-app-server-2
+  -f ../../deployment/docker-compose/compose.kinotic-e2e-test.yml up kinotic-server-app kinotic-server-app-2
 pnpm test:node-failure
 ```
 

@@ -1,5 +1,5 @@
 # Minimal compose for the e2e tests: Elasticsearch + migration + the three servers (no Kibana, OTEL, gen-schemas).
-# kinotic-app-server-2 is a second app server node of the same cluster; only the node-failure suite starts it.
+# kinotic-server-app-2 is a second app server node of the same cluster; only the node-failure suite starts it.
 include:
   - compose.elasticsearch.yml
   - compose.kinotic-migration.yml
@@ -22,7 +22,7 @@ x-kinotic-server-e2e-environment: &kinotic-server-e2e-environment
   # The nodes find each other over this static address list and form one Ignite cluster. A node
   # the running suite did not start does not resolve; Ignite logs the miss and carries on.
   KINOTIC_IGNITE_DISCOVERYTYPE: LOCAL
-  KINOTIC_IGNITE_LOCALADDRESSES: kinotic-org-server:47500,kinotic-system-server:47500,kinotic-app-server:47500,kinotic-app-server-2:47500
+  KINOTIC_IGNITE_LOCALADDRESSES: kinotic-server-org:47500,kinotic-server-system:47500,kinotic-server-app:47500,kinotic-server-app-2:47500
 
 # Placeholder GitHub App config for the servers that load management-api: GithubProperties validates
 # these @NotBlank at boot even though no e2e test calls GitHub. disableProvisioner swaps in
@@ -40,14 +40,14 @@ services:
     environment:
       # 'test' activates the e2e fixture migrations (V3__e2e_app_fixtures.test.sql).
       SPRING_PROFILES_ACTIVE: development,test,compose
-  kinotic-org-server:
+  kinotic-server-org:
     environment:
       <<: [*kinotic-server-e2e-environment, *kinotic-management-api-e2e-environment]
     # Replaces compose.kinotic-servers.yml's mount of the developer's tunnel and GitHub App,
     # which would otherwise configure the e2e server on a developer machine
     volumes: !override
       - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
-  kinotic-system-server:
+  kinotic-server-system:
     environment:
       <<: [*kinotic-server-e2e-environment, *kinotic-management-api-e2e-environment]
       # No Azure storage accounts: the site provisioner is the mock.
@@ -63,15 +63,15 @@ services:
     # Replaces compose.kinotic-servers.yml's mount of the developer's GitHub App
     volumes: !override
       - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
-  kinotic-app-server:
+  kinotic-server-app:
     environment: *kinotic-server-e2e-environment
     volumes:
       - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
-  kinotic-app-server-2:
+  kinotic-server-app-2:
     extends:
       file: compose.kinotic-servers.yml
-      service: kinotic-app-server
-    container_name: kinotic-app-server-2
+      service: kinotic-server-app
+    container_name: kinotic-server-app-2
     ports: !override
       - "127.0.0.1:58506:58505" # REST and STOMP
     environment: *kinotic-server-e2e-environment

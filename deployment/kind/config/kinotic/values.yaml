@@ -6,7 +6,7 @@ image:
   pullPolicy: IfNotPresent
 
 servers:
-  kinotic-org-server:
+  kinotic-server-org:
     replicaCount: 1
     # The portal, served from the org server's jar: https://localhost (or http://localhost:9090)
     webServer:
@@ -27,7 +27,7 @@ servers:
       limits:
         cpu: 2
         memory: 2Gi
-  kinotic-system-server:
+  kinotic-server-system:
     replicaCount: 1
     tlsSecretName: kinotic-tls
     service:
@@ -54,7 +54,7 @@ servers:
       limits:
         cpu: 2
         memory: 2Gi
-  kinotic-app-server:
+  kinotic-server-app:
     replicaCount: 1
     tlsSecretName: kinotic-tls
     service:

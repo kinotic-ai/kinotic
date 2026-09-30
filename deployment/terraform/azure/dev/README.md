@@ -52,7 +52,7 @@ lets_encrypt_email = "you@example.com"   # the Let's Encrypt account the wildcar
 terraform init
 terraform apply -target=module.sites.azurerm_cdn_frontdoor_profile.sites   # the profile first: the roles need its identity's principal id
 terraform apply
-terraform output -raw application_local_yml > ../../../../kinotic-system-server/src/main/resources/application-local.yml
+terraform output -raw application_local_yml > ../../../../kinotic-server-system/src/main/resources/application-local.yml
 ```
 
 The last command writes the `local` Spring profile, gitignored, which turns Azure storage on

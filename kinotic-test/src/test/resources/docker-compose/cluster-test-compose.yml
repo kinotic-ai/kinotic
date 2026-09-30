@@ -52,10 +52,10 @@ x-kinotic-env: &kinotic-env
   THC_PATH: /health
 
 services:
-  kinotic-org-server:
+  kinotic-server-org:
     <<: *kinotic-node
-    container_name: kinotic-org-server
-    image: kinoticai/kinotic-org-server:${kinoticVersion:-5.0.0-SNAPSHOT}
+    container_name: kinotic-server-org
+    image: kinoticai/kinotic-server-org:${kinoticVersion:-5.0.0-SNAPSHOT}
     environment:
       <<: *kinotic-env
       KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9091
@@ -64,7 +64,7 @@ services:
       KINOTIC_ORGSERVER_APIBASEURL: "http://localhost:9091"
       KINOTIC_ORGSERVER_PORTALBASEURL: "http://localhost:9091"
       KINOTIC_DOMAIN_EMAIL_LINKBASEURL: "http://localhost:9091"
-      OTEL_SERVICE_NAME: kinotic-org-server
+      OTEL_SERVICE_NAME: kinotic-server-org
       THC_PORT: 58503
     ports:
       - "9091:9091"
@@ -72,30 +72,30 @@ services:
       - "47101:47101"
       - "58503:58503"
 
-  kinotic-system-server:
+  kinotic-server-system:
     <<: *kinotic-node
-    container_name: kinotic-system-server
-    image: kinoticai/kinotic-system-server:${kinoticVersion:-5.0.0-SNAPSHOT}
+    container_name: kinotic-server-system
+    image: kinoticai/kinotic-server-system:${kinoticVersion:-5.0.0-SNAPSHOT}
     environment:
       <<: *kinotic-env
       KINOTIC_IGNITE_DISCOVERYPORT: 47502
       KINOTIC_IGNITE_COMMUNICATIONPORT: 47102
-      OTEL_SERVICE_NAME: kinotic-system-server
+      OTEL_SERVICE_NAME: kinotic-server-system
       THC_PORT: 58504
     ports:
       - "47502:47502"
       - "47102:47102"
       - "58504:58504"
 
-  kinotic-app-server:
+  kinotic-server-app:
     <<: *kinotic-node
-    container_name: kinotic-app-server
-    image: kinoticai/kinotic-app-server:${kinoticVersion:-5.0.0-SNAPSHOT}
+    container_name: kinotic-server-app
+    image: kinoticai/kinotic-server-app:${kinoticVersion:-5.0.0-SNAPSHOT}
     environment:
       <<: *kinotic-env
       KINOTIC_IGNITE_DISCOVERYPORT: 47503
       KINOTIC_IGNITE_COMMUNICATIONPORT: 47103
-      OTEL_SERVICE_NAME: kinotic-app-server
+      OTEL_SERVICE_NAME: kinotic-server-app
       THC_PORT: 58505
     ports:
       - "47503:47503"

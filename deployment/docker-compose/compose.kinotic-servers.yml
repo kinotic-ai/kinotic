@@ -1,5 +1,5 @@
-# The three Kinotic servers, one Ignite cluster: kinotic-org-server (the portal and the org API),
-# kinotic-system-server (the platform's own API) and kinotic-app-server (every application's API).
+# The three Kinotic servers, one Ignite cluster: kinotic-server-org (the portal and the org API),
+# kinotic-server-system (the platform's own API) and kinotic-server-app (every application's API).
 
 # What every server container shares; each service below adds its image, ports and identity.
 x-kinotic-server: &kinotic-server
@@ -46,7 +46,7 @@ x-kinotic-server-environment: &kinotic-server-environment
   KINOTIC_DOMAIN_EMAIL_ENABLED: "false"
   # The servers find each other over this static address list and form one Ignite cluster
   KINOTIC_IGNITE_DISCOVERYTYPE: LOCAL
-  KINOTIC_IGNITE_LOCALADDRESSES: kinotic-org-server:47500,kinotic-system-server:47500,kinotic-app-server:47500
+  KINOTIC_IGNITE_LOCALADDRESSES: kinotic-server-org:47500,kinotic-server-system:47500,kinotic-server-app:47500
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
   OTEL_EXPORTER_OTLP_PROTOCOL: grpc
   OTEL_TRACES_EXPORTER: otlp
@@ -63,10 +63,10 @@ x-kinotic-server-environment: &kinotic-server-environment
   THC_PATH: /health # THC defaults to "/", which 404s; the api-gateway only mounts /health
 
 services:
-  kinotic-org-server:
+  kinotic-server-org:
     <<: *kinotic-server
-    container_name: kinotic-org-server
-    image: kinoticai/kinotic-org-server:${kinoticVersion:-5.0.0-SNAPSHOT}
+    container_name: kinotic-server-org
+    image: kinoticai/kinotic-server-org:${kinoticVersion:-5.0.0-SNAPSHOT}
     ports:
       - "127.0.0.1:9090:9090" # The portal
       - "127.0.0.1:58503:58503" # REST and STOMP
@@ -76,19 +76,19 @@ services:
       KINOTIC_MANAGEMENTAPI_TEMPOURL: http://tempo:3200
       KINOTIC_MANAGEMENTAPI_MIMIRURL: http://mimir:9009
       KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9090
-      OTEL_SERVICE_NAME: kinotic-org-server
-      OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-org-server
+      OTEL_SERVICE_NAME: kinotic-server-org
+      OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-org
       THC_PORT: 58503 # Paketo health-check probe — health endpoint is mounted on the api-gateway router
     volumes:
       # The developer's tunnel origin and GitHub App (dev-tools/github-app/dev-github-app.ts).
       # Spring loads ./config/application.yml from the working directory, /workspace, above every
       # packaged file, so it replaces application-compose.yml's localhost:9090 origin
-      - ${HOME}/.kinotic/dev-environment/kinotic-org-server:/workspace/config:ro
+      - ${HOME}/.kinotic/dev-environment/kinotic-server-org:/workspace/config:ro
 
-  kinotic-system-server:
+  kinotic-server-system:
     <<: *kinotic-server
-    container_name: kinotic-system-server
-    image: kinoticai/kinotic-system-server:${kinoticVersion:-5.0.0-SNAPSHOT}
+    container_name: kinotic-server-system
+    image: kinoticai/kinotic-server-system:${kinoticVersion:-5.0.0-SNAPSHOT}
     ports:
       - "127.0.0.1:58504:58504" # REST and STOMP
     environment:
@@ -96,23 +96,23 @@ services:
       KINOTIC_MANAGEMENTAPI_LOKIURL: http://loki:3100
       KINOTIC_MANAGEMENTAPI_TEMPOURL: http://tempo:3200
       KINOTIC_MANAGEMENTAPI_MIMIRURL: http://mimir:9009
-      OTEL_SERVICE_NAME: kinotic-system-server
-      OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-system-server
+      OTEL_SERVICE_NAME: kinotic-server-system
+      OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-system
       THC_PORT: 58504
     volumes:
       # The developer's GitHub App (dev-tools/github-app/dev-github-app.ts), with which this server
       # mints the tokens deployments fetch their repositories with; Spring loads it as
       # ./config/application.yml
-      - ${HOME}/.kinotic/dev-environment/kinotic-system-server:/workspace/config:ro
+      - ${HOME}/.kinotic/dev-environment/kinotic-server-system:/workspace/config:ro
 
-  kinotic-app-server:
+  kinotic-server-app:
     <<: *kinotic-server
-    container_name: kinotic-app-server
-    image: kinoticai/kinotic-app-server:${kinoticVersion:-5.0.0-SNAPSHOT}
+    container_name: kinotic-server-app
+    image: kinoticai/kinotic-server-app:${kinoticVersion:-5.0.0-SNAPSHOT}
     ports:
       - "127.0.0.1:58505:58505" # REST and STOMP
     environment:
       <<: *kinotic-server-environment
-      OTEL_SERVICE_NAME: kinotic-app-server
-      OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-app-server
+      OTEL_SERVICE_NAME: kinotic-server-app
+      OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-app
       THC_PORT: 58505

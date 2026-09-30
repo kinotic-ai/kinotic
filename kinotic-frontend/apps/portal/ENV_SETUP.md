@@ -33,7 +33,7 @@ The SPA needs nothing tunnel-specific: it resolves the server from the page's or
 server does — its `kinotic.domain.appBaseUrl` and `apiBaseUrl` build OIDC `redirect_uri`s and
 email links, and your own GitHub App carries the callback and webhook URLs. Both come from
 `bun dev-tools/github-app/dev-github-app.ts create --domain <you>.ngrok-free.dev`, which
-registers the App and writes `~/.kinotic/dev-environment/kinotic-org-server/application.yml`,
+registers the App and writes `~/.kinotic/dev-environment/kinotic-server-org/application.yml`,
 which the org server imports whether it runs from the IDE or compose; see "Local development
 environment" in the contributing guide (`website/content/02.platform/09.contributing.md`).
 

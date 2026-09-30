@@ -25,7 +25,7 @@ const PROBE_SERVICE = `${ZONE}~e2e.nodefailure.ProbeService`
 const RUNTIME_MACHINE_ID = '00000000-0000-0000-0000-000000000013'
 
 /** The compose container name of the second node, the one every test here kills. */
-const NODE_2 = 'kinotic-app-server-2'
+const NODE_2 = 'kinotic-server-app-2'
 
 /**
  * How long a lost call may take to fail once its node is gone: Ignite's failure detection (10s by default)
@@ -47,7 +47,7 @@ const probeEvents: ProbeEvent[] = []
 
 /**
  * Runs the suite's kill-and-restart scenarios against the two app server nodes the node-failure setup starts:
- * kinotic-app-server (node 1) and kinotic-app-server-2 (node 2). The probe host is the global Kinotic client;
+ * kinotic-server-app (node 1) and kinotic-server-app-2 (node 2). The probe host is the global Kinotic client;
  * callers are separate clients so each side of a call can be placed on the node the scenario needs.
  */
 describe('Node failure handling for service proxies', () => {
@@ -176,12 +176,12 @@ describe('Node failure handling for service proxies', () => {
 
 /** The first app server node, which every caller not moved to node 2 connects to. */
 function node1(): ServerInfo {
-    return kinoticServer('kinotic-app-server')
+    return kinoticServer('kinotic-server-app')
 }
 
 /** The second app server node, the probe host's and the one every test kills. */
 function node2(): ServerInfo {
-    return kinoticServer('kinotic-app-server-2')
+    return kinoticServer('kinotic-server-app-2')
 }
 
 /** Connects as the e2e organization's runtime machine to the node. */

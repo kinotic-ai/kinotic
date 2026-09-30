@@ -14,7 +14,7 @@ kinotic:
   orgServer:
     # Plain localhost dev (pnpm dev, no tunnel): vite serves the portal and proxies /api, /v1
     # (WebSocket), /.well-known, and /mcp to 58503, so the API base is the portal's. A developer's
-    # ngrok tunnel and GitHub App replace both from ~/.kinotic/dev-environment/kinotic-org-server/application.yml,
+    # ngrok tunnel and GitHub App replace both from ~/.kinotic/dev-environment/kinotic-server-org/application.yml,
     # imported below, so SPA links, OIDC/OAuth redirect_uris, GitHub callbacks, and the MCP
     # surface all share the tunnel's one origin.
     apiBaseUrl: http://localhost:5173
@@ -70,4 +70,4 @@ spring:
     # The developer's tunnel origin and GitHub App, written by
     # dev-tools/github-app/dev-github-app.ts create. The compose org server loads the same file as
     # ./config/application.yml (compose.kinotic-servers.yml).
-    import: optional:file:${user.home}/.kinotic/dev-environment/kinotic-org-server/application.yml
+    import: optional:file:${user.home}/.kinotic/dev-environment/kinotic-server-org/application.yml

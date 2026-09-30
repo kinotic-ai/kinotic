@@ -29,7 +29,7 @@ the commit under test rather than whatever the published tag currently holds.
 | `compose.elasticsearch.yml` | Elasticsearch | `kinotic-elasticsearch:9200` |
 | `compose.kibana.yml` | Kibana (depends on Elasticsearch) | `kinotic-kibana:5601` |
 | `compose.kinotic-migration.yml` | Runs `kinotic-migration` once against ES, then exits | One-shot job — `service_completed_successfully` is what the servers wait on |
-| `compose.kinotic-servers.yml` | The three Kinotic servers, one Ignite cluster | `kinotic-org-server:9090/58503` (portal, REST and STOMP), `kinotic-system-server:58504`, `kinotic-app-server:58505` |
+| `compose.kinotic-servers.yml` | The three Kinotic servers, one Ignite cluster | `kinotic-server-org:9090/58503` (portal, REST and STOMP), `kinotic-server-system:58504`, `kinotic-server-app:58505` |
 | `compose-otel.yml` | OpenTelemetry collector + Grafana + Tempo + Loki + Mimir | `grafana:3000`, `loki:3100`, `tempo:3200`, `mimir:9009` |
 | `compose.gen-schemas.yml` | Load-generator container that pre-populates schemas | One-shot when `compose.yml` brings up the full stack |
 | `compose.keycloak.yml` | Local Keycloak as a platform OIDC provider (dev-only secret) | `keycloak:8888` — see `KEYCLOAK_HOSTS_SETUP.md` |
@@ -48,11 +48,11 @@ docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up 
 docker compose up -d
 
 # (3) Tail the org server's logs (look here for verification URLs in dev — email is off)
-docker compose logs -f kinotic-org-server
+docker compose logs -f kinotic-server-org
 
-# (4) Hot-reload a server image after a build (the same for kinotic-system-server and kinotic-app-server)
-./gradlew :kinotic-org-server:bootBuildImage
-docker compose up -d --force-recreate --no-deps kinotic-org-server
+# (4) Hot-reload a server image after a build (the same for kinotic-server-system and kinotic-server-app)
+./gradlew :kinotic-server-org:bootBuildImage
+docker compose up -d --force-recreate --no-deps kinotic-server-org
 
 # (5) Run only the migration container against an already-running ES, then exit
 docker compose -f compose.kinotic-migration.yml run --rm kinotic-migration
@@ -93,7 +93,7 @@ instead of an inbox.
 docker compose up -d
 
 # 2. Watch the org server's log for the verification URL on signup
-docker compose logs -f kinotic-org-server | grep -i "verification URL"
+docker compose logs -f kinotic-server-org | grep -i "verification URL"
 
 # 3. Open the SPA
 open http://localhost:9090
@@ -163,9 +163,9 @@ panel, all provisioned from `dashboards/kinotic-server.json`. Beyond the dashboa
 
 | Signal | Datasource | Where to look |
 |---|---|---|
-| Traces | Tempo | Explore → Tempo → Search, service name `kinotic-org-server`, `kinotic-system-server` or `kinotic-app-server` (tenant `kinotic-system`) |
-| Metrics | Mimir | Explore → Mimir, e.g. `jvm_memory_used_bytes{job="kinotic-org-server"}` (tenant `kinotic-system`) |
-| Logs | Loki | Explore → Loki, `{service_name="kinotic-org-server"}` (tenant `kinotic-system`) |
+| Traces | Tempo | Explore → Tempo → Search, service name `kinotic-server-org`, `kinotic-server-system` or `kinotic-server-app` (tenant `kinotic-system`) |
+| Metrics | Mimir | Explore → Mimir, e.g. `jvm_memory_used_bytes{job="kinotic-server-org"}` (tenant `kinotic-system`) |
+| Logs | Loki | Explore → Loki, `{service_name="kinotic-server-org"}` (tenant `kinotic-system`) |
 
 All three run multi-tenant. The server's own telemetry lands in the `kinotic-system` tenant —
 the collector stamps it on pushes that name none — and each organization's workload telemetry
@@ -242,14 +242,14 @@ If you also run the Vite frontend (`pnpm dev` on `:5173`), it calls the server d
 `localhost:58503` via `VITE_KINOTIC_HOST`/`VITE_KINOTIC_PORT` — see
 `kinotic-frontend/apps/portal/ENV_SETUP.md`. For flows where the IdP or GitHub has to call back into
 your machine, use `pnpm dev:tunnel` behind your ngrok tunnel, with the tunnel origin in
-`~/.kinotic/dev-environment/kinotic-org-server/application.yml` — see "Local development
+`~/.kinotic/dev-environment/kinotic-server-org/application.yml` — see "Local development
 environment" in the contributing guide (`website/content/02.platform/09.contributing.md`).
 
 ## Storage paths
 
 - `kinotic-elastic-data` — Elasticsearch data, a Docker named volume. Survives
   `docker compose down`; removed by `docker compose down -v`.
-- `~/.kinotic/dev-environment/kinotic-org-server` and `~/.kinotic/dev-environment/kinotic-system-server`
+- `~/.kinotic/dev-environment/kinotic-server-org` and `~/.kinotic/dev-environment/kinotic-server-system`
   are bind-mounted read-only into the org and system server containers as `/workspace/config`:
   a developer's tunnel origin and GitHub App, and the App alone, when
   `dev-tools/github-app/dev-github-app.ts create` has written them. The servers keep no state

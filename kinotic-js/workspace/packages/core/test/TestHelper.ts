@@ -33,7 +33,7 @@ export function getKinoticDockerImage(): string {
     if (!version) {
         throw new Error('Could not find kinoticVersion in gradle.properties')
     }
-    return `kinoticai/kinotic-test-server:${version.trim()}`
+    return `kinoticai/kinotic-server-test:${version.trim()}`
 }
 
 export const KINOTIC_DOCKER_IMAGE: string = getKinoticDockerImage()

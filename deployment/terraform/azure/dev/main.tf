@@ -225,7 +225,7 @@ output "server_client_id" {
 }
 
 output "application_local_yml" {
-  description = "The `local` profile kinotic-system-server runs with: write it to kinotic-system-server/src/main/resources/application-local.yml"
+  description = "The `local` profile kinotic-server-system runs with: write it to kinotic-server-system/src/main/resources/application-local.yml"
   value       = <<-EOT
     kinotic:
       systemApi:

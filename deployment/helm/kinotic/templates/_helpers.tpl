@@ -94,7 +94,7 @@ KINOTIC_SYSTEMSERVER_CONSOLEBASEURL: "{{ .consoleBaseUrl }}"
 KINOTIC_SYSTEMAPI_DEPLOYMENT_APPAPIBASEURL: "{{ .appApiBaseUrl }}"
 {{- end }}
 {{- if $server.systemServer }}
-{{- with (index $root.Values.servers "kinotic-org-server").orgServer }}
+{{- with (index $root.Values.servers "kinotic-server-org").orgServer }}
 # invites the member service this server hosts sends are accepted in the portal
 KINOTIC_DOMAIN_EMAIL_LINKBASEURL: "{{ .portalBaseUrl }}"
 {{- end }}

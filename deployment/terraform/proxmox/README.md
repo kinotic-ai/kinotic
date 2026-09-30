@@ -58,7 +58,7 @@ in root's `authorized_keys` on the host and loaded in their agent.
 The Azure side comes first: `deployment/terraform/azure/dev-server` (its README), applied
 from the same checkout, because this root reads its outputs from that state file.
 
-The `kinotic-org-server`, `kinotic-system-server`, `kinotic-app-server` and `kinotic-migration`
+The `kinotic-server-org`, `kinotic-server-system`, `kinotic-server-app` and `kinotic-migration`
 images at `kinotic_version` must carry the `dev-server` profile (`application-dev-server.yml`),
 which imports the secrets file: without it a server starts with no master key. The nightly `gradle-build.yml` run promotes the
 `-SNAPSHOT` tags from `develop`; `gh workflow run gradle-build.yml --ref develop` does it now.
@@ -70,8 +70,8 @@ Placed on the host before the first apply, so the servers start with everything 
 ```bash
 ./generate-secrets.sh ./dev-server-secrets
 (cd ../azure/dev-server && terraform output -raw secrets_env)   # → dev-server-secrets/kinotic-servers.env
-# The shared GitHub App's private key and webhook secret → dev-server-secrets/kinotic-org-server/secrets.yml
-# and dev-server-secrets/kinotic-system-server/secrets.yml, the servers that load the GitHub module
+# The shared GitHub App's private key and webhook secret → dev-server-secrets/kinotic-server-org/secrets.yml
+# and dev-server-secrets/kinotic-server-system/secrets.yml, the servers that load the GitHub module
 ./sync-secrets.sh ./dev-server-secrets <host>
 ```
 
@@ -108,9 +108,9 @@ issue() {   # <server> <vmid> <name>...
     --deploy-hook "install -m 0640 -o 101002 -g 101001 \"\$RENEWED_LINEAGE\"/fullchain.pem \"\$RENEWED_LINEAGE\"/privkey.pem /etc/kinotic/secrets/$server/certs/ && pct reboot $vmid 2>/dev/null || true" \
     "${domains[@]}"
 }
-issue kinotic-org-server 121 dev-api.kinotic.ai
-issue kinotic-system-server 122 dev-system-api.kinotic.ai
-issue kinotic-app-server 123 dev-apps-api.kinotic.ai '*.dev-apps-api.kinotic.ai'
+issue kinotic-server-org 121 dev-api.kinotic.ai
+issue kinotic-server-system 122 dev-system-api.kinotic.ai
+issue kinotic-server-app 123 dev-apps-api.kinotic.ai '*.dev-apps-api.kinotic.ai'
 echo '0 3 * * * root /opt/certbot/bin/certbot renew -q' > /etc/cron.d/certbot
 ```
 
@@ -222,7 +222,7 @@ Azure root has uploaded them.
   host directories, so it comes back with its data. By hand:
 
   ```bash
-  terraform apply -replace='proxmox_oci_image.server["kinotic-org-server"]' -replace='proxmox_virtual_environment_container.fleet["kinotic-org-server"]'
+  terraform apply -replace='proxmox_oci_image.server["kinotic-server-org"]' -replace='proxmox_virtual_environment_container.fleet["kinotic-server-org"]'
   ```
 
   A container replaced this way keeps its vmid, so run the applier yourself afterwards:
@@ -253,15 +253,15 @@ router's forward. The org server takes that vmid and the edge takes the forward:
    ```bash
    cd dev-server-secrets     # the directory generate-secrets.sh wrote for kinotic-server
    mv kinotic-server.env kinotic-servers.env
-   for server in kinotic-org-server kinotic-system-server kinotic-app-server; do
+   for server in kinotic-server-org kinotic-server-system kinotic-server-app; do
      mkdir -p $server/platform-secrets $server/certs
    done
-   cp kinotic-server/secrets.yml kinotic-org-server/
-   cp kinotic-server/secrets.yml kinotic-system-server/
+   cp kinotic-server/secrets.yml kinotic-server-org/
+   cp kinotic-server/secrets.yml kinotic-server-system/
    # The app server loads no GitHub module: its copy ends before the managementApi block
-   awk '/^  managementApi:/ { exit } { print }' kinotic-server/secrets.yml > kinotic-app-server/secrets.yml
-   mv kinotic-server/platform-secrets/jwt-signing-keys kinotic-org-server/platform-secrets/
-   for server in kinotic-system-server kinotic-app-server; do
+   awk '/^  managementApi:/ { exit } { print }' kinotic-server/secrets.yml > kinotic-server-app/secrets.yml
+   mv kinotic-server/platform-secrets/jwt-signing-keys kinotic-server-org/platform-secrets/
+   for server in kinotic-server-system kinotic-server-app; do
      printf '{"activeKeyId":"v1","keys":[{"id":"v1","key":"%s"}]}\n' "$(openssl rand -base64 32)" \
        > $server/platform-secrets/jwt-signing-keys
    done

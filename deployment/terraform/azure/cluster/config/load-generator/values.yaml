@@ -5,7 +5,7 @@
 kinotic:
   useSsl: true
   tlsInsecure: true
-  host: kinotic-org-server-internal
+  host: kinotic-server-org-internal
   port: 58503
 
 loadGenerator:

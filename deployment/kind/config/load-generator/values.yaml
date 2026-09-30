@@ -4,7 +4,7 @@
 kinotic:
   useSsl: true
   tlsInsecure: true  # Accept mkcert self-signed certs
-  host: kinotic-org-server
+  host: kinotic-server-org
   port: 58503
 
 loadGenerator:

@@ -70,7 +70,7 @@ The committed configurations still reference the pre-rename layout and will not 
 |---|---|
 | `cwd`/`webRoot` `${workspaceFolder}/structures-frontend-next` | `${workspaceFolder}/kinotic-frontend/apps/portal` |
 | `mainClass` `org.kinotic.structuresserver.StructuresServerApplication` | `org.kinotic.orgserver.OrgServerApplication` |
-| `projectName` `structures-server` | `kinotic-org-server` |
+| `projectName` `structures-server` | `kinotic-server-org` |
 | `-cp ${workspaceFolder}/structures-core/src/main/resources` | `kinotic-core/src/main/resources` |
 
 Fix those paths before using the Run and Debug panel.

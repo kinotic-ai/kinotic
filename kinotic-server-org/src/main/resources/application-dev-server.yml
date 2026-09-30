@@ -1,26 +1,37 @@
-# The development server's app server: kinotic-app-server as a container on one Proxmox host
-# beside three Elasticsearch nodes and the observability stack (deployment/terraform/proxmox), with
-# Front Door, the sites storage account, email, and a Key Vault in Azure
+# The development server's org server: kinotic-server-org as a container on one Proxmox host
+# beside three Elasticsearch nodes and the observability stack (deployment/terraform/proxmox),
+# with Front Door, the sites storage account, email, and a Key Vault in Azure
 # (deployment/terraform/azure/dev-server). Activated as `production,dev-server`. Holds what is
 # fixed for this shape of deployment; everything that differs per server — hostnames,
 # endpoints, addresses — arrives through the environment the terraform root composes, and
 # the credentials through the file imported below.
 spring:
   config:
-    # The secret-storage master key, placed on the host by sync-secrets.sh and mounted read-only
+    # The secret-storage master key and the GitHub App's key and webhook secret, placed on
+    # the host by sync-secrets.sh and mounted read-only
     import: optional:file:/etc/kinotic/secrets.yml
 kinotic:
+  managementApi:
+    entityDefinition:
+      # Three master-eligible data nodes, one physical disk each: one replica survives a disk,
+      # and one shard per index keeps a published EntityDefinition cheap against the
+      # 1000-shard-per-node ceiling. The production defaults (3 and 2) assume a larger cluster.
+      numberOfShards: 1
+      numberOfReplicas: 1
   apiGateway:
+    # The portal is served by Front Door from the sites account, so the server exposes the API
+    # port alone
+    webServer:
+      enabled: false
     ssl:
-      # certbot's certificate for the app server's hostname and every application's API host
-      # under it, mounted from the host; Vert.x terminates TLS, and the edge passes each
-      # connection through unopened
+      # certbot's certificate for the org server's hostname, mounted from the host; Vert.x
+      # terminates TLS, and the edge passes each connection through unopened
       enabled: true
       certPath: /etc/kinotic/certs/fullchain.pem
       keyPath: /etc/kinotic/certs/privkey.pem
     cors:
-      # The UIs published under the sites domain
-      allowedOriginPattern: "https:\\/\\/[a-z0-9-]+\\.${KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN}"
+      # The portal alone
+      allowedOriginPattern: "https:\\/\\/${DEV_SERVER_PORTAL_HOSTNAME}"
       allowCredentials: true
   platformSecrets:
     # Generated once when the server is built (generate-secrets.sh in deployment/terraform/proxmox),

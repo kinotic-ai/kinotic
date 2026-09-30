@@ -88,4 +88,4 @@ spring:
     # The developer's GitHub App, written by dev-tools/github-app/dev-github-app.ts create, with
     # which this server mints the tokens deployments fetch their repositories with. The compose
     # system server loads the same file as ./config/application.yml (compose.kinotic-servers.yml).
-    import: optional:file:${user.home}/.kinotic/dev-environment/kinotic-system-server/application.yml
+    import: optional:file:${user.home}/.kinotic/dev-environment/kinotic-server-system/application.yml

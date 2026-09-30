@@ -53,7 +53,7 @@ resource "terraform_data" "wait_for_kv_rbac" {
 
 locals {
   # Each server signs its tokens with a key set of its own
-  servers = ["kinotic-org-server", "kinotic-system-server", "kinotic-app-server"]
+  servers = ["kinotic-server-org", "kinotic-server-system", "kinotic-server-app"]
 }
 
 resource "random_id" "jwt_signing_key_v1" {
@@ -65,6 +65,22 @@ resource "random_id" "jwt_signing_key_v1" {
 moved {
   from = random_id.jwt_signing_key_v1
   to   = random_id.jwt_signing_key_v1["kinotic-org-server"]
+}
+
+# The servers' modules were renamed; each key set follows its server's new name
+moved {
+  from = random_id.jwt_signing_key_v1["kinotic-org-server"]
+  to   = random_id.jwt_signing_key_v1["kinotic-server-org"]
+}
+
+moved {
+  from = random_id.jwt_signing_key_v1["kinotic-system-server"]
+  to   = random_id.jwt_signing_key_v1["kinotic-server-system"]
+}
+
+moved {
+  from = random_id.jwt_signing_key_v1["kinotic-app-server"]
+  to   = random_id.jwt_signing_key_v1["kinotic-server-app"]
 }
 
 resource "random_id" "secret_storage_master_key" {
@@ -101,6 +117,23 @@ resource "azurerm_key_vault_secret" "jwt_signing_keys" {
   }
 
   depends_on = [terraform_data.wait_for_kv_rbac]
+}
+
+# The secrets follow their servers' new names too. A Key Vault secret's name forces replacement,
+# so each is recreated under the new name with the same key material, which the random_id above keeps
+moved {
+  from = azurerm_key_vault_secret.jwt_signing_keys["kinotic-org-server"]
+  to   = azurerm_key_vault_secret.jwt_signing_keys["kinotic-server-org"]
+}
+
+moved {
+  from = azurerm_key_vault_secret.jwt_signing_keys["kinotic-system-server"]
+  to   = azurerm_key_vault_secret.jwt_signing_keys["kinotic-server-system"]
+}
+
+moved {
+  from = azurerm_key_vault_secret.jwt_signing_keys["kinotic-app-server"]
+  to   = azurerm_key_vault_secret.jwt_signing_keys["kinotic-server-app"]
 }
 
 # The secret-storage master key, which every server imports as

@@ -172,7 +172,7 @@ locals {
   # the edge, under the hostnames its certificate carries, and adds what is its alone to the
   # environment every server shares.
   servers = {
-    kinotic-org-server = {
+    kinotic-server-org = {
       vm_id       = 121
       private_ip  = cidrhost(var.private_cidr, 20)
       port        = 58503
@@ -188,7 +188,7 @@ locals {
         KINOTIC_MANAGEMENTAPI_MIMIRURL   = local.service_urls["http://mimir:9009"]
       }
     }
-    kinotic-system-server = {
+    kinotic-server-system = {
       vm_id       = 122
       private_ip  = cidrhost(var.private_cidr, 22)
       port        = 58504
@@ -213,7 +213,7 @@ locals {
         KINOTIC_MANAGEMENTAPI_MIMIRURL              = local.service_urls["http://mimir:9009"]
       }
     }
-    kinotic-app-server = {
+    kinotic-server-app = {
       vm_id       = 123
       private_ip  = cidrhost(var.private_cidr, 23)
       port        = 58505
@@ -743,6 +743,22 @@ resource "proxmox_virtual_environment_container" "fleet" {
 moved {
   from = proxmox_virtual_environment_container.fleet["kinotic-server"]
   to   = proxmox_virtual_environment_container.fleet["kinotic-org-server"]
+}
+
+# The servers' modules were renamed; each container follows its server's new name
+moved {
+  from = proxmox_virtual_environment_container.fleet["kinotic-org-server"]
+  to   = proxmox_virtual_environment_container.fleet["kinotic-server-org"]
+}
+
+moved {
+  from = proxmox_virtual_environment_container.fleet["kinotic-system-server"]
+  to   = proxmox_virtual_environment_container.fleet["kinotic-server-system"]
+}
+
+moved {
+  from = proxmox_virtual_environment_container.fleet["kinotic-app-server"]
+  to   = proxmox_virtual_environment_container.fleet["kinotic-server-app"]
 }
 
 locals {

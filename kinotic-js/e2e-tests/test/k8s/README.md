@@ -14,7 +14,7 @@ described under "Reading the eviction CSVs" first.
 ## Prerequisites
 
 1. A Kubernetes cluster with the app server at 3 replicas (`deployment/kind/`, with
-   `servers.kinotic-app-server.replicaCount: 3`).
+   `servers.kinotic-server-app.replicaCount: 3`).
 2. `kubectl` configured for that cluster.
 3. `evictionTracking.enabled: true` in the Helm values, plus the `eviction-tracking` Spring
    profile on the servers — `deployment/kind/config/kinotic/values.yaml` sets both for KinD.
@@ -36,14 +36,14 @@ described under "Reading the eviction CSVs" first.
 
 The context, selector, and eviction path defaults predate the rename to Kinotic and the
 current KinD terraform. Against `deployment/kind/` the cluster is `kind-kinotic-cluster`,
-the app server pods carry `app=kinotic-app-server` in namespace `kinotic` and serve STOMP on
+the app server pods carry `app=kinotic-server-app` in namespace `kinotic` and serve STOMP on
 `58505`, and no host directory is mounted for eviction data — so all five need overriding:
 
 ```bash
 K8S_TEST_ENABLED=true \
 K8S_CONTEXT=kind-kinotic-cluster \
 K8S_NAMESPACE=kinotic \
-K8S_LABEL_SELECTOR=app=kinotic-app-server \
+K8S_LABEL_SELECTOR=app=kinotic-server-app \
 K8S_STOMP_PORT=58505 \
 pnpm test -- k8s-cache-eviction
 ```
@@ -93,7 +93,7 @@ today.
 **Suite does not run** — it is disabled; see "Status" above.
 
 **No pods discovered** — the label selector and namespace defaults do not match the KinD
-deployment. Check with `kubectl get pods -n kinotic -l app=kinotic-app-server`.
+deployment. Check with `kubectl get pods -n kinotic -l app=kinotic-server-app`.
 
 **No eviction files** — confirm the profile is active
 (`kubectl logs <pod> | grep eviction-tracking`) and that the CSVs exist in the pod

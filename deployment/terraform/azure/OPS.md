@@ -46,7 +46,7 @@ Update `kubernetes_version` in `terraform.tfvars`, then `terraform apply`. AKS u
 Re-run the ES secret sync to copy the updated secret:
 ```bash
 helm upgrade es-secret-sync ../../helm/es-secret-sync -n kinotic
-kubectl rollout restart deployment kinotic-org-server kinotic-system-server kinotic-app-server -n kinotic
+kubectl rollout restart deployment kinotic-server-org kinotic-server-system kinotic-server-app -n kinotic
 ```
 
 **Grafana Entra ID:**
@@ -71,7 +71,7 @@ kubectl port-forward svc/grafana -n observability 3000:3000
 {namespace="kinotic"}                          # All the servers' logs
 {namespace="kinotic"} | json | level="ERROR"   # Errors only
 {namespace="elastic"}                          # Elasticsearch logs
-{app="kinotic-org-server"} | json | level="WARN"   # One server's warnings
+{app="kinotic-server-org"} | json | level="WARN"   # One server's warnings
 ```
 
 **kubectl:**

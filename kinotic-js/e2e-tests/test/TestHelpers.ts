@@ -79,17 +79,17 @@ export function kinoticServer(name: KinoticServerName): ServerInfo {
 
 /** The org server, where an organization's users and machines connect. */
 export function orgServer(): ServerInfo {
-    return kinoticServer('kinotic-org-server')
+    return kinoticServer('kinotic-server-org')
 }
 
 /** The system server, where platform operators connect. */
 export function systemServer(): ServerInfo {
-    return kinoticServer('kinotic-system-server')
+    return kinoticServer('kinotic-server-system')
 }
 
 /** The app server, where an application's users and machines and an organization's runtimes connect. */
 export function appServer(): ServerInfo {
-    return kinoticServer('kinotic-app-server')
+    return kinoticServer('kinotic-server-app')
 }
 
 /** REST base URL of the given server, the org server by default. */

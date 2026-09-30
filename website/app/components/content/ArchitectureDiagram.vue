@@ -69,7 +69,7 @@
       <text class="t-plane-a" x="186" y="238" text-anchor="middle">APP PLANE</text>
 
       <rect class="gw gw-app" x="52" y="250" width="268" height="140" rx="8"></rect>
-      <text class="t-name" x="186" y="273" text-anchor="middle">kinotic-app-server</text>
+      <text class="t-name" x="186" y="273" text-anchor="middle">kinotic-server-app</text>
       <text class="t-sub"  x="186" y="289" text-anchor="middle">apps-api.kinotic.ai and *.apps-api</text>
       <line class="sep" x1="70" y1="298" x2="302" y2="298"></line>
       <text class="t-mono" x="186" y="315" text-anchor="middle">ApplicationSecurityService</text>
@@ -83,7 +83,7 @@
       <text class="t-plane-o" x="509" y="238" text-anchor="middle">ORG PLANE</text>
 
       <rect class="gw gw-org" x="368" y="250" width="436" height="140" rx="8"></rect>
-      <text class="t-name" x="586" y="273" text-anchor="middle">kinotic-org-server</text>
+      <text class="t-name" x="586" y="273" text-anchor="middle">kinotic-server-org</text>
       <text class="t-sub"  x="586" y="289" text-anchor="middle">api.kinotic.ai</text>
       <line class="sep" x1="386" y1="298" x2="786" y2="298"></line>
       <text class="t-mono" x="586" y="315" text-anchor="middle">OrganizationSecurityService</text>
@@ -97,7 +97,7 @@
       <text class="t-plane-s" x="986" y="238" text-anchor="middle">SYSTEM PLANE</text>
 
       <rect class="gw gw-sys" x="852" y="250" width="268" height="140" rx="8"></rect>
-      <text class="t-name" x="986" y="273" text-anchor="middle">kinotic-system-server</text>
+      <text class="t-name" x="986" y="273" text-anchor="middle">kinotic-server-system</text>
       <text class="t-sub"  x="986" y="289" text-anchor="middle">system-api.kinotic.ai</text>
       <line class="sep" x1="870" y1="298" x2="1102" y2="298"></line>
       <text class="t-mono" x="986" y="315" text-anchor="middle">SystemSecurityService</text>

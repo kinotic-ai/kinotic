@@ -5,7 +5,7 @@
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
     <option name="ENABLE_JMX_AGENT" value="false" />
     <envs>
-      <env name="OTEL_SERVICE_NAME" value="kinotic-system-server" />
+      <env name="OTEL_SERVICE_NAME" value="kinotic-server-system" />
       <env name="OTEL_EXPORTER_OTLP_ENDPOINT" value="http://localhost:4317" />
       <env name="OTEL_EXPORTER_OTLP_PROTOCOL" value="grpc" />
       <env name="OTEL_TRACES_EXPORTER" value="otlp" />
@@ -15,9 +15,9 @@
       <env name="OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY" value="true" />
       <env name="OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING" value="localhost:9200=elasticsearch" />
     </envs>
-    <module name="kinotic.kinotic-system-server.main" />
+    <module name="kinotic.kinotic-server-system.main" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="org.kinotic.systemserver.SystemServerApplication" />
-    <option name="VM_PARAMETERS" value="-javaagent:$PROJECT_DIR$/kinotic-system-server/build/otel-agent/opentelemetry-javaagent.jar -XX:MaxDirectMemorySize=1g -Xmx4096m -XX:+AlwaysPreTouch -XX:+DisableExplicitGC --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED" />
+    <option name="VM_PARAMETERS" value="-javaagent:$PROJECT_DIR$/kinotic-server-system/build/otel-agent/opentelemetry-javaagent.jar -XX:MaxDirectMemorySize=1g -Xmx4096m -XX:+AlwaysPreTouch -XX:+DisableExplicitGC --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED" />
     <extension name="net.ashald.envfile">
       <option name="IS_ENABLED" value="true" />
       <option name="IS_SUBST" value="false" />
@@ -35,7 +35,7 @@
       <option name="useCurrentConnection" value="false" />
     </extension>
     <method v="2">
-      <option name="Gradle.BeforeRunTask" enabled="true" tasks=":kinotic-system-server:otelAgentJar" externalProjectPath="$PROJECT_DIR$" vmOptions="" scriptParameters="" />
+      <option name="Gradle.BeforeRunTask" enabled="true" tasks=":kinotic-server-system:otelAgentJar" externalProjectPath="$PROJECT_DIR$" vmOptions="" scriptParameters="" />
       <option name="Make" enabled="true" />
     </method>
   </configuration>
