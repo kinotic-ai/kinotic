@@ -20,11 +20,11 @@ import java.util.function.Consumer;
  * scoped to a supplied {@code orgId}: only documents that belong to that org are returned,
  * mutated, or counted.
  * <p>
- * Documents are stored with a composite Elasticsearch {@code _id} of {@code orgId + "-" + id},
- * The composite id makes the stored document globally unique across orgs, so a get-by-id under one org cannot
- * return another org's document when the two routing values hash to the same shard. The
- * entity's own {@code id} is not modified — the namespacing only happens at the persistence
- * layer, and the raw id round-trips through the source.
+ * Documents are stored with a composite Elasticsearch {@code _id} of {@code orgId + "--" + id}. An
+ * organization id never contains {@code --}, so every (org, id) pair has its own {@code _id} and a get-by-id
+ * under one org cannot reach another org's document, whichever shard the two route to. The entity's own
+ * {@code id} is not modified — the namespacing only happens at the persistence layer, and the raw id
+ * round-trips through the source.
  * <p>
  * Composition (rather than inheritance from {@link AbstractRepository}) is intentional: this
  * class deliberately does NOT expose the unscoped {@code findById}/{@code deleteById}/
@@ -36,6 +36,9 @@ import java.util.function.Consumer;
 public abstract class AbstractOrganizationScopedRepository<T extends OrganizationScoped<String>> {
 
     static final String ORGANIZATION_ID_FIELD = "organizationId";
+    // DomainUtil.validateOrganizationId forbids "--" in an organization id, so the first "--" of a
+    // document id always ends the organization id, whatever the entity id holds
+    private static final String DOCUMENT_ID_SEPARATOR = "--";
 
     protected final String indexName;
     @Getter
@@ -219,12 +222,12 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
 
     /**
      * Builds the Elasticsearch {@code _id} for an entity belonging to {@code orgId}:
-     * {@code orgId + "-" + id}. Subclasses use this when issuing specialized queries that
+     * {@code orgId + "--" + id}. Subclasses use this when issuing specialized queries that
      * target documents by id (e.g. an {@code IdsQuery}) and therefore need the composite
      * form rather than the entity's raw id.
      */
     protected String composeDocumentId(String id, String orgId) {
         Validate.notBlank(id, "id cannot be blank");
-        return orgId + "-" + id;
+        return orgId + DOCUMENT_ID_SEPARATOR + id;
     }
 }
