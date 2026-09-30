@@ -438,7 +438,7 @@ locals {
       timeout          = 900
     }
     edge = {
-      vm_id         = 130
+      vm_id         = 124
       description   = "The edge: HAProxy on :${local.public_port}, which the router forwards to; passes each TLS connection, unopened, to the server its SNI names"
       image         = proxmox_oci_image.haproxy.id
       cores         = 1

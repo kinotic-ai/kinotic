@@ -9,7 +9,6 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     ApplicationSidebar: typeof import('./src/components/ApplicationSidebar.vue')['default']
-    ApplicationTile: typeof import('./src/components/ApplicationTile.vue')['default']
     BreadcrumbSwitcher: typeof import('./src/components/BreadcrumbSwitcher.vue')['default']
     Button: typeof import('primevue/button')['default']
     CascadeSelect: typeof import('primevue/cascadeselect')['default']
