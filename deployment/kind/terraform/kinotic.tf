@@ -10,6 +10,15 @@ resource "kubernetes_namespace" "kinotic" {
 
 # ── Kinotic servers ───────────────────────────────────────
 
+locals {
+  # The client secret the imported test realm gives kinotic-client, read from the realm file so the
+  # org server and Keycloak cannot disagree on it
+  keycloak_client_secret = one([
+    for client in jsondecode(file("${path.module}/../../docker-compose/keycloak-test-realm.json")).clients :
+    client.secret if client.clientId == "kinotic-client"
+  ])
+}
+
 resource "helm_release" "kinotic" {
   name      = "kinotic"
   namespace = kubernetes_namespace.kinotic.metadata[0].name
@@ -40,10 +49,10 @@ resource "helm_release" "kinotic" {
       { name = "servers.kinotic-system-server.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_USESSL", value = var.use_mkcert ? "true" : "false" },
       { name = "servers.kinotic-system-server.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_USESSL", value = var.use_mkcert ? "true" : "false" },
     ],
-    # When Keycloak is enabled, add kubernetes-oidc profile and set oidc.enabled
+    # With Keycloak, the org server resolves the secret named "keycloak" on an OIDC configuration row to
+    # the test realm's client secret, the way the compose Keycloak overlay does
     var.enable_keycloak ? [
-      { name = "properties.springActiveProfiles", value = "production\\,kubernetes\\,kubernetes-oidc\\,debug\\,eviction-tracking" },
-      { name = "oidc.enabled", value = "true" },
+      { name = "servers.kinotic-org-server.extraEnv.KINOTIC_AKV_KEYCLOAK", value = local.keycloak_client_secret },
     ] : [],
   )
 
