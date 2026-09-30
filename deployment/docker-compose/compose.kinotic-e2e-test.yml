@@ -35,6 +35,11 @@ x-kinotic-management-api-e2e-environment: &kinotic-management-api-e2e-environmen
   KINOTIC_MANAGEMENTAPI_GITHUB_WEBHOOKSECRET: "-"
   KINOTIC_MANAGEMENTAPI_GITHUB_REPOTEMPLATE: "-"
 
+# The app server's own URL base: every application's API host is a label under it, and the
+# ServerPlanes suite addresses <org>--<app>.localhost:58505 at both app server nodes
+x-kinotic-app-server-e2e-environment: &kinotic-app-server-e2e-environment
+  KINOTIC_APPSERVER_APIBASEURL: http://localhost:58505
+
 services:
   kinotic-migration:
     environment:
@@ -60,11 +65,19 @@ services:
       # here. No e2e test deploys a workload, so the values only have to bind.
       KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_HOST: localhost
       KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST: localhost
+      # The URLs the system server is reached at and hands out; validated at boot. No console runs
+      # in the e2e stack, and the app API base is what a UI build would be handed
+      KINOTIC_SYSTEMSERVER_APIBASEURL: http://localhost:58504
+      KINOTIC_SYSTEMSERVER_CONSOLEBASEURL: http://localhost:5174
+      KINOTIC_SYSTEMAPI_DEPLOYMENT_APPAPIBASEURL: http://localhost:58505
+      # The emailed links' base, read before the send is skipped as disabled
+      KINOTIC_DOMAIN_EMAIL_LINKBASEURL: http://localhost:9090
     # Replaces compose.kinotic-servers.yml's mount of the developer's GitHub App
     volumes: !override
       - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
   kinotic-server-app:
-    environment: *kinotic-server-e2e-environment
+    environment:
+      <<: [*kinotic-server-e2e-environment, *kinotic-app-server-e2e-environment]
     volumes:
       - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
   kinotic-server-app-2:
@@ -74,6 +87,7 @@ services:
     container_name: kinotic-server-app-2
     ports: !override
       - "127.0.0.1:58506:58505" # REST and STOMP
-    environment: *kinotic-server-e2e-environment
+    environment:
+      <<: [*kinotic-server-e2e-environment, *kinotic-app-server-e2e-environment]
     volumes:
       - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
