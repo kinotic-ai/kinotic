@@ -341,9 +341,9 @@ The repository contains the major components required to build and operate Kinot
 | [`kinotic-api-gateway`](kinotic-api-gateway) | Client-facing gateway: STOMP over WebSocket, REST routes, and the MCP endpoint |
 | [`kinotic-management-api`](kinotic-management-api) | Management plane: applications, projects, artifacts, deployments, GitHub provisioning, logs and metrics |
 | [`kinotic-system-api`](kinotic-system-api) | System plane: workload and VM node orchestration, deployment operations, log and site storage |
-| [`kinotic-org-server`](kinotic-org-server) | The org server: the deployable Spring Boot server for the portal, organization members, their machines and the CLI, assembling core, domain, management-api and the gateway |
-| [`kinotic-system-server`](kinotic-system-server) | The system server: the deployable Spring Boot server for the system console, the vm-managers and project deployment, assembling core, domain, management-api, system-api and the gateway |
-| [`kinotic-app-server`](kinotic-app-server) | The app server: the deployable Spring Boot server every application's users, UIs and microservices call, assembling core, domain, persistence and the gateway |
+| [`kinotic-server-management`](kinotic-server-management) | The management server: the deployable Spring Boot server for the portal, organization members, their machines and the CLI, assembling core, domain, management-api and the gateway |
+| [`kinotic-server-system`](kinotic-server-system) | The system server: the deployable Spring Boot server for the system console, the vm-managers and project deployment, assembling core, domain, management-api, system-api and the gateway |
+| [`kinotic-server-app`](kinotic-server-app) | The app server: the deployable Spring Boot server every application's users, UIs and microservices call, assembling core, domain, persistence and the gateway |
 | [`kinotic-migration`](kinotic-migration) | Applies the platform's SQL migrations to the data stores |
 | [`kinotic-util`](kinotic-util) | Shared utilities, including the file and bulk file processing workers |
 | [`kinotic-test`](kinotic-test) | Java end-to-end test suite, run against a docker-compose cluster |

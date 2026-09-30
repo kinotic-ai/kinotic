@@ -1,6 +1,6 @@
 import * as allure from 'allure-js-commons'
 import {beforeAll, describe, expect, it} from 'vitest'
-import {orgServer, restBase, systemServer} from '../TestHelpers.js'
+import {managementServer, restBase, systemServer} from '../TestHelpers.js'
 
 /**
  * Exercises the browser login REST surface: POST /api/auth/system/login must admit only
@@ -53,17 +53,17 @@ describe('System login route', () => {
     })
 
     it('leaves the org login route working for the org user', async () => {
-        const res = await login('/api/auth/org/login', 'kinotic@kinotic.local', 'kinotic', restBase(orgServer()))
+        const res = await login('/api/auth/org/login', 'kinotic@kinotic.local', 'kinotic', restBase(managementServer()))
         expect(res.status).toBe(204)
     })
 
-    it('refuses the system admin at the org server\'s login', async () => {
-        const res = await login('/api/auth/org/login', 'admin@kinotic.local', 'kinotic', restBase(orgServer()))
+    it('refuses the system admin at the management server\'s login', async () => {
+        const res = await login('/api/auth/org/login', 'admin@kinotic.local', 'kinotic', restBase(managementServer()))
         expect(res.status).toBe(401)
     })
 
     it('mounts the system login on the system server only', async () => {
-        const res = await login('/api/auth/system/login', 'admin@kinotic.local', 'kinotic', restBase(orgServer()))
+        const res = await login('/api/auth/system/login', 'admin@kinotic.local', 'kinotic', restBase(managementServer()))
         expect(res.status).toBe(404)
     })
 })

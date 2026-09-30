@@ -58,7 +58,7 @@ in root's `authorized_keys` on the host and loaded in their agent.
 The Azure side comes first: `deployment/terraform/azure/dev-server` (its README), applied
 from the same checkout, because this root reads its outputs from that state file.
 
-The `kinotic-org-server`, `kinotic-system-server`, `kinotic-app-server` and `kinotic-migration`
+The `kinotic-server-management`, `kinotic-server-system`, `kinotic-server-app` and `kinotic-migration`
 images at `kinotic_version` must carry the `dev-server` profile (`application-dev-server.yml`),
 which imports the secrets file: without it a server starts with no master key. The nightly `gradle-build.yml` run promotes the
 `-SNAPSHOT` tags from `develop`; `gh workflow run gradle-build.yml --ref develop` does it now.
@@ -70,8 +70,8 @@ Placed on the host before the first apply, so the servers start with everything 
 ```bash
 ./generate-secrets.sh ./dev-server-secrets
 (cd ../azure/dev-server && terraform output -raw secrets_env)   # → dev-server-secrets/kinotic-servers.env
-# The shared GitHub App's private key and webhook secret → dev-server-secrets/kinotic-org-server/secrets.yml
-# and dev-server-secrets/kinotic-system-server/secrets.yml, the servers that load the GitHub module
+# The shared GitHub App's private key and webhook secret → dev-server-secrets/kinotic-server-management/secrets.yml
+# and dev-server-secrets/kinotic-server-system/secrets.yml, the servers that load the GitHub module
 ./sync-secrets.sh ./dev-server-secrets <host>
 ```
 
@@ -108,9 +108,9 @@ issue() {   # <server> <vmid> <name>...
     --deploy-hook "install -m 0640 -o 101002 -g 101001 \"\$RENEWED_LINEAGE\"/fullchain.pem \"\$RENEWED_LINEAGE\"/privkey.pem /etc/kinotic/secrets/$server/certs/ && pct reboot $vmid 2>/dev/null || true" \
     "${domains[@]}"
 }
-issue kinotic-org-server 121 dev-api.kinotic.ai
-issue kinotic-system-server 122 dev-system-api.kinotic.ai
-issue kinotic-app-server 123 dev-apps-api.kinotic.ai '*.dev-apps-api.kinotic.ai'
+issue kinotic-server-management 121 dev-api.kinotic.ai
+issue kinotic-server-system 122 dev-system-api.kinotic.ai
+issue kinotic-server-app 123 dev-apps-api.kinotic.ai '*.dev-apps-api.kinotic.ai'
 echo '0 3 * * * root /opt/certbot/bin/certbot renew -q' > /etc/cron.d/certbot
 ```
 
@@ -222,7 +222,7 @@ Azure root has uploaded them.
   host directories, so it comes back with its data. By hand:
 
   ```bash
-  terraform apply -replace='proxmox_oci_image.server["kinotic-org-server"]' -replace='proxmox_virtual_environment_container.fleet["kinotic-org-server"]'
+  terraform apply -replace='proxmox_oci_image.server["kinotic-server-management"]' -replace='proxmox_virtual_environment_container.fleet["kinotic-server-management"]'
   ```
 
   A container replaced this way keeps its vmid, so run the applier yourself afterwards:
@@ -241,27 +241,27 @@ Azure root has uploaded them.
 ## Moving from the single kinotic-server
 
 A host built before the split runs one `kinotic-server` container, vmid 121, behind the
-router's forward. The org server takes that vmid and the edge takes the forward:
+router's forward. The management server takes that vmid and the edge takes the forward:
 
 1. **The router's forward.** In `local.auto.tfvars`, `server_ip` and `server_mac` become
    `edge_ip` and `edge_mac` with the same values. The router forwards 443 to that MAC, which is
    now the edge's, so the router needs no change.
 2. **The secrets.** The master key stays, since every stored secret is named from it, and so
-   does the JWT key set the CLI's tokens are signed with, which moves to the org server, where
+   does the JWT key set the CLI's tokens are signed with, which moves to the management server, where
    the CLI connects. The system and app servers get key sets of their own:
 
    ```bash
    cd dev-server-secrets     # the directory generate-secrets.sh wrote for kinotic-server
    mv kinotic-server.env kinotic-servers.env
-   for server in kinotic-org-server kinotic-system-server kinotic-app-server; do
+   for server in kinotic-server-management kinotic-server-system kinotic-server-app; do
      mkdir -p $server/platform-secrets $server/certs
    done
-   cp kinotic-server/secrets.yml kinotic-org-server/
-   cp kinotic-server/secrets.yml kinotic-system-server/
+   cp kinotic-server/secrets.yml kinotic-server-management/
+   cp kinotic-server/secrets.yml kinotic-server-system/
    # The app server loads no GitHub module: its copy ends before the managementApi block
-   awk '/^  managementApi:/ { exit } { print }' kinotic-server/secrets.yml > kinotic-app-server/secrets.yml
-   mv kinotic-server/platform-secrets/jwt-signing-keys kinotic-org-server/platform-secrets/
-   for server in kinotic-system-server kinotic-app-server; do
+   awk '/^  managementApi:/ { exit } { print }' kinotic-server/secrets.yml > kinotic-server-app/secrets.yml
+   mv kinotic-server/platform-secrets/jwt-signing-keys kinotic-server-management/platform-secrets/
+   for server in kinotic-server-system kinotic-server-app; do
      printf '{"activeKeyId":"v1","keys":[{"id":"v1","key":"%s"}]}\n' "$(openssl rand -base64 32)" \
        > $server/platform-secrets/jwt-signing-keys
    done
@@ -272,6 +272,6 @@ router's forward. The org server takes that vmid and the edge takes the forward:
 3. **The certificates.** On the host, `/opt/certbot/bin/certbot delete --cert-name dev-api.kinotic.ai`,
    whose deploy hook installs into the old directory, then the three `issue` lines above.
 4. **The Azure root** first, for the new names' records (its README), then `terraform apply`
-   here. The apply replaces container 121 with the org server and creates the system server,
+   here. The apply replaces container 121 with the management server and creates the system server,
    the app server, and the edge; the nodes take the new `hosts_entry` and `vm_manager_env`,
    whose server is now the system server's name.

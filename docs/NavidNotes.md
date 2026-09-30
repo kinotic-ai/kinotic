@@ -123,16 +123,16 @@ of the climb tells us what the right mechanism is.
 
 ### OAuth base URL split (`issuerBaseUrl`)
 
-`kinotic.orgServer.issuerBaseUrl` exists because two different parties reach the org server and,
+`kinotic.managementServer.issuerBaseUrl` exists because two different parties reach the management server and,
 today, they can reach it at different URLs. A browser follows the OIDC `redirect_uri`s built from
-`kinotic.orgServer.apiBaseUrl`; an MCP host's backend calls the token endpoint built from
+`kinotic.managementServer.apiBaseUrl`; an MCP host's backend calls the token endpoint built from
 `issuerBaseUrl`, having never been near the browser. A development gateway on `localhost` whose OAuth
 surface is tunnelled is the case that forced the split: one value cannot be both browser-local and
 internet-reachable.
 
-`OrgServerProperties.resolveIssuerBaseUrl` holds the fallback, read by `OrgOAuthServerHandler.issuer`
+`ManagementServerProperties.resolveIssuerBaseUrl` holds the fallback, read by `ManagementOAuthServerHandler.issuer`
 and `DeviceAuthorizationHandler`. Nothing enforces the choice at a call site: every externally reached
-URL added to the org server from here on has to pick the issuer over `apiBaseUrl`, and picking wrong
+URL added to the management server from here on has to pick the issuer over `apiBaseUrl`, and picking wrong
 fails only in the tunnelled topology, which is exactly the one nobody runs in CI. The other two servers
 have no split: the system server's issuer is its `apiBaseUrl`, and on the app server each application's
 API host is its own issuer.
@@ -141,7 +141,7 @@ API host is its own issuer.
 topology decision, not a code one.
 
 **Option A — keep the split.** No infrastructure change. Development works today; production sets
-nothing and falls back. Keeps `issuerBaseUrl` on `OrgServerProperties` indefinitely.
+nothing and falls back. Keeps `issuerBaseUrl` on `ManagementServerProperties` indefinitely.
 
 **Option B — dev-server proxy.** This is what development runs now: vite serves the portal and proxies
 `/api`, `/mcp`, `/.well-known` and the `/v1` STOMP upgrade to the gateway, and `dev-github-app.ts`

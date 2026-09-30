@@ -1,5 +1,5 @@
 output "api_hostname" {
-  description = "The org server's hostname, on the router's public address: the API of the portal, the CLI and MCP hosts"
+  description = "The management server's hostname, on the router's public address: the API of the portal, the CLI and MCP hosts"
   value       = local.api_hostname
 }
 

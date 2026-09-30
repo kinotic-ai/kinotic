@@ -50,7 +50,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 /**
  * Publishes one site into a real sites account, the way a deployment does, and reads back what
  * Azure serves. Runs only on a developer machine set up as the contributing guide describes:
- * the {@code local} profile in {@code kinotic-system-server/src/main/resources/application-local.yml}
+ * the {@code local} profile in {@code kinotic-server-system/src/main/resources/application-local.yml}
  * names the sites account and domain, and the service principal's {@code AZURE_*} variables are
  * in the environment, which the module's test task takes from {@code .env.local}. Skipped
  * everywhere else. Everything it creates is idempotent and left in place, so a second run reads
@@ -60,7 +60,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class AzureProvisioningIntegrationTest {
 
-    private static final Path LOCAL_PROFILE = Path.of("..", "kinotic-system-server", "src", "main", "resources", "application-local.yml");
+    private static final Path LOCAL_PROFILE = Path.of("..", "kinotic-server-system", "src", "main", "resources", "application-local.yml");
     private static final String ORGANIZATION_ID = "kinotic-azure-it";
     private static final String APPLICATION_ID = "azure-it-app";
     private static final String PROJECT_ID = "azure-it-project";

@@ -1,15 +1,15 @@
 # ── DNS Records ───────────────────────────────────────────────────────────────
 # Each server's names → its LoadBalancer, which carries 443 to the server's gateway (REST,
-# STOMP/WebSocket, the login and OIDC callback endpoints): api.<domain> the org server,
+# STOMP/WebSocket, the login and OIDC callback endpoints): api.<domain> the management server,
 # system-api.<domain> the system server, and apps-api.<domain> with every application's
 # <organizationId>--<applicationId>.apps-api.<domain> the app server.
 
 locals {
   server_records = {
-    "api"        = "kinotic-org-server"
-    "system-api" = "kinotic-system-server"
-    "apps-api"   = "kinotic-app-server"
-    "*.apps-api" = "kinotic-app-server"
+    "api"        = "kinotic-server-management"
+    "system-api" = "kinotic-server-system"
+    "apps-api"   = "kinotic-server-app"
+    "*.apps-api" = "kinotic-server-app"
   }
 }
 

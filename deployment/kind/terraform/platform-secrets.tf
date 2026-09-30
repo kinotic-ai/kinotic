@@ -5,7 +5,7 @@
 # identical across environments — only the source of the files differs.
 
 locals {
-  servers = ["kinotic-org-server", "kinotic-system-server", "kinotic-app-server"]
+  servers = ["kinotic-server-management", "kinotic-server-system", "kinotic-server-app"]
 }
 
 resource "random_id" "jwt_signing_key_v1" {
@@ -13,10 +13,26 @@ resource "random_id" "jwt_signing_key_v1" {
   byte_length = 32
 }
 
-# The org server keeps the key set the single server signed with
+# The management server keeps the key set the single server signed with
 moved {
   from = random_id.jwt_signing_key_v1
   to   = random_id.jwt_signing_key_v1["kinotic-org-server"]
+}
+
+# The servers' modules were renamed; each key set follows its server's new name
+moved {
+  from = random_id.jwt_signing_key_v1["kinotic-org-server"]
+  to   = random_id.jwt_signing_key_v1["kinotic-server-management"]
+}
+
+moved {
+  from = random_id.jwt_signing_key_v1["kinotic-system-server"]
+  to   = random_id.jwt_signing_key_v1["kinotic-server-system"]
+}
+
+moved {
+  from = random_id.jwt_signing_key_v1["kinotic-app-server"]
+  to   = random_id.jwt_signing_key_v1["kinotic-server-app"]
 }
 
 resource "random_id" "secret_storage_master_key" {

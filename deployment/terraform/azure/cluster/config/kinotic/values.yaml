@@ -19,7 +19,7 @@ kinotic:
         scheme: "http"
 
 servers:
-  kinotic-org-server:
+  kinotic-server-management:
     replicaCount: 2
     service:
       type: LoadBalancer
@@ -30,7 +30,7 @@ servers:
       limits:
         cpu: 2
         memory: 2Gi
-  kinotic-system-server:
+  kinotic-server-system:
     # The operators' server; the cluster singletons move to the new pod during a rolling update
     replicaCount: 1
     service:
@@ -42,7 +42,7 @@ servers:
       limits:
         cpu: 2
         memory: 2Gi
-  kinotic-app-server:
+  kinotic-server-app:
     replicaCount: 2
     service:
       type: LoadBalancer

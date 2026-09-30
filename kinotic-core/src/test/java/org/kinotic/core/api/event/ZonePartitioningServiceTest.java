@@ -15,29 +15,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class ZonePartitioningServiceTest {
 
-    private static final ZonePartitioningService ORG = ZonePartitioningService.of("org",
+    private static final ZonePartitioningService MANAGEMENT = ZonePartitioningService.of("management",
                                                                            Set.of("management-api"),
                                                                            Set.of("management-api", "system-api", "app-api"));
 
     @Test
     public void hostsOnlyItsZones() {
-        assertTrue(ORG.hosts("srv://management-api~org.kinotic.management.api.services.ProjectService"));
-        assertFalse(ORG.hosts("srv://system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService"));
-        assertFalse(ORG.hosts("srv://app.acme.orders~com.acme.Orders"));
+        assertTrue(MANAGEMENT.hosts("srv://management-api~org.kinotic.management.api.services.ProjectService"));
+        assertFalse(MANAGEMENT.hosts("srv://system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService"));
+        assertFalse(MANAGEMENT.hosts("srv://app.acme.orders~com.acme.Orders"));
     }
 
     @Test
     public void reachesItsReachableZones() {
-        assertTrue(ORG.reaches("srv://system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService"));
-        assertTrue(ORG.reaches("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository"));
-        assertFalse(ORG.reaches("srv://app.acme.orders~com.acme.Orders"));
+        assertTrue(MANAGEMENT.reaches("srv://system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService"));
+        assertTrue(MANAGEMENT.reaches("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository"));
+        assertFalse(MANAGEMENT.reaches("srv://app.acme.orders~com.acme.Orders"));
     }
 
     @Test
     public void passesAddressesWithoutAZone() {
-        assertTrue(ORG.hosts("srv://org.kinotic.core.api.Service"));
-        assertTrue(ORG.reaches("__vertx.reply.4f0c"));
-        assertTrue(ORG.reaches("topic://org.kinotic.domain.api.model.WatchEvent"));
+        assertTrue(MANAGEMENT.hosts("srv://org.kinotic.core.api.Service"));
+        assertTrue(MANAGEMENT.reaches("__vertx.reply.4f0c"));
+        assertTrue(MANAGEMENT.reaches("topic://org.kinotic.domain.api.model.WatchEvent"));
     }
 
     @Test

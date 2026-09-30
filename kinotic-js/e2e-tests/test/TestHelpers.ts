@@ -77,28 +77,28 @@ export function kinoticServer(name: KinoticServerName): ServerInfo {
     return {host: kinoticHost(), port, useSSL: false}
 }
 
-/** The org server, where an organization's users and machines connect. */
-export function orgServer(): ServerInfo {
-    return kinoticServer('kinotic-org-server')
+/** The management server, where an organization's users and machines connect. */
+export function managementServer(): ServerInfo {
+    return kinoticServer('kinotic-server-management')
 }
 
 /** The system server, where platform operators connect. */
 export function systemServer(): ServerInfo {
-    return kinoticServer('kinotic-system-server')
+    return kinoticServer('kinotic-server-system')
 }
 
 /** The app server, where an application's users and machines and an organization's runtimes connect. */
 export function appServer(): ServerInfo {
-    return kinoticServer('kinotic-app-server')
+    return kinoticServer('kinotic-server-app')
 }
 
-/** REST base URL of the given server, the org server by default. */
-export function restBase(server: ServerInfo = orgServer()): string {
+/** REST base URL of the given server, the management server by default. */
+export function restBase(server: ServerInfo = managementServer()): string {
     return buildServerUrl(server, 'http')
 }
 
-/** STOMP broker URL of the given server, the org server by default. */
-export function stompUrl(server: ServerInfo = orgServer()): string {
+/** STOMP broker URL of the given server, the management server by default. */
+export function stompUrl(server: ServerInfo = managementServer()): string {
     return buildBrokerUrl(server)
 }
 
@@ -111,7 +111,7 @@ export function postForm(url: string, params: Record<string, string>): Promise<R
     })
 }
 
-export function buildConnectOptions(credentials: CredentialsResolver, server: ServerInfo = orgServer()): ConnectOptions {
+export function buildConnectOptions(credentials: CredentialsResolver, server: ServerInfo = managementServer()): ConnectOptions {
     return {
         server,
         sessionKeepAlive: SessionKeepAliveMode.NONE,

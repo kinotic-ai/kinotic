@@ -10,7 +10,7 @@ import {E2E_APP_TENANT,
         appFixtureEmail,
         appServer,
         buildConnectOptions,
-        orgServer,
+        managementServer,
         restBase,
         systemServer} from '../TestHelpers.js'
 
@@ -115,21 +115,21 @@ describe('Server planes', () => {
     })
 
     it('admits each participant only at the server of its plane', async () => {
-        expect(await connect(orgServer(), orgUser())).toBe('connected')
+        expect(await connect(managementServer(), orgUser())).toBe('connected')
         expect(await connect(systemServer(), orgUser())).toBe('rejected')
         expect(await connect(appServer(), orgUser())).toBe('rejected')
 
         expect(await connect(systemServer(), systemAdmin())).toBe('connected')
-        expect(await connect(orgServer(), systemAdmin())).toBe('rejected')
+        expect(await connect(managementServer(), systemAdmin())).toBe('rejected')
         expect(await connect(appServer(), systemAdmin())).toBe('rejected')
 
         expect(await connect(appServer(), appUser())).toBe('connected')
-        expect(await connect(orgServer(), appUser())).toBe('rejected')
+        expect(await connect(managementServer(), appUser())).toBe('rejected')
         expect(await connect(systemServer(), appUser())).toBe('rejected')
 
         // a runtime publishes into its application's zone, which only the app server hosts
         expect(await connect(appServer(), runtime())).toBe('connected')
-        expect(await connect(orgServer(), runtime())).toBe('rejected')
+        expect(await connect(managementServer(), runtime())).toBe('rejected')
         // every connect pays the client's connection jitter delay before its only attempt
     }, 120000)
 
@@ -154,15 +154,15 @@ describe('Server planes', () => {
     })
 
     it('authenticates a session only at the server that issued it', async () => {
-        const login = await fetch(`${restBase(orgServer())}/api/auth/org/login`, {
+        const login = await fetch(`${restBase(managementServer())}/api/auth/org/login`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({email: E2E_ORG_USER_EMAIL, password: E2E_FIXTURE_PASSWORD})
         })
         expect(login.status).toBe(204)
-        const orgSession = sessionCookie(login.headers.getSetCookie(), '__Host-kinotic-org-session')
+        const orgSession = sessionCookie(login.headers.getSetCookie(), '__Host-kinotic-management-session')
         const sessionId = orgSession.substring(orgSession.indexOf('=') + 1)
-        expect((await fetch(`${restBase(orgServer())}/api/auth/me`, {headers: {Cookie: orgSession}})).status).toBe(204)
+        expect((await fetch(`${restBase(managementServer())}/api/auth/me`, {headers: {Cookie: orgSession}})).status).toBe(204)
 
         // the app server reads only its own cookie, and holds only the sessions it issued
         expect((await requestAt(appServer(), apiHost(APP_ID), 'GET', '/api/auth/me',
@@ -170,7 +170,7 @@ describe('Server planes', () => {
         expect((await requestAt(appServer(), apiHost(APP_ID), 'GET', '/api/auth/me',
                                 {Cookie: `__Host-kinotic-app-session=${sessionId}`})).status).toBe(401)
         // an app server that found the org session would have destroyed it on the host mismatch
-        expect((await fetch(`${restBase(orgServer())}/api/auth/me`, {headers: {Cookie: orgSession}})).status).toBe(204)
+        expect((await fetch(`${restBase(managementServer())}/api/auth/me`, {headers: {Cookie: orgSession}})).status).toBe(204)
     })
 
     it('serves each application\'s OAuth metadata at its own API host', async () => {

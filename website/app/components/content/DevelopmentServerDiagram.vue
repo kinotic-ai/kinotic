@@ -110,38 +110,38 @@
       <text class="t-tiny" x="558" y="426" text-anchor="middle">servers, nodes</text>
 
       <!-- the edge → each server, by SNI -->
-      <line class="flow" x1="145" y1="384" x2="145" y2="480" marker-end="url(#ds-ink)"></line>
-      <line class="flow" x1="330" y1="384" x2="330" y2="480" marker-end="url(#ds-ink)"></line>
-      <line class="flow" x1="515" y1="384" x2="515" y2="480" marker-end="url(#ds-ink)"></line>
+      <line class="flow" x1="155" y1="384" x2="155" y2="480" marker-end="url(#ds-ink)"></line>
+      <line class="flow" x1="342" y1="384" x2="342" y2="480" marker-end="url(#ds-ink)"></line>
+      <line class="flow" x1="518" y1="384" x2="518" y2="480" marker-end="url(#ds-ink)"></line>
 
       <!-- the private network: the servers, three ES nodes on a whole disk each, and the migration -->
       <rect class="encl-priv" x="48" y="452" width="564" height="290" rx="8"></rect>
       <text class="t-plane-v" x="237" y="468" text-anchor="middle">PRIVATE NETWORK</text>
       <text class="t-plane-v" x="422" y="468" text-anchor="middle">NAT OUT</text>
 
-      <rect class="gw gw-app" x="60" y="480" width="170" height="76" rx="8"></rect>
-      <text class="t-chip" x="145" y="499" text-anchor="middle">kinotic-org-server</text>
-      <text class="t-sub"  x="145" y="514" text-anchor="middle">dev-api · :58503</text>
-      <text class="t-mono" x="145" y="531" text-anchor="middle">portal · CLI · MCP</text>
-      <text class="t-mono" x="145" y="545" text-anchor="middle">GitHub webhook</text>
+      <rect class="gw gw-app" x="60" y="480" width="190" height="76" rx="8"></rect>
+      <text class="t-chip" x="155" y="499" text-anchor="middle">kinotic-server-management</text>
+      <text class="t-sub"  x="155" y="514" text-anchor="middle">dev-api · :58503</text>
+      <text class="t-mono" x="155" y="531" text-anchor="middle">portal · CLI · MCP</text>
+      <text class="t-mono" x="155" y="545" text-anchor="middle">GitHub webhook</text>
 
-      <rect class="gw gw-app" x="245" y="480" width="170" height="76" rx="8"></rect>
-      <text class="t-chip" x="330" y="499" text-anchor="middle">kinotic-system-server</text>
-      <text class="t-sub"  x="330" y="514" text-anchor="middle">dev-system-api · :58504</text>
-      <text class="t-mono" x="330" y="531" text-anchor="middle">console · vm-manager</text>
-      <text class="t-mono" x="330" y="545" text-anchor="middle">workload orchestration</text>
+      <rect class="gw gw-app" x="260" y="480" width="165" height="76" rx="8"></rect>
+      <text class="t-chip" x="342" y="499" text-anchor="middle">kinotic-server-system</text>
+      <text class="t-sub"  x="342" y="514" text-anchor="middle">dev-system-api · :58504</text>
+      <text class="t-mono" x="342" y="531" text-anchor="middle">console · vm-manager</text>
+      <text class="t-mono" x="342" y="545" text-anchor="middle">workload orchestration</text>
 
-      <rect class="gw gw-app" x="430" y="480" width="170" height="76" rx="8"></rect>
-      <text class="t-chip" x="515" y="499" text-anchor="middle">kinotic-app-server</text>
-      <text class="t-sub"  x="515" y="514" text-anchor="middle">*.dev-apps-api · :58505</text>
-      <text class="t-mono" x="515" y="531" text-anchor="middle">every application's API</text>
-      <text class="t-mono" x="515" y="545" text-anchor="middle">UIs · runtime workloads</text>
+      <rect class="gw gw-app" x="435" y="480" width="165" height="76" rx="8"></rect>
+      <text class="t-chip" x="518" y="499" text-anchor="middle">kinotic-server-app</text>
+      <text class="t-sub"  x="518" y="514" text-anchor="middle">*.dev-apps-api · :58505</text>
+      <text class="t-mono" x="518" y="531" text-anchor="middle">every application's API</text>
+      <text class="t-mono" x="518" y="545" text-anchor="middle">UIs · runtime workloads</text>
 
       <!-- the servers to one another and to Elasticsearch -->
-      <line class="link" x1="145" y1="556" x2="145" y2="576"></line>
-      <line class="link" x1="330" y1="556" x2="330" y2="576"></line>
-      <line class="link" x1="515" y1="556" x2="515" y2="576"></line>
-      <line class="link" x1="110" y1="576" x2="515" y2="576"></line>
+      <line class="link" x1="155" y1="556" x2="155" y2="576"></line>
+      <line class="link" x1="342" y1="556" x2="342" y2="576"></line>
+      <line class="link" x1="518" y1="556" x2="518" y2="576"></line>
+      <line class="link" x1="110" y1="576" x2="518" y2="576"></line>
       <line class="link" x1="110" y1="576" x2="110" y2="603"></line>
       <line class="link" x1="290" y1="576" x2="290" y2="603"></line>
       <line class="link" x1="470" y1="576" x2="470" y2="603"></line>

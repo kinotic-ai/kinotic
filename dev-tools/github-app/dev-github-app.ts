@@ -9,9 +9,9 @@
 // create runs GitHub's App manifest flow: a browser page posts the manifest below to GitHub,
 // the developer confirms, GitHub redirects back here with a code, and the code is exchanged
 // for the new App's id, key, webhook secret and OAuth credential. It writes
-//   ~/.kinotic/dev-environment/kinotic-org-server/application.yml      the tunnel origin, the
+//   ~/.kinotic/dev-environment/kinotic-server-management/application.yml      the tunnel origin, the
 //                                                                      sign-in secret and the App
-//   ~/.kinotic/dev-environment/kinotic-system-server/application.yml   the App, with which the
+//   ~/.kinotic/dev-environment/kinotic-server-system/application.yml   the App, with which the
 //                                                                      system server mints fetch tokens
 //   ~/.kinotic/dev-environment/github-app.json                         the full credential set, read by sync-es
 // each server's file imported by its application-development.yml, run from the IDE or compose
@@ -31,8 +31,8 @@ import { parseArgs } from 'node:util'
 const ENVIRONMENT_DIR = join(homedir(), '.kinotic', 'dev-environment')
 // The servers that load management-api, each reading its own application.yml under its name,
 // which is also its container's name in deployment/docker-compose/compose.kinotic-servers.yml
-const ORG_SERVER = 'kinotic-org-server'
-const SYSTEM_SERVER = 'kinotic-system-server'
+const MANAGEMENT_SERVER = 'kinotic-server-management'
+const SYSTEM_SERVER = 'kinotic-server-system'
 const APP_JSON = join(ENVIRONMENT_DIR, 'github-app.json')
 // The OrgSignupOidcConfiguration row id and secretNameRef seeded in V1__init.sql
 const SIGN_IN_CONFIG_ID = 'github-platform'
@@ -126,7 +126,7 @@ async function create() {
 
     writeSecretFile(APP_JSON, JSON.stringify(app, null, 2) + '\n', 0o600)
     const written = [
-        writeServerYml(ORG_SERVER, orgServerYml(origin, app)),
+        writeServerYml(MANAGEMENT_SERVER, managementServerYml(origin, app)),
         writeServerYml(SYSTEM_SERVER, systemServerYml(app)),
     ]
 
@@ -146,7 +146,7 @@ function writeServerYml(server: string, content: string): string {
 }
 
 function restartComposeServers() {
-    for (const server of [ORG_SERVER, SYSTEM_SERVER]) {
+    for (const server of [MANAGEMENT_SERVER, SYSTEM_SERVER]) {
         const running = Bun.spawnSync(['docker', 'ps', '--quiet', '--filter', `name=^${server}$`])
         if (running.success && running.stdout.toString().trim() !== '') {
             console.log(`Restarting the ${server} container to load the App.`)
@@ -208,14 +208,14 @@ function manifestPage(origin: string, name: string, redirectUrl: string, state: 
 </body></html>`
 }
 
-// The org server serves the portal, the API and the webhook at the tunnel's origin, and signs
+// The management server serves the portal, the API and the webhook at the tunnel's origin, and signs
 // users in with the App's OAuth credential
-function orgServerYml(origin: string, app: CreatedApp): string {
-    return `# Written by dev-tools/github-app/dev-github-app.ts; imported by the org server's application-development.yml
+function managementServerYml(origin: string, app: CreatedApp): string {
+    return `# Written by dev-tools/github-app/dev-github-app.ts; imported by the management server's application-development.yml
 # The github-platform sign-in row's OAuth client secret, resolved by EnvVarSecretReferenceResolver
 KINOTIC_AKV_GITHUB_PLATFORM: ${JSON.stringify(app.client_secret)}
 kinotic:
-  orgServer:
+  managementServer:
     apiBaseUrl: ${origin}
     portalBaseUrl: ${origin}
   domain:

@@ -27,11 +27,11 @@ public class DeploymentProperties {
     private String workloadRunnerImage = "kinoticai/workload-runner:latest";
 
     /**
-     * How the sync workload reaches the org server, which it synchronizes the project's entity
+     * How the sync workload reaches the management server, which it synchronizes the project's entity
      * definitions and reports the project's artifacts through.
      */
     @Valid
-    private ServerAddressProperties orgServer = new ServerAddressProperties().setPort(58503);
+    private ServerAddressProperties managementServer = new ServerAddressProperties().setPort(58503);
 
     /**
      * How a microservice's runtime workload reaches the app server, which it publishes the
@@ -50,7 +50,7 @@ public class DeploymentProperties {
 
     /**
      * Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond
-     * the org server — the repository and package registry hosts, so {@code git fetch} and
+     * the management server — the repository and package registry hosts, so {@code git fetch} and
      * {@code bun install} work on nodes that deny workload egress by default.
      */
     private List<String> syncAllowedHosts = new ArrayList<>();

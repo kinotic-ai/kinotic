@@ -175,7 +175,7 @@ picks them up through `DefaultAzureCredential`. Its secret is also in this root'
 cd dev
 terraform init
 terraform apply   # environment = "local" in terraform.tfvars; pick a name of your own
-terraform output -raw application_local_yml > ../../../../kinotic-system-server/src/main/resources/application-local.yml
+terraform output -raw application_local_yml > ../../../../kinotic-server-system/src/main/resources/application-local.yml
 ```
 
 Then run the system server with `SPRING_PROFILES_ACTIVE=development,local`. [dev/README.md](dev/README.md)

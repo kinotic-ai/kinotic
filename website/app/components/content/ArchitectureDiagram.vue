@@ -1,7 +1,7 @@
 <template>
   <DiagramFrame>
   <div class="arch-diagram-wrap">
-    <svg class="arch-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1172 768" role="img" aria-label="Kinotic three-server network architecture: every caller, person or workload, reaches one of three public HTTPS hosts, each answered by its own server with its own gateway, SecurityService and session cookie: the app server for application users and runtime workloads, the org server for organization members, GitHub webhooks and sync workloads, the system server for operators and vm-managers. The three servers form one Ignite cluster in which each hosts only its own zones, and reach the shared Elasticsearch and Loki stores only through participant-scoped access.">
+    <svg class="arch-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1172 768" role="img" aria-label="Kinotic three-server network architecture: every caller, person or workload, reaches one of three public HTTPS hosts, each answered by its own server with its own gateway, SecurityService and session cookie: the app server for application users and runtime workloads, the management server for organization members, GitHub webhooks and sync workloads, the system server for operators and vm-managers. The three servers form one Ignite cluster in which each hosts only its own zones, and reach the shared Elasticsearch and Loki stores only through participant-scoped access.">
 
       <defs>
         <marker id="ma-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -69,7 +69,7 @@
       <text class="t-plane-a" x="186" y="238" text-anchor="middle">APP PLANE</text>
 
       <rect class="gw gw-app" x="52" y="250" width="268" height="140" rx="8"></rect>
-      <text class="t-name" x="186" y="273" text-anchor="middle">kinotic-app-server</text>
+      <text class="t-name" x="186" y="273" text-anchor="middle">kinotic-server-app</text>
       <text class="t-sub"  x="186" y="289" text-anchor="middle">apps-api.kinotic.ai and *.apps-api</text>
       <line class="sep" x1="70" y1="298" x2="302" y2="298"></line>
       <text class="t-mono" x="186" y="315" text-anchor="middle">ApplicationSecurityService</text>
@@ -83,21 +83,21 @@
       <text class="t-plane-o" x="509" y="238" text-anchor="middle">ORG PLANE</text>
 
       <rect class="gw gw-org" x="368" y="250" width="436" height="140" rx="8"></rect>
-      <text class="t-name" x="586" y="273" text-anchor="middle">kinotic-org-server</text>
+      <text class="t-name" x="586" y="273" text-anchor="middle">kinotic-server-management</text>
       <text class="t-sub"  x="586" y="289" text-anchor="middle">api.kinotic.ai</text>
       <line class="sep" x1="386" y1="298" x2="786" y2="298"></line>
       <text class="t-mono" x="586" y="315" text-anchor="middle">OrganizationSecurityService</text>
       <text class="t-mono" x="586" y="330" text-anchor="middle">org users · clients · machines, except runtimes</text>
       <text class="t-mono" x="586" y="345" text-anchor="middle">login · signup · invites · OAuth · MCP</text>
       <text class="t-mono" x="586" y="360" text-anchor="middle">CLI device grant · GitHub webhook (HMAC)</text>
-      <text class="t-mono" x="586" y="375" text-anchor="middle">__Host-kinotic-org-session</text>
+      <text class="t-mono" x="586" y="375" text-anchor="middle">__Host-kinotic-management-session</text>
 
       <!-- ═════════ system plane ═════════ -->
       <rect class="encl-sys" x="836" y="214" width="300" height="190" rx="10"></rect>
       <text class="t-plane-s" x="986" y="238" text-anchor="middle">SYSTEM PLANE</text>
 
       <rect class="gw gw-sys" x="852" y="250" width="268" height="140" rx="8"></rect>
-      <text class="t-name" x="986" y="273" text-anchor="middle">kinotic-system-server</text>
+      <text class="t-name" x="986" y="273" text-anchor="middle">kinotic-server-system</text>
       <text class="t-sub"  x="986" y="289" text-anchor="middle">system-api.kinotic.ai</text>
       <line class="sep" x1="870" y1="298" x2="1102" y2="298"></line>
       <text class="t-mono" x="986" y="315" text-anchor="middle">SystemSecurityService</text>

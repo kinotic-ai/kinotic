@@ -172,15 +172,15 @@ locals {
   # the edge, under the hostnames its certificate carries, and adds what is its alone to the
   # environment every server shares.
   servers = {
-    kinotic-org-server = {
+    kinotic-server-management = {
       vm_id       = 121
       private_ip  = cidrhost(var.private_cidr, 20)
       port        = 58503
       hostnames   = [local.azure.api_hostname]
       description = "the organizations' API: the portal, the CLI, MCP hosts, the GitHub webhook"
       env = {
-        KINOTIC_ORGSERVER_APIBASEURL     = "https://${local.azure.api_hostname}"
-        KINOTIC_ORGSERVER_PORTALBASEURL  = "https://${local.azure.portal_hostname}"
+        KINOTIC_MANAGEMENTSERVER_APIBASEURL     = "https://${local.azure.api_hostname}"
+        KINOTIC_MANAGEMENTSERVER_PORTALBASEURL  = "https://${local.azure.portal_hostname}"
         # the emailed verification and invite links open in the portal
         KINOTIC_DOMAIN_EMAIL_LINKBASEURL = "https://${local.azure.portal_hostname}"
         KINOTIC_MANAGEMENTAPI_LOKIURL    = local.service_urls["http://loki:3100"]
@@ -188,7 +188,7 @@ locals {
         KINOTIC_MANAGEMENTAPI_MIMIRURL   = local.service_urls["http://mimir:9009"]
       }
     }
-    kinotic-system-server = {
+    kinotic-server-system = {
       vm_id       = 122
       private_ip  = cidrhost(var.private_cidr, 22)
       port        = 58504
@@ -204,8 +204,8 @@ locals {
         # What a workload dials, by the name its certificate carries, and the one destination its
         # egress policy permits; the node pins every server's name to the edge's LAN address
         # (hosts_entry)
-        KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST = local.azure.api_hostname
-        KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_PORT = tostring(local.public_port)
+        KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_HOST = local.azure.api_hostname
+        KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_PORT = tostring(local.public_port)
         KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST = local.azure.apps_api_domain
         KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_PORT = tostring(local.public_port)
         KINOTIC_MANAGEMENTAPI_LOKIURL               = local.service_urls["http://loki:3100"]
@@ -213,7 +213,7 @@ locals {
         KINOTIC_MANAGEMENTAPI_MIMIRURL              = local.service_urls["http://mimir:9009"]
       }
     }
-    kinotic-app-server = {
+    kinotic-server-app = {
       vm_id       = 123
       private_ip  = cidrhost(var.private_cidr, 23)
       port        = 58505
@@ -738,11 +738,27 @@ resource "proxmox_virtual_environment_container" "fleet" {
   depends_on = [proxmox_sdn_applier.private, terraform_data.prepare]
 }
 
-# The org server takes the vmid the single kinotic-server had, so the container is replaced in
+# The management server takes the vmid the single kinotic-server had, so the container is replaced in
 # place rather than created beside one that still holds its vmid
 moved {
   from = proxmox_virtual_environment_container.fleet["kinotic-server"]
   to   = proxmox_virtual_environment_container.fleet["kinotic-org-server"]
+}
+
+# The servers' modules were renamed; each container follows its server's new name
+moved {
+  from = proxmox_virtual_environment_container.fleet["kinotic-org-server"]
+  to   = proxmox_virtual_environment_container.fleet["kinotic-server-management"]
+}
+
+moved {
+  from = proxmox_virtual_environment_container.fleet["kinotic-system-server"]
+  to   = proxmox_virtual_environment_container.fleet["kinotic-server-system"]
+}
+
+moved {
+  from = proxmox_virtual_environment_container.fleet["kinotic-app-server"]
+  to   = proxmox_virtual_environment_container.fleet["kinotic-server-app"]
 }
 
 locals {

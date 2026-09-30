@@ -29,7 +29,7 @@ the commit under test rather than whatever the published tag currently holds.
 | `compose.elasticsearch.yml` | Elasticsearch | `kinotic-elasticsearch:9200` |
 | `compose.kibana.yml` | Kibana (depends on Elasticsearch) | `kinotic-kibana:5601` |
 | `compose.kinotic-migration.yml` | Runs `kinotic-migration` once against ES, then exits | One-shot job — `service_completed_successfully` is what the servers wait on |
-| `compose.kinotic-servers.yml` | The three Kinotic servers, one Ignite cluster | `kinotic-org-server:9090/58503` (portal, REST and STOMP), `kinotic-system-server:58504`, `kinotic-app-server:58505` |
+| `compose.kinotic-servers.yml` | The three Kinotic servers, one Ignite cluster | `kinotic-server-management:9090/58503` (portal, REST and STOMP), `kinotic-server-system:58504`, `kinotic-server-app:58505` |
 | `compose-otel.yml` | OpenTelemetry collector + Grafana + Tempo + Loki + Mimir | `grafana:3000`, `loki:3100`, `tempo:3200`, `mimir:9009` |
 | `compose.gen-schemas.yml` | Load-generator container that pre-populates schemas | One-shot when `compose.yml` brings up the full stack |
 | `compose.keycloak.yml` | Local Keycloak as a platform OIDC provider (dev-only secret) | `keycloak:8888` — see `KEYCLOAK_HOSTS_SETUP.md` |
@@ -47,12 +47,12 @@ docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up 
 # (2) Full self-contained stack (everything in containers, including the server)
 docker compose up -d
 
-# (3) Tail the org server's logs (look here for verification URLs in dev — email is off)
-docker compose logs -f kinotic-org-server
+# (3) Tail the management server's logs (look here for verification URLs in dev — email is off)
+docker compose logs -f kinotic-server-management
 
-# (4) Hot-reload a server image after a build (the same for kinotic-system-server and kinotic-app-server)
-./gradlew :kinotic-org-server:bootBuildImage
-docker compose up -d --force-recreate --no-deps kinotic-org-server
+# (4) Hot-reload a server image after a build (the same for kinotic-server-system and kinotic-server-app)
+./gradlew :kinotic-server-management:bootBuildImage
+docker compose up -d --force-recreate --no-deps kinotic-server-management
 
 # (5) Run only the migration container against an already-running ES, then exit
 docker compose -f compose.kinotic-migration.yml run --rm kinotic-migration
@@ -66,7 +66,7 @@ docker compose down -v && docker compose up -d
 | Service | URL | Notes |
 |---|---|---|
 | Kinotic UI | <http://localhost:9090> | TLS off in compose. The `/login`, `/signup`, `/applications` routes are SPA. |
-| Org server | <http://localhost:58503> | REST, and STOMP at `ws://localhost:58503/v1` — what the SPA's `Kinotic.connect(...)` opens |
+| Management server | <http://localhost:58503> | REST, and STOMP at `ws://localhost:58503/v1` — what the SPA's `Kinotic.connect(...)` opens |
 | System server | <http://localhost:58504> | REST, and STOMP at `ws://localhost:58504/v1`, for the system console |
 | App server | <http://localhost:58505> | REST, and STOMP at `ws://localhost:58505/v1`; each application's API host is `<organizationId>--<applicationId>.localhost:58505` |
 | Elasticsearch | <http://localhost:9200> | `xpack.security.enabled=false` — local only |
@@ -85,15 +85,15 @@ include `compose.kinotic-migration.yml` without `evaluation.env` and seed none o
 ## Try the auth flow (UI devs)
 
 The full compose stack (`docker compose up -d`) gives you a working signup/login flow out
-of the box. Email delivery is off, so verification links land in the org server's log
+of the box. Email delivery is off, so verification links land in the management server's log
 instead of an inbox.
 
 ```bash
 # 1. Bring up the stack
 docker compose up -d
 
-# 2. Watch the org server's log for the verification URL on signup
-docker compose logs -f kinotic-org-server | grep -i "verification URL"
+# 2. Watch the management server's log for the verification URL on signup
+docker compose logs -f kinotic-server-management | grep -i "verification URL"
 
 # 3. Open the SPA
 open http://localhost:9090
@@ -102,7 +102,7 @@ open http://localhost:9090
 Steps in the SPA:
 
 1. Click **Sign Up**, fill in org name + email + display name, submit.
-2. Find the verification URL in the org server's log (printed by `EmailService` when email is disabled). Open it.
+2. Find the verification URL in the management server's log (printed by `EmailService` when email is disabled). Open it.
 3. Set a password → "Account created!" → click **Sign in**.
 4. Log in with the email + password you just set.
 
@@ -124,7 +124,7 @@ What this gives you:
 - Keycloak at <http://keycloak:8888> with the pre-imported `test` realm.
 - A `kinotic-client` confidential client whose secret lives in `keycloak-test-realm.json`
   (committed because the value is dev-only — never reuse beyond a developer's laptop).
-  The org server's container picks the secret up from the `KINOTIC_AKV_KEYCLOAK` env
+  The management server's container picks the secret up from the `KINOTIC_AKV_KEYCLOAK` env
   var via the dev-fallback `EnvVarSecretReferenceResolver`.
 - The **Continue with Keycloak** button isn't wired automatically — the social-button
   list is sourced from `kinotic_org_signup_oidc_configuration` rows, and no migration
@@ -142,7 +142,7 @@ docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up 
 # 2. Wait for migration to finish (it's a one-shot)
 docker compose ps kinotic-migration   # State: Exited (0)
 
-# 3. Run the OrgServerApplication, SystemServerApplication and AppServerApplication run
+# 3. Run the ManagementServerApplication, SystemServerApplication and AppServerApplication run
 #    configurations in IntelliJ (profile `development`). Each server's application-development.yml
 #    already points the elastic connection at localhost:9200.
 ```
@@ -163,9 +163,9 @@ panel, all provisioned from `dashboards/kinotic-server.json`. Beyond the dashboa
 
 | Signal | Datasource | Where to look |
 |---|---|---|
-| Traces | Tempo | Explore → Tempo → Search, service name `kinotic-org-server`, `kinotic-system-server` or `kinotic-app-server` (tenant `kinotic-system`) |
-| Metrics | Mimir | Explore → Mimir, e.g. `jvm_memory_used_bytes{job="kinotic-org-server"}` (tenant `kinotic-system`) |
-| Logs | Loki | Explore → Loki, `{service_name="kinotic-org-server"}` (tenant `kinotic-system`) |
+| Traces | Tempo | Explore → Tempo → Search, service name `kinotic-server-management`, `kinotic-server-system` or `kinotic-server-app` (tenant `kinotic-system`) |
+| Metrics | Mimir | Explore → Mimir, e.g. `jvm_memory_used_bytes{job="kinotic-server-management"}` (tenant `kinotic-system`) |
+| Logs | Loki | Explore → Loki, `{service_name="kinotic-server-management"}` (tenant `kinotic-system`) |
 
 All three run multi-tenant. The server's own telemetry lands in the `kinotic-system` tenant —
 the collector stamps it on pushes that name none — and each organization's workload telemetry
@@ -233,7 +233,7 @@ curl -s -H 'X-Scope-OrgID: kinotic-system' 'http://localhost:3100/loki/api/v1/la
 - **Service graph**: Tempo's *Service Graph* tab and the node graph come from the
   `service-graphs` processor writing `traces_service_graph_*` into Mimir.
 
-The org server's `application-development.yml` currently has `kinotic.domain.email.enabled: true`, pointed at
+The management server's `application-development.yml` currently has `kinotic.domain.email.enabled: true`, pointed at
 the real ACS endpoint. Set it to `false` to have `EmailService` skip the send and log the
 verification URL to the IntelliJ console instead — which is what the compose stack does via
 `KINOTIC_DOMAIN_EMAIL_ENABLED=false`.
@@ -242,14 +242,14 @@ If you also run the Vite frontend (`pnpm dev` on `:5173`), it calls the server d
 `localhost:58503` via `VITE_KINOTIC_HOST`/`VITE_KINOTIC_PORT` — see
 `kinotic-frontend/apps/portal/ENV_SETUP.md`. For flows where the IdP or GitHub has to call back into
 your machine, use `pnpm dev:tunnel` behind your ngrok tunnel, with the tunnel origin in
-`~/.kinotic/dev-environment/kinotic-org-server/application.yml` — see "Local development
+`~/.kinotic/dev-environment/kinotic-server-management/application.yml` — see "Local development
 environment" in the contributing guide (`website/content/02.platform/09.contributing.md`).
 
 ## Storage paths
 
 - `kinotic-elastic-data` — Elasticsearch data, a Docker named volume. Survives
   `docker compose down`; removed by `docker compose down -v`.
-- `~/.kinotic/dev-environment/kinotic-org-server` and `~/.kinotic/dev-environment/kinotic-system-server`
+- `~/.kinotic/dev-environment/kinotic-server-management` and `~/.kinotic/dev-environment/kinotic-server-system`
   are bind-mounted read-only into the org and system server containers as `/workspace/config`:
   a developer's tunnel origin and GitHub App, and the App alone, when
   `dev-tools/github-app/dev-github-app.ts create` has written them. The servers keep no state

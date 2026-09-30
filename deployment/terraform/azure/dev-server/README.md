@@ -16,7 +16,7 @@ issue its certificate.
 | Key vault | `kv-kinotic-dev` | The servers' secret storage (`kinotic.domain.secretStorage.backend: AZURE`) |
 | Storage account + container | `stkinoticdevsnapshots` / `elasticsearch-snapshots` | The nightly Elasticsearch snapshot repository, and the migration vehicle |
 | Front Door domains + CNAMEs | `dev-portal.kinotic.ai`, `dev-console.kinotic.ai` | The portal and the system console, served from `sites/<hostname>/` in the sites account on managed certificates |
-| DNS A records | `dev-api.kinotic.ai`, `dev-system-api.kinotic.ai`, `dev-apps-api.kinotic.ai`, `*.dev-apps-api.kinotic.ai` | The router's public address, for the org server, the system server, and the app server with every application's API host `<organizationId>--<applicationId>.dev-apps-api.kinotic.ai`; `kinotic-dyndns.timer` on the host keeps them current |
+| DNS A records | `dev-api.kinotic.ai`, `dev-system-api.kinotic.ai`, `dev-apps-api.kinotic.ai`, `*.dev-apps-api.kinotic.ai` | The router's public address, for the management server, the system server, and the app server with every application's API host `<organizationId>--<applicationId>.dev-apps-api.kinotic.ai`; `kinotic-dyndns.timer` on the host keeps them current |
 | Service principal | `kinotic-dev-server` | The identity the servers run as: Storage Blob Data Contributor on the sites account, Contributor on the email service, Key Vault Secrets Officer on `kv-kinotic-dev`, DNS Zone Contributor on the zone for certbot and the address updater |
 | Role assignment | the operator | Storage Blob Data Contributor on the sites account, for `deploy-ui.sh`; Key Vault Secrets Officer on `kv-kinotic-dev`, to place the social sign-in client secrets |
 
@@ -58,7 +58,7 @@ terraform output -raw secrets_env       # → kinotic-servers.env in the secrets
 
 The social sign-in providers the migration seeds (`kinotic_org_signup_oidc_configuration`)
 resolve their client secrets from `kv-kinotic-dev` by name, so each provider's secret goes
-there once, and its registration lists the org server's callback URLs under `dev-api`:
+there once, and its registration lists the management server's callback URLs under `dev-api`:
 
 ```bash
 az keyvault secret set --vault-name kv-kinotic-dev --name github-platform --value "$(cat)" >/dev/null   # the App's client secret on stdin

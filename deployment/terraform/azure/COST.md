@@ -98,9 +98,9 @@ Memory reservations (requests) determine scheduling, not actual usage.
 |---|---|---|---|
 | ES master | 2 GB | 1 | 2 GB |
 | ES data | 6 GB | 3 | 18 GB |
-| kinotic-org-server | 2 GB | 2 | 4 GB |
-| kinotic-system-server | 2 GB | 1 | 2 GB |
-| kinotic-app-server | 2 GB | 2 | 4 GB |
+| kinotic-server-management | 2 GB | 2 | 4 GB |
+| kinotic-server-system | 2 GB | 1 | 2 GB |
+| kinotic-server-app | 2 GB | 2 | 4 GB |
 | Loki | 512 MB | 1 | 0.5 GB |
 | Grafana | 256 MB | 1 | 0.25 GB |
 | Alloy (per node) | 256 MB | 3 | 0.75 GB |

@@ -100,7 +100,7 @@ variable "github_app_private_key" {
 }
 
 variable "github_webhook_secret" {
-  description = "Webhook secret of the kinotic-ai GitHub App, which the org server verifies webhook deliveries with"
+  description = "Webhook secret of the kinotic-ai GitHub App, which the management server verifies webhook deliveries with"
   type        = string
   sensitive   = true
   default     = ""

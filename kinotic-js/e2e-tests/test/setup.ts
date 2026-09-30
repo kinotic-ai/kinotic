@@ -15,10 +15,10 @@ Kinotic.use(ManagementApiPlugin)
 
 /** The REST and STOMP port each server container listens on, by its compose service name. */
 const SERVER_PORTS = {
-    'kinotic-org-server': 58503,
-    'kinotic-system-server': 58504,
-    'kinotic-app-server': 58505,
-    'kinotic-app-server-2': 58505,
+    'kinotic-server-management': 58503,
+    'kinotic-server-system': 58504,
+    'kinotic-server-app': 58505,
+    'kinotic-server-app-2': 58505,
 }
 
 /** A server of the e2e compose stack, by its compose service name. */
@@ -26,10 +26,10 @@ export type KinoticServerName = keyof typeof SERVER_PORTS
 
 /** The host port compose.kinotic-e2e-test.yml publishes each server on, for a stack started by hand. */
 const PUBLISHED_PORTS: Record<KinoticServerName, number> = {
-    'kinotic-org-server': 58503,
-    'kinotic-system-server': 58504,
-    'kinotic-app-server': 58505,
-    'kinotic-app-server-2': 58506,
+    'kinotic-server-management': 58503,
+    'kinotic-server-system': 58504,
+    'kinotic-server-app': 58505,
+    'kinotic-server-app-2': 58506,
 }
 
 /** The vitest globalSetup pair (setup and teardown) for a suite run against the e2e compose stack. */
@@ -118,7 +118,7 @@ function provideServers(project: TestProject, host: string, ports: Partial<Recor
     project.provide('KINOTIC_PORTS', ports)
 }
 
-const globalSetup = createGlobalSetup(['kinotic-org-server', 'kinotic-system-server', 'kinotic-app-server'])
+const globalSetup = createGlobalSetup(['kinotic-server-management', 'kinotic-server-system', 'kinotic-server-app'])
 
 // Run once before all tests
 export const setup = globalSetup.setup
