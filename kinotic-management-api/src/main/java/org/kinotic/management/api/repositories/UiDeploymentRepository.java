@@ -1,5 +1,6 @@
 package org.kinotic.management.api.repositories;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Pageable;
@@ -22,7 +23,7 @@ import java.util.Map;
 
 /**
  * Stores {@link UiDeployment}s, the standing deployments of a project's UI artifacts, keyed
- * by the site's hostname label and listed by project. A row is created whole when its label is
+ * by the site's hostname label and listed by project or application. A row is created whole when its label is
  * minted; every later write is a partial or scripted update, so the state the platform keeps on
  * a record is never written back from a read copy.
  */
@@ -31,8 +32,8 @@ public class UiDeploymentRepository extends AbstractReconcilableRepository<UiDep
 
     private static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.UI_DEPLOYMENT, "kinotic_ui_deployment");
 
-    /** More UIs than one project publishes, so a project's deployments are read in one page. */
-    private static final int PROJECT_PAGE_SIZE = 500;
+    /** More UIs than one application publishes, so a project's or application's deployments are read in one page. */
+    private static final int PAGE_SIZE = 500;
 
     public UiDeploymentRepository(CrudServiceTemplate crudServiceTemplate,
                                   WatchedStateRepository watchedStateRepository,
@@ -54,7 +55,25 @@ public class UiDeploymentRepository extends AbstractReconcilableRepository<UiDep
      */
     public Future<List<UiDeployment>> findAllForProject(String projectId) {
         Validate.notBlank(projectId, "projectId cannot be blank");
-        return findAll(Pageable.ofSize(PROJECT_PAGE_SIZE), b -> b.query(termFilter("projectId", projectId)))
+        return findAllOrderedByName(termFilter("projectId", projectId));
+    }
+
+    /**
+     * Lists the deployments of the UIs of all the application's projects, ordered by name.
+     *
+     * @param organizationId the organization the application belongs to
+     * @param applicationId  the application whose UI deployments to list
+     * @return a future emitting the deployments, empty when the application has none
+     */
+    public Future<List<UiDeployment>> findAllForApplication(String organizationId, String applicationId) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        Validate.notBlank(applicationId, "applicationId cannot be blank");
+        return findAllOrderedByName(composeFilter(termFilter("organizationId", organizationId),
+                                                  termFilter("applicationId", applicationId)));
+    }
+
+    private Future<List<UiDeployment>> findAllOrderedByName(Query filter) {
+        return findAll(Pageable.ofSize(PAGE_SIZE), b -> b.query(filter))
                 .map(page -> page.getContent().stream()
                                  .sorted(Comparator.comparing(UiDeployment::getName))
                                  .toList());

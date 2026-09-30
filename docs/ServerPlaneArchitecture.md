@@ -1,7 +1,10 @@
 # Server Plane Architecture — Decision Record
 
-Status: **accepted** (design session, 2026-08-09). Nothing here is implemented yet; this
-records the decisions and the pre-work the implementation must respect.
+Status: **superseded** by the three-server split: `kinotic-server-management`, `kinotic-server-system`
+and `kinotic-server-app`, each public at its own host, in one Ignite cluster partitioned by zone.
+The current shape is on the website's Defense in Depth page, under Network Architecture
+(`website/content/02.platform/06.defense-in-depth.md`); this record keeps the reasoning of the
+design session of 2026-08-09.
 
 ## Context
 
@@ -38,11 +41,11 @@ OS as a whole keep their `os` prefix (`os-data` — the OS's own state).
   module, renamed). Public gateway where the platform is operated. Assembles: core,
   domain, gateway, management-api, persistence, github. Serves: portal SPA, CLI (device-grant
   delegates), MCP hosts, GitHub webhooks — all ORGANIZATION-scope participants.
-- **`kinotic-system-server`** — the system plane. Gateway reachable from the internet only
+- **`kinotic-server-system`** — the system plane. Gateway reachable from the internet only
   over VPN; reachable directly inside the Azure VNet. Assembles: core, domain, gateway,
   system-api, system services. Serves: `apps/system` SPA, system users, vm-manager
   nodes.
-- **`kinotic-app-server`** — the application plane. Public gateway. Assembles: core,
+- **`kinotic-server-app`** — the application plane. Public gateway. Assembles: core,
   domain, gateway, persistence (app-api services). Serves: application end-users,
   APPLICATION machines, customer microservices (which publish into `app.<org>.<app>`
   zones).
@@ -53,11 +56,11 @@ beans — each deployable wires its own.
 
 ### 2. Two buses, split along the trust gradient
 
-- **OS bus** (one Vert.x cluster): `kinotic-management-server` + `kinotic-system-server` +
+- **OS bus** (one Vert.x cluster): `kinotic-management-server` + `kinotic-server-system` +
   vm-manager nodes — together the **OS core**. Org-and-system traffic shares this bus,
   so the github → grind → workload chain is ordinary in-cluster invocation — no bridge,
   no polling.
-- **App bus** (its own cluster): `kinotic-app-server` alone, hosting `app-api` and the
+- **App bus** (its own cluster): `kinotic-server-app` alone, hosting `app-api` and the
   customer `app.<org>.<app>` zones.
 - The buses are Vert.x event-bus clusters; the cluster manager (Ignite today) is an
   implementation detail behind them and stays swappable.
@@ -100,16 +103,16 @@ same tenant trust used for system-user SSO. Consequences:
 
 kinotic-persistence's three app-api services (`JsonEntitiesRepository`,
 `AdminJsonEntitiesRepository`, `NamedQueriesService`) are assembled on **both**
-`kinotic-app-server` and `kinotic-management-server`. They are stateless over the shared entity ES,
+`kinotic-server-app` and `kinotic-management-server`. They are stateless over the shared entity ES,
 so the portal's entity browsing is served locally on the OS bus while app clients
 are served on the app bus. With separate buses this is required, not optional.
 
 ### 6. GitHub module stays on the management plane; workers get tokens, never services
 
-Of the GitHub module's responsibilities (merged into kinotic-management-api behind the
-`kinotic.disableManagement` module gate), four pin to the management plane without tension: the
-webhook handler (GitHub must reach it from the internet; the system gateway is VPN'd),
-the install flow, the repo provisioner, and installation/repo state writes.
+Of the GitHub module's responsibilities (merged into kinotic-management-api), four pin to
+the management plane without tension: the webhook handler (GitHub must reach it from the
+internet; the system gateway is VPN'd), the install flow, the repo provisioner, and
+installation/repo state writes.
 
 The cross-cutting fifth — repo credentials for workloads — is handled at **dispatch
 time**: when the management plane dispatches a job, it mints the short-lived GitHub
@@ -170,8 +173,8 @@ that already resolves the calling `Participant` for injection:
   configs, machine credentials, entity definitions, job runs; the app plane reads
   identities (login verification) and entity-definition/named-query metadata (the
   repositories need it to operate).
-- Org plane and app plane both mount **entity ES** (portal browsing, migrations,
-  insights vs. tenant data operations).
+- Org plane and app plane both mount **entity ES** (portal browsing and migrations
+  vs. tenant data operations).
 - The app plane's store access rides a **least-privilege ES principal from day one**: an
   index-scoped role granting read/write on entity indices and read-only on exactly the
   os-data indices it needs (identities, entity definitions, named queries). This needs
@@ -210,7 +213,7 @@ flowchart TB
     direction TB
 
     subgraph appisland["APP PLANE — isolated island"]
-      appgw["kinotic-app-server (public gateway)<br/>AppSecurityService: app participants ONLY<br/>app-api · app.&lt;org&gt;.&lt;app&gt; customer zones"]
+      appgw["kinotic-server-app (public gateway)<br/>AppSecurityService: app participants ONLY<br/>app-api · app.&lt;org&gt;.&lt;app&gt; customer zones"]
       abus(["APP BUS — Vert.x cluster B"])
       appgw --- abus
     end
@@ -218,7 +221,7 @@ flowchart TB
     subgraph oscore["OS CORE"]
       osgw["kinotic-management-server (public gateway)<br/>OrgSecurityService: org users · delegates · machine creds<br/>management-api zone · GitHub webhook · app-api (dual-hosted)"]
       vpn{{"VPN<br/>gateway"}}
-      sysgw["kinotic-system-server — NO public listener<br/>SystemSecurityService: Entra SSO + workload identity ONLY<br/>system-api zone · orchestrator · system console"]
+      sysgw["kinotic-server-system — NO public listener<br/>SystemSecurityService: Entra SSO + workload identity ONLY<br/>system-api zone · orchestrator · system console"]
       pbus(["OS BUS — Vert.x cluster A · zone rules + supervisor RBAC"])
       vpn ==> sysgw
       osgw --- pbus
@@ -301,7 +304,7 @@ applications run in user space on their own bus.
   by supervisor RBAC, the narrow waist, and the VPN'd system gateway — not by the
   network. Accepted because the org surface is authenticated and far narrower than the
   app surface.
-- Even index-scoped, `kinotic-app-server`'s ES principal spans every org's entity
+- Even index-scoped, `kinotic-server-app`'s ES principal spans every org's entity
   indices — per-org isolation inside entity ES is enforced by the persistence services'
   participant scoping, not by the store. Accepted as the standard multi-tenant
   data-plane shape; the per-org/app index layout keeps a per-tenant-credential
@@ -326,8 +329,6 @@ These predate the split and should be fixed (or verified) before or alongside it
    `MigrationService`, `AdminJsonEntitiesRepository`, `WorkloadOrchestrationService`,
    `VmNodeOrchestrationService`, `LogManager`, `KinoticClusterInfoService` — their
    access control today is the zone rules alone.
-4. **`ITestService` ships in kinotic-server's main sources** on the management-api zone. Confirm
-   its gating, or move it out of main.
 
 ## Open items
 

@@ -1,0 +1,16 @@
+plugins {
+	id 'org.kinotic.server-conventions'
+}
+
+dependencies {
+	implementation project(':kinotic-core')
+	implementation project(':kinotic-domain')
+	implementation project(':kinotic-management-api')
+	implementation project(':kinotic-system-api')
+	implementation project(':kinotic-api-gateway')
+
+	implementation 'io.vertx:vertx-core'
+	implementation 'io.vertx:vertx-web'
+
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+}

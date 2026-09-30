@@ -1,15 +1,16 @@
-# Headless service for Ignite node discovery in Kubernetes.
+# Headless service for Ignite node discovery in Kubernetes: every server's pods, so the three
+# servers form one cluster. Each server's application-kubernetes.yml names it.
 apiVersion: v1
 kind: Service
 metadata:
   name: kinotic
   labels:
-    app: {{ include "kinotic.name" . }}
+    app.kubernetes.io/part-of: {{ include "kinotic.name" . }}
     component: ignite-discovery
 spec:
   clusterIP: None
   selector:
-    app: {{ include "kinotic.name" . }}
+    app.kubernetes.io/part-of: {{ include "kinotic.name" . }}
   ports:
     - name: discovery
       port: {{ .Values.kinotic.cluster.discoveryPort | default 47500 }}

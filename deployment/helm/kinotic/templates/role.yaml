@@ -1,9 +1,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "kinotic-server.fullname" . }}
+  name: {{ include "kinotic.fullname" . }}
   labels:
-    app: {{ include "kinotic-server.name" . }}
+    app.kubernetes.io/part-of: {{ include "kinotic.name" . }}
 rules:
   # Required for Ignite Kubernetes IP Finder
   # See: https://ignite.apache.org/docs/latest/clustering/kubernetes

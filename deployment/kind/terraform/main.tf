@@ -62,10 +62,20 @@ resource "kind_cluster" "kinotic" {
         host_port      = 9090
         protocol       = "TCP"
       }
-      # STOMP / WebSocket
+      # Each server's gateway, REST and STOMP / WebSocket, on its own port: org, system, app
       extra_port_mappings {
         container_port = 30503
         host_port      = 58503
+        protocol       = "TCP"
+      }
+      extra_port_mappings {
+        container_port = 30504
+        host_port      = 58504
+        protocol       = "TCP"
+      }
+      extra_port_mappings {
+        container_port = 30505
+        host_port      = 58505
         protocol       = "TCP"
       }
       # Keycloak (conditional, but port mapping is harmless if unused)

@@ -35,6 +35,12 @@ public class OidcFlowSession implements ClusterSerializable {
      */
     private String inviteToken;
 
+    /**
+     * Origin of the page that started the flow, which the completed login is bound to, or {@code null}
+     * when the start request named no page.
+     */
+    private String origin;
+
     @Override
     public void writeToBuffer(Buffer buffer) {
         new JsonObject()
@@ -44,6 +50,7 @@ public class OidcFlowSession implements ClusterSerializable {
                 .put("configId", configId)
                 .put("orgId", orgId)
                 .put("inviteToken", inviteToken)
+                .put("origin", origin)
                 .writeToBuffer(buffer);
     }
 
@@ -57,6 +64,7 @@ public class OidcFlowSession implements ClusterSerializable {
         this.configId = json.getString("configId");
         this.orgId = json.getString("orgId");
         this.inviteToken = json.getString("inviteToken");
+        this.origin = json.getString("origin");
         return read;
     }
 }

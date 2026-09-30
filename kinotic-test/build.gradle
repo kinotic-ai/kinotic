@@ -31,6 +31,8 @@ dependencies {
 	// PersistenceInitializer injects HealthChecks (normally provided by the api-gateway module,
 	// which this module doesn't depend on). KinoticTestBeansConfiguration supplies it for tests.
 	testImplementation 'io.vertx:vertx-health-check'
+	// TestAuthEndpointSupport and TestOAuthServerHandler implement the RoutingContext-taking hooks of their bases
+	testImplementation 'io.vertx:vertx-web'
 
 	testImplementation 'io.projectreactor:reactor-test'
 

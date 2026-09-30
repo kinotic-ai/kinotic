@@ -1,0 +1,94 @@
+{{- range $name, $server := .Values.servers }}
+{{- if $server.enabled }}
+{{- if eq ($server.service.type | default "ClusterIP") "LoadBalancer" }}
+---
+# ── External Service (LoadBalancer) ──────────────────────
+# The gateway alone, on 443; the portal is served outside the cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+spec:
+  type: LoadBalancer
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  ports:
+    - name: "gateway"
+      protocol: TCP
+      port: 443
+      targetPort: {{ $server.gatewayPort }}
+  selector:
+    app: {{ $name }}
+---
+# ── Internal Service (ClusterIP) ─────────────────────────
+# Every port, on its own number — reachable only within the cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-internal
+  labels:
+    app: {{ $name }}
+spec:
+  type: ClusterIP
+  ports:
+    {{- if $server.webServer.enabled }}
+    - name: "ui"
+      protocol: TCP
+      port: {{ $server.webServer.port }}
+      targetPort: {{ $server.webServer.port }}
+    {{- end }}
+    - name: "gateway"
+      protocol: TCP
+      port: {{ $server.gatewayPort }}
+      targetPort: {{ $server.gatewayPort }}
+  selector:
+    app: {{ $name }}
+{{- else }}
+---
+# ── Single Service (ClusterIP or NodePort) ────────────────
+# Every port on one service — used for KinD and dev.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+spec:
+  type: {{ $server.service.type | default "ClusterIP" }}
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+  ports:
+    {{- if $server.webServer.enabled }}
+    - name: "ui"
+      protocol: TCP
+      port: 443
+      targetPort: {{ $server.webServer.port }}
+      {{- if and (eq $server.service.type "NodePort") $server.service.nodePorts.ui }}
+      nodePort: {{ $server.service.nodePorts.ui }}
+      {{- end }}
+    - name: "ui-direct"
+      protocol: TCP
+      port: {{ $server.webServer.port }}
+      targetPort: {{ $server.webServer.port }}
+      {{- if and (eq $server.service.type "NodePort") $server.service.nodePorts.uiDirect }}
+      nodePort: {{ $server.service.nodePorts.uiDirect }}
+      {{- end }}
+    {{- end }}
+    - name: "gateway"
+      protocol: TCP
+      port: {{ $server.gatewayPort }}
+      targetPort: {{ $server.gatewayPort }}
+      {{- if and (eq $server.service.type "NodePort") $server.service.nodePorts.gateway }}
+      nodePort: {{ $server.service.nodePorts.gateway }}
+      {{- end }}
+  selector:
+    app: {{ $name }}
+{{- end }}
+{{- end }}
+{{- end }}

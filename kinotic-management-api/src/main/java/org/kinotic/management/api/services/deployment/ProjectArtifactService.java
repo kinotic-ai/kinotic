@@ -21,7 +21,8 @@ public interface ProjectArtifactService {
      *
      * @param projectId the project whose checkout was synced
      * @param artifacts the artifacts found, with the full 40-character SHA of the synced commit;
-     *                  every name must be a single zone label, unique among the artifacts of its kind
+     *                  every name must be a single zone label, unique among the artifacts of its kind,
+     *                  and a UI's name must not contain {@code --}
      * @return a future completing once the deployment record holds the artifacts
      */
     Future<Void> recordArtifacts(String projectId, ProjectArtifacts artifacts);

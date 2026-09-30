@@ -1,6 +1,6 @@
 package org.kinotic.persistence.internal.api.services.sql.executors;
 
-import org.kinotic.persistence.api.model.EntityDescriptor;
+import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/29/24.

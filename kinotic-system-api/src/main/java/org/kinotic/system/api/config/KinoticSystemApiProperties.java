@@ -27,10 +27,4 @@ public class KinoticSystemApiProperties extends KinoticProperties {
     @Valid
     private SystemApiProperties systemApi = new SystemApiProperties();
 
-    /**
-     * When true the orchestrator module is not loaded: no project deployment and no
-     * workload orchestration beans are registered.
-     */
-    private boolean disableSystemApi = false;
-
 }

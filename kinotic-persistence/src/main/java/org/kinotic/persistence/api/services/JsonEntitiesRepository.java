@@ -7,7 +7,7 @@ import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.model.FastestType;
 import org.kinotic.persistence.api.model.QueryParameter;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.utils.DomainUtil;

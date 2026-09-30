@@ -321,7 +321,7 @@ Kinotic is built as an open platform rather than a single monolithic runtime.
   <source media="(min-width: 1000px) and (prefers-color-scheme: dark)" srcset=".github/assets/diagrams/architecture-wide-dark.png" width="880">
   <source media="(min-width: 1000px)" srcset=".github/assets/diagrams/architecture-wide-light.png" width="880">
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/architecture-dark.png" width="440">
-  <img alt="Consoles, CLI and SDKs, and AI agents reach the kinotic-api-gateway over STOMP, REST and MCP; the gateway dispatches through kinotic-core to the domain, persistence and management modules inside kinotic-server, which read and write Elasticsearch, Loki, Mimir, Tempo and the VM nodes" src=".github/assets/diagrams/architecture-light.png" width="440">
+  <img alt="Consoles, CLI and SDKs, and AI agents reach the kinotic-api-gateway over STOMP, REST and MCP; the gateway dispatches through kinotic-core to the domain, persistence and management modules inside the org, system and app servers, which read and write Elasticsearch, Loki, Mimir, Tempo and the VM nodes" src=".github/assets/diagrams/architecture-light.png" width="440">
 </picture>
 
 </div>
@@ -341,7 +341,9 @@ The repository contains the major components required to build and operate Kinot
 | [`kinotic-api-gateway`](kinotic-api-gateway) | Client-facing gateway: STOMP over WebSocket, REST routes, and the MCP endpoint |
 | [`kinotic-management-api`](kinotic-management-api) | Management plane: applications, projects, artifacts, deployments, GitHub provisioning, logs and metrics |
 | [`kinotic-system-api`](kinotic-system-api) | System plane: workload and VM node orchestration, deployment operations, log and site storage |
-| [`kinotic-server`](kinotic-server) | The deployable Spring Boot server that assembles the modules above |
+| [`kinotic-server-management`](kinotic-server-management) | The management server: the deployable Spring Boot server for the portal, organization members, their machines and the CLI, assembling core, domain, management-api and the gateway |
+| [`kinotic-server-system`](kinotic-server-system) | The system server: the deployable Spring Boot server for the system console, the vm-managers and project deployment, assembling core, domain, management-api, system-api and the gateway |
+| [`kinotic-server-app`](kinotic-server-app) | The app server: the deployable Spring Boot server every application's users, UIs and microservices call, assembling core, domain, persistence and the gateway |
 | [`kinotic-migration`](kinotic-migration) | Applies the platform's SQL migrations to the data stores |
 | [`kinotic-util`](kinotic-util) | Shared utilities, including the file and bulk file processing workers |
 | [`kinotic-test`](kinotic-test) | Java end-to-end test suite, run against a docker-compose cluster |

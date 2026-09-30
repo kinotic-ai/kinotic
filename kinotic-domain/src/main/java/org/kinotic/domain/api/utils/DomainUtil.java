@@ -7,6 +7,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.OrganizationScoped;
+import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
@@ -57,6 +58,22 @@ public class DomainUtil {
      */
     public static final String APP_ZONE_PREFIX = "app";
 
+    /**
+     * Separates the names a host label joins, {@code <organizationId>--<applicationId>} for an application's API
+     * host and {@code <organizationId>--<applicationId>--<uiName>} for the site of one of its UIs. No name
+     * contains it, so a label names exactly one application, and one UI.
+     */
+    public static final String HOST_LABEL_SEPARATOR = "--";
+
+    /** The longest label DNS allows, which bounds every host label the platform mints. */
+    public static final int MAX_HOST_LABEL_LENGTH = 63;
+
+    /**
+     * The prefix of the Elasticsearch indices the platform creates, including the index that holds
+     * the items of each published EntityDefinition
+     */
+    public static final String INDEX_PREFIX = "kinotic_";
+
     // Organization ids beginning with this prefix belong to the platform, which needs an
     // organization wherever it is its own tenant — the owner of VM workloads the OS runs for
     // the OS, for instance
@@ -65,6 +82,7 @@ public class DomainUtil {
     // Project ids may start with a digit because they embed application ids, which may
     // themselves start with a digit
     private static final Pattern ProjectIdPattern = Pattern.compile("^[a-z0-9][a-z0-9.-]*$");
+    private static final Pattern EntityDefinitionNamePattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
     private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     // Dash separator, not underscore: slugified ids become zone labels, and underscores are
@@ -73,7 +91,7 @@ public class DomainUtil {
 
     /**
      * Validates that the given application id contains only lowercase letters, digits, and
-     * interior dashes, and is not a zone label the platform reserves for itself.
+     * interior dashes, never {@code --}, and is not a zone label the platform reserves for itself.
      *
      * @param applicationId to validate
      * @throws IllegalArgumentException if the application id is null, invalid, or reserved
@@ -87,8 +105,8 @@ public class DomainUtil {
 
     /**
      * Validates that the given organization id contains only lowercase letters, digits, and
-     * interior dashes, is not a zone label the platform reserves for itself, and does not begin
-     * with the prefix reserved for the platform's own organizations.
+     * interior dashes, never {@code --}, is not a zone label or host label the platform reserves,
+     * and does not begin with the prefix reserved for the platform's own organizations.
      *
      * @param organizationId to validate
      * @throws IllegalArgumentException if the organization id is null, invalid, or reserved
@@ -98,15 +116,39 @@ public class DomainUtil {
             throw new IllegalArgumentException("Organization Id must not be null");
         }
         validateZoneLabelId(organizationId);
+        // an organization id of "xn" would start its applications' host labels with "xn--", which
+        // DNS reserves for internationalized labels
+        Validate.isTrue(!"xn".equals(organizationId), "Organization Id '%s' is reserved", organizationId);
         // The platform's own organizations are seeded by db migrations, which do not come
         // through here, so the prefix needs no escape hatch
         Validate.isTrue(!organizationId.startsWith(RESERVED_ID_PREFIX),
                         "Organization Id '%s' is reserved by the platform", organizationId);
     }
 
+    /**
+     * Validates that the given UI name, the name of a project's UI package, contains only lowercase
+     * letters, digits, and interior dashes, never {@code --}.
+     *
+     * @param uiName to validate
+     * @throws IllegalArgumentException if the UI name is null or invalid
+     */
+    public static void validateUiName(String uiName) {
+        if (uiName == null) {
+            throw new IllegalArgumentException("UI name must not be null");
+        }
+        validateHostLabelPart(uiName);
+    }
+
     private static void validateZoneLabelId(String id) {
-        ZoneUtil.validateLabel(id);
+        validateHostLabelPart(id);
         Validate.isTrue(!SYSTEM_API_ZONE.equals(id), "Id '%s' is reserved by the platform", id);
+    }
+
+    // ids and UI names are joined with the separator into one host label, so a name holding it would let
+    // two applications form the same label: org "a" with app "b--c" and org "a--b" with app "c"
+    private static void validateHostLabelPart(String name) {
+        ZoneUtil.validateLabel(name);
+        Validate.isTrue(!name.contains(HOST_LABEL_SEPARATOR), "'%s' must not contain '%s'", name, HOST_LABEL_SEPARATOR);
     }
 
     public static void validateProjectId(String projectId){
@@ -116,6 +158,73 @@ public class DomainUtil {
         if (!ProjectIdPattern.matcher(projectId).matches()){
             throw new IllegalArgumentException("Kinotic Project Id Invalid, first character must be a " +
                                                        "letter or number. And contain only letters, numbers, periods or dashes. Got "+ projectId);
+        }
+    }
+
+    /**
+     * Builds an {@link EntityDefinition} id of the shape
+     * {@code <organizationId>.<applicationId>.<entityDefinitionName>}, lowercased.
+     *
+     * @param organizationId of the Organization the definition belongs to
+     * @param applicationId of the Application the definition belongs to
+     * @param entityDefinitionName the definition's name
+     * @return the {@link EntityDefinition} id
+     */
+    public static String createEntityDefinitionId(String organizationId, String applicationId, String entityDefinitionName){
+        return (organizationId + "." + applicationId + "." + entityDefinitionName).toLowerCase();
+    }
+
+    /**
+     * Function will validate a {@link EntityDefinition}
+     *
+     * @param entityDefinition to validate
+     * @throws IllegalArgumentException will be thrown if the {@link EntityDefinition} is invalid
+     */
+    public static void validateEntityDefinition(EntityDefinition entityDefinition){
+
+        validateEntityDefinitionName(entityDefinition.getName());
+
+        validateApplicationId(entityDefinition.getApplicationId());
+
+        validateProjectId(entityDefinition.getProjectId());
+
+        if (entityDefinition.getSchema() == null) {
+            throw new IllegalArgumentException("EntityDefinition schema must not be null");
+        }
+    }
+
+    /**
+     * Function will validate the {@link EntityDefinition} name
+     *
+     * @param entityDefinitionName to validate
+     * @throws IllegalArgumentException will be thrown if the {@link EntityDefinition} name is invalid
+     */
+    public static void validateEntityDefinitionName(String entityDefinitionName){
+        if(entityDefinitionName == null){
+            throw new IllegalArgumentException("EntityDefinition name must not be null");
+        }
+        if (!EntityDefinitionNamePattern.matcher(entityDefinitionName).matches()){
+            throw new IllegalArgumentException("EntityDefinition Name Invalid, first character must be a " +
+                                               "letter, number or underscore. And contain only letters, numbers or underscores. Got "+ entityDefinitionName);
+        }
+    }
+
+    /**
+     * Function will validate the property name
+     *
+     * @param propertyName to validate
+     * @throws IllegalArgumentException will be thrown if the property name is invalid
+     */
+    public static void validatePropertyName(String propertyName){
+        if(propertyName == null){
+            throw new IllegalArgumentException("Property Name must not be null");
+        }
+        if(propertyName.length() > 255){
+            throw new IllegalArgumentException("Property Name cannot have more than 255 characters");
+        }
+        if(!EntityDefinitionNamePattern.matcher(propertyName).matches()){
+            throw new IllegalArgumentException("Property Name Invalid, first character must be a " +
+                                               "letter, number or underscore. And contain only letters, numbers or underscores. Got "+ propertyName);
         }
     }
 

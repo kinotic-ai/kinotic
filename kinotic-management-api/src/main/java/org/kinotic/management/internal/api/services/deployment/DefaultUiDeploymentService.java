@@ -37,6 +37,12 @@ public class DefaultUiDeploymentService implements UiDeploymentService {
     }
 
     @Override
+    public Future<List<UiDeployment>> findAllForApplication(String applicationId) {
+        Validate.notBlank(applicationId, "applicationId is required");
+        return uiDeploymentRepository.findAllForApplication(requireOrgParticipant().getOrganizationId(), applicationId);
+    }
+
+    @Override
     public Future<Page<WatchEvent>> findHistory(String deploymentId, Pageable pageable) {
         Validate.notNull(pageable, "pageable is required");
         OrganizationParticipant participant = requireOrgParticipant();

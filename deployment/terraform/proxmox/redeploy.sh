@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Deploys what changed since the last run, and nothing else:
 #
-#   - the kinotic-server and kinotic-migration images, when the tag at kinotic_version has a
-#     new digest on Docker Hub: both containers are replaced (a republished SNAPSHOT keeps its
+#   - the three servers' images and kinotic-migration's, when the tag at kinotic_version has a
+#     new digest on Docker Hub: their containers are replaced (a republished SNAPSHOT keeps its
 #     tag, so a plain apply never notices), the migration runs again, and the applier restores
 #     the settings the provider drops
 #   - the portal and the system console, when kinotic-frontend differs from what the sites
@@ -25,7 +25,8 @@ DRY_RUN=false
 out() { terraform -chdir="$HERE" output -raw "$1"; }
 HOST="$(out proxmox_host)"
 VERSION="$(out kinotic_version)"
-API_HOSTNAME="$(out api_hostname)"
+# Each server's name and hostname, one "name hostname" line each
+SERVERS="$(terraform -chdir="$HERE" output -json server_hostnames | python3 -c 'import sys, json; print("\n".join(f"{name} {host}" for name, host in json.load(sys.stdin).items()))')"
 STATE="${STATE_DIR:-/var/lib/kinotic/state}"
 SNIPPETS="${SNIPPETS_DIR:-/var/lib/vz/snippets}"
 MARKER="$STATE/images.deployed"
@@ -35,33 +36,37 @@ hub_digest() {
     | python3 -c 'import sys, json; print(json.load(sys.stdin)["digest"])'
 }
 
-# ---- kinotic-server and kinotic-migration -------------------------------------------------
-wanted_images="server=$(hub_digest kinotic-server) migration=$(hub_digest kinotic-migration)"
+# ---- the servers and kinotic-migration ----------------------------------------------------
+wanted_images="$(while read -r name _; do printf '%s=%s ' "$name" "$(hub_digest "$name")"; done <<<"$SERVERS")migration=$(hub_digest kinotic-migration)"
 deployed_images="$(ssh "root@$HOST" "cat '$MARKER' 2>/dev/null || true")"
 if [[ "$wanted_images" == "$deployed_images" ]]; then
-  echo "==> Images: kinotic-server and kinotic-migration $VERSION are what the host runs"
+  echo "==> Images: the servers and kinotic-migration $VERSION are what the host runs"
 elif $DRY_RUN; then
-  echo "==> Images: $VERSION has a new digest on Docker Hub; would replace both containers and re-run the migration"
+  echo "==> Images: $VERSION has a new digest on Docker Hub; would replace the servers' and the migration's containers and re-run the migration"
 else
-  echo "==> Images: $VERSION has a new digest on Docker Hub; replacing both containers"
+  echo "==> Images: $VERSION has a new digest on Docker Hub; replacing the servers' and the migration's containers"
   migration_vmid="$(terraform -chdir="$HERE" output -json containers | python3 -c 'import sys, json; print(json.load(sys.stdin)["kinotic-migration"])')"
+  replace=(-replace=proxmox_oci_image.kinotic_migration -replace='proxmox_virtual_environment_container.fleet["kinotic-migration"]')
+  while read -r name _; do
+    replace+=(-replace="proxmox_oci_image.server[\"$name\"]" -replace="proxmox_virtual_environment_container.fleet[\"$name\"]")
+  done <<<"$SERVERS"
   plan="$(mktemp)"
-  terraform -chdir="$HERE" plan -input=false -out="$plan" \
-    -replace=proxmox_oci_image.kinotic_server -replace='proxmox_virtual_environment_container.fleet["kinotic-server"]' \
-    -replace=proxmox_oci_image.kinotic_migration -replace='proxmox_virtual_environment_container.fleet["kinotic-migration"]' >/dev/null
+  terraform -chdir="$HERE" plan -input=false -out="$plan" "${replace[@]}" >/dev/null
   # the marker is per vmid, so a replaced migration container would otherwise not run
   ssh "root@$HOST" "rm -f '$STATE/$migration_vmid.ran'"
   terraform -chdir="$HERE" apply -input=false "$plan"
   rm -f "$plan"
   # A replaced container keeps its vmid, which the apply step does not treat as a change
   ssh "root@$HOST" "python3 '$SNIPPETS/kinotic-apply-container.py' '$SNIPPETS'/kinotic-*.manifest.json"
-  echo "==> Waiting for https://$API_HOSTNAME"
-  for _ in $(seq 1 60); do
-    if [[ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "https://$API_HOSTNAME/v1")" == "400" ]]; then
-      break
-    fi
-    sleep 5
-  done
+  while read -r _ hostname; do
+    echo "==> Waiting for https://$hostname"
+    for _ in $(seq 1 60); do
+      if [[ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "https://$hostname/v1")" == "400" ]]; then
+        break
+      fi
+      sleep 5
+    done
+  done <<<"$SERVERS"
   ssh "root@$HOST" "echo '$wanted_images' > '$MARKER'"
 fi
 

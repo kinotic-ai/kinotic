@@ -80,7 +80,7 @@ public class KinoticProperties {
     private long maxOffHeapMemory = DataStorageConfiguration.DFLT_DATA_REGION_MAX_SIZE;
 
     /**
-     * Paths to platform-level secret files (JWT signing keys, secret-storage master keys).
+     * Paths to platform-level secret files (the JWT signing keys).
      * Files are mounted into the pod by the Azure Key Vault CSI driver in production or
      * by a Kubernetes Secret volume locally, and watched for changes so rotation flows
      * through without a restart.

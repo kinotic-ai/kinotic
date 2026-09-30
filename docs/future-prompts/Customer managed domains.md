@@ -1,4 +1,4 @@
-We serve every published UI at `<org>-<app>-<ui>.apps.kinotic.ai` through one Front Door
+We serve every published UI at `<org>--<app>--<ui>.apps.kinotic.ai` through one Front Door
 wildcard domain, and the API at `api.kinotic.ai` on the cluster's load balancer. I want a
 customer to be able to bring their own domain: `ui.mydomain.com` for a published UI and
 `api.mydomain.com` for the API, so the session cookie stays same-site. A customer domain may
@@ -25,7 +25,7 @@ What I already know, so you don't re-derive it:
   the first handshake, stored in shared storage when Caddy has replicas. Alternative: Vert.x
   serving certificates by SNI with `HttpServer.updateSSLOptions`, which means owning the
   ACME client, challenges, storage and renewal ourselves.
-- The cookie needs nothing: `__Host-kinotic-session` carries no `Domain`, so it belongs to
+- The cookie needs nothing: `__Host-kinotic-app-session` carries no `Domain`, so it belongs to
   `api.mydomain.com`, and `SameSite=Lax` sends it from `ui.mydomain.com` because both share
   the site `mydomain.com`. `SameSite=None` stays a developer-profile setting only.
 - What the platform has to learn: a record on the application of its domains and their

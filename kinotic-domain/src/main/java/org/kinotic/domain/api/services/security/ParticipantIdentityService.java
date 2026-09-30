@@ -6,6 +6,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
@@ -32,19 +33,11 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     Future<UserParticipantIdentity> findByEmail(String email, String organizationId, String applicationId);
 
     /**
-     * Finds the first ORG-scope user with the given email across all organizations. Used by
-     * the sign-up flow to enforce one user per email at organization-creation time, before
-     * the new organization's id exists.
+     * Finds the first ORG-scope user with the given email across all organizations, for a flow
+     * that runs before an organization is known: the sign-up flow enforcing one user per email
+     * before the new organization's id exists, and organization login.
      */
     Future<UserParticipantIdentity> findFirstOrgUserByEmail(String email);
-
-    /**
-     * Finds the {@link UserParticipantIdentity} record for the given email, across all scopes. Returns
-     * the first match. Used by the email-first login lookup to decide between password vs
-     * SSO redirect — the service-layer uniqueness rule (one row per email + scope) makes
-     * this an unambiguous lookup for the org-login flow.
-     */
-    Future<UserParticipantIdentity> findByEmail(String email);
 
     /**
      * Finds the {@link UserParticipantIdentity} (if any) with the given OIDC identity within a specific
@@ -122,7 +115,7 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      * client secret it connects with. The identity's id is its {@code clientId}; the secret is
      * returned in plaintext exactly once and stored only as a hash.
      *
-     * @param machine the unsaved machine carrying display name and scope
+     * @param machine the unsaved machine carrying display name, scope and {@link MachineKind}
      * @return a future emitting the saved machine together with its one-time secret
      */
     Future<MachineProvisionResult> createMachine(MachineParticipantIdentity machine);

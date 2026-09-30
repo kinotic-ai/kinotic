@@ -37,12 +37,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { Kinotic } from '@kinotic-ai/core'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
 
 import loginPageLeft from '@/assets/login-page-left.svg'
-import { AuthPageShell } from '@kinotic-ai/frontend-common'
+import { apiUrl, AuthPageShell, readAuthError } from '@kinotic-ai/frontend-common'
 
 /**
  * The RFC 8628 device-verification page. The CLI sends the user here
@@ -66,8 +65,17 @@ async function handleApprove() {
   if (!userCodeValue) return
   loading.value = true
   try {
-    await Kinotic.oauthApproval.approveDevice(userCodeValue)
-    approved.value = true
+    const res = await fetch(apiUrl('/api/auth/oauth/device/approve'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ userCode: userCodeValue })
+    })
+    if (res.ok) {
+      approved.value = true
+    } else {
+      displayError(await readAuthError(res, 'Could not approve the device'))
+    }
   } catch (err) {
     displayError(err instanceof Error ? err.message : 'Could not approve the device')
   } finally {

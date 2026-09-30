@@ -6,7 +6,7 @@ package org.kinotic.management.api.model.deployment;
  *
  * @param name the artifact's identity, the unscoped part of the {@code name} in the package's
  *             {@code package.json}: {@code @acme/admin} is {@code admin}. Always a single
- *             zone label
+ *             zone label without {@code --}, unique among the UIs of the project's application
  * @param dir  the package directory, relative to the checkout root
  */
 public record UiArtifact(String name, String dir) {}

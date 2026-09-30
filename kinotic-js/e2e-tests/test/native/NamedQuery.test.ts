@@ -97,6 +97,47 @@ describe('Kinotic JS', () => {
     )
 
     it<LocalTestContext>(
+        'Runs the named query the management server saved last',
+        async ({entityService, applicationIdUsed, projectIdUsed}) => {
+            await createTestPeopleAndVerify(entityService, 100)
+
+            const structureId = entityService.entityId
+            const namedQueriesService = Kinotic.namedQueriesDefinitions
+
+            // saved through the management server, run on the app server, which caches the query it runs
+            const countAll = new FunctionDefinition('countPeople',
+                                                    [new QueryDecorator(`SELECT COUNT(firstName) as count FROM "kinotic_${structureId}"`)])
+            countAll.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCount', applicationIdUsed)
+                                                      .addProperty('count', new LongC3Type()))
+            await namedQueriesService.saveSync(new NamedQueriesDefinition(structureId,
+                                                                          TEST_ORG_ID,
+                                                                          applicationIdUsed,
+                                                                          projectIdUsed,
+                                                                          entityService.entityName,
+                                                                          [countAll]))
+            const before: any = await entityService.namedQuery('countPeople', [])
+            expect(before).toHaveLength(1)
+            expect(before[0].count).toBe(100)
+
+            // saving the query again evicts the app server's cached one
+            const countByLastName = new FunctionDefinition('countPeople',
+                                                           [new QueryDecorator(`SELECT COUNT(firstName) as count, lastName FROM "kinotic_${structureId}" GROUP BY lastName`)])
+            countByLastName.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCountByLastName', applicationIdUsed)
+                                                             .addProperty('count', new LongC3Type())
+                                                             .addProperty('lastName', new StringC3Type()))
+            await namedQueriesService.saveSync(new NamedQueriesDefinition(structureId,
+                                                                          TEST_ORG_ID,
+                                                                          applicationIdUsed,
+                                                                          projectIdUsed,
+                                                                          entityService.entityName,
+                                                                          [countByLastName]))
+            const after: any = await entityService.namedQuery('countPeople', [])
+            expect(after).toHaveLength(2)
+            expect(after.map((row: any) => row.count)).toEqual([50, 50])
+        }
+    )
+
+    it<LocalTestContext>(
         'Aggregate With Parameter Test',
         async ({entityService, applicationIdUsed, projectIdUsed}) => {
             // Create people

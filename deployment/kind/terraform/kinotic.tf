@@ -8,44 +8,51 @@ resource "kubernetes_namespace" "kinotic" {
   depends_on = [kind_cluster.kinotic]
 }
 
-# ── Kinotic Server ────────────────────────────────────────
+# ── Kinotic servers ───────────────────────────────────────
 
-resource "helm_release" "kinotic_server" {
-  name      = "kinotic-server"
+locals {
+  # The client secret the imported test realm gives kinotic-client, read from the realm file so the
+  # management server and Keycloak cannot disagree on it
+  keycloak_client_secret = one([
+    for client in jsondecode(file("${path.module}/../../docker-compose/keycloak-test-realm.json")).clients :
+    client.secret if client.clientId == "kinotic-client"
+  ])
+}
+
+resource "helm_release" "kinotic" {
+  name      = "kinotic"
   namespace = kubernetes_namespace.kinotic.metadata[0].name
   chart     = "${path.module}/../../helm/kinotic"
   wait      = true
   timeout   = 900 # Migration needs time for ES to become ready
 
-  values = [file("${path.module}/../config/kinotic-server/values.yaml")]
+  values = [file("${path.module}/../config/kinotic/values.yaml")]
 
-  # Image tag, pull policy, migration, TLS, service, and conditional OIDC sets
+  # Image tag, migration, TLS, and conditional OIDC sets
   set = concat(
     [
-      # Image tag from variable
+      # The servers' and the migration's image tag, from the variable
       { name = "image.tag", value = var.kinotic_version },
-      { name = "image.pullPolicy", value = "IfNotPresent" },
-      # Migration image tag matches server
-      { name = "migration.image.tag", value = var.kinotic_version },
-      { name = "migration.image.pullPolicy", value = "IfNotPresent" },
       # Give migration job more retries — ES may still be starting
       { name = "migration.backoffLimit", value = "10" },
       { name = "migration.activeDeadlineSeconds", value = "600" },
       # TLS — enable when mkcert is available
       { name = "tls.enabled", value = var.use_mkcert ? "true" : "false" },
-      { name = "tls.secretName", value = "kinotic-tls" },
-      # Public URL — switches scheme based on mkcert. KinD maps host 443 (TLS) and 9090 (plain).
-      { name = "kinotic.domain.appBaseUrl", value = var.use_mkcert ? "https://localhost" : "http://localhost:9090" },
-      # NodePort service with fixed ports matching KinD extraPortMappings
-      { name = "service.type", value = "NodePort" },
-      { name = "service.nodePorts.ui", value = "30443" },
-      { name = "service.nodePorts.uiDirect", value = "30090" },
-      { name = "service.nodePorts.stomp", value = "30503" },
+      # The portal's URL, and the API behind it — switches scheme based on mkcert. KinD maps host 443 (TLS) and 9090 (plain).
+      { name = "servers.kinotic-server-management.managementServer.portalBaseUrl", value = var.use_mkcert ? "https://localhost" : "http://localhost:9090" },
+      { name = "servers.kinotic-server-management.managementServer.apiBaseUrl", value = var.use_mkcert ? "https://localhost" : "http://localhost:9090" },
+      # The base every application's API host is a label under, on the app server's port, in the gateways' scheme:
+      # what the app server serves, and what the system server hands each UI build
+      { name = "servers.kinotic-server-app.appServer.apiBaseUrl", value = var.use_mkcert ? "https://localhost:58505" : "http://localhost:58505" },
+      { name = "servers.kinotic-server-system.deployment.appApiBaseUrl", value = var.use_mkcert ? "https://localhost:58505" : "http://localhost:58505" },
+      # The workloads dial the org and app servers in the gateways' scheme
+      { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_USESSL", value = var.use_mkcert ? "true" : "false" },
+      { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_USESSL", value = var.use_mkcert ? "true" : "false" },
     ],
-    # When Keycloak is enabled, add kubernetes-oidc profile and set oidc.enabled
+    # With Keycloak, the management server resolves the secret named "keycloak" on an OIDC configuration row to
+    # the test realm's client secret, the way the compose Keycloak overlay does
     var.enable_keycloak ? [
-      { name = "properties.springActiveProfiles", value = "production\\,kubernetes\\,kubernetes-oidc\\,debug\\,eviction-tracking" },
-      { name = "oidc.enabled", value = "true" },
+      { name = "servers.kinotic-server-management.extraEnv.KINOTIC_AKV_KEYCLOAK", value = local.keycloak_client_secret },
     ] : [],
   )
 
@@ -55,4 +62,9 @@ resource "helm_release" "kinotic_server" {
     kubernetes_secret.kinotic_tls,
     kubernetes_secret.platform_secrets,
   ]
+}
+
+moved {
+  from = helm_release.kinotic_server
+  to   = helm_release.kinotic
 }

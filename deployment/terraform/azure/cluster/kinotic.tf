@@ -10,10 +10,13 @@ resource "helm_release" "es_secret_sync" {
   depends_on = [helm_release.eck_stack, kubernetes_namespace.kinotic]
 }
 
-# ── Kinotic Server ────────────────────────────────────────────────────────────
+# ── Kinotic servers ───────────────────────────────────────────────────────────
+# The org, system and app servers in one release, each exposed on 443 by a LoadBalancer of its
+# own (dns.tf gives each its names) and terminating TLS with the cluster certificate, which
+# carries every server's names (tls.tf).
 
-resource "helm_release" "kinotic_server" {
-  name      = "kinotic-server"
+resource "helm_release" "kinotic" {
+  name      = "kinotic"
   namespace = kubernetes_namespace.kinotic.metadata[0].name
   chart     = "${path.module}/../../../helm/kinotic"
   wait      = true
@@ -21,47 +24,54 @@ resource "helm_release" "kinotic_server" {
 
   values = [
     file("${path.module}/../../../helm/kinotic/values.yaml"),
-    file("${path.module}/config/kinotic-server/values.yaml"),
+    file("${path.module}/config/kinotic/values.yaml"),
   ]
 
   set = [
     { name = "tls.enabled", value = "true" },
-    { name = "tls.secretName", value = var.tls_secret_name },
+    { name = "servers.kinotic-server-management.tlsSecretName", value = var.tls_secret_name },
+    { name = "servers.kinotic-server-system.tlsSecretName", value = var.tls_secret_name },
+    { name = "servers.kinotic-server-app.tlsSecretName", value = var.tls_secret_name },
     { name = "image.tag", value = var.kinotic_version },
-    { name = "migration.image.tag", value = var.kinotic_version },
-    # SPA is hosted on Azure Storage (Static Web Apps) — no static server inside the cluster.
-    { name = "kinotic.webServer.enabled", value = "false" },
-    # Where the SPA lives — used for verification email links and post-OIDC SPA redirects.
-    { name = "kinotic.domain.appBaseUrl", value = "https://portal.${local.global.dns_zone_name}" },
-    # Where the backend lives — used as the OIDC redirect_uri so the IdP returns the
-    # browser to the AKS-hosted /api/{login,signup}/callback/* path, not the SPA's domain.
-    { name = "kinotic.domain.apiBaseUrl", value = "https://api.${local.global.dns_zone_name}" },
+    # The portal is hosted outside the cluster — no static server inside.
+    { name = "servers.kinotic-server-management.webServer.enabled", value = "false" },
+    # Where the portal and the console live — post-OIDC redirects and the emailed links — and
+    # where each server's REST endpoints live, the OIDC redirect_uri
+    { name = "servers.kinotic-server-management.managementServer.portalBaseUrl", value = "https://portal.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-server-management.managementServer.apiBaseUrl", value = "https://api.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-server-system.systemServer.consoleBaseUrl", value = "https://console.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-server-system.systemServer.apiBaseUrl", value = "https://system-api.${local.global.dns_zone_name}" },
+    # Every application's API host, <organizationId>--<applicationId>.apps-api.<zone>: what the app
+    # server serves, and what the system server hands each UI build
+    { name = "servers.kinotic-server-app.appServer.apiBaseUrl", value = "https://apps-api.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-server-system.deployment.appApiBaseUrl", value = "https://apps-api.${local.global.dns_zone_name}" },
+    # What a workload dials: the management server for sync, the app server for runtime
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_HOST", value = "api.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_PORT", value = "443" },
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_USESSL", value = "true" },
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST", value = "apps-api.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_PORT", value = "443" },
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_USESSL", value = "true" },
     # Workload identity for Azure Key Vault access
     { name = "workloadIdentity.enabled", value = "true" },
     { name = "workloadIdentity.clientId", value = azurerm_user_assigned_identity.kinotic_server.client_id },
     # Cluster Key Vault for tenant/app secrets
-    { name = "extraEnv.KINOTIC_DOMAIN_SECRET_STORAGE_BACKEND", value = "azure" },
-    { name = "extraEnv.KINOTIC_DOMAIN_SECRET_STORAGE_AZURE_VAULT_URL", value = azurerm_key_vault.main.vault_uri },
-    # UI sites — the domain published UIs are served under and the account they are published into
-    { name = "extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN", value = local.sites_domain },
-    { name = "extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT", value = module.sites.storage_blob_endpoint },
-    # Email (Azure Communication Services) — shared service from global terraform
-    { name = "extraEnv.KINOTIC_EMAIL_BACKEND", value = "azure" },
-    { name = "extraEnv.KINOTIC_EMAIL_AZURE_ENDPOINT", value = local.global.email_service_endpoint },
-    { name = "extraEnv.KINOTIC_EMAIL_AZURE_SENDER_DOMAIN", value = local.global.email_sender_domain },
-    # Platform secrets (JWT signing + secret-storage masterKey) from the global Key Vault
+    { name = "extraEnv.KINOTIC_DOMAIN_SECRETSTORAGE_BACKEND", value = "AZURE" },
+    { name = "extraEnv.KINOTIC_DOMAIN_SECRETSTORAGE_AZURE_VAULTURL", value = azurerm_key_vault.main.vault_uri },
+    # UI sites — the domain published UIs are served under and the account the system server
+    # publishes them into
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN", value = local.sites_domain },
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT", value = module.sites.storage_blob_endpoint },
+    # Email (Azure Communication Services) — shared service from global terraform, as the
+    # servers' workload identity
+    { name = "kinotic.domain.email.enabled", value = "true" },
+    { name = "kinotic.domain.email.endpoint", value = local.global.email_service_endpoint },
+    { name = "kinotic.domain.email.senderAddress", value = "DoNotReply@${local.global.email_sender_domain}" },
+    { name = "kinotic.domain.email.managedIdentityClientId", value = azurerm_user_assigned_identity.kinotic_server.client_id },
+    # Platform secrets (each server's JWT signing keys, the secret-storage master key, the GitHub
+    # App's secrets) from the global Key Vault
     { name = "platformSecrets.keyVault.name", value = local.global.platform_key_vault_name },
     { name = "platformSecrets.keyVault.tenantId", value = local.global.tenant_id },
-    # OIDC client secrets — same vault, separate object set keyed by configId
-    { name = "oidcSecrets.keyVault.name", value = local.global.platform_key_vault_name },
-    { name = "oidcSecrets.keyVault.tenantId", value = local.global.tenant_id },
-    { name = "oidcSecrets.objects[0]", value = "entra-platform" },
-    # Platform OIDC provider — wires the Entra app from global terraform
-    { name = "kinotic.oidc.platformProviders[0].id", value = "entra-platform" },
-    { name = "kinotic.oidc.platformProviders[0].name", value = "Microsoft" },
-    { name = "kinotic.oidc.platformProviders[0].provider", value = "azure-ad" },
-    { name = "kinotic.oidc.platformProviders[0].clientId", value = local.global.kinotic_oidc_client_id },
-    { name = "kinotic.oidc.platformProviders[0].authority", value = local.global.kinotic_oidc_authority },
   ]
 
   depends_on = [
@@ -74,4 +84,9 @@ resource "helm_release" "kinotic_server" {
     module.sites,
     azurerm_federated_identity_credential.kinotic_server,
   ]
+}
+
+moved {
+  from = helm_release.kinotic_server
+  to   = helm_release.kinotic
 }

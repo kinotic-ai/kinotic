@@ -1,0 +1,73 @@
+# YAML Reference http://www.yaml.org/refcard.html
+kinotic:
+  debug: true
+  managementApi:
+    entityDefinition:
+      # A single-node dev cluster cannot assign replicas, and every published EntityDefinition costs
+      # numberOfShards * (1 + numberOfReplicas) against the 1000-shard default. 1/0 keeps the cluster
+      # green and lets a developer publish far more definitions before hitting the cap.
+      numberOfShards: 1
+      numberOfReplicas: 0
+    github:
+      webhookSecret: "-"
+      appPrivateKey: "-"
+  managementServer:
+    # Plain localhost dev (pnpm dev, no tunnel): vite serves the portal and proxies /api, /v1
+    # (WebSocket), /.well-known, and /mcp to 58503, so the API base is the portal's. A developer's
+    # ngrok tunnel and GitHub App replace both from ~/.kinotic/dev-environment/kinotic-server-management/application.yml,
+    # imported below, so SPA links, OIDC/OAuth redirect_uris, GitHub callbacks, and the MCP
+    # surface all share the tunnel's one origin.
+    apiBaseUrl: http://localhost:5173
+    portalBaseUrl: http://localhost:5173
+  domain:
+    email:
+      # The portal serves the pages the emailed verification and invite links open
+      linkBaseUrl: http://localhost:5173
+      # No real ACS in dev — EmailService logs verification URLs instead of sending.
+      # To test against real ACS, flip enabled=true (endpoint/sender are pre-filled).
+      enabled: true
+      endpoint: https://acs-kinotic.communication.azure.com
+      sender-address: "DoNotReply@kinotic.ai"
+    elastic-connections:
+      - scheme: "http"
+        host: "localhost"
+        port: "9200"
+    secretStorage:
+      backend: ~
+      # Base64-encoded 32-byte key used by SecretNameDeriver to derive opaque, deterministic
+      # storage names. Dev-only value — production supplies this via Azure Key Vault.
+      masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
+  apiGateway:
+    cors:
+      # The portal, however dev runs it: the vite dev server (pnpm dev, 5173), this server's own
+      # webroot (9090), and an ngrok tunnel (pnpm dev:tunnel). The tunnel is same-origin but still
+      # CORS-checked, because the social login forms POST and browsers send Origin on a POST navigation.
+      allowedOriginPattern: "http:\\/\\/localhost:(5173|9090)|https:\\/\\/[a-zA-Z0-9-]+\\.ngrok(-free)?\\.(app|dev|io)"
+      allowCredentials: true
+  maxNumberOfCoresToUse: 4
+  ignite:
+    discoveryType: SHAREDFS
+  platformSecrets:
+    # Seeded on first boot by DevPlatformSecretsGenerator. Each developer machine ends up with
+    # its own random keys; none of this is committed. Production uses Azure Key Vault via the
+    # Secrets Store CSI driver — same file layout, different origin.
+    generateMissing: true
+    jwtSigningKeysPath: ${user.home}/.kinotic/dev-platform-secrets/jwt-signing-keys
+  # OIDC client secrets resolve via SecretReferenceResolver — Azure Key Vault when
+  # kinotic.domain.secretStorage.azure.vaultUrl is set, otherwise from KINOTIC_AKV_<name> properties
+  # (uppercased, non-alphanumerics → "_"), set as an env var or a key in any loaded config file,
+  # matching the secret name on the seeded OrgSignupOidcConfiguration / OidcConfiguration row.
+
+logging:
+  level:
+    org:
+      kinotic: TRACE
+      # Logs every classpath resource it scans at TRACE, which drowns the rest of the log
+      kinotic.core.internal.utils.ClassPathScanningMetadataReaderProvider: DEBUG
+
+spring:
+  config:
+    # The developer's tunnel origin and GitHub App, written by
+    # dev-tools/github-app/dev-github-app.ts create. The compose management server loads the same file as
+    # ./config/application.yml (compose.kinotic-servers.yml).
+    import: optional:file:${user.home}/.kinotic/dev-environment/kinotic-server-management/application.yml

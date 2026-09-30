@@ -5,6 +5,9 @@ import {
 } from '@lucide/vue'
 import { JobsIcon, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
+import loginPageLeft from '@/assets/login-page-left.svg'
+import { USER_STATE } from '@/states/IUserState'
+
 /**
  * The portal's navigation has four scopes, each with its own sidebar group: the
  * organization, one application, one project, and the signed-in account. A route's
@@ -291,7 +294,8 @@ const pageRoutes: RouteRecordRaw[] = [
   {
     path: '/oauth/consent',
     meta: { authenticationRequired: true },
-    component: () => import('@/pages/login/OAuthConsent.vue')
+    component: () => import('@kinotic-ai/frontend-common').then(m => m.OAuthConsentPage),
+    props: { session: USER_STATE, art: loginPageLeft }
   },
   {
     name: 'github-install-callback',

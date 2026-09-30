@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.services;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
+import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 
 /**
  * {@link EntityHolder} holds the data and the id for an entity

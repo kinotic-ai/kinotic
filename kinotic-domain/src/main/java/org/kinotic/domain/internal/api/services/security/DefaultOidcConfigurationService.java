@@ -7,7 +7,7 @@ import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.services.OrganizationService;
-import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
+import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
@@ -56,6 +56,13 @@ public class DefaultOidcConfigurationService extends AbstractOrganizationScopedS
         Validate.notEmpty(ids, "ids cannot be null or empty");
         Validate.notBlank(orgId, "orgId cannot be blank");
         return oidcRepository.findEnabledByIds(ids, orgId);
+    }
+
+    @Override
+    public Future<OidcConfiguration> findById(String id, String organizationId) {
+        Validate.notBlank(id, "id cannot be blank");
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return oidcRepository.findById(id, organizationId);
     }
 
     @Override

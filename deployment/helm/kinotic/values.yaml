@@ -1,24 +1,109 @@
-replicaCount: 1
 nameOverride: ""
 
+# The servers' and the migration's image tag, and how every image is pulled
 image:
-  repository: kinoticai/kinotic-server
-  pullPolicy: Always
   tag: "5.0.0-SNAPSHOT"
-  sha: ""
+  pullPolicy: Always
 
-resources: {}
+# The three servers. Each is a Deployment, a Service and a ConfigMap named after its key, and
+# every server's pods join the headless `kinotic` Service, through which Ignite discovers its
+# peers, so the three form one cluster. What they share is configured further down.
+servers:
+  kinotic-server-management:
+    enabled: true
+    replicaCount: 1
+    image:
+      repository: kinoticai/kinotic-server-management
+      sha: ""
+    # kinotic.apiGateway.stompPort: REST, STOMP and MCP
+    gatewayPort: 58503
+    # kinotic.apiGateway.webServer.*: the portal's files, served from the jar. Disabled where the
+    # portal is hosted outside the cluster.
+    webServer:
+      enabled: true
+      port: 9090
+    # kinotic.managementServer.*: the URLs this server is reached at (no trailing slashes)
+    managementServer:
+      # this server's REST endpoints, the base of its OIDC redirect_uris; the portal's own origin
+      # for a same-origin deploy
+      apiBaseUrl: "http://localhost:9090"
+      # the portal, where browser flows return and where the emailed verification and invite
+      # links open
+      portalBaseUrl: "http://localhost:9090"
+    # The Secret holding this server's certificate when tls.enabled
+    tlsSecretName: kinotic-server-management-tls
+    # Mounts the platform GitHub App's private key and webhook secret, which a server loading
+    # management-api requires
+    githubApp: true
+    service:
+      type: ClusterIP
+      nodePorts:
+        gateway: null
+        ui: null
+        uiDirect: null
+    resources: {}
+    # Environment variables this server alone gets, on top of extraEnv
+    extraEnv: {}
+
+  kinotic-server-system:
+    enabled: true
+    replicaCount: 1
+    image:
+      repository: kinoticai/kinotic-server-system
+      sha: ""
+    gatewayPort: 58504
+    webServer:
+      enabled: false
+    # kinotic.systemServer.*: the URLs this server is reached at (no trailing slashes)
+    systemServer:
+      # this server's REST endpoints, the base of its OIDC redirect_uris and its OAuth issuer
+      apiBaseUrl: "http://localhost:58504"
+      # the system console, where browser flows return
+      consoleBaseUrl: "http://localhost:5174"
+    # kinotic.systemApi.deployment.appApiBaseUrl: the base every application's API host is a label
+    # under, as a browser reaches it, which each UI build is handed; the app server serves it under
+    # kinotic.appServer.apiBaseUrl
+    deployment:
+      appApiBaseUrl: "http://localhost:58505"
+    tlsSecretName: kinotic-server-system-tls
+    githubApp: true
+    service:
+      type: ClusterIP
+      nodePorts:
+        gateway: null
+    resources: {}
+    extraEnv: {}
+
+  kinotic-server-app:
+    enabled: true
+    replicaCount: 1
+    image:
+      repository: kinoticai/kinotic-server-app
+      sha: ""
+    gatewayPort: 58505
+    webServer:
+      enabled: false
+    # kinotic.appServer.apiBaseUrl: the base every application's API host is a label under
+    # (https://<organizationId>--<applicationId>.<domain>); each host is its own OAuth issuer
+    appServer:
+      apiBaseUrl: "http://localhost:58505"
+    tlsSecretName: kinotic-server-app-tls
+    githubApp: false
+    service:
+      type: ClusterIP
+      nodePorts:
+        gateway: null
+    resources: {}
+    extraEnv: {}
 
 migration:
   backoffLimit: 3
   activeDeadlineSeconds: 300
   image:
     repository: kinoticai/kinotic-migration
-    tag: "5.0.0-SNAPSHOT"
-    pullPolicy: Always
     sha: ""
 
-# JVM / Buildpack
+# JVM / Buildpack, for every server
 properties:
   springActiveProfiles: "production,debug"
   enableJmx: true
@@ -26,27 +111,19 @@ properties:
   javaToolOptions: "-Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m"
   # JPMS opens/exports required by Apache Ignite (java.base reflection) and
   # Calcite/Janino runtime code generation (jdk.compiler internals).
-  # Concatenated onto JAVA_TOOL_OPTIONS in the kinotic-server ConfigMap.
+  # Concatenated onto JAVA_TOOL_OPTIONS in each server's ConfigMap.
   javaModuleAccess: "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
   bplJvmHeadRoom: 10
 
-# Kinotic platform — mirrors the Spring property structure:
-#   kinotic.persistence.*  → ports, ES, health
-#   kinotic.apiGateway.*   → STOMP, static web server, TLS, CORS
-#   kinotic.domain.*       → public URLs, email, platform OIDC providers
-#   kinotic.ignite.*       → cluster (set in application-kubernetes.yml)
+# What every server shares — mirrors the Spring property structure:
+#   kinotic.domain.*       → email, Elasticsearch
+#   kinotic.managementApi.* → the stores LogService queries
+#   kinotic.ignite.*       → the cluster (set in each server's application-kubernetes.yml)
 kinotic:
-  # kinotic.domain.* — domain-layer configuration (public URLs, email).
   domain:
-    # Public base URL of the SPA (no trailing slash) — used for verification email links
-    # and post-OIDC SPA redirects. Must be set per-environment.
-    appBaseUrl: "http://localhost:9090"
-    # Public base URL of the backend REST endpoints (no trailing slash) — used as the OIDC
-    # redirect_uri. Set this when the SPA and backend live on different origins (e.g. SPA on
-    # Azure Static Web Apps, backend on AKS). Leave empty to fall back to appBaseUrl, which
-    # is correct for any same-origin deploy.
-    apiBaseUrl: ""
-    # kinotic.domain.email.* — outbound mail via Azure Communication Services
+    # kinotic.domain.email.* — outbound mail via Azure Communication Services. The links in the
+    # mail open in the portal, so each server that sends mail is handed the management server's
+    # portalBaseUrl as kinotic.domain.email.linkBaseUrl.
     email:
       # When false, EmailService logs verification URLs instead of sending. Required for
       # local/dev environments without a real ACS resource.
@@ -54,17 +131,10 @@ kinotic:
       endpoint: ""
       senderAddress: ""
       managedIdentityClientId: ""
-  # kinotic.managementApi.* — management-api configuration
+  # kinotic.managementApi.* — management-api configuration, loaded by the org and system servers
   managementApi:
     # Loki HTTP API backing the LogService
     lokiUrl: "http://loki.observability.svc:3100"
-  # kinotic.webServer.* — static-file server for the SPA. Disabled in deployments
-  # where the SPA is hosted outside the cluster (e.g. Azure Storage).
-  # Bound to kinotic.apiGateway.webServer.* on the Spring side.
-  webServer:
-    port: 9090
-    enabled: true
-  restPort: 58504
   elastic:
     connections:
       - host: "kinotic-es-es-http.elastic.svc"
@@ -75,20 +145,15 @@ kinotic:
     username: "elastic"
     secretName: "kinotic-es-es-elastic-user"
     secretKey: "elastic"
-  # STOMP listen port — consumed by the deployment/service templates to expose the container.
-  # Keep in sync with the app's kinotic.apiGateway.stompPort (default 58503); the chart does not
-  # inject it as an env var, so overriding here only moves the k8s plumbing, not the app's port.
-  stomp:
-    port: 58503
-  # kinotic.ignite.cluster.* — used by ignite-service template
+  # kinotic.ignite.* — the ports the headless `kinotic` Service exposes
   cluster:
     discoveryPort: 47500
     communicationPort: 47100
 
-# TLS (kinotic.apiGateway.ssl.*)
+# TLS (kinotic.apiGateway.ssl.*): each server terminates TLS with the certificate in its
+# servers.<name>.tlsSecretName
 tls:
   enabled: false
-  secretName: kinotic-tls
 
 evictionTracking:
   enabled: false
@@ -97,43 +162,37 @@ evictionTracking:
 
 nodeSelector: {}
 
-service:
-  type: ClusterIP
-  nodePorts:
-    ui: null
-    uiDirect: null
-    stomp: null
-  # External ports for LoadBalancer (remap external → internal)
-  externalPorts:
-    ui: null
-    stomp: null
-
 # Workload identity (Azure) — enables keyless auth to Azure services
 workloadIdentity:
   enabled: false
   clientId: ""
 
-# Platform secrets — JWT signing keys and secret-storage master keys mounted as files at
-# platformSecrets.mountPath. The app watches these files for in-place rotation. Always
-# required in clustered environments: Azure projects them via the Secrets Store CSI driver
-# from the global Key Vault (keyVault.* must be set); KinD mounts a k8s Secret generated
-# by local terraform. Chart rendering fails fast if keyVault.name / tenantId are missing.
+# Platform secrets, mounted as files at platformSecrets.mountPath: each server's JWT signing keys,
+# which the server watches for in-place rotation, and the secret properties it imports from the
+# directory as a config tree, each file named after the property it sets. Each server signs with a
+# key set of its own, the object `<server>-jwt-signing-keys`. Always required in clustered
+# environments: Azure projects them via the Secrets Store CSI driver from the global Key Vault
+# (keyVault.* must be set); KinD mounts a k8s Secret generated by local terraform.
 platformSecrets:
   mountPath: /etc/kinotic/platform-secrets
   # Source — exactly one of `keyVault` (Azure CSI) or `secretName` (KinD k8s Secret) is used.
   keyVault:
     name: ""        # from global/ terraform output: platform_key_vault_name
     tenantId: ""    # from global/ terraform output: tenant_id
-  secretName: ""    # KinD: name of a k8s Secret in the release namespace holding the same keys
+  secretName: ""    # KinD: a k8s Secret in the release namespace holding every server's objects
+  # The Key Vault secret names, or keys of secretName, of the imported properties
   objects:
-    jwtSigningKeys: kinotic-jwt-signing-keys
-    secretStorageMasterKeys: kinotic-secret-storage-master-keys
+    # kinotic.domain.secretStorage.masterKey, the same for every server
+    secretStorageMasterKey: kinotic-secret-storage-master-key
+    # kinotic.managementApi.github.appPrivateKey and webhookSecret, on a server with githubApp set
+    githubAppPrivateKey: kinotic-github-app-private-key
+    githubWebhookSecret: kinotic-github-webhook-secret
 
 # OIDC client secrets are now resolved at runtime by SecretReferenceResolver — Azure Key
 # Vault in production (kinotic.domain.secretStorage.azure.vaultUrl) or KINOTIC_AKV_<sanitizedName>
 # env vars in dev/local. The secret name on each OidcConfiguration row points at the AKV
 # entry; nothing is mounted into the pod.
 
-# Extra environment variables — override any Spring property via env var convention.
-# Example: KINOTIC_APIGATEWAY_WEBSERVER_PORT: "443"
+# Environment variables every server gets — override any Spring property via env var convention.
+# Example: KINOTIC_DOMAIN_ELASTICHEALTHCHECKINTERVAL: "30s"
 extraEnv: {}

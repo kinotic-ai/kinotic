@@ -1,5 +1,6 @@
 package org.kinotic.system.api.config;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,34 +27,37 @@ public class DeploymentProperties {
     private String workloadRunnerImage = "kinoticai/workload-runner:latest";
 
     /**
-     * Host the deployed workloads use to reach the api-gateway ({@code KINOTIC_SERVER_HOST}
-     * in the guest), and the one destination every workload's egress policy always permits.
-     * There is no advertised-address the server knows about itself, so deployments must
-     * configure how workloads reach it. An IPv4 address or a hostname, on either provider.
+     * How the sync workload reaches the management server, which it synchronizes the project's entity
+     * definitions and reports the project's artifacts through.
+     */
+    @Valid
+    private ServerAddressProperties managementServer = new ServerAddressProperties().setPort(58503);
+
+    /**
+     * How a microservice's runtime workload reaches the app server, which it publishes the
+     * project's services through.
+     */
+    @Valid
+    private ServerAddressProperties appServer = new ServerAddressProperties().setPort(58505);
+
+    /**
+     * Base URL every application's API host is a label under, as a browser reaches it: the URL each UI is built
+     * against. The same value the app server serves under {@code kinotic.appServer.apiBaseUrl}; the address a
+     * runtime workload dials is {@link #appServer}.
      */
     @NotBlank
-    private String serverHost;
-
-    /**
-     * Port the deployed workloads use to reach the api-gateway.
-     */
-    private int serverPort = 58503;
-
-    /**
-     * Whether the deployed workloads reach the api-gateway over TLS.
-     */
-    private boolean serverUseSsl = false;
+    private String appApiBaseUrl;
 
     /**
      * Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond
-     * the gateway — the repository and package registry hosts, so {@code git fetch} and
+     * the management server — the repository and package registry hosts, so {@code git fetch} and
      * {@code bun install} work on nodes that deny workload egress by default.
      */
     private List<String> syncAllowedHosts = new ArrayList<>();
 
     /**
      * Destinations (IPv4 addresses, CIDRs, or hostnames) the runtime workload may reach
-     * beyond the gateway.
+     * beyond the app server.
      */
     private List<String> runtimeAllowedHosts = new ArrayList<>();
 

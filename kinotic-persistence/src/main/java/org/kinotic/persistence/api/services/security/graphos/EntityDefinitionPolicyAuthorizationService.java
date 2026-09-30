@@ -4,16 +4,17 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.persistence.api.model.*;
-import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecorator;
-import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsConfig;
-import org.kinotic.persistence.api.model.idl.decorators.EntityServiceDecoratorsDecorator;
-import org.kinotic.persistence.api.model.idl.decorators.PolicyDecorator;
+import org.kinotic.domain.api.model.persistence.*;
+import org.kinotic.domain.api.model.persistence.idl.decorators.EntityServiceDecorator;
+import org.kinotic.domain.api.model.persistence.idl.decorators.EntityServiceDecoratorsConfig;
+import org.kinotic.domain.api.model.persistence.idl.decorators.EntityServiceDecoratorsDecorator;
+import org.kinotic.domain.api.model.persistence.idl.decorators.PolicyDecorator;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEvaluator;
 import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEvaluatorWithOperation;
 import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEvaluatorWithoutOperation;
 import org.kinotic.persistence.internal.api.services.security.graphos.SharedPolicyManager;
-import org.kinotic.persistence.internal.utils.PersistenceUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,9 +30,9 @@ public class EntityDefinitionPolicyAuthorizationService implements Authorization
     public EntityDefinitionPolicyAuthorizationService(EntityDefinition entityDefinition,
                                                       PolicyAuthorizer policyAuthorizer) {
 
-        this.entityDefinitionId = PersistenceUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
-                                                                           entityDefinition.getApplicationId(),
-                                                                           entityDefinition.getName());
+        this.entityDefinitionId = DomainUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
+                                                                      entityDefinition.getApplicationId(),
+                                                                      entityDefinition.getName());
         ObjectC3Type schema = entityDefinition.getSchema();
 
         // Get any Policies to apply to the Entity and its fields

@@ -9,4 +9,5 @@ import org.springframework.context.annotation.Import;
 // core's scan evaluates @ConditionalOnBean on DefaultServiceDirectory
 @AutoConfiguration(before = KinoticCoreAutoConfiguration.class)
 @Import(KinoticDomainLibrary.class)
-public class KinoticDomainAutoConfiguration {}
+public class KinoticDomainAutoConfiguration {
+}

@@ -1,0 +1,29 @@
+plugins {
+	id 'org.kinotic.server-conventions'
+}
+
+dependencies {
+	implementation project(':kinotic-core')
+	implementation project(':kinotic-domain')
+	implementation project(':kinotic-management-api')
+	implementation project(':kinotic-api-gateway')
+
+	implementation 'io.vertx:vertx-core'
+	implementation 'io.vertx:vertx-web'
+
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+}
+
+tasks.named('processResources') {
+	// The portal is served from this server's webroot, which kinotic-frontend's copyDist fills.
+	// kinotic-frontend is excluded from the build when CLAUDE_CLOUD_COMPILE=true
+	if (findProject(':kinotic-frontend') != null) {
+		dependsOn ":kinotic-frontend:copyDist"
+	}
+}
+
+tasks.named('sourcesJar') {
+	if (findProject(':kinotic-frontend') != null) {
+		dependsOn ":kinotic-frontend:copyDist"
+	}
+}

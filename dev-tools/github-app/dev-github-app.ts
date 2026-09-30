@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
-// Registers a GitHub App for one developer's kinotic-server, reached through their ngrok
-// domain, and writes the configuration that server needs. See the contributing guide,
+// Registers a GitHub App for one developer's servers, reached through their ngrok domain, and
+// writes the configuration the org and system servers need. See the contributing guide,
 // "Local development environment".
 //
 //   bun dev-tools/github-app/dev-github-app.ts create --domain <you>.ngrok-free.dev [--name <app-name>] [--org <github-org>] [--force]
@@ -9,10 +9,13 @@
 // create runs GitHub's App manifest flow: a browser page posts the manifest below to GitHub,
 // the developer confirms, GitHub redirects back here with a code, and the code is exchanged
 // for the new App's id, key, webhook secret and OAuth credential. It writes
-//   ~/.kinotic/dev-environment/application.yml   imported by application-development.yml, in the
-//                                                IDE server and the compose server alike
-//   ~/.kinotic/dev-environment/github-app.json   the full credential set, read by sync-es
-// then runs sync-es and restarts the compose kinotic-server container when it is running.
+//   ~/.kinotic/dev-environment/kinotic-server-management/application.yml      the tunnel origin, the
+//                                                                      sign-in secret and the App
+//   ~/.kinotic/dev-environment/kinotic-server-system/application.yml   the App, with which the
+//                                                                      system server mints fetch tokens
+//   ~/.kinotic/dev-environment/github-app.json                         the full credential set, read by sync-es
+// each server's file imported by its application-development.yml, run from the IDE or compose
+// alike, then runs sync-es and restarts the compose servers that are running.
 //
 // sync-es restores what a fresh migration (docker compose down -v) loses and GitHub still has:
 // it points the github-platform sign-in row, which the migration seeds with the kinotic-ai
@@ -22,18 +25,19 @@
 import { createSign } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir, userInfo } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { parseArgs } from 'node:util'
 
 const ENVIRONMENT_DIR = join(homedir(), '.kinotic', 'dev-environment')
-const ENVIRONMENT_YML = join(ENVIRONMENT_DIR, 'application.yml')
+// The servers that load management-api, each reading its own application.yml under its name,
+// which is also its container's name in deployment/docker-compose/compose.kinotic-servers.yml
+const MANAGEMENT_SERVER = 'kinotic-server-management'
+const SYSTEM_SERVER = 'kinotic-server-system'
 const APP_JSON = join(ENVIRONMENT_DIR, 'github-app.json')
 // The OrgSignupOidcConfiguration row id and secretNameRef seeded in V1__init.sql
 const SIGN_IN_CONFIG_ID = 'github-platform'
 // Organization the development migration seeds and its kinotic@kinotic.local user belongs to
 const DEFAULT_ORGANIZATION_ID = 'kinotic-test'
-// Container name in deployment/docker-compose/compose.kinotic-server.yml
-const COMPOSE_SERVER = 'kinotic-server'
 
 interface CreatedApp {
     id: number
@@ -120,26 +124,36 @@ async function create() {
     }
     const app = (await resp.json()) as CreatedApp
 
-    mkdirSync(ENVIRONMENT_DIR, { recursive: true })
     writeSecretFile(APP_JSON, JSON.stringify(app, null, 2) + '\n', 0o600)
-    // The compose server reads application.yml through a bind mount as its image's own user,
-    // which on Linux is another uid than yours; Docker Desktop maps ownership on macOS
-    writeSecretFile(ENVIRONMENT_YML, environmentYml(origin, app), process.platform === 'linux' ? 0o644 : 0o600)
+    const written = [
+        writeServerYml(MANAGEMENT_SERVER, managementServerYml(origin, app)),
+        writeServerYml(SYSTEM_SERVER, systemServerYml(app)),
+    ]
 
     console.log(`Registered ${app.html_url} (id ${app.id}) owned by ${app.owner.login}.`)
-    console.log(`Wrote ${ENVIRONMENT_YML} and ${APP_JSON}.`)
+    console.log(`Wrote ${[...written, APP_JSON].join(', ')}.`)
     // The restart comes first: syncEs exits on a cluster the migration has not reached yet
-    restartComposeServer()
+    restartComposeServers()
     await syncEs(app)
 }
 
-function restartComposeServer() {
-    const running = Bun.spawnSync(['docker', 'ps', '--quiet', '--filter', `name=^${COMPOSE_SERVER}$`])
-    if (running.success && running.stdout.toString().trim() !== '') {
-        console.log(`Restarting the ${COMPOSE_SERVER} container to load the App.`)
-        Bun.spawnSync(['docker', 'restart', COMPOSE_SERVER], { stdout: 'inherit', stderr: 'inherit' })
-    } else {
-        console.log('Restart kinotic-server to load the App.')
+function writeServerYml(server: string, content: string): string {
+    const path = join(ENVIRONMENT_DIR, server, 'application.yml')
+    // A compose server reads its application.yml through a bind mount as its image's own user,
+    // which on Linux is another uid than yours; Docker Desktop maps ownership on macOS
+    writeSecretFile(path, content, process.platform === 'linux' ? 0o644 : 0o600)
+    return path
+}
+
+function restartComposeServers() {
+    for (const server of [MANAGEMENT_SERVER, SYSTEM_SERVER]) {
+        const running = Bun.spawnSync(['docker', 'ps', '--quiet', '--filter', `name=^${server}$`])
+        if (running.success && running.stdout.toString().trim() !== '') {
+            console.log(`Restarting the ${server} container to load the App.`)
+            Bun.spawnSync(['docker', 'restart', server], { stdout: 'inherit', stderr: 'inherit' })
+        } else {
+            console.log(`Restart ${server} to load the App.`)
+        }
     }
 }
 
@@ -194,16 +208,32 @@ function manifestPage(origin: string, name: string, redirectUrl: string, state: 
 </body></html>`
 }
 
-function environmentYml(origin: string, app: CreatedApp): string {
-    const pem = app.pem.trim().split('\n').map(line => `        ${line}`).join('\n')
-    return `# Written by dev-tools/github-app/dev-github-app.ts; imported by application-development.yml
+// The management server serves the portal, the API and the webhook at the tunnel's origin, and signs
+// users in with the App's OAuth credential
+function managementServerYml(origin: string, app: CreatedApp): string {
+    return `# Written by dev-tools/github-app/dev-github-app.ts; imported by the management server's application-development.yml
 # The github-platform sign-in row's OAuth client secret, resolved by EnvVarSecretReferenceResolver
 KINOTIC_AKV_GITHUB_PLATFORM: ${JSON.stringify(app.client_secret)}
 kinotic:
-  domain:
-    appBaseUrl: ${origin}
+  managementServer:
     apiBaseUrl: ${origin}
-  managementApi:
+    portalBaseUrl: ${origin}
+  domain:
+    email:
+      linkBaseUrl: ${origin}
+${githubYml(app)}`
+}
+
+// The system server keeps its own origins and mints deployments' fetch tokens as the App
+function systemServerYml(app: CreatedApp): string {
+    return `# Written by dev-tools/github-app/dev-github-app.ts; imported by the system server's application-development.yml
+kinotic:
+${githubYml(app)}`
+}
+
+function githubYml(app: CreatedApp): string {
+    const pem = app.pem.trim().split('\n').map(line => `        ${line}`).join('\n')
+    return `  managementApi:
     github:
       appId: "${app.id}"
       appSlug: ${app.slug}
@@ -309,10 +339,11 @@ function readApp(): CreatedApp {
 
 function writeSecretFile(path: string, content: string, mode: number) {
     try {
+        mkdirSync(dirname(path), { recursive: true })
         writeFileSync(path, content, { mode })
         chmodSync(path, mode)
     } catch (error) {
-        // Docker creates a bind mount's missing host directory as root when compose starts first
+        // Docker creates a bind mount's missing host directories as root when compose starts first
         if ((error as NodeJS.ErrnoException).code === 'EACCES') {
             fail(`${path} is not writable; if Docker created ${ENVIRONMENT_DIR}, run: sudo chown -R $USER ${ENVIRONMENT_DIR}`)
         }

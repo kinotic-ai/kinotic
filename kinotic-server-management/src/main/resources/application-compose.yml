@@ -1,0 +1,21 @@
+# Profile activated alongside `development` when running inside docker-compose
+# (SPRING_PROFILES_ACTIVE=development,compose). Holds overrides that diverge from
+# IDE-based dev because the compose container runs the Paketo bootBuildImage,
+# which is JRE-only.
+kinotic:
+  domain:
+    secretStorage:
+      # Override the development default of `hft` (Chronicle Map). Chronicle's runtime
+      # bytecode generation pulls in com.sun.tools.javac.api.JavacTool from jdk.compiler,
+      # which is absent from the Paketo JRE — so compose falls back to InMemoryBackend.
+      # IDE devs still get hft via application-development.yml.
+      backend: ~
+    email:
+      # The portal build the server serves on 9090 serves the pages the emailed links open
+      linkBaseUrl: http://localhost:9090
+  managementServer:
+    # The portal build the server serves on 9090, and the API behind it. A developer's tunnel
+    # replaces both from ./config/application.yml, which compose.kinotic-servers.yml mounts and
+    # which outranks every file packaged in the jar.
+    apiBaseUrl: http://localhost:9090
+    portalBaseUrl: http://localhost:9090

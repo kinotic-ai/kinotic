@@ -14,7 +14,7 @@ import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.internal.api.model.IdentityCredential;
-import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
+import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.IdentityCredentialRepository;
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
@@ -159,12 +159,6 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     public Future<UserParticipantIdentity> findFirstOrgUserByEmail(String email) {
         Validate.notBlank(email, "email cannot be blank");
         return identityRepository.findFirstOrgUserByEmail(email);
-    }
-
-    @Override
-    public Future<UserParticipantIdentity> findByEmail(String email) {
-        Validate.notBlank(email, "email cannot be blank");
-        return identityRepository.findByEmail(email);
     }
 
     @Override
@@ -328,6 +322,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     @Override
     public Future<MachineProvisionResult> createMachine(MachineParticipantIdentity machine) {
         Validate.notNull(machine, "machine is required");
+        Validate.notNull(machine.getMachineKind(), "machine.machineKind is required");
 
         Date now = new Date();
         machine.setCreated(now);

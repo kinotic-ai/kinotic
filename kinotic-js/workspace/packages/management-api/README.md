@@ -32,9 +32,6 @@ Run and track schema migrations from your application code. Migration state is m
 ### Named Query Management
 Define, publish, and manage reusable parameterized queries across your platform. Queries are platform-level resources — shared, versioned, and callable by any service.
 
-### Analytics and Data Insights
-Built-in analytics give you operational visibility into your applications and data without instrumenting your own pipeline. Query usage, data trends, and system health are available directly through the API.
-
 ### Structured Application Logging
 Emit structured, searchable logs from the client side using the same logging infrastructure the platform uses. No separate log aggregation setup required.
 

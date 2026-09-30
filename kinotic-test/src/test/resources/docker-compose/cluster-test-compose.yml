@@ -1,4 +1,4 @@
-# Three-node kinotic-server cluster for integration testing.
+# The org, system and app servers as one Ignite cluster, for integration testing.
 #
 # Clustering uses Ignite SHAREDFS discovery: every node rendezvous through the shared
 # /sharedfs bind mount, so they must all point at the same host directory.
@@ -10,7 +10,6 @@
 # for wiring/cluster-formation testing, not cross-node JWT validation.
 
 x-kinotic-node: &kinotic-node
-  image: kinoticai/kinotic-server:${kinoticVersion:-5.0.0-SNAPSHOT}
   pull_policy: always
   healthcheck:
     test: ["CMD", "/workspace/health-check"]
@@ -38,7 +37,6 @@ x-kinotic-env: &kinotic-env
   KINOTIC_MAXOFFHEAPMEMORY: 419430400
   SPRING_PROFILES_ACTIVE: development,compose
   # Ignite SHAREDFS discovery — all nodes coordinate through the shared /sharedfs volume
-  KINOTIC_DISABLECLUSTERING: "false"
   KINOTIC_IGNITE_DISCOVERYTYPE: SHAREDFS
   KINOTIC_IGNITE_JOINTIMEOUTMS: 0
   KINOTIC_IGNITE_SHAREDFSPATH: /sharedfs
@@ -47,65 +45,59 @@ x-kinotic-env: &kinotic-env
   KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_HOST: ${KINOTIC_ELASTIC_HOST}
   KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_PORT: ${KINOTIC_ELASTIC_PORT}
   KINOTIC_DOMAIN_EMAIL_ENABLED: "false"
-  # Spring AI autoconfiguration requires a key to be present; a dummy is fine for cluster tests
-  SPRING_AI_OPENAI_API-KEY: "noop"
-  SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
-  SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
   OTEL_METRICS_EXPORTER: none
   OTEL_TRACES_EXPORTER: none
   OTEL_LOGS_EXPORTER: none
-  OTEL_SERVICE_NAME: kinotic-server
   # Paketo THC probe targets the api-gateway /health route, which is mounted on the STOMP port
   THC_PATH: /health
 
 services:
-  kinotic-node1:
+  kinotic-server-management:
     <<: *kinotic-node
-    container_name: kinotic-node1
+    container_name: kinotic-server-management
+    image: kinoticai/kinotic-server-management:${kinoticVersion:-5.0.0-SNAPSHOT}
     environment:
       <<: *kinotic-env
-      KINOTIC_APIGATEWAY_STOMPPORT: 58501
       KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9091
       KINOTIC_IGNITE_DISCOVERYPORT: 47501
       KINOTIC_IGNITE_COMMUNICATIONPORT: 47101
-      KINOTIC_DOMAIN_APPBASEURL: "http://localhost:9091"
-      THC_PORT: 58501
+      KINOTIC_MANAGEMENTSERVER_APIBASEURL: "http://localhost:9091"
+      KINOTIC_MANAGEMENTSERVER_PORTALBASEURL: "http://localhost:9091"
+      KINOTIC_DOMAIN_EMAIL_LINKBASEURL: "http://localhost:9091"
+      OTEL_SERVICE_NAME: kinotic-server-management
+      THC_PORT: 58503
     ports:
       - "9091:9091"
       - "47501:47501"
       - "47101:47101"
-      - "58501:58501"
+      - "58503:58503"
 
-  kinotic-node2:
+  kinotic-server-system:
     <<: *kinotic-node
-    container_name: kinotic-node2
+    container_name: kinotic-server-system
+    image: kinoticai/kinotic-server-system:${kinoticVersion:-5.0.0-SNAPSHOT}
     environment:
       <<: *kinotic-env
-      KINOTIC_APIGATEWAY_STOMPPORT: 58502
-      KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9092
       KINOTIC_IGNITE_DISCOVERYPORT: 47502
       KINOTIC_IGNITE_COMMUNICATIONPORT: 47102
-      KINOTIC_DOMAIN_APPBASEURL: "http://localhost:9092"
-      THC_PORT: 58502
+      OTEL_SERVICE_NAME: kinotic-server-system
+      THC_PORT: 58504
     ports:
-      - "9092:9092"
       - "47502:47502"
       - "47102:47102"
-      - "58502:58502"
+      - "58504:58504"
 
-  kinotic-node3:
+  kinotic-server-app:
     <<: *kinotic-node
-    container_name: kinotic-node3
+    container_name: kinotic-server-app
+    image: kinoticai/kinotic-server-app:${kinoticVersion:-5.0.0-SNAPSHOT}
     environment:
       <<: *kinotic-env
-      KINOTIC_APIGATEWAY_STOMPPORT: 58503
-      KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9093
       KINOTIC_IGNITE_DISCOVERYPORT: 47503
       KINOTIC_IGNITE_COMMUNICATIONPORT: 47103
-      KINOTIC_DOMAIN_APPBASEURL: "http://localhost:9093"
-      THC_PORT: 58503
+      OTEL_SERVICE_NAME: kinotic-server-app
+      THC_PORT: 58505
     ports:
-      - "9093:9093"
       - "47503:47503"
       - "47103:47103"
-      - "58503:58503"
+      - "58505:58505"
