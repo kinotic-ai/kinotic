@@ -7,6 +7,8 @@ import io.vertx.core.net.HostAndPort;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import org.kinotic.core.api.exceptions.AuthenticationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -27,6 +29,7 @@ import java.util.stream.Stream;
  * resolved.
  */
 public final class SessionBinding {
+    private static final Logger log = LoggerFactory.getLogger(SessionBinding.class);
 
     private static final String LOGIN_KEY_PREFIX = ConnectedInfo.class.getName() + "@";
     private static final String ORIGIN_KEY = SessionBinding.class.getName() + ".origin";
@@ -63,7 +66,8 @@ public final class SessionBinding {
             if (hostMatches) {
                 ctx.next();
             } else {
-                ctx.fail(401, new AuthenticationException("The session was not issued by this host"));
+                log.warn("The session was not issued by this host");
+                ctx.fail(401, new AuthenticationException("The session is not valid"));
             }
         };
     }
