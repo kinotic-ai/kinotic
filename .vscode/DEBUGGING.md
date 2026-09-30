@@ -22,7 +22,7 @@ pnpm dev          # portal on http://localhost:5173
 pnpm dev:system   # system console
 ```
 
-The portal talks to the org server at `localhost:58503` and the console to the system server
+The portal talks to the management server at `localhost:58503` and the console to the system server
 at `localhost:58504` by default — see
 `kinotic-frontend/apps/portal/ENV_SETUP.md` for how `VITE_KINOTIC_HOST`/`PORT`/`USE_SSL`
 resolve per command.
@@ -69,7 +69,7 @@ The committed configurations still reference the pre-rename layout and will not 
 | In `launch.json` | Actual |
 |---|---|
 | `cwd`/`webRoot` `${workspaceFolder}/structures-frontend-next` | `${workspaceFolder}/kinotic-frontend/apps/portal` |
-| `mainClass` `org.kinotic.structuresserver.StructuresServerApplication` | `org.kinotic.orgserver.OrgServerApplication` |
+| `mainClass` `org.kinotic.structuresserver.StructuresServerApplication` | `org.kinotic.managementserver.ManagementServerApplication` |
 | `projectName` `structures-server` | `kinotic-server-management` |
 | `-cp ${workspaceFolder}/structures-core/src/main/resources` | `kinotic-core/src/main/resources` |
 

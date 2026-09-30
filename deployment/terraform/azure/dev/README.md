@@ -77,7 +77,7 @@ is quick.
 ## Running the server
 
 Start the system server with `.env.local` in its environment and both profiles active (the
-IDE's `SystemServerApplication` run configuration does); the org server reads the same
+IDE's `SystemServerApplication` run configuration does); the management server reads the same
 `.env.local` to send email:
 
 ```bash

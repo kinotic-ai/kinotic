@@ -1,7 +1,7 @@
 # Environment Variable Setup Guide
 
 `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT`, and `VITE_KINOTIC_USE_SSL` point the SPA at
-the org server. Both the REST calls (`apiUrl()`) and the STOMP connect (`serverOverrides()`)
+the management server. Both the REST calls (`apiUrl()`) and the STOMP connect (`serverOverrides()`)
 read them, in `packages/common/src/util/helpers.ts`. An empty host resolves same-origin,
 which is what the vite dev proxy and the gateway-served production build both need.
 
@@ -34,7 +34,7 @@ server does — its `kinotic.domain.appBaseUrl` and `apiBaseUrl` build OIDC `red
 email links, and your own GitHub App carries the callback and webhook URLs. Both come from
 `bun dev-tools/github-app/dev-github-app.ts create --domain <you>.ngrok-free.dev`, which
 registers the App and writes `~/.kinotic/dev-environment/kinotic-server-management/application.yml`,
-which the org server imports whether it runs from the IDE or compose; see "Local development
+which the management server imports whether it runs from the IDE or compose; see "Local development
 environment" in the contributing guide (`website/content/02.platform/09.contributing.md`).
 
 The tunnel host must be allowed in two places:

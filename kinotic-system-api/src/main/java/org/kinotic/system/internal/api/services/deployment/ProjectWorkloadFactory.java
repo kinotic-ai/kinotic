@@ -21,7 +21,7 @@ import java.util.List;
 
 /**
  * Builds the workloads a project runs on its node: the foreground sync and SBOM workloads of a
- * deployment run, which connect to the org server, and the long-lived runtime workload of one
+ * deployment run, which connect to the management server, and the long-lived runtime workload of one
  * microservice, which connects to the app server. Each connects as the machine whose credentials it
  * is given, sized by {@link ProjectWorkloadSizes}.
  */
@@ -60,12 +60,12 @@ public class ProjectWorkloadFactory {
         // address the workload itself dials is not
         workload.getEnvironment().put("KINOTIC_UI_SERVER_URL",
                                       new AppHost(project.getOrganizationId(), project.getApplicationId()).apiUrl(deployment.getAppApiBaseUrl()));
-        putKinoticConnection(workload, deployment.getOrgServer(), credentials);
+        putKinoticConnection(workload, deployment.getManagementServer(), credentials);
         workload.getSecrets().put("GIT_TOKEN", token.getToken());
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/workspace")
                                                         .setSizeLimitMb(ProjectWorkloadSizes.SYNC_MOUNT_LIMIT_MB));
-        workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getSyncAllowedHosts(), deployment.getOrgServer()));
+        workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getSyncAllowedHosts(), deployment.getManagementServer()));
         return workload;
     }
 
@@ -90,11 +90,11 @@ public class ProjectWorkloadFactory {
         workload.setDiskSizeMb(ProjectWorkloadSizes.RUNTIME_DISK_SIZE_MB);
         workload.setEntrypoint(List.of("bun", "src/generate-sbom.ts"));
         workload.getEnvironment().put("KINOTIC_PROJECT_ID", project.getId());
-        putKinoticConnection(workload, deployment.getOrgServer(), credentials);
+        putKinoticConnection(workload, deployment.getManagementServer(), credentials);
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/workspace")
                                                         .setReadOnly(true));
-        workload.getNetwork().setAllowedHosts(allowedHosts(List.of(), deployment.getOrgServer()));
+        workload.getNetwork().setAllowedHosts(allowedHosts(List.of(), deployment.getManagementServer()));
         return workload;
     }
 

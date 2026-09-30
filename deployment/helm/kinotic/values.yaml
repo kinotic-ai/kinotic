@@ -22,8 +22,8 @@ servers:
     webServer:
       enabled: true
       port: 9090
-    # kinotic.orgServer.*: the URLs this server is reached at (no trailing slashes)
-    orgServer:
+    # kinotic.managementServer.*: the URLs this server is reached at (no trailing slashes)
+    managementServer:
       # this server's REST endpoints, the base of its OIDC redirect_uris; the portal's own origin
       # for a same-origin deploy
       apiBaseUrl: "http://localhost:9090"
@@ -122,7 +122,7 @@ properties:
 kinotic:
   domain:
     # kinotic.domain.email.* — outbound mail via Azure Communication Services. The links in the
-    # mail open in the portal, so each server that sends mail is handed the org server's
+    # mail open in the portal, so each server that sends mail is handed the management server's
     # portalBaseUrl as kinotic.domain.email.linkBaseUrl.
     email:
       # When false, EmailService logs verification URLs instead of sending. Required for

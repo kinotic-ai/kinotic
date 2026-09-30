@@ -17,7 +17,7 @@ variable "location" {
 }
 
 variable "api_label" {
-  description = "The org server's label in the platform zone: dev-api for dev-api.kinotic.ai, the API of the portal, the CLI and MCP hosts, and the GitHub App's webhook"
+  description = "The management server's label in the platform zone: dev-api for dev-api.kinotic.ai, the API of the portal, the CLI and MCP hosts, and the GitHub App's webhook"
   type        = string
   default     = "dev-api"
 }

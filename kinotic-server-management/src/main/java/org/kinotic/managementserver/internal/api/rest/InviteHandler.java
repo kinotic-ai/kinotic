@@ -1,4 +1,4 @@
-package org.kinotic.orgserver.internal.api.rest;
+package org.kinotic.managementserver.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -20,7 +20,7 @@ import org.kinotic.domain.api.rest.support.OidcErrorCodes;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
-import org.kinotic.orgserver.api.config.OrgServerProperties;
+import org.kinotic.managementserver.api.config.ManagementServerProperties;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
@@ -48,7 +48,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
-    private final OrgServerProperties properties;
+    private final ManagementServerProperties properties;
 
     @Override
     public void mountRoutes(Router router) {
@@ -110,7 +110,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
         inviteService.acceptLocalInvite(token, password, displayName)
               .onSuccess(user -> {
                   if (user.getApplicationId() != null) {
-                      // the org server holds organization logins only, so an application member
+                      // the management server holds organization logins only, so an application member
                       // signs in at the application; the payload names it for the accept page
                       ctx.response().putHeader("Content-Type", "application/json")
                          .end(new JsonObject()
@@ -205,7 +205,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
         inviteService.acceptOidcInvite(token, sub, result.config().getId(), email)
               .onSuccess(user -> {
                   if (user.getApplicationId() != null) {
-                      // the org server holds organization logins only, so an application member
+                      // the management server holds organization logins only, so an application member
                       // signs in at the application
                       authEndpointSupport.redirectToUi(ctx, INVITE_ACCEPT_PATH + "?accepted=app&application="
                               + URLEncoder.encode(user.getApplicationId(), StandardCharsets.UTF_8));

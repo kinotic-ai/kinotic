@@ -61,7 +61,7 @@ resource "random_id" "jwt_signing_key_v1" {
   byte_length = 32
 }
 
-# The org server keeps the key set the single server signed with
+# The management server keeps the key set the single server signed with
 moved {
   from = random_id.jwt_signing_key_v1
   to   = random_id.jwt_signing_key_v1["kinotic-org-server"]

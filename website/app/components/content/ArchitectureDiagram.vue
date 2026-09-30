@@ -1,7 +1,7 @@
 <template>
   <DiagramFrame>
   <div class="arch-diagram-wrap">
-    <svg class="arch-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1172 768" role="img" aria-label="Kinotic three-server network architecture: every caller, person or workload, reaches one of three public HTTPS hosts, each answered by its own server with its own gateway, SecurityService and session cookie: the app server for application users and runtime workloads, the org server for organization members, GitHub webhooks and sync workloads, the system server for operators and vm-managers. The three servers form one Ignite cluster in which each hosts only its own zones, and reach the shared Elasticsearch and Loki stores only through participant-scoped access.">
+    <svg class="arch-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1172 768" role="img" aria-label="Kinotic three-server network architecture: every caller, person or workload, reaches one of three public HTTPS hosts, each answered by its own server with its own gateway, SecurityService and session cookie: the app server for application users and runtime workloads, the management server for organization members, GitHub webhooks and sync workloads, the system server for operators and vm-managers. The three servers form one Ignite cluster in which each hosts only its own zones, and reach the shared Elasticsearch and Loki stores only through participant-scoped access.">
 
       <defs>
         <marker id="ma-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -90,7 +90,7 @@
       <text class="t-mono" x="586" y="330" text-anchor="middle">org users · clients · machines, except runtimes</text>
       <text class="t-mono" x="586" y="345" text-anchor="middle">login · signup · invites · OAuth · MCP</text>
       <text class="t-mono" x="586" y="360" text-anchor="middle">CLI device grant · GitHub webhook (HMAC)</text>
-      <text class="t-mono" x="586" y="375" text-anchor="middle">__Host-kinotic-org-session</text>
+      <text class="t-mono" x="586" y="375" text-anchor="middle">__Host-kinotic-management-session</text>
 
       <!-- ═════════ system plane ═════════ -->
       <rect class="encl-sys" x="836" y="214" width="300" height="190" rx="10"></rect>

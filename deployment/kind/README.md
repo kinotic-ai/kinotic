@@ -83,7 +83,7 @@ every server's pods.
 | Service | URL |
 |---------|-----|
 | Kinotic UI | https://localhost/ |
-| Org server (STOMP) | wss://localhost:58503/v1 |
+| Management server (STOMP) | wss://localhost:58503/v1 |
 | System server (STOMP) | wss://localhost:58504/v1 |
 | App server (STOMP) | wss://localhost:58505/v1 |
 | Keycloak Admin | https://localhost:8888/auth/admin |
@@ -98,7 +98,7 @@ its application's host, or an application's OAuth flow, works only without mkcer
 | Service | URL |
 |---------|-----|
 | Kinotic UI | http://localhost:9090/ |
-| Org server (STOMP) | ws://localhost:58503/v1 |
+| Management server (STOMP) | ws://localhost:58503/v1 |
 | System server (STOMP) | ws://localhost:58504/v1 |
 | App server (STOMP) | ws://localhost:58505/v1 |
 | Grafana | http://localhost:3000/ |
@@ -136,10 +136,10 @@ KinD has no Azure storage accounts, so the system server runs with
 ready without being uploaded or served.
 
 A deployment's workloads run in micro VMs on a vm-manager node outside the cluster. They dial the
-org server (sync, SBOM) and the app server (runtime) at `192.168.127.254`, the host alias through
+management server (sync, SBOM) and the app server (runtime) at `192.168.127.254`, the host alias through
 which a BOXLITE node on this machine reaches the host, on the ports KinD maps there. A
 CLOUD_HYPERVISOR node reaches the host at `172.17.0.1` instead; set
-`KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST` and `_APPSERVER_HOST` in the system server's
+`KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_HOST` and `_APPSERVER_HOST` in the system server's
 `extraEnv` to match. The mkcert certificate does not name either address, so the workloads reach
 the servers only without mkcert.
 
@@ -148,7 +148,7 @@ the servers only without mkcert.
 Keycloak is an OIDC provider to test social sign-in against. When enabled, Terraform deploys
 PostgreSQL + Keycloak with the test realm from `deployment/docker-compose/keycloak-test-realm.json`
 (realm `test`, client `kinotic-client`, user `testuser@example.com` / `password123`), and gives
-the org server the client's secret under the secret name `keycloak`, the way the compose Keycloak
+the management server the client's secret under the secret name `keycloak`, the way the compose Keycloak
 overlay does.
 
 ```bash
@@ -156,12 +156,12 @@ terraform apply -var="enable_keycloak=true"
 ```
 
 If the cluster is already running, re-running with `enable_keycloak=true` deploys Keycloak and
-redeploys the org server with the secret.
+redeploys the management server with the secret.
 
 Signing in through it also needs an OIDC configuration whose authority is the realm and whose
 secret name is `keycloak`; none is seeded. Keycloak publishes its issuer as
 `https://localhost:8888/auth/realms/test`, which the browser reaches through the port mapping
-and the org server pod does not, so the token exchange fails until Keycloak is published under a
+and the management server pod does not, so the token exchange fails until Keycloak is published under a
 host both resolve, as the compose stack does with the `keycloak` host.
 
 | Service | URL | Credentials |
@@ -187,7 +187,7 @@ host both resolve, as the compose stack does with the `keycloak` host.
 ## Load Generator
 
 The load generator creates sample entity definitions and data for testing.
-It connects directly to the org server's service and runs as a Kubernetes Job.
+It connects directly to the management server's service and runs as a Kubernetes Job.
 
 **Note:** The load generator currently uses basic (default) authentication. It cannot
 run when Keycloak/OIDC is enabled as the sole auth provider — run the load generator

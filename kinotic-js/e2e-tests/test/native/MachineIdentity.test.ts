@@ -6,7 +6,7 @@ import {E2E_ORGANIZATION_ID,
         appServer,
         buildConnectOptions,
         initKinoticClient,
-        orgServer,
+        managementServer,
         postForm,
         restBase,
         shutdownKinoticClient,
@@ -66,9 +66,9 @@ describe('Kinotic JS', () => {
 
     it('admits a machine only at the server of its scope', async () => {
         // an application's machine is an application identity, which only the app server admits
-        expect(await machineConnect(orgServer(), MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET)).toBe('rejected')
+        expect(await machineConnect(managementServer(), MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET)).toBe('rejected')
         expect(await machineConnect(systemServer(), MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET)).toBe('rejected')
-        // a project's sync machine acts for the organization at the org server, never at the app server
+        // a project's sync machine acts for the organization at the management server, never at the app server
         expect(await machineConnect(appServer(), ORG_MACHINE_ID, MACHINE_CLIENT_SECRET)).toBe('rejected')
     }, 60000)
 
@@ -78,7 +78,7 @@ describe('Kinotic JS', () => {
         // unknown client
         expect(await machineConnect(appServer(), 'no-such-machine', MACHINE_CLIENT_SECRET)).toBe('rejected')
         // a USER id with its correct password — ids without '@' resolve only to machines
-        expect(await machineConnect(orgServer(), ORG_USER_ID, 'kinotic')).toBe('rejected')
+        expect(await machineConnect(managementServer(), ORG_USER_ID, 'kinotic')).toBe('rejected')
         // valid credentials but scope headers that contradict the machine's own scope
         expect(await machineConnect(appServer(), MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, E2E_ORGANIZATION_ID, 'e2e-datastream')).toBe('rejected')
         expect(await machineConnect(appServer(), MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, 'some-other-org')).toBe('rejected')
@@ -97,9 +97,9 @@ describe('Kinotic JS', () => {
         // project's services into its application's zone, both of which the organization does
         // on its own behalf — so their machines carry no applicationId, and declaring one on
         // the connection contradicts the scope the identity holds.
-        expect(await machineConnect(orgServer(), ORG_MACHINE_ID, MACHINE_CLIENT_SECRET)).toBe('connected')
-        expect(await machineConnect(orgServer(), ORG_MACHINE_ID, MACHINE_CLIENT_SECRET, E2E_ORGANIZATION_ID)).toBe('connected')
-        expect(await machineConnect(orgServer(), ORG_MACHINE_ID, MACHINE_CLIENT_SECRET,
+        expect(await machineConnect(managementServer(), ORG_MACHINE_ID, MACHINE_CLIENT_SECRET)).toBe('connected')
+        expect(await machineConnect(managementServer(), ORG_MACHINE_ID, MACHINE_CLIENT_SECRET, E2E_ORGANIZATION_ID)).toBe('connected')
+        expect(await machineConnect(managementServer(), ORG_MACHINE_ID, MACHINE_CLIENT_SECRET,
                                     E2E_ORGANIZATION_ID, 'e2e-mcp')).toBe('rejected')
     }, 60000)
 

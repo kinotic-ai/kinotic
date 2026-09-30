@@ -1,4 +1,4 @@
-package org.kinotic.orgserver.internal.api.rest;
+package org.kinotic.managementserver.internal.api.rest;
 
 import io.vertx.ext.web.RoutingContext;
 import org.kinotic.domain.api.rest.OAuthExtensionGrant;
@@ -6,18 +6,18 @@ import org.kinotic.domain.api.rest.OAuthServerHandler;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.api.services.security.OAuthAuthorizationService;
 import org.kinotic.domain.api.services.security.RefreshTokenService;
-import org.kinotic.orgserver.api.config.OrgServerProperties;
+import org.kinotic.managementserver.api.config.ManagementServerProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/** The org server's authorization server, issued under {@code kinotic.orgServer.issuerBaseUrl} or its API base URL. */
+/** The management server's authorization server, issued under {@code kinotic.managementServer.issuerBaseUrl} or its API base URL. */
 @Component
-public class OrgOAuthServerHandler extends OAuthServerHandler {
+public class ManagementOAuthServerHandler extends OAuthServerHandler {
 
-    private final OrgServerProperties properties;
+    private final ManagementServerProperties properties;
 
-    public OrgOAuthServerHandler(OrgServerProperties properties,
+    public ManagementOAuthServerHandler(ManagementServerProperties properties,
                                  AuthEndpointSupport authEndpointSupport,
                                  OAuthAuthorizationService oauthAuthorizationService,
                                  RefreshTokenService refreshTokenService,

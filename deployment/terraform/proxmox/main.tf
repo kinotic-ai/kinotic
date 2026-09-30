@@ -179,8 +179,8 @@ locals {
       hostnames   = [local.azure.api_hostname]
       description = "the organizations' API: the portal, the CLI, MCP hosts, the GitHub webhook"
       env = {
-        KINOTIC_ORGSERVER_APIBASEURL     = "https://${local.azure.api_hostname}"
-        KINOTIC_ORGSERVER_PORTALBASEURL  = "https://${local.azure.portal_hostname}"
+        KINOTIC_MANAGEMENTSERVER_APIBASEURL     = "https://${local.azure.api_hostname}"
+        KINOTIC_MANAGEMENTSERVER_PORTALBASEURL  = "https://${local.azure.portal_hostname}"
         # the emailed verification and invite links open in the portal
         KINOTIC_DOMAIN_EMAIL_LINKBASEURL = "https://${local.azure.portal_hostname}"
         KINOTIC_MANAGEMENTAPI_LOKIURL    = local.service_urls["http://loki:3100"]
@@ -204,8 +204,8 @@ locals {
         # What a workload dials, by the name its certificate carries, and the one destination its
         # egress policy permits; the node pins every server's name to the edge's LAN address
         # (hosts_entry)
-        KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST = local.azure.api_hostname
-        KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_PORT = tostring(local.public_port)
+        KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_HOST = local.azure.api_hostname
+        KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_PORT = tostring(local.public_port)
         KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST = local.azure.apps_api_domain
         KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_PORT = tostring(local.public_port)
         KINOTIC_MANAGEMENTAPI_LOKIURL               = local.service_urls["http://loki:3100"]
@@ -738,7 +738,7 @@ resource "proxmox_virtual_environment_container" "fleet" {
   depends_on = [proxmox_sdn_applier.private, terraform_data.prepare]
 }
 
-# The org server takes the vmid the single kinotic-server had, so the container is replaced in
+# The management server takes the vmid the single kinotic-server had, so the container is replaced in
 # place rather than created beside one that still holds its vmid
 moved {
   from = proxmox_virtual_environment_container.fleet["kinotic-server"]

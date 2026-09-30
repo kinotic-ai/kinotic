@@ -10,7 +10,7 @@ import {E2E_APP_TENANT,
         E2E_ORG_USER_EMAIL,
         E2E_SYSTEM_USER_EMAIL,
         appFixtureEmail,
-        orgServer,
+        managementServer,
         restBase,
         systemServer} from '../TestHelpers.js'
 
@@ -65,7 +65,7 @@ describe('Kinotic JS', () => {
         await allure.subSuite('Mcp')
 
         systemClient = await connectMcpClient(systemServer(), {clientId: E2E_SYSTEM_USER_EMAIL, clientSecret: E2E_FIXTURE_PASSWORD})
-        organizationClient = await connectMcpClient(orgServer(), {clientId: E2E_ORG_USER_EMAIL,
+        organizationClient = await connectMcpClient(managementServer(), {clientId: E2E_ORG_USER_EMAIL,
                                                                   clientSecret: E2E_FIXTURE_PASSWORD,
                                                                   organizationId: E2E_ORGANIZATION_ID})
 
@@ -105,12 +105,12 @@ describe('Kinotic JS', () => {
 
     it('refuses an application participant at every MCP endpoint', async () => {
         // the org and system servers serve MCP and admit only their own participants; the app server serves none
-        await expect(connectMcpClient(orgServer(), APP_USER_HEADERS)).rejects.toThrowError()
+        await expect(connectMcpClient(managementServer(), APP_USER_HEADERS)).rejects.toThrowError()
         await expect(connectMcpClient(systemServer(), APP_USER_HEADERS)).rejects.toThrowError()
     })
 
     it('refuses each server\'s credentials at the other server\'s MCP endpoint', async () => {
-        await expect(connectMcpClient(orgServer(), {clientId: E2E_SYSTEM_USER_EMAIL, clientSecret: E2E_FIXTURE_PASSWORD}))
+        await expect(connectMcpClient(managementServer(), {clientId: E2E_SYSTEM_USER_EMAIL, clientSecret: E2E_FIXTURE_PASSWORD}))
             .rejects.toThrowError()
         await expect(connectMcpClient(systemServer(), {clientId: E2E_ORG_USER_EMAIL,
                                                        clientSecret: E2E_FIXTURE_PASSWORD,

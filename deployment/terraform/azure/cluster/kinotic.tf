@@ -37,18 +37,18 @@ resource "helm_release" "kinotic" {
     { name = "servers.kinotic-server-management.webServer.enabled", value = "false" },
     # Where the portal and the console live — post-OIDC redirects and the emailed links — and
     # where each server's REST endpoints live, the OIDC redirect_uri
-    { name = "servers.kinotic-server-management.orgServer.portalBaseUrl", value = "https://portal.${local.global.dns_zone_name}" },
-    { name = "servers.kinotic-server-management.orgServer.apiBaseUrl", value = "https://api.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-server-management.managementServer.portalBaseUrl", value = "https://portal.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-server-management.managementServer.apiBaseUrl", value = "https://api.${local.global.dns_zone_name}" },
     { name = "servers.kinotic-server-system.systemServer.consoleBaseUrl", value = "https://console.${local.global.dns_zone_name}" },
     { name = "servers.kinotic-server-system.systemServer.apiBaseUrl", value = "https://system-api.${local.global.dns_zone_name}" },
     # Every application's API host, <organizationId>--<applicationId>.apps-api.<zone>: what the app
     # server serves, and what the system server hands each UI build
     { name = "servers.kinotic-server-app.appServer.apiBaseUrl", value = "https://apps-api.${local.global.dns_zone_name}" },
     { name = "servers.kinotic-server-system.deployment.appApiBaseUrl", value = "https://apps-api.${local.global.dns_zone_name}" },
-    # What a workload dials: the org server for sync, the app server for runtime
-    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST", value = "api.${local.global.dns_zone_name}" },
-    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_PORT", value = "443" },
-    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_USESSL", value = "true" },
+    # What a workload dials: the management server for sync, the app server for runtime
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_HOST", value = "api.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_PORT", value = "443" },
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_USESSL", value = "true" },
     { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST", value = "apps-api.${local.global.dns_zone_name}" },
     { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_PORT", value = "443" },
     { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_USESSL", value = "true" },

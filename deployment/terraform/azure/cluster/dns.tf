@@ -1,6 +1,6 @@
 # ── DNS Records ───────────────────────────────────────────────────────────────
 # Each server's names → its LoadBalancer, which carries 443 to the server's gateway (REST,
-# STOMP/WebSocket, the login and OIDC callback endpoints): api.<domain> the org server,
+# STOMP/WebSocket, the login and OIDC callback endpoints): api.<domain> the management server,
 # system-api.<domain> the system server, and apps-api.<domain> with every application's
 # <organizationId>--<applicationId>.apps-api.<domain> the app server.
 

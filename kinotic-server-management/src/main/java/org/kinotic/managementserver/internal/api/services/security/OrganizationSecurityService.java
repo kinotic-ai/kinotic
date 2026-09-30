@@ -1,4 +1,4 @@
-package org.kinotic.orgserver.internal.api.services.security;
+package org.kinotic.managementserver.internal.api.services.security;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 /**
- * The org server's {@link SecurityService}: admits an organization's users, the clients they have authorized,
+ * The management server's {@link SecurityService}: admits an organization's users, the clients they have authorized,
  * and its machines other than application runtimes, each as an {@link OrganizationParticipant}. The credentials
  * of any other identity fail as invalid.
  */

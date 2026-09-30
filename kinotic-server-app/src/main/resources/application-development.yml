@@ -8,7 +8,7 @@ kinotic:
         port: "9200"
     secretStorage:
       backend: ~
-      # The org server's dev key: SecretNameDeriver must derive the same storage names on every
+      # The management server's dev key: SecretNameDeriver must derive the same storage names on every
       # server. Dev-only value — production supplies this via Azure Key Vault.
       masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
   appServer:

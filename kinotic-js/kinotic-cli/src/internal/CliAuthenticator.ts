@@ -13,7 +13,7 @@ import {CliLoginCredentialsResolver,
         type TokenResponse} from './CliLoginCredentialsResolver'
 import {Logger} from './Logger'
 
-/** The port the org server's gateway (REST + STOMP) listens on when no TLS terminates in front. */
+/** The port the management server's gateway (REST + STOMP) listens on when no TLS terminates in front. */
 const GATEWAY_PORT = 58503
 
 /** Identifies this CLI to the device grant, which serves only this pre-registered client. */

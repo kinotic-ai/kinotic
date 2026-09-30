@@ -15,7 +15,7 @@ kinotic:
       appSlug: kinotic-ai
       repoTemplate: kinotic-ai/kinotic-tpl-isomorphic-ts
   apiGateway:
-    # Off the org server's 58503, so the servers run side by side on one machine
+    # Off the management server's 58503, so the servers run side by side on one machine
     stompPort: 58504
     # The system console is served from its own static hosting, never from a server
     webServer:

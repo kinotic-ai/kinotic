@@ -1,4 +1,4 @@
-package org.kinotic.orgserver.internal.api.rest;
+package org.kinotic.managementserver.internal.api.rest;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
@@ -11,7 +11,7 @@ import org.kinotic.domain.api.rest.OAuthExtensionGrant;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.services.security.DeviceCodeGrantService;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
-import org.kinotic.orgserver.api.config.OrgServerProperties;
+import org.kinotic.managementserver.api.config.ManagementServerProperties;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
@@ -46,7 +46,7 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes, OAuthE
     private static final String CLI_DISPLAY_NAME = "Kinotic CLI";
 
     private final AuthEndpointSupport authEndpointSupport;
-    private final OrgServerProperties properties;
+    private final ManagementServerProperties properties;
     private final DeviceCodeGrantService deviceCodeGrantService;
 
     @Override

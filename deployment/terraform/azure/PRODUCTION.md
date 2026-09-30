@@ -8,7 +8,7 @@ Status and next steps for the Azure deployment. Items are ordered by priority wi
 - [x] Elasticsearch via ECK (1 master + 3 data in beta, 3 master + 3 data in production)
 - [x] Kinotic server (2 replicas beta / 3 production, TLS, STOMP only on LB port 443)
 - [x] TLS via cert-manager + Let's Encrypt (DNS-01 via Azure DNS, auto-renewal, Reloader)
-- [x] Azure DNS zone for kinotic.ai with A records for api (org server), system-api (system server), and apps-api and *.apps-api (app server)
+- [x] Azure DNS zone for kinotic.ai with A records for api (management server), system-api (system server), and apps-api and *.apps-api (app server)
 - [x] Static Web App for SPA (portal.kinotic.ai, free SSL, CDN)
 - [x] Consistent namespace layout (elastic-system, elastic, kinotic, observability)
 - [x] Remote terraform state backend — `bootstrap-state.sh` + Azure Storage

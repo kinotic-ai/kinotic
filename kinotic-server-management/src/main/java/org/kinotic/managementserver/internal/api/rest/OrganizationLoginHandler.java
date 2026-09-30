@@ -1,4 +1,4 @@
-package org.kinotic.orgserver.internal.api.rest;
+package org.kinotic.managementserver.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
@@ -19,7 +19,7 @@ import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
-import org.kinotic.orgserver.api.config.OrgServerProperties;
+import org.kinotic.managementserver.api.config.ManagementServerProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
@@ -37,7 +37,7 @@ import java.util.Set;
 public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
 
     private final AuthEndpointSupport authEndpointSupport;
-    private final OrgServerProperties properties;
+    private final ManagementServerProperties properties;
     private final ParticipantIdentityService identityService;
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcConfigurationService oidcConfigurationService;

@@ -1,5 +1,5 @@
 # Kind-specific values for the load-generator chart
-# Connects directly to the org server's service (TLS enabled)
+# Connects directly to the management server's service (TLS enabled)
 
 kinotic:
   useSsl: true

@@ -241,13 +241,13 @@ Azure root has uploaded them.
 ## Moving from the single kinotic-server
 
 A host built before the split runs one `kinotic-server` container, vmid 121, behind the
-router's forward. The org server takes that vmid and the edge takes the forward:
+router's forward. The management server takes that vmid and the edge takes the forward:
 
 1. **The router's forward.** In `local.auto.tfvars`, `server_ip` and `server_mac` become
    `edge_ip` and `edge_mac` with the same values. The router forwards 443 to that MAC, which is
    now the edge's, so the router needs no change.
 2. **The secrets.** The master key stays, since every stored secret is named from it, and so
-   does the JWT key set the CLI's tokens are signed with, which moves to the org server, where
+   does the JWT key set the CLI's tokens are signed with, which moves to the management server, where
    the CLI connects. The system and app servers get key sets of their own:
 
    ```bash
@@ -272,6 +272,6 @@ router's forward. The org server takes that vmid and the edge takes the forward:
 3. **The certificates.** On the host, `/opt/certbot/bin/certbot delete --cert-name dev-api.kinotic.ai`,
    whose deploy hook installs into the old directory, then the three `issue` lines above.
 4. **The Azure root** first, for the new names' records (its README), then `terraform apply`
-   here. The apply replaces container 121 with the org server and creates the system server,
+   here. The apply replaces container 121 with the management server and creates the system server,
    the app server, and the edge; the nodes take the new `hosts_entry` and `vm_manager_env`,
    whose server is now the system server's name.

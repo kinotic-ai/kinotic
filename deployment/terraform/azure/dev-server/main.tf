@@ -165,7 +165,7 @@ resource "azurerm_storage_container" "snapshots" {
 }
 
 # ── The servers' hostnames ────────────────────────────────────────────────────
-# An A record on the router's address for each name the servers answer to — the org server's,
+# An A record on the router's address for each name the servers answer to — the management server's,
 # the system server's, and the app server's own with every application's API host under it —
 # and DNS Zone Contributor so certbot on the host answers the DNS-01 challenges, and
 # kinotic-dyndns keeps the records on the router's current address, as the servers' principal.

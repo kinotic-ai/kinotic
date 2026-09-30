@@ -47,7 +47,7 @@ docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up 
 # (2) Full self-contained stack (everything in containers, including the server)
 docker compose up -d
 
-# (3) Tail the org server's logs (look here for verification URLs in dev — email is off)
+# (3) Tail the management server's logs (look here for verification URLs in dev — email is off)
 docker compose logs -f kinotic-server-management
 
 # (4) Hot-reload a server image after a build (the same for kinotic-server-system and kinotic-server-app)
@@ -66,7 +66,7 @@ docker compose down -v && docker compose up -d
 | Service | URL | Notes |
 |---|---|---|
 | Kinotic UI | <http://localhost:9090> | TLS off in compose. The `/login`, `/signup`, `/applications` routes are SPA. |
-| Org server | <http://localhost:58503> | REST, and STOMP at `ws://localhost:58503/v1` — what the SPA's `Kinotic.connect(...)` opens |
+| Management server | <http://localhost:58503> | REST, and STOMP at `ws://localhost:58503/v1` — what the SPA's `Kinotic.connect(...)` opens |
 | System server | <http://localhost:58504> | REST, and STOMP at `ws://localhost:58504/v1`, for the system console |
 | App server | <http://localhost:58505> | REST, and STOMP at `ws://localhost:58505/v1`; each application's API host is `<organizationId>--<applicationId>.localhost:58505` |
 | Elasticsearch | <http://localhost:9200> | `xpack.security.enabled=false` — local only |
@@ -85,14 +85,14 @@ include `compose.kinotic-migration.yml` without `evaluation.env` and seed none o
 ## Try the auth flow (UI devs)
 
 The full compose stack (`docker compose up -d`) gives you a working signup/login flow out
-of the box. Email delivery is off, so verification links land in the org server's log
+of the box. Email delivery is off, so verification links land in the management server's log
 instead of an inbox.
 
 ```bash
 # 1. Bring up the stack
 docker compose up -d
 
-# 2. Watch the org server's log for the verification URL on signup
+# 2. Watch the management server's log for the verification URL on signup
 docker compose logs -f kinotic-server-management | grep -i "verification URL"
 
 # 3. Open the SPA
@@ -102,7 +102,7 @@ open http://localhost:9090
 Steps in the SPA:
 
 1. Click **Sign Up**, fill in org name + email + display name, submit.
-2. Find the verification URL in the org server's log (printed by `EmailService` when email is disabled). Open it.
+2. Find the verification URL in the management server's log (printed by `EmailService` when email is disabled). Open it.
 3. Set a password → "Account created!" → click **Sign in**.
 4. Log in with the email + password you just set.
 
@@ -124,7 +124,7 @@ What this gives you:
 - Keycloak at <http://keycloak:8888> with the pre-imported `test` realm.
 - A `kinotic-client` confidential client whose secret lives in `keycloak-test-realm.json`
   (committed because the value is dev-only — never reuse beyond a developer's laptop).
-  The org server's container picks the secret up from the `KINOTIC_AKV_KEYCLOAK` env
+  The management server's container picks the secret up from the `KINOTIC_AKV_KEYCLOAK` env
   var via the dev-fallback `EnvVarSecretReferenceResolver`.
 - The **Continue with Keycloak** button isn't wired automatically — the social-button
   list is sourced from `kinotic_org_signup_oidc_configuration` rows, and no migration
@@ -142,7 +142,7 @@ docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up 
 # 2. Wait for migration to finish (it's a one-shot)
 docker compose ps kinotic-migration   # State: Exited (0)
 
-# 3. Run the OrgServerApplication, SystemServerApplication and AppServerApplication run
+# 3. Run the ManagementServerApplication, SystemServerApplication and AppServerApplication run
 #    configurations in IntelliJ (profile `development`). Each server's application-development.yml
 #    already points the elastic connection at localhost:9200.
 ```
@@ -233,7 +233,7 @@ curl -s -H 'X-Scope-OrgID: kinotic-system' 'http://localhost:3100/loki/api/v1/la
 - **Service graph**: Tempo's *Service Graph* tab and the node graph come from the
   `service-graphs` processor writing `traces_service_graph_*` into Mimir.
 
-The org server's `application-development.yml` currently has `kinotic.domain.email.enabled: true`, pointed at
+The management server's `application-development.yml` currently has `kinotic.domain.email.enabled: true`, pointed at
 the real ACS endpoint. Set it to `false` to have `EmailService` skip the send and log the
 verification URL to the IntelliJ console instead — which is what the compose stack does via
 `KINOTIC_DOMAIN_EMAIL_ENABLED=false`.

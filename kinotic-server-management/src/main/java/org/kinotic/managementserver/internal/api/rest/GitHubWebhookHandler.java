@@ -1,4 +1,4 @@
-package org.kinotic.orgserver.internal.api.rest;
+package org.kinotic.managementserver.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;

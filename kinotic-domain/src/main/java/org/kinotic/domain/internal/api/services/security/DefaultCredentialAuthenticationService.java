@@ -68,7 +68,7 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
                         ret = Future.succeededFuture(DomainUtil.createParticipant(identity));
                     } else {
                         // valid credentials of an identity another server serves, such as a system
-                        // operator's on the org server; the caller gets the answer a wrong password gets
+                        // operator's on the management server; the caller gets the answer a wrong password gets
                         log.debug("Credentials of {} identity {} are not admitted by this server",
                                   DomainUtil.describeScope(identity.getOrganizationId(), identity.getApplicationId()),
                                   identity.getId());

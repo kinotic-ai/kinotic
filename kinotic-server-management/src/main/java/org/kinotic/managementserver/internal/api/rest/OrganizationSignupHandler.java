@@ -1,4 +1,4 @@
-package org.kinotic.orgserver.internal.api.rest;
+package org.kinotic.managementserver.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -15,7 +15,7 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.services.security.SignUpService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
-import org.kinotic.orgserver.api.config.OrgServerProperties;
+import org.kinotic.managementserver.api.config.ManagementServerProperties;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
@@ -37,7 +37,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
     private final SignUpService signUpService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
-    private final OrgServerProperties properties;
+    private final ManagementServerProperties properties;
 
     @Override
     public void mountRoutes(Router router) {

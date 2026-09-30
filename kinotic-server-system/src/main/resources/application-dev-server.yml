@@ -45,7 +45,7 @@ kinotic:
     deployment:
       # the servers' hostnames and ports arrive through the environment: each is the name the
       # server's certificate carries, at the port the edge serves every name on
-      orgServer:
+      managementServer:
         useSsl: true
       appServer:
         useSsl: true

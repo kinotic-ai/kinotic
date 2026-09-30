@@ -58,7 +58,7 @@ services:
       # The workloads' server hosts are @NotBlank and validated at boot. They are set in the
       # `development` profile, which e2e drops in favor of `test,e2e-tests,compose`, so supply them
       # here. No e2e test deploys a workload, so the values only have to bind.
-      KINOTIC_SYSTEMAPI_DEPLOYMENT_ORGSERVER_HOST: localhost
+      KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_HOST: localhost
       KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST: localhost
     # Replaces compose.kinotic-servers.yml's mount of the developer's GitHub App
     volumes: !override

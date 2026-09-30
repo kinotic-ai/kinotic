@@ -1,4 +1,4 @@
-package org.kinotic.orgserver.internal.api.rest;
+package org.kinotic.managementserver.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.ext.web.RoutingContext;
@@ -8,16 +8,16 @@ import org.kinotic.domain.api.services.security.KinoticJwtIssuer;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.RefreshTokenService;
-import org.kinotic.orgserver.api.config.OrgServerProperties;
+import org.kinotic.managementserver.api.config.ManagementServerProperties;
 import org.springframework.stereotype.Component;
 
-/** The org server's {@link AuthEndpointSupport}: its browser flows send the user to the portal. */
+/** The management server's {@link AuthEndpointSupport}: its browser flows send the user to the portal. */
 @Component
-public class OrgAuthEndpointSupport extends AuthEndpointSupport {
+public class ManagementAuthEndpointSupport extends AuthEndpointSupport {
 
-    private final OrgServerProperties properties;
+    private final ManagementServerProperties properties;
 
-    public OrgAuthEndpointSupport(OrgServerProperties properties,
+    public ManagementAuthEndpointSupport(ManagementServerProperties properties,
                                   KinoticJwtIssuer jwtIssuer,
                                   OrgSignupOidcConfigurationService orgSignupOidcConfigurationService,
                                   OidcFlowOrchestrator oidcFlowOrchestrator,

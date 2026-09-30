@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="OrgServerApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+  <configuration default="false" name="ManagementServerApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
     <option name="ACTIVE_PROFILES" value="development" />
     <option name="ALTERNATIVE_JRE_PATH" value="graalvm-ce-25" />
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
@@ -16,7 +16,7 @@
       <env name="OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING" value="localhost:9200=elasticsearch" />
     </envs>
     <module name="kinotic.kinotic-server-management.main" />
-    <option name="SPRING_BOOT_MAIN_CLASS" value="org.kinotic.orgserver.OrgServerApplication" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="org.kinotic.managementserver.ManagementServerApplication" />
     <option name="VM_PARAMETERS" value="-javaagent:$PROJECT_DIR$/kinotic-server-management/build/otel-agent/opentelemetry-javaagent.jar -XX:MaxDirectMemorySize=1g -Xmx4096m -XX:+AlwaysPreTouch -XX:+DisableExplicitGC --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED" />
     <extension name="net.ashald.envfile">
       <option name="IS_ENABLED" value="true" />

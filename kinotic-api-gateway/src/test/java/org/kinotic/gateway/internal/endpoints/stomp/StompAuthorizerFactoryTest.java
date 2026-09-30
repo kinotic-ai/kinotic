@@ -187,15 +187,15 @@ public class StompAuthorizerFactoryTest {
     }
 
     @Test
-    public void theOrgServerRoutesOnlyToZonesItReaches() {
-        factory = new StompAuthorizerFactory(ZonePartitioningService.of("org",
+    public void theManagementServerRoutesOnlyToZonesItReaches() {
+        factory = new StompAuthorizerFactory(ZonePartitioningService.of("management",
                                                                         Set.of("management-api"),
                                                                         Set.of("management-api", "system-api", "app-api")));
         StompAuthorizer organization = organizationAuthorizer("acme-org");
 
         assertTrue(organization.sendAllowed(CRI.create("srv://management-api~org.kinotic.management.api.services.iam.MemberService/findMembers#1.0.0")));
         assertTrue(organization.sendAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
-        // the participant may address its applications' zones, but the org server does not reach them
+        // the participant may address its applications' zones, but the management server does not reach them
         assertFalse(organization.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
         // nor host them, so an application's runtime cannot publish its services here
         assertFalse(organization.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));

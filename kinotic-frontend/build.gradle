@@ -45,7 +45,7 @@ task deleteDist(type: Delete){
            "${project.projectDir}/apps/system/dist/"
 }
 
-// Only the portal is baked into a server, the org server (docker-compose serves it from webroot).
+// Only the portal is baked into a server, the management server (docker-compose serves it from webroot).
 // The system console's dist is deployed to its own static hosting, never into a jar.
 task copyDist(type: Copy){
     from "${project.projectDir}/apps/portal/dist"

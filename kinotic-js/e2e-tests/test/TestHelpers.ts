@@ -77,8 +77,8 @@ export function kinoticServer(name: KinoticServerName): ServerInfo {
     return {host: kinoticHost(), port, useSSL: false}
 }
 
-/** The org server, where an organization's users and machines connect. */
-export function orgServer(): ServerInfo {
+/** The management server, where an organization's users and machines connect. */
+export function managementServer(): ServerInfo {
     return kinoticServer('kinotic-server-management')
 }
 
@@ -92,13 +92,13 @@ export function appServer(): ServerInfo {
     return kinoticServer('kinotic-server-app')
 }
 
-/** REST base URL of the given server, the org server by default. */
-export function restBase(server: ServerInfo = orgServer()): string {
+/** REST base URL of the given server, the management server by default. */
+export function restBase(server: ServerInfo = managementServer()): string {
     return buildServerUrl(server, 'http')
 }
 
-/** STOMP broker URL of the given server, the org server by default. */
-export function stompUrl(server: ServerInfo = orgServer()): string {
+/** STOMP broker URL of the given server, the management server by default. */
+export function stompUrl(server: ServerInfo = managementServer()): string {
     return buildBrokerUrl(server)
 }
 
@@ -111,7 +111,7 @@ export function postForm(url: string, params: Record<string, string>): Promise<R
     })
 }
 
-export function buildConnectOptions(credentials: CredentialsResolver, server: ServerInfo = orgServer()): ConnectOptions {
+export function buildConnectOptions(credentials: CredentialsResolver, server: ServerInfo = managementServer()): ConnectOptions {
     return {
         server,
         sessionKeepAlive: SessionKeepAliveMode.NONE,

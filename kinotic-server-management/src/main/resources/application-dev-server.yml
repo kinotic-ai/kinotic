@@ -1,4 +1,4 @@
-# The development server's org server: kinotic-server-management as a container on one Proxmox host
+# The development server's management server: kinotic-server-management as a container on one Proxmox host
 # beside three Elasticsearch nodes and the observability stack (deployment/terraform/proxmox),
 # with Front Door, the sites storage account, email, and a Key Vault in Azure
 # (deployment/terraform/azure/dev-server). Activated as `production,dev-server`. Holds what is
@@ -24,7 +24,7 @@ kinotic:
     webServer:
       enabled: false
     ssl:
-      # certbot's certificate for the org server's hostname, mounted from the host; Vert.x
+      # certbot's certificate for the management server's hostname, mounted from the host; Vert.x
       # terminates TLS, and the edge passes each connection through unopened
       enabled: true
       certPath: /etc/kinotic/certs/fullchain.pem

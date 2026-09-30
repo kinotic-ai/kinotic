@@ -7,7 +7,7 @@ Allure report.
 ```bash
 pnpm install
 
-# Against a stack already running on 127.0.0.1: the org server on 58503, the system server on 58504
+# Against a stack already running on 127.0.0.1: the management server on 58503, the system server on 58504
 # and the app server on 58505
 pnpm test
 
@@ -21,8 +21,8 @@ pnpm ui-test       # vitest --ui
 `deployment/docker-compose/compose.kinotic-e2e-test.yml` (Elasticsearch + migration + the org,
 system and app servers on the `test,e2e-tests,compose` profiles) and hands each server's mapped
 port to the suites; otherwise it points them at the ports that file publishes on `127.0.0.1`. A
-suite reaches a server through `orgServer()`, `systemServer()` or `appServer()` in
-`test/TestHelpers.ts`: an organization's users and machines connect to the org server, platform
+suite reaches a server through `managementServer()`, `systemServer()` or `appServer()` in
+`test/TestHelpers.ts`: an organization's users and machines connect to the management server, platform
 operators to the system server, and an application's users and machines to the app server.
 
 ## Node-failure suite

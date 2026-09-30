@@ -1,5 +1,5 @@
 # Azure production values for the load-generator chart.
-# Connects directly to the org server's internal service (cluster-internal). The pods serve TLS
+# Connects directly to the management server's internal service (cluster-internal). The pods serve TLS
 # even cluster-internally, under the cluster certificate's public names.
 
 kinotic:

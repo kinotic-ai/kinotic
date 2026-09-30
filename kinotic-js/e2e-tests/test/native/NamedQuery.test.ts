@@ -97,14 +97,14 @@ describe('Kinotic JS', () => {
     )
 
     it<LocalTestContext>(
-        'Runs the named query the org server saved last',
+        'Runs the named query the management server saved last',
         async ({entityService, applicationIdUsed, projectIdUsed}) => {
             await createTestPeopleAndVerify(entityService, 100)
 
             const structureId = entityService.entityId
             const namedQueriesService = Kinotic.namedQueriesDefinitions
 
-            // saved through the org server, run on the app server, which caches the query it runs
+            // saved through the management server, run on the app server, which caches the query it runs
             const countAll = new FunctionDefinition('countPeople',
                                                     [new QueryDecorator(`SELECT COUNT(firstName) as count FROM "kinotic_${structureId}"`)])
             countAll.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCount', applicationIdUsed)

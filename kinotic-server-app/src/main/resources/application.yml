@@ -10,7 +10,7 @@ kinotic:
         # Claude web, desktop, and mobile custom connectors
         - https://claude.ai/oauth/mcp-oauth-client-metadata
   apiGateway:
-    # Off the org server's 58503 and the system server's 58504, so the servers run side by side
+    # Off the management server's 58503 and the system server's 58504, so the servers run side by side
     # on one machine
     stompPort: 58505
     # Applications' UIs are published to the sites domain, never served from a server
