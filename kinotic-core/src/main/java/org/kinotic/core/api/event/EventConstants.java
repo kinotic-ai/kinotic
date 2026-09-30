@@ -34,14 +34,6 @@ public class EventConstants {
     public static final String SESSION_HEADER = "session";
 
     /**
-     * Name of the browser session cookie, set by the api-gateway on login and presented on every
-     * request and WebSocket handshake. The {@code __Host-} prefix makes browsers accept it only
-     * when Secure, path {@code /} and without a Domain, so no page on a sibling host can plant
-     * or override it.
-     */
-    public static final String SESSION_COOKIE_NAME = "__Host-kinotic-session";
-
-    /**
      * Browser-readable cookie that indicates whether a session may be available.
      */
     public static final String SESSION_AVAILABLE_COOKIE_NAME = "sessionAvailable";

@@ -23,7 +23,7 @@ os_disk_size_gb   = 128
 terraform_principal_object_id = "00000000-0000-0000-0000-000000000000"  # set in local.auto.tfvars
 
 # ── Kinotic Server ────────────────────────────────────────────────────────────
-kinotic_version = "4.2.0-SNAPSHOT"
+kinotic_version = "5.0.0-SNAPSHOT"
 
 # ── TLS ───────────────────────────────────────────────────────────────────────
 lets_encrypt_email = ""  # set in local.auto.tfvars

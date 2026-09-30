@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.hooks.impl;
 
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.model.idl.decorators.TenantIdDecorator;
+import org.kinotic.domain.api.model.persistence.idl.decorators.TenantIdDecorator;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
 import org.springframework.stereotype.Component;
 

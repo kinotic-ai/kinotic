@@ -91,10 +91,13 @@ az ad group member add --group kinotic-terraform-operators \
 ```bash
 cd global
 terraform init
-TF_VAR_google_client_secret=... TF_VAR_github_client_secret=... terraform apply
+TF_VAR_google_client_secret=... TF_VAR_github_client_secret=... \
+  TF_VAR_github_app_private_key="$(cat <the App's private-key .pem>)" TF_VAR_github_webhook_secret=... \
+  terraform apply
 ```
 
-This creates the DNS zone and Entra ID app registrations. Copy the nameservers
+This creates the DNS zone, the Entra ID app registrations, and the platform Key Vault
+holding the secrets the servers mount. Copy the nameservers
 to your domain registrar:
 
 ```bash
@@ -156,7 +159,7 @@ terraform apply     # creates Static Web App + DNS CNAME (first time only)
 
 ## Developer UI Publishing
 
-A kinotic-server on a developer machine publishes UIs to a real subscription with the `dev`
+The system server on a developer machine publishes UIs to a real subscription with the `dev`
 root: a resource group the organization storage accounts are created in, a Front Door
 Standard profile and endpoint under `apps-<environment>.<zone>`, and a service principal
 for the server holding Contributor and Storage Blob Data Contributor on the group, DNS Zone
@@ -172,10 +175,10 @@ picks them up through `DefaultAzureCredential`. Its secret is also in this root'
 cd dev
 terraform init
 terraform apply   # environment = "local" in terraform.tfvars; pick a name of your own
-terraform output -raw application_local_yml > ../../../../kinotic-server/src/main/resources/application-local.yml
+terraform output -raw application_local_yml > ../../../../kinotic-server-system/src/main/resources/application-local.yml
 ```
 
-Then run the server with `SPRING_PROFILES_ACTIVE=development,local`. [dev/README.md](dev/README.md)
+Then run the system server with `SPRING_PROFILES_ACTIVE=development,local`. [dev/README.md](dev/README.md)
 has the full walkthrough, from prerequisites to teardown.
 
 ## Deploy Options
@@ -208,7 +211,7 @@ terraform apply -var="beta_mode=false"
 | VNet, subnet, identities | `cluster/` | Disposable |
 | cert-manager + TLS cert | `cluster/` | Disposable (re-issued on rebuild) |
 | Elasticsearch + ECK | `cluster/` | Disposable (data lost on destroy) |
-| kinotic-server | `cluster/` | Disposable |
+| The Kinotic servers (org, system, app) | `cluster/` | Disposable |
 | Observability (Loki, Alloy, Grafana) | `cluster/` | Disposable |
 | Firecracker VMs | `cluster/` | Disposable |
 | Static Web App (SPA) | `frontend/` | Independent |

@@ -16,9 +16,9 @@ export async function setup(project: TestProject) {
 
         container = await new GenericContainer(KINOTIC_DOCKER_IMAGE)
             .withExposedPorts(58503)
-            .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
             // /health is the gateway readiness endpoint on the STOMP port; it returns 204 with no
-            // health procedures registered (clienttest) and 200 once they are, so accept either.
+            // health procedures registered (the test server registers none) and 200 once
+            // they are, so accept either.
             .withWaitStrategy(Wait.forHttp('/health', 58503).forStatusCodeMatching(c => c === 200 || c === 204))
             .start()
 

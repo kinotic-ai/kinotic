@@ -19,11 +19,6 @@ import org.springframework.stereotype.Component;
 public class KinoticApiGatewayProperties extends KinoticProperties {
 
     /**
-     * If true, API gateway functionality will not be loaded.
-     */
-    private boolean disableApiGateway = false;
-
-    /**
      * API gateway properties configuration
      */
     private ApiGatewayProperties apiGateway = new ApiGatewayProperties();

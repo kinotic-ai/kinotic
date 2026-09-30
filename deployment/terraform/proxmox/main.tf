@@ -1,10 +1,13 @@
 # ── The development server on Proxmox ────────────────────────────────────────
 # One container per service, on one host. Every service the compose stack runs locally —
-# kinotic-server, the one-shot migration, three Elasticsearch nodes, Loki, Tempo, Mimir,
-# Grafana — is an unprivileged LXC container created from the image compose pulls, with its
-# state in a host directory: the Elasticsearch nodes on a physical disk each. The workload
-# nodes are separate machines provisioned with deployment/vm-node; they dial the server and
-# the stores on the LAN, and the vm_manager_env output is their configuration.
+# the org, system and app servers, the one-shot migration, three Elasticsearch nodes, Loki,
+# Tempo, Mimir, Grafana — is an unprivileged LXC container created from the image compose
+# pulls, with its state in a host directory: the Elasticsearch nodes on a physical disk each.
+# The servers live on the private network; the edge, an HAProxy container on the LAN, takes
+# the router's forwarded 443 and passes each TLS connection, unopened, to the server its SNI
+# names. The workload nodes are separate machines provisioned with deployment/vm-node; they
+# dial the servers through the edge and the stores on the LAN, and the vm_manager_env output
+# is their configuration.
 #
 # Terraform owns what the Proxmox API exposes: the private network, the images, the
 # containers with their mounts, and the files it uploads to the host. The rest —
@@ -24,18 +27,22 @@ data "terraform_remote_state" "azure" {
 locals {
   azure = data.terraform_remote_state.azure.outputs
 
-  server_ip  = split("/", var.server_ip)[0]
+  edge_ip    = split("/", var.edge_ip)[0]
   loki_ip    = split("/", var.loki_ip)[0]
   tempo_ip   = split("/", var.tempo_ip)[0]
   mimir_ip   = split("/", var.mimir_ip)[0]
   grafana_ip = split("/", var.grafana_ip)[0]
 
-  # The private network: the host is its gateway, the ES nodes take .11 to .13
+  # The private network: the host is its gateway, the edge takes .10, the ES nodes .11 to .13,
+  # the servers .20, .22 and .23, the migration .21
   private_prefix       = split("/", var.private_cidr)[1]
   private_gateway      = cidrhost(var.private_cidr, 1)
+  edge_private_ip      = cidrhost(var.private_cidr, 10)
   es_ips               = [for i in range(3) : cidrhost(var.private_cidr, 11 + i)]
-  server_private_ip    = cidrhost(var.private_cidr, 20)
   migration_private_ip = cidrhost(var.private_cidr, 21)
+
+  # The router forwards the public 443 to the same port on the edge, which serves every name there
+  public_port = 443
 
   compose_dir = "${path.module}/../../docker-compose"
   config_root = "${var.data_dir}/config"
@@ -84,7 +91,12 @@ locals {
         GF_PATHS_PROVISIONING = "/etc/grafana/provisioning"
       }
     }
-    # The buildpack images: kinotic-server and kinotic-migration
+    # The image's docker-entrypoint.sh runs a bare haproxy command with -W -db
+    haproxy = {
+      entrypoint = "/usr/local/bin/docker-entrypoint.sh haproxy -f /usr/local/etc/haproxy/haproxy.cfg"
+      env        = { PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" }
+    }
+    # The buildpack images: the three servers and kinotic-migration
     cnb = {
       entrypoint = "/cnb/process/web"
       env = {
@@ -156,36 +168,83 @@ locals {
     timeout          = 300
   } }
 
-  # The non-secret half of the server's environment: the compose service's, the Azure root's
-  # outputs, and the addresses only this root knows. The secret half is merged on the host.
+  # The three servers. Each serves its gateway on its own port on the private network, behind
+  # the edge, under the hostnames its certificate carries, and adds what is its alone to the
+  # environment every server shares.
+  servers = {
+    kinotic-server-management = {
+      vm_id       = 121
+      private_ip  = cidrhost(var.private_cidr, 20)
+      port        = 58503
+      hostnames   = [local.azure.api_hostname]
+      description = "the organizations' API: the portal, the CLI, MCP hosts, the GitHub webhook"
+      env = {
+        KINOTIC_MANAGEMENTSERVER_APIBASEURL     = "https://${local.azure.api_hostname}"
+        KINOTIC_MANAGEMENTSERVER_PORTALBASEURL  = "https://${local.azure.portal_hostname}"
+        # the emailed verification and invite links open in the portal
+        KINOTIC_DOMAIN_EMAIL_LINKBASEURL = "https://${local.azure.portal_hostname}"
+        KINOTIC_MANAGEMENTAPI_LOKIURL    = local.service_urls["http://loki:3100"]
+        KINOTIC_MANAGEMENTAPI_TEMPOURL   = local.service_urls["http://tempo:3200"]
+        KINOTIC_MANAGEMENTAPI_MIMIRURL   = local.service_urls["http://mimir:9009"]
+      }
+    }
+    kinotic-server-system = {
+      vm_id       = 122
+      private_ip  = cidrhost(var.private_cidr, 22)
+      port        = 58504
+      hostnames   = [local.azure.system_api_hostname]
+      description = "the platform's own API: the system console, the nodes' vm-manager"
+      env = {
+        KINOTIC_SYSTEMSERVER_APIBASEURL     = "https://${local.azure.system_api_hostname}"
+        KINOTIC_SYSTEMSERVER_CONSOLEBASEURL = "https://${local.azure.console_hostname}"
+        # What a UI build is handed: the app server as a browser reaches it
+        KINOTIC_SYSTEMAPI_DEPLOYMENT_APPAPIBASEURL = "https://${local.azure.apps_api_domain}"
+        # Invites the member service this server hosts sends are accepted in the portal
+        KINOTIC_DOMAIN_EMAIL_LINKBASEURL = "https://${local.azure.portal_hostname}"
+        # What a workload dials, by the name its certificate carries, and the one destination its
+        # egress policy permits; the node pins every server's name to the edge's LAN address
+        # (hosts_entry)
+        KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_HOST = local.azure.api_hostname
+        KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_PORT = tostring(local.public_port)
+        KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST = local.azure.apps_api_domain
+        KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_PORT = tostring(local.public_port)
+        KINOTIC_MANAGEMENTAPI_LOKIURL               = local.service_urls["http://loki:3100"]
+        KINOTIC_MANAGEMENTAPI_TEMPOURL              = local.service_urls["http://tempo:3200"]
+        KINOTIC_MANAGEMENTAPI_MIMIRURL              = local.service_urls["http://mimir:9009"]
+      }
+    }
+    kinotic-server-app = {
+      vm_id       = 123
+      private_ip  = cidrhost(var.private_cidr, 23)
+      port        = 58505
+      hostnames   = [local.azure.apps_api_domain, "*.${local.azure.apps_api_domain}"]
+      description = "every application's API, at <organizationId>--<applicationId>.${local.azure.apps_api_domain}"
+      env = {
+        KINOTIC_APPSERVER_APIBASEURL = "https://${local.azure.apps_api_domain}"
+      }
+    }
+  }
+
+  # The non-secret half of what every server's environment shares: the compose services', the
+  # Azure root's outputs, and the addresses only this root knows. The secret half is merged on
+  # the host.
   server_env = merge(local.azure.dev_server_env, merge([for i, ip in local.es_ips : {
     "KINOTIC_DOMAIN_ELASTICCONNECTIONS_${i}_SCHEME" = "http"
     "KINOTIC_DOMAIN_ELASTICCONNECTIONS_${i}_HOST"   = ip
     "KINOTIC_DOMAIN_ELASTICCONNECTIONS_${i}_PORT"   = "9200"
     }]...), {
-    SPRING_PROFILES_ACTIVE      = "production,dev-server"
-    BPL_JVM_HEAD_ROOM           = "10"
-    JAVA_TOOL_OPTIONS           = "-XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED"
-    KINOTIC_MAX_OFF_HEAP_MEMORY = "419430400"
-
-    # The portal is on Front Door; the router forwards 443 to the same port here, so the
-    # public API URL has no port
-    KINOTIC_DOMAIN_APPBASEURL    = "https://${local.azure.portal_hostname}"
-    KINOTIC_DOMAIN_APIBASEURL    = "https://${local.azure.api_hostname}"
-    KINOTIC_APIGATEWAY_STOMPPORT = tostring(var.api_port)
+    SPRING_PROFILES_ACTIVE       = "production,dev-server"
+    BPL_JVM_HEAD_ROOM            = "10"
+    JAVA_TOOL_OPTIONS            = "-XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED"
+    KINOTIC_MAX_OFF_HEAP_MEMORY  = "419430400"
     KINOTIC_DOMAIN_EMAIL_ENABLED = "true"
-    # What a workload dials, by the name its certificate carries, and the one destination every
-    # egress policy permits; the node pins the name to the LAN address for its guests (hosts_entry)
-    KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERHOST = local.azure.api_hostname
-    KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERPORT = tostring(var.api_port)
-    KINOTIC_MANAGEMENTAPI_LOKIURL           = local.service_urls["http://loki:3100"]
-    KINOTIC_MANAGEMENTAPI_TEMPOURL          = local.service_urls["http://tempo:3200"]
-    KINOTIC_MANAGEMENTAPI_MIMIRURL          = local.service_urls["http://mimir:9009"]
+
+    # The servers find each other over their private addresses and form one Ignite cluster
+    KINOTIC_IGNITE_DISCOVERYTYPE  = "LOCAL"
+    KINOTIC_IGNITE_LOCALADDRESSES = join(",", [for server in local.servers : "${server.private_ip}:47500"])
 
     # No collector: the agent exports each signal to its store's OTLP endpoint, under the
-    # platform tenant, which is what the compose collector stamps on the server's telemetry
-    OTEL_SERVICE_NAME                   = "kinotic-server"
-    OTEL_RESOURCE_ATTRIBUTES            = "service.name=kinotic-server"
+    # platform tenant, which is what the compose collector stamps on the servers' telemetry
     OTEL_TRACES_EXPORTER                = "otlp"
     OTEL_METRICS_EXPORTER               = "otlp"
     OTEL_LOGS_EXPORTER                  = "otlp"
@@ -200,10 +259,46 @@ locals {
     OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING = join(",", [for ip in local.es_ips : "${ip}:9200=elasticsearch"])
   })
 
-  containers = merge(local.es_containers, {
+  server_containers = { for name, server in local.servers : name => {
+    vm_id         = server.vm_id
+    description   = "${name}: ${server.description}; the gateway on :${server.port} with TLS, behind the edge"
+    image         = proxmox_oci_image.server[name].id
+    cores         = var.server_cores
+    memory        = var.server_memory_mb
+    order         = 30
+    start_on_boot = true
+    run_once      = false
+    # The private network alone, for Elasticsearch, the other servers and the edge; the host
+    # routes and source-NATs the rest, Azure and the stores on the LAN among it
+    interfaces = [{ bridge = var.private_network, address = "${server.private_ip}/${local.private_prefix}", gateway = local.private_gateway }]
+    # secrets.yml, the JWT key set and the certificate, placed by sync-secrets.sh and certbot
+    mounts     = [{ volume = "${var.secrets_dir}/${name}", path = "/etc/kinotic", read_only = true }]
+    entrypoint = local.images.cnb.entrypoint
+    image_env  = local.images.cnb.env
+    env = merge(local.server_env, server.env, {
+      KINOTIC_IGNITE_LOCALADDRESS = server.private_ip
+      OTEL_SERVICE_NAME           = name
+      OTEL_RESOURCE_ATTRIBUTES    = "service.name=${name}"
+    })
+    secrets_env      = "${var.secrets_dir}/kinotic-servers.env"
+    files            = {}
+    uid              = 1002
+    gid              = 1001
+    privileged_ports = false
+    wait_for         = local.es_healthy
+    verify           = null
+    timeout          = 300
+  } }
+
+  edge_config = templatefile("${path.module}/haproxy.cfg.tftpl", {
+    port    = local.public_port
+    servers = local.servers
+  })
+
+  containers = merge(local.es_containers, local.server_containers, {
     loki = {
       vm_id            = 110
-      description      = "Loki: logs, multi-tenant; the node's Alloy and the server push here"
+      description      = "Loki: logs, multi-tenant; the node's Alloy and the servers push here"
       image            = proxmox_oci_image.loki.id
       cores            = 2
       memory           = 1024
@@ -342,38 +437,38 @@ locals {
       verify           = "curl -sf http://${local.es_ips[0]}:9200/migration_history >/dev/null"
       timeout          = 900
     }
-    kinotic-server = {
-      vm_id         = 121
-      description   = "kinotic-server: REST, STOMP and MCP on :${var.api_port} with TLS; the router forwards 443 here"
-      image         = proxmox_oci_image.kinotic_server.id
-      cores         = var.server_cores
-      memory        = var.server_memory_mb
-      order         = 30
+    edge = {
+      vm_id         = 130
+      description   = "The edge: HAProxy on :${local.public_port}, which the router forwards to; passes each TLS connection, unopened, to the server its SNI names"
+      image         = proxmox_oci_image.haproxy.id
+      cores         = 1
+      memory        = 256
+      order         = 35
       start_on_boot = true
       run_once      = false
-      # The LAN for peers, the node VM and Azure; the private network for Elasticsearch
-      # The LAN address comes from the router's reservation for the fixed MAC
+      # The LAN for peers, GitHub and the nodes, with the address the router reserves for the
+      # fixed MAC; the private network for the servers
       interfaces = [
-        { bridge = var.bridge, address = "dhcp", gateway = null, mac = var.server_mac },
-        { bridge = var.private_network, address = "${local.server_private_ip}/${local.private_prefix}", gateway = null, mac = null },
+        { bridge = var.bridge, address = "dhcp", gateway = null, mac = var.edge_mac },
+        { bridge = var.private_network, address = "${local.edge_private_ip}/${local.private_prefix}", gateway = null, mac = null },
       ]
-      # secrets.yml, the JWT key set and the certificate, placed by sync-secrets.sh and certbot
-      mounts           = [{ volume = "${var.secrets_dir}/kinotic-server", path = "/etc/kinotic", read_only = true }]
-      entrypoint       = local.images.cnb.entrypoint
-      image_env        = local.images.cnb.env
-      env              = local.server_env
-      secrets_env      = "${var.secrets_dir}/kinotic-server.env"
-      files            = {}
-      uid              = 1002
-      gid              = 1001
-      privileged_ports = var.api_port < 1024
-      wait_for         = local.es_healthy
+      mounts           = [{ volume = "${local.config_root}/edge", path = "/usr/local/etc/haproxy", read_only = true }]
+      entrypoint       = local.images.haproxy.entrypoint
+      image_env        = local.images.haproxy.env
+      env              = {}
+      privileged_ports = local.public_port < 1024
+      secrets_env      = null
+      files            = { "haproxy.cfg" = local.edge_config }
+      uid              = 99
+      gid              = 99
+      wait_for         = null
       verify           = null
       timeout          = 300
     }
   })
 
-  # The startup order is the apply order too: Elasticsearch, the stores, the migration, the server
+  # The startup order is the apply order too: Elasticsearch, the stores, the migration, the
+  # servers, and the edge, which opens them to the internet once they are up
   apply_order = [for entry in sort([for name, c in local.containers : format("%02d %s", c.order, name)]) : split(" ", entry)[1]]
 
   # Every config file, uploaded flat as a snippet and copied by the applier into the host
@@ -448,13 +543,16 @@ resource "proxmox_sdn_applier" "private" {
 }
 
 # ── Images ────────────────────────────────────────────────────────────────────
-# The images compose pulls, as container templates. A tag is pulled once: to pick up a
-# republished SNAPSHOT, replace the image and the containers built from it (README.md).
+# The images compose pulls, and the edge's HAProxy, as container templates. A tag is pulled
+# once: to pick up a republished SNAPSHOT, replace the image and the containers built from it
+# (README.md).
 
-resource "proxmox_oci_image" "kinotic_server" {
+resource "proxmox_oci_image" "server" {
+  for_each = local.servers
+
   node_name    = var.proxmox_node
   datastore_id = var.files_datastore_id
-  reference    = "docker.io/kinoticai/kinotic-server:${var.kinotic_version}"
+  reference    = "docker.io/kinoticai/${each.key}:${var.kinotic_version}"
 }
 
 resource "proxmox_oci_image" "kinotic_migration" {
@@ -491,6 +589,12 @@ resource "proxmox_oci_image" "grafana" {
   node_name    = var.proxmox_node
   datastore_id = var.files_datastore_id
   reference    = "docker.io/grafana/grafana:${var.grafana_version}"
+}
+
+resource "proxmox_oci_image" "haproxy" {
+  node_name    = var.proxmox_node
+  datastore_id = var.files_datastore_id
+  reference    = "docker.io/library/haproxy:${var.haproxy_version}"
 }
 
 # ── Files on the host ─────────────────────────────────────────────────────────
@@ -632,6 +736,29 @@ resource "proxmox_virtual_environment_container" "fleet" {
   }
 
   depends_on = [proxmox_sdn_applier.private, terraform_data.prepare]
+}
+
+# The management server takes the vmid the single kinotic-server had, so the container is replaced in
+# place rather than created beside one that still holds its vmid
+moved {
+  from = proxmox_virtual_environment_container.fleet["kinotic-server"]
+  to   = proxmox_virtual_environment_container.fleet["kinotic-org-server"]
+}
+
+# The servers' modules were renamed; each container follows its server's new name
+moved {
+  from = proxmox_virtual_environment_container.fleet["kinotic-org-server"]
+  to   = proxmox_virtual_environment_container.fleet["kinotic-server-management"]
+}
+
+moved {
+  from = proxmox_virtual_environment_container.fleet["kinotic-system-server"]
+  to   = proxmox_virtual_environment_container.fleet["kinotic-server-system"]
+}
+
+moved {
+  from = proxmox_virtual_environment_container.fleet["kinotic-app-server"]
+  to   = proxmox_virtual_environment_container.fleet["kinotic-server-app"]
 }
 
 locals {

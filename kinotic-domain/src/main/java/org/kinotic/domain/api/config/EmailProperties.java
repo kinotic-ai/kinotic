@@ -25,6 +25,13 @@ public class EmailProperties {
     private boolean enabled = true;
 
     /**
+     * Base URL of the UI that serves the verification and invite pages the platform's emails link to
+     * (scheme + host + optional port, no trailing slash). Set on every server that sends mail: the org
+     * server for sign-ups, and every server hosting the management-api, whose member service sends invites.
+     */
+    private String linkBaseUrl;
+
+    /**
      * ACS endpoint URL, e.g. {@code https://my-acs-resource.communication.azure.com}.
      * Required when {@link #enabled} is {@code true}.
      */

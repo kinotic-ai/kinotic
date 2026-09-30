@@ -21,9 +21,8 @@ variable "worker_count" {
 # ── Kinotic Server ────────────────────────────────────────
 
 variable "kinotic_version" {
-  description = "Kinotic server image tag (published to Docker Hub)"
+  description = "Kinotic server and migration image tag (published to Docker Hub)"
   type        = string
-  default     = "latest"
 }
 
 # ── Feature Flags ─────────────────────────────────────────

@@ -31,7 +31,7 @@ database:
   user: keycloak
   password: keycloak
 
-# TLS — uses the same mkcert secret as kinotic-server
+# TLS — uses the same mkcert secret as the Kinotic servers
 tls:
   enabled: true
   secretName: kinotic-tls

@@ -22,13 +22,7 @@ import org.springframework.validation.annotation.Validated;
 public class KinoticPersistenceProperties extends KinoticProperties {
 
     /**
-     * If true, persistence functionality will not be loaded.
-     */
-    private boolean disablePersistence = false;
-
-    /**
      * Persistence properties configuration
-     * NOTE: will be ignored if {@link KinoticPersistenceProperties#disablePersistence} = true
      */
     @Valid
     private PersistenceProperties persistence = new PersistenceProperties();

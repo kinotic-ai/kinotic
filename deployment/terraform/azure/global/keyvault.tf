@@ -1,8 +1,9 @@
 # ── Platform Key Vault ────────────────────────────────────────────────────────
-# Holds platform-wide secrets (JWT signing keys, secret-storage master keys) that every
-# kinotic cluster consumes via the Secrets Store CSI driver. Rotation is performed
-# out-of-band (`az keyvault secret set ...`); terraform intentionally does not manage the
-# secret values after initial seeding — hence `lifecycle.ignore_changes = [value]`.
+# Holds platform-wide secrets (each server's JWT signing keys, the secret-storage master key, the
+# GitHub App's private key and webhook secret) that every kinotic cluster consumes via the
+# Secrets Store CSI driver. Rotation is performed out-of-band (`az keyvault secret set ...`);
+# terraform intentionally does not manage the secret values after initial seeding — hence
+# `lifecycle.ignore_changes = [value]`.
 
 resource "azurerm_key_vault" "platform" {
   name                       = "kv-${var.project}-platform"
@@ -50,26 +51,62 @@ resource "terraform_data" "wait_for_kv_rbac" {
 # (Base64.getDecoder().decode(...)). `b64_std` attribute produces padded base64 which our
 # VersionedKeySet parser accepts.
 
+locals {
+  # Each server signs its tokens with a key set of its own
+  servers = ["kinotic-server-management", "kinotic-server-system", "kinotic-server-app"]
+}
+
 resource "random_id" "jwt_signing_key_v1" {
+  for_each    = toset(local.servers)
   byte_length = 32
 }
 
-resource "random_id" "secret_storage_master_key_v1" {
+# The management server keeps the key set the single server signed with
+moved {
+  from = random_id.jwt_signing_key_v1
+  to   = random_id.jwt_signing_key_v1["kinotic-org-server"]
+}
+
+# The servers' modules were renamed; each key set follows its server's new name
+moved {
+  from = random_id.jwt_signing_key_v1["kinotic-org-server"]
+  to   = random_id.jwt_signing_key_v1["kinotic-server-management"]
+}
+
+moved {
+  from = random_id.jwt_signing_key_v1["kinotic-system-server"]
+  to   = random_id.jwt_signing_key_v1["kinotic-server-system"]
+}
+
+moved {
+  from = random_id.jwt_signing_key_v1["kinotic-app-server"]
+  to   = random_id.jwt_signing_key_v1["kinotic-server-app"]
+}
+
+resource "random_id" "secret_storage_master_key" {
   byte_length = 32
+}
+
+moved {
+  from = random_id.secret_storage_master_key_v1
+  to   = random_id.secret_storage_master_key
 }
 
 # ── Secrets ───────────────────────────────────────────────────────────────────
-# VersionedKeySet JSON documents. Adding a new version later = az cli update to add `v2`
-# and flip `activeKeyId`; terraform does not revisit the value because of ignore_changes.
 
+# Each server's JWT signing keys, a VersionedKeySet JSON document. Adding a new version later =
+# az cli update to add `v2` and flip `activeKeyId`; terraform does not revisit the value because
+# of ignore_changes.
 resource "azurerm_key_vault_secret" "jwt_signing_keys" {
-  name         = "kinotic-jwt-signing-keys"
+  for_each = toset(local.servers)
+
+  name         = "${each.key}-jwt-signing-keys"
   key_vault_id = azurerm_key_vault.platform.id
   content_type = "application/json"
   value = jsonencode({
     activeKeyId = "v1"
     keys = [
-      { id = "v1", key = random_id.jwt_signing_key_v1.b64_std },
+      { id = "v1", key = random_id.jwt_signing_key_v1[each.key].b64_std },
     ]
   })
 
@@ -82,16 +119,66 @@ resource "azurerm_key_vault_secret" "jwt_signing_keys" {
   depends_on = [terraform_data.wait_for_kv_rbac]
 }
 
-resource "azurerm_key_vault_secret" "secret_storage_master_keys" {
-  name         = "kinotic-secret-storage-master-keys"
+# The secrets follow their servers' new names too. A Key Vault secret's name forces replacement,
+# so each is recreated under the new name with the same key material, which the random_id above keeps
+moved {
+  from = azurerm_key_vault_secret.jwt_signing_keys["kinotic-org-server"]
+  to   = azurerm_key_vault_secret.jwt_signing_keys["kinotic-server-management"]
+}
+
+moved {
+  from = azurerm_key_vault_secret.jwt_signing_keys["kinotic-system-server"]
+  to   = azurerm_key_vault_secret.jwt_signing_keys["kinotic-server-system"]
+}
+
+moved {
+  from = azurerm_key_vault_secret.jwt_signing_keys["kinotic-app-server"]
+  to   = azurerm_key_vault_secret.jwt_signing_keys["kinotic-server-app"]
+}
+
+# The secret-storage master key, which every server imports as
+# kinotic.domain.secretStorage.masterKey. SecretNameDeriver derives every stored secret's name
+# from it, so a new key orphans every secret stored under the old one.
+resource "azurerm_key_vault_secret" "secret_storage_master_key" {
+  name         = "kinotic-secret-storage-master-key"
   key_vault_id = azurerm_key_vault.platform.id
-  content_type = "application/json"
-  value = jsonencode({
-    activeKeyId = "v1"
-    keys = [
-      { id = "v1", key = random_id.secret_storage_master_key_v1.b64_std },
-    ]
-  })
+  value        = random_id.secret_storage_master_key.b64_std
+
+  tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+
+  depends_on = [terraform_data.wait_for_kv_rbac]
+}
+
+# The kinotic-ai GitHub App's private key and webhook secret, which the servers that load
+# management-api import as kinotic.managementApi.github.appPrivateKey and webhookSecret when they
+# start, so a rotation takes effect as each restarts. Operator supplies the values via the
+# github_app_private_key and github_webhook_secret variables on first apply; rotations happen
+# out-of-band via `az keyvault secret set ...` and lifecycle.ignore_changes prevents terraform
+# from reverting them.
+resource "azurerm_key_vault_secret" "github_app_private_key" {
+  name         = "kinotic-github-app-private-key"
+  key_vault_id = azurerm_key_vault.platform.id
+  content_type = "Private key of the kinotic-ai GitHub App"
+  value        = var.github_app_private_key
+
+  tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+
+  depends_on = [terraform_data.wait_for_kv_rbac]
+}
+
+resource "azurerm_key_vault_secret" "github_webhook_secret" {
+  name         = "kinotic-github-webhook-secret"
+  key_vault_id = azurerm_key_vault.platform.id
+  content_type = "Webhook secret of the kinotic-ai GitHub App"
+  value        = var.github_webhook_secret
 
   tags = local.common_tags
 
@@ -103,7 +190,7 @@ resource "azurerm_key_vault_secret" "secret_storage_master_keys" {
 }
 
 # ── OIDC client secrets ───────────────────────────────────────────────────────
-# Stored at name = configId. SecretReferenceResolver in kinotic-server fetches by name
+# Stored at name = configId. SecretReferenceResolver in the servers fetches by name
 # at OAuth2-build time (no pod-side mount); the secretNameRef on the
 # kinotic_org_signup_oidc_configuration row points at the AKV secret name here.
 
@@ -160,7 +247,7 @@ resource "azurerm_key_vault_secret" "github_client_secret" {
 
 # ── Outputs ───────────────────────────────────────────────────────────────────
 # Consumed by cluster/ terraform via terraform_remote_state to grant read access to the
-# kinotic-server managed identity and to pass vault coordinates into the helm chart.
+# servers' managed identity and to pass vault coordinates into the helm chart.
 
 output "platform_key_vault_id" {
   description = "Resource ID of the platform Key Vault"

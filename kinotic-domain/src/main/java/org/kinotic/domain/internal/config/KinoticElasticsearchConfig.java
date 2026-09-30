@@ -11,6 +11,7 @@ import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.hc.core5.util.Timeout;
+import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.domain.api.config.DomainProperties;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.springframework.context.annotation.Bean;
@@ -71,6 +72,14 @@ public class KinoticElasticsearchConfig {
     @Bean
     public JsonpMapper jsonpMapper(JsonMapper jsonMapper){
         return new Jackson3JsonpMapper(jsonMapper);
+    }
+
+    /**
+     * Makes the {@link DomainPersistenceProperties} bean available for use by other beans without needing to inject {@link KinoticDomainProperties}
+     */
+    @Bean
+    public DomainPersistenceProperties domainPersistenceProperties(){
+        return domainProperties.getPersistence();
     }
 
 }

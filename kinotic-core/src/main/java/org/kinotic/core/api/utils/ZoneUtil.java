@@ -2,6 +2,7 @@ package org.kinotic.core.api.utils;
 
 import org.apache.commons.lang3.Validate;
 
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -10,6 +11,9 @@ import java.util.regex.Pattern;
  * guarantees the shape.
  */
 public final class ZoneUtil {
+
+    /** Separates a CRI's zone from its resourceName: {@code srv://management-api~org.kinotic.Service}. */
+    public static final char ZONE_DELIMITER = '~';
 
     // DNS-style label rule, so a zone is always a valid URI authority (CRIs are valid URIs by
     // convention) and can never contain characters that would break CRI parsing, dot-boundary
@@ -47,6 +51,55 @@ public final class ZoneUtil {
         Validate.isTrue(LABEL_PATTERN.matcher(label).matches(),
                         "Invalid zone label '%s'. Labels must be lowercase letters, digits, and interior dashes",
                         label);
+    }
+
+    /**
+     * The zone of an event bus address or CRI, {@code management-api} in
+     * {@code srv://scope@management-api~org.kinotic.Service/method}.
+     *
+     * @param address the address or CRI
+     * @return the zone, or {@code null} when the address has none
+     */
+    public static String zoneOf(String address) {
+        String ret = null;
+        int schemeEnd = address.indexOf("://");
+        if (schemeEnd >= 0) {
+            int authorityStart = schemeEnd + 3;
+            int authorityEnd = authorityStart;
+            while (authorityEnd < address.length() && "/?#".indexOf(address.charAt(authorityEnd)) < 0) {
+                authorityEnd++;
+            }
+            // the authority is [scope@][zone~]resourceName
+            int zoneStart = address.lastIndexOf('@', authorityEnd - 1) + 1;
+            if (zoneStart < authorityStart) {
+                zoneStart = authorityStart;
+            }
+            int delimiter = address.indexOf(ZONE_DELIMITER, zoneStart);
+            if (delimiter >= 0 && delimiter < authorityEnd) {
+                ret = address.substring(zoneStart, delimiter);
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * Whether the zone is one of the given zones or a sub-zone of one: {@code app.acme-org.orders-app} matches
+     * {@code app}, and the dot boundary keeps {@code app.acme-org.orders-app-2} from matching
+     * {@code app.acme-org.orders-app}.
+     *
+     * @param zone  the zone to match
+     * @param zones the zones to match it against
+     * @return true when the zone matches one of them
+     */
+    public static boolean zoneMatches(String zone, Set<String> zones) {
+        boolean ret = false;
+        for (String candidate : zones) {
+            if (zone.equals(candidate) || zone.startsWith(candidate + ".")) {
+                ret = true;
+                break;
+            }
+        }
+        return ret;
     }
 
 }

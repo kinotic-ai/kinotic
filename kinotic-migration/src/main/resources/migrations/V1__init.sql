@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS kinotic_application (
     description TEXT,
     oidcConfigurationIds KEYWORD,
     tenantPerUser BOOLEAN,
+    primaryUiId KEYWORD,
+    primaryUiUrl KEYWORD,
     updated DATE
 );
 
@@ -208,6 +210,7 @@ CREATE TABLE IF NOT EXISTS kinotic_participant_identity (
     ownerId KEYWORD,
     clientKey KEYWORD,
     delegateKind KEYWORD,
+    machineKind KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
     tenantId KEYWORD,
@@ -327,8 +330,10 @@ CREATE TABLE IF NOT EXISTS kinotic_invite_email_template (
 -- OAuth 2.0 Device Authorization Grant (RFC 8628): pending CLI device-code login flows.
 -- Short-lived (minutes); deleted once the CLI collects its tokens. deviceCodeHash is the
 -- SHA-256 of the high-entropy device_code the CLI polls with — the plaintext is never stored.
+-- issuer is the OAuth issuer of the server that started the flow, the only one that redeems it.
 CREATE TABLE IF NOT EXISTS kinotic_device_code_grant (
     id KEYWORD,
+    issuer KEYWORD,
     deviceCodeHash KEYWORD,
     userCode KEYWORD,
     identityId KEYWORD,
@@ -366,9 +371,11 @@ CREATE TABLE IF NOT EXISTS kinotic_refresh_token (
 --
 -- Authorization-code flows in progress: created by the authorize endpoint, bound to a user when
 -- the consent page approves, and deleted when the code is exchanged. codeHash is the SHA-256 of
--- the authorization code — the plaintext is never stored.
+-- the authorization code — the plaintext is never stored. issuer is the OAuth issuer of the server
+-- whose authorize endpoint began the flow, the only one that exchanges its code.
 CREATE TABLE IF NOT EXISTS kinotic_oauth_authorization_grant (
     id KEYWORD,
+    issuer KEYWORD,
     clientId KEYWORD,
     clientName KEYWORD NOT INDEXED,
     redirectUri KEYWORD NOT INDEXED,
@@ -512,7 +519,7 @@ INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId,
 -- users in AND verifies installation ownership at link time (see the Defense in Depth
 -- doc). Required App settings: a client secret (AKV name = secretNameRef); "Request
 -- user authorization (OAuth) during installation" checked; callback URLs under
--- "Identifying and authorizing users" = <appBaseUrl>/github/install/callback FIRST
+-- "Identifying and authorizing users" = <portalBaseUrl>/github/install/callback FIRST
 -- (install redirects go to the first callback URL) plus the URLs above; the
 -- "Email addresses: read-only" account permission. Scopes are inert for GitHub Apps.
 

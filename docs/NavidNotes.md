@@ -10,17 +10,15 @@ No phase may rewrite, refactor or restructure what an earlier phase produced. If
 ### IamUser refactor
 
 * Fix DefaultPendingRegistrationService.applyPendingScope (Should not be needed)
-* Review login handlers and KinoticSecurityService in detail.
+* Review login handlers and the per-server security services in detail.
 * Verify DefaultOpenAPIService.addNamedQueryPathItems (call looks up named queries without org)
 * No OpenAPI routes have the org in the path.
 
-### App auth return-to-application redirect
+### App invite links
 
-* App OIDC login callbacks (`ApplicationLoginHandler` → `redirectSuccess`) currently land app
-  end-users on the web app `/` because no per-app frontend URL exists in the model. The
-  return-to-application redirect belongs with the per-app URL / distributable-components work
-  already deferred. Same gap applies to where app-invite emails link (today: the hosted
-  `/invite/accept` page, which is the intended fallback).
+* App-invite emails link to the hosted `/invite/accept` page, which is the intended fallback
+  until an application's own UI accepts its invitations. App OIDC logins already return to the
+  UI that started them, and fail to the application's primary UI.
 
   
 ### JWT audience check (dropped, needs to come back)
@@ -41,8 +39,8 @@ token names, while nothing verifies the name, describes the gap precisely enough
 It belongs back in `website/content/02.platform/05.system-security.md` once the check is enforced,
 where it reads as a security property rather than an inventory.
 
-Only the check was dropped because enforcing it requires the entry point to tell
-`KinoticSecurityService` which surface it serves, and the only channel for that was the
+Only the check was dropped because enforcing it requires the entry point to tell the server's
+`SecurityService` which surface it serves, and the only channel for that was the
 `SecurityService` contract — a change worth designing properly rather than rushing. The contract
 stays `authenticate(Map<String, String>)`.
 
@@ -72,7 +70,7 @@ the signature check. Signature verification is the right guard, but the audience
 cheaper one that did not depend on key hygiene being perfect.
 
 **What restoring the check needs.** The blocker is getting the audience from the entry point to
-`KinoticSecurityService` without putting a JWT concern in `kinotic-core`, since core is used without
+`CredentialAuthenticationService` without putting a JWT concern in `kinotic-core`, since core is used without
 the OS and authenticates for one reason only. The direction we converged on:
 
 - `SecurityService.authenticate(AuthenticationContext, Map<String, String>)` — the map stays a
@@ -125,36 +123,38 @@ of the climb tells us what the right mechanism is.
 
 ### OAuth base URL split (`issuerBaseUrl`)
 
-`kinotic.domain.oauth.issuerBaseUrl` exists because two different parties reach the gateway and,
+`kinotic.managementServer.issuerBaseUrl` exists because two different parties reach the management server and,
 today, they can reach it at different URLs. A browser follows the OIDC `redirect_uri`s built from
-`apiBaseUrl`; an MCP host's backend calls the token endpoint built from `issuerBaseUrl`, having never
-been near the browser. A development gateway on `localhost` whose OAuth surface is tunnelled is the
-case that forced the split: one value cannot be both browser-local and internet-reachable.
+`kinotic.managementServer.apiBaseUrl`; an MCP host's backend calls the token endpoint built from
+`issuerBaseUrl`, having never been near the browser. A development gateway on `localhost` whose OAuth
+surface is tunnelled is the case that forced the split: one value cannot be both browser-local and
+internet-reachable.
 
-The cost is the FIXMEs — five places now know the OAuth surface has its own base URL
-(`OAuthProperties.issuerBaseUrl`, `DomainProperties.resolveIssuerBaseUrl`,
-`AuthEndpointSupport.issuerUrl`, `OAuthServerHandler.issuer`, `McpJsonRpcHandler.armDiscoveryChallenge`).
-Nothing enforces the choice: every externally reached URL added from here on has to pick `issuerUrl`
-over `absoluteUrl`, and picking wrong fails only in the tunnelled topology, which is exactly the one
-nobody runs in CI.
+`ManagementServerProperties.resolveIssuerBaseUrl` holds the fallback, read by `ManagementOAuthServerHandler.issuer`
+and `DeviceAuthorizationHandler`. Nothing enforces the choice at a call site: every externally reached
+URL added to the management server from here on has to pick the issuer over `apiBaseUrl`, and picking wrong
+fails only in the tunnelled topology, which is exactly the one nobody runs in CI. The other two servers
+have no split: the system server's issuer is its `apiBaseUrl`, and on the app server each application's
+API host is its own issuer.
 
 **The split disappears if the browser and the internet reach the gateway at one URL.** That is a
-topology decision, not a code one, and it is the reason to keep these markers rather than settle.
+topology decision, not a code one.
 
 **Option A — keep the split.** No infrastructure change. Development works today; production sets
-nothing and falls back. Carries the shotgun surgery indefinitely.
+nothing and falls back. Keeps `issuerBaseUrl` on `ManagementServerProperties` indefinitely.
 
-**Option B — dev-server proxy.** Have the vite dev server proxy `/api`, `/mcp`, `/.well-known` and
-the `/v1` STOMP upgrade to the gateway, and tunnel the dev server rather than the gateway. One origin
-in development, so `issuerBaseUrl` is never needed. Costs a second IdP callback registration (the
-tunnel host) and leaves the development topology different from production — the proxy hop exists
-nowhere else — so it removes the property without removing the underlying asymmetry.
+**Option B — dev-server proxy.** This is what development runs now: vite serves the portal and proxies
+`/api`, `/mcp`, `/.well-known` and the `/v1` STOMP upgrade to the gateway, and `dev-github-app.ts`
+writes the tunnel's origin as both `apiBaseUrl` and `portalBaseUrl`, so a tunnelled dev server is one
+origin and `issuerBaseUrl` is never needed. It costs a second IdP callback registration (the tunnel
+host) and leaves the development topology different from production — the proxy hop exists nowhere
+else — so it removes the need for the property without removing the underlying asymmetry.
 
 **Option C — one origin everywhere, via path-based routing at the ingress.** SPA and API behind a
-single hostname, `/api` and `/v1` routed to kinotic-server and everything else to the SPA. Then
-`appBaseUrl`, `apiBaseUrl` and `issuerBaseUrl` collapse to one value and all five FIXMEs delete. On
-Azure this means a layer-7 front end (Application Gateway or Front Door) where today's LoadBalancer
-is layer 4 — a real, recurring cost, which is the thing to price before choosing this.
+single hostname, `/api` and `/v1` routed to the server and everything else to the SPA. Then
+`portalBaseUrl`, `apiBaseUrl` and `issuerBaseUrl` collapse to one value. On Azure this means a
+layer-7 front end (Application Gateway or Front Door) where today's LoadBalancer is layer 4 — a real,
+recurring cost, which is the thing to price before choosing this.
 
 **On making the session cookie stricter.** Worth recording because it is the natural next thought and
 it does not work: `SameSite=Strict` is not available to us at any topology, single origin or not.
@@ -206,7 +206,7 @@ revocation check at the entry points are two different answers and only the seco
 ### Alert on `OutOfDirectMemoryError` in the gateway logs
 
 Set up an alert that fires when `io.netty.util.internal.OutOfDirectMemoryError` appears in a
-kinotic-server log. It is logged at ERROR by `DefaultStompServerHandler` as "Client Caused
+server's log. It is logged at ERROR by `DefaultStompServerHandler` as "Client Caused
 Exception", so the string is there to match on without any code change.
 
 It needs an alert because nothing else will tell us. Verified by exhausting a gateway's direct
@@ -276,8 +276,9 @@ accepted.
   rename makes that route return 401 for authenticated callers. Doing it properly means making the
   name shared config across two modules first. (Done since, for a different reason: published UIs
   live on sibling hosts of the API under `apps.kinotic.ai`, and the `__Host-` prefix keeps a page
-  there from planting a session cookie the API would read. `EventConstants.SESSION_COOKIE_NAME` is
-  the one name both modules use.)
+  there from planting a session cookie the API would read. `ApiGatewayVertcleFactory` names it
+  once per server, `__Host-kinotic-<server>-session`, and hands it to both the `SessionHandler` and
+  `SessionBinding`.)
 * `setNagHttps(true)` is already in effect — `DEFAULT_NAG_HTTPS` is true and nothing disables it.
   That is the "session cookies without https" line in the dev logs. It is a log warning, not a
   control.
@@ -316,6 +317,44 @@ Ways to do better, once there is something to design against:
   with and moved into the VM so discovery can use the Bun ecosystem.
 * Re-home a project whose node cannot fit its runtime VMs: move the checkout and its VMs to a node
   that can. This is the one that fixes the pinning as well, and the one that needs real design.
+
+### Admin entity repositories and the platform tenant field
+
+**Admin repositories do nothing useful yet.** The idea behind `AdminJsonEntitiesRepository` (and the
+`*AdminRepository` the CLI generates for an entity with a `@TenantId` field) is a participant seeing
+data for several tenants at once. Today a participant that belongs to a tenant is confined to it:
+`PersistenceUtil.validateEntityContext` refuses any tenant selection other than its own, so through
+the admin repository it sees exactly what the tenant-scoped repository shows. Only a participant
+without a tenant, a microservice connected at organization scope, can select other tenants.
+Structures never had this restriction because auth was gated higher up, before a call reached the
+repositories. Real cross-tenant access needs its own security design (who may select which
+tenants), and until that exists the implementation stays simple on purpose.
+
+**`@TenantId` has to carry the platform tenant field's name.**
+`kinotic.domain.persistence.tenantIdFieldName` (default `tenantId`) names the field that holds a
+`SHARED` entity's tenant id when the entity does not declare one; the platform writes it, reads it
+for routing and filters on it by itself. It is configurable because Structures deployments changed
+it: a Structures customer set it to `domain`, so all of their data holds the tenant there, and the
+value has to carry over when they upgrade to kinotic. In practice a `@TenantId` field must use the
+same name. Without a tenant selection, which is every tenant-scoped repository call,
+`ReadPreProcessor.createQueryWithTenantLogic`, `createQueryWithTenantLogicAndSearch` and
+`AggregateQueryExecutor` filter on the property field, while a `@TenantId` entity's documents hold
+only the declared field (`AbstractJsonUpsertPreProcessor` writes the property field only when there
+is no `@TenantId` value). Nothing enforces or documents this: publishing accepts any top-level name,
+so an entity with `@TenantId orgId` publishes and saves fine, and every tenant-scoped read returns
+nothing. `TenantSelectionTests` only covers a field named `tenantId`.
+`DefaultEntityService.createParanoidCheck` already reads the declared field.
+
+Revisit together with the admin security design:
+
+**Option A — enforce it at publish.** Reject a `@TenantId` field not named like the property. Loud,
+but an app's schema then depends on a server setting its developers never see.
+
+**Option B — remove it.** Read on the declared field whenever the entity has one, the choice
+`createParanoidCheck` already makes, leaving the property to name only the field the platform manages
+itself. The names then have to match only when `@TenantId` is added to an index that already has data,
+which `DefaultEntityDefinitionService` already rejects with a clear error. Safe for existing data,
+because a `@TenantId` entity's documents hold only the declared field.
 
 ### Outstanding
 * Move secret storage stuff out of the kinotic-core

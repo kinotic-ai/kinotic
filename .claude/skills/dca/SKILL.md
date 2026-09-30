@@ -29,9 +29,9 @@ Anything that alters the repository or the world outside it:
 
 ## How to answer
 
-Follow the repo's "explain with code, not prose" convention. Quote the current code with
-`path:line` references, show proposals as code blocks or diffs in chat, and put options side
-by side so the user can compare them directly. End with a recommendation, not a menu.
+When `/ewc` is active, answer as it describes: whole files, the reasoning as comments. Otherwise
+quote the current code with `path:line` references, show proposals as code blocks or diffs in
+chat, and put options side by side so the user can compare them directly. End with a recommendation, not a menu.
 Proposed code in chat is the point of this mode - it is how a change gets discussed without
 being made.
 

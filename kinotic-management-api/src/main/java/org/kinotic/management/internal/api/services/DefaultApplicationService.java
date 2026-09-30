@@ -4,11 +4,13 @@ import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.api.model.AppHost;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
-import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
+import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
@@ -21,16 +23,22 @@ import java.util.List;
 @Component
 public class DefaultApplicationService extends AbstractOrganizationScopedService<Application> implements ApplicationService {
 
+    // every site label, <org>--<app>--<ui>, must leave room for at least this long a UI name
+    private static final int MIN_UI_NAME_LENGTH = 1;
+
     private final ProjectService projectService;
     private final OidcConfigurationService oidcConfigurationService;
+    private final UiDeploymentRepository uiDeploymentRepository;
 
     public DefaultApplicationService(ApplicationRepository repository,
                                      ProjectService projectService,
                                      OidcConfigurationService oidcConfigurationService,
+                                     UiDeploymentRepository uiDeploymentRepository,
                                      SecurityContext securityContext) {
         super(repository, securityContext);
         this.projectService = projectService;
         this.oidcConfigurationService = oidcConfigurationService;
+        this.uiDeploymentRepository = uiDeploymentRepository;
     }
 
     @Override
@@ -98,8 +106,37 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
         }
         // Validate only; re-minting an update's id would silently write a new document
         DomainUtil.validateApplicationId(entity.getId());
+        AppHost appHost = new AppHost(requireOrganizationId(), entity.getId());
+        // neither id changes after creation, so an application too long for a site label could never publish a UI
+        Validate.isTrue(appHost.label().length() + DomainUtil.HOST_LABEL_SEPARATOR.length() + MIN_UI_NAME_LENGTH <= DomainUtil.MAX_HOST_LABEL_LENGTH,
+                        "The application's host label '%s' leaves no room for a UI name in its sites' labels, which DNS limits"
+                                + " to %d characters; shorten the application name",
+                        appHost.label(), DomainUtil.MAX_HOST_LABEL_LENGTH);
         entity.setUpdated(new Date());
-        return Future.succeededFuture();
+        Future<String> primaryUiUrl;
+        if (entity.getPrimaryUiId() == null) {
+            primaryUiUrl = Future.succeededFuture();
+        } else {
+            // resolved only when it changes, so removing the primary UI's deployment never fails the application's other edits
+            primaryUiUrl = findById(entity.getId())
+                    .compose(stored -> stored != null && entity.getPrimaryUiId().equals(stored.getPrimaryUiId())
+                            ? Future.succeededFuture(stored.getPrimaryUiUrl())
+                            : publishedUiUrl(appHost, entity.getPrimaryUiId()));
+        }
+        return primaryUiUrl.compose(url -> {
+            entity.setPrimaryUiUrl(url);
+            return Future.succeededFuture();
+        });
+    }
+
+    private Future<String> publishedUiUrl(AppHost appHost, String uiName) {
+        // a site's label names its application and UI, so a site with this label is one of this application's UIs
+        return uiDeploymentRepository.findById(appHost.siteLabel(uiName))
+                .map(site -> {
+                    Validate.isTrue(site != null, "The application '%s' has no published UI named '%s'",
+                                    appHost.applicationId(), uiName);
+                    return site.getUrl();
+                });
     }
 
     @Override

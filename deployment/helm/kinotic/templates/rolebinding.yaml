@@ -1,15 +1,15 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "kinotic-server.fullname" . }}
+  name: {{ include "kinotic.fullname" . }}
   labels:
-    app: {{ include "kinotic-server.name" . }}
+    app.kubernetes.io/part-of: {{ include "kinotic.name" . }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "kinotic-server.fullname" . }}
+  name: {{ include "kinotic.fullname" . }}
 subjects:
   - kind: ServiceAccount
-    name: {{ include "kinotic-server.fullname" . }}
+    name: {{ include "kinotic.fullname" . }}
     namespace: {{ .Release.Namespace }}
 

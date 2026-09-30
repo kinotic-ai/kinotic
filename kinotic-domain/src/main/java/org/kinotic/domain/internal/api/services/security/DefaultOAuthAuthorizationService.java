@@ -12,7 +12,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.OAuthAuthorizationGrant;
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.repositories.OAuthAuthorizationGrantRepository;
-import org.kinotic.domain.internal.api.rest.support.OAuth2Util;
+import org.kinotic.domain.api.rest.support.OAuth2Util;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
@@ -42,12 +42,14 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     private final ParticipantIdentityRepository identityRepository;
 
     @Override
-    public Future<String> createAuthorizationRequest(String clientId,
+    public Future<String> createAuthorizationRequest(String issuer,
+                                                     String clientId,
                                                      String redirectUri,
                                                      String codeChallenge,
                                                      String scope,
                                                      String resource,
                                                      String state) {
+        Validate.notBlank(issuer, "issuer is required");
         Validate.notBlank(clientId, "client_id is required");
         Validate.notBlank(redirectUri, "redirect_uri is required");
         Validate.notBlank(codeChallenge, "code_challenge is required");
@@ -60,6 +62,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                     Date now = new Date();
                     OAuthAuthorizationGrant grant = new OAuthAuthorizationGrant()
                             .setId(UUID.randomUUID().toString())
+                            .setIssuer(issuer)
                             .setClientId(clientId)
                             .setClientName(client.getClientName())
                             .setRedirectUri(redirectUri)
@@ -75,17 +78,17 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     }
 
     @Override
-    public Future<PendingOAuthAuthorization> findPending(String requestId) {
-        return loadPendingGrant(requestId)
+    public Future<PendingOAuthAuthorization> findPending(String issuer, String requestId) {
+        return loadPendingGrant(issuer, requestId)
                 .map(grant -> new PendingOAuthAuthorization(grant.getClientName(),
                                                             grant.getClientId(),
                                                             grant.getScope()));
     }
 
     @Override
-    public Future<String> approve(String requestId, String identityId) {
+    public Future<String> approve(String issuer, String requestId, String identityId) {
         Validate.notBlank(identityId, "identityId is required");
-        return loadPendingGrant(requestId)
+        return loadPendingGrant(issuer, requestId)
                 .compose(grant -> {
                     String code = DomainUtil.generateUrlSafeToken(TOKEN_BYTES);
                     grant.setIdentityId(identityId)
@@ -98,17 +101,19 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     }
 
     @Override
-    public Future<String> deny(String requestId) {
-        return loadPendingGrant(requestId)
+    public Future<String> deny(String issuer, String requestId) {
+        return loadPendingGrant(issuer, requestId)
                 .compose(grant -> grantRepository.deleteById(grant.getId())
                                                  .map(redirectUrl(grant, "error", "access_denied")));
     }
 
     @Override
-    public Future<CodeExchangeResult> exchangeCode(String code,
+    public Future<CodeExchangeResult> exchangeCode(String issuer,
+                                                   String code,
                                                    String clientId,
                                                    String redirectUri,
                                                    String codeVerifier) {
+        Validate.notBlank(issuer, "issuer is required");
         Validate.notBlank(code, "code is required");
         Validate.notBlank(clientId, "client_id is required");
         Validate.notBlank(redirectUri, "redirect_uri is required");
@@ -124,6 +129,10 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                                           .compose(v -> {
                         if (grant.getExpiresAt().before(new Date())) {
                             return Future.failedFuture(new IllegalArgumentException("Authorization code has expired"));
+                        }
+                        if (!issuer.equals(grant.getIssuer())) {
+                            return Future.failedFuture(
+                                    new IllegalArgumentException("Authorization code was not issued by this server"));
                         }
                         if (!grant.getClientId().equals(clientId) || !grant.getRedirectUri().equals(redirectUri)) {
                             return Future.failedFuture(
@@ -182,11 +191,13 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
         return ret;
     }
 
-    private Future<OAuthAuthorizationGrant> loadPendingGrant(String requestId) {
+    private Future<OAuthAuthorizationGrant> loadPendingGrant(String issuer, String requestId) {
+        Validate.notBlank(issuer, "issuer is required");
         Validate.notBlank(requestId, "requestId is required");
         return grantRepository.findById(requestId)
                 .compose(grant -> {
-                    if (grant == null) {
+                    // a request another server began is decided only on that server's consent page
+                    if (grant == null || !issuer.equals(grant.getIssuer())) {
                         return Future.failedFuture(new IllegalArgumentException("Unknown authorization request"));
                     }
                     if (grant.getExpiresAt().before(new Date())) {

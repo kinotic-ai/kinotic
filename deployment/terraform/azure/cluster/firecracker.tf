@@ -3,7 +3,7 @@
 #
 # Creates VM(s) with nested virtualization, KVM, and Firecracker installed.
 # VMs share the same VNet as AKS so they can reach Elasticsearch and
-# kinotic-server directly. Today workloads run as Kubernetes pods;
+# the servers directly. Today workloads run as Kubernetes pods;
 # Firecracker VMs will be used for secure multi-tenant customer workloads.
 
 module "firecracker" {

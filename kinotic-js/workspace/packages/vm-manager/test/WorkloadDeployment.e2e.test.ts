@@ -9,9 +9,13 @@ import { WorkloadOrchestrationService } from '@kinotic-ai/system-api'
 import { Workload, WorkloadStatus } from '@kinotic-ai/management-api'
 
 // The whole deployment path in one run: a project checkout on the node, the workload-runner
-// image booting it as a micro VM through the server's orchestrator, and the service it
-// publishes answering a call. Nothing here is faked, which is also why nothing here runs
-// unattended — it needs a registered node, a reachable server, and seeded org/app records.
+// image booting it as a micro VM through the system server's orchestrator, and the service it
+// publishes on the app server answering a call. Nothing here is faked, which is also why nothing
+// here runs unattended — it needs a registered node, reachable system and app servers, and the
+// seeded org/app records.
+//
+// The orchestrator connects the way the vm-manager does, through its KINOTIC_SERVER_* and
+// KINOTIC_CLIENT_* environment: the system server, as a SYSTEM-scope machine.
 //
 // Opt in with KINOTIC_WORKLOAD_E2E=1 once the lab is up; a node is built with
 // deployment/vm-node. CI has no lab, so it never sets this and skips.
@@ -32,7 +36,9 @@ const DATA_DIR = process.env.KINOTIC_WORKLOAD_DATA_DIR ?? join(homedir(), '.kino
  * A CLOUD_HYPERVISOR guest sits on the node's docker bridge and reaches it at 172.17.0.1.
  */
 const SERVER_FROM_GUEST = process.env.KINOTIC_E2E_GUEST_SERVER_HOST ?? '192.168.127.254'
-const SERVER_PORT = process.env.KINOTIC_SERVER_PORT ?? '58503'
+/** The app server, which the guest's runtime publishes into and the test calls the service through. */
+const APP_SERVER_HOST = process.env.KINOTIC_E2E_APP_SERVER_HOST ?? '127.0.0.1'
+const APP_SERVER_PORT = process.env.KINOTIC_E2E_APP_SERVER_PORT ?? '58505'
 
 /**
  * How the workload's policy names that address. Only the accepted form differs by provider —
@@ -40,15 +46,16 @@ const SERVER_PORT = process.env.KINOTIC_SERVER_PORT ?? '58503'
  */
 const ALLOWED_SERVER_HOST = process.env.KINOTIC_E2E_ALLOWED_HOST ?? SERVER_FROM_GUEST
 
-// Seeded by the e2e fixture migrations: an organization, an application it owns, and an
-// organization-scope user. The application record is what makes its zone routable.
+// Seeded by the fixture migrations: an organization and an application it owns (the migration's
+// fixtures profile), and the organization's APP_RUNTIME machine, the identity a microservice's
+// runtime workload holds (its test profile). The application record is what makes its zone
+// routable.
 const ORGANIZATION_ID = process.env.KINOTIC_E2E_ORGANIZATION_ID ?? 'kinotic-test'
 const APPLICATION_ID = process.env.KINOTIC_E2E_APPLICATION_ID ?? 'atlas-crm'
-const ORG_USER = process.env.KINOTIC_E2E_ORG_USER ?? 'kinotic@kinotic.local'
-const ORG_PASSWORD = process.env.KINOTIC_E2E_PASSWORD ?? 'kinotic'
+const RUNTIME_CLIENT_ID = process.env.KINOTIC_E2E_RUNTIME_CLIENT_ID ?? '00000000-0000-0000-0000-000000000013'
+const RUNTIME_CLIENT_SECRET = process.env.KINOTIC_E2E_RUNTIME_CLIENT_SECRET ?? 'kinotic'
 /** An application's services live in this zone, which is what makes the address routable. */
 const APP_ZONE = `app.${ORGANIZATION_ID}.${APPLICATION_ID}`
-const SERVER_HOST = process.env.KINOTIC_SERVER_HOST ?? '127.0.0.1'
 
 const WORKLOAD_ID = `e2e-echo-${Date.now().toString(36)}`
 const CHECKOUT = join(DATA_DIR, WORKLOAD_ID)
@@ -94,16 +101,16 @@ describe.skipIf(!canRun)('a project deployed to a node answers calls to its serv
         workload.volumeMounts = [{ hostPath: CHECKOUT, guestPath: '/app', readOnly: true }]
         workload.environment = {
             KINOTIC_SERVER_HOST: SERVER_FROM_GUEST,
-            KINOTIC_SERVER_PORT: SERVER_PORT,
+            KINOTIC_SERVER_PORT: APP_SERVER_PORT,
             KINOTIC_SERVER_USE_SSL: 'false',
-            KINOTIC_CLIENT_ID: ORG_USER,
+            KINOTIC_CLIENT_ID: RUNTIME_CLIENT_ID,
             KINOTIC_ORGANIZATION_ID: ORGANIZATION_ID,
             KINOTIC_PROJECT_APPLICATION_ID: APPLICATION_ID,
         }
         // The guest receives this exactly as it receives the environment above, but the
         // workload record keeps only the key: environment is persisted verbatim, and a
         // credential written there is readable by anyone who can read the workload back
-        workload.secrets = { KINOTIC_CLIENT_SECRET: ORG_PASSWORD }
+        workload.secrets = { KINOTIC_CLIENT_SECRET: RUNTIME_CLIENT_SECRET }
         // The workload may reach the server and nothing else
         workload.network.allowedHosts = [ALLOWED_SERVER_HOST]
 
@@ -122,12 +129,12 @@ describe.skipIf(!canRun)('a project deployed to a node answers calls to its serv
      * error a wrong address gives, so the wait has to be bounded by the caller's timeout.
      */
     async function callUntilAnswered(serviceIdentifier: string): Promise<unknown> {
-        // Called as the organization user that owns the application, which is who may address
-        // its zone — a system-scope caller is refused before it ever reaches the service
+        // Called as the organization's runtime machine, which the app server admits and which may
+        // address the zones of the organization's applications
         const app = new KinoticSingleton()
         await app.connect({
-            server: { host: SERVER_HOST, port: Number(SERVER_PORT), useSSL: false },
-            credentials: new BasicCredentialsResolver(ORG_USER, ORG_PASSWORD, ORGANIZATION_ID),
+            server: { host: APP_SERVER_HOST, port: Number(APP_SERVER_PORT), useSSL: false },
+            credentials: new BasicCredentialsResolver(RUNTIME_CLIENT_ID, RUNTIME_CLIENT_SECRET, ORGANIZATION_ID),
         })
         try {
             const proxy = app.serviceProxy(serviceIdentifier)

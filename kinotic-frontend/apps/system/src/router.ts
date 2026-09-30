@@ -1,7 +1,11 @@
 import type { Component } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-import { Box, Building2, ChartLine, CloudUpload, Cpu, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, Server, Users } from '@lucide/vue'
-import { ConnectedAppsPage, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import {
+    Box, Building2, ChartLine, CloudUpload, Cpu, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, Server, Users
+} from '@lucide/vue'
+import { ConnectedAppsPage, OAuthConsentPage, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+
+import { SYSTEM_USER_STATE } from './states/SystemUserState'
 
 /**
  * The console has five scopes, each with its own sidebar group: the platform, one organization,
@@ -99,6 +103,14 @@ const routes: RouteRecordRaw[] = [
             authenticationRequired: false
         },
         component: () => import('./pages/Login.vue')
+    },
+    {
+        path: '/oauth/consent',
+        meta: {
+            authenticationRequired: true
+        },
+        component: OAuthConsentPage,
+        props: { session: SYSTEM_USER_STATE }
     },
     {
         path: '/',

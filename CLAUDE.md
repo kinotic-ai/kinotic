@@ -39,20 +39,6 @@ the new base instead of discarding them.
 
 Names suggest meaning but don't define it. Before using an annotation, framework hook, base class, or library helper you haven't used in this codebase before, read its source or docs and confirm what it actually does. Don't infer behaviour from a plausible-sounding name and ship it. If you can't verify the behaviour, ask — don't write a comment justifying the guess.
 
-## Explain with code, not prose
-
-The maintainers of this repo read code faster than English. When explaining anything that has a code representation — a design decision, a trade-off, a bug, an API, a proposed change — show the code itself and use prose only as connective tissue:
-
-- Lead with the relevant snippet, quoted from the actual repo with `path:line` references — not a paragraph describing it.
-- Present options and trade-offs as side-by-side code blocks the reader can compare directly, with a short comment marking the line where they differ. Let the code carry the comparison; one sentence per option for what the code can't show.
-- Never describe code indirectly when you can show it. A sentence about what a change does to an API is opaque; the call site that now compiles (or no longer compiles), with a one-line comment, is immediately legible.
-- Show failure modes as code that compiles-but-misbehaves (or the verbatim compiler/test error), not as an abstract description of the risk.
-- Review findings follow the same law: every finding leads with the offending snippet (`path:line`), then the input or call site that misbehaves, then the corrected code. A finding delivered as a prose summary is unfinished work — restate it with the code before presenting it.
-- Keep prose for what code cannot express: intent, constraints, and consequences — one or two sentences placed next to the snippet they explain.
-
-This governs how you communicate *about* the code in conversation — chat replies, PR descriptions, review responses. It does not apply to the repo's own artifacts: documentation (this file, READMEs) and code comments.
-
-
 ## Java Conventions
 
 Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true)`, `@NoArgsConstructor`, `@RequiredArgsConstructor`, `@Slf4j`, `@Data`, `@Builder`. Prefer `@RequiredArgsConstructor` over hand-written constructors for dependency injection. Use `@Slf4j` instead of manual `LoggerFactory.getLogger()` calls.
@@ -107,9 +93,9 @@ Never remove or alter an existing authorship comment — `Created by <name> on <
 ## Properties
 Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.
 
-Never gate a bean on a Spring profile — `@Profile` is for test contexts only; profile-gated beans are hard to audit. Profiles are property bundles: an `application-<name>.yml` selects property values for a deployment shape. Enabling or disabling behavior is done with explicit `kinotic.*` properties read by `@ConditionalOnProperty` (the `kinotic.disable*` module flags are the established idiom), so what a deployment runs can be read from its YAML alone.
+Never gate a bean on a Spring profile — `@Profile` is for test contexts only; profile-gated beans are hard to audit. Profiles are property bundles: an `application-<name>.yml` selects property values for a deployment shape. Which modules a server runs is decided by its server module: every library module auto-configures once it is on the runtime classpath, so the server's `build.gradle` dependencies select the modules, and `@SpringBootApplication(exclude = …)` excludes the auto-configuration of a module the server needs only for its types (`TestServerApplication` excludes `KinoticDomainAutoConfiguration`). Enabling or disabling a feature within a module is done with an explicit `kinotic.*` property read by `@ConditionalOnProperty` (`kinotic.managementApi.github.disableProvisioner` is the established idiom), so what a deployment runs can be read from its server module and YAML alone.
 
-Properties are always scoped to the module and feature they configure: a setting lives as a field on the properties class of the thing it controls, nested under that module's tree (`kinotic.managementApi.github.disableProvisioner`, `kinotic.systemApi.deployment.serverHost`). The only root-level `kinotic.*` entries are the whole-module `disable*` switches and genuinely platform-wide settings. Never park a feature-level flag at the root — a flag whose home class exists belongs on it, both as a field and in the `@ConditionalOnProperty` path.
+Properties are always scoped to the module and feature they configure: a setting lives as a field on the properties class of the thing it controls, nested under that module's tree (`kinotic.managementApi.github.disableProvisioner`, `kinotic.systemApi.deployment.managementServer.host`). The only root-level `kinotic.*` entries are genuinely platform-wide settings. Never park a feature-level flag at the root — a flag whose home class exists belongs on it, both as a field and in the `@ConditionalOnProperty` path.
 
 ## Dependency Versions
 

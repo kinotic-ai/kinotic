@@ -24,13 +24,6 @@ import java.nio.charset.StandardCharsets;
 public class ConnectedInfo implements ClusterSerializable {
 
     /**
-     * Vert.x web-session attribute key under which an authenticated {@code ConnectedInfo} is
-     * stored. The browser session-login flow writes it at login time and the STOMP handshake
-     * reads it back, so the browser authenticates by its session cookie without a token.
-     */
-    public static final String SESSION_KEY = ConnectedInfo.class.getName();
-
-    /**
      * -- SETTER --
      *  Provides the Jackson mapper used to marshal into and out of a clustered session.
      *  Must be supplied once during startup with a mapper that understands the polymorphic
@@ -49,6 +42,11 @@ public class ConnectedInfo implements ClusterSerializable {
      * This id is the only valid "reply-to" scope that can be used by the client.
      */
     private String replyToId;
+    /**
+     * The host a browser login was established on; {@link SessionBinding} refuses the session on any
+     * other host.
+     */
+    private String host;
 
     @Override
     public void writeToBuffer(Buffer buffer) {
@@ -65,6 +63,7 @@ public class ConnectedInfo implements ClusterSerializable {
         ConnectedInfo decoded = mapper().readValue(new String(json, StandardCharsets.UTF_8), ConnectedInfo.class);
         this.participant = decoded.participant;
         this.replyToId = decoded.replyToId;
+        this.host = decoded.host;
         return pos;
     }
 

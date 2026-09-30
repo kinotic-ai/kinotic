@@ -1,0 +1,55 @@
+# Azure AKS overrides for the kinotic chart. The portal and the console are hosted outside the
+# cluster; each server's gateway is exposed on 443 by a LoadBalancer of its own.
+
+image:
+  pullPolicy: Always
+
+migration:
+  backoffLimit: 5
+  activeDeadlineSeconds: 600
+
+properties:
+  springActiveProfiles: "production,kubernetes"
+
+kinotic:
+  elastic:
+    connections:
+      - host: "kinotic-es-es-http.elastic.svc"
+        port: 9200
+        scheme: "http"
+
+servers:
+  kinotic-server-management:
+    replicaCount: 2
+    service:
+      type: LoadBalancer
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2
+        memory: 2Gi
+  kinotic-server-system:
+    # The operators' server; the cluster singletons move to the new pod during a rolling update
+    replicaCount: 1
+    service:
+      type: LoadBalancer
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2
+        memory: 2Gi
+  kinotic-server-app:
+    replicaCount: 2
+    service:
+      type: LoadBalancer
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2
+        memory: 2Gi

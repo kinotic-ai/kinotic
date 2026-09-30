@@ -86,12 +86,9 @@ import type { PageState } from 'primevue/paginator'
 import SelectButton from 'primevue/selectbutton'
 import Tag from 'primevue/tag'
 import { GitCommitHorizontal, ListTree, Package, Server, Wrench } from '@lucide/vue'
-import { PageHeader, TablePaginator, errorMessage, shortSha } from '@kinotic-ai/frontend-common'
+import { DashboardSection, errorMessage, PageHeader, shortSha, StatCard, TablePaginator, TINTS } from '@kinotic-ai/frontend-common'
 import { Kinotic } from '@kinotic-ai/core'
 import type { ProjectDependencies, ProjectDeployment } from '@kinotic-ai/management-api'
-import DashboardSection from '@/components/DashboardSection.vue'
-import StatCard from '@/components/StatCard.vue'
-import { TINTS } from '@/util/tints'
 
 /**
  * The project's SBOM, the one of the dependencies of the last synced commit: how many packages it

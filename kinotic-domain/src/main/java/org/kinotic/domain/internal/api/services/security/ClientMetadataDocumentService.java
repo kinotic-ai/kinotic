@@ -11,7 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.config.OAuthProperties;
 import org.kinotic.domain.internal.api.model.ClientMetadataDocument;
-import org.kinotic.domain.internal.api.rest.support.OAuth2Util;
+import org.kinotic.domain.api.rest.support.OAuth2Util;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 

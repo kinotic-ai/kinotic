@@ -74,6 +74,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         Validate.notNull(project, "Project cannot be null");
         Validate.notNull(project.getApplicationId(), "Project applicationId cannot be null");
         Validate.notNull(project.getName(), "Project name cannot be null");
+        DomainUtil.validateApplicationId(project.getApplicationId());
 
         if(project.getId() == null){
             project.setId(deriveId(project));
@@ -166,6 +167,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         Validate.notNull(project, "Project cannot be null");
         Validate.notNull(project.getName(), "Project name cannot be null");
         Validate.notNull(project.getApplicationId(), "Project applicationId cannot be null");
+        DomainUtil.validateApplicationId(project.getApplicationId());
         if (project.getId() == null) {
             project.setId(deriveId(project));
         }

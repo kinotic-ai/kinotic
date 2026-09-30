@@ -1,0 +1,113 @@
+
+
+package org.kinotic.core.internal.api;
+
+import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.Kinotic;
+import org.kinotic.core.api.config.TraceLogProperties;
+import org.kinotic.core.api.event.TraceLogFilter;
+import org.kinotic.core.api.log.GroupLoggerLevelsDescriptor;
+import org.kinotic.core.api.log.LogLevel;
+import org.kinotic.core.api.log.LoggerLevelsDescriptor;
+import org.kinotic.core.api.log.LoggersDescriptor;
+import org.kinotic.core.api.log.SingleLoggerLevelsDescriptor;
+import org.kinotic.core.api.log.LogManager;
+import org.springframework.boot.logging.*;
+import org.springframework.stereotype.Component;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * Default impl of {@link LogManager}
+ *
+ * Shamelessly copied from org.springframework.boot.actuate.logging.LoggersEndpoint
+ *
+ * @author Ben Hale
+ * @author Phillip Webb
+ * @author HaiTao Zhang
+ */
+@Component
+public class DefaultLogManager implements LogManager {
+
+    private final Kinotic kinotic;
+    private final LoggingSystem loggingSystem;
+    private final LoggerGroups loggerGroups;
+    private final TraceLogFilter traceLogFilter;
+
+
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
+    public DefaultLogManager(Kinotic kinotic,
+                             LoggingSystem loggingSystem,
+                             LoggerGroups loggerGroups,
+                             TraceLogFilter traceLogFilter) {
+        this.kinotic = kinotic;
+        this.loggingSystem = loggingSystem;
+        this.loggerGroups = loggerGroups;
+        this.traceLogFilter = traceLogFilter;
+    }
+
+    @Override
+    public String nodeId() {
+        return kinotic.serverInfo().getNodeId();
+    }
+
+    public LoggersDescriptor loggers() {
+        Collection<LoggerConfiguration> configurations = this.loggingSystem.getLoggerConfigurations();
+        return new LoggersDescriptor(getLevels(), getLoggers(configurations), getGroups());
+    }
+
+    private Map<String, GroupLoggerLevelsDescriptor> getGroups() {
+        Map<String, GroupLoggerLevelsDescriptor> groups = new LinkedHashMap<>();
+        this.loggerGroups.forEach((group) -> groups.put(group.getName(),
+                                                        new GroupLoggerLevelsDescriptor(LogLevel.of(group.getConfiguredLevel()), group.getMembers())));
+        return groups;
+    }
+
+    public LoggerLevelsDescriptor loggerLevels(String name) {
+        Validate.notNull(name, "Name must not be null");
+        LoggerGroup group = this.loggerGroups.get(name);
+        if (group != null) {
+            return new GroupLoggerLevelsDescriptor(LogLevel.of(group.getConfiguredLevel()), group.getMembers());
+        }
+        LoggerConfiguration configuration = this.loggingSystem.getLoggerConfiguration(name);
+        return (configuration != null) ? new SingleLoggerLevelsDescriptor(configuration) : null;
+    }
+
+    public void configureLogLevel(String name, LogLevel configuredLevel) {
+        Validate.notBlank(name, "Name must not be blank");
+        Validate.notNull(name, "ConfiguredLevel must not be null");
+
+        LoggerGroup group = this.loggerGroups.get(name);
+        org.springframework.boot.logging.LogLevel bootLevel = org.springframework.boot.logging.LogLevel.valueOf(configuredLevel.name());
+        if (group != null && group.hasMembers()) {
+            group.configureLogLevel(bootLevel, this.loggingSystem::setLogLevel);
+            return;
+        }
+        this.loggingSystem.setLogLevel(name, bootLevel);
+    }
+
+    public TraceLogProperties traceLog() {
+        return this.traceLogFilter.getPatterns();
+    }
+
+    public void configureTraceLog(TraceLogProperties traceLog) {
+        this.traceLogFilter.setPatterns(traceLog);
+    }
+
+    private NavigableSet<LogLevel> getLevels() {
+        Set<LogLevel> levels = this.loggingSystem.getSupportedLogLevels()
+                                                 .stream()
+                                                 .map(LogLevel::of).collect(Collectors.toSet());
+        return new TreeSet<>(levels).descendingSet();
+    }
+
+    private Map<String, SingleLoggerLevelsDescriptor> getLoggers(Collection<LoggerConfiguration> configurations) {
+        Map<String, SingleLoggerLevelsDescriptor> loggers = new LinkedHashMap<>(configurations.size());
+        for (LoggerConfiguration configuration : configurations) {
+            loggers.put(configuration.getName(), new SingleLoggerLevelsDescriptor(configuration));
+        }
+        return loggers;
+    }
+
+}

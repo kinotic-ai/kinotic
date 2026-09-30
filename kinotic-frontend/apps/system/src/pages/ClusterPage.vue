@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="Cluster" description="The kinotic-server nodes and how they are doing as a group.">
+    <PageHeader title="Cluster" description="The org, system and app server nodes and how they are doing as a group.">
       <template #actions>
         <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined :loading="loading" @click="load" />
       </template>
@@ -156,7 +156,7 @@ const stats = computed<Stat[]>(() => [
   {
     label: 'Server nodes',
     value: cluster.value?.serverNodeCount?.toString() ?? '—',
-    detail: 'kinotic-server instances in the cluster',
+    detail: 'Org, system and app server nodes in the cluster',
     icon: markRaw(Server),
     tint: TINTS.sky
   },

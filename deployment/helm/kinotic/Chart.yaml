@@ -1,12 +1,12 @@
 apiVersion: v2
 name: kinotic
-description: A Helm chart for deploying kinoticai/kinotic-server with configurable environment variables
+description: A Helm chart for deploying the Kinotic servers (kinoticai/kinotic-server-management, kinotic-server-system and kinotic-server-app) as one Ignite cluster, with the migration that precedes them
 type: application
 
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.2.0
+version: 0.3.0
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to

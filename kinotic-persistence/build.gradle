@@ -6,9 +6,7 @@ plugins {
 dependencies {
 	implementation project(':kinotic-core')
 	implementation project(':kinotic-domain')
-	implementation project(':kinotic-api-gateway')
     implementation project(':kinotic-idl')
-	implementation project(':kinotic-sql')
 
 	implementation 'co.elastic.clients:elasticsearch-java'
 
@@ -16,20 +14,12 @@ dependencies {
 
 	implementation "com.github.ben-manes.caffeine:caffeine"
 
-	implementation 'io.projectreactor:reactor-core'
-
 	implementation "io.vertx:vertx-core"
 	implementation "io.vertx:vertx-web-client"
-	implementation "io.vertx:vertx-health-check"
 
 	implementation 'org.apache.ignite:ignite-core'
 	implementation 'org.apache.ignite:ignite-kubernetes'
 
-	// Spring AI TODO does not support spring boot 4
-//	implementation 'org.springframework.ai:spring-ai-commons'
-//	implementation 'org.springframework.ai:spring-ai-model'
-//	implementation 'org.springframework.ai:spring-ai-mcp'
-//	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-jackson'
 

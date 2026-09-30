@@ -23,6 +23,16 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
     Future<List<OidcConfiguration>> findEnabledByIds(List<String> ids, String orgId);
 
     /**
+     * The OIDC configuration {@code id} of organization {@code organizationId}, enabled or not, or
+     * {@code null} when the organization has none by that id. Does not check the caller's participant,
+     * so it serves the sign-in flows that run before one is bound.
+     *
+     * @param id             the configuration id
+     * @param organizationId the organization that owns the configuration
+     */
+    Future<OidcConfiguration> findById(String id, String organizationId);
+
+    /**
      * Returns the {@link OidcConfiguration} the given organization uses as its SSO
      * provider, or {@code null} if the org has no SSO configured. Sources from
      * {@link Organization#getSsoConfigId()} — structurally

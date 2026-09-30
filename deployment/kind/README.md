@@ -41,7 +41,7 @@ terraform apply
 # With Keycloak/OIDC
 terraform apply -var="enable_keycloak=true"
 
-# Rebuild and reload kinotic-server after code changes
+# Rebuild and reload the servers after code changes (or only some: ../dev-reload.sh app)
 ../dev-reload.sh
 
 # Tear down
@@ -55,12 +55,17 @@ matching the Azure production deployment pattern. KinD `extraPortMappings` route
 host ports through NodePort services to the pods.
 
 ```
-localhost:443   ──> NodePort 30443 ──> kinotic-server (Vert.x TLS, Web UI)
-localhost:9090  ──> NodePort 30090 ──> kinotic-server (plain HTTP, when use_mkcert=false)
-localhost:58503 ──> NodePort 30503 ──> kinotic-server (Vert.x TLS, STOMP/WS)
-localhost:8888  ──> NodePort 30888 ──> keycloak       (Keycloak TLS, when enabled)
-localhost:3000  ──> NodePort 30300 ──> grafana        (Grafana TLS)
+localhost:443   ──> NodePort 30443 ──> kinotic-server-management (Vert.x TLS, the portal)
+localhost:9090  ──> NodePort 30090 ──> kinotic-server-management (plain HTTP, when use_mkcert=false)
+localhost:58503 ──> NodePort 30503 ──> kinotic-server-management (Vert.x TLS, REST and STOMP/WS)
+localhost:58504 ──> NodePort 30504 ──> kinotic-server-system     (Vert.x TLS, REST and STOMP/WS)
+localhost:58505 ──> NodePort 30505 ──> kinotic-server-app        (Vert.x TLS, REST and STOMP/WS)
+localhost:8888  ──> NodePort 30888 ──> keycloak                  (Keycloak TLS, when enabled)
+localhost:3000  ──> NodePort 30300 ──> grafana                   (Grafana TLS)
 ```
+
+The three servers form one Ignite cluster through the headless `kinotic` Service, which selects
+every server's pods.
 
 ### Namespaces
 
@@ -68,7 +73,7 @@ localhost:3000  ──> NodePort 30300 ──> grafana        (Grafana TLS)
 |---|---|
 | `elastic-system` | ECK operator |
 | `elastic` | Elasticsearch cluster |
-| `kinotic` | Kinotic server, TLS secret, Keycloak, PostgreSQL, load generator |
+| `kinotic` | The Kinotic servers, TLS secret, Keycloak, PostgreSQL, load generator |
 | `observability` | Loki, Alloy, Grafana |
 
 ## Service Access
@@ -78,16 +83,24 @@ localhost:3000  ──> NodePort 30300 ──> grafana        (Grafana TLS)
 | Service | URL |
 |---------|-----|
 | Kinotic UI | https://localhost/ |
-| WebSocket (STOMP) | wss://localhost:58503/v1 |
+| Management server (STOMP) | wss://localhost:58503/v1 |
+| System server (STOMP) | wss://localhost:58504/v1 |
+| App server (STOMP) | wss://localhost:58505/v1 |
 | Keycloak Admin | https://localhost:8888/auth/admin |
 | Grafana | https://localhost:3000/ |
+
+Each application's API host, `https://<organizationId>--<applicationId>.localhost:58505`, is outside the
+mkcert certificate, which names `localhost`, `kinotic.local`, `127.0.0.1` and `::1` alone, so a UI calling
+its application's host, or an application's OAuth flow, works only without mkcert.
 
 ### Without mkcert (`-var="use_mkcert=false"`)
 
 | Service | URL |
 |---------|-----|
 | Kinotic UI | http://localhost:9090/ |
-| WebSocket (STOMP) | ws://localhost:58503/v1 |
+| Management server (STOMP) | ws://localhost:58503/v1 |
+| System server (STOMP) | ws://localhost:58504/v1 |
+| App server (STOMP) | ws://localhost:58505/v1 |
 | Grafana | http://localhost:3000/ |
 
 ### Direct Access (kubectl port-forward)
@@ -116,23 +129,43 @@ To disable TLS: `terraform apply -var="use_mkcert=false"`
 export NODE_EXTRA_CA_CERTS=~/.kinotic/kind/ca.crt
 ```
 
+## Project deployments
+
+KinD has no Azure storage accounts, so the system server runs with
+`kinotic.systemApi.disableAzureStorage` set (`config/kinotic/values.yaml`): a published UI is marked
+ready without being uploaded or served.
+
+A deployment's workloads run in micro VMs on a vm-manager node outside the cluster. They dial the
+management server (sync, SBOM) and the app server (runtime) at `192.168.127.254`, the host alias through
+which a BOXLITE node on this machine reaches the host, on the ports KinD maps there. A
+CLOUD_HYPERVISOR node reaches the host at `172.17.0.1` instead; set
+`KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_HOST` and `_APPSERVER_HOST` in the system server's
+`extraEnv` to match. The mkcert certificate does not name either address, so the workloads reach
+the servers only without mkcert.
+
 ## OIDC / Keycloak
 
-Keycloak provides OIDC authentication. When enabled, Terraform deploys PostgreSQL + Keycloak
-and redeploys kinotic-server with the `kubernetes-oidc` Spring profile.
+Keycloak is an OIDC provider to test social sign-in against. When enabled, Terraform deploys
+PostgreSQL + Keycloak with the test realm from `deployment/docker-compose/keycloak-test-realm.json`
+(realm `test`, client `kinotic-client`, user `testuser@example.com` / `password123`), and gives
+the management server the client's secret under the secret name `keycloak`, the way the compose Keycloak
+overlay does.
 
 ```bash
 terraform apply -var="enable_keycloak=true"
 ```
 
-If the cluster is already running, re-running with `enable_keycloak=true` will deploy
-Keycloak and redeploy kinotic-server with OIDC -- no manual steps needed.
+If the cluster is already running, re-running with `enable_keycloak=true` deploys Keycloak and
+redeploys the management server with the secret.
 
-**Credentials:**
+Signing in through it also needs an OIDC configuration whose authority is the realm and whose
+secret name is `keycloak`; none is seeded. Keycloak publishes its issuer as
+`https://localhost:8888/auth/realms/test`, which the browser reaches through the port mapping
+and the management server pod does not, so the token exchange fails until Keycloak is published under a
+host both resolve, as the compose stack does with the `keycloak` host.
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
-| Kinotic (OIDC login) | https://localhost/login | testuser@example.com / password123 |
 | Keycloak Admin | https://localhost:8888/auth/admin | admin / admin |
 
 ## Terraform Variables
@@ -141,9 +174,9 @@ Keycloak and redeploy kinotic-server with OIDC -- no manual steps needed.
 |----------|---------|-------------|
 | `cluster_name` | `kinotic-cluster` | KinD cluster name |
 | `node_image` | `""` | KinD node image override (empty = provider default) |
-| `kinotic_version` | `latest` | Kinotic server image tag |
+| `kinotic_version` | `5.0.0-SNAPSHOT`, set in `terraform.tfvars` | Kinotic server and migration image tag, the `kinoticVersion` CI publishes the images at |
 | `worker_count` | `3` | Number of worker nodes |
-| `enable_keycloak` | `false` | Deploy Keycloak + PostgreSQL for OIDC |
+| `enable_keycloak` | `false` | Deploy Keycloak + PostgreSQL with the test realm |
 | `enable_load_generator` | `false` | Run load generator via Terraform |
 | `use_mkcert` | `true` | Generate browser-trusted certs with mkcert (declared in `tls.tf`) |
 | `keycloak_db_username` | `keycloak` | Keycloak PostgreSQL user |
@@ -154,7 +187,7 @@ Keycloak and redeploy kinotic-server with OIDC -- no manual steps needed.
 ## Load Generator
 
 The load generator creates sample entity definitions and data for testing.
-It connects directly to the kinotic-server service and runs as a Kubernetes Job.
+It connects directly to the management server's service and runs as a Kubernetes Job.
 
 **Note:** The load generator currently uses basic (default) authentication. It cannot
 run when Keycloak/OIDC is enabled as the sole auth provider — run the load generator
@@ -189,7 +222,7 @@ Override values in `config/load-generator/values.yaml`:
 
 | Value | Default (KinD) | Description |
 |-------|----------------|-------------|
-| `kinotic.host` | `kinotic-server` | Service hostname (cluster-internal) |
+| `kinotic.host` | `kinotic-server-management` | Service hostname (cluster-internal) |
 | `kinotic.port` | `58503` | STOMP port |
 | `kinotic.useSsl` | `true` | Use TLS — the pods serve TLS even cluster-internally |
 | `kinotic.tlsInsecure` | `true` | Skip verification so the mkcert CA isn't needed in the Job |
@@ -200,14 +233,14 @@ Override values in `config/load-generator/values.yaml`:
 ## Testing Local Changes
 
 ```bash
-# Build image locally (requires JDK 25 + Gradle)
-./gradlew :kinotic-server:bootBuildImage
+# Build a server's image locally (requires JDK 25 + Gradle)
+./gradlew :kinotic-server-app:bootBuildImage
 
 # Load into running cluster
-kind load docker-image kinoticai/kinotic-server:5.0.0-SNAPSHOT --name kinotic-cluster
+kind load docker-image kinoticai/kinotic-server-app:5.0.0-SNAPSHOT --name kinotic-cluster
 
 # Restart to pick up new image
-kubectl rollout restart deployment/kinotic-server -n kinotic
+kubectl rollout restart deployment/kinotic-server-app -n kinotic
 ```
 
 ## Troubleshooting
@@ -217,6 +250,8 @@ kubectl rollout restart deployment/kinotic-server -n kinotic
 lsof -i :443
 lsof -i :9090
 lsof -i :58503
+lsof -i :58504
+lsof -i :58505
 ```
 
 **Pods stuck in ImagePullBackOff:**
@@ -227,8 +262,9 @@ kubectl describe pod <pod-name>
 
 **View logs:**
 ```bash
-# The `app` label comes from the chart name, so it's `kinotic`, not `kinotic-server`
-kubectl logs -l app=kinotic -n kinotic -f
+# Each server's pods carry its name as the `app` label, and every server's the part-of label
+kubectl logs -l app=kinotic-server-management -n kinotic -f
+kubectl logs -l app.kubernetes.io/part-of=kinotic -n kinotic -f --max-log-requests 10
 kubectl logs -l app=keycloak -n kinotic -f        # if Keycloak enabled
 ```
 
@@ -254,13 +290,13 @@ terraform apply
 ```
 deployment/kind/
 ├── setup.sh                         # One-time environment setup (prerequisites, mkcert CA)
-├── dev-reload.sh                    # Rebuild the server image and reload it into the cluster
+├── dev-reload.sh                    # Rebuild the servers' images and reload them into the cluster
 ├── terraform/
 │   ├── main.tf                      # KinD cluster + providers + port mappings
 │   ├── tls.tf                       # mkcert certificate generation (declares use_mkcert)
-│   ├── platform-secrets.tf          # JWT signing keys + secret-storage master key Secret
+│   ├── platform-secrets.tf          # Secret of JWT signing keys, secret-storage master key, GitHub App secrets
 │   ├── elasticsearch.tf             # ECK operator + Elasticsearch (eck-stack chart)
-│   ├── kinotic.tf                   # Kinotic server (NodePort + TLS)
+│   ├── kinotic.tf                   # The Kinotic servers (NodePort + TLS)
 │   ├── observability.tf             # Loki + Alloy + Grafana (TLS)
 │   ├── keycloak.tf                  # PostgreSQL + Keycloak (conditional, NodePort + TLS)
 │   ├── load-generator.tf            # Load generator (conditional)
@@ -270,7 +306,7 @@ deployment/kind/
 ├── config/                          # Helm values overrides for KinD
 │   ├── eck-operator/values.yaml
 │   ├── keycloak/values.yaml
-│   ├── kinotic-server/values.yaml
+│   ├── kinotic/values.yaml
 │   ├── load-generator/values.yaml
 │   └── postgresql/values.yaml
 └── charts/keycloak/                 # Local Keycloak Helm chart (with TLS support)

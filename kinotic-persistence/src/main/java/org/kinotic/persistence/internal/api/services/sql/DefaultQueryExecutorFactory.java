@@ -3,11 +3,11 @@ package org.kinotic.persistence.internal.api.services.sql;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.NotImplementedException;
 import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.model.EntityDescriptor;
-import org.kinotic.persistence.api.model.NamedQueriesDefinition;
+import org.kinotic.domain.api.config.DomainPersistenceProperties;
+import org.kinotic.domain.api.model.persistence.EntityDescriptor;
+import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
 import org.kinotic.persistence.api.model.NamedQueryOperation;
-import org.kinotic.persistence.api.model.idl.decorators.QueryDecorator;
+import org.kinotic.domain.api.model.persistence.idl.decorators.QueryDecorator;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
 import org.kinotic.persistence.internal.api.services.sql.elasticsearch.ElasticVertxClient;
@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
 public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
 
     private final ElasticVertxClient elasticVertxClient;
-    private final PersistenceProperties persistenceProperties;
+    private final DomainPersistenceProperties domainPersistenceProperties;
     private final AuthorizationServiceFactory authorizationServiceFactory;
 
     public QueryExecutor createQueryExecutor(EntityDescriptor entityDescriptor,
@@ -75,7 +75,7 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
             case AGGREGATE -> new AggregateQueryExecutor(entityDescriptor,
                                                          elasticVertxClient,
                                                          statement,
-                                                         persistenceProperties);
+                                                         domainPersistenceProperties);
             case DELETE -> throw new NotImplementedException("Delete not supported yet");
             case INSERT -> throw new NotImplementedException("Insert not supported yet");
             case SELECT -> throw new NotImplementedException("Select without aggregate not supported yet");

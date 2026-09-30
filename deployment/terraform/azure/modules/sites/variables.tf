@@ -56,7 +56,7 @@ variable "lets_encrypt_email" {
 }
 
 variable "server_principal_id" {
-  description = "Principal id of kinotic-server, which publishes sites into the storage account"
+  description = "Principal id the Kinotic servers run as; the system server publishes sites into the storage account"
   type        = string
 }
 

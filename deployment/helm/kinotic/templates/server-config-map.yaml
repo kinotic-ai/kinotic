@@ -1,0 +1,14 @@
+{{- range $name, $server := .Values.servers }}
+{{- if $server.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+    app.kubernetes.io/part-of: {{ include "kinotic.name" $ }}
+data:
+  {{- include "kinotic.serverEnv" (dict "name" $name "server" $server "root" $) | nindent 2 }}
+{{- end }}
+{{- end }}
