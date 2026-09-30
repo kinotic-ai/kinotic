@@ -3,16 +3,12 @@ package org.kinotic.appserver.api.config;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.validation.annotation.Validated;
 
 import java.util.regex.Pattern;
 
 /** The URLs the app server is reached at, {@code kinotic.appServer.*}, set per deployment. */
 @Getter
 @Setter
-@Validated
-@ConfigurationProperties(prefix = "kinotic.appServer")
 public class AppServerProperties {
 
     /**
