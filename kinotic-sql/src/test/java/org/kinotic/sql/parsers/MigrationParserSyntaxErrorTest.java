@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.sql.domain.MigrationContent;
+import org.kinotic.sql.domain.statements.ReindexStatement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -64,6 +65,20 @@ class MigrationParserSyntaxErrorTest {
         assertTrue(e.getMessage().contains("line 1"), "expected line number in: " + e.getMessage());
         // '==' lexes as two '=' tokens, so the second one is where the parse stops
         assertTrue(e.getMessage().contains("near '='"), "expected offending operator in: " + e.getMessage());
+    }
+
+    @Test
+    void whenKeywordsAreLowercaseAndColumnsAreNamedLikeTypes_thenParses() {
+        MigrationContent content = parser.parse("""
+            create table events (date date, size integer not indexed, text text, "where" keyword);
+            reindex old_events into events with (wait = true, skip_if_no_source = TRUE);
+            update events set size = size + 1 where date >= '2026-01-01';
+            """);
+
+        assertEquals(3, content.statements().size());
+        ReindexStatement reindex = (ReindexStatement) content.statements().get(1);
+        assertTrue(reindex.waitForReindex());
+        assertTrue(reindex.skipIfNoSource());
     }
 
     @Test

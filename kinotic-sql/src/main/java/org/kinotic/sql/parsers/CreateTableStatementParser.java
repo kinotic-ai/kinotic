@@ -25,12 +25,12 @@ public class CreateTableStatementParser implements StatementParser {
     @Override
     public Statement parse(KinoticSQLParser.StatementContext ctx) {
         KinoticSQLParser.CreateTableStatementContext createContext = ctx.createTableStatement();
-        String tableName = createContext.ID().getText();
+        String tableName = Identifiers.name(createContext.identifier());
         List<Column> columns = new ArrayList<>();
 
         // Parse column definitions
         for (KinoticSQLParser.ColumnDefinitionContext columnDef : createContext.columnDefinition()) {
-            String name = columnDef.ID().getText();
+            String name = Identifiers.name(columnDef.identifier());
             columns.add(TypeParser.parseColumnType(name, columnDef.type()));
         }
 

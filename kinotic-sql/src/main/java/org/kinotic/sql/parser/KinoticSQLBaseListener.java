@@ -269,30 +269,6 @@ public class KinoticSQLBaseListener implements KinoticSQLListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterHavingClause(KinoticSQLParser.HavingClauseContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitHavingClause(KinoticSQLParser.HavingClauseContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterHavingCondition(KinoticSQLParser.HavingConditionContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitHavingCondition(KinoticSQLParser.HavingConditionContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
 	@Override public void enterOrderBy(KinoticSQLParser.OrderByContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -552,6 +528,30 @@ public class KinoticSQLBaseListener implements KinoticSQLListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitComment(KinoticSQLParser.CommentContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterIdentifier(KinoticSQLParser.IdentifierContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitIdentifier(KinoticSQLParser.IdentifierContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterNonReserved(KinoticSQLParser.NonReservedContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitNonReserved(KinoticSQLParser.NonReservedContext ctx) { }
 
 	/**
 	 * {@inheritDoc}

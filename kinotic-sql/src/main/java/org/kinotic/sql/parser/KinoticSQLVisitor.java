@@ -137,18 +137,6 @@ public interface KinoticSQLVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitFunctionArgument(KinoticSQLParser.FunctionArgumentContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link KinoticSQLParser#havingClause}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitHavingClause(KinoticSQLParser.HavingClauseContext ctx);
-	/**
-	 * Visit a parse tree produced by {@link KinoticSQLParser#havingCondition}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitHavingCondition(KinoticSQLParser.HavingConditionContext ctx);
-	/**
 	 * Visit a parse tree produced by {@link KinoticSQLParser#orderBy}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
@@ -280,4 +268,16 @@ public interface KinoticSQLVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitComment(KinoticSQLParser.CommentContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#identifier}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitIdentifier(KinoticSQLParser.IdentifierContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#nonReserved}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitNonReserved(KinoticSQLParser.NonReservedContext ctx);
 }

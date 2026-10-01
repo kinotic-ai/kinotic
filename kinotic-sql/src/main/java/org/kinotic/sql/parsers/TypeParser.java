@@ -5,6 +5,7 @@ import org.kinotic.sql.domain.ColumnType;
 import org.kinotic.sql.parser.KinoticSQLParser;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Utility class for parsing column types from SQL grammar contexts.
@@ -18,10 +19,10 @@ public class TypeParser {
 
         // NOT INDEXED detection: for both flat and composite types, the last child token
         // text is "INDEXED" when NOT INDEXED is present.
-        boolean indexed = !"INDEXED".equals(
+        boolean indexed = !"INDEXED".equalsIgnoreCase(
             typeContext.getChild(typeContext.getChildCount() - 1).getText());
 
-        ColumnType columnType = ColumnType.valueOf(baseType);
+        ColumnType columnType = ColumnType.valueOf(baseType.toUpperCase(Locale.ROOT));
 
         return switch (columnType) {
             case OBJECT -> new Column(name, ColumnType.OBJECT, indexed,
@@ -36,7 +37,7 @@ public class TypeParser {
 
     private static List<Column> parseSubColumns(List<KinoticSQLParser.ColumnDefinitionContext> defs) {
         return defs.stream()
-                   .map(def -> parseColumnType(def.ID().getText(), def.type()))
+                   .map(def -> parseColumnType(Identifiers.name(def.identifier()), def.type()))
                    .toList();
     }
 
@@ -44,7 +45,7 @@ public class TypeParser {
         return variants.stream()
                        // Variant pseudo-columns are structural containers only; indexed=true is a
                        // placeholder — the parent UNION column's indexed flag governs ES behavior.
-                       .map(v -> new Column(v.ID().getText(), ColumnType.OBJECT, true,
+                       .map(v -> new Column(Identifiers.name(v.identifier()), ColumnType.OBJECT, true,
                            parseSubColumns(v.columnDefinition())))
                        .toList();
     }

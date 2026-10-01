@@ -29,7 +29,7 @@ public class TemplatePartParser {
                     part.INTEGER_LITERAL().getText()
                 ));
             } else if (part.columnDefinition() != null) {
-                var name = part.columnDefinition().ID().getText();
+                var name = Identifiers.name(part.columnDefinition().identifier());
                 result.add(new ColumnTemplatePart(TypeParser.parseColumnType(name, part.columnDefinition().type())));
             }
         }

@@ -33,7 +33,7 @@ public class ValueVisitor extends KinoticSQLBaseVisitor<Object> {
         } else if (ctx.arrayLiteral() != null) {
             ret = visitArrayLiteral(ctx.arrayLiteral());
         } else if (ctx.namedParameter() != null) {
-            ret = new NamedParameter(ctx.namedParameter().ID().getText());
+            ret = new NamedParameter(Identifiers.name(ctx.namedParameter().identifier()));
         } else {
             ret = null; // NULL_LITERAL
         }
@@ -83,7 +83,7 @@ public class ValueVisitor extends KinoticSQLBaseVisitor<Object> {
     }
 
     private String fieldName(KinoticSQLParser.ObjectFieldContext ctx) {
-        return ctx.STRING() != null ? unquote(ctx.STRING().getText()) : ctx.ID().getText();
+        return ctx.STRING() != null ? unquote(ctx.STRING().getText()) : Identifiers.name(ctx.identifier());
     }
 
     private String unquote(String text) {

@@ -20,7 +20,7 @@ public class CreateComponentTemplateStatementParser implements StatementParser {
     @Override
     public Statement parse(KinoticSQLParser.StatementContext ctx) {
         var templateCtx = ctx.createComponentTemplateStatement();
-        var templateName = templateCtx.ID().getText();
+        var templateName = Identifiers.name(templateCtx.identifier());
         var parts = TemplatePartParser.parseTemplateParts(templateCtx.templatePart());
         return new CreateComponentTemplateStatement(templateName, parts);
     }

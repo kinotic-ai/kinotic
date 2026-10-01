@@ -41,7 +41,7 @@ public class SelectStatementParser implements StatementParser {
 
         List<Projection> projections = new ArrayList<>();
         for (KinoticSQLParser.SelectItemContext item : selectCtx.selectList().selectItem()) {
-            projections.add(new Projection(selectExpression(item.selectExpression()), item.ID() != null ? item.ID().getText() : null));
+            projections.add(new Projection(selectExpression(item.selectExpression()), item.identifier() != null ? Identifiers.name(item.identifier()) : null));
         }
         List<SelectExpression> groupBy = new ArrayList<>();
         selectCtx.selectExpression().forEach(expression -> groupBy.add(selectExpression(expression)));
@@ -49,10 +49,10 @@ public class SelectStatementParser implements StatementParser {
         WhereClause whereClause = selectCtx.whereClause() != null ? whereClauseVisitor.visit(selectCtx.whereClause()) : null;
         List<OrderBy> orderBy = new ArrayList<>();
         for (KinoticSQLParser.OrderByContext term : selectCtx.orderBy()) {
-            orderBy.add(new OrderBy(term.fieldPath().getText(), term.DESC() != null ? SortDirection.DESC : SortDirection.ASC));
+            orderBy.add(new OrderBy(Identifiers.path(term.fieldPath()), term.DESC() != null ? SortDirection.DESC : SortDirection.ASC));
         }
         Integer limit = selectCtx.LIMIT() != null ? Integer.parseInt(selectCtx.INTEGER_LITERAL().getText()) : null;
-        String tableName = selectCtx.ID().getText();
+        String tableName = Identifiers.name(selectCtx.identifier());
 
         Statement ret;
         if (!groupBy.isEmpty() || projections.stream().anyMatch(projection -> projection.expression() instanceof FunctionCall)) {
@@ -91,9 +91,9 @@ public class SelectStatementParser implements StatementParser {
                 arguments.add(new AllFields());
             }
             call.functionArgument().forEach(argument -> arguments.add(functionArgument(argument)));
-            ret = new FunctionCall(call.ID().getText(), arguments);
+            ret = new FunctionCall(Identifiers.name(call.identifier()), arguments);
         } else {
-            ret = new FieldReference(ctx.fieldPath().getText());
+            ret = new FieldReference(Identifiers.path(ctx.fieldPath()));
         }
         return ret;
     }
@@ -108,7 +108,7 @@ public class SelectStatementParser implements StatementParser {
         } else if (ctx.numberLiteral() != null) {
             ret = new ValueArgument(valueVisitor.visitNumberLiteral(ctx.numberLiteral()));
         } else {
-            ret = new ValueArgument(new NamedParameter(ctx.namedParameter().ID().getText()));
+            ret = new ValueArgument(new NamedParameter(Identifiers.name(ctx.namedParameter().identifier())));
         }
         return ret;
     }

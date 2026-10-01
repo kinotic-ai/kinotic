@@ -218,26 +218,6 @@ public interface KinoticSQLListener extends ParseTreeListener {
 	 */
 	void exitFunctionArgument(KinoticSQLParser.FunctionArgumentContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link KinoticSQLParser#havingClause}.
-	 * @param ctx the parse tree
-	 */
-	void enterHavingClause(KinoticSQLParser.HavingClauseContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link KinoticSQLParser#havingClause}.
-	 * @param ctx the parse tree
-	 */
-	void exitHavingClause(KinoticSQLParser.HavingClauseContext ctx);
-	/**
-	 * Enter a parse tree produced by {@link KinoticSQLParser#havingCondition}.
-	 * @param ctx the parse tree
-	 */
-	void enterHavingCondition(KinoticSQLParser.HavingConditionContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link KinoticSQLParser#havingCondition}.
-	 * @param ctx the parse tree
-	 */
-	void exitHavingCondition(KinoticSQLParser.HavingConditionContext ctx);
-	/**
 	 * Enter a parse tree produced by {@link KinoticSQLParser#orderBy}.
 	 * @param ctx the parse tree
 	 */
@@ -457,4 +437,24 @@ public interface KinoticSQLListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitComment(KinoticSQLParser.CommentContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#identifier}.
+	 * @param ctx the parse tree
+	 */
+	void enterIdentifier(KinoticSQLParser.IdentifierContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#identifier}.
+	 * @param ctx the parse tree
+	 */
+	void exitIdentifier(KinoticSQLParser.IdentifierContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#nonReserved}.
+	 * @param ctx the parse tree
+	 */
+	void enterNonReserved(KinoticSQLParser.NonReservedContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#nonReserved}.
+	 * @param ctx the parse tree
+	 */
+	void exitNonReserved(KinoticSQLParser.NonReservedContext ctx);
 }

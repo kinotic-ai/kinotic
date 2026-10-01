@@ -26,13 +26,13 @@ public class InsertStatementParser implements StatementParser {
     public Statement parse(KinoticSQLParser.StatementContext ctx) {
         KinoticSQLParser.InsertStatementContext insertContext = ctx.insertStatement();
         
-        String tableName = insertContext.tableName().getText();
+        String tableName = Identifiers.name(insertContext.tableName().identifier());
         List<String> columns = new ArrayList<>();
         List<Object> values = new ArrayList<>();
 
         // Parse column names if specified
         if (insertContext.LPAREN() != null) {
-            insertContext.columnName().forEach(column -> columns.add(column.getText()));
+            insertContext.columnName().forEach(column -> columns.add(Identifiers.name(column.identifier())));
         }
 
         // Parse values from valueList

@@ -107,6 +107,29 @@ class SelectStatementParserTest {
     }
 
     @Test
+    void whenKeywordsAreLowercase_thenParsesTheSame() {
+        SelectStatement statement = parseSelect("select firstName from Person where lastName = 'Doe' order by firstName desc limit 5;");
+
+        assertEquals(List.of("firstName"), statement.columns());
+        assertEquals(List.of(new OrderBy("firstName", SortDirection.DESC)), statement.orderBy());
+        assertEquals(5, statement.limit());
+    }
+
+    @Test
+    void whenFieldIsNamedLikeAKeyword_thenItIsAName() {
+        // date, size and type keywords are names wherever a name can appear; a reserved word is a name when quoted
+        SelectStatement statement = parseSelect("SELECT date, size, text, \"order\" FROM Person WHERE keyword = 'x' ORDER BY date;");
+
+        assertEquals(List.of("date", "size", "text", "order"), statement.columns());
+        assertEquals("keyword", assertInstanceOf(WhereClause.Condition.class, statement.whereClause()).getField());
+    }
+
+    @Test
+    void whenReservedWordIsUnquoted_thenParseFails() {
+        assertThrows(IllegalArgumentException.class, () -> parser.parse("SELECT order FROM Person;"));
+    }
+
+    @Test
     void whenFromNamesAnythingButOneName_thenParseFails() {
         for (String sql : List.of("SELECT COUNT(*) FROM \"kinotic_*\";",
                                   "SELECT COUNT(*) FROM Person, Vehicle;",

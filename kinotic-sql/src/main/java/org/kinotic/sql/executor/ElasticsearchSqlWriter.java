@@ -29,15 +29,16 @@ public class ElasticsearchSqlWriter {
      * @param statement a resolved aggregate, whose table name is an index
      */
     public static ElasticsearchSql write(AggregateStatement statement) {
-        // Identifiers, function names and numbers are written as the grammar restricts them, which leaves no quote
-        // in them; every other value goes through a placeholder, so no text a statement's author wrote is quoted here
+        // Identifiers are double-quoted, so a field named like an Elasticsearch SQL keyword reads as a field; the grammar
+        // restricts identifiers, function names and numbers to characters that hold no quote, and every other value
+        // goes through a placeholder, so no text a statement's author wrote is quoted here
         List<Object> parameters = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT ");
 
         StringJoiner projections = new StringJoiner(", ");
         for (Projection projection : statement.projections()) {
             String column = expression(projection.expression(), parameters);
-            projections.add(projection.alias() != null ? column + " AS " + projection.alias() : column);
+            projections.add(projection.alias() != null ? column + " AS " + quoted(projection.alias()) : column);
         }
         sql.append(projections).append(" FROM \"").append(statement.tableName()).append('"');
 
@@ -52,7 +53,7 @@ public class ElasticsearchSqlWriter {
         if (!statement.orderBy().isEmpty()) {
             StringJoiner orderBy = new StringJoiner(", ");
             for (OrderBy term : statement.orderBy()) {
-                orderBy.add(term.field() + " " + term.direction().name());
+                orderBy.add(quoted(term.field()) + " " + term.direction().name());
             }
             sql.append(" ORDER BY ").append(orderBy);
         }
@@ -64,7 +65,7 @@ public class ElasticsearchSqlWriter {
 
     private static String expression(SelectExpression expression, List<Object> parameters) {
         return switch (expression) {
-            case FieldReference field -> field.path();
+            case FieldReference field -> quoted(field.path());
             case FunctionCall call -> {
                 StringJoiner arguments = new StringJoiner(", ", call.name() + "(", ")");
                 call.arguments().forEach(argument -> arguments.add(argument(argument, parameters)));
@@ -88,7 +89,7 @@ public class ElasticsearchSqlWriter {
                 Object value = ParameterUtils.isReference(condition.getValue())
                         ? new NamedParameter(ParameterUtils.nameOf(condition.getValue()))
                         : QueryBuilder.literalValue(condition.getValue());
-                yield condition.getField() + " " + condition.getOperator() + " " + placeholder(value, parameters);
+                yield quoted(condition.getField()) + " " + condition.getOperator() + " " + placeholder(value, parameters);
             }
             case WhereClause.AndClause and -> "(" + condition(and.getLeft(), parameters) + " AND "
                     + condition(and.getRight(), parameters) + ")";
@@ -96,6 +97,18 @@ public class ElasticsearchSqlWriter {
                     + condition(or.getRight(), parameters) + ")";
             default -> throw new IllegalStateException("Unsupported WHERE clause type " + whereClause.getClass().getSimpleName());
         };
+    }
+
+    /**
+     * A field, or a sub-field path, with each of its parts double-quoted; Elasticsearch SQL joins the parts of a
+     * qualified name with dots, so {@code "address"."city"} names the field {@code address.city}.
+     */
+    private static String quoted(String path) {
+        StringJoiner ret = new StringJoiner(".");
+        for (String part : path.split("\\.")) {
+            ret.add('"' + part + '"');
+        }
+        return ret.toString();
     }
 
     private static String placeholder(Object value, List<Object> parameters) {

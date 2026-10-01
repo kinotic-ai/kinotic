@@ -32,9 +32,9 @@ class ElasticsearchSqlWriterTest {
              LIMIT 10;
             """);
 
-        assertEquals("SELECT COUNT(*) AS total, address.city FROM \"person_index\""
-                             + " WHERE (lastName = ? AND (age >= ? OR vip = ?))"
-                             + " GROUP BY address.city ORDER BY total DESC LIMIT 10",
+        assertEquals("SELECT COUNT(*) AS \"total\", \"address\".\"city\" FROM \"person_index\""
+                             + " WHERE (\"lastName\" = ? AND (\"age\" >= ? OR \"vip\" = ?))"
+                             + " GROUP BY \"address\".\"city\" ORDER BY \"total\" DESC LIMIT 10",
                      sql.statement());
         assertEquals(List.of(new NamedParameter("lastName"), 18L, true), sql.parameters());
     }
@@ -43,16 +43,24 @@ class ElasticsearchSqlWriterTest {
     void whenFunctionTakesValues_thenNumbersAreWrittenAndStringsArePlaceholders() {
         ElasticsearchSql sql = write("SELECT HISTOGRAM(age, 10) AS bucket, DATE_TRUNC('month', born) FROM people GROUP BY bucket;");
 
-        assertEquals("SELECT HISTOGRAM(age, 10) AS bucket, DATE_TRUNC(?, born) FROM \"people\" GROUP BY bucket",
+        assertEquals("SELECT HISTOGRAM(\"age\", 10) AS \"bucket\", DATE_TRUNC(?, \"born\") FROM \"people\" GROUP BY \"bucket\"",
                      sql.statement());
         assertEquals(List.of("month"), sql.parameters());
+    }
+
+    @Test
+    void whenFieldIsNamedLikeAKeyword_thenItIsQuoted() {
+        ElasticsearchSql sql = write("select count(*) as total from people where date >= :since group by \"order\".size;");
+
+        assertEquals("SELECT count(*) AS \"total\" FROM \"people\" WHERE \"date\" >= ? GROUP BY \"order\".\"size\"",
+                     sql.statement());
     }
 
     @Test
     void whenStringHoldsSqlText_thenItIsOnlyAPlaceholderValue() {
         ElasticsearchSql sql = write("SELECT COUNT(id) FROM people WHERE name = 'x\" FROM \"kinotic_*';");
 
-        assertEquals("SELECT COUNT(id) FROM \"people\" WHERE name = ?", sql.statement());
+        assertEquals("SELECT COUNT(\"id\") FROM \"people\" WHERE \"name\" = ?", sql.statement());
         assertEquals(List.of("x\" FROM \"kinotic_*"), sql.parameters());
     }
 }
