@@ -110,7 +110,7 @@ const ariaLabel = genericLabel
 }
 
 .social-auth-button--branded:focus-visible {
-  outline: 2px solid var(--p-form-field-focus-border-color);
+  outline: 2px solid var(--p-focus-ring-color);
   outline-offset: 2px;
   border-radius: 9999px;
 }
@@ -151,7 +151,7 @@ const ariaLabel = genericLabel
 }
 
 .social-auth-button--ms:focus-visible {
-  outline: 2px solid var(--p-form-field-focus-border-color);
+  outline: 2px solid var(--p-focus-ring-color);
   outline-offset: 2px;
 }
 
@@ -194,7 +194,7 @@ const ariaLabel = genericLabel
 }
 
 .social-auth-button--gh:focus-visible {
-  outline: 2px solid var(--p-form-field-focus-border-color);
+  outline: 2px solid var(--p-focus-ring-color);
   outline-offset: 2px;
 }
 
@@ -224,7 +224,7 @@ const ariaLabel = genericLabel
 }
 
 .social-auth-button--generic:focus-visible {
-  outline: 2px solid var(--p-form-field-focus-border-color);
+  outline: 2px solid var(--p-focus-ring-color);
   outline-offset: 2px;
 }
 </style>

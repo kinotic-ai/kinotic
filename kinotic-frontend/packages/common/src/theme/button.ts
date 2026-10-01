@@ -47,7 +47,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "{surface.0}",
                     activeColor: "{surface.0}",
                     focusRing: {
-                        color: "{surface.950}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -62,7 +62,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "{surface.700}",
                     activeColor: "{surface.800}",
                     focusRing: {
-                        color: "{surface.600}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -77,7 +77,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "#ffffff",
                     activeColor: "#ffffff",
                     focusRing: {
-                        color: "{sky.500}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -92,7 +92,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "#ffffff",
                     activeColor: "#ffffff",
                     focusRing: {
-                        color: "{green.500}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -107,7 +107,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "#ffffff",
                     activeColor: "#ffffff",
                     focusRing: {
-                        color: "{orange.500}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -122,7 +122,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "#ffffff",
                     activeColor: "#ffffff",
                     focusRing: {
-                        color: "{purple.500}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -137,7 +137,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "#ffffff",
                     activeColor: "#ffffff",
                     focusRing: {
-                        color: "{red.500}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -152,7 +152,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "{surface.0}",
                     activeColor: "{surface.0}",
                     focusRing: {
-                        color: "{surface.950}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 }
@@ -280,7 +280,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "{surface.950}",
                     activeColor: "{surface.950}",
                     focusRing: {
-                        color: "{surface.0}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -295,7 +295,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "{surface.200}",
                     activeColor: "{surface.100}",
                     focusRing: {
-                        color: "{surface.300}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -310,7 +310,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "{sky.950}",
                     activeColor: "{sky.950}",
                     focusRing: {
-                        color: "{sky.400}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -325,7 +325,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "{green.950}",
                     activeColor: "{green.950}",
                     focusRing: {
-                        color: "{green.400}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -340,7 +340,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "{orange.950}",
                     activeColor: "{orange.950}",
                     focusRing: {
-                        color: "{orange.400}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -355,7 +355,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "{purple.950}",
                     activeColor: "{purple.950}",
                     focusRing: {
-                        color: "{purple.400}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -370,7 +370,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "{red.950}",
                     activeColor: "{red.950}",
                     focusRing: {
-                        color: "{red.400}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 },
@@ -385,7 +385,7 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     hoverColor: "{surface.950}",
                     activeColor: "{surface.950}",
                     focusRing: {
-                        color: "{surface.0}",
+                        color: "{focus.ring.color}",
                         shadow: "none"
                     }
                 }
