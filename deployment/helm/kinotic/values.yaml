@@ -115,6 +115,12 @@ properties:
   javaModuleAccess: "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
   bplJvmHeadRoom: 10
 
+# Where each server's OpenTelemetry agent exports its traces and metrics: the OTLP/HTTP endpoints
+# of Tempo and Mimir
+otel:
+  tracesEndpoint: "http://tempo.observability.svc:4318/v1/traces"
+  metricsEndpoint: "http://mimir.observability.svc:9009/otlp/v1/metrics"
+
 # What every server shares — mirrors the Spring property structure:
 #   kinotic.domain.*       → email, Elasticsearch
 #   kinotic.managementApi.* → the stores LogService and TelemetryService query

@@ -68,7 +68,8 @@ Takes (dict "name" <server key> "server" <server values> "root" $).
 {{- $server := .server -}}
 # ── JVM / Buildpack ───────────────────────────────────────
 SPRING_PROFILES_ACTIVE: "{{ $root.Values.properties.springActiveProfiles }}"
-JAVA_TOOL_OPTIONS: "{{ $root.Values.properties.javaToolOptions }} {{ $root.Values.properties.javaModuleAccess }}"
+# The OpenTelemetry Java agent every server image embeds
+JAVA_TOOL_OPTIONS: "{{ $root.Values.properties.javaToolOptions }} -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar {{ $root.Values.properties.javaModuleAccess }}"
 BPL_JVM_HEAD_ROOM: "{{ $root.Values.properties.bplJvmHeadRoom }}"
 BPL_JAVA_NMT_ENABLED: "{{ $root.Values.properties.enableNmt }}"
 BPL_JMX_ENABLED: "{{ $root.Values.properties.enableJmx }}"
@@ -122,8 +123,23 @@ KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
 KINOTIC_MANAGEMENTAPI_LOKIURL: "{{ $root.Values.kinotic.managementApi.lokiUrl }}"
 KINOTIC_MANAGEMENTAPI_TEMPOURL: "{{ $root.Values.kinotic.managementApi.tempoUrl }}"
 KINOTIC_MANAGEMENTAPI_MIMIRURL: "{{ $root.Values.kinotic.managementApi.mimirUrl }}"
-# The service_name label Alloy gives this server's logs, from the pods' app label
+# The agent's service name, and the service_name label Alloy gives this server's logs from the
+# pods' app label
 OTEL_SERVICE_NAME: "{{ .name }}"
+
+# ── OpenTelemetry agent ───────────────────────────────────
+# Traces and metrics go to Tempo and Mimir under the platform tenant; logs reach Loki through Alloy
+OTEL_TRACES_EXPORTER: "otlp"
+OTEL_METRICS_EXPORTER: "otlp"
+OTEL_LOGS_EXPORTER: "none"
+OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "{{ $root.Values.otel.tracesEndpoint }}"
+OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "{{ $root.Values.otel.metricsEndpoint }}"
+OTEL_EXPORTER_OTLP_HEADERS: "X-Scope-OrgID=kinotic-system"
+# jvm.buffer.* and jvm.system.cpu.*, which the agent gates behind this flag
+OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY: "true"
+# Names the bare transport spans under each Elasticsearch call
+OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING: "{{ range $index, $value := $root.Values.kinotic.elastic.connections }}{{ if $index }},{{ end }}{{ $value.host }}:{{ $value.port }}=elasticsearch{{ end }}"
 {{- if $root.Values.tls.enabled }}
 
 # ── SSL/TLS ──────────────────────────────────────────────

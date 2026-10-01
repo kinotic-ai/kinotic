@@ -91,6 +91,8 @@ Centralized logs, traces and metrics using Grafana's stack:
 - **Mimir** — Multi-tenant metrics storage, the local `helm/mimir` chart running one monolithic process. It receives OTLP at `/otlp` and serves the Prometheus API under `/prometheus` on 9009. Blocks are kept 30 days on a persistent volume.
 - **Grafana** — Query and dashboards, with Loki, Tempo and Mimir datasources linked to each other. Each datasource browses the `kinotic-system` tenant by default; Loki's multi-tenant queries accept pipe-separated ids (`acme|kinotic-system`). Local auth in KinD, Entra ID (Azure AD) in Azure.
 
+Each server runs the OpenTelemetry Java agent its image embeds, exporting its traces to Tempo and its metrics to Mimir over OTLP/HTTP under the `kinotic-system` tenant (`otel.*` in the kinotic chart's values); its logs go through Alloy, so the agent exports none.
+
 Customer workload (micro VM) logs are shipped separately: each vm-manager node runs its own Alloy process that tails per-workload log directories and routes each stream to the workload organization's tenant. See the observability page on the website for the architecture.
 
 To add a new cluster log source, add a `local.file_match` + `loki.source.file` block to the Alloy config and apply.
