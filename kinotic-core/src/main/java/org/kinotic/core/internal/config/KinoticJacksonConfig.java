@@ -54,7 +54,7 @@ public class KinoticJacksonConfig {
     }
 
     // FIXME: Make sure this works with Spring WebFlux
-    // This is configured in org.kinotic.continuum.internal.api.DefaultContinuum
+    // This is configured in org.kinotic.core.internal.DefaultKinotic
     // It is done there in case this bean is supplied by spring directly
     @ConditionalOnMissingBean
     @Bean

@@ -25,8 +25,11 @@ Estimated monthly costs for `centralus` (the `location` in `cluster/terraform.tf
 | Load Balancer (STOMP only) | Standard LB + Public IP | **~$22/mo** |
 | Elasticsearch PVC(s) | Managed Disk (Premium ZRS) | **Paid** |
 | Loki PVC | Managed Disk | **~$2/mo** |
+| Tempo PVC | Managed Disk | **~$2/mo** |
+| Mimir PVC | Managed Disk | **~$2/mo** |
 | Grafana PVC | Managed Disk | **~$1/mo** |
-| Loki Azure Blob Storage | Azure Blob (log chunks + rules) | **~$1-5/mo** |
+| Observability Blob Storage | Azure Blob (Loki chunks + rules, Tempo traces, Mimir blocks + rules) | **~$2-10/mo** |
+| Observability storage private endpoint | Private Endpoint (blob) | **~$7.30/mo** + ~$0.01/GB |
 | Terraform State Storage | Azure Blob Storage (LRS) | **~$1/mo** |
 | Entra ID App Registration (Grafana) | Azure AD | Free |
 | Azure Key Vault (platform secrets) | Key Vault Standard | **~$1/mo** |
@@ -67,7 +70,7 @@ Estimated monthly costs for `centralus` (the `location` in `cluster/terraform.tf
 Dedicated master + 3 data ES nodes on shared system pool. Production-like
 ES topology without dedicated VMs. Uses Premium ZRS storage (same as
 production) so the beta → production path requires no storage migration.
-Includes observability stack (Loki + Alloy + Grafana) and Entra ID auth.
+Includes observability stack (Loki + Tempo + Mimir + Alloy + Grafana) and Entra ID auth.
 
 | Line Item | Spec | Count | Unit cost | Total/mo |
 |---|---|---|---|---|
@@ -78,7 +81,11 @@ Includes observability stack (Loki + Alloy + Grafana) and Entra ID auth.
 | LB + Public IP (STOMP only) | Standard | 1 | $22 | $22 |
 | Static Web App (SPA) | Free tier | 1 | $0 | $0 |
 | Loki PVC | managed-csi-premium, 10 GB | 1 | $2 | $2 |
+| Tempo PVC | default StorageClass, 10 GB | 1 | $2 | $2 |
+| Mimir PVC | default StorageClass, 10 GB | 1 | $2 | $2 |
 | Grafana PVC | managed-csi-premium, 1 GB | 1 | $1 | $1 |
+| Observability Blob Storage (Loki, Tempo, Mimir) | Azure Blob (hot tier) | — | ~$0.02/GB | $5 |
+| Observability storage private endpoint | Private Endpoint (blob) | 1 | $7.30 | $7 |
 | Key Vault | Standard | 1 | ~$0.03/10K ops | $1 |
 | Azure Communication Services | Email | 1 | $0.00025/email | $0 |
 | DNS Zone | kinotic.ai | 1 | $0.50 | $1 |
@@ -87,7 +94,7 @@ Includes observability stack (Loki + Alloy + Grafana) and Entra ID auth.
 | Private DNS Zone (blob) | privatelink.blob.core.windows.net | 1 | $0.50 | $1 |
 | Organization storage | Storage account + private endpoint | per org | ~$7.50 | +$7.50 per org |
 
-### Beta Total: ~$609/mo, plus ~$7.50 per organization
+### Beta Total: ~$625/mo, plus ~$7.50 per organization
 
 ### Beta Resource Utilization (48 GB across 3 nodes)
 
@@ -102,11 +109,13 @@ Memory reservations (requests) determine scheduling, not actual usage.
 | kinotic-server-system | 2 GB | 1 | 2 GB |
 | kinotic-server-app | 2 GB | 2 | 4 GB |
 | Loki | 512 MB | 1 | 0.5 GB |
+| Tempo | 512 MB | 1 | 0.5 GB |
+| Mimir | 512 MB | 1 | 0.5 GB |
 | Grafana | 256 MB | 1 | 0.25 GB |
 | Alloy (per node) | 256 MB | 3 | 0.75 GB |
 | System (kube, ECK, cert-mgr, Reloader, Cilium) | — | — | ~5 GB |
-| **Reserved** | | | **~36.5 GB** |
-| **Available for rolling updates** | | | **~5.5 GB** |
+| **Reserved** | | | **~37.5 GB** |
+| **Available for rolling updates** | | | **~4.5 GB** |
 
 **Beta sizing notes:**
 - ES data reduced from 8 GB to 6 GB (actual usage ~4.6 GB per pod)
@@ -135,7 +144,10 @@ AKS Standard tier with uptime SLA.
 | Key Vault | Standard | 1 | ~$0.03/10K ops | $1 |
 | Azure Communication Services | Email | 1 | $0.00025/email | $0 |
 | Loki PVC | managed-csi-premium, 10 GB | 1 | $2 | $2 |
-| Loki Blob Storage | Azure Blob (hot tier) | — | ~$0.02/GB | $5 |
+| Tempo PVC | default StorageClass, 10 GB | 1 | $2 | $2 |
+| Mimir PVC | default StorageClass, 10 GB | 1 | $2 | $2 |
+| Observability Blob Storage (Loki, Tempo, Mimir) | Azure Blob (hot tier) | — | ~$0.02/GB | $10 |
+| Observability storage private endpoint | Private Endpoint (blob) | 1 | $7.30 | $7 |
 | Grafana PVC | managed-csi-premium, 1 GB | 1 | $1 | $1 |
 | DNS Zone | kinotic.ai | 1 | $0.50 | $1 |
 | State Storage | Blob (LRS) | 1 | $1 | $1 |
@@ -143,7 +155,7 @@ AKS Standard tier with uptime SLA.
 | Private DNS Zone (blob) | privatelink.blob.core.windows.net | 1 | $0.50 | $1 |
 | Organization storage | Storage account + private endpoint | per org | ~$7.50 | +$7.50 per org |
 
-### Production Total: ~$2,061/mo, plus ~$7.50 per organization
+### Production Total: ~$2,077/mo, plus ~$7.50 per organization
 
 The per-organization line is the private endpoint; the account itself is cents. At a
 thousand organizations that is ~$7,300/mo, which is where service endpoints or a shared

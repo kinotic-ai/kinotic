@@ -27,10 +27,9 @@ import co.elastic.clients.json.JsonpMapperBase;
 import jakarta.json.JsonValue;
 import co.elastic.clients.transport.JsonEndpoint;
 import co.elastic.clients.transport.endpoints.EndpointWithResponseMapperAttr;
-import io.vertx.core.Context;
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.api.crud.*;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.domain.api.model.RawJson;
@@ -49,7 +48,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -120,7 +118,7 @@ public class CrudServiceTemplate {
     public <T> Future<IndexResponse> appendToDataStream(String dataStreamName,
                                                                    T document,
                                                                    Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return toFuture(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+        return KinoticUtil.toFuture(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
             builder.index(dataStreamName).opType(OpType.Create).document(document);
             if (builderConsumer != null) {
                 builderConsumer.accept(builder);
@@ -151,7 +149,7 @@ public class CrudServiceTemplate {
      */
     public Future<Long> count(String indexName,
                                          Consumer<CountRequest.Builder> builderConsumer) {
-        return toFuture(esAsyncClient.count(builder -> {
+        return KinoticUtil.toFuture(esAsyncClient.count(builder -> {
                                                 builder.index(indexName);
                                                 if (builderConsumer != null) {
                                                     builderConsumer.accept(builder);
@@ -194,7 +192,7 @@ public class CrudServiceTemplate {
                                                        String id,
                                                        T document,
                                                        Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return toFuture(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+        return KinoticUtil.toFuture(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
                     builder.index(indexName).id(id).document(document).opType(OpType.Create);
                     if (builderConsumer != null) {
                         builderConsumer.accept(builder);
@@ -211,7 +209,7 @@ public class CrudServiceTemplate {
      * Creates a data stream
      */
     public Future<Void> createDataStream(String dataStreamName) {
-        return toFuture(esAsyncClient.indices().createDataStream(builder -> builder.name(dataStreamName))
+        return KinoticUtil.toFuture(esAsyncClient.indices().createDataStream(builder -> builder.name(dataStreamName))
                                           .thenApply(response -> null));
     }
 
@@ -228,7 +226,7 @@ public class CrudServiceTemplate {
                                                int numberOfShards,
                                                int numberOfReplicas,
                                                Map<String, Property> mappings) {
-        return toFuture(esAsyncClient.indices().exists(builder -> builder.index(indexName))
+        return KinoticUtil.toFuture(esAsyncClient.indices().exists(builder -> builder.index(indexName))
                             .thenCompose(exists -> {
                                 if (!exists.value()) {
                                     return esAsyncClient.indices()
@@ -301,7 +299,7 @@ public class CrudServiceTemplate {
             throw new IllegalArgumentException(
                     "dataRetention can only be set for data stream templates (dataStreamVisibility must be non-null)");
         }
-        return toFuture(esAsyncClient.indices().putIndexTemplate(builder -> {
+        return KinoticUtil.toFuture(esAsyncClient.indices().putIndexTemplate(builder -> {
             builder.name(templateName)
                    .indexPatterns(List.of(indexPattern))
                    .priority(DEFAULT_PRIORITY)
@@ -365,7 +363,7 @@ public class CrudServiceTemplate {
     public Future<DeleteResponse> deleteById(String indexName,
                                                         String id,
                                                         Consumer<DeleteRequest.Builder> builderConsumer) {
-        return toFuture(esAsyncClient.delete(builder -> {
+        return KinoticUtil.toFuture(esAsyncClient.delete(builder -> {
             builder.index(indexName).id(id);
             if (builderConsumer != null) {
                 builderConsumer.accept(builder);
@@ -403,7 +401,7 @@ public class CrudServiceTemplate {
      */
     public Future<DeleteByQueryResponse> deleteByQuery(String indexName,
                                                                   Consumer<DeleteByQueryRequest.Builder> builderConsumer) {
-        return toFuture(esAsyncClient.deleteByQuery(builder -> {
+        return KinoticUtil.toFuture(esAsyncClient.deleteByQuery(builder -> {
             builder.index(indexName);
             if (builderConsumer != null) {
                 builderConsumer.accept(builder);
@@ -416,7 +414,7 @@ public class CrudServiceTemplate {
      * Deletes a data stream
      */
     public Future<Void> deleteDataStream(String dataStreamName) {
-        return toFuture(esAsyncClient.indices()
+        return KinoticUtil.toFuture(esAsyncClient.indices()
                                           .deleteDataStream(builder -> builder.name(dataStreamName))
                                           .thenApply(response -> null));
     }
@@ -428,7 +426,7 @@ public class CrudServiceTemplate {
      * @return a {@link Future} that will complete when the index has been deleted
      */
     public Future<Void> deleteIndex(String indexName) {
-        return toFuture(esAsyncClient.indices()
+        return KinoticUtil.toFuture(esAsyncClient.indices()
                                           .delete(builder -> builder.index(indexName))
                                           .thenApply(response -> null));
     }
@@ -437,7 +435,7 @@ public class CrudServiceTemplate {
      * Deletes an index template
      */
     public Future<Void> deleteIndexTemplate(String templateName) {
-        return toFuture(esAsyncClient.indices()
+        return KinoticUtil.toFuture(esAsyncClient.indices()
                                           .deleteIndexTemplate(builder -> builder.name(templateName))
                                           .thenApply(response -> null));
     }
@@ -494,7 +492,7 @@ public class CrudServiceTemplate {
             builderConsumer.accept(builder);
         }
 
-        return toFuture(esAsyncClient._transport()
+        return KinoticUtil.toFuture(esAsyncClient._transport()
                                           .performRequestAsync(builder.build(),
                                                                endpoint,
                                                                esAsyncClient._transportOptions())
@@ -552,7 +550,7 @@ public class CrudServiceTemplate {
             builderConsumer.accept(builder);
         }
 
-        return toFuture(esAsyncClient._transport()
+        return KinoticUtil.toFuture(esAsyncClient._transport()
                                           .performRequestAsync(builder.build(),
                                                                endpoint,
                                                                esAsyncClient._transportOptions())
@@ -598,7 +596,7 @@ public class CrudServiceTemplate {
                                                  boolean upsert) {
         // a doc merge carries no compare-and-set semantics, so retrying re-applies the same fields
         // against the newest version and never loses a concurrent writer's fields
-        return toFuture(esAsyncClient.update(u -> u.index(indexName)
+        return KinoticUtil.toFuture(esAsyncClient.update(u -> u.index(indexName)
                                                         .id(id)
                                                         .doc(partial)
                                                         .docAsUpsert(upsert)
@@ -641,7 +639,7 @@ public class CrudServiceTemplate {
                                           Map<String, Object> partial,
                                           boolean upsert,
                                           Consumer<UpdateRequest.Builder<Map, Map<String, Object>>> builderConsumer) {
-        return toFuture(esAsyncClient.update((UpdateRequest.Builder<Map, Map<String, Object>> u) -> {
+        return KinoticUtil.toFuture(esAsyncClient.update((UpdateRequest.Builder<Map, Map<String, Object>> u) -> {
             u.index(indexName)
              .id(id)
              .doc(partial)
@@ -733,7 +731,7 @@ public class CrudServiceTemplate {
         // JsonData.of(null) has no serializer to look up and throws; a jakarta JsonValue is written as it
         // is, so a null parameter reaches the script as JSON null
         params.forEach((name, value) -> scriptParams.put(name, JsonData.of(value == null ? JsonValue.NULL : value)));
-        return toFuture(esAsyncClient.update((UpdateRequest.Builder<Map, Map<String, Object>> u) -> {
+        return KinoticUtil.toFuture(esAsyncClient.update((UpdateRequest.Builder<Map, Map<String, Object>> u) -> {
             u.index(indexName)
              .id(id)
              .script(s -> s.source(src -> src.scriptString(source))
@@ -763,7 +761,7 @@ public class CrudServiceTemplate {
                                                      String id,
                                                      T document,
                                                      Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return toFuture(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+        return KinoticUtil.toFuture(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
             builder.index(indexName).id(id).document(document);
             if (builderConsumer != null) {
                 builderConsumer.accept(builder);
@@ -832,7 +830,7 @@ public class CrudServiceTemplate {
                                                    Consumer<SearchRequest.Builder> builderConsumer,
                                                    Function<Hit<T>, R> hitMapper) {
 
-        return toFuture(searchFullResponse(indexName, pageable, type, builderConsumer)
+        return KinoticUtil.toFuture(searchFullResponse(indexName, pageable, type, builderConsumer)
                 .thenApply(response -> {
 
                     HitsMetadata<T> hitsMetadata = response.hits();
@@ -875,7 +873,7 @@ public class CrudServiceTemplate {
     }
 
     public Future<Void> syncIndex(String indexName) {
-        return toFuture(esAsyncClient.indices()
+        return KinoticUtil.toFuture(esAsyncClient.indices()
                                      .refresh(b -> b.index(indexName)))
                 .mapEmpty();
     }
@@ -902,7 +900,7 @@ public class CrudServiceTemplate {
 
     public Future<Void> updateIndexMapping(String indexName,
                                                       Map<String, Property> mappings) {
-        return toFuture(esAsyncClient.indices().exists(builder -> builder.index(indexName))
+        return KinoticUtil.toFuture(esAsyncClient.indices().exists(builder -> builder.index(indexName))
                             .thenCompose(exists -> {
                                 if (exists.value()) {
                                     return esAsyncClient.indices()
@@ -931,7 +929,7 @@ public class CrudServiceTemplate {
         Validate.notNull(mappings, "mappings cannot be null");
         Validate.notEmpty(mappings, "mappings cannot be empty");
 
-        return toFuture(esAsyncClient.indices()
+        return KinoticUtil.toFuture(esAsyncClient.indices()
                             .existsIndexTemplate(builder -> builder.name(templateName))
                             .thenCompose(exists -> {
                                 if (!exists.value()) {
@@ -1007,42 +1005,6 @@ public class CrudServiceTemplate {
         } catch (Exception e) {
             throw new IllegalStateException("Failed to verify existence of index '" + indexName + "'", e);
         }
-    }
-
-    /**
-     * Converts a {@link CompletableFuture} produced by an asynchronous client (the Elasticsearch
-     * client, a Caffeine loader) into a {@link Future} whose handlers are dispatched on the Vert.x
-     * context that is current at the moment this method is invoked. Any {@code compose} /
-     * {@code map} / {@code onComplete} attached by the caller will then run on that context, which
-     * means {@code Vertx.currentContext()} — and by extension
-     * {@link org.kinotic.core.api.security.SecurityContext#currentParticipant()} —
-     * will be observable across the client's async boundary. Failures are delivered as the
-     * raw cause, never wrapped in {@link CompletionException}.
-     * <p>
-     * When invoked outside of any Vert.x context, handlers run on the completing thread so
-     * non-Vert.x callers still work.
-     */
-    public <T> Future<T> toFuture(CompletableFuture<T> es) {
-        // a failure that crossed a dependent stage arrives CompletionException-wrapped; strip it here
-        // so every Vert.x consumer sees the raw cause. A bare Promise.promise() would not re-dispatch
-        // onto the context, so the context-bound fromCompletionStage overload is required.
-        CompletableFuture<T> unwrapped = new CompletableFuture<>();
-        es.whenComplete((result, err) -> {
-            if (err != null) {
-                unwrapped.completeExceptionally(err instanceof CompletionException && err.getCause() != null
-                                                        ? err.getCause() : err);
-            } else {
-                unwrapped.complete(result);
-            }
-        });
-        Context ctx = Vertx.currentContext();
-        Future<T> ret;
-        if (ctx != null) {
-            ret = Future.fromCompletionStage(unwrapped, ctx);
-        } else {
-            ret = Future.fromCompletionStage(unwrapped);
-        }
-        return ret;
     }
 
     private <T> JsonpDeserializer<T> getDeserializer(Class<T> type) {

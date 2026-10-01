@@ -2,6 +2,7 @@ package org.kinotic.testserver;
 
 import org.kinotic.core.api.annotations.EnableKinotic;
 import org.kinotic.domain_autoconfig.KinoticDomainAutoConfiguration;
+import org.kinotic.sql_autoconfig.KinoticSqlAutoConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -10,8 +11,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * {@link TestSecurityService} authenticating connections and {@link ITestService} to call.
  * It needs no Elasticsearch.
  */
-// Only kinotic-domain's model types are used here; its services need Elasticsearch
-@SpringBootApplication(exclude = KinoticDomainAutoConfiguration.class)
+// Only kinotic-domain's model types are used here; its services, and the kinotic-sql executors it
+// carries, need Elasticsearch
+@SpringBootApplication(exclude = {KinoticDomainAutoConfiguration.class, KinoticSqlAutoConfiguration.class})
 @EnableKinotic
 public class TestServerApplication {
 

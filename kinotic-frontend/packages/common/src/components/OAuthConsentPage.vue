@@ -2,7 +2,7 @@
   <AuthPageShell :art="art" :show-theme-toggle="false">
     <div class="login-form">
       <div v-if="!requestId || failed" class="consent-message">
-        <span class="pi pi-exclamation-triangle consent-message__icon"></span>
+        <span class="login-status-icon pi pi-exclamation-triangle"></span>
         <h2 class="signup-title">Authorization request unavailable</h2>
         <p class="login-form__subtitle">
           {{ failed || 'Open the authorization link from your application again.' }}
@@ -156,12 +156,6 @@ async function decide(decision: Decision) {
 .consent-message {
   text-align: center;
   padding: 2rem 0;
-}
-
-.consent-message__icon {
-  font-size: 3rem;
-  color: var(--p-primary-500);
-  margin-bottom: 1rem;
 }
 
 .consent-host {

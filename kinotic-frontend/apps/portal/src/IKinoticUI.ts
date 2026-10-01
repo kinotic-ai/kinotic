@@ -2,14 +2,14 @@ import { type Router } from 'vue-router';
 import { reactive } from 'vue';
 import { createDebug } from '@kinotic-ai/frontend-common';
 
-const debug = createDebug('continuum-ui');
+const debug = createDebug('kinotic-ui');
 
-export interface IContinuumUI {
+export interface IKinoticUI {
     initialize(router: Router): void;
     navigate(path: string): Promise<any>;
 }
 
-class ContinuumUI implements IContinuumUI {
+class KinoticUI implements IKinoticUI {
 
     private router!: Router;
 
@@ -25,4 +25,4 @@ class ContinuumUI implements IContinuumUI {
     }
 }
 
-export const CONTINUUM_UI: IContinuumUI = reactive(new ContinuumUI());
+export const KINOTIC_UI: IKinoticUI = reactive(new KinoticUI());

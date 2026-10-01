@@ -9,27 +9,37 @@ import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.persistence.internal.api.services.sql.elasticsearch.ElasticVertxClient;
+import org.kinotic.sql.executor.ParameterUtils;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 /**
+ * Runs an aggregate on Elasticsearch SQL, confined to the tenants the context reads.
  * Created by Navíd Mitchell 🤪 on 4/28/24.
  */
 public class AggregateQueryExecutor extends AbstractQueryExecutor {
 
     private final ElasticVertxClient elasticVertxClient;
     private final String statement;
+    private final List<String> parameterNames;
     private final DomainPersistenceProperties domainPersistenceProperties;
 
+    /**
+     * @param statement      the Elasticsearch SQL statement, with {@code ?} placeholders
+     * @param parameterNames the parameter each placeholder takes, in placeholder order; empty when the statement
+     *                       takes the parameters in the order they are supplied
+     */
     public AggregateQueryExecutor(EntityDescriptor entityDescriptor,
                                   ElasticVertxClient elasticVertxClient,
                                   String statement,
+                                  List<String> parameterNames,
                                   DomainPersistenceProperties domainPersistenceProperties) {
         super(entityDescriptor);
         this.elasticVertxClient = elasticVertxClient;
         this.statement = statement;
+        this.parameterNames = parameterNames;
         this.domainPersistenceProperties = domainPersistenceProperties;
 
     }
@@ -46,9 +56,12 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
                                            Pageable pageable,
                                            Class<T> type) {
         JsonObject filter = createFilterIfNeeded(context);
+        List<?> parameters = parameterNames.isEmpty()
+                ? context.getQueryParameters()
+                : parameterNames.stream().map(name -> ParameterUtils.resolve(name, context.getNamedParameters())).toList();
 
         return elasticVertxClient.querySql(statement,
-                                           context.getQueryParameters(),
+                                           parameters,
                                            filter,
                                            context.getQueryOptions(),
                                            pageable,

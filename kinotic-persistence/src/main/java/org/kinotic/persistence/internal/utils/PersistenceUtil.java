@@ -27,7 +27,7 @@ public class PersistenceUtil {
      */
     public static Future<Void> validateEntityContext(EntityDescriptor entityDescriptor, EntityContext context){
         Future<Void> ret;
-        // Continuum allows any published service to be called, so the admin service can reach an
+        // Kinotic allows any published service to be called, so the admin service can reach an
         // EntityDefinition that never enabled multi-tenant selection; the selection is refused here
         if(context.hasTenantSelection() && !entityDescriptor.isMultiTenantSelectionEnabled()){
             ret = Future.failedFuture(

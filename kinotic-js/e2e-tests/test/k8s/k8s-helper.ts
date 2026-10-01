@@ -1,4 +1,4 @@
-import { BasicCredentialsResolver, type ConnectOptions, Kinotic as Continuum, SessionKeepAliveMode } from '@kinotic-ai/core';
+import { BasicCredentialsResolver, type ConnectOptions, Kinotic, SessionKeepAliveMode } from '@kinotic-ai/core';
 import { ChildProcess, execSync } from 'child_process';
 
 function adminConnectOptions(localPort: number): ConnectOptions {
@@ -33,7 +33,7 @@ export class K8sTestHelper {
     private config: K8sConfig;
     private pods: PodInfo[] = [];
     private portForwardMap: Map<number, ChildProcess> = new Map();
-    private connections: typeof Continuum[] = [];
+    private connections: typeof Kinotic[] = [];
     private currentPodIndex: number | null = null;
 
     constructor() {
@@ -232,11 +232,11 @@ export class K8sTestHelper {
                 console.log(`[port-forward-validate] Attempt ${attempt}/${maxAttempts}: Testing connectivity to ${pod.name}...`);
                 
                 // Try to connect briefly to test connectivity
-                const connectedInfo = await Continuum.connect(adminConnectOptions(pod.localPort));
+                const connectedInfo = await Kinotic.connect(adminConnectOptions(pod.localPort));
 
                 console.log(`[port-forward-validate] Connected to ${pod.name} for validation:`, JSON.stringify(connectedInfo, null, 2));
 
-                await Continuum.disconnect(true);
+                await Kinotic.disconnect(true);
                 console.log(`[port-forward-validate] Disconnected from ${pod.name} after validation`);
                 
                 // Add delay after validation disconnect to let websocket fully close
@@ -276,7 +276,7 @@ export class K8sTestHelper {
 
         console.log(`[connect] Port-forward ready, initiating STOMP connection to localhost:${pod.localPort}`);
 
-        const connectedInfo = await Continuum.connect(adminConnectOptions(pod.localPort));
+        const connectedInfo = await Kinotic.connect(adminConnectOptions(pod.localPort));
 
         // Track which pod we're connected to
         this.currentPodIndex = podIndex;
@@ -297,7 +297,7 @@ export class K8sTestHelper {
         const disconnectStartTime = Date.now();
         
         // First disconnect STOMP
-        await Continuum.disconnect(true);
+        await Kinotic.disconnect(true);
         console.log(`[disconnect] STOMP disconnected`);
         
         // Then kill the port-forward to ensure completely clean state

@@ -97,7 +97,7 @@ fi
 wanted_vm_manager="$(npm view "@kinotic-ai/vm-manager@$(out vm_manager_version)" version 2>/dev/null | tail -1 | tr -d "'\"")"
 terraform -chdir="$HERE" output -json vm_nodes | python3 -c 'import sys, json; print("\n".join(json.load(sys.stdin)))' | while read -r node; do
   [[ -z "$node" ]] && continue
-  installed="$(ssh "$node" "bun -e \"console.log(require('/opt/kinotic/vm-manager/node_modules/@kinotic-ai/vm-manager/package.json').version)\" 2>/dev/null" || true)"
+  installed="$(ssh -n "$node" "bun -e \"console.log(require('/opt/kinotic/vm-manager/node_modules/@kinotic-ai/vm-manager/package.json').version)\" 2>/dev/null" || true)"
   if [[ "$installed" == "$wanted_vm_manager" ]]; then
     echo "==> Node $node: vm-manager $installed"
   elif $DRY_RUN; then
@@ -105,6 +105,6 @@ terraform -chdir="$HERE" output -json vm_nodes | python3 -c 'import sys, json; p
   else
     echo "==> Node $node: vm-manager ${installed:-absent}; installing $wanted_vm_manager"
     rsync -rlt "$REPO/deployment/vm-node/" "$node:vm-node/"
-    ssh "$node" "cd vm-node && sudo -n VM_MANAGER_VERSION='$wanted_vm_manager' ./install-vm-manager.sh"
+    ssh -n "$node" "cd vm-node && sudo -n VM_MANAGER_VERSION='$wanted_vm_manager' ./install-vm-manager.sh"
   fi
 done

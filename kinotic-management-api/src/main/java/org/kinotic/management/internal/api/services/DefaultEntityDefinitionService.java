@@ -79,9 +79,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             entityDefinition.setApplicationId(entityDefinition.getApplicationId().trim());
             entityDefinition.setProjectId(entityDefinition.getProjectId().trim());
             entityDefinition.setName(entityDefinition.getName().trim());
-            String logicalIndexName = DomainUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
-                                                                          entityDefinition.getApplicationId(),
-                                                                          entityDefinition.getName());
+            String logicalIndexName = DomainUtil.createEntityDefinitionId(entityDefinition.applicationKey(), entityDefinition.getName());
 
             if (logicalIndexName.length() > 255) {
                 return Future.failedFuture(new IllegalArgumentException(
@@ -102,6 +100,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             entityDefinition.setDecoratedProperties(result.decoratedProperties());
             entityDefinition.setMultiTenancyType(result.entityDecorator().getMultiTenancyType());
             entityDefinition.setEntityType(result.entityDecorator().getEntityType());
+            entityDefinition.setIdFieldName(result.idFieldName());
             entityDefinition.setVersionFieldName(result.versionFieldName());
             entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
             entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
@@ -151,10 +150,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     // a concurrent read could re-cache the old row with no eviction behind it.
                     return super.deleteByIdSync(entityDefinitionId)
                                 .compose(v -> {
-                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(
-                                            entityDefinition.getOrganizationId(),
-                                            entityDefinition.getApplicationId(),
-                                            entityDefinition.getId()));
+                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.applicationKey(), entityDefinition.getId()));
                                     return Future.succeededFuture();
                                 });
                 });
@@ -211,10 +207,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         // saveSync so the published state is searchable before the eviction fires
                         return super.saveSync(entityDefinition)
                                     .compose(entityDefinition1 -> {
-                                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(
-                                                entityDefinition1.getOrganizationId(),
-                                                entityDefinition1.getApplicationId(),
-                                                entityDefinition1.getId()));
+                                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.applicationKey(), entityDefinition1.getId()));
                                         return Future.succeededFuture();
                                     });
                     });
@@ -264,6 +257,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     entityDefinition.setDecoratedProperties(result.decoratedProperties());
                     entityDefinition.setMultiTenancyType(result.entityDecorator().getMultiTenancyType());
                     entityDefinition.setEntityType(result.entityDecorator().getEntityType());
+                    entityDefinition.setIdFieldName(result.idFieldName());
                     entityDefinition.setVersionFieldName(result.versionFieldName());
                     entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
                     entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
@@ -312,10 +306,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         return updateFuture.compose(
                                 v -> super.saveSync(entityDefinition)
                                           .map(entityDefinition1 -> {
-                                              this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(
-                                                      entityDefinition1.getOrganizationId(),
-                                                      entityDefinition1.getApplicationId(),
-                                                      entityDefinition1.getId()));
+                                              this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.applicationKey(), entityDefinition1.getId()));
                                               return entityDefinition1;
                                           }));
                     } else {
@@ -360,10 +351,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         // saveSync so the unpublished state is searchable before the eviction fires
                         return super.saveSync(entityDefinition)
                                     .compose(entityDefinition1 -> {
-                                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(
-                                                entityDefinition1.getOrganizationId(),
-                                                entityDefinition1.getApplicationId(),
-                                                entityDefinition1.getId()));
+                                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.applicationKey(), entityDefinition1.getId()));
                                         return Future.succeededFuture();
                                     });
                     });

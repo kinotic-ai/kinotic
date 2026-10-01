@@ -39,6 +39,10 @@ export const KinoticPreset = definePreset(KinoticTheme, {
         },
         colorScheme: {
             light: {
+                // Keyboard focus is sky everywhere: rings, focused field borders and focused labels
+                focusRing: {
+                    color: '{sky.500}'
+                },
                 surface: {
                     0  : "#ffffff",
                     50 : "#FAFAFA",
@@ -70,13 +74,17 @@ export const KinoticPreset = definePreset(KinoticTheme, {
                     background: '#ffffff',
                     borderColor: '{surface.300}',
                     hoverBorderColor: '{surface.400}',
-                    focusBorderColor: '{sky.500}',
+                    focusBorderColor: '{focus.ring.color}',
+                    floatLabelFocusColor: '{focus.ring.color}',
                     color: '#101010',
                     placeholderColor: '#9ca3af',
                     shadow: 'none'
                 }
             },
             dark : {
+                focusRing: {
+                    color: '{sky.400}'
+                },
                 surface: {
                     0  : "#ffffff",
                     50 : "#FAFAFA",
@@ -108,7 +116,8 @@ export const KinoticPreset = definePreset(KinoticTheme, {
                     background: '#262626',
                     borderColor: '{surface.700}',
                     hoverBorderColor: '{surface.600}',
-                    focusBorderColor: '{sky.400}',
+                    focusBorderColor: '{focus.ring.color}',
+                    floatLabelFocusColor: '{focus.ring.color}',
                     color: '#ffffff',
                     placeholderColor: '#8d8d96',
                     shadow: 'none',
@@ -369,7 +378,7 @@ export const KinoticPreset = definePreset(KinoticTheme, {
             --lp-radial-opacity: 0;
             --lp-input-bg: ${dt('surface.0')};
             --lp-input-border: ${dt('surface.300')};
-            --lp-input-focus-border: ${dt('sky.500')};
+            --lp-input-focus-border: ${dt('focus.ring.color')};
             --lp-input-color: ${dt('surface.950')};
             --lp-input-placeholder: ${dt('surface.400')};
             --lp-input-disabled-bg: ${dt('surface.200')};
@@ -377,8 +386,8 @@ export const KinoticPreset = definePreset(KinoticTheme, {
             --lp-input-disabled-color: ${dt('surface.500')};
             --lp-icon-color: ${dt('surface.500')};
             --lp-icon-hover: ${dt('surface.950')};
-            --lp-link-color: ${dt('surface.700')};
-            --lp-link-hover: ${dt('surface.950')};
+            /* The brand's mint for text on light surfaces; #28FEB4 itself reads at 1.3:1 on white */
+            --lp-link-color: #0A6B47;
             --lp-footer-link: #0568FD;
             --lp-footer-divider: ${dt('surface.900')};
             --lp-overlay-bg: rgba(249, 250, 251, 0.92);
@@ -399,7 +408,7 @@ export const KinoticPreset = definePreset(KinoticTheme, {
             --lp-radial-opacity: 0;
             --lp-input-bg: transparent;
             --lp-input-border: ${dt('surface.600')};
-            --lp-input-focus-border: ${dt('sky.400')};
+            --lp-input-focus-border: ${dt('focus.ring.color')};
             --lp-input-color: ${dt('surface.0')};
             --lp-input-placeholder: ${dt('surface.400')};
             --lp-input-disabled-bg: ${dt('surface.800')};
@@ -407,8 +416,7 @@ export const KinoticPreset = definePreset(KinoticTheme, {
             --lp-input-disabled-color: ${dt('surface.300')};
             --lp-icon-color: ${dt('surface.400')};
             --lp-icon-hover: ${dt('surface.100')};
-            --lp-link-color: ${dt('surface.300')};
-            --lp-link-hover: ${dt('surface.0')};
+            --lp-link-color: ${dt('teal.400')};
             --lp-footer-link: ${dt('surface.0')};
             --lp-footer-divider: ${dt('teal.400')};
             --lp-overlay-bg: rgba(16, 16, 16, 0.9);

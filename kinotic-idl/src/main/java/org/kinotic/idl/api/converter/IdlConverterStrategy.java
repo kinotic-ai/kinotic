@@ -5,7 +5,7 @@ import org.kinotic.idl.api.schema.C3Type;
 import java.util.Set;
 
 /**
- * The {@link IdlConverterStrategy} is used to determine how to convert a Continuum IDL to a specific language type.
+ * The {@link IdlConverterStrategy} is used to determine how to convert a Kinotic IDL to a specific language type.
  * A strategy instance may carry per-conversion state via {@link #initialState()}; create a new strategy for each
  * conversion unless the implementation documents itself as stateless and thread safe.
  *

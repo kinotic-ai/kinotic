@@ -6,6 +6,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -38,8 +39,7 @@ public class DefaultUiDeploymentService implements UiDeploymentService {
 
     @Override
     public Future<List<UiDeployment>> findAllForApplication(String applicationId) {
-        Validate.notBlank(applicationId, "applicationId is required");
-        return uiDeploymentRepository.findAllForApplication(requireOrgParticipant().getOrganizationId(), applicationId);
+        return uiDeploymentRepository.findAllForApplication(new ApplicationKey(requireOrgParticipant().getOrganizationId(), applicationId));
     }
 
     @Override

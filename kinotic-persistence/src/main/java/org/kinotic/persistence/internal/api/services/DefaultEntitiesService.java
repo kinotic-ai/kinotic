@@ -41,7 +41,7 @@ public class DefaultEntitiesService implements EntitiesService {
         try {
 
             if(event.getEvictionSourceType() == EvictionSourceType.ENTITY_DEFINITION){
-                this.entityServiceCache.evict(event.getOrganizationId(), event.getEntityDefinitionId());
+                this.entityServiceCache.evict(event.getApplicationKey().organizationId(), event.getEntityDefinitionId());
             }
 
         } catch (Exception e) {

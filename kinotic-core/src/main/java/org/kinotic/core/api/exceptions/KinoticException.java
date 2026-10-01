@@ -1,7 +1,7 @@
 package org.kinotic.core.api.exceptions;
 
 /**
- * Base exception class for all Continuum exceptions
+ * Base exception class for all Kinotic exceptions
  * Created by Navíd Mitchell 🤪 on 7/12/23.
  */
 public class KinoticException extends RuntimeException {

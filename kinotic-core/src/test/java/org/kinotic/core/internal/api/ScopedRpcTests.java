@@ -22,13 +22,13 @@ import reactor.test.StepVerifier;
 @ActiveProfiles({"test"})
 public class ScopedRpcTests {
 
-    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because continuum wires them..
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because Kinotic wires them..
     @Autowired
     private ScopedRpcTestServiceProxy scopedProxy;
-    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because continuum wires them..
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because Kinotic wires them..
     @Autowired
     private ScopedRpcTestServiceUnscopedProxy unscopedProxy;
-    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because continuum wires them..
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because Kinotic wires them..
     @Autowired
     private ScopedOnlyRpcTestServiceUnscopedProxy scopedOnlyUnscopedProxy;
 

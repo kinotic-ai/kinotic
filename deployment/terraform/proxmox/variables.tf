@@ -210,3 +210,30 @@ variable "vm_manager_version" {
   type        = string
   default     = "beta"
 }
+
+# ── Workload nodes ────────────────────────────────────────────────────────────
+
+variable "workers" {
+  description = "The workload nodes this host runs as VMs, by node id (KINOTIC_NODE_ID): each an Ubuntu VM on the LAN with its own XFS disks for Docker's data root and the workload data, which the node kit (deployment/vm-node) provisions"
+  type = map(object({
+    vm_id            = number
+    ip               = string
+    cores            = number
+    memory_mb        = number
+    docker_disk_gb   = optional(number, 100)
+    workload_disk_gb = optional(number, 50)
+  }))
+  default = {}
+}
+
+variable "worker_ssh_keys" {
+  description = "Public keys that may ssh to each worker as kinotic, the user the node kit runs as"
+  type        = list(string)
+  default     = []
+}
+
+variable "worker_image_url" {
+  description = "The Ubuntu cloud image the workers are created from; the node kit needs 22.04 or later"
+  type        = string
+  default     = "https://cloud-images.ubuntu.com/releases/resolute/release/ubuntu-26.04-server-cloudimg-amd64.img"
+}

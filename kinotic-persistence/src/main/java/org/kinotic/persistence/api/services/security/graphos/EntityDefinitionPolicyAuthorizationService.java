@@ -30,9 +30,7 @@ public class EntityDefinitionPolicyAuthorizationService implements Authorization
     public EntityDefinitionPolicyAuthorizationService(EntityDefinition entityDefinition,
                                                       PolicyAuthorizer policyAuthorizer) {
 
-        this.entityDefinitionId = DomainUtil.createEntityDefinitionId(entityDefinition.getOrganizationId(),
-                                                                      entityDefinition.getApplicationId(),
-                                                                      entityDefinition.getName());
+        this.entityDefinitionId = DomainUtil.createEntityDefinitionId(entityDefinition.applicationKey(), entityDefinition.getName());
         ObjectC3Type schema = entityDefinition.getSchema();
 
         // Get any Policies to apply to the Entity and its fields

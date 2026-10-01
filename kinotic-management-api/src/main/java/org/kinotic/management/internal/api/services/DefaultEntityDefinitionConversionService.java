@@ -57,6 +57,7 @@ public class DefaultEntityDefinitionConversionService implements EntityDefinitio
         return new ElasticConversionResult(state.getDecoratedProperties(),
                                            state.getEntityDecorator(),
                                            objectProperty,
+                                           state.getIdFieldName(),
                                            state.getVersionFieldName(),
                                            state.getTenantIdFieldName(),
                                            state.getTimeReferenceFieldName());

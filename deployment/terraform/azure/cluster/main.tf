@@ -61,6 +61,11 @@ provider "azurerm" {
       purge_soft_delete_on_destroy    = false
       recover_soft_deleted_key_vaults = true
     }
+    # The observability account accepts neither public traffic nor shared keys, so its data
+    # plane is out of the provider's reach; no account here uses queue_properties or static_website
+    storage {
+      data_plane_available = false
+    }
   }
 }
 
@@ -119,6 +124,8 @@ module "networking" {
   vnet_address_space  = var.vnet_address_space
   aks_subnet_cidr     = var.aks_subnet_cidr
   tags                = local.common_tags
+
+  private_endpoints_subnet_cidr = var.private_endpoints_subnet_cidr
 
   aks_identity_principal_id = module.identity.kubelet_identity_principal_id
 

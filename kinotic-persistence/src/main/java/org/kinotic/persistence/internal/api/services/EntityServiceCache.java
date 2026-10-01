@@ -14,6 +14,8 @@ import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
 import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
+import org.kinotic.core.api.utils.KinoticUtil;
+import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
 import org.kinotic.domain.api.model.persistence.DecoratedProperty;
@@ -45,6 +47,7 @@ public class EntityServiceCache {
     private final NamedQueriesService namedQueriesService;
     private final JsonMapper jsonMapper;
     private final ReadPreProcessor readPreProcessor;
+    private final ReadPostProcessor readPostProcessor;
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final DomainPersistenceProperties domainPersistenceProperties;
     private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
@@ -56,6 +59,7 @@ public class EntityServiceCache {
                                     NamedQueriesService namedQueriesService,
                                     JsonMapper jsonMapper,
                                     ReadPreProcessor readPreProcessor,
+                                    ReadPostProcessor readPostProcessor,
                                     EntityDefinitionRepository entityDefinitionRepository,
                                     PersistenceProperties persistenceProperties,
                                     DomainPersistenceProperties domainPersistenceProperties,
@@ -67,6 +71,7 @@ public class EntityServiceCache {
         this.namedQueriesService = namedQueriesService;
         this.jsonMapper = jsonMapper;
         this.readPreProcessor = readPreProcessor;
+        this.readPostProcessor = readPostProcessor;
         this.entityDefinitionRepository = entityDefinitionRepository;
         this.domainPersistenceProperties = domainPersistenceProperties;
 
@@ -85,7 +90,7 @@ public class EntityServiceCache {
      * building and caching it on a miss.
      */
     public Future<EntityService> get(String organizationId, String entityDefinitionId) {
-        return crudServiceTemplate.toFuture(cache.get(new CacheKey(organizationId, entityDefinitionId)));
+        return KinoticUtil.toFuture(cache.get(new CacheKey(organizationId, entityDefinitionId)));
     }
 
     /**
@@ -145,6 +150,7 @@ public class EntityServiceCache {
                                          namedQueriesService,
                                          jsonMapper,
                                          readPreProcessor,
+                                         readPostProcessor,
                                          entityDescriptor,
                                          domainPersistenceProperties));
     }

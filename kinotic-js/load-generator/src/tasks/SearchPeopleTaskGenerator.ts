@@ -13,7 +13,7 @@ import { ITask } from './ITask';
  */
 export class SearchPeopleTaskGenerator implements ITaskGenerator {
 
-    private continuumTaskGenerator: KinoticOperationTaskGenerator
+    private kinoticTaskGenerator: KinoticOperationTaskGenerator
     private personRepository: PersonRepository
 
 
@@ -26,7 +26,7 @@ export class SearchPeopleTaskGenerator implements ITaskGenerator {
         kinotic.use(ManagementApiPlugin).use(PersistencePlugin)
         this.personRepository = new PersonRepository(new EntitiesRepository(kinotic))
 
-        this.continuumTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
+        this.kinoticTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
                                                                         kinotic,
                                                                         totalToExecute,
                                                                         this.createTaskFactory(searchText,
@@ -34,11 +34,11 @@ export class SearchPeopleTaskGenerator implements ITaskGenerator {
     }
 
     getNextTask(): ITask {
-        return this.continuumTaskGenerator.getNextTask()
+        return this.kinoticTaskGenerator.getNextTask()
     }
 
     hasMoreTasks(): boolean {
-        return this.continuumTaskGenerator.hasMoreTasks()
+        return this.kinoticTaskGenerator.hasMoreTasks()
     }
 
     private createTaskFactory(searchText: string, pageSize: number): ITaskFactory {

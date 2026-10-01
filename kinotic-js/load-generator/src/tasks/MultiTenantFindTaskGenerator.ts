@@ -15,7 +15,7 @@ import info from '../../package.json' assert {type: 'json'}
  */
 export class MultiTenantFindTaskGenerator implements ITaskGenerator {
 
-    private continuumTaskGenerator: KinoticOperationTaskGenerator
+    private kinoticTaskGenerator: KinoticOperationTaskGenerator
     private personRepository: PersonRepository
     private tracer: Tracer
 
@@ -28,7 +28,7 @@ export class MultiTenantFindTaskGenerator implements ITaskGenerator {
         kinotic.use(ManagementApiPlugin).use(PersistencePlugin)
         this.personRepository = new PersonRepository(new EntitiesRepository(kinotic))
 
-        this.continuumTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
+        this.kinoticTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
                                                                         kinotic,
                                                                         totalToExecute,
                                                                         this.createTaskFactory(pageSize))
@@ -42,11 +42,11 @@ export class MultiTenantFindTaskGenerator implements ITaskGenerator {
     }
 
     getNextTask(): ITask {
-        return this.continuumTaskGenerator.getNextTask()
+        return this.kinoticTaskGenerator.getNextTask()
     }
 
     hasMoreTasks(): boolean {
-        return this.continuumTaskGenerator.hasMoreTasks()
+        return this.kinoticTaskGenerator.hasMoreTasks()
     }
 
     private createTaskFactory(pageSize: number): ITaskFactory {

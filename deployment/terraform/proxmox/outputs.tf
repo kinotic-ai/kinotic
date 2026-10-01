@@ -23,6 +23,11 @@ output "edge_ip" {
   value       = local.edge_ip
 }
 
+output "elasticsearch_url" {
+  description = "The cluster on the private network, which the host reaches directly and bootstrap-identities.sh writes to over ssh"
+  value       = "http://${local.es_ips[0]}:9200"
+}
+
 output "grafana_url" {
   description = "Grafana, on the LAN, admin with the password in grafana.env"
   value       = "http://${local.grafana_ip}:3000"

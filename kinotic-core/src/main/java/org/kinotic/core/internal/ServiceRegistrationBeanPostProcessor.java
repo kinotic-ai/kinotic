@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 
 /**
- * Registers configured beans to participate in Continuum functionality
+ * Registers configured beans to participate in Kinotic functionality
  *
  *
  * Created by Navid Mitchell on 11/28/18.

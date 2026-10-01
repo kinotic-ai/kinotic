@@ -64,8 +64,7 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
 
     /** Evicts cached queries after a successful write; shared by every save/create path. */
     private NamedQueriesDefinition publishModifiedEvent(NamedQueriesDefinition definition) {
-        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(definition.getOrganizationId(),
-                                                                                    definition.getApplicationId(),
+        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(definition.applicationKey(),
                                                                                     definition.getEntityDefinitionName(),
                                                                                     definition.getId()));
         return definition;
@@ -92,8 +91,7 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
                             .compose(v -> {
                                 this.eventPublisher.publishEvent(
                                         CacheEvictionEvent.localDeletedNamedQuery(
-                                                namedQuery.getOrganizationId(),
-                                                namedQuery.getApplicationId(),
+                                                namedQuery.applicationKey(),
                                                 namedQuery.getEntityDefinitionName(),
                                                 namedQuery.getId()));
                                 return Future.succeededFuture();

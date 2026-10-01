@@ -13,7 +13,7 @@ import org.testcontainers.containers.ComposeContainer;
 import java.io.File;
 
 /**
- * Test configuration that starts the Kinotic stack (Elasticsearch + kinotic-migration)
+ * Test configuration that starts the Kinotic stack (Elasticsearch, its test settings, and kinotic-migration)
  * via Docker Compose using compose.kinotic-test.yml.
  */
 @Component
@@ -77,7 +77,8 @@ public class KinoticTestComposeBoostrap {
                 throw new RuntimeException("kinotic-elasticsearch failed to become ready");
             }
 
-            waitForKinoticMigrationToComplete();
+            waitForContainerToComplete("kinotic-elasticsearch-test-settings");
+            waitForContainerToComplete("kinotic-migration");
 
             synchronized (containerLock) {
                 containersReady = true;
@@ -90,12 +91,11 @@ public class KinoticTestComposeBoostrap {
         }
     }
 
-    private static void waitForKinoticMigrationToComplete() {
-        final String containerName = "kinotic-migration";
+    private static void waitForContainerToComplete(String containerName) {
         final long timeoutMs = 600_000L; // 10 minutes
         final long pollIntervalMs = 2_000L;
 
-        log.info("Waiting for '{}' container to complete migrations...", containerName);
+        log.info("Waiting for '{}' container to complete...", containerName);
 
         DockerClient dockerClient = DockerClientFactory.instance().client();
         long deadline = System.currentTimeMillis() + timeoutMs;
@@ -130,7 +130,7 @@ public class KinoticTestComposeBoostrap {
                     return;
                 }
                 throw new RuntimeException(
-                    "kinotic-migration container exited with code " + exitCode);
+                    containerName + " container exited with code " + exitCode);
             }
 
             try {
@@ -138,12 +138,12 @@ public class KinoticTestComposeBoostrap {
             } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(
-                    "Interrupted while waiting for kinotic-migration container to complete", ie);
+                    "Interrupted while waiting for " + containerName + " container to complete", ie);
             }
         }
 
         throw new RuntimeException(
-            "Timed out waiting for kinotic-migration container to complete");
+            "Timed out waiting for " + containerName + " container to complete");
     }
 
     public static void waitForContainersReady() {

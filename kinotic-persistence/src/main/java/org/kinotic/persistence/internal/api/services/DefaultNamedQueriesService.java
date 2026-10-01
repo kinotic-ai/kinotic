@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.persistence.api.model.ParameterHolder;
@@ -36,15 +36,12 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
 
     private final AsyncLoadingCache<CacheKey, QueryExecutor> cache;
     private final ConcurrentHashMap<String, List<CacheKey>> cacheKeyTracker = new ConcurrentHashMap<>();
-    private final CrudServiceTemplate crudServiceTemplate;
 
     public DefaultNamedQueriesService(DefaultCaffeineCacheFactory cacheFactory,
-                                      CrudServiceTemplate crudServiceTemplate,
                                       NamedQueriesDefinitionRepository namedQueriesRepository,
                                       QueryExecutorFactory queryExecutorFactory,
                                       PersistenceProperties persistenceProperties) {
 
-        this.crudServiceTemplate = crudServiceTemplate;
         cache = cacheFactory.<CacheKey, QueryExecutor>newBuilder()
                             .name("namedQueriesCache")
                             .expireAfterAccess(Duration.ofHours(20))
@@ -114,7 +111,7 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
                                                  Class<T> type,
                                                  EntityContext context) {
         // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
-        return crudServiceTemplate.toFuture(cache.get(new CacheKey(queryName, entityDescriptor)))
+        return KinoticUtil.toFuture(cache.get(new CacheKey(queryName, entityDescriptor)))
                                   .compose(queryExecutor -> queryExecutor.execute(new QueryContext(context, parameterHolder), type));
     }
 
@@ -126,7 +123,7 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
                                                      Class<T> type,
                                                      EntityContext context) {
         // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
-        return crudServiceTemplate.toFuture(cache.get(new CacheKey(queryName, entityDescriptor)))
+        return KinoticUtil.toFuture(cache.get(new CacheKey(queryName, entityDescriptor)))
                                   .compose(queryExecutor -> queryExecutor.executePage(new QueryContext(context, parameterHolder), pageable, type));
     }
 

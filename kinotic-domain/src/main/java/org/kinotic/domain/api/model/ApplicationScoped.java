@@ -11,4 +11,9 @@ public interface ApplicationScoped<T> extends OrganizationScoped<T> {
 
     String getApplicationId();
 
+    /** The application this belongs to. */
+    default ApplicationKey applicationKey() {
+        return new ApplicationKey(getOrganizationId(), getApplicationId());
+    }
+
 }

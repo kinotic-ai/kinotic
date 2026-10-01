@@ -1,11 +1,11 @@
 <template>
-  <AuthPageShell>
+  <AuthPageShell :art="loginArt">
     <div class="login-form">
       <!-- Password form -->
       <div class="login-form__step">
         <div class="text-center mb-6">
-          <span class="inline-flex items-center justify-center w-18 h-18 rounded-full mb-6 bg-[color-mix(in_srgb,var(--p-primary-color)_14%,transparent)]">
-            <span class="pi pi-shield text-[2rem] text-primary"></span>
+          <span class="login-icon-badge">
+            <span class="pi pi-shield"></span>
           </span>
           <h2 class="text-2xl font-semibold mb-2 text-center leading-tight">Email verified</h2>
           <p class="mt-1 mb-6 leading-normal text-muted-color text-center">Name your organization and set a password to finish.</p>
@@ -51,9 +51,10 @@ import type { SignUpCompleteRequest } from '@kinotic-ai/management-api'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SetPasswordFields from '@/components/SetPasswordFields.vue'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
-import { CONTINUUM_UI } from '@/IContinuumUI'
+import { KINOTIC_UI } from '@/IKinoticUI'
 import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
+import loginArt from '@/assets/login-background.svg'
 
 const toast = useToast()
 const userState: IUserState = KinoticStates.getUserState()
@@ -122,7 +123,7 @@ async function handleSubmit() {
 
     // The org, admin user, and browser session are created; connect with it and go to the app.
     await userState.login()
-    await CONTINUUM_UI.navigate('/applications')
+    await KINOTIC_UI.navigate('/applications')
   } catch (error: unknown) {
     displayAlert(error instanceof Error ? error.message : 'Account creation failed')
   } finally {

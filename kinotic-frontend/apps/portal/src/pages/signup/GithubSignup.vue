@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell>
+  <AuthPageShell :art="loginArt">
     <div class="login-form">
       <h2 class="signup-title">Create your organization</h2>
 
@@ -27,4 +27,5 @@
 import { apiUrl } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
+import loginArt from '@/assets/login-background.svg'
 </script>

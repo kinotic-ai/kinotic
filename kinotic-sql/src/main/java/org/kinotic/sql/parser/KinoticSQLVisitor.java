@@ -101,6 +101,24 @@ public interface KinoticSQLVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitInsertStatement(KinoticSQLParser.InsertStatementContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#selectStatement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitSelectStatement(KinoticSQLParser.SelectStatementContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#selectList}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitSelectList(KinoticSQLParser.SelectListContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#orderBy}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitOrderBy(KinoticSQLParser.OrderByContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link KinoticSQLParser#insertOption}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

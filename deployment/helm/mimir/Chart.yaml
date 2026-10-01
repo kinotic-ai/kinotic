@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mimir
+description: Grafana Mimir in monolithic mode (-target=all) on a persistent volume
+type: application
+version: 0.1.0
+appVersion: "2.14.3"

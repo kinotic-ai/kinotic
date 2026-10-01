@@ -11,7 +11,7 @@ import lombok.ToString;
 
 /**
  * This is the base class for all type schemas.
- * It can be used to create {@link C3Type} from use within a Continuum IDL.
+ * It can be used to create {@link C3Type} from use within a Kinotic IDL.
  * <p>
  * Created by navid on 2023-4-13.
  */

@@ -44,13 +44,13 @@ describe('Kinotic JS', () => {
         it('should handle gateway restart with sessionKeepAlive NONE and reconnect', {"timeout": 1000 * 60 * 5}, async () => {
 
             // First connection and RPC call
-            const continuum = new KinoticSingleton()
-            let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(connectOptions),
+            const kinotic = new KinoticSingleton()
+            let connectedInfo: ConnectedInfo = await logFailure(kinotic.connect(connectOptions),
                                                                 'Failed to connect to Kinotic Gateway')
             validateConnectedInfo(connectedInfo)
             console.log(`Kinotic connected at ${connectOptions.server!.host}:${connectOptions.server!.port}`)
 
-            const testService = new TestService(continuum)
+            const testService = new TestService(kinotic)
 
             const firstResult = await testService.testMethodWithString("FirstCall")
             expect(firstResult).toBe("Hello FirstCall")
@@ -71,7 +71,7 @@ describe('Kinotic JS', () => {
             console.log(`Kinotic Gateway restarted`)
 
             // Connect again and make another RPC call
-            while(!continuum.eventBus.isConnected()){
+            while(!kinotic.eventBus.isConnected()){
                 await new Promise(resolve => setTimeout(resolve, 5000))
                 console.log('Waiting for Kinotic Gateway to restart...')
             }
@@ -81,21 +81,21 @@ describe('Kinotic JS', () => {
             const secondResult = await testService.testMethodWithString("SecondCall")
             expect(secondResult).toBe("Hello SecondCall")
 
-            await continuum.disconnect()
+            await kinotic.disconnect()
         })
 
         it('should fail a request made while the gateway is down instead of replaying it on the next connection',
            {"timeout": 1000 * 60 * 5}, async () => {
 
-            const continuum = new KinoticSingleton()
-            await logFailure(continuum.connect(connectOptions), 'Failed to connect to Kinotic Gateway')
+            const kinotic = new KinoticSingleton()
+            await logFailure(kinotic.connect(connectOptions), 'Failed to connect to Kinotic Gateway')
 
-            const testService = new TestService(continuum)
+            const testService = new TestService(kinotic)
             expect(await testService.testMethodWithString("BeforeRestart")).toBe("Hello BeforeRestart")
 
             console.log('Stopping Kinotic Gateway...')
             await container.stop({timeout: 60000, remove: true, removeVolumes: true})
-            while (continuum.eventBus.isConnected()) {
+            while (kinotic.eventBus.isConnected()) {
                 await new Promise(resolve => setTimeout(resolve, 500))
             }
 
@@ -111,7 +111,7 @@ describe('Kinotic JS', () => {
                 .withName('disable-sticky-session-reconnect-test')
                 .start()
 
-            while (!continuum.eventBus.isConnected()) {
+            while (!kinotic.eventBus.isConnected()) {
                 await new Promise(resolve => setTimeout(resolve, 5000))
                 console.log('Waiting for Kinotic Gateway to restart...')
             }
@@ -123,7 +123,7 @@ describe('Kinotic JS', () => {
             // here would take the reconnected connection down with it
             expect(await testService.testMethodWithString("AfterRestart")).toBe("Hello AfterRestart")
 
-            await continuum.disconnect()
+            await kinotic.disconnect()
         })
 
     })

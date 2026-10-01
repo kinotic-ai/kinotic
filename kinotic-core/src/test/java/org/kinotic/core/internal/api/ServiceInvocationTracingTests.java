@@ -43,7 +43,7 @@ public class ServiceInvocationTracingTests {
     private EventBusService eventBusService;
     @Autowired
     private InMemorySpanExporter spanExporter;
-    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because continuum wires them..
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because Kinotic wires them..
     @Autowired
     private RpcTestServiceProxy rpcTestServiceProxy;
 

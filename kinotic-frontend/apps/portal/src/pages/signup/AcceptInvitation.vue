@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell>
+  <AuthPageShell :art="loginArt">
     <div v-if="phase === 'loading'" class="login-form">
       <div class="login-loading-state">
         <div class="login-spinner login-spinner--small"></div>
@@ -8,7 +8,7 @@
 
     <div v-else-if="phase === 'invalid'" class="login-form">
       <div class="text-center py-8">
-        <span class="pi pi-exclamation-triangle text-5xl text-primary-500 mb-4"></span>
+        <span class="login-status-icon pi pi-exclamation-triangle"></span>
         <h2 class="signup-title">Invitation unavailable</h2>
         <p class="login-form__subtitle">{{ invalidMessage }}</p>
       </div>
@@ -82,9 +82,10 @@ import { useToast } from 'primevue/usetoast'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SetPasswordFields from '@/components/SetPasswordFields.vue'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import { CONTINUUM_UI } from '@/IContinuumUI'
+import { KINOTIC_UI } from '@/IKinoticUI'
 import { KinoticStates } from '@/states'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
+import loginArt from '@/assets/login-background.svg'
 
 interface InviteProvider {
   id: string
@@ -217,7 +218,7 @@ async function handleAccept() {
     if (res.status === 204) {
       // Organization member — the session is established; open the realtime connection.
       await userState.login()
-      await CONTINUUM_UI.navigate('/applications')
+      await KINOTIC_UI.navigate('/applications')
       return
     }
     const data = await res.json()

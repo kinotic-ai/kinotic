@@ -6,8 +6,10 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
+import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
@@ -57,16 +59,6 @@ public class DomainUtil {
      * The leading label of application zones, which follow the form app.&lt;organizationId&gt;.&lt;applicationId&gt;
      */
     public static final String APP_ZONE_PREFIX = "app";
-
-    /**
-     * Separates the names a host label joins, {@code <organizationId>--<applicationId>} for an application's API
-     * host and {@code <organizationId>--<applicationId>--<uiName>} for the site of one of its UIs. No name
-     * contains it, so a label names exactly one application, and one UI.
-     */
-    public static final String HOST_LABEL_SEPARATOR = "--";
-
-    /** The longest label DNS allows, which bounds every host label the platform mints. */
-    public static final int MAX_HOST_LABEL_LENGTH = 63;
 
     /**
      * The prefix of the Elasticsearch indices the platform creates, including the index that holds
@@ -148,7 +140,7 @@ public class DomainUtil {
     // two applications form the same label: org "a" with app "b--c" and org "a--b" with app "c"
     private static void validateHostLabelPart(String name) {
         ZoneUtil.validateLabel(name);
-        Validate.isTrue(!name.contains(HOST_LABEL_SEPARATOR), "'%s' must not contain '%s'", name, HOST_LABEL_SEPARATOR);
+        Validate.isTrue(!name.contains(HostLabelUtil.HOST_LABEL_SEPARATOR), "'%s' must not contain '%s'", name, HostLabelUtil.HOST_LABEL_SEPARATOR);
     }
 
     public static void validateProjectId(String projectId){
@@ -162,16 +154,27 @@ public class DomainUtil {
     }
 
     /**
-     * Builds an {@link EntityDefinition} id of the shape
-     * {@code <organizationId>.<applicationId>.<entityDefinitionName>}, lowercased.
+     * Creates the id of an {@link EntityDefinition}, {@code <organizationId>.<applicationId>.<name>} lowercased.
      *
-     * @param organizationId of the Organization the definition belongs to
-     * @param applicationId of the Application the definition belongs to
+     * @param applicationKey       the application the definition belongs to
      * @param entityDefinitionName the definition's name
      * @return the {@link EntityDefinition} id
      */
-    public static String createEntityDefinitionId(String organizationId, String applicationId, String entityDefinitionName){
-        return (organizationId + "." + applicationId + "." + entityDefinitionName).toLowerCase();
+    public static String createEntityDefinitionId(ApplicationKey applicationKey, String entityDefinitionName){
+        return (applicationKey.organizationId() + "." + applicationKey.applicationId() + "." + entityDefinitionName).toLowerCase();
+    }
+
+    /**
+     * The Elasticsearch {@code _id} an entity's item is stored under. A {@link MultiTenancyType#SHARED} entity
+     * prefixes the item's id with its tenant, so two tenants may each hold an item of the same id.
+     *
+     * @param multiTenancyType how the entity separates its tenants
+     * @param tenantId         the item's tenant, required for a {@link MultiTenancyType#SHARED} entity
+     * @param id               the item's id
+     * @return the document id
+     */
+    public static String createEntityDocumentId(MultiTenancyType multiTenancyType, String tenantId, String id){
+        return multiTenancyType == MultiTenancyType.SHARED ? tenantId + "-" + id : id;
     }
 
     /**

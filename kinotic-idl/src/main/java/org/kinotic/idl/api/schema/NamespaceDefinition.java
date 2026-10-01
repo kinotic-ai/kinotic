@@ -10,7 +10,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Provides functionality to define a namespace with a Continuum schema.
+ * Provides functionality to define a namespace with a Kinotic schema.
  * A {@link NamespaceDefinition} is a collection of {@link ServiceDefinition}'s and {@link ObjectC3Type}'s defined within a particular namespace.
  * <p>
  * Created by navid on 2023-4-13.

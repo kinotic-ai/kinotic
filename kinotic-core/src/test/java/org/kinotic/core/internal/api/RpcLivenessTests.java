@@ -62,7 +62,7 @@ public class RpcLivenessTests {
     private ServiceRegistry serviceRegistry;
     @Autowired
     private RequestLivenessWatcher requestLivenessWatcher;
-    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because continuum wires them..
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because Kinotic wires them..
     @Autowired
     private NonExistentServiceProxy nonExistentServiceProxy;
     @Autowired

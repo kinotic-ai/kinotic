@@ -7,6 +7,7 @@ dependencies {
 	implementation project(':kinotic-api-gateway')
 	// For its participant model; TestServerApplication excludes the module's auto-configuration
 	implementation project(':kinotic-domain')
+	implementation project(':kinotic-sql')
 
 	implementation 'io.vertx:vertx-core'
 

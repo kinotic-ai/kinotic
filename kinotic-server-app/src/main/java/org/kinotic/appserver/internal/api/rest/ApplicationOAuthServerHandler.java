@@ -6,6 +6,7 @@ import org.kinotic.domain.api.rest.OAuthExtensionGrant;
 import org.kinotic.domain.api.rest.OAuthServerHandler;
 import org.kinotic.domain.api.services.security.OAuthAuthorizationService;
 import org.kinotic.domain.api.services.security.RefreshTokenService;
+import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -31,6 +32,6 @@ public class ApplicationOAuthServerHandler extends OAuthServerHandler {
     @Override
     public String issuer(RoutingContext ctx) {
         // an application's API host is reached the same way by a browser and by an MCP host's backend
-        return authEndpointSupport.appHost(ctx).apiUrl(properties.getApiBaseUrl());
+        return HostLabelUtil.apiUrl(authEndpointSupport.applicationKey(ctx), properties.getApiBaseUrl());
     }
 }

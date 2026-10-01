@@ -24,20 +24,20 @@ describe('Kinotic JS', () => {
 
         it('should connect with sessionKeepAlive NONE and hard disconnect and reconnect', {"timeout": 1000 * 60 * 2}, async () => {
             // Connect to the gateway without keeping the session alive after disconnect
-            const continuum = new KinoticSingleton()
-            let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(connectionInfo),
+            const kinotic = new KinoticSingleton()
+            let connectedInfo: ConnectedInfo = await logFailure(kinotic.connect(connectionInfo),
                                                                 'Failed to connect to Kinotic Gateway')
             validateConnectedInfo(connectedInfo)
 
             // We use force here true. Otherwise, the server will clean up the session
-            await expect(continuum.disconnect(true)).resolves.toBeUndefined()
+            await expect(kinotic.disconnect(true)).resolves.toBeUndefined()
 
-            connectedInfo = await logFailure(continuum.connect(connectionInfo),
+            connectedInfo = await logFailure(kinotic.connect(connectionInfo),
                                                 'Failed to connect to Kinotic Gateway with sessionKeepAlive NONE')
 
             validateConnectedInfo(connectedInfo)
 
-            await expect(continuum.disconnect()).resolves.toBeUndefined()
+            await expect(kinotic.disconnect()).resolves.toBeUndefined()
         })
 
         it('send RPC call with sessionKeepAlive NONE', {"timeout": 1000 * 60 * 2}, async () => {
