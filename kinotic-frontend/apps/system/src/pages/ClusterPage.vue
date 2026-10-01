@@ -17,20 +17,20 @@
         <div class="px-4 pt-4 pb-2">
           <h2 class="text-base font-semibold">Server nodes</h2>
           <p class="text-xs text-muted-color">
-            One node serves this console's connection. Logging opens that node's logger levels and trace-log filters.
+            Logs follows that node's logs. Logging opens its logger levels and trace-log filters.
           </p>
         </div>
         <DataTable :value="cluster?.nodes ?? []" size="small" class="text-sm" data-key="nodeId">
           <template #empty>
             <div class="py-6 text-center text-sm text-muted-color">{{ loading ? 'Loading cluster topology…' : 'No server nodes reported' }}</div>
           </template>
+          <Column field="serverName" header="Server" />
           <Column header="Node">
             <template #body="{ data }"><span class="font-mono text-xs">{{ data.nodeId }}</span></template>
           </Column>
           <Column header="Version">
             <template #body="{ data }">
-              {{ splitVersion(data.version).release }}
-              <span v-if="splitVersion(data.version).build" class="font-mono text-xs text-muted-color">{{ splitVersion(data.version).build }}</span>
+              {{ data.version ?? UNKNOWN_VERSION }}
               <Tag v-if="commonVersion && data.version !== commonVersion" value="behind" severity="warn" class="ml-1" />
             </template>
           </Column>
@@ -41,12 +41,11 @@
           <Column header="Host names" class="hidden md:table-cell">
             <template #body="{ data }"><span class="font-mono text-xs">{{ data.hostNames.join(', ') }}</span></template>
           </Column>
-          <Column>
-            <template #body="{ data }"><Tag v-if="data.local" severity="info" value="serving request" /></template>
-          </Column>
-          <Column style="width: 8rem">
+          <Column style="width: 13rem">
             <template #body="{ data }">
-              <div class="text-right">
+              <div class="flex justify-end">
+                <Button v-if="data.telemetryServiceName" label="Logs" icon="pi pi-align-left" severity="secondary" text
+                        size="small" @click="openServerLogs(data)" />
                 <Button label="Logging" icon="pi pi-sliders-h" severity="secondary" text size="small"
                         @click="openLogLevel(data.nodeId)" />
               </div>
@@ -77,6 +76,9 @@
     </div>
 
     <LogLevelDialog v-if="logLevelNodeId" v-model:visible="logLevelVisible" :node-id="logLevelNodeId" />
+    <ServerLogsDialog v-if="serverLogsNode?.telemetryServiceName" v-model:visible="serverLogsVisible"
+                      :telemetry-service-name="serverLogsNode.telemetryServiceName"
+                      :telemetry-service-instance-id="serverLogsNode.telemetryServiceInstanceId" />
   </div>
 </template>
 
@@ -90,10 +92,11 @@ import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 
 import { Kinotic } from '@kinotic-ai/core'
-import type { KinoticClusterInfo } from '@kinotic-ai/system-api'
+import type { KinoticClusterInfo, KinoticNodeInfo } from '@kinotic-ai/system-api'
 import { PageHeader, errorMessage } from '@kinotic-ai/frontend-common'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
+import ServerLogsDialog from '@/components/ServerLogsDialog.vue'
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import { PLATFORM_ONLY } from '@/util/workloads'
 
@@ -106,9 +109,15 @@ const error = ref<string | null>(null)
 const logLevelNodeId = ref<string | null>(null)
 const logLevelVisible = ref(false)
 
-// The build most nodes run; a node on another build is behind a stalled rolling upgrade
+const serverLogsNode = ref<KinoticNodeInfo | null>(null)
+const serverLogsVisible = ref(false)
+
+/** What a node running from classes, with no packaged version, shows for one. */
+const UNKNOWN_VERSION = 'unknown'
+
+// The version most nodes run; a node on another is behind a stalled rolling upgrade
 const commonVersion = computed<string | null>(() => {
-  const byVersion = new Map<string, number>()
+  const byVersion = new Map<string | null, number>()
   for (const node of cluster.value?.nodes ?? []) {
     byVersion.set(node.version, (byVersion.get(node.version) ?? 0) + 1)
   }
@@ -116,12 +125,6 @@ const commonVersion = computed<string | null>(() => {
 })
 
 const mixedVersions = computed(() => new Set((cluster.value?.nodes ?? []).map(node => node.version)).size > 1)
-
-/** A node version as the release it is and the build stamp after the '#', e.g. 2.18.0 and 20260423-sha1:d49adada. */
-function splitVersion(version: string): { release: string; build: string | null } {
-  const at = version.indexOf('#')
-  return at < 0 ? { release: version, build: null } : { release: version.slice(0, at), build: version.slice(at + 1) }
-}
 
 interface Stat {
   label: string
@@ -158,30 +161,33 @@ const stats = computed<Stat[]>(() => [
   versionStat.value
 ])
 
-// The release reads at display size; the build stamp behind the '#' goes in the caption
 const versionStat = computed<Stat>(() => {
   let ret: Stat
   if (mixedVersions.value) {
     ret = {
       label: 'Versions',
       value: 'Mixed',
-      description: 'Not every node runs the same build',
+      description: 'Not every node runs the same version',
       tag: 'warn',
       icon: 'pi-tag',
       accent: 'amber'
     }
   } else {
-    const common = commonVersion.value ? splitVersion(commonVersion.value) : null
     ret = {
       label: 'Version',
-      value: common?.release ?? '—',
-      description: common?.build ? `build ${common.build} · every node runs it` : 'Every node runs this build',
+      value: cluster.value?.nodes.length ? (commonVersion.value ?? UNKNOWN_VERSION) : '—',
+      description: 'The Kinotic version every node runs',
       icon: 'pi-tag',
       accent: 'teal'
     }
   }
   return ret
 })
+
+function openServerLogs(node: KinoticNodeInfo) {
+  serverLogsNode.value = node
+  serverLogsVisible.value = true
+}
 
 function openLogLevel(nodeId: string) {
   logLevelNodeId.value = nodeId

@@ -5,6 +5,7 @@ import io.vertx.core.buffer.Buffer;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.management.api.model.telemetry.LogQuery;
+import org.kinotic.management.api.model.telemetry.ServerLogQuery;
 import org.kinotic.management.api.model.telemetry.TelemetryTenant;
 import org.kinotic.management.api.services.telemetry.LokiClient;
 import reactor.core.publisher.Flux;
@@ -16,7 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
  * Covers {@link DefaultLogService} authorization and tenant resolution: organization
  * participants may only read their own organization's logs, system participants may read any
  * organization's, and the platform's own (no organization) resolve to the system tenant. No
- * workload record takes part, so a destroyed workload's logs read the same way.
+ * workload record takes part, so a destroyed workload's logs read the same way. A server's logs,
+ * every node's or one node's, are read from the system tenant by a system participant alone.
  */
 class DefaultLogServiceTest extends ParticipantCallTest {
 
@@ -81,6 +83,66 @@ class DefaultLogServiceTest extends ParticipantCallTest {
         assertInstanceOf(AuthorizationException.class,
                          failureOf(ACME_USER, () -> Future.fromCompletionStage(service.tail("globex", "wl-globex").collectList().toFuture(),
                                                                                vertx.getOrCreateContext())));
+    }
+
+    @Test
+    void systemParticipantReadsServerLogsFromTheSystemTenant() throws Throwable {
+        callAs(PLATFORM_OPERATOR, () -> service.serverHistory(serverQuery("kinotic-server-system", null)));
+
+        assertEquals(TelemetryTenant.SYSTEM, lokiClient.tenant);
+        assertEquals("{service_name=\"kinotic-server-system\"}", lokiClient.query);
+        assertEquals(1_000L, lokiClient.start);
+        assertEquals(2_000L, lokiClient.end);
+        assertEquals(50, lokiClient.limit);
+    }
+
+    @Test
+    void organizationParticipantMayNotReadServerLogs() {
+        assertInstanceOf(AuthorizationException.class,
+                         failureOf(ACME_USER, () -> service.serverHistory(serverQuery("kinotic-server-system", null))));
+    }
+
+    @Test
+    void serverInstanceNarrowsTheSelectorToOneNode() throws Throwable {
+        callAs(PLATFORM_OPERATOR, () -> service.serverHistory(serverQuery("kinotic-server-app", "kinotic-server-app-7d9f8-x2k4q")));
+
+        assertEquals(TelemetryTenant.SYSTEM, lokiClient.tenant);
+        assertEquals("{service_name=\"kinotic-server-app\", service_instance_id=\"kinotic-server-app-7d9f8-x2k4q\"}",
+                     lokiClient.query);
+    }
+
+    @Test
+    void serverInstanceIsQuotedIntoTheSelector() throws Throwable {
+        callAs(PLATFORM_OPERATOR, () -> service.serverHistory(serverQuery("svc", "node\"} or {workload_id=~\".+")));
+
+        assertEquals("{service_name=\"svc\", service_instance_id=\"node\\\"} or {workload_id=~\\\".+\"}", lokiClient.query);
+    }
+
+    @Test
+    void serverTailResolvesTheSystemTenantAndQuery() throws Throwable {
+        callAs(PLATFORM_OPERATOR, () -> Future.fromCompletionStage(service.tailServer("kinotic-server-app", "kinotic-server-app-7d9f8-x2k4q")
+                                                                          .collectList()
+                                                                          .toFuture(),
+                                                                   vertx.getOrCreateContext()));
+
+        assertEquals(TelemetryTenant.SYSTEM, lokiClient.tenant);
+        assertEquals("{service_name=\"kinotic-server-app\", service_instance_id=\"kinotic-server-app-7d9f8-x2k4q\"}",
+                     lokiClient.query);
+    }
+
+    @Test
+    void serverTailByAnOrganizationParticipantIsRefused() {
+        assertInstanceOf(AuthorizationException.class,
+                         failureOf(ACME_USER, () -> Future.fromCompletionStage(service.tailServer("kinotic-server-app", null).collectList().toFuture(),
+                                                                               vertx.getOrCreateContext())));
+    }
+
+    private static ServerLogQuery serverQuery(String telemetryServiceName, String telemetryServiceInstanceId) {
+        return new ServerLogQuery().setTelemetryServiceName(telemetryServiceName)
+                                   .setTelemetryServiceInstanceId(telemetryServiceInstanceId)
+                                   .setStart(1_000L)
+                                   .setEnd(2_000L)
+                                   .setLimit(50);
     }
 
     private static LogQuery query(String organizationId, String workloadId) {

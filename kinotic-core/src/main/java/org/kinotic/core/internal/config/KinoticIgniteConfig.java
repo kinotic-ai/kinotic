@@ -17,6 +17,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.kubernetes.TcpDiscoveryKubernetesIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.sharedfs.TcpDiscoverySharedFsIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.kinotic.core.api.KinoticNodeAttributes;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.config.IgniteClusterDiscoveryType;
 import org.kinotic.core.api.config.IgniteProperties;
@@ -31,7 +32,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.ignite.failure.FailureType.*;
 
@@ -157,7 +160,14 @@ public class KinoticIgniteConfig {
         cfg.setFailureHandler(failureHandler);
 
         // lets a cluster singleton be deployed only to the nodes hosting its zone
-        cfg.setUserAttributes(zonePartitioningService.nodeAttributes());
+        Map<String, Object> attributes = new HashMap<>(zonePartitioningService.nodeAttributes());
+        attributes.put(KinoticNodeAttributes.SERVER_NAME, zonePartitioningService.name());
+        String version = KinoticIgniteConfig.class.getPackage().getImplementationVersion();
+        if (version != null) {
+            attributes.put(KinoticNodeAttributes.VERSION, version);
+        }
+        attributes.putAll(telemetryAttributes());
+        cfg.setUserAttributes(attributes);
 
         cfg.setWorkDirectory(properties.getIgnite().getWorkDirectory());
 
@@ -253,5 +263,40 @@ public class KinoticIgniteConfig {
         }
 
         return new TcpDiscoveryKubernetesIpFinder(connectionConfig);
+    }
+
+    // Reads the service name and instance id the node's telemetry is exported under from the settings the
+    // OpenTelemetry agent reads its resource from, so the attributes match the labels on the node's logs
+    private static Map<String, Object> telemetryAttributes() {
+        Map<String, String> resource = new HashMap<>();
+        String resourceAttributes = otelSetting("otel.resource.attributes", "OTEL_RESOURCE_ATTRIBUTES");
+        if (resourceAttributes != null) {
+            for (String entry : resourceAttributes.split(",")) {
+                String[] keyValue = entry.split("=", 2);
+                if (keyValue.length == 2 && StringUtils.isNoneBlank(keyValue[0], keyValue[1])) {
+                    resource.put(keyValue[0].trim(), keyValue[1].trim());
+                }
+            }
+        }
+        // otel.service.name wins over a service.name in the resource attributes, as it does in the agent
+        String serviceName = otelSetting("otel.service.name", "OTEL_SERVICE_NAME");
+        if (serviceName != null) {
+            resource.put("service.name", serviceName);
+        }
+
+        Map<String, Object> ret = new HashMap<>();
+        if (resource.containsKey("service.name")) {
+            ret.put(KinoticNodeAttributes.TELEMETRY_SERVICE_NAME, resource.get("service.name"));
+        }
+        if (resource.containsKey("service.instance.id")) {
+            ret.put(KinoticNodeAttributes.TELEMETRY_SERVICE_INSTANCE_ID, resource.get("service.instance.id"));
+        }
+        return ret;
+    }
+
+    // An agent setting, the system property winning over the environment variable as it does in the agent
+    private static String otelSetting(String systemProperty, String environmentVariable) {
+        String ret = System.getProperty(systemProperty, System.getenv(environmentVariable));
+        return StringUtils.isBlank(ret) ? null : ret;
     }
 }

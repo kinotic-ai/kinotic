@@ -278,7 +278,7 @@ locals {
     env = merge(local.server_env, server.env, {
       KINOTIC_IGNITE_LOCALADDRESS = server.private_ip
       OTEL_SERVICE_NAME           = name
-      OTEL_RESOURCE_ATTRIBUTES    = "service.name=${name}"
+      OTEL_RESOURCE_ATTRIBUTES    = "service.name=${name},service.instance.id=${name}-${server.vm_id}"
     })
     secrets_env      = "${var.secrets_dir}/kinotic-servers.env"
     files            = {}

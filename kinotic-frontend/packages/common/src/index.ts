@@ -47,6 +47,8 @@ export { default as TablePaginator } from './components/TablePaginator.vue'
 export { default as TelemetryPanel } from './components/telemetry/TelemetryPanel.vue'
 export { default as TraceDetail } from './components/telemetry/TraceDetail.vue'
 export { default as WatchEventsTable } from './components/WatchEventsTable.vue'
+export * from './components/LogSource'
+export { default as LogView } from './components/LogView.vue'
 export { default as WorkloadLogView } from './components/WorkloadLogView.vue'
 export { default as WorkloadLogsDialog } from './components/WorkloadLogsDialog.vue'
 

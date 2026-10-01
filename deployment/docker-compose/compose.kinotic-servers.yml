@@ -77,7 +77,7 @@ services:
       KINOTIC_MANAGEMENTAPI_MIMIRURL: http://mimir:9009
       KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9090
       OTEL_SERVICE_NAME: kinotic-server-management
-      OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-management
+      OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-management,service.instance.id=kinotic-server-management
       THC_PORT: 58503 # Paketo health-check probe — health endpoint is mounted on the api-gateway router
     volumes:
       # The developer's tunnel origin and GitHub App (dev-tools/github-app/dev-github-app.ts).
@@ -97,7 +97,7 @@ services:
       KINOTIC_MANAGEMENTAPI_TEMPOURL: http://tempo:3200
       KINOTIC_MANAGEMENTAPI_MIMIRURL: http://mimir:9009
       OTEL_SERVICE_NAME: kinotic-server-system
-      OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-system
+      OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-system,service.instance.id=kinotic-server-system
       THC_PORT: 58504
     volumes:
       # The developer's GitHub App (dev-tools/github-app/dev-github-app.ts), with which this server
@@ -114,5 +114,5 @@ services:
     environment:
       <<: *kinotic-server-environment
       OTEL_SERVICE_NAME: kinotic-server-app
-      OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-app
+      OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-app,service.instance.id=kinotic-server-app
       THC_PORT: 58505

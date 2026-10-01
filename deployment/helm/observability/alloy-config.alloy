@@ -54,6 +54,21 @@ discovery.relabel "pod_logs" {
     source_labels = ["__meta_kubernetes_pod_node_name"]
     target_label  = "node"
   }
+
+  // The OpenTelemetry labels a Kinotic server's logs carry wherever it runs: service_name names the
+  // server, as its OTEL_SERVICE_NAME does, and service_instance_id the pod, as its
+  // OTEL_RESOURCE_ATTRIBUTES does; the system console selects one node's logs by both
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_part_of", "__meta_kubernetes_pod_label_app"]
+    regex         = "kinotic;(.+)"
+    target_label  = "service_name"
+  }
+
+  rule {
+    source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_part_of", "__meta_kubernetes_pod_name"]
+    regex         = "kinotic;(.+)"
+    target_label  = "service_instance_id"
+  }
 }
 
 loki.source.kubernetes "pods" {
