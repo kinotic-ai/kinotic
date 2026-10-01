@@ -1,0 +1,1 @@
+{"id":"417202ce8bd2e9042572c22896fa27f5","fullName":"@kinotic-ai/e2e-tests:test/native/ServerPlanes.test.ts#Server planes authenticates a session only at the API host that issued it","name":"authenticates a session only at the API host that issued it","status":"passed","testResultsByEnv":{"default":"0c44de525995d2d3dff1d086a25d3863"}}

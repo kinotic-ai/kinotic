@@ -1,0 +1,1 @@
+{"id":"ad7b856516d4944912961f7a232a40ef","fullName":"org.kinotic.sql.parsers.SelectStatementParserTest.whenGroupedWithoutFunction_thenAggregate","name":"whenGroupedWithoutFunction_thenAggregate()","status":"passed","testResultsByEnv":{"default":"9d197d499ea768b67822ceb3aaf6118d"}}

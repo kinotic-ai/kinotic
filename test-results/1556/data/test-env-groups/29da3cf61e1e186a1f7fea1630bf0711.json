@@ -1,0 +1,1 @@
+{"id":"29da3cf61e1e186a1f7fea1630bf0711","fullName":"org.kinotic.sql.executor.ElasticsearchSqlWriterTest.whenFunctionTakesValues_thenNumbersAreWrittenAndStringsArePlaceholders","name":"whenFunctionTakesValues_thenNumbersAreWrittenAndStringsArePlaceholders()","status":"passed","testResultsByEnv":{"default":"18f21fca893bcce9e8cb1a3a29d93711"}}
