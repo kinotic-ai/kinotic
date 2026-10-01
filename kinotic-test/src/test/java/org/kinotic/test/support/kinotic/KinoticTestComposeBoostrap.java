@@ -11,13 +11,9 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.ComposeContainer;
 
 import java.io.File;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 
 /**
- * Test configuration that starts the Kinotic stack (Elasticsearch + kinotic-migration)
+ * Test configuration that starts the Kinotic stack (Elasticsearch, its test settings, and kinotic-migration)
  * via Docker Compose using compose.kinotic-test.yml.
  */
 @Component
@@ -25,9 +21,6 @@ public class KinoticTestComposeBoostrap {
     private static final Logger log = LoggerFactory.getLogger(KinoticTestComposeBoostrap.class);
 
     private static final int ELASTICSEARCH_PORT = 9200;
-
-    // Every Refresh.WaitFor write blocks until the next scheduled refresh, 1s by default
-    private static final String TEST_REFRESH_INTERVAL = "50ms";
 
     private static volatile boolean containersReady = false;
     private static final Object containerLock = new Object();
@@ -84,9 +77,8 @@ public class KinoticTestComposeBoostrap {
                 throw new RuntimeException("kinotic-elasticsearch failed to become ready");
             }
 
-            waitForKinoticMigrationToComplete();
-
-            shortenRefreshInterval(esHost, esPort);
+            waitForContainerToComplete("kinotic-elasticsearch-test-settings");
+            waitForContainerToComplete("kinotic-migration");
 
             synchronized (containerLock) {
                 containersReady = true;
@@ -99,12 +91,11 @@ public class KinoticTestComposeBoostrap {
         }
     }
 
-    private static void waitForKinoticMigrationToComplete() {
-        final String containerName = "kinotic-migration";
+    private static void waitForContainerToComplete(String containerName) {
         final long timeoutMs = 600_000L; // 10 minutes
         final long pollIntervalMs = 2_000L;
 
-        log.info("Waiting for '{}' container to complete migrations...", containerName);
+        log.info("Waiting for '{}' container to complete...", containerName);
 
         DockerClient dockerClient = DockerClientFactory.instance().client();
         long deadline = System.currentTimeMillis() + timeoutMs;
@@ -139,7 +130,7 @@ public class KinoticTestComposeBoostrap {
                     return;
                 }
                 throw new RuntimeException(
-                    "kinotic-migration container exited with code " + exitCode);
+                    containerName + " container exited with code " + exitCode);
             }
 
             try {
@@ -147,39 +138,12 @@ public class KinoticTestComposeBoostrap {
             } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(
-                    "Interrupted while waiting for kinotic-migration container to complete", ie);
+                    "Interrupted while waiting for " + containerName + " container to complete", ie);
             }
         }
 
         throw new RuntimeException(
-            "Timed out waiting for kinotic-migration container to complete");
-    }
-
-    /**
-     * Applies {@link #TEST_REFRESH_INTERVAL} to the indices the migration created and, through a lowest-priority
-     * catch-all index template, to every index a test creates afterwards. A platform template that matches an
-     * index outranks the catch-all, and the index keeps the default interval.
-     */
-    private static void shortenRefreshInterval(String esHost, int esPort) throws Exception {
-        String baseUrl = "http://" + esHost + ":" + esPort;
-        String settings = "{\"index\":{\"refresh_interval\":\"" + TEST_REFRESH_INTERVAL + "\"}}";
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            putJson(client, baseUrl + "/_index_template/kinotic-test-refresh-interval",
-                    "{\"index_patterns\":[\"*\"],\"priority\":1,\"template\":{\"settings\":" + settings + "}}");
-            putJson(client, baseUrl + "/*/_settings?expand_wildcards=open", settings);
-        }
-        log.info("Elasticsearch refresh interval set to {} for the test run", TEST_REFRESH_INTERVAL);
-    }
-
-    private static void putJson(HttpClient client, String url, String body) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                                         .header("Content-Type", "application/json")
-                                         .PUT(HttpRequest.BodyPublishers.ofString(body))
-                                         .build();
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() != 200) {
-            throw new IllegalStateException("PUT " + url + " returned " + response.statusCode() + ": " + response.body());
-        }
+            "Timed out waiting for " + containerName + " container to complete");
     }
 
     public static void waitForContainersReady() {
