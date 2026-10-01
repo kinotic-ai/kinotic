@@ -38,6 +38,14 @@ node {
 
 }
 
+// Gradle records node_modules as pnpmInstall's output and walks it through pnpm's symlink web, where
+// every package links to its dependencies, so the walk visits the same packages over and over and
+// ran CI's 512 MiB daemon out of heap before any test started. Nothing in this build is up to date
+// against node_modules, so none of it is tracked.
+pnpmInstall {
+    nodeModulesOutputFilter { exclude '**' }
+}
+
 task deleteDist(type: Delete){
     delete "${project.projectDir}/dist/"
 }
