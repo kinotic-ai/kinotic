@@ -103,11 +103,8 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # :kinotic-test:testClasses is requested explicitly: excluding :kinotic-test:test also drops
-      # its compilation, and building it here puts the result in the Gradle build cache that the
-      # kinotic_test job restores, keeping that compile off the slowest branch.
       - name: Build with Gradle
-        run: ./gradlew build :kinotic-test:testClasses -x :kinotic-test:test
+        run: ./gradlew build -x :kinotic-test:test
 
       # Ahead of the Maven staging below: js_workspace_tests and e2e_tests block on this whole job,
       # so anything they do not need belongs after the image they do.
@@ -152,11 +149,11 @@ jobs:
         with:
           name: build
 
-  # Elasticsearch + the migration image via compose.kinotic-test.yml. Needs migration_image but not
-  # the server image, so it starts as soon as the compiled classes and that image are ready.
+  # Elasticsearch + the migration image via compose.kinotic-test.yml. Compiles what it tests itself,
+  # so it needs only the migration image and runs alongside the build job.
   kinotic_test:
     name: Kinotic Integration Tests
-    needs: [build, migration_image]
+    needs: migration_image
     runs-on: ubuntu-latest
     permissions:
       contents: read
