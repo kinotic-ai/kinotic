@@ -310,7 +310,7 @@ put on the Public Suffix List.
 
 The sync step sets, per UI build, `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and
 `VITE_KINOTIC_USE_SSL`, split from `KINOTIC_UI_SERVER_URL`: the application's API host,
-`AppHost.apiUrl(kinotic.systemApi.deployment.appApiBaseUrl)` (`https://<org>--<app>.<apps-api domain>`),
+`HostLabelUtil.apiUrl(kinotic.systemApi.deployment.appApiBaseUrl)` (`https://<org>--<app>.<apps-api domain>`),
 placed on the sync workload by the job factory. The address the workload itself dials is for
 egress and not usable by a browser. They are the variables the platform's own consoles
 connect with, and Vite exposes them to the page without configuration. A build that leaves no `dist/index.html` fails the deploy before the
@@ -383,7 +383,7 @@ machines labelled by the deployment that records them.
 - **UIs built in the sync VM.** After the entity sync, `sync.ts` runs `bun run build` in
 every UI artifact with `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and `VITE_KINOTIC_USE_SSL`,
 split from the `KINOTIC_UI_SERVER_URL` placed on the sync workload from
-`AppHost.apiUrl(kinotic.systemApi.deployment.appApiBaseUrl)`, and fails the run naming a UI whose build leaves no
+`HostLabelUtil.apiUrl(kinotic.systemApi.deployment.appApiBaseUrl)`, and fails the run naming a UI whose build leaves no
 `dist/index.html`.
 - **UI deployments and the storage credentials.** `UiDeployment` rows keyed by the site's
 hostname label, `SiteStorageService` (`issueUploadUrl`, `issueRemovalUrl`) signing

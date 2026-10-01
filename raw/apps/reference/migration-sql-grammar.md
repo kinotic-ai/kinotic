@@ -4,9 +4,11 @@
 
 ## Overview
 
-This grammar reference applies to migration scripts used for schema and data migrations in Kinotic. Migration scripts use a SQL dialect designed for schema and data management.
+This grammar reference applies to migration scripts used for schema and data migrations in Kinotic, and to [named queries](/apps/persistence/named-queries), which use the same SQL dialect for `SELECT`, `INSERT`, `UPDATE` and `DELETE`.
 
 All statements must end with a semicolon (`;`). Identifiers must start with a letter or underscore and can contain letters, numbers, and underscores. Strings are enclosed in single quotes (`'...'`).
+
+An application's migrations, the ones `kinotic sync` runs from its `migrations` folder, use only the data statements: `INSERT`, `UPDATE`, `DELETE` and `REINDEX`. There `<index_name>` is the name of one of the application's entities, which the platform resolves to the entity's backing store, and an `INSERT` carries neither `ROUTING` nor `DOCUMENT_ID`, since both are derived from the row's id and tenant fields. See [Migrations](/apps/persistence/migrations). The remaining statements, and the storage names in the examples below, belong to the platform's own [system migrations](/platform/system-migrations).
 
 ## Statements Overview
 
@@ -18,6 +20,7 @@ All statements must end with a semicolon (`;`). Identifiers must start with a le
 - `INSERT`
 - `UPDATE`
 - `DELETE`
+- `SELECT`
 - Comments
 
 ---
@@ -679,6 +682,31 @@ DELETE FROM products WHERE inStock == false WITH REFRESH ;
 
 ---
 
+## SELECT
+
+Reads the documents matching a where clause, whole or projected to the listed fields. A `SELECT` is the statement of a [named query](/apps/persistence/named-queries#select); a migration has no use for one.
+
+**Syntax:**
+
+```sql
+SELECT (* | <column_name> [, <column_name>]*) FROM <index_name>
+    [WHERE <where_clause>]
+    [ORDER BY <column_name> [ASC | DESC] [, <column_name> [ASC | DESC]]*]
+    [LIMIT <integer>] ;
+```
+
+- `*` reads each document whole; a column list reads the listed top-level fields, each whole, so an object field comes back with all its sub-fields.
+- `ORDER BY` orders the documents by the listed fields, in precedence order, ascending unless `DESC` is given.
+- `LIMIT` caps the number of documents read.
+
+**Example:**
+
+```sql
+SELECT firstName, address FROM persons WHERE lastName == :lastName AND age >= 18 ORDER BY lastName, firstName DESC LIMIT 50 ;
+```
+
+---
+
 ## Comments
 
 ```sql
@@ -691,7 +719,7 @@ Comments start with `--` and continue to the end of the line. Comments are ignor
 
 ## Where Clauses
 
-Where clauses are used in `UPDATE` and `DELETE` statements.
+Where clauses are used in `UPDATE`, `DELETE` and `SELECT` statements.
 
 **Syntax:**
 
@@ -1463,4 +1491,4 @@ A binary expression reads the named field from the stored document, so its opera
 
 The literals `true`, `false`, and `null` are lowercase and reserved — they cannot be used as an identifier, though an object literal can carry such a field name as a quoted key (`{ 'null': 1 }`). All other keywords are uppercase:
 
-`ABORT`, `ADD`, `ALTER`, `AND`, `AUTO`, `BINARY`, `BOOLEAN`, `COLUMN`, `COMPONENT`, `CONFLICTS`, `CREATE`, `DATA`, `DATA_RETENTION`, `DATE`, `DECIMAL`, `DELETE`, `DOUBLE`, `EXISTS`, `FLOAT`, `FOR`, `FROM`, `GEO_POINT`, `GEO_SHAPE`, `IF`, `INDEX`, `INDEXED`, `INSERT`, `INTEGER`, `INTO`, `JSON`, `KEYWORD`, `LONG`, `MAX_DOCS`, `NESTED`, `NOT`, `NUMBER_OF_REPLICAS`, `NUMBER_OF_SHARDS`, `OBJECT`, `OR`, `PROCEED`, `QUERY`, `REFRESH`, `REINDEX`, `SCRIPT`, `SET`, `SIZE`, `SLICES`, `SOURCE_FIELDS`, `STREAM`, `TABLE`, `TEMPLATE`, `TEXT`, `TIME_REFERENCE`, `TRUE`, `FALSE`, `UNION`, `UPDATE`, `USING`, `UUID`, `VALUES`, `WAIT`, `WHERE`, `WITH`, `SKIP_IF_NO_SOURCE`
+`ABORT`, `ADD`, `ALTER`, `AND`, `ASC`, `AUTO`, `BINARY`, `BOOLEAN`, `BY`, `COLUMN`, `COMPONENT`, `CONFLICTS`, `CREATE`, `DATA`, `DATA_RETENTION`, `DATE`, `DECIMAL`, `DELETE`, `DESC`, `DOUBLE`, `EXISTS`, `FLOAT`, `FOR`, `FROM`, `GEO_POINT`, `GEO_SHAPE`, `IF`, `INDEX`, `INDEXED`, `INSERT`, `INTEGER`, `INTO`, `JSON`, `KEYWORD`, `LIMIT`, `LONG`, `MAX_DOCS`, `NESTED`, `NOT`, `NUMBER_OF_REPLICAS`, `NUMBER_OF_SHARDS`, `OBJECT`, `OR`, `ORDER`, `PROCEED`, `QUERY`, `REFRESH`, `REINDEX`, `SCRIPT`, `SELECT`, `SET`, `SIZE`, `SLICES`, `SOURCE_FIELDS`, `STREAM`, `TABLE`, `TEMPLATE`, `TEXT`, `TIME_REFERENCE`, `TRUE`, `FALSE`, `UNION`, `UPDATE`, `USING`, `UUID`, `VALUES`, `WAIT`, `WHERE`, `WITH`, `SKIP_IF_NO_SOURCE`
