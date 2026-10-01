@@ -150,6 +150,35 @@ class LokiClientIntegrationTest {
     }
 
     @Test
+    void tailCarriesOnlyLinesWrittenAfterItOpens() throws Exception {
+        String earlier = "before-tail-" + UUID.randomUUID();
+        String later = "after-tail-" + UUID.randomUUID();
+        push("org-a", "wl-tail-start", earlier);
+        awaitQueryContains("org-a", "wl-tail-start", earlier);
+
+        StringBuffer frames = new StringBuffer();
+        CompletableFuture<Void> received = new CompletableFuture<>();
+        Disposable subscription = lokiClient.tail("org-a", "{workload_id=\"wl-tail-start\"}")
+                .subscribe(frame -> {
+                              frames.append(frame);
+                              if (frame.toString().contains(later)) {
+                                  received.complete(null);
+                              }
+                          },
+                          received::completeExceptionally);
+        try {
+            for (int i = 0; i < 40 && !received.isDone(); i++) {
+                push("org-a", "wl-tail-start", later);
+                Thread.sleep(500);
+            }
+            received.get(5, TimeUnit.SECONDS);
+            assertFalse(frames.toString().contains(earlier));
+        } finally {
+            subscription.dispose();
+        }
+    }
+
+    @Test
     void deleteRemovesAWorkloadsLinesFromItsTenantAlone() throws Exception {
         // a querier loads a tenant's delete requests at its first query for the tenant and reloads them
         // every five minutes, so the tenant that deletes is one no other test queries, and it is first

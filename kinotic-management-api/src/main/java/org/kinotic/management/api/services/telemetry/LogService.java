@@ -19,8 +19,9 @@ import reactor.core.publisher.Flux;
 public interface LogService {
 
     /**
-     * Opens a live tail of the given workload's logs. Each emitted element is a raw Loki tail
-     * frame, and the stream stays open until the caller unsubscribes.
+     * Opens a live tail of the given workload's logs, from the moment it opens; {@link #history}
+     * reads what came before. Each emitted element is a raw Loki tail frame, and the stream stays
+     * open until the caller unsubscribes.
      *
      * @param organizationId the organization the workload runs for; null for the platform's own,
      *        which only a system participant may read
@@ -38,9 +39,9 @@ public interface LogService {
     Future<Buffer> history(LogQuery query);
 
     /**
-     * Opens a live tail of a platform server's logs, one node's or every node's together. Each
-     * emitted element is a raw Loki tail frame, and the stream stays open until the caller
-     * unsubscribes.
+     * Opens a live tail of a platform server's logs, one node's or every node's together, from the
+     * moment it opens; {@link #serverHistory} reads what came before. Each emitted element is a raw
+     * Loki tail frame, and the stream stays open until the caller unsubscribes.
      *
      * @param telemetryServiceName the service name that labels the server's logs, as its cluster
      *        nodes report it

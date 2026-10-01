@@ -24,8 +24,10 @@ public interface LokiClient {
     Future<Buffer> queryRange(String tenant, String query, long start, long end, int limit);
 
     /**
-     * Opens a Loki {@code tail} WebSocket and emits each tail frame's raw bytes. The WebSocket is closed
-     * when the returned {@link Flux} is cancelled or completed.
+     * Opens a Loki {@code tail} WebSocket and emits each tail frame's raw bytes, carrying the entries
+     * that arrive from the moment it opens; earlier entries are read with {@link #queryRange}. The
+     * WebSocket is closed when the returned {@link Flux} is cancelled or completed, and the Flux fails
+     * on a frame larger than 2 MB.
      *
      * @param tenant the Loki tenant ({@code X-Scope-OrgID})
      * @param query  the LogQL query to follow

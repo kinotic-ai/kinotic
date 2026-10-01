@@ -31,10 +31,9 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
     private static final String QUERY_RANGE_PATH = "/loki/api/v1/query_range";
     private static final String TAIL_PATH = "/loki/api/v1/tail";
     private static final String DELETE_PATH = "/loki/api/v1/delete";
-    // Loki sends a tail response of up to 100 entries as a single WebSocket frame, and each entry's line may
-    // be up to its 256 KB max_line_size; this covers that with room for stream labels and JSON escaping,
-    // where the Vert.x default of 64 KB fails the tail on its first large batch
-    private static final int TAIL_MAX_MESSAGE_BYTES = 64 * 1024 * 1024;
+    // Loki sends a tail response of up to 100 entries, each with its stream's labels, as a single WebSocket
+    // frame; the Vert.x default of 64 KB fails a tail on a batch of long lines, so this allows 2 MB
+    private static final int TAIL_MAX_MESSAGE_BYTES = 2 * 1024 * 1024;
 
     private final String lokiUrl;
     private WebSocketClient webSocketClient;
@@ -108,7 +107,10 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
                 .setHost(base.getHost())
                 .setPort(port)
                 .setSsl(ssl)
-                .setURI(TAIL_PATH + "?query=" + URLEncoder.encode(query, StandardCharsets.UTF_8))
+                // Loki opens a tail by replaying up to 100 entries of the hour before start; starting at now
+                // leaves that history to queryRange, which the caller has already read
+                .setURI(TAIL_PATH + "?query=" + URLEncoder.encode(query, StandardCharsets.UTF_8)
+                        + "&start=" + msToNs(System.currentTimeMillis()))
                 .addHeader(ORG_ID_HEADER, tenant);
     }
 
