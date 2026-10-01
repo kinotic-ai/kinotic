@@ -106,8 +106,40 @@ const ANSI_PALETTE = [
   '#666666', '#f14c4c', '#23d18b', '#f5f543', '#3b8eea', '#d670d6', '#29b8db', '#ffffff'
 ]
 const ANSI_CUBE_STEPS = [0, 95, 135, 175, 215, 255]
-// CSI sequences (SGR when the final byte is m), OSC sequences, and the remaining two-byte escapes
-const ANSI_ESCAPE = /\x1b\[([0-9;:?]*)([@-~])|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[@-Z\\-_]/g
+// The view's own text and background colors, which inverse video swaps in for a default color
+const DEFAULT_FG = 'var(--p-surface-200)'
+const DEFAULT_BG = 'var(--p-surface-950)'
+// CSI sequences, then OSC, DCS, APC and PM strings, then every other escape: an optional run of
+// intermediate bytes, as in a charset designation such as ESC ( B, before one final byte
+const ANSI_ESCAPE = /\x1b\[([0-?]*)([ -\/]*)([@-~])|\x1b[\]P_^X][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[ -\/]*[0-~]?/g
+// A CSI sequence is SGR only when it carries plain numeric parameters; ESC[>4;2m is a keyboard mode, not a style
+const SGR_PARAMS = /^[0-9;:]*$/
+// The C0 controls a log line can carry besides tab and carriage return, which draw nothing
+const INVISIBLE_CONTROLS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g
+// SGR codes that set or reset one attribute other than a color
+const SGR_ATTRIBUTES: Record<number, Partial<AnsiStyle>> = {
+  1: { bold: true },
+  2: { faint: true },
+  3: { italic: true },
+  4: { underline: 'solid' },
+  7: { inverse: true },
+  8: { concealed: true },
+  9: { strikethrough: true },
+  21: { underline: 'double' },
+  22: { bold: false, faint: false },
+  23: { italic: false },
+  24: { underline: null },
+  27: { inverse: false },
+  28: { concealed: false },
+  29: { strikethrough: false },
+  39: { fg: null },
+  49: { bg: null },
+  53: { overline: true },
+  55: { overline: false },
+  59: { underlineColor: null }
+}
+// The styles 4:n selects, by n; 4:0 removes the underline
+const UNDERLINE_STYLES: (UnderlineStyle | null)[] = [null, 'solid', 'double', 'wavy', 'dotted', 'dashed']
 
 // The logback levels an OTLP-shipped entry's severity_text names, lowercased, colored as Spring Boot's
 // console colors its level column
@@ -142,14 +174,21 @@ interface LogRow {
   segments: StyledSegment[]
 }
 
+type UnderlineStyle = 'solid' | 'double' | 'wavy' | 'dotted' | 'dashed'
+
 /** The SGR attributes in effect at a point in an entry's text. */
 interface AnsiStyle {
   fg: string | null
   bg: string | null
+  underlineColor: string | null
+  underline: UnderlineStyle | null
   bold: boolean
   faint: boolean
   italic: boolean
-  underline: boolean
+  inverse: boolean
+  concealed: boolean
+  strikethrough: boolean
+  overline: boolean
 }
 
 function hasEnded(run: WorkloadRun | undefined): boolean {
@@ -233,107 +272,139 @@ function toRows(entries: LogEntry[]): LogRow[] {
 }
 
 function plainStyle(): AnsiStyle {
-  return { fg: null, bg: null, bold: false, faint: false, italic: false, underline: false }
+  return {
+    fg: null,
+    bg: null,
+    underlineColor: null,
+    underline: null,
+    bold: false,
+    faint: false,
+    italic: false,
+    inverse: false,
+    concealed: false,
+    strikethrough: false,
+    overline: false
+  }
 }
 
 // Splits a line at its ANSI escapes into styled runs, applying SGR escapes to style and dropping the rest
 function styleSegments(line: string, style: AnsiStyle): StyledSegment[] {
   const out: StyledSegment[] = []
+  // Text after a carriage return redraws the line from its start, as a progress bar does on a terminal
+  let redraw = false
+  const append = (text: string) => {
+    text.replace(INVISIBLE_CONTROLS, '').split('\r').forEach((piece, i) => {
+      redraw ||= i > 0
+      if (piece.length > 0) {
+        if (redraw) {
+          out.length = 0
+          redraw = false
+        }
+        out.push({ text: piece, style: toCss(style) })
+      }
+    })
+  }
   let textStart = 0
   for (const match of line.matchAll(ANSI_ESCAPE)) {
-    pushSegment(out, line.slice(textStart, match.index), style)
-    if (match[2] === 'm') {
+    append(line.slice(textStart, match.index))
+    if (match[3] === 'm' && match[2] === '' && SGR_PARAMS.test(match[1]!)) {
       applySgr(match[1]!, style)
     }
     textStart = match.index + match[0].length
   }
-  pushSegment(out, line.slice(textStart), style)
+  append(line.slice(textStart))
   return out
 }
 
-function pushSegment(segments: StyledSegment[], text: string, style: AnsiStyle) {
-  if (text.length > 0) {
-    segments.push({ text, style: toCss(style) })
-  }
-}
-
 function applySgr(params: string, style: AnsiStyle) {
-  // An omitted parameter means 0, so a bare ESC[m is a reset
-  const codes = params.split(';').map(code => code === '' ? 0 : Number(code))
-  for (let i = 0; i < codes.length; i++) {
-    const code = codes[i]!
+  // A colon-separated field carries its own sub-parameters, as in 38:2::r:g:b or 4:3; an omitted value
+  // means 0, so a bare ESC[m is a reset
+  const fields = params.split(';').map(field => field.split(':').map(value => value === '' ? 0 : Number(value)))
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i]!
+    const code = field[0]!
     if (code === 0) {
       Object.assign(style, plainStyle())
-    } else if (code === 1) {
-      style.bold = true
-    } else if (code === 2) {
-      style.faint = true
-    } else if (code === 3) {
-      style.italic = true
-    } else if (code === 4) {
-      style.underline = true
-    } else if (code === 22) {
-      style.bold = false
-      style.faint = false
-    } else if (code === 23) {
-      style.italic = false
-    } else if (code === 24) {
-      style.underline = false
+    } else if (code === 4 && field.length > 1) {
+      const selected = UNDERLINE_STYLES[field[1]!]
+      style.underline = selected === undefined ? 'solid' : selected
+    } else if (Object.hasOwn(SGR_ATTRIBUTES, code)) {
+      Object.assign(style, SGR_ATTRIBUTES[code])
     } else if (code >= 30 && code <= 37) {
       style.fg = ANSI_PALETTE[code - 30]!
-    } else if (code === 39) {
-      style.fg = null
     } else if (code >= 40 && code <= 47) {
       style.bg = ANSI_PALETTE[code - 40]!
-    } else if (code === 49) {
-      style.bg = null
     } else if (code >= 90 && code <= 97) {
       style.fg = ANSI_PALETTE[code - 90 + 8]!
     } else if (code >= 100 && code <= 107) {
       style.bg = ANSI_PALETTE[code - 100 + 8]!
-    } else if (code === 38 || code === 48) {
-      // 38;5;n picks from the 256-color table and 38;2;r;g;b is a 24-bit color; 48 sets the background alike
-      let color: string | null = null
-      if (codes[i + 1] === 5) {
-        color = color256(codes[i + 2]!)
-        i += 2
-      } else if (codes[i + 1] === 2) {
-        color = `rgb(${codes[i + 2]}, ${codes[i + 3]}, ${codes[i + 4]})`
-        i += 4
+    } else if (code === 38 || code === 48 || code === 58) {
+      // 5;n picks from the 256-color table and 2;r;g;b is a 24-bit color, either as the fields that follow
+      // or as colon sub-parameters, where a 24-bit color may name a color space before its components
+      let color: string | null
+      if (field.length > 1) {
+        const components = field[1] === 2 && field.length >= 6 ? field.slice(3) : field.slice(2)
+        color = extendedColor(field[1]!, components)
+      } else {
+        const selector = fields[i + 1]?.[0]
+        const argumentCount = selector === 5 ? 1 : selector === 2 ? 3 : 0
+        color = extendedColor(selector, fields.slice(i + 2, i + 2 + argumentCount).map(arg => arg[0]!))
+        i += selector === undefined ? 0 : 1 + argumentCount
       }
       if (code === 38) {
         style.fg = color
-      } else {
+      } else if (code === 48) {
         style.bg = color
+      } else {
+        style.underlineColor = color
       }
     }
   }
 }
 
-// The xterm 256-color table: the 16 ANSI colors, a 6x6x6 color cube, then a 24-step gray ramp
-function color256(index: number): string | null {
+function extendedColor(selector: number | undefined, components: number[]): string | null {
   let ret: string | null
-  if (!Number.isInteger(index) || index < 0 || index > 255) {
+  if (selector === 5) {
+    ret = color256(components[0])
+  } else if (selector === 2) {
+    ret = rgb(components[0], components[1], components[2])
+  } else {
+    ret = null
+  }
+  return ret
+}
+
+// The xterm 256-color table: the 16 ANSI colors, a 6x6x6 color cube, then a 24-step gray ramp
+function color256(index: number | undefined): string | null {
+  let ret: string | null
+  if (index === undefined || !Number.isInteger(index) || index < 0 || index > 255) {
     ret = null
   } else if (index < 16) {
     ret = ANSI_PALETTE[index]!
   } else if (index < 232) {
     const cube = index - 16
-    ret = `rgb(${ANSI_CUBE_STEPS[Math.floor(cube / 36)]}, ${ANSI_CUBE_STEPS[Math.floor(cube / 6) % 6]}, ${ANSI_CUBE_STEPS[cube % 6]})`
+    ret = rgb(ANSI_CUBE_STEPS[Math.floor(cube / 36)], ANSI_CUBE_STEPS[Math.floor(cube / 6) % 6], ANSI_CUBE_STEPS[cube % 6])
   } else {
     const gray = 8 + (index - 232) * 10
-    ret = `rgb(${gray}, ${gray}, ${gray})`
+    ret = rgb(gray, gray, gray)
   }
   return ret
 }
 
+function rgb(...components: (number | undefined)[]): string | null {
+  const valid = components.every(component => component !== undefined && Number.isInteger(component) && component >= 0 && component <= 255)
+  return valid ? `rgb(${components.join(', ')})` : null
+}
+
 function toCss(style: AnsiStyle): string | undefined {
   const declarations: string[] = []
-  if (style.fg) {
-    declarations.push(`color: ${style.fg}`)
+  const fg = style.inverse ? style.bg ?? DEFAULT_BG : style.fg
+  const bg = style.inverse ? style.fg ?? DEFAULT_FG : style.bg
+  if (fg) {
+    declarations.push(`color: ${fg}`)
   }
-  if (style.bg) {
-    declarations.push(`background-color: ${style.bg}`)
+  if (bg) {
+    declarations.push(`background-color: ${bg}`)
   }
   if (style.bold) {
     declarations.push('font-weight: bold')
@@ -344,8 +415,18 @@ function toCss(style: AnsiStyle): string | undefined {
   if (style.italic) {
     declarations.push('font-style: italic')
   }
-  if (style.underline) {
-    declarations.push('text-decoration: underline')
+  const lines = [style.underline && 'underline', style.strikethrough && 'line-through', style.overline && 'overline'].filter(Boolean)
+  if (lines.length > 0) {
+    declarations.push(`text-decoration-line: ${lines.join(' ')}`)
+  }
+  if (style.underline && style.underline !== 'solid') {
+    declarations.push(`text-decoration-style: ${style.underline}`)
+  }
+  if (style.underline && style.underlineColor) {
+    declarations.push(`text-decoration-color: ${style.underlineColor}`)
+  }
+  if (style.concealed) {
+    declarations.push('visibility: hidden')
   }
   return declarations.length > 0 ? declarations.join('; ') : undefined
 }
