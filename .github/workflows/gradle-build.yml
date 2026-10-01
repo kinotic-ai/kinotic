@@ -82,14 +82,15 @@ jobs:
           docker tag "kinoticai/kinotic-migration:${version}" "$staged"
           docker push "$staged"
 
-  # Compiles everything, runs every module's unit tests, and stages the server image. Excludes
-  # :kinotic-test:test, which needs Elasticsearch + the migration image and runs in its own job.
+  # Compiles everything and runs every module's unit tests. Excludes :kinotic-test:test, which needs
+  # Elasticsearch + the migration image and runs in its own job. `check` rather than `build`: the
+  # javadoc, sources and distribution archives that `assemble` adds are produced by `publish` below
+  # on the runs that ship them.
   build:
     name: Build
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -104,28 +105,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Build with Gradle
-        run: ./gradlew build -x :kinotic-test:test
-
-      # Ahead of the Maven staging below: js_workspace_tests and e2e_tests block on this whole job,
-      # so anything they do not need belongs after the image they do.
-      - name: Build server images
-        run: ./gradlew :kinotic-server-management:bootBuildImage :kinotic-server-system:bootBuildImage :kinotic-server-app:bootBuildImage :kinotic-server-test:bootBuildImage
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Stage server images on ghcr.io
-        run: |
-          version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
-          for image in kinotic-server-management kinotic-server-system kinotic-server-app kinotic-server-test; do
-            staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}"
-            docker tag "kinoticai/${image}:${version}" "$staged"
-            docker push "$staged"
-          done
+        run: ./gradlew check -x :kinotic-test:test
 
       # Staged here rather than in the publish job so that job needs only the artifacts, not a
       # second compile of the whole tree. jreleaserDeploy has no task dependency on publish.
@@ -148,6 +128,46 @@ jobs:
         uses: ./.github/actions/collect-allure
         with:
           name: build
+
+  # Compiles what the server images need and stages them, without waiting on the unit tests in the
+  # build job, so the suites that run against the images start as early as possible.
+  server_images:
+    name: Server Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build server images
+        run: ./gradlew :kinotic-server-management:bootBuildImage :kinotic-server-system:bootBuildImage :kinotic-server-app:bootBuildImage :kinotic-server-test:bootBuildImage
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stage server images on ghcr.io
+        run: |
+          version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
+          for image in kinotic-server-management kinotic-server-system kinotic-server-app kinotic-server-test; do
+            staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}"
+            docker tag "kinoticai/${image}:${version}" "$staged"
+            docker push "$staged"
+          done
 
   # Elasticsearch + the migration image via compose.kinotic-test.yml. Compiles what it tests itself,
   # so it needs only the migration image and runs alongside the build job.
@@ -206,7 +226,7 @@ jobs:
   # neither a repointed tag to arrive through nor a credential to take.
   sbom_scan:
     name: SBOM and Vulnerability Scan (${{ matrix.image }})
-    needs: [build, migration_image]
+    needs: [server_images, migration_image]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -276,7 +296,7 @@ jobs:
   # testcontainers; the other suites ignore it.
   js_workspace_tests:
     name: JS Workspace Tests
-    needs: build
+    needs: server_images
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -333,11 +353,20 @@ jobs:
         with:
           name: js-workspace
 
-  # compose.kinotic-e2e-test.yml brings up Elasticsearch + migration + the server image.
+  # compose.kinotic-e2e-test.yml brings up Elasticsearch + migration + the server image. The
+  # node-failure suite brings up its own two-node stack, so it runs on its own runner beside the rest.
   e2e_tests:
-    name: E2E Tests
-    needs: [build, migration_image]
+    name: E2E Tests (${{ matrix.suite.name }})
+    needs: [server_images, migration_image]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - name: main
+            task: pnpmTest
+          - name: node-failure
+            task: pnpmTestNodeFailure
     permissions:
       contents: read
       packages: read
@@ -395,19 +424,13 @@ jobs:
           cd kinotic-js/e2e-tests
           docker compose -f ../../deployment/docker-compose/compose.elasticsearch.yml pull --quiet &
           gradle pnpmInstall
-          gradle pnpmTest
-
-      # Its own two-node stack, brought up once the suites above have taken theirs down.
-      - name: Run node-failure E2E tests
-        run: |
-          cd kinotic-js/e2e-tests
-          gradle pnpmTestNodeFailure
+          gradle ${{ matrix.suite.task }}
 
       - name: Collect Allure results
         if: ${{ !cancelled() }}
         uses: ./.github/actions/collect-allure
         with:
-          name: e2e
+          name: e2e-${{ matrix.suite.name }}
 
   # All library jars publish here in one pass (apps publish images, not jars). Gated to main and the
   # nightly schedule: the ~3.5 min of per-file uploads to Sonatype gates nothing else in this
@@ -452,7 +475,7 @@ jobs:
   # here so the promotion is the last thing the pipeline does and can gate on every suite at once.
   results:
     name: Build Result
-    needs: [migration_image, build, sbom_scan, kinotic_test, js_workspace_tests, e2e_tests, publish]
+    needs: [migration_image, build, server_images, sbom_scan, kinotic_test, js_workspace_tests, e2e_tests, publish]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
@@ -464,7 +487,7 @@ jobs:
       # outage should not hold back an image every suite has already validated. The ref guard keeps a
       # workflow_dispatch run on some other branch from advancing the published tag to a build off
       # that branch.
-      PROMOTE: ${{ (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && needs.migration_image.result == 'success' && needs.build.result == 'success' && needs.sbom_scan.result == 'success' && needs.kinotic_test.result == 'success' && needs.js_workspace_tests.result == 'success' && needs.e2e_tests.result == 'success' }}
+      PROMOTE: ${{ (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && needs.migration_image.result == 'success' && needs.build.result == 'success' && needs.server_images.result == 'success' && needs.sbom_scan.result == 'success' && needs.kinotic_test.result == 'success' && needs.js_workspace_tests.result == 'success' && needs.e2e_tests.result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -507,6 +530,7 @@ jobs:
           }
           check "Migration image" "${{ needs.migration_image.result }}"
           check "Build" "${{ needs.build.result }}"
+          check "Server images" "${{ needs.server_images.result }}"
           check "SBOM and vulnerability scan" "${{ needs.sbom_scan.result }}"
           check "Kinotic integration tests" "${{ needs.kinotic_test.result }}"
           check "JS workspace tests" "${{ needs.js_workspace_tests.result }}"
