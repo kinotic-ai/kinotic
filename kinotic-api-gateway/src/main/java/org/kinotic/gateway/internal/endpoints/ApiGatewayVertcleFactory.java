@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Provides a factory for creating continuum end point verticles.
+ * Provides a factory for creating Kinotic end point verticles.
  * Created by Navíd Mitchell 🤪 on 3/6/24.
  */
 @Component

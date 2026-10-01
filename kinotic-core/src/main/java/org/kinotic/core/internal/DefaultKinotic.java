@@ -33,7 +33,7 @@ import java.util.stream.Stream;
 
 
 /**
- * Provides information about the Continuum process and handles controlled shutdown of Vertx and Ignite.
+ * Provides information about the Kinotic process and handles controlled shutdown of Vertx and Ignite.
  * Created by navid on 9/24/19
  */
 @Component

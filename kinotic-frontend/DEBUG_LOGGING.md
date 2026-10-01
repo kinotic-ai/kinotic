@@ -38,7 +38,7 @@ localStorage.removeItem('debug')
 
 `apps/portal`:
 
-- `kinotic-ui:continuum-ui` — connection bootstrap
+- `kinotic-ui:kinotic-ui` — connection bootstrap
 - `kinotic-ui:login` — login and OIDC authentication flow
 - `kinotic-ui:members` — organization member management
 - `kinotic-ui:application-list`, `kinotic-ui:application-sidebar`, `kinotic-ui:application-state`

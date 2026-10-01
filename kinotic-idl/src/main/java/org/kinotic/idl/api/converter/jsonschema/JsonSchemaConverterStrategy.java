@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * {@link IdlConverterStrategy} that converts Continuum IDL {@link C3Type}s to JSON Schema {@link ObjectNode}s for MCP
+ * {@link IdlConverterStrategy} that converts Kinotic IDL {@link C3Type}s to JSON Schema {@link ObjectNode}s for MCP
  * tool input schemas, porting the OpenAPI {@code OpenApiConverterStrategy} primitive/enum/date mapping table onto
  * {@code tools.jackson} nodes. {@link #initialState()} returns a fresh state per conversion, so each function's schema
  * is built independently.

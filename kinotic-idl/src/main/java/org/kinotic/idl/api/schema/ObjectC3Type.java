@@ -12,7 +12,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * {@link ObjectC3Type} is used to define a complex object type in the Continuum IDL.
+ * {@link ObjectC3Type} is used to define a complex object type in the Kinotic IDL.
  * Properties are defined with {@link PropertyDefinition}s
  * The context for equality here is the name.
  * Given no two object types can have the same namespace and name this is the only context needed for equality.

@@ -57,13 +57,13 @@ public class RpcTests {
 
     @Autowired
     private Kinotic kinotic;
-    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because continuum wires them..
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because Kinotic wires them..
     @Autowired
     private NonExistentServiceProxy nonExistentServiceProxy;
-    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because continuum wires them..
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because Kinotic wires them..
     @Autowired
     private RpcTestServiceProxy rpcTestServiceProxy;
-    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because continuum wires them..
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because Kinotic wires them..
     @Autowired
     private TerminalReplyServiceProxy terminalReplyServiceProxy;
 

@@ -60,7 +60,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     @Autowired
     private RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory;
     @Autowired
-    private Vertx vertx; //TODO: move thread scheduling and execution functionality into Continuum API such as Scheduling Service ect..
+    private Vertx vertx; //TODO: move thread scheduling and execution functionality into the Kinotic API such as Scheduling Service ect..
     @Autowired
     private SecurityContext securityContext;
     @Autowired

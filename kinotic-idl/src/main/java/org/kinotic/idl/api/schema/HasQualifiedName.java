@@ -8,7 +8,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 public interface HasQualifiedName {
 
     /**
-     * This is the namespace of this such as "org.kinotic.continuum.idl.api.schema"
+     * This is the namespace of this such as "org.kinotic.idl.api.schema"
      * @return the namespace of this
      */
     String getNamespace();
@@ -21,7 +21,7 @@ public interface HasQualifiedName {
 
 
     /**
-     * The fully qualified name of this such as "org.kinotic.continuum.idl.api.schema.Person"
+     * The fully qualified name of this such as "org.kinotic.idl.api.schema.Person"
      * @return the fully qualified name of this
      */
     @JsonIgnore

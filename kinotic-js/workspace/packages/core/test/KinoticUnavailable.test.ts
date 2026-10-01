@@ -52,17 +52,17 @@ describe('Kinotic JS', () => {
                }
                console.log(`Kinotic Gateway running at ${connectOptions.server!.host}:${connectOptions.server!.port}`)
 
-               const continuum = new KinoticSingleton()
-               let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(connectOptions),
+               const kinotic = new KinoticSingleton()
+               let connectedInfo: ConnectedInfo = await logFailure(kinotic.connect(connectOptions),
                                                                    'Failed to connect to Kinotic Gateway')
                validateConnectedInfo(connectedInfo)
                console.log(`Kinotic Gateway started at ${connectOptions.server!.host}:${connectOptions.server!.port}`)
 
-               const testService = new TestService(continuum)
+               const testService = new TestService(kinotic)
 
                // stop the gateway
                await container.stop()
-               while (continuum.eventBus.isConnected()) {
+               while (kinotic.eventBus.isConnected()) {
                    await new Promise(resolve => setTimeout(resolve, 100))
                }
 
@@ -71,7 +71,7 @@ describe('Kinotic JS', () => {
                await expect(testService.testMethodWithString("Bob"))
                    .rejects.toThrowError(new Error('The event bus is not connected to the server'))
 
-               await continuum.disconnect()
+               await kinotic.disconnect()
 
            })
 

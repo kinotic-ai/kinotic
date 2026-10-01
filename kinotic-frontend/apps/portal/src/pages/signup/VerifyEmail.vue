@@ -51,7 +51,7 @@ import type { SignUpCompleteRequest } from '@kinotic-ai/management-api'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SetPasswordFields from '@/components/SetPasswordFields.vue'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
-import { CONTINUUM_UI } from '@/IContinuumUI'
+import { KINOTIC_UI } from '@/IKinoticUI'
 import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
 
@@ -122,7 +122,7 @@ async function handleSubmit() {
 
     // The org, admin user, and browser session are created; connect with it and go to the app.
     await userState.login()
-    await CONTINUUM_UI.navigate('/applications')
+    await KINOTIC_UI.navigate('/applications')
   } catch (error: unknown) {
     displayAlert(error instanceof Error ? error.message : 'Account creation failed')
   } finally {

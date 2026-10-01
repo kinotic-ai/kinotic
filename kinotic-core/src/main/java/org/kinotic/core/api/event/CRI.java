@@ -3,9 +3,9 @@
 package org.kinotic.core.api.event;
 
 /**
- * {@link CRI} is a Continuum Resource Identifier used by Continuum to route requests appropriately.
+ * {@link CRI} is a Kinotic Resource Identifier used by Kinotic to route requests appropriately.
  *
- * The {@link CRI} is a URI the parts are just name differently for clarity as to purpose within Continuum
+ * The {@link CRI} is a URI the parts are just name differently for clarity as to purpose within Kinotic
  *
  * Will be in a format as follows where anything surrounded with [] is optional
  *

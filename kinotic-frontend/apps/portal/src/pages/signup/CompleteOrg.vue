@@ -78,7 +78,7 @@ import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
 
-import { CONTINUUM_UI } from '@/IContinuumUI'
+import { KINOTIC_UI } from '@/IKinoticUI'
 import { Kinotic } from '@kinotic-ai/core'
 import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
@@ -179,7 +179,7 @@ async function continueToGithub(): Promise<void> {
   } catch (err) {
     // Signup must never dead-end here; the user can link GitHub later from Organization Settings.
     displayError(err instanceof Error ? err.message : 'Could not start the GitHub install')
-    await CONTINUUM_UI.navigate('/applications')
+    await KINOTIC_UI.navigate('/applications')
   }
 }
 

@@ -11,7 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * Provides functionality to define an interface / service with a Continuum schema.
+ * Provides functionality to define an interface / service with a Kinotic schema.
  * The context for equality here is the {@link NamespaceDefinition}.
  * Given no two service definitions can have the same namespace and name in a {@link NamespaceDefinition}.
  * Created by navid on 2023-4-13.

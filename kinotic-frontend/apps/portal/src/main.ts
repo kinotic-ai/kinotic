@@ -3,7 +3,7 @@ import './theme.css'
 import StyleClass from 'primevue/styleclass'
 import { createKinoticApp } from '@kinotic-ai/frontend-common'
 import router from '@/router'
-import { CONTINUUM_UI } from '@/IContinuumUI'
+import { KINOTIC_UI } from '@/IKinoticUI'
 import 'primeicons/primeicons.css'
 import '@fontsource-variable/jetbrains-mono'
 import App from './App.vue'
@@ -64,7 +64,7 @@ const app = createKinoticApp({
     sessionState: KinoticStates.getUserState()
 })
 
-CONTINUUM_UI.initialize(router);
+KINOTIC_UI.initialize(router);
 
 app.directive('styleclass', StyleClass)
 app.mount('#app')

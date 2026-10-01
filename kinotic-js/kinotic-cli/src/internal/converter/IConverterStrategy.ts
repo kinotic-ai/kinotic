@@ -2,7 +2,7 @@ import { ITypeConverter } from './ITypeConverter'
 import {Logger} from '@/internal/Logger'
 
 /**
- * The {@link IConverterStrategy} is used to determine how to convert a specific language type to a Continuum IDL.
+ * The {@link IConverterStrategy} is used to determine how to convert a specific language type to a Kinotic IDL.
  * The {@link IConverterStrategy} should be reusable and thread safe.
  *
  * @param <BASE_TYPE> The base type to convert from

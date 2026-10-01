@@ -107,7 +107,7 @@ public class KinoticIgniteConfig {
         System.setProperty(IgniteSystemProperties.IGNITE_NO_ASCII, "true");// Turn off ignite console banner
 
         // Ignite is shutdown by Spring during application context shutdown. This is
-        // done because of config in ContinuumIgniteBootstrap
+        // done because of config in KinoticIgniteBootstrap
         System.setProperty(IgniteSystemProperties.IGNITE_NO_SHUTDOWN_HOOK, "true");// keep from shutting down before our
                                                                                    // code
 
@@ -135,7 +135,7 @@ public class KinoticIgniteConfig {
 
         DataStorageConfiguration dataStorageConfiguration = new DataStorageConfiguration();
 
-        // setup default memory region based on continuum config
+        // setup default memory region based on Kinotic config
         dataStorageConfiguration.getDefaultDataRegionConfiguration()
                 .setInitialSize(properties.getMaxOffHeapMemory() / 2)
                 .setMaxSize(properties.getMaxOffHeapMemory());

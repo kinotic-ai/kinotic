@@ -3,14 +3,14 @@ import {ITaskFactory} from './ITaskFactory.js'
 import {ITaskGenerator} from './ITaskGenerator.js'
 import {ConnectionInfo, KinoticSingleton} from '@kinotic-ai/core'
 
-class ContinuumTask implements ITask{
+class KinoticTask implements ITask{
     private delegate: ITask
-    private continuumGenerator: KinoticOperationTaskGenerator
+    private kinoticGenerator: KinoticOperationTaskGenerator
 
     constructor(delegate: ITask,
-                continuumGenerator: KinoticOperationTaskGenerator) {
+                kinoticGenerator: KinoticOperationTaskGenerator) {
         this.delegate = delegate
-        this.continuumGenerator = continuumGenerator
+        this.kinoticGenerator = kinoticGenerator
     }
 
     name(): string {
@@ -18,9 +18,9 @@ class ContinuumTask implements ITask{
     }
 
     async execute(): Promise<void> {
-        await this.continuumGenerator.awaitConnectionComplete()
+        await this.kinoticGenerator.awaitConnectionComplete()
         const ret = await this.delegate.execute()
-        this.continuumGenerator.markTaskComplete()
+        this.kinoticGenerator.markTaskComplete()
         return ret
     }
 }
@@ -80,7 +80,7 @@ export class KinoticOperationTaskGenerator implements ITaskGenerator{
             }
         }else{
             this.taskCreationsRemaining--
-            return new ContinuumTask(this.taskFactory.createTask(), this)
+            return new KinoticTask(this.taskFactory.createTask(), this)
         }
     }
 

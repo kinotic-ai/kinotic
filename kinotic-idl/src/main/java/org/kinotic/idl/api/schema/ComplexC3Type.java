@@ -21,7 +21,7 @@ import java.util.Map;
 public abstract class ComplexC3Type extends C3Type implements HasQualifiedName, HasDecorators, HasMetadata {
 
     /**
-     * This is the namespace of the {@link ComplexC3Type} such as "org.kinotic.continuum.idl.api.schema"
+     * This is the namespace of the {@link ComplexC3Type} such as "org.kinotic.idl.api.schema"
      */
     protected String namespace = null;
 
