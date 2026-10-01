@@ -1,5 +1,5 @@
 <template>
-  <div v-if="entries.length === 0" class="text-sm text-muted-color">{{ emptyText }}</div>
+  <EmptyChartCharacter v-if="entries.length === 0" class="py-6" :title="emptyText" />
   <DataTable v-else :value="entries" size="small" class="text-sm">
     <Column header="When" style="width: 11rem">
       <template #body="{ data }">
@@ -30,6 +30,7 @@ import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
 import { WatchEventKind, type WatchEvent, type WatchedType } from '@kinotic-ai/management-api'
 import DatetimeUtil from '../util/DatetimeUtil'
+import EmptyChartCharacter from './EmptyChartCharacter.vue'
 
 /**
  * A record's ledger entries, newest first: when each write landed, what it did, why, and what caused

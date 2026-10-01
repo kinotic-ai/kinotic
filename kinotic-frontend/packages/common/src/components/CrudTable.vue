@@ -35,6 +35,7 @@ import type { CrudHeader } from "../types/CrudHeader";
 import type { DescriptiveIdentifiable } from "../types/DescriptiveIdentifiable";
 import { createDebug } from "../util/debug";
 import { isDark as darkMode } from '../composables/useTheme'
+import EmptyChartCharacter from './EmptyChartCharacter.vue'
 
 const debug = createDebug('crud-table');
 
@@ -117,6 +118,9 @@ const initialSearchCompleted = ref(false);
 const searchDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 const activeView = ref<"burger" | "column">("burger");
 const searchText = ref<string | null>("");
+// A search that finds nothing says so, rather than reading as a list with no items at all
+const emptyTitle = computed(() => searchText.value ? `Nothing matches “${searchText.value}”` : props.emptyStateText);
+const emptyHint = computed(() => searchText.value ? "Try a different search." : undefined);
 const options = ref({
   page: 0,
   rows: 10,
@@ -482,7 +486,7 @@ defineExpose({ find });
           v-else-if="!loading"
           :class="['flex flex-1 flex-col items-center justify-center py-20', isDark ? 'text-surface-400' : 'text-surface-500']"
         >
-          <p class="text-sm">{{ emptyStateText }}</p>
+          <EmptyChartCharacter :title="emptyTitle" :hint="emptyHint" />
         </div>
 
         <TablePaginator
@@ -582,7 +586,7 @@ defineExpose({ find });
             v-if="!loading && items.length === 0"
             :class="['flex flex-1 items-center justify-center', isDark ? 'text-surface-400' : 'text-surface-500']"
           >
-            <span class="py-20">{{ emptyStateText }}</span>
+            <EmptyChartCharacter class="py-16" :title="emptyTitle" :hint="emptyHint" />
           </div>
         </div>
 

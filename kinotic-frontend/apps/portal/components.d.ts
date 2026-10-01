@@ -8,6 +8,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    ApplicationProjectsLink: typeof import('./src/components/ApplicationProjectsLink.vue')['default']
     ApplicationSidebar: typeof import('./src/components/ApplicationSidebar.vue')['default']
     Button: typeof import('primevue/button')['default']
     CascadeSelect: typeof import('primevue/cascadeselect')['default']
@@ -23,6 +24,7 @@ declare module 'vue' {
     EntityTableToolbar: typeof import('./src/components/entity-list/EntityTableToolbar.vue')['default']
     EnumNode: typeof import('./src/components/nodes/EnumNode.vue')['default']
     ERTable: typeof import('./src/components/modals/ERTable.vue')['default']
+    FeatureEmptyState: typeof import('./src/components/FeatureEmptyState.vue')['default']
     GitHubLinkStatus: typeof import('./src/components/GitHubLinkStatus.vue')['default']
     Glitch: typeof import('./src/components/Glitch.vue')['default']
     GlobalObjectNode: typeof import('./src/components/nodes/GlobalObjectNode.vue')['default']

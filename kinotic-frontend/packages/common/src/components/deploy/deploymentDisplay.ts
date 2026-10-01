@@ -1,4 +1,5 @@
-import type { DeploymentState, DeploymentStatusType } from '@kinotic-ai/management-api'
+import { DeploymentStatusType, type DeploymentState } from '@kinotic-ai/management-api'
+import { HeartbeatState } from '../HeartbeatState'
 
 /** Tag severity by status type name. */
 const SEVERITY_BY_TYPE: Record<string, string> = {
@@ -25,4 +26,17 @@ export function observedPhase(observed: DeploymentState | null | undefined): str
 /** The Tag severity of the phase a deployment reports, secondary while its worker has yet to answer. */
 export function observedPhaseSeverity(observed: DeploymentState | null | undefined): string {
   return observed ? deploymentStatusSeverity(observed.phase) : 'secondary'
+}
+
+/** The heartbeat a deployment's phase shows: alive while running, failed once failed, idle otherwise. */
+export function deploymentHeartbeat(phase: DeploymentStatusType | null | undefined): HeartbeatState {
+  let ret: HeartbeatState
+  if (phase === DeploymentStatusType.RUNNING) {
+    ret = HeartbeatState.ALIVE
+  } else if (phase === DeploymentStatusType.FAILED) {
+    ret = HeartbeatState.FAILED
+  } else {
+    ret = HeartbeatState.IDLE
+  }
+  return ret
 }

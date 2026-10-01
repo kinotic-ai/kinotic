@@ -59,9 +59,7 @@
       </div>
     </div>
 
-    <div v-if="rows.length === 0" class="p-4 text-sm text-muted-color">
-      No tasks discovered yet
-    </div>
+    <EmptyChartCharacter v-if="rows.length === 0" class="py-6" title="No tasks discovered yet" />
   </div>
 </template>
 
@@ -73,6 +71,7 @@ import { ExecutionStatus } from '@kinotic-ai/management-api'
 import type { JobTaskNode } from './JobTaskNode'
 import DatetimeUtil from '../../util/DatetimeUtil'
 import { TASK_STATUS_STYLE } from './jobRunDisplay'
+import EmptyChartCharacter from '../EmptyChartCharacter.vue'
 
 const formatDuration = DatetimeUtil.formatDuration
 

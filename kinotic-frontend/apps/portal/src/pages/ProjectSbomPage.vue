@@ -11,13 +11,8 @@
 
     <div v-if="loading" class="p-6 text-sm text-muted-color">Loading SBOM…</div>
 
-    <div v-else-if="!dependencies" class="flex flex-col items-center rounded-xl border border-dashed border-surface-300 px-6 py-14 text-center dark:border-surface-700">
-      <span :class="['flex h-12 w-12 items-center justify-center rounded-xl', TINTS.sky]">
-        <ListTree :size="24" :stroke-width="1.75" aria-hidden="true" />
-      </span>
-      <p class="mt-4 text-sm font-medium text-surface-950 dark:text-surface-0">No SBOM yet</p>
-      <p class="mt-1 text-sm text-muted-color">The last step of a deployment reads it from the project's bun.lock whenever the dependencies change.</p>
-    </div>
+    <EmptyChartCharacter v-else-if="!dependencies" class="rounded-xl border border-dashed border-surface-300 py-14 dark:border-surface-700"
+                         title="No SBOM yet" hint="The last step of a deployment reads it from the project's bun.lock whenever the dependencies change." />
 
     <template v-else>
       <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -61,7 +56,7 @@
             </template>
           </Column>
           <template #empty>
-            <span class="text-sm text-muted-color">No package matches.</span>
+            <EmptyChartCharacter class="py-6" title="No package matches" hint="Try a different search." />
           </template>
         </DataTable>
 
@@ -86,7 +81,7 @@ import type { PageState } from 'primevue/paginator'
 import SelectButton from 'primevue/selectbutton'
 import Tag from 'primevue/tag'
 import { GitCommitHorizontal, ListTree, Package, Server, Wrench } from '@lucide/vue'
-import { DashboardSection, errorMessage, PageHeader, shortSha, StatCard, TablePaginator, TINTS } from '@kinotic-ai/frontend-common'
+import { DashboardSection, errorMessage, PageHeader, shortSha, StatCard, TablePaginator, TINTS, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 import { Kinotic } from '@kinotic-ai/core'
 import type { ProjectDependencies, ProjectDeployment } from '@kinotic-ai/management-api'
 

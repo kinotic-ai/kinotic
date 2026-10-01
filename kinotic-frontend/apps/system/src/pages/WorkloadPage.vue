@@ -31,8 +31,8 @@
             <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
               <StatCard v-for="stat in stats" :key="stat.label" :icon="stat.icon" :tint="stat.tint" :label="stat.label"
                         :value="stat.tag ? undefined : stat.value" :detail="stat.detail" :to="stat.to">
-                <template v-if="stat.alive !== undefined" #icon>
-                  <HeartbeatIcon :alive="stat.alive" :size="20" :stroke-width="1.75" />
+                <template v-if="stat.heartbeat !== undefined" #icon>
+                  <HeartbeatIcon :state="stat.heartbeat" :size="20" :stroke-width="1.75" />
                 </template>
                 <template v-if="stat.tag" #default>
                   <Tag :value="stat.value" :severity="stat.tag" />
@@ -74,14 +74,14 @@
 
               <DashboardSection :icon="KeyRound" :tint="TINTS.orange" title="Environment" :count="environmentNames.length"
                                 description="Names only. Values and secrets are not shown.">
-                <p v-if="environmentNames.length === 0" class="px-5 py-4 text-sm text-muted-color">No environment variables.</p>
+                <EmptyChartCharacter v-if="environmentNames.length === 0" class="py-6" title="No environment variables" />
                 <div v-else class="flex flex-wrap gap-1.5 p-5">
                   <span v-for="name in environmentNames" :key="name" class="rounded-md bg-emphasis px-2 py-0.5 font-mono text-xs">{{ name }}</span>
                 </div>
               </DashboardSection>
 
               <DashboardSection :icon="HardDrive" :tint="TINTS.blue" title="Volumes" :count="volumes.length">
-                <p v-if="volumes.length === 0" class="px-5 py-4 text-sm text-muted-color">No volume mounts; the VM has its own disk only.</p>
+                <EmptyChartCharacter v-if="volumes.length === 0" class="py-6" title="No volume mounts" hint="The VM has its own disk only." />
                 <div v-else class="flex flex-wrap gap-1.5 p-5">
                   <span v-for="volume in volumes" :key="volume" class="rounded-md bg-emphasis px-2 py-0.5 font-mono text-xs">{{ volume }}</span>
                 </div>
@@ -128,7 +128,7 @@ import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { NetworkMode, WorkloadStatus, type WatchEvent, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
 import { DashboardSection, HeartbeatIcon, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, WatchEventsTable, WorkloadLogView, errorMessage,
-         formatMb, showErrorToast, workloadRun } from '@kinotic-ai/frontend-common'
+         formatMb, showErrorToast, workloadRun, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState } from '@kinotic-ai/frontend-common'
 
 import { formatCpus, nodeHealth } from '@/util/nodes'
 import { applicationPath, organizationPath, scopePath, type Scope } from '@/util/scope'
@@ -209,10 +209,23 @@ interface Stat {
   tag?: string
   to?: string
   icon?: Component
-  /** Shows a HeartbeatIcon in place of the icon: beating while true, flat while false. */
-  alive?: boolean
+  /** Shows a HeartbeatIcon in this state in place of the icon. */
+  heartbeat?: HeartbeatState
   /** One of TINTS. */
   tint: string
+}
+
+/** The heartbeat a workload's status shows: alive while running, failed once failed, idle otherwise. */
+function workloadHeartbeat(status: WorkloadStatus): HeartbeatState {
+  let ret: HeartbeatState
+  if (status === WorkloadStatus.RUNNING) {
+    ret = HeartbeatState.ALIVE
+  } else if (status === WorkloadStatus.FAILED) {
+    ret = HeartbeatState.FAILED
+  } else {
+    ret = HeartbeatState.IDLE
+  }
+  return ret
 }
 
 const stats = computed<Stat[]>(() => {
@@ -244,8 +257,8 @@ const stats = computed<Stat[]>(() => {
       value: w.status,
       detail: w.exitCode !== null ? `exit code ${w.exitCode}` : `since ${formatEpochDateTime(w.updated ?? w.created)}`,
       tag: workloadSeverity(w.status),
-      alive: w.status === WorkloadStatus.RUNNING,
-      tint: w.status === WorkloadStatus.RUNNING ? TINTS.purple : TINTS.surface
+      heartbeat: workloadHeartbeat(w.status),
+      tint: HEARTBEAT_TINTS[workloadHeartbeat(w.status)]
     },
     {
       label: 'Node',

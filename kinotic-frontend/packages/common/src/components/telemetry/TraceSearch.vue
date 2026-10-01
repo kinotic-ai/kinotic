@@ -44,7 +44,9 @@
       @row-select="openTrace($event.data)"
     >
       <template #empty>
-        <div class="py-6 text-center text-sm text-muted-color">{{ loading ? 'Searching traces…' : 'No traces match in this range' }}</div>
+        <div v-if="loading" class="py-6 text-center text-sm text-muted-color">Searching traces…</div>
+        <EmptyChartCharacter v-else class="py-8" title="No traces match in this range"
+                             hint="Widen the time range or loosen the filters." />
       </template>
       <Column field="startMs" header="Started" sortable style="width: 12rem">
         <template #body="{ data }">
@@ -81,6 +83,7 @@ import Dialog from 'primevue/dialog'
 import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
+import EmptyChartCharacter from '../EmptyChartCharacter.vue'
 
 import '../../styles/datatable-loading.css'
 import DatetimeUtil from '../../util/DatetimeUtil'

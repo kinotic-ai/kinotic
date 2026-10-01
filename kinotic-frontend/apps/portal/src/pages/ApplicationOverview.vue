@@ -43,9 +43,8 @@
         <div v-if="loadingProjects" class="mt-4 flex flex-col gap-3">
           <Skeleton v-for="n in 3" :key="n" height="2.5rem" />
         </div>
-        <p v-else-if="projects.length === 0" class="mt-4 text-sm text-muted-color">
-          No projects yet. Create one from the Projects page.
-        </p>
+        <EmptyChartCharacter v-else-if="projects.length === 0" class="py-6" title="No projects yet"
+                             hint="Create one from the Projects page." />
         <ul v-else class="-mx-2 mt-3">
           <li v-for="(project, position) in projects" :key="project.id ?? ''">
             <RouterLink :to="`${basePath}/project/${encodeURIComponent(project.id ?? '')}`"
@@ -81,9 +80,8 @@
       <div v-if="loadingUis" class="mt-4 flex flex-col gap-3">
         <Skeleton v-for="n in 2" :key="n" height="2.5rem" />
       </div>
-      <p v-else-if="uis.length === 0" class="mt-4 text-sm text-muted-color">
-        No UI has been published yet. A UI a project contains is published with that project's next deployment.
-      </p>
+      <EmptyChartCharacter v-else-if="uis.length === 0" class="py-6" title="No UI has been published yet"
+                           hint="A UI a project contains is published with that project's next deployment." />
       <ul v-else class="mt-3 grid gap-3 md:grid-cols-2">
         <li v-for="ui in uis" :key="ui.id ?? `${ui.projectId}/${ui.name}`" class="flex items-center gap-3 rounded-lg border border-surface-200 px-3 py-2.5 dark:border-surface-700">
           <span :class="['flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', TINTS.sky]">
@@ -112,7 +110,7 @@ import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { type Project, DeploymentStatusType, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
-import { createDebug, DatetimeUtil, deploymentStatusSeverity, FactList, InitialsTile, observedPhase, observedPhaseSeverity, PageHeader, ProjectsIcon, StatCard, TINTS } from '@kinotic-ai/frontend-common'
+import { createDebug, DatetimeUtil, deploymentStatusSeverity, FactList, InitialsTile, observedPhase, observedPhaseSeverity, PageHeader, ProjectsIcon, StatCard, TINTS, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 

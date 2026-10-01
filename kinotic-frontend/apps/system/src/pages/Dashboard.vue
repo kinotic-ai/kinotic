@@ -14,8 +14,8 @@
       <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         <StatCard v-for="stat in stats" :key="stat.label" :icon="stat.icon" :tint="stat.tint" :label="stat.label"
                   :value="stat.tag ? undefined : stat.value" :detail="stat.detail" :to="stat.to" :loading="loading && stat.value === '—'">
-          <template v-if="stat.alive !== undefined" #icon>
-            <HeartbeatIcon :alive="stat.alive" :size="20" :stroke-width="1.75" />
+          <template v-if="stat.heartbeat !== undefined" #icon>
+            <HeartbeatIcon :state="stat.heartbeat" :size="20" :stroke-width="1.75" />
           </template>
           <template v-if="stat.tag" #default>
             <Tag :value="stat.value" :severity="stat.tag" />
@@ -65,7 +65,7 @@ import { Boxes, Building2, Gauge, LaptopMinimalCheck, Server } from '@lucide/vue
 import { Kinotic } from '@kinotic-ai/core'
 import { ExecutionStatus, WorkloadStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
 import type { KinoticClusterInfo, VmNode } from '@kinotic-ai/system-api'
-import { DashboardSection, HeartbeatIcon, DatetimeUtil, PageHeader, StatCard, TINTS, accentColor, errorMessage, isDark, scanJobRuns } from '@kinotic-ai/frontend-common'
+import { DashboardSection, HeartbeatIcon, DatetimeUtil, PageHeader, StatCard, TINTS, accentColor, errorMessage, isDark, scanJobRuns, HEARTBEAT_TINTS, HeartbeatState } from '@kinotic-ai/frontend-common'
 
 import AttentionList from '@/components/AttentionList.vue'
 import CapacityRows from '@/components/CapacityRows.vue'
@@ -73,7 +73,7 @@ import JobRunsByDayChart from '@/components/JobRunsByDayChart.vue'
 import RecentRunsTable from '@/components/RecentRunsTable.vue'
 import WorkloadStateCard from '@/components/WorkloadStateCard.vue'
 import { platformAttention } from '@/util/attention'
-import { NodeHealth, capacityOf, loadNodes, nodeHealth } from '@/util/nodes'
+import { NodeHealth, capacityOf, clusterHeartbeat as clusterHeartbeatOf, loadNodes, nodeHealth } from '@/util/nodes'
 import { scanWorkloads } from '@/util/workloads'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -117,11 +117,13 @@ interface Stat {
   tag?: string
   to: string
   icon?: Component
-  /** Shows a HeartbeatIcon in place of the icon: beating while true, flat while false. */
-  alive?: boolean
+  /** Shows a HeartbeatIcon in this state in place of the icon. */
+  heartbeat?: HeartbeatState
   /** One of TINTS. */
   tint: string
 }
+
+const clusterHeartbeat = computed(() => clusterHeartbeatOf(cluster.value))
 
 const stats = computed<Stat[]>(() => {
   const running = workloads.value.filter(workload => workload.status === WorkloadStatus.RUNNING).length
@@ -135,8 +137,8 @@ const stats = computed<Stat[]>(() => {
       detail: cluster.value ? `${cluster.value.serverNodeCount} server nodes` : 'Whether the cluster is serving requests',
       tag: cluster.value ? (cluster.value.active ? 'success' : 'danger') : 'secondary',
       to: '/cluster',
-      alive: cluster.value?.active ?? false,
-      tint: cluster.value?.active ? TINTS.purple : TINTS.surface
+      heartbeat: clusterHeartbeat.value,
+      tint: HEARTBEAT_TINTS[clusterHeartbeat.value]
     },
     {
       label: 'Worker nodes',

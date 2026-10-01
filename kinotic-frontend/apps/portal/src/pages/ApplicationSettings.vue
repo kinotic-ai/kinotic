@@ -1,5 +1,5 @@
 <template>
-  <div :class="['application-settings', isDark ? 'application-settings--dark' : 'application-settings--light']">
+  <div>
     <PageHeader title="Settings"
                 description="Name, description, tenancy, primary UI, and the emails this application sends." />
 
@@ -14,61 +14,50 @@
       </TabList>
       <TabPanels>
         <TabPanel value="general">
-    <div class="application-settings__general-shell">
-      <form @submit.prevent="saveSettings" class="application-settings__form">
-        <div class="application-settings__fields">
-          <div class="application-settings__field">
-            <label class="application-settings__label">Name</label>
-            <InputText
-              v-model="appName"
-              type="text"
-              class="application-settings__input w-full"
-              disabled
-            />
-          </div>
-          <div class="application-settings__field">
-            <label class="application-settings__label">Description</label>
-            <Textarea
-              v-model="appDescription"
-              class="application-settings__input application-settings__textarea w-full h-[100px]"
-              rows="3"
-            />
-          </div>
-          <div class="application-settings__field">
-            <label class="application-settings__label">Tenant per user</label>
-            <div class="flex items-center gap-3">
-              <ToggleSwitch v-model="tenantPerUser" class="shrink-0" />
-              <span class="text-sm text-muted-color">
-                Each user of this application gets their own isolated tenant.
-                Applies to users created after enabling.
-              </span>
-            </div>
-          </div>
-          <div class="application-settings__field">
-            <label class="application-settings__label">Primary UI</label>
-            <Select
-              v-model="primaryUiId"
-              :options="uiOptions"
-              placeholder="Not set"
-              showClear
-              class="application-settings__input w-full"
-            />
-            <span class="text-sm text-muted-color">
-              The published UI this application's browser flows, such as OAuth consent, return to.
-            </span>
-          </div>
-        </div>
-        <div class="application-settings__actions">
-          <Button
-            class="application-settings__save-btn"
-            type="submit"
-            :disabled="loading"
-            severity="primary"
-            label="Save changes"
-          />
-        </div>
-      </form>
-    </div>
+          <form class="max-w-[880px] pt-4" @submit.prevent="saveSettings">
+            <section class="overflow-hidden rounded-xl border border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-800/30">
+              <div class="divide-y divide-surface-200 dark:divide-surface-700">
+                <div :class="ROW_CLASS">
+                  <div>
+                    <label for="app-name" :class="LABEL_CLASS">Name</label>
+                    <p :class="HELP_CLASS">The application's id, derived from its name when it was created.</p>
+                  </div>
+                  <InputText id="app-name" v-model="appName" class="w-full font-mono" disabled />
+                </div>
+
+                <div :class="ROW_CLASS">
+                  <div>
+                    <label for="app-description" :class="LABEL_CLASS">Description</label>
+                    <p :class="HELP_CLASS">Shown in the application list.</p>
+                  </div>
+                  <Textarea id="app-description" v-model="appDescription" rows="3" auto-resize class="w-full" placeholder="What this application does" />
+                </div>
+
+                <div :class="ROW_CLASS">
+                  <div>
+                    <label for="app-tenancy" :class="LABEL_CLASS">Tenant per user</label>
+                    <p :class="HELP_CLASS">Each user of this application gets their own isolated tenant. Applies to users created after enabling.</p>
+                  </div>
+                  <div class="flex items-center">
+                    <ToggleSwitch input-id="app-tenancy" v-model="tenantPerUser" />
+                  </div>
+                </div>
+
+                <div :class="ROW_CLASS">
+                  <div>
+                    <label for="app-primary-ui" :class="LABEL_CLASS">Primary UI</label>
+                    <p :class="HELP_CLASS">The published UI this application's browser flows, such as OAuth consent, return to.</p>
+                  </div>
+                  <Select input-id="app-primary-ui" v-model="primaryUiId" :options="uiOptions" placeholder="Not set" show-clear class="w-full" />
+                </div>
+              </div>
+
+              <div class="flex items-center justify-end gap-3 border-t border-surface-200 bg-surface-50 px-5 py-3 dark:border-surface-700 dark:bg-surface-900/40">
+                <span v-if="dirty" class="text-xs text-muted-color">Unsaved changes</span>
+                <Button type="submit" label="Save changes" :loading="loading" :disabled="!dirty" />
+              </div>
+            </section>
+          </form>
         </TabPanel>
         <TabPanel value="invitation-email">
           <div class="pt-4">
@@ -82,8 +71,7 @@
 
 <script setup lang="ts">
 import { Mail, SlidersHorizontal } from '@lucide/vue'
-// @ts-ignore
-import { ref, defineProps, computed, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
 import { InputText, Textarea, Button, ToggleSwitch } from 'primevue'
 import Select from 'primevue/select'
@@ -99,7 +87,6 @@ import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 import { Kinotic } from '@kinotic-ai/core'
 import { useToast } from 'primevue/usetoast'
-import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 
 const props = defineProps({
   applicationId: {
@@ -116,7 +103,17 @@ const tenantPerUser = ref(false)
 const primaryUiId = ref<string | null>(null)
 const publishedUiNames = ref<string[]>([])
 const loading = ref(false)
-const isDark = darkMode
+
+// One setting per row: what it is and what it does on the left, its control on the right
+const ROW_CLASS = 'grid items-start gap-3 px-5 py-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:gap-8'
+const LABEL_CLASS = 'block text-sm font-medium text-surface-950 dark:text-surface-0'
+const HELP_CLASS = 'mt-1 text-xs leading-5 text-muted-color'
+
+/** The values last loaded or saved, which the form compares against to know it has changes. */
+const saved = ref({ description: '', tenantPerUser: false, primaryUiId: null as string | null })
+const dirty = computed(() => appDescription.value !== saved.value.description
+    || tenantPerUser.value !== saved.value.tenantPerUser
+    || primaryUiId.value !== saved.value.primaryUiId)
 
 // a primary UI whose deployment was removed stays designated, so it stays selectable
 const uiOptions = computed(() => primaryUiId.value && !publishedUiNames.value.includes(primaryUiId.value)
@@ -129,6 +126,7 @@ watch(() => APPLICATION_STATE.currentApplication, (newApp) => {
     appDescription.value = newApp.description || ''
     tenantPerUser.value = Boolean(newApp.tenantPerUser)
     primaryUiId.value = newApp.primaryUiId ?? null
+    saved.value = { description: appDescription.value, tenantPerUser: tenantPerUser.value, primaryUiId: primaryUiId.value }
   }
 }, { immediate: true })
 
@@ -185,146 +183,3 @@ const saveSettings = async () => {
   }
 }
 </script>
-
-<style scoped>
-.application-settings {
-  transition: color 0.2s ease, background-color 0.2s ease;
-}
-
-.application-settings--dark {
-  color: #ffffff;
-}
-
-.application-settings--light {
-  color: #101010;
-}
-
-.application-settings--dark .application-settings__label {
-  color: #ffffff;
-}
-
-.application-settings--light .application-settings__label {
-  color: #101010;
-}
-
-.application-settings__general-shell {
-  display: flex;
-  justify-content: center;
-  padding-top: 1.75rem;
-}
-
-.application-settings__form {
-  width: 100%;
-  max-width: 304px;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.application-settings__fields {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.application-settings__field {
-  margin-bottom: 0;
-}
-
-.application-settings__label {
-  display: block;
-  margin-bottom: 0.75rem;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 14px;
-  letter-spacing: 0;
-}
-
-.application-settings__actions {
-  display: flex;
-  justify-content: flex-start;
-  padding-top: 1.5rem;
-}
-
-.application-settings--dark :deep(.p-inputtext),
-.application-settings--dark :deep(.p-textarea) {
-  border: 1px solid #525252;
-  background: transparent;
-  color: #ffffff;
-  font-size: 0.875rem;
-  font-weight: 400;
-  line-height: 1;
-  box-shadow: 0 1px 2px rgba(18, 18, 23, 0.05);
-}
-
-.application-settings--dark :deep(.p-inputtext) {
-  min-height: 33px;
-  padding: 8px 12px;
-  background: #262626;
-}
-
-.application-settings--dark :deep(.p-textarea) {
-  padding: 8px 12px;
-  resize: none;
-  box-shadow: none;
-}
-
-.application-settings--dark :deep(.p-inputtext:disabled) {
-  border-color: #525252;
-  background: #262626;
-  color: #a3a3a3;
-  -webkit-text-fill-color: #a3a3a3;
-  opacity: 1;
-}
-
-.application-settings--dark :deep(.p-inputtext::placeholder),
-.application-settings--dark :deep(.p-textarea::placeholder) {
-  color: #a3a3a3;
-}
-
-.application-settings--light :deep(.p-inputtext),
-.application-settings--light :deep(.p-textarea) {
-  border: 1px solid #d9dce4;
-  background: transparent;
-  color: #101010;
-  font-size: 0.875rem;
-  font-weight: 400;
-  line-height: 1;
-  box-shadow: 0 1px 2px rgba(18, 18, 23, 0.05);
-}
-
-.application-settings--light :deep(.p-inputtext) {
-  background: #ffffff;
-}
-
-.application-settings--light :deep(.p-inputtext:disabled) {
-  background: #e8eaf0;
-  color: #71717a;
-  opacity: 1;
-}
-
-.application-settings :deep(.p-inputtext:focus),
-.application-settings :deep(.p-textarea:focus) {
-  border-color: #52525b;
-  box-shadow: none;
-}
-
-.application-settings :deep(.p-button.application-settings__save-btn) {
-  min-width: 12.25rem;
-  width: 100%;
-  justify-content: center;
-  border: none;
-  border-radius: 0.5rem;
-  background: var(--p-primary-500);
-  color: #ffffff;
-  box-shadow: none;
-}
-
-.application-settings :deep(.p-button.application-settings__save-btn:hover),
-.application-settings :deep(.p-button.application-settings__save-btn:focus),
-.application-settings :deep(.p-button.application-settings__save-btn:focus-visible) {
-  border: none;
-  background: var(--p-primary-600);
-  box-shadow: none;
-}
-</style>

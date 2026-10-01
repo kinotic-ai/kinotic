@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import {
-    Box, Building2, ChartLine, CloudUpload, Cpu, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, Server, Users
+    Box, Building2, ChartLine, CloudUpload, Cpu, Gauge, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, Server, Users
 } from '@lucide/vue'
 import { ConnectedAppsPage, OAuthConsentPage, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
@@ -121,7 +121,7 @@ const routes: RouteRecordRaw[] = [
                 name: 'dashboard',
                 path: 'dashboard',
                 component: () => import('./pages/Dashboard.vue'),
-                meta: { sidebar: consoleItem('Dashboard', LayoutDashboard, 10) }
+                meta: { sidebar: consoleItem('Dashboard', Gauge, 10) }
             },
             {
                 name: 'cluster',

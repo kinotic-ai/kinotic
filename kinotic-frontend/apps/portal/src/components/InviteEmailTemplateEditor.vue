@@ -1,53 +1,113 @@
 <template>
-  <div class="invite-email-page">
+  <div>
     <div v-if="loading" class="flex justify-center py-12">
-      <i class="pi pi-spin pi-spinner text-3xl text-primary-500"></i>
+      <i class="pi pi-spin pi-spinner text-2xl text-muted-color"></i>
     </div>
 
-    <div v-else-if="!customizing" class="invite-email-page__empty">
-      <p class="text-muted-color mb-4">
-        This application uses the built-in invitation email. Customize it to control what
-        invitees receive.
-      </p>
-      <Button label="Customize" icon="pi pi-pencil" @click="startCustomizing" />
-    </div>
+    <FeatureEmptyState
+      v-else-if="!customizing"
+      badge="built-in"
+      :icon="Mail"
+      :tint="TINTS.sky"
+      title="Make the invitation yours"
+      description="This application sends Kinotic's built-in invitation email. Customize it to control what invitees receive."
+      :points="[
+        'Write your own subject, message and call to action',
+        'Personalize it with the inviter, organization and application names',
+        'Send HTML with a plain-text version for every mail client'
+      ]"
+    >
+      <template #preview>
+        <div class="rounded-xl border border-surface-200 bg-surface-0 shadow-sm dark:border-surface-700 dark:bg-surface-900">
+          <div class="flex flex-col gap-1.5 border-b border-surface-100 px-4 py-3 text-[11px] dark:border-surface-800">
+            <div class="flex gap-2"><span class="w-12 text-surface-400">From</span><span class="text-surface-700 dark:text-surface-200">Kinotic</span></div>
+            <div class="flex gap-2"><span class="w-12 text-surface-400">Subject</span><span class="font-medium text-surface-950 dark:text-surface-0">You're invited to join {{ placeholderOf('applicationName') }}</span></div>
+          </div>
+          <div class="flex flex-col gap-2.5 px-4 py-4">
+            <div class="h-2.5 w-3/4 rounded bg-surface-200 dark:bg-surface-700" />
+            <div class="h-2.5 w-full rounded bg-surface-200 dark:bg-surface-700" />
+            <div class="h-2.5 w-2/3 rounded bg-surface-200 dark:bg-surface-700" />
+            <span class="mt-2 w-fit rounded-md bg-surface-950 px-3 py-1.5 text-[11px] font-medium text-surface-0 dark:bg-surface-0 dark:text-surface-950">Accept invitation</span>
+            <div class="mt-1 h-2 w-1/2 rounded bg-surface-200 dark:bg-surface-700" />
+          </div>
+        </div>
+      </template>
+      <template #actions>
+        <Button label="Customize" icon="pi pi-pencil" @click="startCustomizing" />
+      </template>
+    </FeatureEmptyState>
 
-    <form v-else class="max-w-4xl flex flex-col gap-4" @submit.prevent="save">
-      <div class="flex flex-col gap-1">
-        <label for="tpl-subject" class="text-sm font-medium">Subject</label>
-        <InputText id="tpl-subject" v-model="subject" class="w-full" />
-      </div>
+    <form v-else class="grid items-start gap-4 pt-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" @submit.prevent="save">
+      <section class="overflow-hidden rounded-xl border border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-800/30">
+        <div class="flex flex-col gap-5 p-5">
+          <div>
+            <label for="tpl-subject" :class="LABEL_CLASS">Subject</label>
+            <InputText id="tpl-subject" v-model="subject" class="mt-2 w-full" />
+          </div>
 
-      <div class="flex flex-col gap-1">
-        <label for="tpl-html" class="text-sm font-medium">HTML body</label>
-        <Textarea id="tpl-html" v-model="htmlBody" class="w-full font-mono text-sm" rows="14" />
-      </div>
+          <div>
+            <div class="flex items-center justify-between gap-3">
+              <span :class="LABEL_CLASS">Body</span>
+              <SelectButton v-model="bodyFormat" :options="BODY_FORMATS" option-label="label" option-value="value" :allow-empty="false" size="small" />
+            </div>
+            <Textarea v-if="bodyFormat === 'html'" id="tpl-html" v-model="htmlBody" aria-label="HTML body"
+                      class="mt-2 w-full !font-mono !text-[13px] !leading-6" rows="14" />
+            <Textarea v-else id="tpl-text" v-model="textBody" aria-label="Plain-text body"
+                      class="mt-2 w-full !font-mono !text-[13px] !leading-6" rows="14" />
+            <p :class="HELP_CLASS">
+              <template v-if="bodyFormat === 'html'">What most mail clients show. Put <code v-pre class="font-mono">{{{acceptUrl}}}</code>, with triple braces, inside links so the URL isn't HTML-escaped.</template>
+              <template v-else>For mail clients that don't render HTML.</template>
+            </p>
+          </div>
 
-      <div class="flex flex-col gap-1">
-        <label for="tpl-text" class="text-sm font-medium">Plain-text body</label>
-        <Textarea id="tpl-text" v-model="textBody" class="w-full font-mono text-sm" rows="8" />
-      </div>
+          <div>
+            <span :class="LABEL_CLASS">Variables</span>
+            <p :class="HELP_CLASS">Templates are Handlebars. Click a variable to copy it.</p>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <button v-for="variable in VARIABLES" :key="variable" type="button"
+                      class="rounded-md border border-surface-200 bg-surface-50 px-2 py-1 font-mono text-xs text-surface-700 transition-colors hover:border-surface-300 hover:bg-surface-100 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-200 dark:hover:bg-surface-700"
+                      v-tooltip.top="copied === variable ? 'Copied' : 'Copy'"
+                      @click="copyVariable(variable)">{{ placeholderOf(variable) }}</button>
+            </div>
+          </div>
+        </div>
 
-      <p class="text-sm text-muted-color m-0">
-        Templates are Handlebars. Available variables:
-        <code v-pre>{{inviterName}}</code>, <code v-pre>{{organizationName}}</code>,
-        <code v-pre>{{applicationName}}</code>, <code v-pre>{{acceptUrl}}</code>,
-        <code v-pre>{{expiresInDays}}</code>.
-        In the HTML body use <code v-pre>{{{acceptUrl}}}</code> (triple braces) inside links so
-        the URL isn't HTML-escaped.
-      </p>
+        <div class="flex items-center justify-end gap-2 border-t border-surface-200 bg-surface-50 px-5 py-3 dark:border-surface-700 dark:bg-surface-900/40">
+          <Button
+            v-if="savedTemplateId"
+            label="Revert to built-in"
+            severity="danger"
+            outlined
+            @click="confirmRevert"
+          />
+          <Button v-else label="Cancel" severity="secondary" outlined @click="customizing = false" />
+          <Button type="submit" label="Save" :loading="saving" />
+        </div>
+      </section>
 
-      <div class="flex items-center gap-2">
-        <Button type="submit" label="Save" :loading="saving" />
-        <Button
-          v-if="savedTemplateId"
-          label="Revert to built-in"
-          severity="danger"
-          outlined
-          @click="confirmRevert"
-        />
-        <Button v-else label="Cancel" severity="secondary" outlined @click="customizing = false" />
-      </div>
+      <!-- How the email reads in an inbox, with example values in place of the variables -->
+      <section class="feature-preview-canvas overflow-hidden rounded-xl border border-surface-200 p-5 dark:border-surface-700">
+        <div class="mb-3 flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-surface-500">Preview</span>
+          <span class="text-xs text-muted-color">with example values</span>
+        </div>
+        <div class="overflow-hidden rounded-xl border border-surface-200 bg-surface-0 shadow-sm dark:border-surface-700 dark:bg-surface-900">
+          <div class="flex items-start gap-3 border-b border-surface-100 px-4 py-3 dark:border-surface-800">
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-950 dark:ring-1 dark:ring-surface-700">
+              <img :src="kinoticLogo" alt="" class="h-3.5 w-4" />
+            </span>
+            <div class="min-w-0">
+              <div class="truncate text-sm font-semibold text-surface-950 dark:text-surface-0">{{ renderedSubject || 'No subject' }}</div>
+              <div class="text-xs text-muted-color">Kinotic · to {{ SAMPLE.inviteeEmail }}</div>
+            </div>
+          </div>
+          <!-- The HTML renders in a sandboxed frame, so the template's markup and styles stay out of the portal;
+               scripts stay blocked, and same-origin only keeps the frame renderable in-process -->
+          <iframe v-if="bodyFormat === 'html'" :srcdoc="renderedHtml" sandbox="allow-same-origin" title="HTML body preview"
+                  class="h-[360px] w-full bg-white" />
+          <pre v-else class="m-0 h-[360px] overflow-auto whitespace-pre-wrap px-4 py-4 font-mono text-[13px] leading-6 text-surface-800 dark:text-surface-100">{{ renderedText }}</pre>
+        </div>
+      </section>
     </form>
 
     <ConfirmDialog />
@@ -55,17 +115,24 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { Mail } from '@lucide/vue'
 import Button from 'primevue/button'
 import ConfirmDialog from 'primevue/confirmdialog'
 import InputText from 'primevue/inputtext'
+import SelectButton from 'primevue/selectbutton'
 import Textarea from 'primevue/textarea'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 
 import { Kinotic } from '@kinotic-ai/core'
 import { InviteEmailTemplate } from '@kinotic-ai/management-api'
-import { showErrorToast } from '@kinotic-ai/frontend-common'
+import { showErrorToast, TINTS } from '@kinotic-ai/frontend-common'
+import FeatureEmptyState from '@/components/FeatureEmptyState.vue'
+import kinoticLogo from '@/assets/header-logo.svg'
+import { APPLICATION_STATE } from '@/states/IApplicationState'
+import { PROFILE_STATE } from '@/states/IProfileState'
+import { USER_STATE } from '@/states/IUserState'
 
 /**
  * Editor for an application's customized invitation email. Without a saved template the
@@ -85,6 +152,58 @@ const htmlBody = ref('')
 const textBody = ref('')
 
 const toast = useToast()
+
+const LABEL_CLASS = 'block text-sm font-medium text-surface-950 dark:text-surface-0'
+const HELP_CLASS = 'mt-1 text-xs leading-5 text-muted-color'
+
+const VARIABLES = ['inviterName', 'organizationName', 'applicationName', 'acceptUrl', 'expiresInDays'] as const
+type Variable = typeof VARIABLES[number]
+
+const BODY_FORMATS = [{ label: 'HTML', value: 'html' }, { label: 'Plain text', value: 'text' }]
+const bodyFormat = ref<'html' | 'text'>('html')
+const copied = ref<Variable | null>(null)
+
+/** Example values the preview shows in place of the variables, from the signed-in user where there is one. */
+const SAMPLE = {
+  inviteeEmail: 'teammate@example.com',
+  values: computed<Record<Variable, string>>(() => ({
+    inviterName: PROFILE_STATE.profile?.displayName || PROFILE_STATE.profile?.email || 'Ava Chen',
+    organizationName: USER_STATE.getOrganizationId() || 'Your organization',
+    applicationName: APPLICATION_STATE.currentApplication?.name || props.applicationId,
+    acceptUrl: 'https://example.com/invitations/accept',
+    expiresInDays: '7'
+  }))
+}
+
+function placeholderOf(variable: Variable): string {
+  return `{{${variable}}}`
+}
+
+async function copyVariable(variable: Variable): Promise<void> {
+  await navigator.clipboard.writeText(placeholderOf(variable))
+  copied.value = variable
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+// Only the variables are filled in, as Handlebars would: {{x}} escaped for HTML, {{{x}}} as is.
+// Anything else Handlebars supports shows as written; the server validates the template on save.
+function render(template: string, escape: boolean): string {
+  const values = SAMPLE.values.value
+  return template
+      .replace(/\{\{\{\s*(\w+)\s*\}\}\}/g, (match, name: string) => name in values ? values[name as Variable] : match)
+      .replace(/\{\{\s*(\w+)\s*\}\}/g, (match, name: string) => {
+        const value = name in values ? values[name as Variable] : undefined
+        return value === undefined ? match : (escape ? escapeHtml(value) : value)
+      })
+}
+
+const renderedSubject = computed(() => render(subject.value, false))
+const renderedText = computed(() => render(textBody.value, false))
+const renderedHtml = computed(() =>
+    `<!doctype html><html><body style="margin:0;padding:16px;font:14px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#18181b">${render(htmlBody.value, true)}</body></html>`)
 const confirm = useConfirm()
 
 onMounted(async () => {
@@ -173,3 +292,17 @@ async function revert() {
 
 </script>
 
+<style scoped>
+.feature-preview-canvas {
+  background-image:
+    radial-gradient(circle, color-mix(in srgb, var(--p-surface-400) 16%, transparent) 1px, transparent 1.2px),
+    linear-gradient(135deg, var(--p-sky-50), color-mix(in srgb, var(--p-indigo-50) 60%, transparent), color-mix(in srgb, var(--p-violet-50) 70%, transparent));
+  background-size: 14px 14px, 100% 100%;
+}
+
+.dark .feature-preview-canvas {
+  background-image:
+    radial-gradient(circle, color-mix(in srgb, var(--p-surface-500) 14%, transparent) 1px, transparent 1.2px),
+    linear-gradient(135deg, color-mix(in srgb, var(--p-sky-500) 10%, transparent), color-mix(in srgb, var(--p-indigo-500) 5%, transparent), color-mix(in srgb, var(--p-violet-500) 10%, transparent));
+}
+</style>

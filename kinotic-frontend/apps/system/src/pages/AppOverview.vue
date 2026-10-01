@@ -32,7 +32,7 @@
             </div>
           </div>
 
-          <p v-if="projects.length === 0 && !loading" class="px-5 py-4 text-sm text-muted-color">No projects yet.</p>
+          <EmptyChartCharacter v-if="projects.length === 0 && !loading" class="py-6" title="No projects yet" />
           <ul v-else class="px-3 py-2">
             <li v-for="(project, position) in projects" :key="project.id ?? ''">
               <RouterLink :to="projectPath(organizationId, applicationId, project.id ?? '')"
@@ -74,7 +74,7 @@ import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { ExecutionStatus, RepositoryConnectionStatus, WorkloadStatus,
          type Application, type JobRun, type Project, type Workload } from '@kinotic-ai/management-api'
 import { DashboardSection, DatetimeUtil, FactList, InitialsTile, PageHeader, ProjectsIcon, StatCard, TINTS,
-         errorMessage, executionStatusSeverity, scanJobRuns } from '@kinotic-ai/frontend-common'
+         errorMessage, executionStatusSeverity, scanJobRuns, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 
 import { deployRunsByProject } from '@/util/runs'
 import { applicationPath, organizationPath, projectPath } from '@/util/scope'

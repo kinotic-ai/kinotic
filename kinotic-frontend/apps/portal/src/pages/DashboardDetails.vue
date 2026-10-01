@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { showErrorToast } from '@kinotic-ai/frontend-common'
+import { showErrorToast, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 import { GridStack } from 'gridstack'
 import 'gridstack/dist/gridstack.min.css'
 import { DashboardEntityRepository } from '@/services/DashboardEntityRepository'
@@ -1096,11 +1096,9 @@ onMounted(async () => {
              </div>
            </div>
            <div v-if="!hasWidgetsInGrid && !isEditMode" class="flex items-center justify-center flex-1">
-             <div :class="['text-center', isDark ? 'text-surface-400' : 'text-surface-500']">
-               <i class="pi pi-chart-bar text-6xl mb-4"></i>
-               <h3 class="text-lg font-semibold mb-2">No widgets yet</h3>
-               <p :class="['mb-4', isDark ? 'text-surface-500' : 'text-surface-400']">This dashboard doesn't have any widgets configured.</p>
-                     <Button @click="enterEditMode" label="Add Widgets" class="app-neutral-button" />
+             <div class="flex flex-col items-center">
+               <EmptyChartCharacter title="No widgets yet" hint="This dashboard doesn't have any widgets configured." />
+               <Button @click="enterEditMode" label="Add Widgets" class="app-neutral-button mt-4" />
              </div>
            </div>
          </div>

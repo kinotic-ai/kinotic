@@ -9,13 +9,8 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <div v-if="!loading && !latestRun" class="flex flex-col items-center rounded-xl border border-dashed border-surface-300 px-6 py-14 text-center dark:border-surface-700">
-      <span :class="['flex h-12 w-12 items-center justify-center rounded-xl', TINTS.sky]">
-        <CloudUpload :size="24" :stroke-width="1.75" aria-hidden="true" />
-      </span>
-      <p class="mt-4 text-sm font-medium text-surface-950 dark:text-surface-0">Never deployed</p>
-      <p class="mt-1 text-sm text-muted-color">Pushing to the repository's default branch deploys this project.</p>
-    </div>
+    <EmptyChartCharacter v-if="!loading && !latestRun" class="rounded-xl border border-dashed border-surface-300 py-14 dark:border-surface-700"
+                         title="Never deployed" hint="Pushing to the repository's default branch deploys this project." />
 
     <template v-if="latestRun">
       <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -49,7 +44,7 @@
 
         <DashboardSection :icon="Network" :tint="TINTS.sky" title="Placement" :count="placement.length"
                           description="The worker nodes the microservices run on.">
-          <p v-if="placement.length === 0" class="px-5 py-4 text-sm text-muted-color">No microservice has been placed on a node.</p>
+          <EmptyChartCharacter v-if="placement.length === 0" class="py-6" title="No microservice has been placed on a node" />
           <div v-else class="divide-y divide-surface-100 px-5 py-2 text-sm dark:divide-surface-800">
             <div v-for="row in placement" :key="row.nodeId" class="flex items-center gap-3 py-2.5">
               <Server :size="16" :stroke-width="1.75" class="shrink-0 text-surface-400" aria-hidden="true" />
@@ -98,7 +93,7 @@
           <div v-if="services.length > 0" class="p-4">
             <WorkloadsTable :workloads="services" :scope="scope" :node-names="nodeNames" @changed="load" />
           </div>
-          <p v-else class="px-5 py-4 text-sm text-muted-color">No microservice workload is running for this project.</p>
+          <EmptyChartCharacter v-else class="py-6" title="No microservice workload is running" />
         </DashboardSection>
 
         <DashboardSection :icon="Clock" :tint="TINTS.sky" title="Previous runs" :count="previousRuns.length"
@@ -118,7 +113,7 @@
               <template #body="{ data }"><span class="font-mono text-xs tabular-nums">{{ formatDuration(data.started, data.finished) }}</span></template>
             </Column>
           </DataTable>
-          <p v-else class="px-5 py-4 text-sm text-muted-color">No previous runs.</p>
+          <EmptyChartCharacter v-else class="py-6" title="No previous runs" />
         </DashboardSection>
       </div>
     </template>
@@ -140,7 +135,7 @@ import { Activity, Ban, CircleCheck, CircleX, Clock, CloudUpload, GitCommitHoriz
 import { ExecutionStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
 import { DashboardSection, DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
-         StatCard, TimePill, TINTS, errorMessage, executionStatusSeverity, scanJobRuns, shortSha } from '@kinotic-ai/frontend-common'
+         StatCard, TimePill, TINTS, errorMessage, executionStatusSeverity, scanJobRuns, shortSha, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 
 import WorkloadsTable from '@/components/WorkloadsTable.vue'
 import { loadNodes } from '@/util/nodes'

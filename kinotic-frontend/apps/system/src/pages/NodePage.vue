@@ -66,7 +66,7 @@
 
         <DashboardSection :icon="History" :tint="TINTS.purple" title="History" :count="history.length"
                           :description="`What happened to the node, newest first: each change of what it should be and of what it reports, and each mark set beside them, with what caused it. The latest ${HISTORY_PAGE_SIZE} entries.`">
-          <p v-if="history.length === 0" class="px-5 py-4 text-sm text-muted-color">Nothing has happened to the node yet.</p>
+          <EmptyChartCharacter v-if="history.length === 0" class="py-6" title="Nothing has happened to the node yet" />
           <WatchEventsTable v-else :entries="history" empty-text="Nothing has happened to the node yet." />
         </DashboardSection>
       </div>
@@ -85,7 +85,7 @@ import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { WorkloadStatus, type WatchEvent, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
 import { DashboardSection, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, WatchEventsTable, errorMessage,
-         formatMb } from '@kinotic-ai/frontend-common'
+         formatMb, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 
 import CapacityRows from '@/components/CapacityRows.vue'
 import WorkloadsTable from '@/components/WorkloadsTable.vue'

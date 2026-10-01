@@ -1,6 +1,7 @@
 import { Direction, Kinotic, Order, Pageable, Sort } from '@kinotic-ai/core'
 import { StatusConditionType, findStatusCondition, type StatusCondition } from '@kinotic-ai/management-api'
-import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
+import { HeartbeatState } from '@kinotic-ai/frontend-common'
+import { VmNodeStatusType, type KinoticClusterInfo, type VmNode } from '@kinotic-ai/system-api'
 
 /** How many worker nodes the console reads; a platform with more shows the first page of them. */
 const NODE_PAGE_SIZE = 100
@@ -100,4 +101,17 @@ export function capacityOf(nodes: VmNode[]): Capacity {
         ret.usedDiskMb += node.totalDiskMb - node.freeDiskMb
     }
     return ret
+}
+
+/** The heartbeat the cluster shows: alive while active, failed when inactive, idle until it has reported. */
+export function clusterHeartbeat(cluster: KinoticClusterInfo | null): HeartbeatState {
+  let ret: HeartbeatState
+  if (!cluster) {
+    ret = HeartbeatState.IDLE
+  } else if (cluster.active) {
+    ret = HeartbeatState.ALIVE
+  } else {
+    ret = HeartbeatState.FAILED
+  }
+  return ret
 }

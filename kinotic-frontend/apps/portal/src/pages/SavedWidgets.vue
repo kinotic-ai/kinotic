@@ -9,15 +9,8 @@
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="savedWidgets.length === 0" class="text-center py-12">
-      <div class="mb-4">
-        <i class="pi pi-chart-bar text-6xl text-surface-300"></i>
-      </div>
-      <h3 :class="['text-lg font-semibold mb-2', isDark ? 'text-surface-0' : 'text-surface-800']">No saved widgets yet</h3>
-      <p :class="[isDark ? 'text-surface-400' : 'text-surface-500']">
-        Create data insights in the Data Insights page to save widgets here.
-      </p>
-    </div>
+    <EmptyChartCharacter v-else-if="savedWidgets.length === 0" class="py-12" title="No saved widgets yet"
+                         hint="Create data insights in the Data Insights page to save widgets here." />
 
     <!-- Widgets grid -->
     <div v-else class="">
@@ -44,15 +37,8 @@
       </div>
       
       <!-- No search results -->
-      <div v-if="filteredWidgets.length === 0 && widgetSearchText" class="text-center py-12">
-        <div class="mb-4">
-          <i class="pi pi-search text-4xl text-surface-300"></i>
-        </div>
-        <h3 :class="['text-lg font-semibold mb-2', isDark ? 'text-surface-0' : 'text-surface-800']">No widgets found</h3>
-        <p :class="[isDark ? 'text-surface-400' : 'text-surface-500']">
-          No widgets match your search "{{ widgetSearchText }}"
-        </p>
-      </div>
+      <EmptyChartCharacter v-if="filteredWidgets.length === 0 && widgetSearchText" class="py-12"
+                           :title="`Nothing matches “${widgetSearchText}”`" hint="Try a different search." />
       
       <!-- Widgets grid -->
       <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -98,7 +84,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { showErrorToast } from '@kinotic-ai/frontend-common'
+import { showErrorToast, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 import { InputText, Button, Dialog, IconField, InputIcon } from 'primevue'
 import { useToast } from 'primevue/usetoast'
 import { DataInsightsWidgetEntityRepository } from '@/services/DataInsightsWidgetEntityRepository'

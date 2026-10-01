@@ -35,7 +35,7 @@
         <DashboardSection :icon="Server" :tint="TINTS.orange" title="Microservices" :count="services.length"
                           description="The microservice workloads this project's deployments have started."
                           :link-to="`${basePath}/deployment`" link-label="Deployment" class="lg:col-span-2">
-          <p v-if="services.length === 0" class="px-5 py-4 text-sm text-muted-color">No microservice workload has been started for this project.</p>
+          <EmptyChartCharacter v-if="services.length === 0" class="py-6" title="No microservice workload has been started" />
           <ul v-else class="px-3 py-2">
             <li v-for="(service, position) in services" :key="service.id ?? service.name"
                 class="flex items-center gap-3 rounded-lg px-2 py-2.5">
@@ -71,7 +71,7 @@ import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { ExecutionStatus, RepositoryConnectionStatus, WorkloadStatus,
          type JobRun, type Project, type Workload } from '@kinotic-ai/management-api'
 import { DashboardSection, DatetimeUtil, FactList, InitialsTile, PageHeader, ProjectsIcon, StatCard, TimePill, TINTS,
-         errorMessage, executionStatusSeverity, scanJobRuns, shortSha } from '@kinotic-ai/frontend-common'
+         errorMessage, executionStatusSeverity, scanJobRuns, shortSha, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 
 import { commitShaOf, isDeployRun } from '@/util/runs'
 import { applicationPath, organizationPath, projectPath } from '@/util/scope'

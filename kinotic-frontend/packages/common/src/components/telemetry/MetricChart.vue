@@ -9,9 +9,8 @@
       <slot name="action" />
     </div>
     <Message v-if="error" severity="error" :closable="false" class="mt-3">{{ error }}</Message>
-    <div v-else-if="!loading && series.length === 0" class="flex h-56 items-center justify-center text-sm text-muted-color">
-      No data in this range
-    </div>
+    <EmptyChartCharacter v-else-if="!loading && series.length === 0" class="h-56"
+                         title="No data in this range" hint="Try a longer time range, or check back once calls come in." />
     <!-- vue-echarts sizes from inline style, so the fixed height lives on a wrapper -->
     <div v-else class="mt-2 h-56 w-full">
       <VChart style="height: 100%; width: 100%;" :option="option" autoresize />
@@ -27,6 +26,7 @@ import VChart from 'vue-echarts'
 import { chartGridColor, chartLegend, chartTextColor, seriesColor } from '../../charts/chartTheme'
 import { isDark } from '../../composables/useTheme'
 import DatetimeUtil from '../../util/DatetimeUtil'
+import EmptyChartCharacter from '../EmptyChartCharacter.vue'
 import type { MetricSeries } from './MetricSeries'
 
 /**

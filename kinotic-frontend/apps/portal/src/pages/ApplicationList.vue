@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CrudTable } from "@kinotic-ai/frontend-common";
 import ApplicationSidebar from "@/components/ApplicationSidebar.vue";
+import ApplicationProjectsLink from "@/components/ApplicationProjectsLink.vue";
 import { InitialsTile, PageHeader, TimePill } from "@kinotic-ai/frontend-common";
 import { Kinotic } from "@kinotic-ai/core";
 import {
@@ -14,7 +15,6 @@ import { onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useToast } from "primevue/usetoast";
 import { showErrorToast } from "@kinotic-ai/frontend-common";
-import { DatetimeUtil } from "@kinotic-ai/frontend-common";
 import { createDebug } from "@kinotic-ai/frontend-common";
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 
@@ -26,10 +26,10 @@ const toast = useToast();
 
 const headers: CrudHeader[] = [
   { field: "name", header: "Name", sortable: false, width: "22%" },
-  { field: "id", header: "Id", sortable: false, width: "22%", optional: true },
+  { field: "id", header: "Id", sortable: false, width: "20%", optional: true },
   { field: "description", header: "Description", sortable: false, width: "32%", optional: true },
-  { field: "created", header: "Created", sortable: false, width: "12%", optional: true },
-  { field: "updated", header: "Updated", sortable: false, width: "12%" },
+  { field: "projects", header: "Projects", sortable: false, width: "12%" },
+  { field: "updated", header: "Updated", sortable: false, width: "14%" },
 ];
 
 const dataSource: IApplicationService = Kinotic.applications;
@@ -159,16 +159,13 @@ async function deleteApplication(item: Application): Promise<void> {
       <span>{{ item.id }}</span>
     </template>
     <template #item.description="{ item }">
-      <span
-        class="block max-w-[300px] sm:max-w-[500px] md:max-w-[190px] lg:max-w-[390px] xl:max-w-[590px] truncate"
-      >
+      <!-- the right padding keeps the same gap before Projects as the Id column leaves before it -->
+      <span class="block max-w-full truncate pr-10" v-tooltip.top="item.description || null">
         {{ item.description }}
       </span>
     </template>
-    <template #item.created="{ item }">
-      <span>
-        {{ DatetimeUtil.formatMonthDayYear(item.created) }}
-      </span>
+    <template #item.projects="{ item }">
+      <ApplicationProjectsLink :application-id="item.id" />
     </template>
     <template #item.updated="{ item }">
       <TimePill :date="item.updated" />
