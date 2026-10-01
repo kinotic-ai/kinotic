@@ -66,6 +66,8 @@ export { default as ThemeToggleButton } from './components/ThemeToggleButton.vue
 export { default as TimePill } from './components/TimePill.vue'
 export { default as TraceDetail } from './components/telemetry/TraceDetail.vue'
 export { default as WatchEventsTable } from './components/WatchEventsTable.vue'
+export * from './components/LogSource'
+export { default as LogView } from './components/LogView.vue'
 export { default as WorkloadLogView } from './components/WorkloadLogView.vue'
 export { default as WorkloadLogsDialog } from './components/WorkloadLogsDialog.vue'
 

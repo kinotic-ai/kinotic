@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.util.Collection;
 
 /**
- * Contains information about a single node in the Ignite cluster.
+ * A single server node in the cluster: an org, system or app server.
  */
 @Data
 @Builder
@@ -27,10 +27,10 @@ public class KinoticNodeInfo {
     private long order;
     
     /**
-     * Indicates whether this is the local node.
+     * The server kind the node runs, such as {@code management}, {@code system} or {@code app}.
      */
-    private boolean local;
-    
+    private String serverName;
+
     /**
      * The collection of IP addresses for this node.
      */
@@ -42,7 +42,19 @@ public class KinoticNodeInfo {
     private Collection<String> hostNames;
     
     /**
-     * The version of Ignite running on this node.
+     * The Kinotic version the node runs; null when the node runs from classes rather than a packaged jar.
      */
     private String version;
+
+    /**
+     * The service name that labels the logs of the server the node runs, which selects them in a server log query;
+     * null when the deployment configures none.
+     */
+    private String telemetryServiceName;
+
+    /**
+     * The service instance id that labels the node's own logs, which narrows a server log query to this node; null
+     * when the deployment configures none.
+     */
+    private String telemetryServiceInstanceId;
 }

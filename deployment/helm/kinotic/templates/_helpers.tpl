@@ -120,6 +120,8 @@ KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
 
 # ── Loki (LogService) ─────────────────────────────────────
 KINOTIC_MANAGEMENTAPI_LOKIURL: "{{ $root.Values.kinotic.managementApi.lokiUrl }}"
+# The service_name label Alloy gives this server's logs, from the pods' app label
+OTEL_SERVICE_NAME: "{{ .name }}"
 {{- if $root.Values.tls.enabled }}
 
 # ── SSL/TLS ──────────────────────────────────────────────

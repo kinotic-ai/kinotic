@@ -6,9 +6,9 @@ import java.util.Collection;
 import java.util.stream.Collectors;
 
 /**
- * How a workload's telemetry is addressed in the Grafana backends: the tenant it is shipped under, and
- * the selector of its log streams within that tenant. Both must match what the vm-manager's
- * AlloyManager ships.
+ * How telemetry is addressed in the Grafana backends: the tenant a workload's is shipped under, and the
+ * selectors of a workload's and a platform server's log streams within their tenant. The workload side must
+ * match what the vm-manager's AlloyManager ships.
  */
 public final class TelemetryTenant {
 
@@ -38,6 +38,24 @@ public final class TelemetryTenant {
         Validate.notBlank(workloadId, "workloadId cannot be blank");
         // The id is quoted into a label matcher, so a quote or backslash in it cannot widen the selector
         return "{workload_id=\"" + quoted(workloadId) + "\"}";
+    }
+
+    /**
+     * @param telemetryServiceName       the service name that labels a platform server's logs
+     * @param telemetryServiceInstanceId the service instance id that labels one node's logs, or null for every node
+     * @return the LogQL selector of the log streams the server, or that one node of it, wrote to the {@link #SYSTEM}
+     *         tenant
+     */
+    public static String serverLogSelector(String telemetryServiceName, String telemetryServiceInstanceId) {
+        Validate.notBlank(telemetryServiceName, "telemetryServiceName cannot be blank");
+        String ret;
+        if (telemetryServiceInstanceId == null) {
+            ret = "{service_name=\"" + quoted(telemetryServiceName) + "\"}";
+        } else {
+            ret = "{service_name=\"" + quoted(telemetryServiceName)
+                    + "\", service_instance_id=\"" + quoted(telemetryServiceInstanceId) + "\"}";
+        }
+        return ret;
     }
 
     /**

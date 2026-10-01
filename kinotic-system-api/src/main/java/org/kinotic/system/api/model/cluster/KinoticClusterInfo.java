@@ -13,11 +13,6 @@ import java.util.List;
 public class KinoticClusterInfo {
 
     /**
-     * The unique identifier of the local node.
-     */
-    private String localNodeId;
-    
-    /**
      * The total number of server nodes in the cluster.
      */
     private int serverNodeCount;
