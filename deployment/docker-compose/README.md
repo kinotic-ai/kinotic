@@ -165,7 +165,7 @@ panel, all provisioned from `dashboards/kinotic-server.json`. Beyond the dashboa
 |---|---|---|
 | Traces | Tempo | Explore → Tempo → Search, service name `kinotic-server-management`, `kinotic-server-system` or `kinotic-server-app` (tenant `kinotic-system`) |
 | Metrics | Mimir | Explore → Mimir, e.g. `jvm_memory_used_bytes{job="kinotic-server-management"}` (tenant `kinotic-system`) |
-| Logs | Loki | Explore → Loki, `{service_name="kinotic-server-management"}` (tenant `kinotic-system`) |
+| Logs | Loki | Explore → Loki, `{service_name="kinotic-server-management"}`, one node by adding `service_instance_id` (tenant `kinotic-system`) |
 
 All three run multi-tenant. The server's own telemetry lands in the `kinotic-system` tenant —
 the collector stamps it on pushes that name none — and each organization's workload telemetry

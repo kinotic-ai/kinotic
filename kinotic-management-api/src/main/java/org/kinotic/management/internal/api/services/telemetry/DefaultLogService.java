@@ -5,6 +5,7 @@ import io.vertx.core.buffer.Buffer;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.management.api.model.telemetry.LogQuery;
+import org.kinotic.management.api.model.telemetry.ServerLogQuery;
 import org.kinotic.management.api.model.telemetry.TelemetryTenant;
 import org.kinotic.management.api.services.telemetry.LogService;
 import org.kinotic.management.api.services.telemetry.LokiClient;
@@ -12,8 +13,8 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 /**
- * Default {@link LogService} that reads from the Loki tenant of the organization named by each call,
- * provided {@link TenantAccess} admits the caller to it.
+ * Default {@link LogService} that reads a workload's logs from the Loki tenant of the organization named
+ * by each call, and a server's from the platform's tenant, provided {@link TenantAccess} admits the caller.
  */
 @Component
 @RequiredArgsConstructor
@@ -48,6 +49,35 @@ public class DefaultLogService implements LogService {
                                         query.getStart(),
                                         query.getEnd(),
                                         query.getLimit());
+        } catch (Exception e) {
+            ret = Future.failedFuture(e);
+        }
+        return ret;
+    }
+
+    @Override
+    public Flux<Buffer> tailServer(String telemetryServiceName, String telemetryServiceInstanceId) {
+        Flux<Buffer> ret;
+        try {
+            String selector = TelemetryTenant.serverLogSelector(telemetryServiceName, telemetryServiceInstanceId);
+            // the platform's tenant, which admits a system participant alone
+            String tenant = tenantAccess.readableTenant(tenantAccess.currentParticipant(), null);
+            ret = lokiClient.tail(tenant, selector);
+        } catch (Exception e) {
+            ret = Flux.error(e);
+        }
+        return ret;
+    }
+
+    @Override
+    public Future<Buffer> serverHistory(ServerLogQuery query) {
+        Future<Buffer> ret;
+        try {
+            Validate.notNull(query, "ServerLogQuery cannot be null");
+            String selector = TelemetryTenant.serverLogSelector(query.getTelemetryServiceName(),
+                                                                query.getTelemetryServiceInstanceId());
+            String tenant = tenantAccess.readableTenant(tenantAccess.currentParticipant(), null);
+            ret = lokiClient.queryRange(tenant, selector, query.getStart(), query.getEnd(), query.getLimit());
         } catch (Exception e) {
             ret = Future.failedFuture(e);
         }

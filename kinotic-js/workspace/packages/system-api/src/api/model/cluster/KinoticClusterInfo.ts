@@ -5,7 +5,6 @@ import { KinoticNodeInfo } from '@/api/model/cluster/KinoticNodeInfo'
  * server's {@code org.kinotic.system.api.model.cluster.KinoticClusterInfo}.
  */
 export class KinoticClusterInfo {
-    public localNodeId: string = ''
     public serverNodeCount: number = 0
     public topologyVersion: number = 0
     public clusterState: string = ''

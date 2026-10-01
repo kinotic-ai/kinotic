@@ -102,11 +102,11 @@ function unfitNodes(nodes: VmNode[]): AttentionItem[] {
     return ret
 }
 
-// A rolling upgrade that stalls leaves a node on another build than the rest
+// A rolling upgrade that stalls leaves a node on another version than the rest
 function versionSkew(cluster: KinoticClusterInfo | null): AttentionItem[] {
     const ret: AttentionItem[] = []
     if (cluster) {
-        const byVersion = new Map<string, number>()
+        const byVersion = new Map<string | null, number>()
         for (const node of cluster.nodes) {
             byVersion.set(node.version, (byVersion.get(node.version) ?? 0) + 1)
         }
@@ -116,8 +116,8 @@ function versionSkew(cluster: KinoticClusterInfo | null): AttentionItem[] {
                 ret.push({
                     severity: 'warn',
                     icon: 'pi-sync',
-                    text: `${node.nodeId} runs ${node.version}`,
-                    detail: `The other server nodes run ${common}`,
+                    text: `${node.serverName} node ${node.nodeId} runs ${node.version ?? 'an unknown version'}`,
+                    detail: `The other server nodes run ${common ?? 'an unknown version'}`,
                     to: '/cluster'
                 })
             }

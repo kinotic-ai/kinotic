@@ -64,6 +64,7 @@ export * from '@/api/model/grind/events/TaskStartedEvent'
 export * from '@/api/model/grind/events/TasksDiscoveredEvent'
 
 export * from '@/api/model/telemetry/LogQuery'
+export * from '@/api/model/telemetry/ServerLogQuery'
 export * from '@/api/model/telemetry/TraceQuery'
 export * from '@/api/model/telemetry/MetricQuery'
 

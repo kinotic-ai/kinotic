@@ -46,6 +46,9 @@ dependencies {
 
 test {
     systemProperty 'spring.profiles.active', 'test'
+    // What a deployment hands the OpenTelemetry agent, which the node reports to the cluster (KinoticClusterInfoTests)
+    systemProperty 'otel.service.name', 'kinotic-test'
+    systemProperty 'otel.resource.attributes', 'deployment.environment=test,service.instance.id=kinotic-test-1'
     // some tests take longer
     timeout = Duration.ofMinutes(20)
 }

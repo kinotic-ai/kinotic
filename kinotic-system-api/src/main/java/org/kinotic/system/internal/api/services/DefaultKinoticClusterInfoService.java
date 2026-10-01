@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cluster.ClusterGroup;
 import org.apache.ignite.cluster.ClusterNode;
+import org.kinotic.core.api.KinoticNodeAttributes;
 import org.kinotic.system.api.model.cluster.KinoticClusterInfo;
 import org.kinotic.system.api.model.cluster.KinoticClusterInfo.KinoticClusterInfoBuilder;
 import org.kinotic.system.api.model.cluster.KinoticNodeInfo;
@@ -28,11 +29,8 @@ public class DefaultKinoticClusterInfoService implements KinoticClusterInfoServi
         ClusterGroup servers = ignite.cluster().forServers();
         // Get all server nodes
         Collection<ClusterNode> serverNodes = servers.nodes();
-        // Get the local node
-        ClusterNode localNode = ignite.cluster().localNode();
 
         KinoticClusterInfoBuilder clusterInfoBuilder = KinoticClusterInfo.builder()
-                                                                  .localNodeId(localNode.id().toString())
                                                                   .topologyVersion(ignite.cluster().topologyVersion())
                                                                   .clusterState(ignite.cluster().state().name())
                                                                   .active(ignite.cluster().state().active());
@@ -46,7 +44,7 @@ public class DefaultKinoticClusterInfoService implements KinoticClusterInfoServi
 
             // Map cluster nodes to NodeInfo objects
             List<KinoticNodeInfo> kinoticNodeInfos = serverNodes.stream()
-                                                                .map(node -> mapToNodeInfo(node, localNode.id()))
+                                                                .map(this::mapToNodeInfo)
                                                                 .collect(Collectors.toList());
 
             // Build and return ClusterInfo
@@ -59,21 +57,16 @@ public class DefaultKinoticClusterInfoService implements KinoticClusterInfoServi
         return Future.succeededFuture(clusterInfoBuilder.build());
     }
 
-    /**
-     * Maps an Ignite ClusterNode to a NodeInfo domain object.
-     * 
-     * @param node        the cluster node to map
-     * @param localNodeId the ID of the local node for comparison
-     * @return the mapped NodeInfo object
-     */
-    private KinoticNodeInfo mapToNodeInfo(ClusterNode node, Object localNodeId) {
+    private KinoticNodeInfo mapToNodeInfo(ClusterNode node) {
         return KinoticNodeInfo.builder()
                               .nodeId(node.id().toString())
                               .order(node.order())
-                              .local(node.id().equals(localNodeId))
+                              .serverName(node.attribute(KinoticNodeAttributes.SERVER_NAME))
                               .addresses(node.addresses())
                               .hostNames(node.hostNames())
-                              .version(node.version().toString())
+                              .version(node.attribute(KinoticNodeAttributes.VERSION))
+                              .telemetryServiceName(node.attribute(KinoticNodeAttributes.TELEMETRY_SERVICE_NAME))
+                              .telemetryServiceInstanceId(node.attribute(KinoticNodeAttributes.TELEMETRY_SERVICE_INSTANCE_ID))
                               .build();
     }
 }
