@@ -1,6 +1,8 @@
 package org.kinotic.sql.domain.statements;
 
-import org.kinotic.sql.domain.Statement;
+import java.util.List;
+
+import org.kinotic.sql.domain.TableStatement;
 
 /**
  * Represents a REINDEX statement in the DSL.
@@ -27,4 +29,22 @@ public record ReindexStatement(String source,
                                String query,
                                String script,
                                Boolean waitForReindex,
-                               Boolean skipIfNoSource) implements Statement {}
+                               Boolean skipIfNoSource) implements TableStatement {
+
+    /**
+     * @return the source then the destination
+     */
+    @Override
+    public List<String> tableNames() {
+        return List.of(source, dest);
+    }
+
+    @Override
+    public ReindexStatement withTableNames(List<String> tableNames) {
+        if (tableNames.size() != 2) {
+            throw new IllegalArgumentException("REINDEX addresses a source and a destination, not " + tableNames);
+        }
+        return new ReindexStatement(tableNames.get(0), tableNames.get(1), conflicts, maxDocs, slices, size,
+                                    sourceFields, query, script, waitForReindex, skipIfNoSource);
+    }
+}

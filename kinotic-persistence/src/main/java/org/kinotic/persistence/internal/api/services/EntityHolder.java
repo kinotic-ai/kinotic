@@ -2,6 +2,7 @@ package org.kinotic.persistence.internal.api.services;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
+import org.kinotic.domain.api.utils.DomainUtil;
 
 /**
  * {@link EntityHolder} holds the data and the id for an entity
@@ -19,13 +20,7 @@ public record EntityHolder<T>(T entity, String id, MultiTenancyType multiTenancy
     }
 
     public String getDocumentId() {
-        String ret;
-        if(multiTenancyType == MultiTenancyType.SHARED){
-            ret = tenantId + "-" + id;
-        } else {
-            ret = id;
-        }
-        return ret;
+        return DomainUtil.createEntityDocumentId(multiTenancyType, tenantId, id);
     }
 
     public boolean isElasticVersionPresent(){

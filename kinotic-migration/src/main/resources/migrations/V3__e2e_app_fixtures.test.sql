@@ -10,12 +10,14 @@ INSERT INTO kinotic_participant_identity (id, type, email, displayName, authType
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000006', 'USER', 'app-e2e-versioned-kinotic@test.local', 'e2e Versioned App User', 'LOCAL', 'kinotic-test', 'e2e-versioned', 'kinotic', true) WITH REFRESH;
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000007', 'USER', 'app-e2e-entity-service-kinotic@test.local', 'e2e EntityService App User', 'LOCAL', 'kinotic-test', 'e2e-entity-service', 'kinotic', true) WITH REFRESH;
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000009', 'USER', 'app-e2e-mcp-kinotic@test.local', 'e2e Mcp App User', 'LOCAL', 'kinotic-test', 'e2e-mcp', 'kinotic', true) WITH REFRESH;
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000014', 'USER', 'app-e2e-migration-kinotic@test.local', 'e2e Migration App User', 'LOCAL', 'kinotic-test', 'e2e-migration', 'kinotic', true) WITH REFRESH;
 
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000003', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000005', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000006', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000007', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000009', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
+INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000014', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 
 -- APPLICATION-scope machine identity for the machine connection e2e tests
 -- (clientId: the identity id below, clientSecret: kinotic)

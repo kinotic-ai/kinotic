@@ -1,6 +1,8 @@
 package org.kinotic.sql.domain.statements;
 
-import org.kinotic.sql.domain.Statement;
+import java.util.List;
+
+import org.kinotic.sql.domain.TableStatement;
 import org.kinotic.sql.domain.WhereClause;
 
 /**
@@ -10,5 +12,15 @@ import org.kinotic.sql.domain.WhereClause;
  */
 public record DeleteStatement(String tableName,
                             WhereClause whereClause,
-                            boolean refresh) implements Statement {
+                            boolean refresh) implements TableStatement {
+
+    @Override
+    public List<String> tableNames() {
+        return List.of(tableName);
+    }
+
+    @Override
+    public DeleteStatement withTableNames(List<String> tableNames) {
+        return new DeleteStatement(TableStatement.single(tableNames), whereClause, refresh);
+    }
 }

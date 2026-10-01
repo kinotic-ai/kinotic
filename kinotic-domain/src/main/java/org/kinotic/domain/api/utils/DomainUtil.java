@@ -8,6 +8,7 @@ import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
+import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
@@ -172,6 +173,19 @@ public class DomainUtil {
      */
     public static String createEntityDefinitionId(String organizationId, String applicationId, String entityDefinitionName){
         return (organizationId + "." + applicationId + "." + entityDefinitionName).toLowerCase();
+    }
+
+    /**
+     * The Elasticsearch {@code _id} an entity's item is stored under. A {@link MultiTenancyType#SHARED} entity
+     * prefixes the item's id with its tenant, so two tenants may each hold an item of the same id.
+     *
+     * @param multiTenancyType how the entity separates its tenants
+     * @param tenantId         the item's tenant, required for a {@link MultiTenancyType#SHARED} entity
+     * @param id               the item's id
+     * @return the document id
+     */
+    public static String createEntityDocumentId(MultiTenancyType multiTenancyType, String tenantId, String id){
+        return multiTenancyType == MultiTenancyType.SHARED ? tenantId + "-" + id : id;
     }
 
     /**
