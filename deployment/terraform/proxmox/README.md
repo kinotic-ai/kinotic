@@ -6,8 +6,8 @@ Tempo, Mimir, Grafana — created from the same images the compose stack pulls, 
 HAProxy container that passes each TLS connection on the router's forwarded 443 to the server
 its SNI names. The portal and the system console are served by Front Door from the Azure root's
 sites account (`deployment/terraform/azure/dev-server/deploy-ui.sh`), so the host exposes the
-edge alone. The workload nodes are separate machines provisioned with `deployment/vm-node`,
-configured from this root's `vm_manager_env` output. The design and the reasons are on the
+edge alone. The workload nodes are separate machines, or VMs on this host (`workers`),
+provisioned with `deployment/vm-node` and configured from this root's `vm_manager_env` output. The design and the reasons are on the
 [Development Server](https://kinotic.ai/platform/development-server) page; this is the
 runbook.
 
@@ -168,21 +168,50 @@ Azure root has uploaded them.
 2. **The nodes.** Each is Ubuntu 22.04 on its own machine with the kit from
    `deployment/vm-node` (its README: the two XFS `prjquota` partitions, then `setup-node.sh`,
    egress default-deny, `install-vm-manager.sh`, `verify-node.sh`). Its configuration is this
-   root's output plus the node's own id; the machine credentials come from a SYSTEM-scope
-   machine created in the system console:
+   root's output plus the node's own id:
 
    ```bash
    # Every server by its certificate's name, at the edge on the LAN; dnsmasq reads /etc/hosts on start and reload only
    terraform output -raw hosts_entry | ssh kinotic@<node ip> 'sudo tee -a /etc/hosts >/dev/null && sudo systemctl reload dnsmasq'
    { terraform output -raw vm_manager_env; echo KINOTIC_NODE_ID=dev-node-1; } | ssh kinotic@<node ip> 'sudo tee /etc/kinotic/vm-manager.env >/dev/null'
-   ssh kinotic@<node ip> 'sudo tee /etc/kinotic/vm-manager.secrets.env >/dev/null && sudo chmod 0600 /etc/kinotic/vm-manager.secrets.env && sudo systemctl start kinotic-vm-manager' <<EOT
-   KINOTIC_CLIENT_ID=<machine id>
-   KINOTIC_CLIENT_SECRET=<machine secret>
-   EOT
    ```
+
+   The migration runs with the `production` profile, which seeds no identities, so
+   `bootstrap-identities.sh` creates the first system user and a SYSTEM machine for each node.
+   Each machine's credentials go straight into its node's `vm-manager.secrets.env`, which starts
+   its vm-manager; the system user's password goes to a temporary file whose path it prints.
+   It refuses a cluster that already has that system user:
+
+   ```bash
+   ./bootstrap-identities.sh you@example.com kinotic@<node ip>=dev-node-1 kinotic@<worker ip>=dev-node-2
+   ```
+
+   Further operators and machines come from the system console's **Members** pages.
 
    The node appears `ONLINE` in the console with no health message. A first deployment lands
    on the first `ONLINE` node with room for it.
+
+   A node can also be a VM on this host. Each entry in `workers` is one, by its node id, and
+   its `ip` is a free static address on the LAN:
+
+   ```hcl
+   workers = {
+     dev-node-2 = { vm_id = 140, ip = "192.168.1.30/24", cores = 6, memory_mb = 12288 }
+   }
+   worker_ssh_keys = ["ssh-ed25519 AAAA... you@example.com"]
+   vm_nodes        = ["kinotic@192.168.1.30"]   # so redeploy.sh keeps its vm-manager current
+   ```
+
+   The apply creates the VM from Ubuntu's cloud image with the host's CPU type, which gives the
+   guest the `/dev/kvm` Cloud Hypervisor needs, and cloud-init creates the user `kinotic` with
+   those keys and mounts two XFS disks with `prjquota`: `/var/lib/docker` (`docker_disk_gb`,
+   100 by default) and `/var/lib/kinotic/workloads` (`workload_disk_gb`, 50). Then the kit, and
+   the configuration above with the worker's node id:
+
+   ```bash
+   rsync -rlt ../../vm-node/ kinotic@<worker ip>:vm-node/
+   ssh kinotic@<worker ip> 'cd vm-node && sudo ./setup-node.sh && sudo mkdir -p /etc/kinotic && sudo touch /etc/kinotic/egress-default-deny && sudo systemctl restart kinotic-node-firewall && sudo ./verify-node.sh && sudo ./install-vm-manager.sh'
+   ```
 
 3. **Snapshots.** The storage account key (`terraform output -raw snapshots_storage_account_key`
    in the Azure root) goes into each node's keystore, then the repository and a daily policy
@@ -229,6 +258,15 @@ Azure root has uploaded them.
   `ssh root@<host> python3 /var/lib/vz/snippets/kinotic-apply-container.py /var/lib/vz/snippets/kinotic-*.manifest.json`.
   To re-run the migration on the same image, `rm /var/lib/kinotic/state/120.ran` first.
 - **New secrets** are another `./sync-secrets.sh`, which re-applies the servers and Grafana.
+- **Starting over** with an empty cluster, for a migration that edits `V1__init.sql`: remove the
+  servers' and the Elasticsearch nodes' markers (`/var/lib/kinotic/state/keepalive/<vmid>`),
+  stop them, empty `/es1/data`, `/es2/data` and `/es3/data`, and remove
+  `/var/lib/kinotic/state/120.ran` and `images.deployed`. `./redeploy.sh` then replaces the
+  servers and runs the migration against the empty cluster; then `bootstrap-identities.sh`,
+  and the snapshot repository and policy again, since they live in the cluster's state. Clear
+  each node's old workloads first: stop `kinotic-vm-manager`, remove the containers labelled
+  `ai.kinotic.managed-by=kinotic-vm-manager`, `/root/.kinotic/vm-state/cloud-hypervisor/*.json`
+  and the contents of `/var/lib/kinotic/workloads`.
 - **Stopping a container** for more than a minute: remove its marker first,
   `rm /var/lib/kinotic/state/keepalive/<vmid>`, or `kinotic-keepalive.timer` starts it
   again; the next apply or applier run puts the marker back.
@@ -236,7 +274,8 @@ Azure root has uploaded them.
   after a reboot, `setup-node.sh` again to pick up a new Kata release.
 - **`terraform destroy`** removes the containers, the images, and the private network. The
   host directories are not touched: a new apply mounts the same Elasticsearch data, the same
-  store data, and the same secrets. The nodes are not this root's and keep running.
+  store data, and the same secrets. The worker VMs go with it, their disks included; the nodes
+  on machines of their own are not this root's and keep running.
 
 ## Moving from the single kinotic-server
 

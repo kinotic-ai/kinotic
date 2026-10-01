@@ -9,7 +9,7 @@ output) and any other node, cloud or bare metal.
 
 ```bash
 sudo ./setup-node.sh            # provision; idempotent, safe to re-run
-sudo touch /etc/kinotic/egress-default-deny && sudo systemctl restart kinotic-node-firewall
+sudo mkdir -p /etc/kinotic && sudo touch /etc/kinotic/egress-default-deny && sudo systemctl restart kinotic-node-firewall
 sudo ./verify-node.sh           # assert every invariant — run after any reboot
 sudo ./install-vm-manager.sh    # the vm-manager under /opt/kinotic/vm-manager, as a systemd service
 ```
@@ -133,7 +133,7 @@ under `/opt/kinotic/vm-manager`, and registers `kinotic-vm-manager.service`. The
 | File | Holds |
 |---|---|
 | `/etc/kinotic/vm-manager.env` | Everything but credentials: provider, node id, where the system server is, the workload data directory, the resolver workloads are given (the bridge address dnsmasq listens on), the Loki/Tempo/Mimir endpoints. The installer writes a template to fill in; the development server's cloud-init writes it complete |
-| `/etc/kinotic/vm-manager.secrets.env` | `KINOTIC_CLIENT_ID` and `KINOTIC_CLIENT_SECRET` of the SYSTEM machine the node connects as, created in the system console. The service does not start until this file exists |
+| `/etc/kinotic/vm-manager.secrets.env` | `KINOTIC_CLIENT_ID` and `KINOTIC_CLIENT_SECRET` of the SYSTEM machine the node connects as, created in the system console, or for the development server's nodes by the Proxmox root's `bootstrap-identities.sh`. The service does not start until this file exists |
 
 Every variable is documented under [VM provider](https://kinotic.ai/platform/configuration#vm-provider)
 and [Workload egress](https://kinotic.ai/platform/configuration#workload-egress). Set

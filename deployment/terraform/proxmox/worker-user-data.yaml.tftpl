@@ -1,0 +1,20 @@
+#cloud-config
+hostname: ${hostname}
+users:
+  - name: kinotic
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: true
+    ssh_authorized_keys:
+%{ for key in ssh_keys ~}
+      - ${key}
+%{ endfor ~}
+packages: [xfsprogs, rsync]
+# setup-node.sh keeps a data root already on XFS with prjquota and only verifies it
+fs_setup:
+  - { label: docker, filesystem: xfs, device: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi1, partition: none }
+  - { label: workloads, filesystem: xfs, device: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi2, partition: none }
+mounts:
+  - [LABEL=docker, /var/lib/docker, xfs, "defaults,prjquota", "0", "2"]
+  - [LABEL=workloads, /var/lib/kinotic/workloads, xfs, "defaults,prjquota", "0", "2"]
