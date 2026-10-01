@@ -2,6 +2,7 @@ package org.kinotic.system.internal.api.services.deployment;
 
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.management.api.model.Project;
@@ -35,7 +36,7 @@ public class SiteWorkloadFactory {
     public Workload publish(Project project, DeployTarget target, JsonObject uploadUrls, String commitSha) {
         Workload workload = siteWorkload("project-ui-publish-" + project.getId(), "UI publish for project " + project.getId(),
                                          new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getOrganizationId(), project.getId()),
-                                         target.nodeId(), project.getOrganizationId(), project.getApplicationId(), "src/publish-ui.ts");
+                                         target.nodeId(), project.applicationKey(), "src/publish-ui.ts");
         workload.setId(target.uiPublishWorkloadId());
         workload.getEnvironment().put("KINOTIC_UI_COMMIT", commitSha);
         // each URL is a credential for the run's length, so they travel as a secret
@@ -54,21 +55,21 @@ public class SiteWorkloadFactory {
     public Workload removal(UiDeployment deployment, String nodeId, String removalUrl) {
         Workload workload = siteWorkload("site-remove-" + deployment.getId(), "Removal of site " + deployment.getId(),
                                          new WatchedParent(WatchedType.UI_DEPLOYMENT, deployment.getOrganizationId(), deployment.getId()),
-                                         nodeId, deployment.getOrganizationId(), deployment.getApplicationId(), "src/remove-ui.ts");
+                                         nodeId, new ApplicationKey(deployment.getOrganizationId(), deployment.getApplicationId()), "src/remove-ui.ts");
         workload.getSecrets().put("KINOTIC_UI_REMOVAL_URL", removalUrl);
         allowSitesAccount(workload, removalUrl);
         return workload;
     }
 
     private Workload siteWorkload(String name, String description, WatchedParent parent, String nodeId,
-                                  String organizationId, String applicationId, String entrypoint) {
+                                  ApplicationKey applicationKey, String entrypoint) {
         DeploymentProperties deployment = kinoticProperties.getSystemApi().getDeployment();
         Workload workload = new Workload(name, deployment.getWorkloadRunnerImage());
         workload.setDescription(description);
         workload.getState().setParent(parent);
         workload.setNodeId(nodeId);
-        workload.setOrganizationId(organizationId);
-        workload.setApplicationId(applicationId);
+        workload.setOrganizationId(applicationKey.organizationId());
+        workload.setApplicationId(applicationKey.applicationId());
         workload.setDetached(false);
         workload.setCpus(ProjectWorkloadSizes.RUNTIME_CPUS);
         workload.setMemoryMb(ProjectWorkloadSizes.RUNTIME_MEMORY_MB);

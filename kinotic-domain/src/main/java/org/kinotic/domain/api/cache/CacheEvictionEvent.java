@@ -5,6 +5,7 @@ import lombok.EqualsAndHashCode;
 
 import java.time.Instant;
 
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.springframework.context.ApplicationEvent;
 
@@ -30,55 +31,50 @@ public class CacheEvictionEvent extends ApplicationEvent {
      */
     private final String namedQueryId;
     /**
-     * Organization id that owns the application being evicted
+     * Application of the {@link EntityDefinition} or associated named query that is being evicted
      */
-    private final String organizationId;
-    /**
-     * Application id of the {@link EntityDefinition} or associated named query that is being evicted
-     */
-    private final String applicationId;
+    private final ApplicationKey applicationKey;
 
-    public CacheEvictionEvent(CacheEvictionSource evictionSource, EvictionSourceType evictionSourceType, EvictionSourceOperation evictionOperation, String organizationId, String applicationId, String entityDefinitionId, String namedQueryId) {
+    public CacheEvictionEvent(CacheEvictionSource evictionSource, EvictionSourceType evictionSourceType, EvictionSourceOperation evictionOperation, ApplicationKey applicationKey, String entityDefinitionId, String namedQueryId) {
         super(evictionSource);
         this.evictionSource = evictionSource;
         this.evictionSourceType = evictionSourceType;
         this.evictionOperation = evictionOperation;
         this.eventTimestamp = Instant.now();
-        this.organizationId = organizationId;
-        this.applicationId = applicationId;
+        this.applicationKey = applicationKey;
         this.entityDefinitionId = entityDefinitionId;
         this.namedQueryId = namedQueryId;
     }
 
-    public static CacheEvictionEvent localModifiedNamedQuery(String organizationId, String applicationId, String entityDefinitionId, String namedQueryId) {
-        return new CacheEvictionEvent(CacheEvictionSource.LOCAL_MESSAGE, EvictionSourceType.NAMED_QUERY, EvictionSourceOperation.MODIFY, organizationId, applicationId, entityDefinitionId, namedQueryId);
+    public static CacheEvictionEvent localModifiedNamedQuery(ApplicationKey applicationKey, String entityDefinitionId, String namedQueryId) {
+        return new CacheEvictionEvent(CacheEvictionSource.LOCAL_MESSAGE, EvictionSourceType.NAMED_QUERY, EvictionSourceOperation.MODIFY, applicationKey, entityDefinitionId, namedQueryId);
     }
 
-    public static CacheEvictionEvent localDeletedNamedQuery(String organizationId, String applicationId, String entityDefinitionId, String namedQueryId) {
-        return new CacheEvictionEvent(CacheEvictionSource.LOCAL_MESSAGE, EvictionSourceType.NAMED_QUERY, EvictionSourceOperation.DELETE, organizationId, applicationId, entityDefinitionId, namedQueryId);
+    public static CacheEvictionEvent localDeletedNamedQuery(ApplicationKey applicationKey, String entityDefinitionId, String namedQueryId) {
+        return new CacheEvictionEvent(CacheEvictionSource.LOCAL_MESSAGE, EvictionSourceType.NAMED_QUERY, EvictionSourceOperation.DELETE, applicationKey, entityDefinitionId, namedQueryId);
     }
 
-    public static CacheEvictionEvent localModifiedEntityDefinition(String organizationId, String applicationId, String entityDefinitionId) {
-        return new CacheEvictionEvent(CacheEvictionSource.LOCAL_MESSAGE, EvictionSourceType.ENTITY_DEFINITION, EvictionSourceOperation.MODIFY, organizationId, applicationId, entityDefinitionId, null);
+    public static CacheEvictionEvent localModifiedEntityDefinition(ApplicationKey applicationKey, String entityDefinitionId) {
+        return new CacheEvictionEvent(CacheEvictionSource.LOCAL_MESSAGE, EvictionSourceType.ENTITY_DEFINITION, EvictionSourceOperation.MODIFY, applicationKey, entityDefinitionId, null);
     }
 
-    public static CacheEvictionEvent localDeletedEntityDefinition(String organizationId, String applicationId, String entityDefinitionId) {
-        return new CacheEvictionEvent(CacheEvictionSource.LOCAL_MESSAGE, EvictionSourceType.ENTITY_DEFINITION, EvictionSourceOperation.DELETE, organizationId, applicationId, entityDefinitionId, null);
+    public static CacheEvictionEvent localDeletedEntityDefinition(ApplicationKey applicationKey, String entityDefinitionId) {
+        return new CacheEvictionEvent(CacheEvictionSource.LOCAL_MESSAGE, EvictionSourceType.ENTITY_DEFINITION, EvictionSourceOperation.DELETE, applicationKey, entityDefinitionId, null);
     }
 
-    public static CacheEvictionEvent clusterModifiedNamedQuery(String organizationId, String applicationId, String entityDefinitionId, String namedQueryId) {
-        return new CacheEvictionEvent(CacheEvictionSource.CLUSTER_MESSAGE, EvictionSourceType.NAMED_QUERY, EvictionSourceOperation.MODIFY, organizationId, applicationId, entityDefinitionId, namedQueryId);
+    public static CacheEvictionEvent clusterModifiedNamedQuery(ApplicationKey applicationKey, String entityDefinitionId, String namedQueryId) {
+        return new CacheEvictionEvent(CacheEvictionSource.CLUSTER_MESSAGE, EvictionSourceType.NAMED_QUERY, EvictionSourceOperation.MODIFY, applicationKey, entityDefinitionId, namedQueryId);
     }
 
-    public static CacheEvictionEvent clusterDeletedNamedQuery(String organizationId, String applicationId, String entityDefinitionId, String namedQueryId) {
-        return new CacheEvictionEvent(CacheEvictionSource.CLUSTER_MESSAGE, EvictionSourceType.NAMED_QUERY, EvictionSourceOperation.DELETE, organizationId, applicationId, entityDefinitionId, namedQueryId);
+    public static CacheEvictionEvent clusterDeletedNamedQuery(ApplicationKey applicationKey, String entityDefinitionId, String namedQueryId) {
+        return new CacheEvictionEvent(CacheEvictionSource.CLUSTER_MESSAGE, EvictionSourceType.NAMED_QUERY, EvictionSourceOperation.DELETE, applicationKey, entityDefinitionId, namedQueryId);
     }
 
-    public static CacheEvictionEvent clusterModifiedEntityDefinition(String organizationId, String applicationId, String entityDefinitionId) {
-        return new CacheEvictionEvent(CacheEvictionSource.CLUSTER_MESSAGE, EvictionSourceType.ENTITY_DEFINITION, EvictionSourceOperation.MODIFY, organizationId, applicationId, entityDefinitionId, null);
+    public static CacheEvictionEvent clusterModifiedEntityDefinition(ApplicationKey applicationKey, String entityDefinitionId) {
+        return new CacheEvictionEvent(CacheEvictionSource.CLUSTER_MESSAGE, EvictionSourceType.ENTITY_DEFINITION, EvictionSourceOperation.MODIFY, applicationKey, entityDefinitionId, null);
     }
 
-    public static CacheEvictionEvent clusterDeletedEntityDefinition(String organizationId, String applicationId, String entityDefinitionId) {
-        return new CacheEvictionEvent(CacheEvictionSource.CLUSTER_MESSAGE, EvictionSourceType.ENTITY_DEFINITION, EvictionSourceOperation.DELETE, organizationId, applicationId, entityDefinitionId, null);
+    public static CacheEvictionEvent clusterDeletedEntityDefinition(ApplicationKey applicationKey, String entityDefinitionId) {
+        return new CacheEvictionEvent(CacheEvictionSource.CLUSTER_MESSAGE, EvictionSourceType.ENTITY_DEFINITION, EvictionSourceOperation.DELETE, applicationKey, entityDefinitionId, null);
     }
 }

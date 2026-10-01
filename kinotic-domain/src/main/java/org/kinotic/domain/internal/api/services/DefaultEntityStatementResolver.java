@@ -38,12 +38,12 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
     private final DomainPersistenceProperties domainPersistenceProperties;
 
     @Override
-    public Future<List<Statement>> resolve(List<Statement> statements, ApplicationKey application) {
+    public Future<List<Statement>> resolve(List<Statement> statements, ApplicationKey applicationKey) {
         // one lookup per distinct name, shared by every statement that names the entity
         Map<String, Future<EntityDescriptor>> lookups = new LinkedHashMap<>();
         for (Statement statement : statements) {
             for (String name : names(statement)) {
-                lookups.computeIfAbsent(name.toLowerCase(Locale.ROOT), key -> requireEntity(name, application));
+                lookups.computeIfAbsent(name.toLowerCase(Locale.ROOT), key -> requireEntity(name, applicationKey));
             }
         }
         return Future.all(new ArrayList<>(lookups.values()))
@@ -88,14 +88,13 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
         };
     }
 
-    private Future<EntityDescriptor> requireEntity(String name, ApplicationKey application) {
-        String organizationId = application.organizationId();
-        String id = DomainUtil.createEntityDefinitionId(organizationId, application.applicationId(), name);
-        return entityDefinitionRepository.findById(id, organizationId)
+    private Future<EntityDescriptor> requireEntity(String name, ApplicationKey applicationKey) {
+        String organizationId = applicationKey.organizationId();
+        return entityDefinitionRepository.findById(DomainUtil.createEntityDefinitionId(applicationKey, name), organizationId)
                                          .map(definition -> {
                                              Validate.isTrue(definition != null && definition.isPublished(),
                                                              "Application %s has no published entity named %s",
-                                                             application.applicationId(), name);
+                                                             applicationKey.applicationId(), name);
                                              return definition.toDescriptor();
                                          });
     }

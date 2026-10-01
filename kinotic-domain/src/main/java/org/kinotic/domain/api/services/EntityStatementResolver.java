@@ -25,11 +25,11 @@ public interface EntityStatementResolver {
      * entity's repository afterwards.
      *
      * @param statements  the statements to resolve
-     * @param application the application whose entities the statements name
+     * @param applicationKey the application whose entities the statements name
      * @return the resolved statements, in the order given; fails when a name is not one of the application's
      *         published entities, a statement does not act on an entity, or an INSERT row lacks its id or tenant
      */
-    Future<List<Statement>> resolve(List<Statement> statements, ApplicationKey application);
+    Future<List<Statement>> resolve(List<Statement> statements, ApplicationKey applicationKey);
 
     /**
      * Resolves a named query's statements against the entity the query belongs to. Every name a statement carries

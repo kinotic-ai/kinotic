@@ -7,6 +7,7 @@ import io.vertx.core.Vertx;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jspecify.annotations.Nullable;
 import org.kinotic.core.api.utils.KinoticUtil;
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.IntC3Type;
@@ -97,8 +98,7 @@ public class TestDataService {
      * @return a {@link Future} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
      */
     public Future<Pair<EntityDefinition, Boolean>> createCarEntityDefinitionIfNotExists(String structureNameSuffix){
-        String structureId = DomainUtil.createEntityDefinitionId(SAMPLE_ORG_ID,
-                                                                 SAMPLE_APP_ID,
+        String structureId = DomainUtil.createEntityDefinitionId(new ApplicationKey(SAMPLE_ORG_ID, SAMPLE_APP_ID),
                                                                  "Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return entityDefinitionService.findById(structureId)
                                       .compose(structure -> {
@@ -185,8 +185,7 @@ public class TestDataService {
      * @return a {@link Future} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
      */
     public Future<Pair<EntityDefinition, Boolean>> createPersonEntityDefinitionIfNotExists(String structureNameSuffix){
-        String structureId = DomainUtil.createEntityDefinitionId(SAMPLE_ORG_ID,
-                                                                 SAMPLE_APP_ID,
+        String structureId = DomainUtil.createEntityDefinitionId(new ApplicationKey(SAMPLE_ORG_ID, SAMPLE_APP_ID),
                                                                  "Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return entityDefinitionService.findById(structureId)
                                       .compose(structure -> {

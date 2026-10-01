@@ -95,12 +95,12 @@ public class DefaultMigrationService implements MigrationService {
      * published entities fails the request before anything runs.
      */
     private Future<List<Migration>> resolve(List<MigrationDefinition> definitions, Project project) {
-        ApplicationKey application = new ApplicationKey(project.getOrganizationId(), project.getApplicationId());
-        List<Future<Migration>> migrations = definitions.stream().map(definition -> resolve(definition, application)).toList();
+        ApplicationKey applicationKey = project.applicationKey();
+        List<Future<Migration>> migrations = definitions.stream().map(definition -> resolve(definition, applicationKey)).toList();
         return Future.all(migrations).map(CompositeFuture::list);
     }
 
-    private Future<Migration> resolve(MigrationDefinition definition, ApplicationKey application) {
+    private Future<Migration> resolve(MigrationDefinition definition, ApplicationKey applicationKey) {
         List<Statement> statements = migrationParser.parse(definition.content(), definition.name()).statements();
         for (Statement statement : statements) {
             Validate.isTrue(statement instanceof InsertStatement || statement instanceof UpdateStatement
@@ -108,7 +108,7 @@ public class DefaultMigrationService implements MigrationService {
                             "Migration %s: a project migration acts on the application's entities with INSERT, UPDATE, DELETE and REINDEX, so %s is not allowed",
                             definition.name(), statement.getClass().getSimpleName().replace("Statement", ""));
         }
-        return entityStatementResolver.resolve(statements, application)
+        return entityStatementResolver.resolve(statements, applicationKey)
                                       .map(resolved -> new ResolvedMigration(definition.version(), definition.name(), new MigrationContent(resolved)));
     }
 }

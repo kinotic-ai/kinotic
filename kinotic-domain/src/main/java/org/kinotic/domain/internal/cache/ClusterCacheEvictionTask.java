@@ -7,6 +7,7 @@ import org.apache.ignite.resources.SpringApplicationContextResource;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.kinotic.domain.api.cache.EvictionSourceOperation;
 import org.kinotic.domain.api.cache.EvictionSourceType;
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.springframework.context.ApplicationContext;
 
 /**
@@ -39,7 +40,8 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
 
     @Override
     public void run() {
-            
+
+        ApplicationKey applicationKey = new ApplicationKey(organizationId, applicationId);
         // Create unique key for this eviction request
         String evictionKey = "";
         if(namedQueryId != null){
@@ -61,11 +63,9 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                 if (entityDefinitionId != null) {
 
                     if(evictionOperation == EvictionSourceOperation.MODIFY){
-                        eventPublisher.publishEvent(CacheEvictionEvent.clusterModifiedEntityDefinition(organizationId, applicationId,
-                                                                                                       entityDefinitionId));
+                        eventPublisher.publishEvent(CacheEvictionEvent.clusterModifiedEntityDefinition(applicationKey, entityDefinitionId));
                     } else if(evictionOperation == EvictionSourceOperation.DELETE){
-                        eventPublisher.publishEvent(CacheEvictionEvent.clusterDeletedEntityDefinition(organizationId, applicationId,
-                                                                                                      entityDefinitionId));
+                        eventPublisher.publishEvent(CacheEvictionEvent.clusterDeletedEntityDefinition(applicationKey, entityDefinitionId));
                     } else {
                         throw new IllegalArgumentException("Invalid eviction operation for key: " + evictionKey);
                     }
@@ -82,11 +82,9 @@ public class ClusterCacheEvictionTask implements IgniteRunnable {
                 if (namedQueryId != null) {
 
                     if(evictionOperation == EvictionSourceOperation.MODIFY){
-                        eventPublisher.publishEvent(CacheEvictionEvent.clusterModifiedNamedQuery(organizationId, applicationId,
-                                                                                                 entityDefinitionId, namedQueryId));
+                        eventPublisher.publishEvent(CacheEvictionEvent.clusterModifiedNamedQuery(applicationKey, entityDefinitionId, namedQueryId));
                     } else if(evictionOperation == EvictionSourceOperation.DELETE){
-                        eventPublisher.publishEvent(CacheEvictionEvent.clusterDeletedNamedQuery(organizationId, applicationId,
-                                                                                                entityDefinitionId, namedQueryId));
+                        eventPublisher.publishEvent(CacheEvictionEvent.clusterDeletedNamedQuery(applicationKey, entityDefinitionId, namedQueryId));
                     } else {
                         throw new IllegalArgumentException("Invalid eviction operation: " + evictionOperation);
                     }

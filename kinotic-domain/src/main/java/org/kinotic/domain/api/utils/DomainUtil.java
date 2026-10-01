@@ -6,6 +6,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
@@ -153,16 +154,14 @@ public class DomainUtil {
     }
 
     /**
-     * Builds an {@link EntityDefinition} id of the shape
-     * {@code <organizationId>.<applicationId>.<entityDefinitionName>}, lowercased.
+     * Creates the id of an {@link EntityDefinition}, {@code <organizationId>.<applicationId>.<name>} lowercased.
      *
-     * @param organizationId of the Organization the definition belongs to
-     * @param applicationId of the Application the definition belongs to
+     * @param applicationKey       the application the definition belongs to
      * @param entityDefinitionName the definition's name
      * @return the {@link EntityDefinition} id
      */
-    public static String createEntityDefinitionId(String organizationId, String applicationId, String entityDefinitionName){
-        return (organizationId + "." + applicationId + "." + entityDefinitionName).toLowerCase();
+    public static String createEntityDefinitionId(ApplicationKey applicationKey, String entityDefinitionName){
+        return (applicationKey.organizationId() + "." + applicationKey.applicationId() + "." + entityDefinitionName).toLowerCase();
     }
 
     /**

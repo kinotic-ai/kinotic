@@ -6,6 +6,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.utils.ZoneUtil;
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
@@ -63,8 +64,8 @@ public class ZoneRules {
             case ApplicationParticipant applicationParticipant ->
                     new ZoneRules(false,
                                   Set.of(DomainUtil.APP_API_ZONE,
-                                         appZone(applicationParticipant.getOrganizationId(),
-                                                 applicationParticipant.getApplicationId())),
+                                         appZone(new ApplicationKey(applicationParticipant.getOrganizationId(),
+                                                                    applicationParticipant.getApplicationId()))),
                                   Set.of(),
                                   EVERY_ZONE);
 
@@ -124,16 +125,15 @@ public class ZoneRules {
     /**
      * Builds the zone that all of an application's services live in
      *
-     * @param organizationId the id of the organization that owns the application
-     * @param applicationId the id of the application
+     * @param applicationKey the application
      * @return the application zone, app.&lt;organizationId&gt;.&lt;applicationId&gt;
      */
-    private static String appZone(String organizationId, String applicationId) {
+    private static String appZone(ApplicationKey applicationKey) {
         // Each id must be a single dot-free label: a dot inside an id would shift the
         // app.<organizationId>.<applicationId> label structure, letting one (org, app) pair
         // produce the same zone as a different pair plus a sub zone
-        ZoneUtil.validateLabel(organizationId);
-        ZoneUtil.validateLabel(applicationId);
-        return DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId;
+        ZoneUtil.validateLabel(applicationKey.organizationId());
+        ZoneUtil.validateLabel(applicationKey.applicationId());
+        return DomainUtil.APP_ZONE_PREFIX + "." + applicationKey.organizationId() + "." + applicationKey.applicationId();
     }
 }
