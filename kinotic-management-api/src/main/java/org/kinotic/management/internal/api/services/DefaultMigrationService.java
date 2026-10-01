@@ -1,5 +1,6 @@
 package org.kinotic.management.internal.api.services;
 
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,18 +25,18 @@ import org.kinotic.management.api.services.MigrationService;
 import org.kinotic.sql.domain.Migration;
 import org.kinotic.sql.domain.MigrationContent;
 import org.kinotic.sql.domain.Statement;
-import org.kinotic.sql.domain.TableStatement;
+import org.kinotic.sql.domain.statements.DeleteStatement;
 import org.kinotic.sql.domain.statements.InsertStatement;
+import org.kinotic.sql.domain.statements.ReindexStatement;
+import org.kinotic.sql.domain.statements.UpdateStatement;
 import org.kinotic.sql.executor.MigrationExecutor;
 import org.kinotic.sql.parsers.MigrationParser;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Runs an organization's migrations against the entities of one of its applications. A migration names entities,
@@ -104,46 +105,19 @@ public class DefaultMigrationService implements MigrationService {
      * published entities fails the request before anything runs.
      */
     private Future<List<Migration>> resolve(List<MigrationDefinition> definitions, Project project) {
-        List<List<TableStatement>> statementsPerMigration = definitions.stream().map(this::parseDataStatements).toList();
-        Set<String> entityNames = new LinkedHashSet<>();
-        statementsPerMigration.forEach(statements -> statements.forEach(statement -> entityNames.addAll(statement.tableNames())));
-        return requireEntities(entityNames, project).map(entities -> {
-            List<Migration> ret = new ArrayList<>(definitions.size());
-            for (int i = 0; i < definitions.size(); i++) {
-                MigrationDefinition definition = definitions.get(i);
-                List<Statement> addressed = statementsPerMigration.get(i).stream()
-                                                                  .map(statement -> address(statement, entities))
-                                                                  .toList();
-                ret.add(new ResolvedMigration(definition.version(), definition.name(), new MigrationContent(addressed)));
-            }
-            return ret;
-        });
+        // one lookup per distinct name, shared by every statement that names the entity
+        Map<String, Future<EntityDefinition>> lookups = new HashMap<>();
+        Function<String, Future<EntityDefinition>> entity = name -> lookups.computeIfAbsent(name, n -> requireEntity(n, project));
+        List<Future<Migration>> migrations = definitions.stream().map(definition -> resolve(definition, entity)).toList();
+        return Future.all(migrations).map(CompositeFuture::list);
     }
 
-    private List<TableStatement> parseDataStatements(MigrationDefinition definition) {
-        return migrationParser.parse(definition.content(), definition.name()).statements().stream()
-                              .map(statement -> {
-                                  Validate.isTrue(statement instanceof TableStatement,
-                                                  "Migration %s: a project migration acts on the application's entities with INSERT, UPDATE, DELETE and REINDEX, so %s is not allowed",
-                                                  definition.name(), statement.getClass().getSimpleName().replace("Statement", ""));
-                                  return (TableStatement) statement;
-                              })
-                              .toList();
-    }
-
-    /**
-     * The application's published entities, by the names the migrations use.
-     */
-    private Future<Map<String, EntityDefinition>> requireEntities(Set<String> names, Project project) {
-        List<Future<EntityDefinition>> lookups = names.stream().map(name -> requireEntity(name, project)).toList();
-        return Future.all(lookups).map(composite -> {
-            Map<String, EntityDefinition> ret = new HashMap<>();
-            int i = 0;
-            for (String name : names) {
-                ret.put(name, composite.resultAt(i++));
-            }
-            return ret;
-        });
+    private Future<Migration> resolve(MigrationDefinition definition, Function<String, Future<EntityDefinition>> entity) {
+        List<Future<Statement>> statements = migrationParser.parse(definition.content(), definition.name()).statements().stream()
+                                                            .map(statement -> address(statement, entity, definition))
+                                                            .toList();
+        return Future.all(statements)
+                     .map(composite -> new ResolvedMigration(definition.version(), definition.name(), new MigrationContent(composite.list())));
     }
 
     private Future<EntityDefinition> requireEntity(String name, Project project) {
@@ -159,25 +133,37 @@ public class DefaultMigrationService implements MigrationService {
     }
 
     /**
-     * Addresses a statement at the indices of the entities it names. An INSERT also gets the document id and
-     * routing the entity service gives a row it saves.
+     * Addresses a statement at the index of the entity it names. An INSERT also gets the document id and routing
+     * the entity service gives a row it saves.
      */
-    private Statement address(TableStatement statement, Map<String, EntityDefinition> entities) {
-        List<String> indices = statement.tableNames().stream().map(name -> entities.get(name).getItemIndex()).toList();
-        TableStatement addressed = statement.withTableNames(indices);
-        Statement ret;
-        if (addressed instanceof InsertStatement insert) {
-            ret = identify(insert, entities.get(statement.tableNames().getFirst()));
-        } else {
-            ret = addressed;
-        }
-        return ret;
+    private Future<Statement> address(Statement statement,
+                                      Function<String, Future<EntityDefinition>> entity,
+                                      MigrationDefinition definition) {
+        return switch (statement) {
+            case InsertStatement insert -> entity.apply(insert.tableName())
+                                                 .map(target -> identify(insert, target));
+            case UpdateStatement update -> entity.apply(update.tableName())
+                                                 .map(target -> new UpdateStatement(target.getItemIndex(), update.assignments(),
+                                                                                    update.whereClause(), update.refresh()));
+            case DeleteStatement delete -> entity.apply(delete.tableName())
+                                                 .map(target -> new DeleteStatement(target.getItemIndex(), delete.whereClause(), delete.refresh()));
+            case ReindexStatement reindex -> Future.all(entity.apply(reindex.source()), entity.apply(reindex.dest()))
+                                                   .map(targets -> new ReindexStatement(targets.<EntityDefinition>resultAt(0).getItemIndex(),
+                                                                                        targets.<EntityDefinition>resultAt(1).getItemIndex(),
+                                                                                        reindex.conflicts(), reindex.maxDocs(), reindex.slices(),
+                                                                                        reindex.size(), reindex.sourceFields(), reindex.query(),
+                                                                                        reindex.script(), reindex.waitForReindex(),
+                                                                                        reindex.skipIfNoSource()));
+            default -> Future.failedFuture(new IllegalArgumentException(
+                    "Migration " + definition.name() + ": a project migration acts on the application's entities with INSERT, UPDATE, DELETE and REINDEX, so "
+                            + statement.getClass().getSimpleName().replace("Statement", "") + " is not allowed"));
+        };
     }
 
     /**
-     * Derives an INSERT's document id and routing from the row the way the entity service does when it saves one,
-     * so the row is reachable through the entity's repository afterwards: the document id from the row's id field,
-     * and on a multi-tenant entity both from its tenant field as well.
+     * Addresses an INSERT at the entity's index with the document id and routing the entity service gives a row it
+     * saves, so the row is reachable through the entity's repository afterwards: the document id from the row's id
+     * field, and on a multi-tenant entity both from its tenant field as well.
      */
     private InsertStatement identify(InsertStatement insert, EntityDefinition definition) {
         Validate.isTrue(insert.routing() == null && insert.documentId() == null,
@@ -195,7 +181,7 @@ public class DefaultMigrationService implements MigrationService {
         } else {
             tenantId = null;
         }
-        return new InsertStatement(insert.tableName(), insert.columns(), insert.values(), insert.refresh(), tenantId,
+        return new InsertStatement(definition.getItemIndex(), insert.columns(), insert.values(), insert.refresh(), tenantId,
                                    DomainUtil.createEntityDocumentId(definition.getMultiTenancyType(), tenantId, id));
     }
 

@@ -1,8 +1,8 @@
 package org.kinotic.sql.domain.statements;
 
-import java.util.List;
+import org.kinotic.sql.domain.Statement;
 
-import org.kinotic.sql.domain.TableStatement;
+import java.util.List;
 
 /**
  * Represents an INSERT statement in the DSL.
@@ -19,15 +19,5 @@ public record InsertStatement(String tableName,
                             List<Object> values,
                             boolean refresh,
                             String routing,
-                            String documentId) implements TableStatement {
-
-    @Override
-    public List<String> tableNames() {
-        return List.of(tableName);
-    }
-
-    @Override
-    public InsertStatement withTableNames(List<String> tableNames) {
-        return new InsertStatement(TableStatement.single(tableNames), columns, values, refresh, routing, documentId);
-    }
-}
+                            String documentId) implements Statement {
+} 
