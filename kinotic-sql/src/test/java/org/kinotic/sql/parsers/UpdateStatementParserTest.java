@@ -40,7 +40,7 @@ class UpdateStatementParserTest {
     void whenScalarAssignments_thenLiteralsCarryTypedValues() {
         UpdateStatement statement = parseUpdate(
             "UPDATE products SET name = 'Widget', quantity = 12, price = 9.99, inStock = false "
-            + "WHERE sku == 'WDG-001' WITH REFRESH;");
+            + "WHERE sku = 'WDG-001' WITH REFRESH;");
 
         assertEquals("Widget", literalValue(statement, "name"));
         assertEquals(12, literalValue(statement, "quantity"));
@@ -53,7 +53,7 @@ class UpdateStatementParserTest {
         UpdateStatement statement = parseUpdate("""
             UPDATE persons
                SET address = { street: '1 Main St', city: 'Springfield', coords: { lat: 30.26, lon: -97.74 } }
-             WHERE id == 'p-1' WITH REFRESH;
+             WHERE id = 'p-1' WITH REFRESH;
             """);
 
         assertEquals(Map.of("street", "1 Main St",
@@ -67,7 +67,7 @@ class UpdateStatementParserTest {
         UpdateStatement statement = parseUpdate("""
             UPDATE articles
                SET tags = [ { label: 'Release', value: 'v1' }, { label: 'Area', value: 'sql' } ]
-             WHERE id == 'a-1';
+             WHERE id = 'a-1';
             """);
 
         assertEquals(List.of(Map.of("label", "Release", "value", "v1"),
@@ -77,14 +77,14 @@ class UpdateStatementParserTest {
 
     @Test
     void whenEmptyArrayAssignment_thenLiteralCarriesEmptyList() {
-        UpdateStatement statement = parseUpdate("UPDATE articles SET tags = [] WHERE id == 'a-1';");
+        UpdateStatement statement = parseUpdate("UPDATE articles SET tags = [] WHERE id = 'a-1';");
 
         assertEquals(List.of(), literalValue(statement, "tags"));
     }
 
     @Test
     void whenNullAssignment_thenLiteralCarriesNull() {
-        UpdateStatement statement = parseUpdate("UPDATE persons SET address = null WHERE id == 'p-1';");
+        UpdateStatement statement = parseUpdate("UPDATE persons SET address = null WHERE id = 'p-1';");
 
         assertNull(literalValue(statement, "address"));
     }
@@ -92,7 +92,7 @@ class UpdateStatementParserTest {
     @Test
     void whenObjectLiteralFieldIsNull_thenMapCarriesNullForThatField() {
         UpdateStatement statement = parseUpdate(
-            "UPDATE persons SET address = { city: 'Shelbyville', street: null } WHERE id == 'p-1';");
+            "UPDATE persons SET address = { city: 'Shelbyville', street: null } WHERE id = 'p-1';");
 
         Map<?, ?> address = (Map<?, ?>) literalValue(statement, "address");
         assertEquals("Shelbyville", address.get("city"));
@@ -102,7 +102,7 @@ class UpdateStatementParserTest {
 
     @Test
     void whenParameterAssignment_thenNamedParameter() {
-        UpdateStatement statement = parseUpdate("UPDATE products SET name = :newName WHERE sku == 'WDG-001';");
+        UpdateStatement statement = parseUpdate("UPDATE products SET name = :newName WHERE sku = 'WDG-001';");
 
         assertEquals(new NamedParameter("newName"), statement.assignments().get("name"));
     }
@@ -111,7 +111,7 @@ class UpdateStatementParserTest {
     void whenTwoParametersOnOneField_thenEachKeepsItsOwnName() {
         // The name, not the field, identifies the value: keying by field made these the same parameter
         UpdateStatement statement = parseUpdate(
-            "UPDATE products SET price = :newPrice WHERE price == :oldPrice;");
+            "UPDATE products SET price = :newPrice WHERE price = :oldPrice;");
 
         assertEquals(new NamedParameter("newPrice"), statement.assignments().get("price"));
         WhereClause.Condition condition = assertInstanceOf(WhereClause.Condition.class, statement.whereClause());
@@ -120,7 +120,7 @@ class UpdateStatementParserTest {
 
     @Test
     void whenBinaryAssignment_thenOperandsKeptAsWritten() {
-        UpdateStatement statement = parseUpdate("UPDATE products SET quantity = quantity + 1 WHERE sku == 'WDG-001';");
+        UpdateStatement statement = parseUpdate("UPDATE products SET quantity = quantity + 1 WHERE sku = 'WDG-001';");
 
         BinaryExpression expression = assertInstanceOf(BinaryExpression.class, statement.assignments().get("quantity"));
         assertEquals("quantity", expression.left());
@@ -131,7 +131,7 @@ class UpdateStatementParserTest {
     @Test
     void whenMultipleAssignments_thenOrderPreserved() {
         UpdateStatement statement = parseUpdate(
-            "UPDATE products SET name = 'Widget', sku = 'WDG-001', inStock = true WHERE id == '1';");
+            "UPDATE products SET name = 'Widget', sku = 'WDG-001', inStock = true WHERE id = '1';");
 
         assertEquals(List.of("name", "sku", "inStock"), List.copyOf(statement.assignments().keySet()));
     }

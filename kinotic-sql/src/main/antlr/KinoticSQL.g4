@@ -1,5 +1,8 @@
 grammar KinoticSQL;
 
+// Keywords match in any case; a non-reserved keyword is also a name, see identifier
+options { caseInsensitive = true; }
+
 migrations
     : statement* EOF
     ;
@@ -19,11 +22,11 @@ statement
     ;
 
 createTableStatement
-    : CREATE TABLE (IF NOT EXISTS)? ID LPAREN columnDefinition (COMMA columnDefinition)* RPAREN SEMICOLON
+    : CREATE TABLE (IF NOT EXISTS)? identifier LPAREN columnDefinition (COMMA columnDefinition)* RPAREN SEMICOLON
     ;
 
 createDataStreamStatement
-    : CREATE DATA STREAM ID LPAREN columnDefinition (COMMA columnDefinition)* RPAREN (WITH LPAREN dataStreamOption (COMMA dataStreamOption)* RPAREN)? SEMICOLON
+    : CREATE DATA STREAM identifier LPAREN columnDefinition (COMMA columnDefinition)* RPAREN (WITH LPAREN dataStreamOption (COMMA dataStreamOption)* RPAREN)? SEMICOLON
     ;
 
 dataStreamOption
@@ -32,11 +35,11 @@ dataStreamOption
     ;
 
 createComponentTemplateStatement
-    : CREATE COMPONENT TEMPLATE ID LPAREN templatePart (COMMA templatePart)* RPAREN SEMICOLON
+    : CREATE COMPONENT TEMPLATE identifier LPAREN templatePart (COMMA templatePart)* RPAREN SEMICOLON
     ;
 
 createIndexTemplateStatement
-    : CREATE INDEX TEMPLATE ID FOR STRING USING STRING (WITH LPAREN templatePart (COMMA templatePart)* RPAREN)? SEMICOLON
+    : CREATE INDEX TEMPLATE identifier FOR STRING USING STRING (WITH LPAREN templatePart (COMMA templatePart)* RPAREN)? SEMICOLON
     ;
 
 templatePart
@@ -46,11 +49,11 @@ templatePart
     ;
 
 alterTableStatement
-    : ALTER TABLE ID ADD COLUMN ID type SEMICOLON
+    : ALTER TABLE identifier ADD COLUMN identifier type SEMICOLON
     ;
 
 reindexStatement
-    : REINDEX ID INTO ID reindexOptions? SEMICOLON
+    : REINDEX identifier INTO identifier reindexOptions? SEMICOLON
     ;
 
 reindexOptions
@@ -65,16 +68,16 @@ reindexOption
     | SOURCE_FIELDS ASSIGN STRING
     | QUERY ASSIGN STRING
     | SCRIPT ASSIGN STRING
-    | WAIT ASSIGN (TRUE | FALSE)
-    | SKIP_IF_NO_SOURCE ASSIGN (TRUE | FALSE)
+    | WAIT ASSIGN BOOLEAN_LITERAL
+    | SKIP_IF_NO_SOURCE ASSIGN BOOLEAN_LITERAL
     ;
 
 updateStatement
-    : UPDATE ID SET assignment (COMMA assignment)* WHERE whereClause (WITH REFRESH)? SEMICOLON
+    : UPDATE identifier SET assignment (COMMA assignment)* WHERE whereClause (WITH REFRESH)? SEMICOLON
     ;
 
 deleteStatement
-    : DELETE FROM ID WHERE whereClause (WITH REFRESH)? SEMICOLON
+    : DELETE FROM identifier WHERE whereClause (WITH REFRESH)? SEMICOLON
     ;
 
 insertStatement
@@ -82,16 +85,43 @@ insertStatement
     ;
 
 selectStatement
-    : SELECT selectList FROM ID (WHERE whereClause)? (ORDER BY orderBy (COMMA orderBy)*)? (LIMIT INTEGER_LITERAL)? SEMICOLON
+    : SELECT selectList FROM identifier (WHERE whereClause)? (GROUP BY selectExpression (COMMA selectExpression)*)?
+      (ORDER BY orderBy (COMMA orderBy)*)? (LIMIT INTEGER_LITERAL)? SEMICOLON
     ;
 
 selectList
     : MULTIPLY
-    | columnName (COMMA columnName)*
+    | selectItem (COMMA selectItem)*
+    ;
+
+selectItem
+    : selectExpression (AS identifier)?
+    ;
+
+// A field or a function call; a statement whose SELECT list or GROUP BY calls a function is an aggregate
+selectExpression
+    : functionCall
+    | fieldPath
+    ;
+
+functionCall
+    : identifier LPAREN (MULTIPLY | functionArgument (COMMA functionArgument)*)? RPAREN
+    ;
+
+functionArgument
+    : selectExpression
+    | STRING
+    | numberLiteral
+    | namedParameter
     ;
 
 orderBy
-    : ID (ASC | DESC)?
+    : fieldPath (ASC | DESC)?
+    ;
+
+// A field, or a sub-field of an object field joined by dots
+fieldPath
+    : identifier (DOT identifier)*
     ;
 
 insertOption
@@ -117,7 +147,7 @@ value
 // Two tokens rather than one ':name' lexer rule, which would swallow the colon of an object field
 // whose value starts a word: '{ street:null }' lexes as ID COLON NULL_LITERAL either way
 namedParameter
-    : COLON ID
+    : COLON identifier
     ;
 
 // JSON style literals that populate OBJECT/NESTED/UNION columns: an object literal is one
@@ -127,7 +157,7 @@ objectLiteral
     ;
 
 objectField
-    : (ID | STRING) COLON value
+    : (identifier | STRING) COLON value
     ;
 
 arrayLiteral
@@ -139,12 +169,12 @@ numberLiteral
     ;
 
 assignment
-    : ID ASSIGN expression
+    : identifier ASSIGN expression
     ;
 
 expression
     : value
-    | ID operator expression  // e.g., age + 1, status == 'active'
+    | identifier operator expression  // e.g., age + 1
     | LPAREN expression RPAREN
     ;
 
@@ -153,7 +183,6 @@ operator
     | MINUS
     | MULTIPLY
     | DIVIDE
-    | EQUALS  // For expressions like status == 'active'
     ;
 
 whereClause
@@ -164,11 +193,12 @@ whereClause
     ;
 
 condition
-    : ID comparisonOperator (namedParameter | STRING | numberLiteral | BOOLEAN_LITERAL)
+    : fieldPath comparisonOperator (namedParameter | STRING | numberLiteral | BOOLEAN_LITERAL)
     ;
 
+// '=' compares here and assigns in SET and WITH options; a comparison only appears in WHERE
 comparisonOperator
-    : EQUALS
+    : ASSIGN
     | NOT_EQUALS
     | LESS_THAN
     | GREATER_THAN
@@ -177,19 +207,19 @@ comparisonOperator
     ;
 
 tableName
-    : ID
+    : identifier
     ;
     
 columnName
-    : ID
+    : identifier
     ;
 
 columnDefinition
-    : ID type
+    : identifier type
     ;
 
 unionVariant
-    : ID LPAREN columnDefinition (COMMA columnDefinition)* RPAREN
+    : identifier LPAREN columnDefinition (COMMA columnDefinition)* RPAREN
     ;
 
 type
@@ -216,11 +246,28 @@ comment
     : COMMENT
     ;
 
+// A name: a field, table, alias, function or parameter. A keyword that does not structure a statement is a name
+// wherever a name can appear, so a field can be called date or size; a reserved word is a name when double-quoted.
+identifier
+    : ID
+    | QUOTED_ID
+    | nonReserved
+    ;
+
+nonReserved
+    : ABORT | ADD | ASC | AUTO | COLUMN | COMPONENT | CONFLICTS | DATA | DATA_RETENTION | DATE | DESC | DOCUMENT_ID
+    | DOUBLE | EXISTS | FLOAT | FOR | IF | INDEX | INDEXED | LONG | MAX_DOCS | NUMBER_OF_REPLICAS | NUMBER_OF_SHARDS
+    | PROCEED | QUERY | REFRESH | ROUTING | SCRIPT | SIZE | SLICES | SOURCE_FIELDS | STREAM | TABLE | TEMPLATE
+    | TIME_REFERENCE | USING | WAIT | SKIP_IF_NO_SOURCE
+    | BOOLEAN | INTEGER | KEYWORD | NESTED | OBJECT | TEXT | JSON | BINARY | GEO_POINT | GEO_SHAPE | UUID | DECIMAL | UNION
+    ;
+
 // SQL Keywords
 ABORT: 'ABORT';
 ADD: 'ADD';
 ALTER: 'ALTER';
 AND: 'AND';
+AS: 'AS';
 ASC: 'ASC';
 AUTO: 'AUTO';
 BY: 'BY';
@@ -239,6 +286,7 @@ EXISTS: 'EXISTS';
 FLOAT: 'FLOAT';
 FOR: 'FOR';
 FROM: 'FROM';
+GROUP: 'GROUP';
 IF: 'IF';
 INDEX: 'INDEX';
 INDEXED: 'INDEXED';
@@ -273,8 +321,6 @@ VALUES: 'VALUES';
 WHERE: 'WHERE';
 WITH: 'WITH';
 WAIT: 'WAIT';
-TRUE: 'TRUE';
-FALSE: 'FALSE';
 SKIP_IF_NO_SOURCE: 'SKIP_IF_NO_SOURCE';
 
 // Type Keywords
@@ -293,12 +339,11 @@ DECIMAL: 'DECIMAL';
 UNION: 'UNION';
 
 // Punctuation and Operators
-// '=' assigns (WITH options, SET); '==' compares (WHERE, expressions) — each role has exactly one operator
 ASSIGN: '=';
 COLON: ':';
 COMMA: ',';
 DIVIDE: '/';
-EQUALS: '==';
+DOT: '.';
 GREATER_THAN: '>';
 GREATER_THAN_EQUALS: '>=';
 LBRACE: '{';
@@ -320,7 +365,8 @@ BOOLEAN_LITERAL: 'true' | 'false';
 DECIMAL_LITERAL: [0-9]+ '.' [0-9]+;
 // Word literals are declared before ID because a match of equal length goes to whichever rule comes first
 NULL_LITERAL: 'null';
-ID: [a-zA-Z_][a-zA-Z_0-9]*;
+ID: [a-z_][a-z_0-9]*;
+QUOTED_ID: '"' [a-z_][a-z_0-9]* '"';
 INTEGER_LITERAL: [0-9]+;
 STRING: '\'' ~[']* '\'';
 

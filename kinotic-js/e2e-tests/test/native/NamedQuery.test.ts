@@ -77,7 +77,7 @@ describe('Kinotic JS', () => {
 
             const structureId = entityService.entityId
 
-            const query = new QueryDecorator('SELECT COUNT(firstName) as count FROM Person')
+            const query = new QueryDecorator('SELECT COUNT(firstName) AS count FROM Person')
             const namedQuery = new FunctionDefinition('countAllPeople', [query])
             namedQuery.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCount', applicationIdUsed)
                                                         .addProperty("count", new LongC3Type()))
@@ -111,7 +111,7 @@ describe('Kinotic JS', () => {
 
             // saved through the management server, run on the app server, which caches the query it runs
             const countAll = new FunctionDefinition('countPeople',
-                                                    [new QueryDecorator('SELECT COUNT(firstName) as count FROM Person')])
+                                                    [new QueryDecorator('SELECT COUNT(firstName) AS count FROM Person')])
             countAll.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCount', applicationIdUsed)
                                                       .addProperty('count', new LongC3Type()))
             await namedQueriesService.saveSync(new NamedQueriesDefinition(structureId,
@@ -126,7 +126,7 @@ describe('Kinotic JS', () => {
 
             // saving the query again evicts the app server's cached one
             const countByLastName = new FunctionDefinition('countPeople',
-                                                           [new QueryDecorator('SELECT COUNT(firstName) as count, lastName FROM Person GROUP BY lastName')])
+                                                           [new QueryDecorator('SELECT COUNT(firstName) AS count, lastName FROM Person GROUP BY lastName')])
             countByLastName.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCountByLastName', applicationIdUsed)
                                                              .addProperty('count', new LongC3Type())
                                                              .addProperty('lastName', new StringC3Type()))
@@ -150,7 +150,7 @@ describe('Kinotic JS', () => {
 
             const structureId = entityService.entityId
 
-            const query = new QueryDecorator('SELECT COUNT(firstName) as count, lastName FROM Person WHERE lastName = :lastName GROUP BY lastName')
+            const query = new QueryDecorator('SELECT COUNT(firstName) AS count, lastName FROM Person WHERE lastName = :lastName GROUP BY lastName')
             const namedQuery = new FunctionDefinition('countPeopleByLastNameWithLastName', [query])
             namedQuery.addParameter('lastName', new StringC3Type())
             const contentType = new ObjectC3Type('CountByLastName', applicationIdUsed)
@@ -186,7 +186,7 @@ describe('Kinotic JS', () => {
             await createTestPeopleAndVerify(entityService, 100)
 
             const structureId = entityService.entityId
-            const query = new QueryDecorator('SELECT COUNT(firstName) as count, lastName FROM Person GROUP BY lastName')
+            const query = new QueryDecorator('SELECT COUNT(firstName) AS count, lastName FROM Person GROUP BY lastName')
             const namedQuery = new FunctionDefinition('countPeopleByLastNamePage', [query])
             namedQuery.addParameter('pageable', new PageableC3Type())
             const contentType = new ObjectC3Type('CountByLastName', applicationIdUsed)
@@ -232,13 +232,13 @@ describe('Kinotic JS', () => {
             await createTestPeopleAndVerify(entityService, 100)
 
             const findByLastName = new FunctionDefinition('findByLastName',
-                                                          [new QueryDecorator('SELECT * FROM Person WHERE lastName == :lastName ORDER BY firstName LIMIT 10')])
+                                                          [new QueryDecorator('SELECT * FROM Person WHERE lastName = :lastName ORDER BY firstName LIMIT 10')])
             findByLastName.addParameter('lastName', new StringC3Type())
             findByLastName.returnType = new ArrayC3Type(entityDefinition.schema)
 
             // a projection returns the listed fields only, a nested object whole
             const namesByLastName = new FunctionDefinition('namesByLastName',
-                                                           [new QueryDecorator('SELECT firstName, address FROM Person WHERE lastName == :lastName')])
+                                                           [new QueryDecorator('SELECT firstName, address FROM Person WHERE lastName = :lastName')])
             namesByLastName.addParameter('lastName', new StringC3Type())
             namesByLastName.returnType = new ArrayC3Type(entityDefinition.schema)
 
@@ -277,7 +277,7 @@ describe('Kinotic JS', () => {
 
             // the statement's ORDER BY is the sort a cursor pages by, so it has to order the rows fully
             const findByLastNamePage = new FunctionDefinition('findByLastNamePage',
-                                                              [new QueryDecorator('SELECT * FROM Person WHERE lastName == :lastName ORDER BY firstName, id')])
+                                                              [new QueryDecorator('SELECT * FROM Person WHERE lastName = :lastName ORDER BY firstName, id')])
             findByLastNamePage.addParameter('lastName', new StringC3Type())
             findByLastNamePage.addParameter('pageable', new PageableC3Type())
             findByLastNamePage.returnType = new PageC3Type(entityDefinition.schema)
@@ -320,13 +320,13 @@ describe('Kinotic JS', () => {
             addPerson.returnType = writeCount(applicationIdUsed)
 
             const renameById = new FunctionDefinition('renameById',
-                                                      [new QueryDecorator('UPDATE Person SET lastName = :lastName WHERE id == :id WITH REFRESH')])
+                                                      [new QueryDecorator('UPDATE Person SET lastName = :lastName WHERE id = :id WITH REFRESH')])
             renameById.addParameter('lastName', new StringC3Type())
             renameById.addParameter('id', new StringC3Type())
             renameById.returnType = writeCount(applicationIdUsed)
 
             const deleteByLastName = new FunctionDefinition('deleteByLastName',
-                                                            [new QueryDecorator('DELETE FROM Person WHERE lastName == :lastName WITH REFRESH')])
+                                                            [new QueryDecorator('DELETE FROM Person WHERE lastName = :lastName WITH REFRESH')])
             deleteByLastName.addParameter('lastName', new StringC3Type())
             deleteByLastName.returnType = writeCount(applicationIdUsed)
 
@@ -366,8 +366,15 @@ describe('Kinotic JS', () => {
         async ({entityService, entityDefinition, applicationIdUsed, projectIdUsed}) => {
             const otherEntity = new FunctionDefinition('otherEntity', [new QueryDecorator('SELECT * FROM Vehicle')])
             otherEntity.returnType = new ArrayC3Type(entityDefinition.schema)
-            const otherEntityAggregate = new FunctionDefinition('otherEntityAggregate', [new QueryDecorator('SELECT COUNT(firstName) as count FROM Vehicle')])
+            const otherCase = new FunctionDefinition('otherCase', [new QueryDecorator('select * from person')])
+            otherCase.returnType = new ArrayC3Type(entityDefinition.schema)
+            const otherEntityAggregate = new FunctionDefinition('otherEntityAggregate', [new QueryDecorator('SELECT COUNT(firstName) AS count FROM Vehicle')])
             otherEntityAggregate.returnType = writeCount(applicationIdUsed)
+            // FROM names one entity; an index pattern, or a decoy FROM inside a string, does not parse
+            const hiddenIndexAggregate = new FunctionDefinition('hiddenIndexAggregate', [new QueryDecorator(`SELECT COUNT(firstName) AS count FROM "kinotic_*" WHERE 'x' <> 'FROM Person'`)])
+            hiddenIndexAggregate.returnType = writeCount(applicationIdUsed)
+            const commentedAggregate = new FunctionDefinition('commentedAggregate', [new QueryDecorator('SELECT COUNT(firstName) AS count FROM Person /* x */')])
+            commentedAggregate.returnType = writeCount(applicationIdUsed)
             const reindex = new FunctionDefinition('reindex', [new QueryDecorator('REINDEX Person INTO Person')])
             reindex.returnType = writeCount(applicationIdUsed)
             const createTable = new FunctionDefinition('createTable', [new QueryDecorator('CREATE TABLE Person (id KEYWORD)')])
@@ -378,10 +385,13 @@ describe('Kinotic JS', () => {
                                                                                       applicationIdUsed,
                                                                                       projectIdUsed,
                                                                                       entityService.entityName,
-                                                                                      [otherEntity, otherEntityAggregate, reindex, createTable]))
+                                                                                      [otherEntity, otherCase, otherEntityAggregate, hiddenIndexAggregate, commentedAggregate, reindex, createTable]))
 
             await expect(entityService.namedQuery('otherEntity', [])).rejects.toThrow(/acts on Person, not Vehicle/)
+            await expect(entityService.namedQuery('otherCase', [])).rejects.toThrow(/acts on Person, not person/)
             await expect(entityService.namedQuery('otherEntityAggregate', [])).rejects.toThrow(/acts on Person, not Vehicle/)
+            await expect(entityService.namedQuery('hiddenIndexAggregate', [])).rejects.toThrow(/syntax error/)
+            await expect(entityService.namedQuery('commentedAggregate', [])).rejects.toThrow(/syntax error/)
             await expect(entityService.namedQuery('reindex', [])).rejects.toThrow(/is not allowed/)
             await expect(entityService.namedQuery('createTable', [])).rejects.toThrow(/does not act on an entity/)
         }
@@ -393,13 +403,13 @@ describe('Kinotic JS', () => {
             const structureId = entityService.entityId
             const namedQueriesService = Kinotic.namedQueriesDefinitions
 
-            const query = new QueryDecorator('SELECT COUNT(firstName) as count FROM Person')
+            const query = new QueryDecorator('SELECT COUNT(firstName) AS count FROM Person')
             const namedQuery = new FunctionDefinition('countAllPeople', [query])
             namedQuery.returnType = new ArrayC3Type(new ObjectC3Type('PeopleCount', applicationIdUsed)
                                                         .addProperty("count", new LongC3Type()))
 
 
-            const query2 = new QueryDecorator('SELECT COUNT(firstName) as count, lastName FROM Person WHERE lastName = :lastName GROUP BY lastName')
+            const query2 = new QueryDecorator('SELECT COUNT(firstName) AS count, lastName FROM Person WHERE lastName = :lastName GROUP BY lastName')
             const namedQuery2 = new FunctionDefinition('countPeopleByLastNameWithLastName', [query2])
             namedQuery2.addParameter('lastName', new StringC3Type())
             const contentType2 = new ObjectC3Type('CountByLastName', applicationIdUsed)
@@ -408,7 +418,7 @@ describe('Kinotic JS', () => {
             namedQuery2.returnType = new ArrayC3Type(contentType2)
 
 
-            const query3 = new QueryDecorator('SELECT COUNT(firstName) as count, lastName FROM Person GROUP BY lastName')
+            const query3 = new QueryDecorator('SELECT COUNT(firstName) AS count, lastName FROM Person GROUP BY lastName')
             const namedQuery3 = new FunctionDefinition('countPeopleByLastNamePage', [query3])
             namedQuery3.addParameter('pageable', new PageableC3Type())
             const contentType3 = new ObjectC3Type('CountByLastName', applicationIdUsed)

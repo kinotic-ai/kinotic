@@ -28,11 +28,11 @@ public class UpdateStatementParser implements StatementParser {
     @Override
     public Statement parse(KinoticSQLParser.StatementContext ctx) {
         KinoticSQLParser.UpdateStatementContext updateCtx = ctx.updateStatement();
-        String tableName = updateCtx.ID().getText();
+        String tableName = Identifiers.name(updateCtx.identifier());
 
         Map<String, Expression> assignments = new LinkedHashMap<>();
         for (KinoticSQLParser.AssignmentContext assignment : updateCtx.assignment()) {
-            String field = assignment.ID().getText();
+            String field = Identifiers.name(assignment.identifier());
             Expression expression = expressionVisitor.visit(assignment.expression());
             assignments.put(field, expression);
         }

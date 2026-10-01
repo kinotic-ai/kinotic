@@ -7,9 +7,7 @@ import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.ParameterHolder;
 import org.kinotic.persistence.api.model.QueryOptions;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -31,12 +29,7 @@ public class QueryContext {
     private final ParameterHolder parameterHolder;
 
     /**
-     * The queryParameters to be used in the query
-     */
-    private List<Object> queryParameters = new ArrayList<>();
-
-    /**
-     * The queryParameters keyed by the names the statement refers to them by
+     * The query parameters keyed by the names the statement refers to them by
      */
     private final Map<String, Object> namedParameters = new HashMap<>();
 

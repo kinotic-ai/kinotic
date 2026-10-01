@@ -23,10 +23,10 @@ public class CreateDataStreamStatementParser implements StatementParser {
     @Override
     public Statement parse(KinoticSQLParser.StatementContext ctx) {
         KinoticSQLParser.CreateDataStreamStatementContext streamCtx = ctx.createDataStreamStatement();
-        String streamName = streamCtx.ID().getText();
+        String streamName = Identifiers.name(streamCtx.identifier());
 
         List<Column> columns = streamCtx.columnDefinition().stream()
-                .map(def -> TypeParser.parseColumnType(def.ID().getText(), def.type()))
+                .map(def -> TypeParser.parseColumnType(Identifiers.name(def.identifier()), def.type()))
                 .toList();
 
         String dataRetention = streamCtx.dataStreamOption().stream()

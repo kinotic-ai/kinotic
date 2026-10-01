@@ -463,7 +463,7 @@ class CompositeTypeTest extends KinoticTestBase {
             UPDATE ct_update_test
                SET address = { city: 'Shelbyville', coords: { lat: 30.26 } },
                    tags    = [ { label: 'Area', value: 'grammar' }, { label: 'Release', value: 'v2' } ]
-             WHERE id == 'p-1' WITH REFRESH;
+             WHERE id = 'p-1' WITH REFRESH;
             """;
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__ct_update_create", createSql),
@@ -515,7 +515,7 @@ class CompositeTypeTest extends KinoticTestBase {
             UPDATE ct_null_test
                SET nickname = null,
                    address  = { street: null, coords: { lat: null } }
-             WHERE id == 'p-1' WITH REFRESH;
+             WHERE id = 'p-1' WITH REFRESH;
             """;
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__ct_null_create", createSql),
@@ -559,8 +559,8 @@ class CompositeTypeTest extends KinoticTestBase {
             INSERT INTO ct_merge_absent_test (id) VALUES ('p-2') WITH REFRESH;
             """;
         String updateSql = """
-            UPDATE ct_merge_absent_test SET address = { city: 'Shelbyville' } WHERE id == 'p-1' WITH REFRESH;
-            UPDATE ct_merge_absent_test SET address = { coords: { lat: null } } WHERE id == 'p-2' WITH REFRESH;
+            UPDATE ct_merge_absent_test SET address = { city: 'Shelbyville' } WHERE id = 'p-1' WITH REFRESH;
+            UPDATE ct_merge_absent_test SET address = { coords: { lat: null } } WHERE id = 'p-2' WITH REFRESH;
             """;
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__ct_merge_absent_create", createSql),
@@ -603,7 +603,7 @@ class CompositeTypeTest extends KinoticTestBase {
         String updateSql = """
             UPDATE ct_union_data_test
                SET item = { kind: 'Video', duration: 17, isbn: null }
-             WHERE id == 'a-1' WITH REFRESH;
+             WHERE id = 'a-1' WITH REFRESH;
             """;
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__ct_union_data_create", createSql),

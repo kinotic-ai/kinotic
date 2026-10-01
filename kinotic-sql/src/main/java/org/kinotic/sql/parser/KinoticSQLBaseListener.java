@@ -221,6 +221,54 @@ public class KinoticSQLBaseListener implements KinoticSQLListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterSelectItem(KinoticSQLParser.SelectItemContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitSelectItem(KinoticSQLParser.SelectItemContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterSelectExpression(KinoticSQLParser.SelectExpressionContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitSelectExpression(KinoticSQLParser.SelectExpressionContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterFunctionCall(KinoticSQLParser.FunctionCallContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitFunctionCall(KinoticSQLParser.FunctionCallContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterFunctionArgument(KinoticSQLParser.FunctionArgumentContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitFunctionArgument(KinoticSQLParser.FunctionArgumentContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterOrderBy(KinoticSQLParser.OrderByContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -228,6 +276,18 @@ public class KinoticSQLBaseListener implements KinoticSQLListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitOrderBy(KinoticSQLParser.OrderByContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterFieldPath(KinoticSQLParser.FieldPathContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitFieldPath(KinoticSQLParser.FieldPathContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -468,6 +528,30 @@ public class KinoticSQLBaseListener implements KinoticSQLListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitComment(KinoticSQLParser.CommentContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterIdentifier(KinoticSQLParser.IdentifierContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitIdentifier(KinoticSQLParser.IdentifierContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterNonReserved(KinoticSQLParser.NonReservedContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitNonReserved(KinoticSQLParser.NonReservedContext ctx) { }
 
 	/**
 	 * {@inheritDoc}

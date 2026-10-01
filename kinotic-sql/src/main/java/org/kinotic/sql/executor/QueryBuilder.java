@@ -56,7 +56,7 @@ public class QueryBuilder {
 
     private static Query buildComparisonQuery(String field, String operator, FieldValue value) {
         switch (operator) {
-            case "==":
+            case "=":
                 return Query.of(q -> q.term(t -> t.field(field).value(value)));
             case "!=":
                 return Query.of(q -> q.bool(b -> b.mustNot(m -> m.term(t -> t.field(field).value(value)))));
@@ -65,7 +65,7 @@ public class QueryBuilder {
             case "<=":
             case ">=":
                 if (value._kind() == FieldValue.Kind.Boolean) {
-                    throw new IllegalArgumentException("Boolean values can only be compared with == and != operators");
+                    throw new IllegalArgumentException("Boolean values can only be compared with = and != operators");
                 }
 
                 if (value._kind() == FieldValue.Kind.Double || value._kind() == FieldValue.Kind.Long) {
@@ -104,15 +104,33 @@ public class QueryBuilder {
     }
 
     private static FieldValue parseValue(String value) {
+        Object literal = literalValue(value);
+        return switch (literal) {
+            // unboxed, since a boxed argument resolves to FieldValue.of(Object), whose value has no kind
+            case Boolean bool -> FieldValue.of(bool.booleanValue());
+            case Double number -> FieldValue.of(number.doubleValue());
+            case Long number -> FieldValue.of(number.longValue());
+            default -> FieldValue.of((String) literal);
+        };
+    }
+
+    /**
+     * The value a WHERE condition's literal stands for: a {@link String} for a quoted string, a {@link Boolean}, or a
+     * {@link Long} or {@link Double} for a number.
+     *
+     * @param value the literal as a {@link WhereClause.Condition} holds it
+     */
+    static Object literalValue(String value) {
+        Object ret;
         if (value.startsWith("'") && value.endsWith("'")) {
-            return FieldValue.of(value.substring(1, value.length() - 1));
+            ret = value.substring(1, value.length() - 1);
         } else if ("true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value)) {
-            return FieldValue.of(Boolean.parseBoolean(value));
+            ret = Boolean.parseBoolean(value);
         } else if (NUMBER_PATTERN.matcher(value).matches()) {
-            return value.indexOf('.') >= 0 ? FieldValue.of(Double.parseDouble(value))
-                                           : FieldValue.of(Long.parseLong(value));
+            ret = value.indexOf('.') >= 0 ? (Object) Double.parseDouble(value) : (Object) Long.parseLong(value);
         } else {
-            return FieldValue.of(value); // Fallback to string if not a number
+            ret = value; // Fallback to string if not a number
         }
+        return ret;
     }
 }

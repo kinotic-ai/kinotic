@@ -23,7 +23,7 @@ public class DeleteStatementParser implements StatementParser {
     @Override
     public Statement parse(KinoticSQLParser.StatementContext ctx) {
         KinoticSQLParser.DeleteStatementContext deleteContext = ctx.deleteStatement();
-        String tableName = deleteContext.ID().getText();
+        String tableName = Identifiers.name(deleteContext.identifier());
         WhereClause whereClause = whereClauseVisitor.visit(deleteContext.whereClause());
 
         // Check for WITH REFRESH

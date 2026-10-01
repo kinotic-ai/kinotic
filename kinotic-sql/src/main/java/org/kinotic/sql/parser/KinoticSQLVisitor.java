@@ -113,11 +113,41 @@ public interface KinoticSQLVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitSelectList(KinoticSQLParser.SelectListContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#selectItem}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitSelectItem(KinoticSQLParser.SelectItemContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#selectExpression}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitSelectExpression(KinoticSQLParser.SelectExpressionContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#functionCall}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitFunctionCall(KinoticSQLParser.FunctionCallContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#functionArgument}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitFunctionArgument(KinoticSQLParser.FunctionArgumentContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link KinoticSQLParser#orderBy}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
 	T visitOrderBy(KinoticSQLParser.OrderByContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#fieldPath}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitFieldPath(KinoticSQLParser.FieldPathContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link KinoticSQLParser#insertOption}.
 	 * @param ctx the parse tree
@@ -238,4 +268,16 @@ public interface KinoticSQLVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitComment(KinoticSQLParser.CommentContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#identifier}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitIdentifier(KinoticSQLParser.IdentifierContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#nonReserved}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitNonReserved(KinoticSQLParser.NonReservedContext ctx);
 }

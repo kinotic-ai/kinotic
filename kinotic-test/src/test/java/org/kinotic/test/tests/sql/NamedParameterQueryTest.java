@@ -136,7 +136,7 @@ class NamedParameterQueryTest extends KinoticTestBase {
         // The city is unique to this test — every test here shares the np_param_test index, so a
         // by-value WHERE would otherwise match another test's document.
         UpdateStatement statement = parse(
-            "UPDATE np_param_test SET city = :newCity WHERE city == :oldCity WITH REFRESH;");
+            "UPDATE np_param_test SET city = :newCity WHERE city = :oldCity WITH REFRESH;");
         Long updated = updateStatementExecutor.executeQuery(statement, Map.of(
             "newCity", "Shelbyville",
             "oldCity", "North Haverbrook")).get();
@@ -152,7 +152,7 @@ class NamedParameterQueryTest extends KinoticTestBase {
             Map.of("id", "p-4", "address", Map.of("street", "4 Oak St", "city", "Springfield"))).get();
 
         updateStatementExecutor.executeQuery(parse(
-            "UPDATE np_param_test SET address = :address WHERE id == :id WITH REFRESH;"),
+            "UPDATE np_param_test SET address = :address WHERE id = :id WITH REFRESH;"),
             Map.of("id", "p-4", "address", Map.of("city", "Shelbyville"))).get();
 
         assertEquals(Map.of("street", "4 Oak St", "city", "Shelbyville"), source("p-4").get("address"),
@@ -165,7 +165,7 @@ class NamedParameterQueryTest extends KinoticTestBase {
             "INSERT INTO np_param_test (id, city) VALUES (:id, :city) WITH REFRESH;"),
             Map.of("id", "p-5", "city", "Ogdenville")).get();
 
-        DeleteStatement statement = parse("DELETE FROM np_param_test WHERE city == :city WITH REFRESH;");
+        DeleteStatement statement = parse("DELETE FROM np_param_test WHERE city = :city WITH REFRESH;");
         Long deleted = deleteStatementExecutor.executeQuery(statement, Map.of("city", "Ogdenville")).get();
 
         assertEquals(1, deleted);
@@ -174,7 +174,7 @@ class NamedParameterQueryTest extends KinoticTestBase {
 
     @Test
     void whenParameterMissing_thenCallFailsNamingIt() {
-        UpdateStatement update = parse("UPDATE np_param_test SET city = :newCity WHERE id == :id WITH REFRESH;");
+        UpdateStatement update = parse("UPDATE np_param_test SET city = :newCity WHERE id = :id WITH REFRESH;");
         IllegalArgumentException updateError = assertThrows(IllegalArgumentException.class,
             () -> updateStatementExecutor.executeQuery(update, Map.of("id", "p-1")));
         assertTrue(updateError.getMessage().contains(":newCity"),
@@ -187,7 +187,7 @@ class NamedParameterQueryTest extends KinoticTestBase {
         assertTrue(insertError.getMessage().contains(":city"),
                    "expected the parameter name in: " + insertError.getMessage());
 
-        DeleteStatement delete = parse("DELETE FROM np_param_test WHERE city == :city WITH REFRESH;");
+        DeleteStatement delete = parse("DELETE FROM np_param_test WHERE city = :city WITH REFRESH;");
         IllegalArgumentException deleteError = assertThrows(IllegalArgumentException.class,
             () -> deleteStatementExecutor.executeQuery(delete, Map.of()));
         assertTrue(deleteError.getMessage().contains(":city"),

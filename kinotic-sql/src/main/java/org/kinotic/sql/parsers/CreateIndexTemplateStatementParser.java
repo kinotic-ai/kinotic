@@ -23,7 +23,7 @@ public class CreateIndexTemplateStatementParser implements StatementParser {
     @Override
     public Statement parse(KinoticSQLParser.StatementContext ctx) {
         KinoticSQLParser.CreateIndexTemplateStatementContext templateCtx = ctx.createIndexTemplateStatement();
-        String templateName = templateCtx.ID().getText();
+        String templateName = Identifiers.name(templateCtx.identifier());
         String indexPattern = templateCtx.STRING(0).getText().replaceAll("'", "");
         String componentTemplate = templateCtx.STRING(1).getText().replaceAll("'", "");
 

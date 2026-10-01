@@ -129,7 +129,6 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
                     case "-" -> "-";
                     case "*" -> "*";
                     case "/" -> "/";
-                    case "==" -> "=="; // Not typically used in SET, but included
                     default -> throw new IllegalStateException("Unsupported operator: " + binaryOperator);
                 };
 
