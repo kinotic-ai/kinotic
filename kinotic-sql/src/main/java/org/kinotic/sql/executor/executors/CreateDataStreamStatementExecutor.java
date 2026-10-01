@@ -1,5 +1,7 @@
 package org.kinotic.sql.executor.executors;
 
+import org.kinotic.sql.KinoticSqlLibrary;
+import org.springframework.beans.factory.annotation.Qualifier;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +36,7 @@ public class CreateDataStreamStatementExecutor implements StatementExecutor<Crea
     // Above the built-in template priority (200) so a stream named like a built-in pattern still wins.
     private static final long TEMPLATE_PRIORITY = 500L;
 
+    @Qualifier(KinoticSqlLibrary.ELASTIC_CLIENT)
     private final ElasticsearchAsyncClient client;
 
     @Override

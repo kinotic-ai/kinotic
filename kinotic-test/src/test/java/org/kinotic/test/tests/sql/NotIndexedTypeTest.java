@@ -9,11 +9,13 @@ import java.util.Map;
 import jakarta.annotation.PostConstruct;
 import org.junit.jupiter.api.Test;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
+import org.kinotic.sql.KinoticSqlLibrary;
 import org.kinotic.sql.domain.Migration;
 import org.kinotic.sql.domain.MigrationContent;
 import org.kinotic.sql.executor.MigrationExecutor;
 import org.kinotic.sql.parsers.MigrationParser;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
@@ -27,6 +29,7 @@ import co.elastic.clients.elasticsearch.indices.GetMappingResponse;
 class NotIndexedTypeTest extends KinoticTestBase {
 
     @Autowired
+    @Qualifier(KinoticSqlLibrary.ELASTIC_CLIENT)
     private ElasticsearchAsyncClient asyncClient;
 
     @Autowired

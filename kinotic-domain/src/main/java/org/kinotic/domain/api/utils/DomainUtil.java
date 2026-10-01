@@ -66,6 +66,19 @@ public class DomainUtil {
      */
     public static final String INDEX_PREFIX = "kinotic_";
 
+    /**
+     * The name of the {@code ElasticsearchAsyncClient} bean connected to the entity data cluster configured by
+     * {@code kinotic.domain.persistence.elastic}. The unqualified {@code ElasticsearchAsyncClient} is connected to the
+     * cluster that stores the platform's domain objects.
+     */
+    public static final String ENTITY_DATA_ELASTIC_CLIENT = "entityDataElasticClient";
+
+    /**
+     * The name of the {@code CrudServiceTemplate} bean that reads and writes the entity data cluster. The unqualified
+     * {@code CrudServiceTemplate} reads and writes the cluster that stores the platform's domain objects.
+     */
+    public static final String ENTITY_DATA_CRUD_SERVICE_TEMPLATE = "entityDataCrudServiceTemplate";
+
     // Organization ids beginning with this prefix belong to the platform, which needs an
     // organization wherever it is its own tenant — the owner of VM workloads the OS runs for
     // the OS, for instance

@@ -1,5 +1,7 @@
 package org.kinotic.sql.executor.executors;
 
+import org.kinotic.sql.KinoticSqlLibrary;
+import org.springframework.beans.factory.annotation.Qualifier;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -29,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 @Component
 @RequiredArgsConstructor
 public class ReindexStatementExecutor implements StatementExecutor<ReindexStatement, String> {
+    @Qualifier(KinoticSqlLibrary.ELASTIC_CLIENT)
     private final ElasticsearchAsyncClient client;
 
     @Override

@@ -113,10 +113,15 @@ KINOTIC_DOMAIN_EMAIL_MANAGEDIDENTITYCLIENTID: "{{ $root.Values.kinotic.domain.em
 {{- end }}
 
 # ── Elasticsearch connection ──────────────────────────────
+# kinotic.domain.elastic (domain objects) and kinotic.domain.persistence.elastic (entity data) both
+# connect to the one cluster in kinotic.elastic
 {{- range $index, $value := $root.Values.kinotic.elastic.connections }}
-KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_SCHEME: "{{ $value.scheme }}"
-KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_HOST: "{{ $value.host }}"
-KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
+KINOTIC_DOMAIN_ELASTIC_CONNECTIONS_{{ $index }}_SCHEME: "{{ $value.scheme }}"
+KINOTIC_DOMAIN_ELASTIC_CONNECTIONS_{{ $index }}_HOST: "{{ $value.host }}"
+KINOTIC_DOMAIN_ELASTIC_CONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
+KINOTIC_DOMAIN_PERSISTENCE_ELASTIC_CONNECTIONS_{{ $index }}_SCHEME: "{{ $value.scheme }}"
+KINOTIC_DOMAIN_PERSISTENCE_ELASTIC_CONNECTIONS_{{ $index }}_HOST: "{{ $value.host }}"
+KINOTIC_DOMAIN_PERSISTENCE_ELASTIC_CONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
 {{- end }}
 
 # ── Loki, Tempo, Mimir (LogService, TelemetryService) ─────

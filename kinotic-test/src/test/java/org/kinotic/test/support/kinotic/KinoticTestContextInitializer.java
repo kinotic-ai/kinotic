@@ -6,6 +6,8 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
+
 /**
  * TestContextInitializer that starts the Kinotic Docker Compose stack
  * compose.kinotic-test.yml before Spring context initialization
@@ -33,12 +35,13 @@ public class KinoticTestContextInitializer implements ApplicationContextInitiali
             String esHost = KinoticTestComposeBoostrap.getElasticsearchHost();
             int esPort = KinoticTestComposeBoostrap.getElasticsearchPort();
 
-            TestPropertyValues.of("kinotic.domain.elastic-connections[0].host=" + esHost)
-                .applyTo(applicationContext);
-            TestPropertyValues.of("kinotic.domain.elastic-connections[0].port=" + esPort)
-                .applyTo(applicationContext);
-            TestPropertyValues.of("kinotic.domain.elastic-connections[0].scheme=http")
-                .applyTo(applicationContext);
+            // the domain objects and the entity data share the one test cluster
+            for (String cluster : List.of("kinotic.domain.elastic", "kinotic.domain.persistence.elastic")) {
+                TestPropertyValues.of(cluster + ".connections[0].host=" + esHost,
+                                      cluster + ".connections[0].port=" + esPort,
+                                      cluster + ".connections[0].scheme=http")
+                                  .applyTo(applicationContext);
+            }
 
             log.info("KinoticTestContextInitializer: Kinotic stack ready, elasticsearch={}:{}", esHost, esPort);
 

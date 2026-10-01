@@ -36,7 +36,6 @@ import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.internal.serializer.RawJsonJsonpDeserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.type.TypeFactory;
@@ -54,7 +53,6 @@ import java.util.function.Function;
 /**
  * Created by Navíd Mitchell 🤪 on 5/10/23.
  */
-@Component
 public class CrudServiceTemplate {
 
     private static final long DEFAULT_PRIORITY = 500L;
