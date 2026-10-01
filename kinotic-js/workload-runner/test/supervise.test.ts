@@ -89,6 +89,7 @@ describe('supervise entrypoint', () => {
                       `import { appendFileSync } from 'node:fs'
                        appendFileSync('starts.log', 'start\\n')
                        console.log('service says hello')
+                       console.log({ greeting: 'hello' })
                        console.error('service says oops')
                        setInterval(() => {}, 1000)`)
         startSupervisor({ KINOTIC_LOG_DIR: logDir, KINOTIC_LOG_MAX_SIZE_MB: '1', KINOTIC_LOG_MAX_FILES: '1' })
@@ -105,6 +106,8 @@ describe('supervise entrypoint', () => {
         }
         expect(content).toContain('[workload-runner] starting service.ts')
         expect(content).toContain('service says hello')
+        // bun colors an inspected object only when forced to, its output being a pipe
+        expect(content).toMatch(/\x1b\[[0-9;]*mgreeting/)
     }, 40_000)
 
     it('respawns a crashed microservice', async () => {
