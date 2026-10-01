@@ -14,6 +14,7 @@ import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
 import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
@@ -89,7 +90,7 @@ public class EntityServiceCache {
      * building and caching it on a miss.
      */
     public Future<EntityService> get(String organizationId, String entityDefinitionId) {
-        return crudServiceTemplate.toFuture(cache.get(new CacheKey(organizationId, entityDefinitionId)));
+        return KinoticUtil.toFuture(cache.get(new CacheKey(organizationId, entityDefinitionId)));
     }
 
     /**

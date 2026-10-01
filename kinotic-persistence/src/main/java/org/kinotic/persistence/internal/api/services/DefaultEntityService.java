@@ -14,6 +14,7 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
@@ -316,7 +317,7 @@ public class DefaultEntityService implements EntityService {
         return doPersist(entity,
                          EntityOperation.SAVE,
                          context,
-                         entityHolder -> crudServiceTemplate.toFuture(esAsyncClient.index(i -> {
+                         entityHolder -> KinoticUtil.toFuture(esAsyncClient.index(i -> {
                              i.routing(entityHolder.tenantId())
                               .index(entityDescriptor.itemIndex())
                               .id(entityHolder.getDocumentId())
@@ -446,7 +447,7 @@ public class DefaultEntityService implements EntityService {
                                  return u;
                              });
 
-                             return crudServiceTemplate.toFuture(esAsyncClient.update(request, entityHolder.entity().getClass()))
+                             return KinoticUtil.toFuture(esAsyncClient.update(request, entityHolder.entity().getClass()))
                                                        .map(updateResponse ->
                                                                     postProcessSaveOrUpdate(entity,
                                                                                             entityHolder,
@@ -634,7 +635,7 @@ public class DefaultEntityService implements EntityService {
 
         br.operations(bulkOperations);
 
-        return crudServiceTemplate.toFuture(esAsyncClient.bulk(br.build())).compose(bulkResponse -> {
+        return KinoticUtil.toFuture(esAsyncClient.bulk(br.build())).compose(bulkResponse -> {
             if (bulkResponse.errors()) {
                 StringBuilder builder = new StringBuilder();
                 for (BulkResponseItem item : bulkResponse.items()) {

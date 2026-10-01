@@ -1,7 +1,7 @@
 package org.kinotic.domain.api.services;
 
 import io.vertx.core.Future;
-import org.kinotic.domain.api.model.AppHost;
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.sql.domain.Statement;
@@ -29,7 +29,7 @@ public interface EntityStatementResolver {
      * @return the resolved statements, in the order given; fails when a name is not one of the application's
      *         published entities, a statement does not act on an entity, or an INSERT row lacks its id or tenant
      */
-    Future<List<Statement>> resolve(List<Statement> statements, AppHost application);
+    Future<List<Statement>> resolve(List<Statement> statements, ApplicationKey application);
 
     /**
      * Resolves a named query's statements against the entity the query belongs to. Every name a statement carries

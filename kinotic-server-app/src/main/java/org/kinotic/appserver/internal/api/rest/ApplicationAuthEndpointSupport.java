@@ -6,7 +6,8 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.HttpException;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.appserver.api.config.AppServerProperties;
-import org.kinotic.domain.api.model.AppHost;
+import org.kinotic.domain.api.model.ApplicationKey;
+import org.kinotic.domain.api.utils.AppHostUtil;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Component;
 /**
  * The app server's {@link AuthEndpointSupport}. Every request the app server serves is addressed to one
  * application's API host, {@code <organizationId>--<applicationId>} under {@code kinotic.appServer.apiBaseUrl},
- * and {@link #appHost} names that application; the browser flows send the user to its primary UI.
+ * and {@link #applicationKey} names that application; the browser flows send the user to its primary UI.
  */
 @Component
 public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
@@ -47,8 +48,8 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
      * @return the application
      * @throws HttpException with {@code 404} when the request names no application's API host
      */
-    public AppHost appHost(RoutingContext ctx) {
-        AppHost ret = findAppHost(ctx);
+    public ApplicationKey applicationKey(RoutingContext ctx) {
+        ApplicationKey ret = findApplicationKey(ctx);
         if (ret == null) {
             throw new HttpException(404);
         }
@@ -65,9 +66,9 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
      */
     @Override
     public Future<String> uiUrl(RoutingContext ctx, String path) {
-        AppHost appHost = findAppHost(ctx);
-        Future<Application> application = appHost != null
-                ? applicationRepository.findById(appHost.applicationId(), appHost.organizationId())
+        ApplicationKey applicationKey = findApplicationKey(ctx);
+        Future<Application> application = applicationKey != null
+                ? applicationRepository.findById(applicationKey.applicationId(), applicationKey.organizationId())
                 : Future.succeededFuture();
         return application.map(found -> {
             if (found == null) {
@@ -79,9 +80,9 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
     }
 
     // null when the request was addressed to a host that is no application's API host
-    private AppHost findAppHost(RoutingContext ctx) {
+    private ApplicationKey findApplicationKey(RoutingContext ctx) {
         // authority() is the request's Host header, parsed; null on an HTTP/1.0 request that sent none
         HostAndPort authority = ctx.request().authority();
-        return authority != null ? AppHost.fromHost(authority.host(), properties.getApiBaseUrl()) : null;
+        return authority != null ? AppHostUtil.fromHost(authority.host(), properties.getApiBaseUrl()) : null;
     }
 }

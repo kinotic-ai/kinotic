@@ -4,7 +4,7 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
-import org.kinotic.domain.api.model.AppHost;
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
@@ -38,7 +38,7 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
     private final DomainPersistenceProperties domainPersistenceProperties;
 
     @Override
-    public Future<List<Statement>> resolve(List<Statement> statements, AppHost application) {
+    public Future<List<Statement>> resolve(List<Statement> statements, ApplicationKey application) {
         // one lookup per distinct name, shared by every statement that names the entity
         Map<String, Future<EntityDescriptor>> lookups = new LinkedHashMap<>();
         for (Statement statement : statements) {
@@ -88,7 +88,7 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
         };
     }
 
-    private Future<EntityDescriptor> requireEntity(String name, AppHost application) {
+    private Future<EntityDescriptor> requireEntity(String name, ApplicationKey application) {
         String organizationId = application.organizationId();
         String id = DomainUtil.createEntityDefinitionId(organizationId, application.applicationId(), name);
         return entityDefinitionRepository.findById(id, organizationId)

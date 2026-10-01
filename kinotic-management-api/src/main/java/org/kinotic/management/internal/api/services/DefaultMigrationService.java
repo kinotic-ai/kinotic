@@ -6,11 +6,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.model.AppHost;
+import org.kinotic.core.api.utils.KinoticUtil;
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.services.EntityStatementResolver;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.management.api.model.MigrationDefinition;
 import org.kinotic.management.api.model.MigrationRequest;
 import org.kinotic.management.api.model.MigrationResult;
@@ -39,7 +39,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DefaultMigrationService implements MigrationService {
 
-    private final CrudServiceTemplate crudServiceTemplate;
     private final MigrationExecutor migrationExecutor;
     private final MigrationParser migrationParser;
     private final SecurityContext securityContext;
@@ -53,7 +52,7 @@ public class DefaultMigrationService implements MigrationService {
         log.debug("Executing {} migrations for project {}", migrationRequest.migrations().size(), projectId);
         return requireOwnedProject(projectId, participant)
                 .compose(project -> resolve(migrationRequest.migrations(), project))
-                .compose(migrations -> crudServiceTemplate.toFuture(migrationExecutor.executeProjectMigrations(migrations, projectId))
+                .compose(migrations -> KinoticUtil.toFuture(migrationExecutor.executeProjectMigrations(migrations, projectId))
                                                           .map(v -> MigrationResult.success(projectId, migrations.size())))
                 .otherwise(throwable -> {
                     log.debug("Failed to execute migrations for project {}: {}", projectId, throwable.getMessage(), throwable);
@@ -65,7 +64,7 @@ public class DefaultMigrationService implements MigrationService {
     public Future<Integer> getLastAppliedMigrationVersion(String projectId) {
         OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
         return requireOwnedProject(projectId, participant)
-                .compose(project -> crudServiceTemplate.toFuture(migrationExecutor.getLastAppliedMigrationVersion(projectId)));
+                .compose(project -> KinoticUtil.toFuture(migrationExecutor.getLastAppliedMigrationVersion(projectId)));
     }
 
     @Override
@@ -73,7 +72,7 @@ public class DefaultMigrationService implements MigrationService {
         Validate.notNull(version, "Migration version cannot be null");
         OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
         return requireOwnedProject(projectId, participant)
-                .compose(project -> crudServiceTemplate.toFuture(migrationExecutor.isMigrationAppliedAsync(version, projectId)));
+                .compose(project -> KinoticUtil.toFuture(migrationExecutor.isMigrationAppliedAsync(version, projectId)));
     }
 
     /**
@@ -96,12 +95,12 @@ public class DefaultMigrationService implements MigrationService {
      * published entities fails the request before anything runs.
      */
     private Future<List<Migration>> resolve(List<MigrationDefinition> definitions, Project project) {
-        AppHost application = new AppHost(project.getOrganizationId(), project.getApplicationId());
+        ApplicationKey application = new ApplicationKey(project.getOrganizationId(), project.getApplicationId());
         List<Future<Migration>> migrations = definitions.stream().map(definition -> resolve(definition, application)).toList();
         return Future.all(migrations).map(CompositeFuture::list);
     }
 
-    private Future<Migration> resolve(MigrationDefinition definition, AppHost application) {
+    private Future<Migration> resolve(MigrationDefinition definition, ApplicationKey application) {
         List<Statement> statements = migrationParser.parse(definition.content(), definition.name()).statements();
         for (Statement statement : statements) {
             Validate.isTrue(statement instanceof InsertStatement || statement instanceof UpdateStatement

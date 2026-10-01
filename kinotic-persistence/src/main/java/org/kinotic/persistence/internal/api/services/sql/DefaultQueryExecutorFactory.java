@@ -133,7 +133,7 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
                 .filter(candidate -> candidate.supports(statement))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No executor found for statement: " + statement.getClass().getSimpleName()));
-        return new StatementQueryExecutor(entityDescriptor, statement, entityStatementResolver, executor, crudServiceTemplate, jsonMapper);
+        return new StatementQueryExecutor(entityDescriptor, statement, entityStatementResolver, executor, jsonMapper);
     }
 
     /**

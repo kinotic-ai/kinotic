@@ -4,11 +4,11 @@ import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.services.EntityStatementResolver;
-import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.sql.domain.Statement;
@@ -28,20 +28,17 @@ public class StatementQueryExecutor extends AbstractQueryExecutor {
     private final Statement statement;
     private final EntityStatementResolver entityStatementResolver;
     private final StatementExecutor<Statement, ?> statementExecutor;
-    private final CrudServiceTemplate crudServiceTemplate;
     private final JsonMapper jsonMapper;
 
     public StatementQueryExecutor(EntityDescriptor entityDescriptor,
                                   Statement statement,
                                   EntityStatementResolver entityStatementResolver,
                                   StatementExecutor<Statement, ?> statementExecutor,
-                                  CrudServiceTemplate crudServiceTemplate,
                                   JsonMapper jsonMapper) {
         super(entityDescriptor);
         this.statement = statement;
         this.entityStatementResolver = entityStatementResolver;
         this.statementExecutor = statementExecutor;
-        this.crudServiceTemplate = crudServiceTemplate;
         this.jsonMapper = jsonMapper;
     }
 
@@ -50,7 +47,7 @@ public class StatementQueryExecutor extends AbstractQueryExecutor {
         Map<String, Object> parameters = context.getNamedParameters();
         String tenantId = entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED ? writeTenant(context.getEntityContext()) : null;
         Statement confined = entityStatementResolver.confine(statement, entityDescriptor, tenantId, parameters);
-        return crudServiceTemplate.toFuture(statementExecutor.executeQuery(confined, parameters))
+        return KinoticUtil.toFuture(statementExecutor.executeQuery(confined, parameters))
                                   .map(result -> List.of(countRow(result, type)));
     }
 

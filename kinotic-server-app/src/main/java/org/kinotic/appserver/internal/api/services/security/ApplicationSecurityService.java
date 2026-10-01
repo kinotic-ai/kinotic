@@ -7,7 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.appserver.api.config.AppServerProperties;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
-import org.kinotic.domain.api.model.AppHost;
+import org.kinotic.domain.api.model.ApplicationKey;
+import org.kinotic.domain.api.utils.AppHostUtil;
 import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
@@ -34,33 +35,33 @@ public class ApplicationSecurityService implements SecurityService {
 
     @Override
     public Future<Participant> authenticate(Map<String, String> authenticationInfo) {
-        AppHost appHost = requestAppHost(authenticationInfo);
-        return credentialAuthenticationService.authenticate(authenticationInfo, identity -> admits(identity, appHost));
+        ApplicationKey applicationKey = requestApplicationKey(authenticationInfo);
+        return credentialAuthenticationService.authenticate(authenticationInfo, identity -> admits(identity, applicationKey));
     }
 
-    private static boolean admits(ParticipantIdentity identity, AppHost appHost) {
+    private static boolean admits(ParticipantIdentity identity, ApplicationKey applicationKey) {
         boolean ret;
         if (identity.getOrganizationId() == null) {
             ret = false;
         } else if (identity.getApplicationId() != null) {
-            ret = appHost == null || appHost.equals(new AppHost(identity.getOrganizationId(), identity.getApplicationId()));
+            ret = applicationKey == null || applicationKey.equals(new ApplicationKey(identity.getOrganizationId(), identity.getApplicationId()));
         } else {
             // an organization's identity reaches the app server only as the runtime of one of its applications
             ret = identity instanceof MachineParticipantIdentity machine
                     && machine.getMachineKind() == MachineKind.APP_RUNTIME
-                    && (appHost == null || appHost.organizationId().equals(machine.getOrganizationId()));
+                    && (applicationKey == null || applicationKey.organizationId().equals(machine.getOrganizationId()));
         }
         return ret;
     }
 
     // null when the request was addressed to the server's own address rather than an application's API host
-    private AppHost requestAppHost(Map<String, String> authenticationInfo) {
+    private ApplicationKey requestApplicationKey(Map<String, String> authenticationInfo) {
         String host = authenticationInfo.entrySet().stream()
                                         .filter(header -> HttpHeaders.HOST.toString().equalsIgnoreCase(header.getKey()))
                                         .map(Map.Entry::getValue)
                                         .findFirst()
                                         .orElse(null);
         HostAndPort authority = host != null ? HostAndPort.parseAuthority(host, -1) : null;
-        return authority != null ? AppHost.fromHost(authority.host(), properties.getApiBaseUrl()) : null;
+        return authority != null ? AppHostUtil.fromHost(authority.host(), properties.getApiBaseUrl()) : null;
     }
 }

@@ -60,16 +60,6 @@ public class DomainUtil {
     public static final String APP_ZONE_PREFIX = "app";
 
     /**
-     * Separates the names a host label joins, {@code <organizationId>--<applicationId>} for an application's API
-     * host and {@code <organizationId>--<applicationId>--<uiName>} for the site of one of its UIs. No name
-     * contains it, so a label names exactly one application, and one UI.
-     */
-    public static final String HOST_LABEL_SEPARATOR = "--";
-
-    /** The longest label DNS allows, which bounds every host label the platform mints. */
-    public static final int MAX_HOST_LABEL_LENGTH = 63;
-
-    /**
      * The prefix of the Elasticsearch indices the platform creates, including the index that holds
      * the items of each published EntityDefinition
      */
@@ -149,7 +139,7 @@ public class DomainUtil {
     // two applications form the same label: org "a" with app "b--c" and org "a--b" with app "c"
     private static void validateHostLabelPart(String name) {
         ZoneUtil.validateLabel(name);
-        Validate.isTrue(!name.contains(HOST_LABEL_SEPARATOR), "'%s' must not contain '%s'", name, HOST_LABEL_SEPARATOR);
+        Validate.isTrue(!name.contains(AppHostUtil.HOST_LABEL_SEPARATOR), "'%s' must not contain '%s'", name, AppHostUtil.HOST_LABEL_SEPARATOR);
     }
 
     public static void validateProjectId(String projectId){
