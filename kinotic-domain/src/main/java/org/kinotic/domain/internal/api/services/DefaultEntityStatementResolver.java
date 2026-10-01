@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -40,6 +41,8 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
     // and metadata can only be spelled literally. A name directly after a dot is a member, such as a source field.
     private static final Pattern SCRIPT_METADATA_ACCESS =
             Pattern.compile("(?<![.\\w])(?:ctx(?!\\.(?:_source|op)(?!\\w))|metadata)(?!\\w)");
+    // the access a SCRIPT_METADATA_ACCESS match starts, with the member, index or call that follows it, to name in an error
+    private static final Pattern SCRIPT_ACCESS_SHOWN = Pattern.compile("\\w+(?:\\s*\\??\\.\\s*\\w+|\\s*\\[[^\\]]*]|\\s*\\(\\s*\\))?");
 
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final DomainPersistenceProperties domainPersistenceProperties;
@@ -134,9 +137,7 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
             case SelectStatement select -> new SelectStatement(entity.apply(select.tableName()).itemIndex(), select.columns(),
                                                                select.whereClause(), select.orderBy(), select.limit());
             case ReindexStatement reindex -> {
-                Validate.isTrue(reindex.script() == null || !SCRIPT_METADATA_ACCESS.matcher(reindex.script()).find(),
-                                "REINDEX %s INTO %s: a SCRIPT reaches ctx only as ctx._source or ctx.op, and cannot call metadata()",
-                                reindex.source(), reindex.dest());
+                requireRowScopedScript(reindex);
                 yield new ReindexStatement(entity.apply(reindex.source()).itemIndex(),
                                            entity.apply(reindex.dest()).itemIndex(),
                                            reindex.conflicts(), reindex.maxDocs(), reindex.slices(),
@@ -227,6 +228,23 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
     private String tenantField(EntityDescriptor entity) {
         Validate.isTrue(entity.multiTenancyType() == MultiTenancyType.SHARED, "Entity %s has no tenant field", entity.name());
         return entity.isMultiTenantSelectionEnabled() ? entity.tenantIdFieldName() : domainPersistenceProperties.getTenantIdFieldName();
+    }
+
+    /**
+     * Refuses a REINDEX whose SCRIPT reaches a row's index, id or routing, naming the access and where it is.
+     */
+    private static void requireRowScopedScript(ReindexStatement reindex) {
+        String script = reindex.script();
+        Matcher access = script != null ? SCRIPT_METADATA_ACCESS.matcher(script) : null;
+        if (access != null && access.find()) {
+            Matcher shown = SCRIPT_ACCESS_SHOWN.matcher(script).region(access.start(), script.length());
+            throw new IllegalArgumentException(String.format(
+                    "REINDEX %s INTO %s: the SCRIPT uses %s at character %d. A reindex script changes the row through "
+                            + "ctx._source and can skip or delete it by setting ctx.op to 'noop' or 'delete'. The row's index, "
+                            + "id and routing belong to the platform, so the script cannot use ctx in any other way or call "
+                            + "metadata().",
+                    reindex.source(), reindex.dest(), shown.lookingAt() ? shown.group() : access.group(), access.start() + 1));
+        }
     }
 
     private static String kind(Statement statement) {

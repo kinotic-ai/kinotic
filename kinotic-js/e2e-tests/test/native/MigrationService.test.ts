@@ -218,17 +218,18 @@ describe('Kinotic JS', () => {
         'rejects a REINDEX SCRIPT that reaches beyond the row',
         async ({projectId}) => {
             // Through the index, id or routing a reindex script could write the rows into storage outside the application
-            for (const script of [
-                'ctx._index = "kinotic_application"',
-                'def c = ctx; c._routing = "x"',
-                'metadata().setIndex("kinotic_application")'
+            for (const [script, named] of [
+                ['ctx._index = "kinotic_application"', 'uses ctx._index at character 1'],
+                ['def c = ctx; c._routing = "x"', 'uses ctx at character 9'],
+                ['metadata().setIndex("kinotic_application")', 'uses metadata() at character 1']
             ]) {
                 const result = await Kinotic.migrations.executeMigrations({
                     projectId,
                     migrations: [migration(1, `REINDEX PersonWithTenant INTO Person WITH (SCRIPT = '${script}');`)]
                 })
                 expect(result.success).toBe(false)
-                expect(result.errorMessage).toContain('reaches ctx only as ctx._source or ctx.op')
+                expect(result.errorMessage).toContain(`REINDEX PersonWithTenant INTO Person: the SCRIPT ${named}`)
+                expect(result.errorMessage).toContain('setting ctx.op to \'noop\' or \'delete\'')
             }
             await expect(Kinotic.migrations.getLastAppliedMigrationVersion(projectId)).resolves.toBeNull()
         }
