@@ -586,7 +586,7 @@ Every span and every metric arrives with these resource attributes, matching the
 </tbody>
 </table>
 
-Traces and metrics are pushed with `X-Scope-OrgID` set to the organization id, or `kinotic-system` for platform workloads with no organization — the same tenant the logs go to. Tempo and Mimir run multi-tenant (`multitenancy_enabled: true`, as the docker-compose stack sets them), so each organization's telemetry is kept apart the way Loki keeps its logs, and Tempo's metrics-generator writes the span metrics it derives — `traces_spanmetrics_calls_total`, `traces_spanmetrics_latency_bucket` — into the same tenant, carrying `application_id` and `workload_id` beside `service` so one application's RED metrics can be selected within its organization.
+Traces and metrics are pushed with `X-Scope-OrgID` set to the organization id, or `kinotic-system` for platform workloads with no organization — the same tenant the logs go to. Tempo and Mimir run multi-tenant (`multitenancy_enabled: true`, as the docker-compose stack and the Kubernetes deployment set them), so each organization's telemetry is kept apart the way Loki keeps its logs, and Tempo's metrics-generator writes the span metrics it derives — `traces_spanmetrics_calls_total`, `traces_spanmetrics_latency_bucket` — into the same tenant, carrying `application_id` and `workload_id` beside `service` so one application's RED metrics can be selected within its organization.
 
 ### Reading workload traces and metrics
 

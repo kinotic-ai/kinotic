@@ -84,7 +84,9 @@ The server reads workload logs from Grafana Loki, and workload traces and metric
     </td>
     
     <td>
-      —
+      <code>
+        kinotic.managementApi.tempoUrl
+      </code>
     </td>
     
     <td>
@@ -108,7 +110,9 @@ The server reads workload logs from Grafana Loki, and workload traces and metric
     </td>
     
     <td>
-      —
+      <code>
+        kinotic.managementApi.mimirUrl
+      </code>
     </td>
     
     <td>
@@ -120,7 +124,69 @@ The server reads workload logs from Grafana Loki, and workload traces and metric
 </tbody>
 </table>
 
-In docker-compose the server points at `http://loki:3100`, `http://tempo:3200`, and `http://mimir:9009`; the Helm chart defaults Loki to `http://loki.observability.svc:3100` and deploys no Tempo or Mimir yet.
+In docker-compose the server points at `http://loki:3100`, `http://tempo:3200`, and `http://mimir:9009`; the Helm chart defaults them to `http://loki.observability.svc:3100`, `http://tempo.observability.svc:3100`, and `http://mimir.observability.svc:9009`, the services the KinD and Azure terraform deploy in the `observability` namespace (Tempo's chart serves its HTTP API on 3100).
+
+Every server also runs the OpenTelemetry Java agent its image embeds, which exports the server's own traces and metrics to the platform tenant, `kinotic-system`, read by the system console's Platform **Observability** page. The Helm chart attaches it on every server and sends each signal straight to its store, with no collector between; its logs reach Loki through Alloy instead, so the agent exports none:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Helm value
+    </th>
+    
+    <th>
+      Environment variable
+    </th>
+    
+    <th>
+      Default
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        otel.tracesEndpoint
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        http://tempo.observability.svc:4318/v1/traces
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        otel.metricsEndpoint
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        http://mimir.observability.svc:9009/otlp/v1/metrics
+      </code>
+    </td>
+  </tr>
+</tbody>
+</table>
 
 ## VM provider
 
