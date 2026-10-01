@@ -20,10 +20,9 @@ two of the decisions below exist only because of it.
 
 <callout type="info">
 
-**Status.** The host and the Azure root are built, and the portal is up on the single
-`kinotic-server` this page first described; the move to the three servers behind the edge
-(the Proxmox root's README has the steps), the nodes, the first system user and the end-to-end
-deployment are still to come. This page records the decisions, the target topology, and the
+**Status.** The host, the Azure root, the three servers behind the edge, and two nodes (a NUC
+and a VM on the host) are built, and the first system user is bootstrapped; the end-to-end
+deployment is still to come. This page records the decisions, the target topology, and the
 steps that build it, in the order they have to happen.
 
 </callout>
@@ -1556,10 +1555,15 @@ instead of creating its 40 GB loop image, and `/var/lib/kinotic/workloads`. Then
 
 ```bash
 sudo ./setup-node.sh            # docker, kata 4.1.0 on cloud-hypervisor, daemon.json, firewall floor
-sudo touch /etc/kinotic/egress-default-deny && sudo systemctl restart kinotic-node-firewall
+sudo mkdir -p /etc/kinotic && sudo touch /etc/kinotic/egress-default-deny && sudo systemctl restart kinotic-node-firewall
 sudo ./install-vm-manager.sh    # bun, @kinotic-ai/vm-manager, kinotic-vm-manager.service
 sudo ./verify-node.sh           # every invariant, again after every reboot
 ```
+
+A node VM on the host, from the Proxmox root's `workers`, is provisioned the same way: Ubuntu
+26.04 from the cloud image on the host's CPU type, so the guest has nested KVM, with
+`/var/lib/docker` and `/var/lib/kinotic/workloads` on XFS disks of its own that cloud-init mounts
+with `prjquota`. `dev-node-2` is one, with 12 GB and 6 cores, beside the NUCs.
 
 The Azure IMDS and WireServer drops install and verify unchanged; they protect nothing here and
 are left in so every node is provisioned by one path. A NUC's 32 GB is roughly a dozen runtime
@@ -1666,7 +1670,11 @@ which the service waits for:
     </td>
     
     <td>
-      a SYSTEM-scope machine created in the system console at <strong>
+      a SYSTEM-scope machine, created by the Proxmox root's <code>
+        bootstrap-identities.sh
+      </code>
+      
+       or in the system console at <strong>
         Members → Machines
       </strong>
       
@@ -2252,10 +2260,10 @@ the stores, runs the migration to completion and verifies it, and starts the ser
 the edge.
 Register the snapshot repository and SLM policy; `deploy-ui.sh` for the two UIs; confirm
 sign-up mail arrives and the portal loads on `https://dev-portal.kinotic.ai`.
-5. **Nodes.** Ubuntu 22.04 and the kit on each NUC, `vm-manager.env` from the terraform
-output plus the node's id, the SYSTEM machine's credentials from the system console's
-**Members → Machines** page in `vm-manager.secrets.env`; confirm each node is `ONLINE`
-with no health message.
+5. **Nodes.** Ubuntu and the kit on each NUC or worker VM, `vm-manager.env` from the terraform
+output plus the node's id; then the Proxmox root's `bootstrap-identities.sh` creates the
+first system user and each node's SYSTEM machine, installing the machine's credentials in
+the node's `vm-manager.secrets.env`; confirm each node is `ONLINE` with no health message.
 6. **End to end.** Deploy the template project from a peer's organization: the sync VM fetches
 through the allowlist, the runtime VM registers its microservice, the UI appears at
 `<label>.apps-dev.kinotic.ai`, and the run's log and the microservice's traces show in the
@@ -2265,12 +2273,6 @@ portal against it. Repeat before cutover.
 
 ## Open items
 
-- A first system user. The migration runs with the `production` profile, so no fixture user
-exists, and system users otherwise arrive through Entra SSO, which the development server
-does not run. The system console, and with it the SYSTEM machine the vm-manager connects as
-in step 5, needs a bootstrap for a first system user. Once one exists, the console's
-**Members** pages cover the rest: **Users** lists the operators and **Machines** issues the
-vm-manager's credentials.
 - Containers from OCI images are a technology preview in Proxmox VE 9.1. The environment,
 the resolvers and the console log are applied on the host until the API takes them, and a
 container whose entrypoint exits is restarted by a host timer; both fold into the terraform
