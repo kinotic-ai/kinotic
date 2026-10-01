@@ -109,10 +109,9 @@ const ANSI_CUBE_STEPS = [0, 95, 135, 175, 215, 255]
 // CSI sequences (SGR when the final byte is m), OSC sequences, and the remaining two-byte escapes
 const ANSI_ESCAPE = /\x1b\[([0-9;:?]*)([@-~])|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[@-Z\\-_]/g
 
-// Loki's detected_level values, colored as Spring Boot's console colors its level column
+// The logback levels an OTLP-shipped entry's severity_text names, lowercased, colored as Spring Boot's
+// console colors its level column
 const LEVEL_COLORS = {
-  fatal: ANSI_PALETTE[1]!,
-  critical: ANSI_PALETTE[1]!,
   error: ANSI_PALETTE[1]!,
   warn: ANSI_PALETTE[3]!,
   info: ANSI_PALETTE[2]!,
@@ -204,12 +203,14 @@ const showDate = computed(() => {
 
 // Both Loki payloads carry entries as streams of [nanosecond-timestamp, line] tuples. Loki merges an
 // entry's structured metadata into its stream labels, which is where an OTLP-shipped log keeps the
-// level Loki detected and the stack trace of the exception it was logged with.
+// severity_text its logger set and the stack trace of the exception it was logged with. The level is that
+// severity_text because Loki's detected_level is a keyword guess on a plain-text line, labelling some lines
+// of a workload log and leaving the rest bare.
 function parseStreams(streams: Array<{ stream?: Record<string, string>; values?: [string, string][] }> | undefined): LogEntry[] {
   const out: LogEntry[] = []
   for (const { stream, values } of streams ?? []) {
-    const detectedLevel = stream?.detected_level
-    const level = detectedLevel !== undefined && Object.hasOwn(LEVEL_COLORS, detectedLevel) ? detectedLevel as LogLevel : null
+    const severity = stream?.severity_text?.toLowerCase()
+    const level = severity !== undefined && Object.hasOwn(LEVEL_COLORS, severity) ? severity as LogLevel : null
     const stackTrace = stream?.exception_stacktrace
     for (const [ns, line] of values ?? []) {
       const message = line.replace(/\n+$/, '')
