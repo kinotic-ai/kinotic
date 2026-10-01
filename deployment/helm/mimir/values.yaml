@@ -1,5 +1,6 @@
 # Grafana Mimir as one monolithic process (-target=all), the way the docker-compose stack runs
-# it. Its blocks live on the pod's persistent volume.
+# it. Its blocks live on the pod's persistent volume; values-azure.yaml moves them, and the rules,
+# to Azure Blob Storage.
 
 image:
   repository: grafana/mimir
@@ -16,6 +17,12 @@ resources:
 
 persistence:
   size: 10Gi
+
+# The pods' service account, named after the release
+serviceAccount:
+  annotations: {}
+
+podLabels: {}
 
 # Mimir's configuration file. Mirrors deployment/docker-compose/mimir.yml, with every path on the
 # persistent volume at /data and a retention period.

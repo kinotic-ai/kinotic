@@ -1,0 +1,23 @@
+# Azure overrides for Mimir: blocks and rules in Azure Blob Storage, in the mimir-blocks and
+# mimir-ruler containers of the observability storage account (observability.tf). The persistent
+# volume holds only the ingester's write-ahead log and head blocks and the components' caches.
+# Mimir authenticates as its own workload identity through the Azure default credential chain;
+# terraform sets the account name (config.*_storage.azure.account_name) and the identity's client
+# id (serviceAccount.annotations).
+
+# The workload identity webhook injects the federated token into pods with this label
+podLabels:
+  azure.workload.identity/use: "true"
+
+config:
+  blocks_storage:
+    backend: azure
+    filesystem: null
+    azure:
+      container_name: mimir-blocks
+
+  ruler_storage:
+    backend: azure
+    filesystem: null
+    azure:
+      container_name: mimir-ruler

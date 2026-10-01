@@ -1,5 +1,6 @@
 # Shared Tempo base values (grafana/tempo chart, single binary).
 # Mirrors deployment/docker-compose/tempo.yml with production retention and a persistent volume.
+# Environment-specific overrides layer on top.
 
 tempo:
   # Pinned so chart bumps can't silently change the app version. Keep in sync with the
@@ -12,6 +13,15 @@ tempo:
       memory: 512Mi
     limits:
       memory: 1Gi
+  # Where trace blocks are kept: on the persistent volume here, in Azure Blob Storage on Azure
+  # (values-tempo-azure.yaml). The write-ahead log is on the volume either way.
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+      wal:
+        path: /var/tempo/wal
 
 # The chart's Service and container expose the HTTP API on 3100, so the server listens there
 # rather than on the 3200 the compose stack uses.
@@ -39,12 +49,7 @@ config: |
       block_retention: 720h  # 30 days, as Loki keeps logs
 
   storage:
-    trace:
-      backend: local
-      local:
-        path: /var/tempo/traces
-      wal:
-        path: /var/tempo/wal
+    {{- toYaml .Values.tempo.storage | nindent 4 }}
 
   metrics_generator:
     registry:

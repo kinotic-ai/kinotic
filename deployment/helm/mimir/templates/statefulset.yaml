@@ -15,9 +15,13 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
+      serviceAccountName: {{ .Release.Name }}
       securityContext:
         runAsUser: 10001
         runAsGroup: 10001
