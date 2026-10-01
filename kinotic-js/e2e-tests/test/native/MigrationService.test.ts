@@ -184,6 +184,20 @@ describe('Kinotic JS', () => {
     )
 
     it<LocalTestContext>(
+        'rejects a REINDEX that carries a SCRIPT',
+        async ({projectId}) => {
+            // A reindex script can assign ctx._index, which would write the rows into storage outside the application
+            const result = await Kinotic.migrations.executeMigrations({
+                projectId,
+                migrations: [migration(1, `REINDEX PersonWithTenant INTO PersonWithTenant WITH (SCRIPT = 'ctx._index = "kinotic_application"');`)]
+            })
+            expect(result.success).toBe(false)
+            expect(result.errorMessage).toContain('cannot carry a SCRIPT')
+            await expect(Kinotic.migrations.getLastAppliedMigrationVersion(projectId)).resolves.toBeNull()
+        }
+    )
+
+    it<LocalTestContext>(
         'resolves the whole run before anything runs',
         async ({projectId, adminPeople}) => {
             // V1 is valid on its own; V2 names an unknown entity, so V1 must not have run either

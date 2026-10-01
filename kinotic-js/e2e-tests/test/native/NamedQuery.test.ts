@@ -368,6 +368,11 @@ describe('Kinotic JS', () => {
             otherEntity.returnType = new ArrayC3Type(entityDefinition.schema)
             const otherEntityAggregate = new FunctionDefinition('otherEntityAggregate', [new QueryDecorator('SELECT COUNT(firstName) as count FROM Vehicle')])
             otherEntityAggregate.returnType = writeCount(applicationIdUsed)
+            // The entity named in a string literal must not stand in for the index the real FROM reads
+            const hiddenIndexAggregate = new FunctionDefinition('hiddenIndexAggregate', [new QueryDecorator(`SELECT COUNT(firstName) as count FROM "kinotic_*" WHERE 'x' <> 'FROM Person'`)])
+            hiddenIndexAggregate.returnType = writeCount(applicationIdUsed)
+            const commentedAggregate = new FunctionDefinition('commentedAggregate', [new QueryDecorator('SELECT COUNT(firstName) as count FROM Person /* x */')])
+            commentedAggregate.returnType = writeCount(applicationIdUsed)
             const reindex = new FunctionDefinition('reindex', [new QueryDecorator('REINDEX Person INTO Person')])
             reindex.returnType = writeCount(applicationIdUsed)
             const createTable = new FunctionDefinition('createTable', [new QueryDecorator('CREATE TABLE Person (id KEYWORD)')])
@@ -378,10 +383,12 @@ describe('Kinotic JS', () => {
                                                                                       applicationIdUsed,
                                                                                       projectIdUsed,
                                                                                       entityService.entityName,
-                                                                                      [otherEntity, otherEntityAggregate, reindex, createTable]))
+                                                                                      [otherEntity, otherEntityAggregate, hiddenIndexAggregate, commentedAggregate, reindex, createTable]))
 
             await expect(entityService.namedQuery('otherEntity', [])).rejects.toThrow(/acts on Person, not Vehicle/)
             await expect(entityService.namedQuery('otherEntityAggregate', [])).rejects.toThrow(/acts on Person, not Vehicle/)
+            await expect(entityService.namedQuery('hiddenIndexAggregate', [])).rejects.toThrow(/acts on Person, not "kinotic_\*"/)
+            await expect(entityService.namedQuery('commentedAggregate', [])).rejects.toThrow(/cannot contain a comment/)
             await expect(entityService.namedQuery('reindex', [])).rejects.toThrow(/is not allowed/)
             await expect(entityService.namedQuery('createTable', [])).rejects.toThrow(/does not act on an entity/)
         }

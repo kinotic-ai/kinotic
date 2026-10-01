@@ -126,11 +126,16 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
                                                                delete.refresh());
             case SelectStatement select -> new SelectStatement(entity.apply(select.tableName()).itemIndex(), select.columns(),
                                                                select.whereClause(), select.orderBy(), select.limit());
-            case ReindexStatement reindex -> new ReindexStatement(entity.apply(reindex.source()).itemIndex(),
-                                                                  entity.apply(reindex.dest()).itemIndex(),
-                                                                  reindex.conflicts(), reindex.maxDocs(), reindex.slices(),
-                                                                  reindex.size(), reindex.sourceFields(), reindex.query(),
-                                                                  reindex.script(), reindex.waitForReindex(), reindex.skipIfNoSource());
+            case ReindexStatement reindex -> {
+                // a reindex script can assign ctx._index, which would write the documents into any index
+                Validate.isTrue(reindex.script() == null, "REINDEX %s INTO %s cannot carry a SCRIPT",
+                                reindex.source(), reindex.dest());
+                yield new ReindexStatement(entity.apply(reindex.source()).itemIndex(),
+                                           entity.apply(reindex.dest()).itemIndex(),
+                                           reindex.conflicts(), reindex.maxDocs(), reindex.slices(),
+                                           reindex.size(), reindex.sourceFields(), reindex.query(),
+                                           reindex.script(), reindex.waitForReindex(), reindex.skipIfNoSource());
+            }
             default -> throw new IllegalArgumentException(kind(statement) + " does not act on an entity");
         };
     }
