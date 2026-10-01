@@ -1,0 +1,1 @@
+{"id":"a29cab80d3770972fa1cba03158aecce","fullName":"@kinotic-ai/e2e-tests:test/native/AdminNamedQuery.test.ts#Kinotic JS confines a query of the admin repository to the tenants it selects","name":"confines a query of the admin repository to the tenants it selects","status":"passed","testResultsByEnv":{"default":"9d185f1a29d93c411b8913f4f89916fd"}}
