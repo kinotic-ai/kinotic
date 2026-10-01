@@ -1,0 +1,1 @@
+{"id":"f39dd130a8f00b5ac4b9b6f2db155736","fullName":"@kinotic-ai/core:test/KinoticClient.test.ts#Kinotic JS packages/core Kinotic Client Tests should allow kinotic CLI to connect but not send any data","name":"should allow kinotic CLI to connect but not send any data","status":"passed","testResultsByEnv":{"default":"2eabe6c800a617ed69791b084ca2a4dc"}}
