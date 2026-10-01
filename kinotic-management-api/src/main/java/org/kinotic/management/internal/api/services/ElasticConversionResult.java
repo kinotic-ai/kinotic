@@ -14,12 +14,14 @@ import java.util.List;
  * @param decoratedProperties A list of all {@link DecoratedProperty} that were found during the conversion process
  * @param entityDecorator     The {@link EntityDecorator} that was found while converting the {@link EntityDefinition}
  * @param objectProperty      The root object property that represents the converted C3Type
+ * @param idFieldName         The name of the top-level field that holds an item's id
  * @param versionFieldName    The name of the field that will be used for optimistic locking or null if optimistic locking is not enabled
  * @param tenantIdFieldName   The name of the field that will be used to hold the tenant id for an entity
  */
 public record ElasticConversionResult(List<DecoratedProperty> decoratedProperties,
                                       EntityDecorator entityDecorator,
                                       ObjectProperty objectProperty,
+                                      String idFieldName,
                                       String versionFieldName,
                                       String tenantIdFieldName,
                                       String timeReferenceFieldName) {
