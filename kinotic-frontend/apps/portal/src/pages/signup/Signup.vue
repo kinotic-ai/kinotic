@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell>
+  <AuthPageShell :art="loginArt">
     <div v-if="!submitted" class="login-form">
       <h2 class="signup-title">Create your organization</h2>
 
@@ -81,6 +81,7 @@ import type { SignUpRequest } from '@kinotic-ai/management-api'
 import { apiUrl } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
+import loginArt from '@/assets/login-background.svg'
 
 const toast = useToast()
 
