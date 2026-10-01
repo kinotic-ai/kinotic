@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 /**
  * Created by Navíd Mitchell 🤝 Claude on 10/1/26.
@@ -33,6 +34,12 @@ import java.util.function.Function;
 @Component
 @RequiredArgsConstructor
 public class DefaultEntityStatementResolver implements EntityStatementResolver {
+
+    // A reindex script can redirect its writes to any index through ctx._index, ctx._id, ctx._routing or metadata().
+    // Matched on the raw script text: Painless lexes the source as written and an identifier is plain ASCII, so ctx
+    // and metadata can only be spelled literally. A name directly after a dot is a member, such as a source field.
+    private static final Pattern SCRIPT_METADATA_ACCESS =
+            Pattern.compile("(?<![.\\w])(?:ctx(?!\\.(?:_source|op)(?!\\w))|metadata)(?!\\w)");
 
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final DomainPersistenceProperties domainPersistenceProperties;
@@ -127,8 +134,8 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
             case SelectStatement select -> new SelectStatement(entity.apply(select.tableName()).itemIndex(), select.columns(),
                                                                select.whereClause(), select.orderBy(), select.limit());
             case ReindexStatement reindex -> {
-                // a reindex script can assign ctx._index, which would write the documents into any index
-                Validate.isTrue(reindex.script() == null, "REINDEX %s INTO %s cannot carry a SCRIPT",
+                Validate.isTrue(reindex.script() == null || !SCRIPT_METADATA_ACCESS.matcher(reindex.script()).find(),
+                                "REINDEX %s INTO %s: a SCRIPT reaches ctx only as ctx._source or ctx.op, and cannot call metadata()",
                                 reindex.source(), reindex.dest());
                 yield new ReindexStatement(entity.apply(reindex.source()).itemIndex(),
                                            entity.apply(reindex.dest()).itemIndex(),

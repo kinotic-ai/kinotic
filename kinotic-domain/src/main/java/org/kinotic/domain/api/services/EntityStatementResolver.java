@@ -28,7 +28,8 @@ public interface EntityStatementResolver {
      * @param applicationKey the application whose entities the statements name
      * @return the resolved statements, in the order given; fails when a name is not one of the application's
      *         published entities, a statement does not act on an entity, an INSERT row lacks its id or tenant, or
-     *         a REINDEX carries a SCRIPT
+     *         a REINDEX SCRIPT reaches ctx other than as {@code ctx._source} or {@code ctx.op}, or calls
+     *         {@code metadata()}
      */
     Future<List<Statement>> resolve(List<Statement> statements, ApplicationKey applicationKey);
 
@@ -41,7 +42,8 @@ public interface EntityStatementResolver {
      * @param entity     the entity the named query belongs to
      * @return the resolved statements, in the order given
      * @throws IllegalArgumentException if a name is not the entity's, a statement does not act on an entity, or a
-     *                                  REINDEX carries a SCRIPT
+     *                                  REINDEX SCRIPT reaches ctx other than as {@code ctx._source} or
+     *                                  {@code ctx.op}, or calls {@code metadata()}
      */
     List<Statement> resolve(List<Statement> statements, EntityDescriptor entity);
 

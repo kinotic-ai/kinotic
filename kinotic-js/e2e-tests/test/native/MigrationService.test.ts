@@ -184,15 +184,52 @@ describe('Kinotic JS', () => {
     )
 
     it<LocalTestContext>(
-        'rejects a REINDEX that carries a SCRIPT',
-        async ({projectId}) => {
-            // A reindex script can assign ctx._index, which would write the rows into storage outside the application
+        'transforms the rows a REINDEX copies with its SCRIPT',
+        async ({projectId, person}) => {
             const result = await Kinotic.migrations.executeMigrations({
                 projectId,
-                migrations: [migration(1, `REINDEX PersonWithTenant INTO PersonWithTenant WITH (SCRIPT = 'ctx._index = "kinotic_application"');`)]
+                migrations: [
+                    migration(1, `
+                        INSERT INTO PersonWithTenant (id, tenantId, firstName, lastName) VALUES ('p-1', '${APP_TENANT}', 'Grace', 'Hopper') WITH REFRESH;
+                        INSERT INTO PersonWithTenant (id, tenantId, firstName, lastName) VALUES ('p-2', '${APP_TENANT}', 'Skip', 'Me') WITH REFRESH;
+                    `),
+                    migration(2, `REINDEX PersonWithTenant INTO Person WITH (
+                        SCRIPT = 'if (ctx._source.firstName == "Skip") { ctx.op = "noop" } else { ctx._source.lastName = ctx._source.lastName.toUpperCase() }',
+                        WAIT = TRUE
+                    );`)
+                ]
             })
-            expect(result.success).toBe(false)
-            expect(result.errorMessage).toContain('cannot carry a SCRIPT')
+            expect(result.errorMessage).toBeFalsy()
+            expect(result.success).toBe(true)
+
+            const appKinotic = await initKinoticAppClient(APP_ID, APP_TENANT)
+            try {
+                const people: IEntityRepository<Person> = new EntityRepository(TEST_ORG_ID, APP_ID, person.name, new EntitiesRepository(appKinotic))
+                const grace = await people.findById('p-1')
+                expect(grace?.lastName).toBe('HOPPER')
+                await expect(people.findById('p-2')).resolves.toBeNull()
+            } finally {
+                await appKinotic.disconnect()
+            }
+        }
+    )
+
+    it<LocalTestContext>(
+        'rejects a REINDEX SCRIPT that reaches beyond the row',
+        async ({projectId}) => {
+            // Through the index, id or routing a reindex script could write the rows into storage outside the application
+            for (const script of [
+                'ctx._index = "kinotic_application"',
+                'def c = ctx; c._routing = "x"',
+                'metadata().setIndex("kinotic_application")'
+            ]) {
+                const result = await Kinotic.migrations.executeMigrations({
+                    projectId,
+                    migrations: [migration(1, `REINDEX PersonWithTenant INTO Person WITH (SCRIPT = '${script}');`)]
+                })
+                expect(result.success).toBe(false)
+                expect(result.errorMessage).toContain('reaches ctx only as ctx._source or ctx.op')
+            }
             await expect(Kinotic.migrations.getLastAppliedMigrationVersion(projectId)).resolves.toBeNull()
         }
     )
