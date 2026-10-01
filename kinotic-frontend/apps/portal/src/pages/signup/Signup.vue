@@ -52,8 +52,8 @@
 
     <div v-else class="login-form">
       <div class="text-center pt-4 pb-2">
-        <span class="inline-flex items-center justify-center w-18 h-18 rounded-full mb-6 bg-[color-mix(in_srgb,var(--p-primary-color)_14%,transparent)]">
-          <span class="pi pi-envelope text-[2rem] text-primary"></span>
+        <span class="login-icon-badge">
+          <span class="pi pi-envelope"></span>
         </span>
         <h2 class="text-2xl font-semibold mb-3 text-center">Check your email</h2>
         <p class="my-1 leading-normal">

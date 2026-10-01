@@ -245,19 +245,4 @@ function displayError(text: string) {
   font-size: 1rem;
   color: var(--lp-text);
 }
-
-.login-signup-link a {
-  color: var(--p-teal-400);
-  font-weight: 500;
-  text-decoration: underline;
-}
-
-/* Sign in is the page's primary action, drawn like every other primary button: near-black */
-.login-submit.p-button {
-  background: var(--p-surface-950);
-}
-
-.login-submit.p-button:hover {
-  background: var(--p-surface-800);
-}
 </style>

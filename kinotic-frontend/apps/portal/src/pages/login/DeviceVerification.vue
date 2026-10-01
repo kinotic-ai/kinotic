@@ -2,7 +2,7 @@
   <AuthPageShell :art="loginBackgroundArt" :show-theme-toggle="false">
     <div class="login-form">
       <div v-if="!userCode" class="text-center py-8">
-        <span class="pi pi-exclamation-triangle text-5xl text-primary-500 mb-4"></span>
+        <span class="login-status-icon pi pi-exclamation-triangle"></span>
         <h2 class="signup-title">Missing device code</h2>
         <p class="login-form__subtitle">
           Open the verification link shown in your command line.
@@ -10,7 +10,7 @@
       </div>
 
       <div v-else-if="approved" class="text-center py-8">
-        <span class="pi pi-check-circle text-5xl text-primary-500 mb-4"></span>
+        <span class="login-status-icon pi pi-check-circle"></span>
         <h2 class="signup-title">Device approved</h2>
         <p class="login-form__subtitle">
           You can close this tab and return to your command line.

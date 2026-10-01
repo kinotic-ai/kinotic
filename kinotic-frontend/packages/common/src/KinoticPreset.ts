@@ -377,8 +377,7 @@ export const KinoticPreset = definePreset(KinoticTheme, {
             --lp-input-disabled-color: ${dt('surface.500')};
             --lp-icon-color: ${dt('surface.500')};
             --lp-icon-hover: ${dt('surface.950')};
-            --lp-link-color: ${dt('surface.700')};
-            --lp-link-hover: ${dt('surface.950')};
+            --lp-link-color: ${dt('teal.400')};
             --lp-footer-link: #0568FD;
             --lp-footer-divider: ${dt('surface.900')};
             --lp-overlay-bg: rgba(249, 250, 251, 0.92);
@@ -407,8 +406,7 @@ export const KinoticPreset = definePreset(KinoticTheme, {
             --lp-input-disabled-color: ${dt('surface.300')};
             --lp-icon-color: ${dt('surface.400')};
             --lp-icon-hover: ${dt('surface.100')};
-            --lp-link-color: ${dt('surface.300')};
-            --lp-link-hover: ${dt('surface.0')};
+            --lp-link-color: ${dt('teal.400')};
             --lp-footer-link: ${dt('surface.0')};
             --lp-footer-divider: ${dt('teal.400')};
             --lp-overlay-bg: rgba(16, 16, 16, 0.9);
