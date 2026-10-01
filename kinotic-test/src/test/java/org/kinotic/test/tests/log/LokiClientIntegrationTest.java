@@ -124,6 +124,32 @@ class LokiClientIntegrationTest {
     }
 
     @Test
+    void tailStreamsAFrameLargerThanTheWebSocketDefault() throws Exception {
+        String marker = "large-tail-marker-" + UUID.randomUUID();
+        // Under Loki's 256 KB max_line_size, and sent by Loki as one frame well past Vert.x's 64 KB default
+        String line = marker + " " + "x".repeat(200_000);
+        CompletableFuture<String> received = new CompletableFuture<>();
+
+        Disposable subscription = lokiClient.tail("org-a", "{workload_id=\"wl-large-tail\"}")
+                .subscribe(frame -> {
+                              if (frame.toString().contains(marker)) {
+                                  received.complete(frame.toString());
+                              }
+                          },
+                          received::completeExceptionally);
+        try {
+            // The WebSocket may still be connecting; keep pushing until the line arrives or the tail fails
+            for (int i = 0; i < 40 && !received.isDone(); i++) {
+                push("org-a", "wl-large-tail", line);
+                Thread.sleep(500);
+            }
+            assertTrue(received.get(5, TimeUnit.SECONDS).contains(line));
+        } finally {
+            subscription.dispose();
+        }
+    }
+
+    @Test
     void deleteRemovesAWorkloadsLinesFromItsTenantAlone() throws Exception {
         // a querier loads a tenant's delete requests at its first query for the tenant and reloads them
         // every five minutes, so the tenant that deletes is one no other test queries, and it is first

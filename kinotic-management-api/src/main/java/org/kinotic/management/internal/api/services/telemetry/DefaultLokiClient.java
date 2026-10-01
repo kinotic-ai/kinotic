@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.WebSocketClient;
+import io.vertx.core.http.WebSocketClientOptions;
 import io.vertx.core.http.WebSocketConnectOptions;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -30,6 +31,10 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
     private static final String QUERY_RANGE_PATH = "/loki/api/v1/query_range";
     private static final String TAIL_PATH = "/loki/api/v1/tail";
     private static final String DELETE_PATH = "/loki/api/v1/delete";
+    // Loki sends a tail response of up to 100 entries as a single WebSocket frame, and each entry's line may
+    // be up to its 256 KB max_line_size; this covers that with room for stream labels and JSON escaping,
+    // where the Vert.x default of 64 KB fails the tail on its first large batch
+    private static final int TAIL_MAX_MESSAGE_BYTES = 64 * 1024 * 1024;
 
     private final String lokiUrl;
     private WebSocketClient webSocketClient;
@@ -41,7 +46,9 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
 
     @PostConstruct
     public void start() {
-        this.webSocketClient = vertx.createWebSocketClient();
+        this.webSocketClient = vertx.createWebSocketClient(new WebSocketClientOptions()
+                                                                   .setMaxFrameSize(TAIL_MAX_MESSAGE_BYTES)
+                                                                   .setMaxMessageSize(TAIL_MAX_MESSAGE_BYTES));
     }
 
     @Override
