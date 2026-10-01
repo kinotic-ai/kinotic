@@ -72,7 +72,7 @@ public class SelectQueryExecutor extends AbstractQueryExecutor {
                                                                                    context.getEntityContext(),
                                                                                    condition,
                                                                                    select.columns()))
-                                  .map(readPostProcessor.afterRead(entityDescriptor, context.getEntityContext(), "NamedQuery " + queryName));
+                                  .map(readPostProcessor.paranoidCheck(entityDescriptor, context.getEntityContext(), "NamedQuery " + queryName));
     }
 
     /**

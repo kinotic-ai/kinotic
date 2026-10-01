@@ -25,8 +25,9 @@ import java.util.Set;
 import java.util.function.Function;
 
 /**
- * Checks the items a read returns against the tenants the read was confined to. Every page of a
- * {@link MultiTenancyType#SHARED} entity passes through it after the read's own tenant filters.
+ * The paranoid check a read of a {@link MultiTenancyType#SHARED} entity passes through after the read's own
+ * tenant filters: every item is checked against the tenants the read was confined to, and one outside them is
+ * dropped and reported. It stays until those filters are trusted, then goes with its call sites.
  * Created by Navíd Mitchell 🤪on 6/13/23.
  */
 @Slf4j
@@ -43,7 +44,7 @@ public class ReadPostProcessor {
      *
      * @param what the read, named in the report
      */
-    public <T> Function<Page<T>, Page<T>> afterRead(EntityDescriptor entityDescriptor, EntityContext context, String what){
+    public <T> Function<Page<T>, Page<T>> paranoidCheck(EntityDescriptor entityDescriptor, EntityContext context, String what){
         return page -> {
             // This is a temporary bit of code to make sure multi tenancy is working properly
             if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){

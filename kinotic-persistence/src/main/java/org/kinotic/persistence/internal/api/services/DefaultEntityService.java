@@ -238,7 +238,7 @@ public class DefaultEntityService implements EntityService {
                                             builder -> readPreProcessor.beforeFindAll(entityDescriptor, builder, context));
                         }
                     }
-                }).map(readPostProcessor.afterRead(entityDescriptor, context, "FindAll"));
+                }).map(readPostProcessor.paranoidCheck(entityDescriptor, context, "FindAll"));
     }
 
     @WithSpan
@@ -406,7 +406,7 @@ public class DefaultEntityService implements EntityService {
                                                                                      context));
                         }
                     }
-                }).map(readPostProcessor.afterRead(entityDescriptor, context, "Search"));
+                }).map(readPostProcessor.paranoidCheck(entityDescriptor, context, "Search"));
     }
 
     @WithSpan
