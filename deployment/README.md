@@ -31,8 +31,9 @@ helm/
 │   └── values-azure-beta.yaml
 ├── kinotic/            # The org, system and app servers (a Deployment, Service and ConfigMap each), one Ignite cluster, the migration Job, RBAC
 ├── es-secret-sync/     # ES credential copy (elastic → kinotic namespace)
+├── mimir/              # Mimir in monolithic mode (-target=all) on a persistent volume
 ├── load-generator/     # Load testing Job
-└── observability/      # Loki, Alloy, Grafana values + Alloy pipeline config
+└── observability/      # Loki, Tempo, Alloy, Grafana values + Alloy pipeline config
 ```
 
 Charts use a **layered values** pattern. The base `values.yaml` contains defaults that work across environments. Environment-specific files override what differs (resource limits, TLS, service type, storage classes, node topology).
@@ -48,7 +49,7 @@ Both KinD and Azure use the same layout:
 | `elastic-system` | ECK operator |
 | `elastic` | Elasticsearch cluster |
 | `kinotic` | The Kinotic servers, TLS certs, Keycloak (when enabled), load generator |
-| `observability` | Loki, Alloy, Grafana |
+| `observability` | Loki, Tempo, Mimir, Alloy, Grafana |
 
 ## Network Policy
 
@@ -82,11 +83,13 @@ Keycloak and Grafana also read from the same TLS secret.
 
 ## Observability
 
-Centralized log collection using Grafana's stack:
+Centralized logs, traces and metrics using Grafana's stack:
 
 - **Alloy** — DaemonSet on each node, collects pod logs, ships to Loki under the `kinotic-system` tenant. Pipeline config in `helm/observability/alloy-config.alloy`.
 - **Loki** — Multi-tenant log storage (`auth_enabled: true`): one tenant per organization for workload logs, plus the reserved `kinotic-system` tenant for platform logs. Filesystem in KinD, Azure Blob Storage in Azure.
-- **Grafana** — Query and dashboards. The Loki datasource browses the `kinotic-system` tenant by default; multi-tenant queries accept pipe-separated ids (`acme|kinotic-system`). Local auth in KinD, Entra ID (Azure AD) in Azure.
+- **Tempo** — Multi-tenant trace storage (`multitenancy_enabled: true`), the grafana/tempo single-binary chart with `values-tempo.yaml`. It receives OTLP on 4317/4318 and serves its HTTP API on 3100; its metrics-generator writes each tenant's span metrics to Mimir under the same tenant. Traces are kept 30 days on a persistent volume.
+- **Mimir** — Multi-tenant metrics storage, the local `helm/mimir` chart running one monolithic process. It receives OTLP at `/otlp` and serves the Prometheus API under `/prometheus` on 9009. Blocks are kept 30 days on a persistent volume.
+- **Grafana** — Query and dashboards, with Loki, Tempo and Mimir datasources linked to each other. Each datasource browses the `kinotic-system` tenant by default; Loki's multi-tenant queries accept pipe-separated ids (`acme|kinotic-system`). Local auth in KinD, Entra ID (Azure AD) in Azure.
 
 Customer workload (micro VM) logs are shipped separately: each vm-manager node runs its own Alloy process that tails per-workload log directories and routes each stream to the workload organization's tenant. See the observability page on the website for the architecture.
 

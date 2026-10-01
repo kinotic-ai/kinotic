@@ -1,0 +1,84 @@
+# Shared Tempo base values (grafana/tempo chart, single binary).
+# Mirrors deployment/docker-compose/tempo.yml with production retention and a persistent volume.
+
+tempo:
+  # Pinned so chart bumps can't silently change the app version. Keep in sync with the
+  # canonical version in deployment/docker-compose/compose-otel.yml.
+  tag: "2.6.1"
+  reportingEnabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+
+# The chart's Service and container expose the HTTP API on 3100, so the server listens there
+# rather than on the 3200 the compose stack uses.
+config: |
+  # Multi-tenant like Loki: X-Scope-OrgID routes each org's workload traces to its own tenant,
+  # and the server reads back only the tenant a caller may see.
+  multitenancy_enabled: true
+  usage_report:
+    reporting_enabled: {{ .Values.tempo.reportingEnabled }}
+
+  server:
+    http_listen_port: 3100
+
+  distributor:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+  compactor:
+    compaction:
+      block_retention: 720h  # 30 days, as Loki keeps logs
+
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+      wal:
+        path: /var/tempo/wal
+
+  metrics_generator:
+    registry:
+      external_labels:
+        source: tempo
+    storage:
+      path: /var/tempo/generator/wal
+      # Each tenant's span metrics are written under the same tenant id in Mimir
+      remote_write:
+        - url: http://mimir.{{ .Release.Namespace }}.svc:9009/api/v1/push
+          send_exemplars: true
+    traces_storage:
+      path: /var/tempo/generator/traces
+    processor:
+      service_graphs:
+        enable_virtual_node_label: true
+      span_metrics:
+        dimensions:
+          - http.request.method
+          - http.response.status_code
+          # Resource attributes the vm-manager stamps on every workload span, so the RED metrics
+          # of one application or workload can be selected within its organization's tenant
+          - application_id
+          - workload_id
+        enable_target_info: true
+      local_blocks:
+        filter_server_spans: false
+
+  # The generator only runs the processors a tenant is enabled for
+  overrides:
+    defaults:
+      metrics_generator:
+        processors: [service-graphs, span-metrics, local-blocks]
+
+persistence:
+  enabled: true
+  size: 10Gi

@@ -1,0 +1,91 @@
+# Grafana Mimir as one monolithic process (-target=all), the way the docker-compose stack runs
+# it. Its blocks live on the pod's persistent volume.
+
+image:
+  repository: grafana/mimir
+  # Pinned to the canonical version in deployment/docker-compose/compose-otel.yml
+  tag: "2.14.3"
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+
+persistence:
+  size: 10Gi
+
+# Mimir's configuration file. Mirrors deployment/docker-compose/mimir.yml, with every path on the
+# persistent volume at /data and a retention period.
+config:
+  target: all
+
+  # Multi-tenant like Loki and Tempo: each org's workload metrics land in its own tenant, and
+  # Tempo's metrics-generator writes each tenant's span metrics under the same tenant id
+  multitenancy_enabled: true
+
+  usage_stats:
+    enabled: false
+
+  server:
+    http_listen_port: 9009
+    grpc_listen_port: 9095
+
+  activity_tracker:
+    filepath: /data/metrics-activity.log
+
+  distributor:
+    pool:
+      health_check_ingesters: true
+
+  ingester:
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+
+  limits:
+    ingestion_rate: 10000
+    ingestion_burst_size: 20000
+    # 0 means unlimited for the series limits, but 0 means DISABLED for exemplars — the Mimir
+    # datasource's metric-to-trace links need them.
+    max_global_series_per_user: 0
+    max_global_series_per_metric: 0
+    max_global_exemplars_per_user: 100000
+    # Stores OTLP metrics under their Prometheus-convention names (jvm_memory_used_bytes,
+    # http_server_request_duration_seconds_bucket), which the dashboards and PromQL query
+    otel_metric_suffixes_enabled: true
+    # 30 days, as Loki keeps logs and Tempo keeps traces
+    compactor_blocks_retention_period: 720h
+
+  compactor:
+    compaction_interval: 10m
+    data_dir: /data/compactor
+
+  blocks_storage:
+    backend: filesystem
+    filesystem:
+      dir: /data/blocks
+    tsdb:
+      dir: /data/tsdb
+    bucket_store:
+      sync_dir: /data/tsdb-sync
+
+  ruler:
+    rule_path: /data/ruler-rules
+
+  ruler_storage:
+    backend: filesystem
+    filesystem:
+      dir: /data/ruler
+
+  store_gateway:
+    sharding_ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+
+  query_scheduler:
+    max_outstanding_requests_per_tenant: 1024

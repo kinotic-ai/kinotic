@@ -117,7 +117,7 @@ properties:
 
 # What every server shares — mirrors the Spring property structure:
 #   kinotic.domain.*       → email, Elasticsearch
-#   kinotic.managementApi.* → the stores LogService queries
+#   kinotic.managementApi.* → the stores LogService and TelemetryService query
 #   kinotic.ignite.*       → the cluster (set in each server's application-kubernetes.yml)
 kinotic:
   domain:
@@ -135,6 +135,9 @@ kinotic:
   managementApi:
     # Loki HTTP API backing the LogService
     lokiUrl: "http://loki.observability.svc:3100"
+    # Tempo and Mimir HTTP APIs backing the TelemetryService
+    tempoUrl: "http://tempo.observability.svc:3100"
+    mimirUrl: "http://mimir.observability.svc:9009"
   elastic:
     connections:
       - host: "kinotic-es-es-http.elastic.svc"

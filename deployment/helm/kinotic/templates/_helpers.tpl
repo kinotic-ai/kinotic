@@ -118,8 +118,10 @@ KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_HOST: "{{ $value.host }}"
 KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
 {{- end }}
 
-# ── Loki (LogService) ─────────────────────────────────────
+# ── Loki, Tempo, Mimir (LogService, TelemetryService) ─────
 KINOTIC_MANAGEMENTAPI_LOKIURL: "{{ $root.Values.kinotic.managementApi.lokiUrl }}"
+KINOTIC_MANAGEMENTAPI_TEMPOURL: "{{ $root.Values.kinotic.managementApi.tempoUrl }}"
+KINOTIC_MANAGEMENTAPI_MIMIRURL: "{{ $root.Values.kinotic.managementApi.mimirUrl }}"
 {{- if $root.Values.tls.enabled }}
 
 # ── SSL/TLS ──────────────────────────────────────────────

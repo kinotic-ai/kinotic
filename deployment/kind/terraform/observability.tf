@@ -1,4 +1,4 @@
-# ── Observability: Loki + Alloy + Grafana ─────────────────
+# ── Observability: Loki + Tempo + Mimir + Alloy + Grafana ───
 
 resource "kubernetes_namespace" "observability" {
   metadata {
@@ -44,6 +44,34 @@ resource "helm_release" "loki" {
   depends_on = [kubernetes_namespace.observability]
 }
 
+# ── Mimir (metrics storage, multi-tenant) ─────────────────
+
+resource "helm_release" "mimir" {
+  name      = "mimir"
+  namespace = kubernetes_namespace.observability.metadata[0].name
+  chart     = "${path.module}/../../helm/mimir"
+  wait      = true
+  timeout   = var.deploy_timeout
+
+  depends_on = [kubernetes_namespace.observability]
+}
+
+# ── Tempo (trace storage, multi-tenant; span metrics to Mimir) ───
+
+resource "helm_release" "tempo" {
+  name       = "tempo"
+  namespace  = kubernetes_namespace.observability.metadata[0].name
+  repository = "https://grafana.github.io/helm-charts"
+  chart      = "tempo"
+  version    = "1.14.0"
+  wait       = true
+  timeout    = var.deploy_timeout
+
+  values = [file("${path.module}/../../helm/observability/values-tempo.yaml")]
+
+  depends_on = [helm_release.mimir]
+}
+
 # ── Alloy config (ConfigMap) ─────────────────────────────
 
 resource "kubernetes_config_map" "alloy_config" {
@@ -82,7 +110,7 @@ resource "helm_release" "alloy" {
   ]
 }
 
-# ── Grafana (log UI) ─────────────────────────────────────
+# ── Grafana (logs, traces, metrics UI) ────────────────────
 
 resource "helm_release" "grafana" {
   name       = "grafana"
@@ -119,6 +147,8 @@ resource "helm_release" "grafana" {
 
   depends_on = [
     helm_release.loki,
+    helm_release.tempo,
+    helm_release.mimir,
     kubernetes_secret.observability_tls,
   ]
 }

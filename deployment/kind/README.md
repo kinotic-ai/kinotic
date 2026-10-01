@@ -74,7 +74,7 @@ every server's pods.
 | `elastic-system` | ECK operator |
 | `elastic` | Elasticsearch cluster |
 | `kinotic` | The Kinotic servers, TLS secret, Keycloak, PostgreSQL, load generator |
-| `observability` | Loki, Alloy, Grafana |
+| `observability` | Loki, Tempo, Mimir, Alloy, Grafana |
 
 ## Service Access
 
@@ -297,7 +297,7 @@ deployment/kind/
 │   ├── platform-secrets.tf          # Secret of JWT signing keys, secret-storage master key, GitHub App secrets
 │   ├── elasticsearch.tf             # ECK operator + Elasticsearch (eck-stack chart)
 │   ├── kinotic.tf                   # The Kinotic servers (NodePort + TLS)
-│   ├── observability.tf             # Loki + Alloy + Grafana (TLS)
+│   ├── observability.tf             # Loki + Tempo + Mimir + Alloy + Grafana (TLS)
 │   ├── keycloak.tf                  # PostgreSQL + Keycloak (conditional, NodePort + TLS)
 │   ├── load-generator.tf            # Load generator (conditional)
 │   ├── variables.tf                 # Input variables

@@ -1,4 +1,4 @@
-# ── Observability: Loki + Alloy + Grafana ─────────────────────────────────────
+# ── Observability: Loki + Tempo + Mimir + Alloy + Grafana ────────────────────
 
 resource "kubernetes_namespace" "observability" {
   metadata {
@@ -24,6 +24,34 @@ resource "helm_release" "loki" {
   ]
 
   depends_on = [kubernetes_namespace.observability]
+}
+
+# ── Mimir (metrics storage, multi-tenant) ────────────────────────────────────
+
+resource "helm_release" "mimir" {
+  name      = "mimir"
+  namespace = kubernetes_namespace.observability.metadata[0].name
+  chart     = "${path.module}/../../../helm/mimir"
+  wait      = true
+  timeout   = 600
+
+  depends_on = [kubernetes_namespace.observability]
+}
+
+# ── Tempo (trace storage, multi-tenant; span metrics to Mimir) ───────────────
+
+resource "helm_release" "tempo" {
+  name       = "tempo"
+  namespace  = kubernetes_namespace.observability.metadata[0].name
+  repository = "https://grafana.github.io/helm-charts"
+  chart      = "tempo"
+  version    = "1.14.0"
+  wait       = true
+  timeout    = 600
+
+  values = [file("${path.module}/../../../helm/observability/values-tempo.yaml")]
+
+  depends_on = [helm_release.mimir]
 }
 
 # ── Alloy config (ConfigMap) ──────────────────────────────────────────────────
@@ -64,7 +92,7 @@ resource "helm_release" "alloy" {
   ]
 }
 
-# ── Grafana (log UI) ──────────────────────────────────────────────────────────
+# ── Grafana (logs, traces, metrics UI) ───────────────────────────────────────
 
 locals {
   grafana_entra_enabled = local.global.grafana_entra_client_id != ""
@@ -102,5 +130,5 @@ resource "helm_release" "grafana" {
     { name = "grafana\\.ini.auth\\.azuread.client_secret", value = local.global.grafana_entra_client_secret },
   ] : []
 
-  depends_on = [helm_release.loki]
+  depends_on = [helm_release.loki, helm_release.tempo, helm_release.mimir]
 }

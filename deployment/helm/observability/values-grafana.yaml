@@ -13,19 +13,75 @@ persistence:
   enabled: true
   size: 1Gi
 
-# Auto-configure Loki as a datasource
+# Auto-configure Loki, Mimir and Tempo as datasources, linked to each other the way
+# deployment/docker-compose/grafana-datasource.yaml links them. `$$` escapes Grafana's
+# environment-variable expansion of provisioning files.
 datasources:
   datasources.yaml:
     apiVersion: 1
     datasources:
       - name: Loki
         type: loki
+        uid: Loki
         access: proxy
         url: http://loki:3100
         isDefault: true
         jsonData:
           # Loki runs multi-tenant; browse the system tenant by default. Multi-tenant
           # queries accept pipe-separated ids (e.g. "acme|kinotic-system").
+          httpHeaderName1: X-Scope-OrgID
+          derivedFields:
+            # OTLP log records carry the trace context as structured metadata
+            - name: TraceID
+              datasourceUid: Tempo
+              matcherType: label
+              matcherRegex: trace_id
+              url: "$${__value.raw}"
+        secureJsonData:
+          httpHeaderValue1: kinotic-system
+      - name: Mimir
+        type: prometheus
+        uid: Mimir
+        access: proxy
+        url: http://mimir:9009/prometheus
+        jsonData:
+          httpMethod: POST
+          prometheusType: Mimir
+          # Mimir runs multi-tenant; browse the system tenant by default, like Loki
+          httpHeaderName1: X-Scope-OrgID
+          exemplarTraceIdDestinations:
+            - name: trace_id
+              datasourceUid: Tempo
+              urlDisplayLabel: "View Trace"
+        secureJsonData:
+          httpHeaderValue1: kinotic-system
+      - name: Tempo
+        type: tempo
+        uid: Tempo
+        access: proxy
+        url: http://tempo:3100
+        jsonData:
+          httpMethod: GET
+          serviceMap:
+            datasourceUid: Mimir
+          nodeGraph:
+            enabled: true
+          tracesToLogsV2:
+            datasourceUid: Loki
+            spanStartTimeShift: "-1h"
+            spanEndTimeShift: "1h"
+            filterByTraceID: true
+            tags: [{ key: "service.name", value: "service_name" }]
+          tracesToMetrics:
+            datasourceUid: Mimir
+            # service.name is the `service` label on the metrics-generator's span metrics
+            tags: [{ key: "service.name", value: "service" }]
+            queries:
+              - name: "Request rate"
+                query: "sum(rate(traces_spanmetrics_calls_total{$$__tags}[$$__rate_interval]))"
+              - name: "p95 latency"
+                query: "histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{$$__tags}[$$__rate_interval])))"
+          # Tempo runs multi-tenant; browse the system tenant by default, like Loki
           httpHeaderName1: X-Scope-OrgID
         secureJsonData:
           httpHeaderValue1: kinotic-system
