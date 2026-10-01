@@ -12,9 +12,7 @@ import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.NotImplementedException;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -25,6 +23,7 @@ import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
+import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.slf4j.Logger;
@@ -54,6 +53,7 @@ public class DefaultEntityService implements EntityService {
     private final NamedQueriesService namedQueriesService;
     private final ObjectMapper objectMapper;
     private final ReadPreProcessor readPreProcessor;
+    private final ReadPostProcessor readPostProcessor;
     private final EntityDescriptor entityDescriptor;
     private final DomainPersistenceProperties domainPersistenceProperties;
 
@@ -238,7 +238,7 @@ public class DefaultEntityService implements EntityService {
                                             builder -> readPreProcessor.beforeFindAll(entityDescriptor, builder, context));
                         }
                     }
-                }).map(createParanoidCheck(context, "FindAll"));
+                }).map(readPostProcessor.afterRead(entityDescriptor, context, "FindAll"));
     }
 
     @WithSpan
@@ -406,7 +406,7 @@ public class DefaultEntityService implements EntityService {
                                                                                      context));
                         }
                     }
-                }).map(createParanoidCheck(context, "Search"));
+                }).map(readPostProcessor.afterRead(entityDescriptor, context, "Search"));
     }
 
     @WithSpan
@@ -487,67 +487,6 @@ public class DefaultEntityService implements EntityService {
             ret.add(builder.build());
         }
         return ret;
-    }
-
-    @WithSpan
-    private <T> Function<Page<T>, Page<T>> createParanoidCheck(EntityContext context, String what){
-        return page -> {
-            // This is a temporary bit of code to make sure multi tenancy is working properly
-            if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
-                String tenantIdFieldName
-                        = entityDescriptor.isMultiTenantSelectionEnabled()
-                        ? entityDescriptor.tenantIdFieldName() : domainPersistenceProperties.getTenantIdFieldName();
-
-                List<Object> result = new ArrayList<>(page.getContent().size());
-                Set<String> tenantIds = Collections.emptySet();
-                if(context.hasTenantSelection()) {
-                    tenantIds = new HashSet<>(context.getTenantSelection());
-                }
-
-                for(Object object : page.getContent()){
-                    String tenant = extractTenant(object, tenantIdFieldName);
-                    // Find and search methods will use the logged in tenant if no multi tenant selection is provided
-                    if(context.hasTenantSelection()){
-                        if(tenant != null && (context.selectsAllTenants() || tenantIds.contains(tenant))){
-                            result.add(object);
-                        }else{
-                            log.error(
-                                    "{} Multi tenancy is not working properly for EntityDefinition: {} and expected one of: {} got: {}\nData:\n{}",
-                                    what,
-                                    entityDescriptor,
-                                    String.join(",", tenantIds),
-                                    tenant,
-                                    formatToPrintJson(object));
-                        }
-                    }else {
-                        String tenantId = context.requireTenantId();
-                        if (tenant != null && tenant.equals(tenantId)) {
-                            result.add(object);
-                        }else{
-                            log.error(
-                                    "{} Multi tenancy is not working properly for EntityDefinition: {} and expected tenant: {} got: {}\nData:\n{}",
-                                    what,
-                                    entityDescriptor,
-                                    tenantId,
-                                    tenant,
-                                    formatToPrintJson(object));
-                        }
-                    }
-                }
-
-                if(page instanceof CursorPage){
-                    @SuppressWarnings("unchecked")
-                    Page<T> newPage = (Page<T>) new CursorPage<>(result, ((CursorPage<?>) page).getCursor(), page.getTotalElements());
-                    return newPage;
-                }else{
-                    @SuppressWarnings("unchecked")
-                    Page<T> newPage = (Page<T>) new Page<>(result, page.getTotalElements());
-                    return newPage;
-                }
-            }else{
-                return page;
-            }
-        };
     }
 
     private <T> Future<T> doFindById(String id, Class<T> type, EntityContext context) {
@@ -710,38 +649,6 @@ public class DefaultEntityService implements EntityService {
                 return Future.succeededFuture(bulkResponse);
             }
         });
-    }
-
-    private String extractTenant(Object object, String tenantIdFieldName){
-        Object data = (object instanceof FastestType ? ((FastestType) object).data() : object);
-        if(data instanceof RawJson rawJson){
-            try {
-                Map<?,?> converted = objectMapper.readValue(rawJson.data(), Map.class);
-                return (String) converted.get(tenantIdFieldName);
-            } catch (JacksonException e) {
-                throw new IllegalStateException("RawJson could not be deserialized for sanity check",e);
-            }
-
-        } else if (data instanceof Map<?,?> map) {
-            return (String) map.get(tenantIdFieldName);
-        }else{
-            throw new NotImplementedException("Pojo Multi tenancy check is not implemented yet");
-        }
-    }
-
-    private String formatToPrintJson(Object object){
-        Object data = (object instanceof FastestType ? ((FastestType) object).data() : object);
-        try {
-            if(data instanceof Map<?,?> map){
-                return objectMapper.convertValue(map, ObjectNode.class).toPrettyString();
-            }else if(data instanceof RawJson rawJson){
-                return objectMapper.readValue(rawJson.data(), ObjectNode.class).toPrettyString();
-            }else{
-                return objectMapper.convertValue(data, ObjectNode.class).toPrettyString();
-            }
-        } catch (Exception e) {
-            return data.toString();
-        }
     }
 
     @SuppressWarnings("unchecked")

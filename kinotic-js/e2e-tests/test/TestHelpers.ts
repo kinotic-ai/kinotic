@@ -14,7 +14,6 @@ import {
     EntityDefinition,
     KinoticProjectConfig,
     NamedQueriesDefinition,
-    QueryDecorator,
     Project
 } from '@kinotic-ai/management-api'
 import {
@@ -221,27 +220,7 @@ export async function createSchema(organizationId: string, applicationId: string
     ret.namedQueriesDefinition.id = (organizationId + '.' + applicationId + '.' + entityName).toLowerCase()
     ret.namedQueriesDefinition.organizationId = organizationId
     ret.namedQueriesDefinition.entityDefinitionName = entityName
-    replaceAllQueryPlaceholdersWithId(organizationId + '.' + applicationId + '.' + entityName, ret.namedQueriesDefinition.namedQueries)
     return ret
-}
-
-/**
- * This replaces the PLACEHOLDER string in all @Query decorators applied to the given function definitions
- * @param structureId to replace the PLACEHOLDER with
- * @param functionDefinitions all of the {@link FunctionDefinition}s to replace the PLACEHOLDER in
- */
-function replaceAllQueryPlaceholdersWithId(structureId: string, functionDefinitions: FunctionDefinition[]){
-    for(const functionDefinition of functionDefinitions){
-        if(functionDefinition.decorators) {
-            for (const decorator of functionDefinition.decorators) {
-                if (decorator.type === 'Query') {
-                    const queryDecorator = decorator as QueryDecorator
-                    // @ts-ignore stupid intellij error for replaceAll
-                    queryDecorator.statements = queryDecorator.statements.replaceAll('PLACEHOLDER', structureId.toLowerCase())
-                }
-            }
-        }
-    }
 }
 
 // Add these new functions to your existing TestHelpers.ts file

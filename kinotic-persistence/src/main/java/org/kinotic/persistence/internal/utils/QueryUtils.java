@@ -1,7 +1,5 @@
 package org.kinotic.persistence.internal.utils;
 
-import org.kinotic.persistence.internal.api.services.sql.SqlQueryType;
-
 import java.util.regex.Pattern;
 
 /**
@@ -11,22 +9,11 @@ public class QueryUtils {
 
     private static final Pattern aggregatePattern = Pattern.compile("\\b(AVG|COUNT|FIRST|LAST|MAX|MIN|SUM|KURTOSIS|MAD|PERCENTILE|PERCENTILE_RANK|SKEWNESS|STDDEV_POP|STDDEV_SAMP|SUM_OF_SQUARES|VAR_POP|VAR_SAMP)\\s*\\([a-zA-Z0-9_.,='() ]+\\)");
 
-    public static SqlQueryType determineQueryType(String query){
-        if(query.toLowerCase().startsWith("select")) {
-            if(aggregatePattern.matcher(query.toUpperCase()).find()){
-                return SqlQueryType.AGGREGATE;
-            }else {
-                return SqlQueryType.SELECT;
-            }
-        }else if(query.toLowerCase().startsWith("update")) {
-            return SqlQueryType.UPDATE;
-        }else if(query.toLowerCase().startsWith("delete")) {
-            return SqlQueryType.DELETE;
-        }else if(query.toLowerCase().startsWith("insert")) {
-            return SqlQueryType.INSERT;
-        }else {
-            throw new IllegalArgumentException("Unsupported statement " + query);
-        }
+    /**
+     * Whether a named query's statement is a SELECT that aggregates, which runs on Elasticsearch SQL.
+     */
+    public static boolean isAggregate(String statement){
+        return statement.toLowerCase().startsWith("select") && aggregatePattern.matcher(statement.toUpperCase()).find();
     }
 
 }

@@ -92,7 +92,7 @@ public class MigrationParser {
         // Errors are collected rather than thrown from syntaxError so one parse reports every error in the file
         void throwIfErrors(String sourceName) {
             if (!errors.isEmpty()) {
-                throw new IllegalArgumentException("Migration " + sourceName + " contains " + errors.size()
+                throw new IllegalArgumentException(sourceName + " contains " + errors.size()
                         + " syntax error(s):\n" + String.join("\n", errors));
             }
         }

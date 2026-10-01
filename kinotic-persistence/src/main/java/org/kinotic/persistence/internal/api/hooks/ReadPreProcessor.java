@@ -89,6 +89,48 @@ public class ReadPreProcessor {
         }
     }
 
+    /**
+     * Prepares the search a SELECT runs: the condition is combined with the tenant logic of
+     * {@link #beforeFindAll}, and the source is projected to the listed columns.
+     *
+     * @param condition the condition a document must match, or null to match every document
+     * @param columns   the top-level fields the source is projected to, or an empty list for the whole document
+     */
+    public void beforeSelect(EntityDescriptor entityDescriptor,
+                             SearchRequest.Builder builder,
+                             EntityContext context,
+                             Query condition,
+                             List<String> columns) {
+
+        Query.Builder tenantQuery = createQueryWithTenantLogic(entityDescriptor, context, builder::routing);
+
+        if(condition != null || tenantQuery != null){
+            // both are filters: a SELECT ranks nothing, it orders by its ORDER BY
+            builder.query(q -> q.bool(b -> {
+                if(condition != null){
+                    b.filter(condition);
+                }
+                if(tenantQuery != null){
+                    b.filter(tenantQuery.build());
+                }
+                return b;
+            }));
+        }
+
+        if(!columns.isEmpty()){
+            builder.source(b -> b.filter(sf -> {
+                sf.includes(columns);
+                // the tenant field rides along for the multi tenancy check that follows the read
+                if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
+                    sf.includes(entityDescriptor.isMultiTenantSelectionEnabled()
+                                        ? entityDescriptor.tenantIdFieldName()
+                                        : domainPersistenceProperties.getTenantIdFieldName());
+                }
+                return sf;
+            }));
+        }
+    }
+
     public void beforeFindById(EntityDescriptor entityDescriptor,
                                GetRequest.Builder builder,
                                EntityContext context){
