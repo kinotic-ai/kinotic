@@ -1,0 +1,1 @@
+{"id":"8ed49fb9ed38c8b9353736b06737083f","fullName":"org.kinotic.sql.parsers.SelectStatementParserTest.whenEveryClauseGiven_thenEachLandsOnItsOwnField","name":"whenEveryClauseGiven_thenEachLandsOnItsOwnField()","status":"passed","testResultsByEnv":{"default":"3cc4800b61e37335561e51c9c3c32add"}}
