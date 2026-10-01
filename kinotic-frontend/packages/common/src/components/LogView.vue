@@ -25,21 +25,24 @@
       <Button label="Apply" size="small" :disabled="resolveRange() === null" :loading="loadingHistory"
               @click="loadHistory" />
     </div>
-    <div v-if="lines.length === 0" class="h-[60vh] p-3 rounded-md bg-surface-950 text-surface-400 font-mono text-xs">
+    <div v-if="rows.length === 0" class="h-[60vh] p-3 rounded-md bg-surface-950 text-surface-400 font-mono text-xs">
       <span v-if="!loadingHistory">No log entries {{ rangeDescription }}</span>
     </div>
     <VirtualScroller
       v-else
       ref="scroller"
-      :items="lines"
+      :items="rows"
       :itemSize="LINE_HEIGHT_PX"
       class="h-[60vh] rounded-md bg-surface-950 text-surface-200 font-mono text-xs"
       @scroll="onScroll"
     >
       <template #item="{ item }">
+        <!-- A continuation row keeps its entry's timestamp and level invisible so its text aligns under the first row's -->
         <div class="flex gap-3 whitespace-pre px-3 h-5 items-center">
-          <span class="shrink-0 text-surface-500">{{ formatTimestamp(item.ts) }}</span>
-          <span>{{ item.line }}</span>
+          <span class="shrink-0 text-surface-500" :class="{ invisible: item.continuation }">{{ formatTimestamp(item.ts) }}</span>
+          <span v-if="item.level" class="shrink-0 min-w-[5ch] uppercase" :class="{ invisible: item.continuation }"
+                :style="{ color: LEVEL_COLORS[item.level as LogLevel] }">{{ item.level }}</span>
+          <span><span v-for="(segment, i) in item.segments" :key="i" :style="segment.style">{{ segment.text }}</span></span>
         </div>
       </template>
     </VirtualScroller>
@@ -92,14 +95,61 @@ const CUSTOM_OPTION = { label: 'Custom', value: CUSTOM_SPAN, description: 'in th
 const LIMIT_OPTIONS = [500, 1000, 2000, 5000].map(value => ({ value, label: `${value.toLocaleString()} lines` }))
 // The VirtualScroller keeps the DOM viewport-sized regardless of buffer length, so the
 // cap only bounds heap and the per-frame concat cost of a long-running tail.
-const MAX_LINES = 25_000
+const MAX_ROWS = 25_000
 /** Fixed row height the VirtualScroller positions rows by; rows must render at exactly this height. */
 const LINE_HEIGHT_PX = 20
 const DAY_MS = 24 * 60 * 60_000
 
-interface LogLine {
+// The 16 ANSI colors as a dark terminal renders them: normal 0-7, then bright 8-15
+const ANSI_PALETTE = [
+  '#000000', '#cd3131', '#0dbc79', '#e5e510', '#2472c8', '#bc3fbc', '#11a8cd', '#e5e5e5',
+  '#666666', '#f14c4c', '#23d18b', '#f5f543', '#3b8eea', '#d670d6', '#29b8db', '#ffffff'
+]
+const ANSI_CUBE_STEPS = [0, 95, 135, 175, 215, 255]
+// CSI sequences (SGR when the final byte is m), OSC sequences, and the remaining two-byte escapes
+const ANSI_ESCAPE = /\x1b\[([0-9;:?]*)([@-~])|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[@-Z\\-_]/g
+
+// The logback levels an OTLP-shipped entry's severity_text names, lowercased, colored as Spring Boot's
+// console colors its level column
+const LEVEL_COLORS = {
+  error: ANSI_PALETTE[1]!,
+  warn: ANSI_PALETTE[3]!,
+  info: ANSI_PALETTE[2]!,
+  debug: ANSI_PALETTE[2]!,
+  trace: ANSI_PALETTE[2]!
+}
+type LogLevel = keyof typeof LEVEL_COLORS
+
+/** One Loki entry; its text may span several lines. */
+interface LogEntry {
   ts: number
-  line: string
+  level: LogLevel | null
+  text: string
+}
+
+/** A run of a line's text drawn in one ANSI style. */
+interface StyledSegment {
+  text: string
+  style: string | undefined
+}
+
+/** One line of an entry's text, the unit the VirtualScroller lays out. */
+interface LogRow {
+  ts: number
+  level: LogLevel | null
+  /** True for every line of an entry after its first. */
+  continuation: boolean
+  segments: StyledSegment[]
+}
+
+/** The SGR attributes in effect at a point in an entry's text. */
+interface AnsiStyle {
+  fg: string | null
+  bg: string | null
+  bold: boolean
+  faint: boolean
+  italic: boolean
+  underline: boolean
 }
 
 function hasEnded(run: WorkloadRun | undefined): boolean {
@@ -108,8 +158,10 @@ function hasEnded(run: WorkloadRun | undefined): boolean {
 
 const spanOptions = computed(() => props.run ? [...PRESET_OPTIONS, RUN_OPTION, CUSTOM_OPTION] : [...PRESET_OPTIONS, CUSTOM_OPTION])
 
-// shallowRef: lines are immutable once parsed, so per-line reactive proxies buy nothing
-const lines = shallowRef<LogLine[]>([])
+// shallowRef: rows are immutable once parsed, so per-row reactive proxies buy nothing
+const rows = shallowRef<LogRow[]>([])
+// The entries behind rows; rows outnumber them by every extra line of a multi-line entry
+const entryCount = ref(0)
 const following = ref(!hasEnded(props.run))
 const span = ref<Span>(hasEnded(props.run) ? RUN_SPAN : TIME_RANGE_PRESETS[1]!.ms)
 const limit = ref(1000)
@@ -137,7 +189,7 @@ const rangeDescription = computed(() => {
 })
 
 const lineCountText = computed(() => {
-  const count = `${lines.value.length} lines`
+  const count = `${entryCount.value} lines`
   return limitReached.value ? `${count} · newest ${limit.value.toLocaleString()} in range` : count
 })
 
@@ -149,15 +201,153 @@ const showDate = computed(() => {
           || new Date(range.start).toDateString() !== new Date(range.end).toDateString())
 })
 
-// Both Loki payloads carry entries as streams of [nanosecond-timestamp, line] tuples
-function parseStreams(streams: Array<{ values?: [string, string][] }> | undefined): LogLine[] {
-  const out: LogLine[] = []
-  for (const stream of streams ?? []) {
-    for (const [ns, line] of stream.values ?? []) {
-      out.push({ ts: Number(ns) / 1_000_000, line })
+// Both Loki payloads carry entries as streams of [nanosecond-timestamp, line] tuples. Loki merges an
+// entry's structured metadata into its stream labels, which is where an OTLP-shipped log keeps the
+// severity_text its logger set and the stack trace of the exception it was logged with. The level is that
+// severity_text because Loki's detected_level is a keyword guess on a plain-text line, labelling some lines
+// of a workload log and leaving the rest bare.
+function parseStreams(streams: Array<{ stream?: Record<string, string>; values?: [string, string][] }> | undefined): LogEntry[] {
+  const out: LogEntry[] = []
+  for (const { stream, values } of streams ?? []) {
+    const severity = stream?.severity_text?.toLowerCase()
+    const level = severity !== undefined && Object.hasOwn(LEVEL_COLORS, severity) ? severity as LogLevel : null
+    const stackTrace = stream?.exception_stacktrace
+    for (const [ns, line] of values ?? []) {
+      const message = line.replace(/\n+$/, '')
+      out.push({ ts: Number(ns) / 1_000_000, level, text: stackTrace ? `${message}\n${stackTrace}` : message })
     }
   }
   return out
+}
+
+function toRows(entries: LogEntry[]): LogRow[] {
+  const out: LogRow[] = []
+  for (const entry of entries) {
+    // A style carries across the entry's lines, as a terminal carries it across a newline
+    const style = plainStyle()
+    entry.text.split(/\r?\n/).forEach((line, i) => {
+      out.push({ ts: entry.ts, level: entry.level, continuation: i > 0, segments: styleSegments(line, style) })
+    })
+  }
+  return out
+}
+
+function plainStyle(): AnsiStyle {
+  return { fg: null, bg: null, bold: false, faint: false, italic: false, underline: false }
+}
+
+// Splits a line at its ANSI escapes into styled runs, applying SGR escapes to style and dropping the rest
+function styleSegments(line: string, style: AnsiStyle): StyledSegment[] {
+  const out: StyledSegment[] = []
+  let textStart = 0
+  for (const match of line.matchAll(ANSI_ESCAPE)) {
+    pushSegment(out, line.slice(textStart, match.index), style)
+    if (match[2] === 'm') {
+      applySgr(match[1]!, style)
+    }
+    textStart = match.index + match[0].length
+  }
+  pushSegment(out, line.slice(textStart), style)
+  return out
+}
+
+function pushSegment(segments: StyledSegment[], text: string, style: AnsiStyle) {
+  if (text.length > 0) {
+    segments.push({ text, style: toCss(style) })
+  }
+}
+
+function applySgr(params: string, style: AnsiStyle) {
+  // An omitted parameter means 0, so a bare ESC[m is a reset
+  const codes = params.split(';').map(code => code === '' ? 0 : Number(code))
+  for (let i = 0; i < codes.length; i++) {
+    const code = codes[i]!
+    if (code === 0) {
+      Object.assign(style, plainStyle())
+    } else if (code === 1) {
+      style.bold = true
+    } else if (code === 2) {
+      style.faint = true
+    } else if (code === 3) {
+      style.italic = true
+    } else if (code === 4) {
+      style.underline = true
+    } else if (code === 22) {
+      style.bold = false
+      style.faint = false
+    } else if (code === 23) {
+      style.italic = false
+    } else if (code === 24) {
+      style.underline = false
+    } else if (code >= 30 && code <= 37) {
+      style.fg = ANSI_PALETTE[code - 30]!
+    } else if (code === 39) {
+      style.fg = null
+    } else if (code >= 40 && code <= 47) {
+      style.bg = ANSI_PALETTE[code - 40]!
+    } else if (code === 49) {
+      style.bg = null
+    } else if (code >= 90 && code <= 97) {
+      style.fg = ANSI_PALETTE[code - 90 + 8]!
+    } else if (code >= 100 && code <= 107) {
+      style.bg = ANSI_PALETTE[code - 100 + 8]!
+    } else if (code === 38 || code === 48) {
+      // 38;5;n picks from the 256-color table and 38;2;r;g;b is a 24-bit color; 48 sets the background alike
+      let color: string | null = null
+      if (codes[i + 1] === 5) {
+        color = color256(codes[i + 2]!)
+        i += 2
+      } else if (codes[i + 1] === 2) {
+        color = `rgb(${codes[i + 2]}, ${codes[i + 3]}, ${codes[i + 4]})`
+        i += 4
+      }
+      if (code === 38) {
+        style.fg = color
+      } else {
+        style.bg = color
+      }
+    }
+  }
+}
+
+// The xterm 256-color table: the 16 ANSI colors, a 6x6x6 color cube, then a 24-step gray ramp
+function color256(index: number): string | null {
+  let ret: string | null
+  if (!Number.isInteger(index) || index < 0 || index > 255) {
+    ret = null
+  } else if (index < 16) {
+    ret = ANSI_PALETTE[index]!
+  } else if (index < 232) {
+    const cube = index - 16
+    ret = `rgb(${ANSI_CUBE_STEPS[Math.floor(cube / 36)]}, ${ANSI_CUBE_STEPS[Math.floor(cube / 6) % 6]}, ${ANSI_CUBE_STEPS[cube % 6]})`
+  } else {
+    const gray = 8 + (index - 232) * 10
+    ret = `rgb(${gray}, ${gray}, ${gray})`
+  }
+  return ret
+}
+
+function toCss(style: AnsiStyle): string | undefined {
+  const declarations: string[] = []
+  if (style.fg) {
+    declarations.push(`color: ${style.fg}`)
+  }
+  if (style.bg) {
+    declarations.push(`background-color: ${style.bg}`)
+  }
+  if (style.bold) {
+    declarations.push('font-weight: bold')
+  }
+  if (style.faint) {
+    declarations.push('opacity: 0.6')
+  }
+  if (style.italic) {
+    declarations.push('font-style: italic')
+  }
+  if (style.underline) {
+    declarations.push('text-decoration: underline')
+  }
+  return declarations.length > 0 ? declarations.join('; ') : undefined
 }
 
 /** The range the current selection asks for, or null while a custom range is incomplete or inverted. */
@@ -195,10 +385,12 @@ async function loadHistory() {
     const bytes = await props.source.history(range.start, range.end, limit.value)
     // Raw Loki query_range response: {status, data: {result: [{stream, values}]}}
     const body = parseJsonBytes(bytes)
-    lines.value = parseStreams(body?.data?.result).sort((a, b) => a.ts - b.ts)
+    const entries = parseStreams(body?.data?.result).sort((a, b) => a.ts - b.ts)
+    rows.value = toRows(entries)
+    entryCount.value = entries.length
     loadedRange.value = range
     // Loki answers newest-first up to the limit, so a full page means the range holds more
-    limitReached.value = lines.value.length >= limit.value
+    limitReached.value = entries.length >= limit.value
     scrollToBottom()
   } catch (err) {
     error.value = errorMessage(err, 'Failed to load log history')
@@ -217,8 +409,11 @@ function startTail() {
       const frame = parseJsonBytes(bytes)
       const fresh = parseStreams(frame?.streams)
       if (fresh.length > 0) {
-        const merged = lines.value.concat(fresh)
-        lines.value = merged.length > MAX_LINES ? merged.slice(-MAX_LINES) : merged
+        const merged = rows.value.concat(toRows(fresh))
+        const overflow = Math.max(0, merged.length - MAX_ROWS)
+        const droppedEntries = merged.slice(0, overflow).filter(row => !row.continuation).length
+        rows.value = overflow > 0 ? merged.slice(overflow) : merged
+        entryCount.value += fresh.length - droppedEntries
         scrollToBottom()
       }
     },
@@ -282,7 +477,7 @@ function onScroll(event: Event) {
 
 function scrollToBottom() {
   if (pinnedToBottom) {
-    nextTick(() => scroller.value?.scrollToIndex(lines.value.length - 1))
+    nextTick(() => scroller.value?.scrollToIndex(rows.value.length - 1))
   }
 }
 

@@ -89,6 +89,13 @@ export function logError(message: string): void {
 }
 
 /**
+ * Environment for a child whose output is forwarded: its output reaches a pipe rather than a terminal, so
+ * chalk, picocolors and bun leave out their ANSI colors unless forced, and the console's log view renders
+ * them. Spread it before the workload's own environment, so a FORCE_COLOR the workload sets wins.
+ */
+export const FORCED_COLOR_ENV = { FORCE_COLOR: '1' }
+
+/**
  * Forwards a child's piped stdout and stderr to the runner's own. The child must have been
  * spawned with both streams piped.
  */

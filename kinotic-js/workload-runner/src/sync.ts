@@ -6,7 +6,7 @@ import { ManagementApiPlugin, type ProjectArtifacts, type UiArtifact } from '@ki
 import { findArtifacts } from './artifacts.ts'
 import { dependencyHashOf } from './sbom.ts'
 import { writeSentinel } from './sentinel.ts'
-import { forwardOutput, log, logError } from './log.ts'
+import { FORCED_COLOR_ENV, forwardOutput, log, logError } from './log.ts'
 
 /**
  * One-shot entrypoint of the sync workload: brings the shared checkout directory to the
@@ -45,7 +45,7 @@ function require_(name: string): string {
 
 function run(command: string, args: string[], cwd: string, env: Record<string, string> = {}): Promise<void> {
     return new Promise((resolve, reject) => {
-        const child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] })
+        const child = spawn(command, args, { cwd, env: { ...FORCED_COLOR_ENV, ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] })
         forwardOutput(child)
         child.on('error', reject)
         child.on('exit', (code, signal) => {
