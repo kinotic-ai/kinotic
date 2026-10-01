@@ -19,10 +19,10 @@ public interface EntityStatementResolver {
 
     /**
      * Resolves a migration's statements against the published entities of an application. Every name a statement
-     * carries must be one of the application's published entities and is replaced by the entity's index. An INSERT
-     * is also given the document id and routing the entity service gives a row it saves, from the row's id field
-     * and, on a {@link MultiTenancyType#SHARED} entity, its tenant field, so the row is reachable through the
-     * entity's repository afterwards.
+     * carries must be the name of one of the application's published entities, written in its case, and is replaced
+     * by the entity's index. An INSERT is also given the document id and routing the entity service gives a row it
+     * saves, from the row's id field and, on a {@link MultiTenancyType#SHARED} entity, its tenant field, so the row is
+     * reachable through the entity's repository afterwards.
      *
      * @param statements  the statements to resolve
      * @param applicationKey the application whose entities the statements name
@@ -35,7 +35,7 @@ public interface EntityStatementResolver {
 
     /**
      * Resolves a named query's statements against the entity the query belongs to. Every name a statement carries
-     * must be that entity's name, compared ignoring case, and is replaced by the entity's index. A write is given
+     * must be that entity's name, written in its case, and is replaced by the entity's index. A write is given
      * its identity when it runs, see {@link #confine}, since its row and tenant are only known then.
      *
      * @param statements the statements to resolve

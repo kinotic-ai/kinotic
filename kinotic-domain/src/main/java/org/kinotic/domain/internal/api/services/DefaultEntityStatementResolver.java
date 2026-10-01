@@ -24,7 +24,6 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -54,12 +53,12 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
         Map<String, Future<EntityDescriptor>> lookups = new LinkedHashMap<>();
         for (Statement statement : statements) {
             for (String name : names(statement)) {
-                lookups.computeIfAbsent(name.toLowerCase(Locale.ROOT), key -> requireEntity(name, applicationKey));
+                lookups.computeIfAbsent(name, key -> requireEntity(name, applicationKey));
             }
         }
         return Future.all(new ArrayList<>(lookups.values()))
                      .map(v -> {
-                         Function<String, EntityDescriptor> entity = name -> lookups.get(name.toLowerCase(Locale.ROOT)).result();
+                         Function<String, EntityDescriptor> entity = name -> lookups.get(name).result();
                          return statements.stream()
                                           .map(statement -> statement instanceof InsertStatement insert
                                                   ? identifyFromRow(insert, entity.apply(insert.tableName()))
@@ -71,7 +70,7 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
     @Override
     public List<Statement> resolve(List<Statement> statements, EntityDescriptor entity) {
         Function<String, EntityDescriptor> own = name -> {
-            Validate.isTrue(entity.name().equalsIgnoreCase(name), "A named query of %s acts on %s, not %s",
+            Validate.isTrue(entity.name().equals(name), "A named query of %s acts on %s, not %s",
                             entity.name(), entity.name(), name);
             return entity;
         };
@@ -106,7 +105,13 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
                                              Validate.isTrue(definition != null && definition.isPublished(),
                                                              "Application %s has no published entity named %s",
                                                              applicationKey.applicationId(), name);
-                                             return definition.toDescriptor();
+                                             // the definition id ignores case, so a name in the wrong case finds the
+                                             // entity it was meant for, which the error can then suggest
+                                             EntityDescriptor ret = definition.toDescriptor();
+                                             Validate.isTrue(ret.name().equals(name),
+                                                             "Application %s has no published entity named %s; did you mean %s?",
+                                                             applicationKey.applicationId(), name, ret.name());
+                                             return ret;
                                          });
     }
 

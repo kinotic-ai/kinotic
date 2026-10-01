@@ -215,6 +215,19 @@ describe('Kinotic JS', () => {
     )
 
     it<LocalTestContext>(
+        'rejects an entity name written in another case, naming the entity',
+        async ({projectId}) => {
+            const result = await Kinotic.migrations.executeMigrations({
+                projectId,
+                migrations: [migration(1, `delete from personwithtenant where id = 'x' with refresh;`)]
+            })
+            expect(result.success).toBe(false)
+            expect(result.errorMessage).toContain('has no published entity named personwithtenant; did you mean PersonWithTenant?')
+            await expect(Kinotic.migrations.getLastAppliedMigrationVersion(projectId)).resolves.toBeNull()
+        }
+    )
+
+    it<LocalTestContext>(
         'rejects a REINDEX SCRIPT that reaches beyond the row',
         async ({projectId}) => {
             // Through the index, id or routing a reindex script could write the rows into storage outside the application

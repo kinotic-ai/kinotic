@@ -366,6 +366,8 @@ describe('Kinotic JS', () => {
         async ({entityService, entityDefinition, applicationIdUsed, projectIdUsed}) => {
             const otherEntity = new FunctionDefinition('otherEntity', [new QueryDecorator('SELECT * FROM Vehicle')])
             otherEntity.returnType = new ArrayC3Type(entityDefinition.schema)
+            const otherCase = new FunctionDefinition('otherCase', [new QueryDecorator('select * from person')])
+            otherCase.returnType = new ArrayC3Type(entityDefinition.schema)
             const otherEntityAggregate = new FunctionDefinition('otherEntityAggregate', [new QueryDecorator('SELECT COUNT(firstName) AS count FROM Vehicle')])
             otherEntityAggregate.returnType = writeCount(applicationIdUsed)
             // FROM names one entity; an index pattern, or a decoy FROM inside a string, does not parse
@@ -383,9 +385,10 @@ describe('Kinotic JS', () => {
                                                                                       applicationIdUsed,
                                                                                       projectIdUsed,
                                                                                       entityService.entityName,
-                                                                                      [otherEntity, otherEntityAggregate, hiddenIndexAggregate, commentedAggregate, reindex, createTable]))
+                                                                                      [otherEntity, otherCase, otherEntityAggregate, hiddenIndexAggregate, commentedAggregate, reindex, createTable]))
 
             await expect(entityService.namedQuery('otherEntity', [])).rejects.toThrow(/acts on Person, not Vehicle/)
+            await expect(entityService.namedQuery('otherCase', [])).rejects.toThrow(/acts on Person, not person/)
             await expect(entityService.namedQuery('otherEntityAggregate', [])).rejects.toThrow(/acts on Person, not Vehicle/)
             await expect(entityService.namedQuery('hiddenIndexAggregate', [])).rejects.toThrow(/syntax error/)
             await expect(entityService.namedQuery('commentedAggregate', [])).rejects.toThrow(/syntax error/)
