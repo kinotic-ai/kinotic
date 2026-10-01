@@ -1,2 +1,2 @@
 export * from './states'
-export * from './IContinuumUI'
+export * from './IKinoticUI'

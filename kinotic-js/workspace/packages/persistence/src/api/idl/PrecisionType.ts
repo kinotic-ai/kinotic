@@ -1,5 +1,5 @@
 /**
- * The {@link PrecisionType} enum is used to define the precision of a numeric field in the Continuum IDL.
+ * The {@link PrecisionType} enum is used to define the precision of a numeric field in the Kinotic IDL.
  */
 export enum PrecisionType {
     /**

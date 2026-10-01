@@ -1,5 +1,8 @@
 package org.kinotic.core.api.utils;
 
+import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +21,8 @@ import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 
 /**
@@ -30,6 +35,35 @@ public class KinoticUtil {
     public static String safeEncodeURI(String uri){
         String encoded = URLEncoder.encode(uri, StandardCharsets.UTF_8);
         return encoded.replace("_", "-");
+    }
+
+    /**
+     * Bridges a {@link CompletableFuture} into a Vert.x {@link Future} on the caller's context, so everything
+     * composed after it runs where the caller runs and a context-local such as the current participant stays
+     * observable across the hop. A failure is delivered as its raw cause, never wrapped in a
+     * {@link CompletionException}. Outside any Vert.x context, handlers run on the completing thread.
+     */
+    public static <T> Future<T> toFuture(CompletableFuture<T> stage) {
+        // a failure that crossed a dependent stage arrives CompletionException-wrapped; strip it here
+        // so every Vert.x consumer sees the raw cause. A bare Promise.promise() would not re-dispatch
+        // onto the context, so the context-bound fromCompletionStage overload is required.
+        CompletableFuture<T> unwrapped = new CompletableFuture<>();
+        stage.whenComplete((result, err) -> {
+            if (err != null) {
+                unwrapped.completeExceptionally(err instanceof CompletionException && err.getCause() != null
+                                                        ? err.getCause() : err);
+            } else {
+                unwrapped.complete(result);
+            }
+        });
+        Context ctx = Vertx.currentContext();
+        Future<T> ret;
+        if (ctx != null) {
+            ret = Future.fromCompletionStage(unwrapped, ctx);
+        } else {
+            ret = Future.fromCompletionStage(unwrapped);
+        }
+        return ret;
     }
 
     /**

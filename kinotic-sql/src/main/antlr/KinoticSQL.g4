@@ -14,6 +14,7 @@ statement
     | updateStatement
     | deleteStatement
     | insertStatement
+    | selectStatement
     | comment
     ;
 
@@ -78,6 +79,19 @@ deleteStatement
 
 insertStatement
     : INSERT INTO tableName (LPAREN columnName (COMMA columnName)* RPAREN)? VALUES LPAREN valueList RPAREN (WITH insertOption (COMMA insertOption)*)? SEMICOLON
+    ;
+
+selectStatement
+    : SELECT selectList FROM ID (WHERE whereClause)? (ORDER BY orderBy (COMMA orderBy)*)? (LIMIT INTEGER_LITERAL)? SEMICOLON
+    ;
+
+selectList
+    : MULTIPLY
+    | columnName (COMMA columnName)*
+    ;
+
+orderBy
+    : ID (ASC | DESC)?
     ;
 
 insertOption
@@ -207,7 +221,9 @@ ABORT: 'ABORT';
 ADD: 'ADD';
 ALTER: 'ALTER';
 AND: 'AND';
+ASC: 'ASC';
 AUTO: 'AUTO';
+BY: 'BY';
 COLUMN: 'COLUMN';
 COMPONENT: 'COMPONENT';
 CONFLICTS: 'CONFLICTS';
@@ -216,6 +232,7 @@ DATA: 'DATA';
 DATA_RETENTION: 'DATA_RETENTION';
 DATE: 'DATE';
 DELETE: 'DELETE';
+DESC: 'DESC';
 DOCUMENT_ID: 'DOCUMENT_ID';
 DOUBLE: 'DOUBLE';
 EXISTS: 'EXISTS';
@@ -227,18 +244,21 @@ INDEX: 'INDEX';
 INDEXED: 'INDEXED';
 INSERT: 'INSERT';
 INTO: 'INTO';
+LIMIT: 'LIMIT';
 LONG: 'LONG';
 MAX_DOCS: 'MAX_DOCS';
 NOT: 'NOT';
 NUMBER_OF_REPLICAS: 'NUMBER_OF_REPLICAS';
 NUMBER_OF_SHARDS: 'NUMBER_OF_SHARDS';
 OR: 'OR';
+ORDER: 'ORDER';
 PROCEED: 'PROCEED';
 QUERY: 'QUERY';
 REFRESH: 'REFRESH';
 REINDEX: 'REINDEX';
 ROUTING: 'ROUTING';
 SCRIPT: 'SCRIPT';
+SELECT: 'SELECT';
 SET: 'SET';
 SIZE: 'SIZE';
 SLICES: 'SLICES';

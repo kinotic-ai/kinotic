@@ -26,7 +26,7 @@ describe('Kinotic JS', () => {
         }
 
         const invokeGreet = async (name: string): Promise<any> => {
-            const replyTo = `${EventConstants.REPLY_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@continuum.js.EventBus/replyHandler`
+            const replyTo = `${EventConstants.REPLY_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@kinotic.js.EventBus/replyHandler`
             const event = new Event(`srv://${ZONE}~com.example.TestServiceNoScope/greet`, new Map([
                                         [EventConstants.REPLY_TO_HEADER, replyTo],
                                         [EventConstants.CONTENT_TYPE_HEADER, "application/json"],

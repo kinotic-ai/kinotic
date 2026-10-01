@@ -102,6 +102,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             entityDefinition.setDecoratedProperties(result.decoratedProperties());
             entityDefinition.setMultiTenancyType(result.entityDecorator().getMultiTenancyType());
             entityDefinition.setEntityType(result.entityDecorator().getEntityType());
+            entityDefinition.setIdFieldName(result.idFieldName());
             entityDefinition.setVersionFieldName(result.versionFieldName());
             entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
             entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
@@ -264,6 +265,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     entityDefinition.setDecoratedProperties(result.decoratedProperties());
                     entityDefinition.setMultiTenancyType(result.entityDecorator().getMultiTenancyType());
                     entityDefinition.setEntityType(result.entityDecorator().getEntityType());
+                    entityDefinition.setIdFieldName(result.idFieldName());
                     entityDefinition.setVersionFieldName(result.versionFieldName());
                     entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
                     entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());

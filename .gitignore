@@ -90,7 +90,6 @@ eviction-data/
 eviction-events.csv
 kinotic-js/workspace/packages/rpc/allure-report/
 
-kinotic-js/continuum-cli/
 
 terraform.tfstate
 terraform.tfstate.backup

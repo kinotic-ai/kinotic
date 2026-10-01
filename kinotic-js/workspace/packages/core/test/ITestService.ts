@@ -37,8 +37,8 @@ export class TestService implements ITestService {
 
     private readonly serviceProxy: IServiceProxy
 
-    constructor(continuum?: KinoticSingleton) {
-        let toUse = continuum || Kinotic
+    constructor(kinotic?: KinoticSingleton) {
+        let toUse = kinotic || Kinotic
         this.serviceProxy = toUse.serviceProxy('management-api~org.kinotic.testserver.ITestService')
     }
 

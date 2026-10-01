@@ -68,6 +68,11 @@ public class EntityDefinition implements ProjectScoped<String> {
     private List<DecoratedProperty> decoratedProperties = new ArrayList<>(); // do not ever set, system managed
 
     /**
+     * The name of the top-level field that holds an item's id
+     */
+    private String idFieldName = null; // do not ever set, system managed
+
+    /**
      * The name of the field that will be used for optimistic locking
      * or null if optimistic locking is not enabled
      */
@@ -113,6 +118,7 @@ public class EntityDefinition implements ProjectScoped<String> {
                                .applicationId(applicationId)
                                .name(name)
                                .itemIndex(itemIndex)
+                               .idFieldName(idFieldName)
                                .multiTenancyType(multiTenancyType)
                                .tenantIdFieldName(tenantIdFieldName)
                                .versionFieldName(versionFieldName)

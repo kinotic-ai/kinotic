@@ -5,7 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 /**
- * Represents a Continuum Schema for an integer
+ * Represents a Kinotic Schema for an integer
  * Created by Navíd Mitchell 🤪 on 4/13/23.
  */
 @NoArgsConstructor

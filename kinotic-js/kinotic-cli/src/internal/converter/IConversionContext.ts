@@ -2,7 +2,7 @@ import {IConverterStrategy} from './IConverterStrategy'
 import {DefaultConversionContext} from './DefaultConversionContext'
 
 /**
- * {@link IConversionContext} allows for conversion of a specific language type to Continuum IDL types.
+ * {@link IConversionContext} allows for conversion of a specific language type to Kinotic IDL types.
  * The {@link IConversionContext} contains state and can be reused but will retain state between requests.
  * If state needs to be reset a new {@link IConversionContext} should be created.
  *
@@ -67,7 +67,7 @@ export interface IConversionContext<T, R, S> {
 
 /**
  * Creates {@link IConversionContext} instances based on a {@link IConverterStrategy}
- * The {@link IConversionContext} allows for conversion of a specific language type to Continuum IDL types.
+ * The {@link IConversionContext} allows for conversion of a specific language type to Kinotic IDL types.
  * The {@link IConversionContext} contains state and can be reused but will retain state between requests.
  * If state needs to be reset a new {@link IConversionContext} should be created.
  * @param strategy

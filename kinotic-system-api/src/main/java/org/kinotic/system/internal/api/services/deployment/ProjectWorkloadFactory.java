@@ -1,7 +1,8 @@
 package org.kinotic.system.internal.api.services.deployment;
 
 import lombok.RequiredArgsConstructor;
-import org.kinotic.domain.api.model.AppHost;
+import org.kinotic.domain.api.model.ApplicationKey;
+import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
@@ -59,7 +60,7 @@ public class ProjectWorkloadFactory {
         // The UIs are built against the address a browser reaches their application on, which the
         // address the workload itself dials is not
         workload.getEnvironment().put("KINOTIC_UI_SERVER_URL",
-                                      new AppHost(project.getOrganizationId(), project.getApplicationId()).apiUrl(deployment.getAppApiBaseUrl()));
+                                      HostLabelUtil.apiUrl(new ApplicationKey(project.getOrganizationId(), project.getApplicationId()), deployment.getAppApiBaseUrl()));
         putKinoticConnection(workload, deployment.getManagementServer(), credentials);
         workload.getSecrets().put("GIT_TOKEN", token.getToken());
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())

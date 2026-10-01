@@ -192,7 +192,7 @@ public class TenantSelectionTests extends KinoticTestBase {
     private void createCountQuery(EntityDefinition definition) {
         FunctionDefinition countPeople = new FunctionDefinition().setName(COUNT_QUERY)
                                                                  .addParameter("tenantSelection", new TenantSelectionC3Type());
-        countPeople.setDecorators(List.of(new QueryDecorator().setStatements("select count(firstName) as count from \"%s\"".formatted(definition.getItemIndex()))));
+        countPeople.setDecorators(List.of(new QueryDecorator().setStatements("select count(firstName) as count from %s".formatted(definition.getName()))));
 
         NamedQueriesDefinition namedQueries = new NamedQueriesDefinition();
         namedQueries.setId(definition.getId());

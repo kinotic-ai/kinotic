@@ -13,6 +13,7 @@ import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
  * @param applicationId the application the entity belongs to
  * @param name the name of the entity
  * @param itemIndex the Elasticsearch index that items of this entity are stored in
+ * @param idFieldName the top-level field holding an item's id
  * @param multiTenancyType how items of this entity are separated between tenants
  * @param tenantIdFieldName the field holding the tenant id, or null if the entity is not tenant selectable
  * @param versionFieldName the field holding the version, or null if optimistic locking is not enabled
@@ -26,6 +27,7 @@ public record EntityDescriptor(String id,
                                String applicationId,
                                String name,
                                String itemIndex,
+                               String idFieldName,
                                MultiTenancyType multiTenancyType,
                                String tenantIdFieldName,
                                String versionFieldName,

@@ -6,6 +6,6 @@ package org.kinotic.core.internal.config;
 public class IgniteCacheConstants {
 
     // NOTE: Key is the session id
-    public static final String SESSION_CACHE_NAME = "__continuumSessionCache";
+    public static final String SESSION_CACHE_NAME = "__kinoticSessionCache";
 
 }

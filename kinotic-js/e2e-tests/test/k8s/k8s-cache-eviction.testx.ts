@@ -40,7 +40,7 @@ ensureNodeWebSocket();
  * - K8S_NAMESPACE: Kubernetes namespace (default: default)
  * - K8S_LABEL_SELECTOR: Pod label selector (default: app=structures)
  * - K8S_REPLICA_COUNT: Expected replicas (default: 3)
- * - K8S_STOMP_PORT: Continuum STOMP port (default: 58503)
+ * - K8S_STOMP_PORT: Kinotic STOMP port (default: 58503)
  * - K8S_STARTING_LOCAL_PORT: Starting local port for port-forwards (default: 58511)
  */
 describe('Kinotic JS', () => {
@@ -376,7 +376,7 @@ describe('Kinotic JS', () => {
         const concurrentStart = Date.now();
 
         // Note: We can't truly run concurrent connections with the current helper
-        // because it uses a single Continuum connection. Instead, we'll simulate
+        // because it uses a single Kinotic connection. Instead, we'll simulate
         // sequential rapid operations that would benefit from warm caches.
 
         // Modify structure on pod 0

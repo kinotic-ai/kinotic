@@ -46,6 +46,14 @@ public class MigrationParser {
         return parse(CharStreams.fromString(sql));
     }
 
+    /**
+     * @param sql        the migration's statements
+     * @param sourceName what a syntax error names the migration as
+     */
+    public MigrationContent parse(String sql, String sourceName) {
+        return parse(CharStreams.fromString(sql, sourceName));
+    }
+
     public MigrationContent parse(byte[] bytes) throws IOException {
         return parse(CharStreams.fromStream(new java.io.ByteArrayInputStream(bytes)));
     }
@@ -84,7 +92,7 @@ public class MigrationParser {
         // Errors are collected rather than thrown from syntaxError so one parse reports every error in the file
         void throwIfErrors(String sourceName) {
             if (!errors.isEmpty()) {
-                throw new IllegalArgumentException("Migration " + sourceName + " contains " + errors.size()
+                throw new IllegalArgumentException(sourceName + " contains " + errors.size()
                         + " syntax error(s):\n" + String.join("\n", errors));
             }
         }

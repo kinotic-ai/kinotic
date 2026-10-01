@@ -5,7 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 /**
- * Represents a Continuum Schema for a character
+ * Represents a Kinotic Schema for a character
  * Created by Navíd Mitchell 🤪 on 4/13/23.
  */
 @NoArgsConstructor

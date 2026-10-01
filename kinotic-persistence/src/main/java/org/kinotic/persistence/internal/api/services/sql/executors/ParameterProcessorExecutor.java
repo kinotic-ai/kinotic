@@ -119,6 +119,7 @@ public class ParameterProcessorExecutor extends AbstractQueryExecutor {
             context.getQueryOptions().setPageTimeout((String)value);
         }else{
             context.getQueryParameters().add(value);
+            context.getNamedParameters().put(property, value);
         }
     }
 

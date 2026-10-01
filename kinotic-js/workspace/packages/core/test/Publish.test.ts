@@ -56,7 +56,7 @@ describe('Kinotic JS', () => {
         }
 
         const sendAndReceiveEvent = async (cri: string, args?: any[] | null): Promise<any> => {
-            const replyTo = `${EventConstants.REPLY_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@continuum.js.EventBus/replyHandler`
+            const replyTo = `${EventConstants.REPLY_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@kinotic.js.EventBus/replyHandler`
             const event = createTestEvent(cri, replyTo, args)
             const response: Observable<IEvent> = Kinotic.eventBus.observe(replyTo)
             const resultPromise = firstValueFrom(response)
@@ -71,7 +71,7 @@ describe('Kinotic JS', () => {
         // Sends a request and collects every reply for it until the completion control arrives
         const sendAndCollectStream = async (cri: string, args?: any[] | null): Promise<IEvent[]> => {
             const correlationId = uuidv4()
-            const replyTo = `${EventConstants.REPLY_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@continuum.js.EventBus/replyHandler`
+            const replyTo = `${EventConstants.REPLY_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@kinotic.js.EventBus/replyHandler`
             const event = createTestEvent(cri, replyTo, args)
             event.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
             const replies: IEvent[] = []
@@ -108,7 +108,7 @@ describe('Kinotic JS', () => {
 
             it("should stop producing once the caller cancels", async () => {
                 const correlationId = uuidv4()
-                const replyTo = `${EventConstants.REPLY_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@continuum.js.EventBus/replyHandler`
+                const replyTo = `${EventConstants.REPLY_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@kinotic.js.EventBus/replyHandler`
                 const event = createTestEvent("srv://com.example.TestServiceNoScope/tick", replyTo, [50])
                 event.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
                 const replies = Kinotic.eventBus.observe(replyTo)

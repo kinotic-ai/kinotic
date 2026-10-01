@@ -14,7 +14,7 @@ import { ITask } from './ITask';
  */
 export class SaveTaskGenerator implements ITaskGenerator {
 
-    private continuumTaskGenerator: KinoticOperationTaskGenerator
+    private kinoticTaskGenerator: KinoticOperationTaskGenerator
     private personRepository: PersonRepository
 
     /**
@@ -35,18 +35,18 @@ export class SaveTaskGenerator implements ITaskGenerator {
         kinotic.use(ManagementApiPlugin).use(PersistencePlugin)
         this.personRepository = new PersonRepository(new EntitiesRepository(kinotic))
 
-        this.continuumTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
+        this.kinoticTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,
                                                                         kinotic,
                                                                         numberOfPeopleToCreate / batchSize,
                                                                         this.createTaskFactory(batchSize))
     }
 
     getNextTask(): ITask {
-        return this.continuumTaskGenerator.getNextTask()
+        return this.kinoticTaskGenerator.getNextTask()
     }
 
     hasMoreTasks(): boolean {
-        return this.continuumTaskGenerator.hasMoreTasks()
+        return this.kinoticTaskGenerator.hasMoreTasks()
     }
 
     private createTaskFactory(batchSize: number): ITaskFactory {

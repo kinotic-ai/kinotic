@@ -5,7 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 /**
- * Represents a Continuum Schema for a float
+ * Represents a Kinotic Schema for a float
  * Created by Navíd Mitchell 🤪 on 4/13/23.
  */
 @NoArgsConstructor

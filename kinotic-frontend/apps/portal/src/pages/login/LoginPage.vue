@@ -64,7 +64,7 @@ import Button from 'primevue/button'
 import IconField from 'primevue/iconfield'
 import { useToast } from 'primevue/usetoast'
 
-import { CONTINUUM_UI } from '@/IContinuumUI'
+import { KINOTIC_UI } from '@/IKinoticUI'
 import { KinoticStates } from '@/states'
 import { type IUserState } from '@/states/IUserState'
 import { createDebug } from '@kinotic-ai/frontend-common'
@@ -170,7 +170,7 @@ async function handleSubmit() {
     // Open the realtime connection, authenticated by the freshly set session cookie.
     await userState.login()
     const referer = (route.query.referer as string | undefined) || '/applications'
-    await CONTINUUM_UI.navigate(referer)
+    await KINOTIC_UI.navigate(referer)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Invalid credentials'
     displayError(message)

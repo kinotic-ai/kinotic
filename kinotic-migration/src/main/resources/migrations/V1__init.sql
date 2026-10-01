@@ -156,6 +156,7 @@ CREATE TABLE IF NOT EXISTS kinotic_entity_definition (
     publishedTimestamp DATE,
     itemIndex KEYWORD,
     decoratedProperties JSON NOT INDEXED,
+    idFieldName KEYWORD NOT INDEXED,
     versionFieldName KEYWORD NOT INDEXED,
     tenantIdFieldName KEYWORD NOT INDEXED,
     timeReferenceFieldName KEYWORD NOT INDEXED

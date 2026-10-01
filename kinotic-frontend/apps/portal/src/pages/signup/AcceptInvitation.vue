@@ -82,7 +82,7 @@ import { useToast } from 'primevue/usetoast'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SetPasswordFields from '@/components/SetPasswordFields.vue'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import { CONTINUUM_UI } from '@/IContinuumUI'
+import { KINOTIC_UI } from '@/IKinoticUI'
 import { KinoticStates } from '@/states'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 
@@ -217,7 +217,7 @@ async function handleAccept() {
     if (res.status === 204) {
       // Organization member — the session is established; open the realtime connection.
       await userState.login()
-      await CONTINUUM_UI.navigate('/applications')
+      await KINOTIC_UI.navigate('/applications')
       return
     }
     const data = await res.json()

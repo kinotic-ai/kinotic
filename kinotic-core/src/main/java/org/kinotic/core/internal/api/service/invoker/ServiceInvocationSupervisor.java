@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Class handles invoking services that are published to the Continuum.
+ * Class handles invoking services that are published to Kinotic.
  *
  *
  * Created by Navid Mitchell on 2019-03-20.
