@@ -7,7 +7,7 @@ import io.vertx.ext.web.handler.HttpException;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.appserver.api.config.AppServerProperties;
 import org.kinotic.domain.api.model.ApplicationKey;
-import org.kinotic.domain.api.utils.AppHostUtil;
+import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
@@ -83,6 +83,6 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
     private ApplicationKey findApplicationKey(RoutingContext ctx) {
         // authority() is the request's Host header, parsed; null on an HTTP/1.0 request that sent none
         HostAndPort authority = ctx.request().authority();
-        return authority != null ? AppHostUtil.fromHost(authority.host(), properties.getApiBaseUrl()) : null;
+        return authority != null ? HostLabelUtil.fromHost(authority.host(), properties.getApiBaseUrl()) : null;
     }
 }

@@ -139,7 +139,7 @@ public class DomainUtil {
     // two applications form the same label: org "a" with app "b--c" and org "a--b" with app "c"
     private static void validateHostLabelPart(String name) {
         ZoneUtil.validateLabel(name);
-        Validate.isTrue(!name.contains(AppHostUtil.HOST_LABEL_SEPARATOR), "'%s' must not contain '%s'", name, AppHostUtil.HOST_LABEL_SEPARATOR);
+        Validate.isTrue(!name.contains(HostLabelUtil.HOST_LABEL_SEPARATOR), "'%s' must not contain '%s'", name, HostLabelUtil.HOST_LABEL_SEPARATOR);
     }
 
     public static void validateProjectId(String projectId){

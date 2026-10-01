@@ -8,7 +8,7 @@ import org.kinotic.appserver.api.config.AppServerProperties;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.model.ApplicationKey;
-import org.kinotic.domain.api.utils.AppHostUtil;
+import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
@@ -62,6 +62,6 @@ public class ApplicationSecurityService implements SecurityService {
                                         .findFirst()
                                         .orElse(null);
         HostAndPort authority = host != null ? HostAndPort.parseAuthority(host, -1) : null;
-        return authority != null ? AppHostUtil.fromHost(authority.host(), properties.getApiBaseUrl()) : null;
+        return authority != null ? HostLabelUtil.fromHost(authority.host(), properties.getApiBaseUrl()) : null;
     }
 }

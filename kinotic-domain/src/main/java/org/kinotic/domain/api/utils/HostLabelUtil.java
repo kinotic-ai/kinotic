@@ -12,7 +12,7 @@ import java.util.Locale;
  * The API host is a label under a base URL each server configures for itself, so the methods that read or
  * build a full host take that base URL from the caller.
  */
-public final class AppHostUtil {
+public final class HostLabelUtil {
 
     /**
      * Separates the names a host label joins. No name contains it, so a label names exactly one application,
@@ -23,7 +23,7 @@ public final class AppHostUtil {
     /** The longest label DNS allows, which bounds every host label the platform mints. */
     public static final int MAX_HOST_LABEL_LENGTH = 63;
 
-    private AppHostUtil() {
+    private HostLabelUtil() {
     }
 
     /** The label of the application's API host, {@code <organizationId>--<applicationId>}. */

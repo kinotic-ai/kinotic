@@ -11,7 +11,7 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.appserver.api.config.AppServerProperties;
 import org.kinotic.domain.api.model.ApplicationKey;
-import org.kinotic.domain.api.utils.AppHostUtil;
+import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.rest.support.CallbackResult;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.security.AuthType;
@@ -65,7 +65,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
         oidcConfigurationService.findEnabledForScope(applicationKey.organizationId(), applicationKey.applicationId())
               .onSuccess(configs -> authEndpointSupport.respondProvidersList(ctx, configs))
               .onFailure(err -> {
-                  log.warn("Failed to list app providers for {}: {}", AppHostUtil.label(applicationKey), err.getMessage());
+                  log.warn("Failed to list app providers for {}: {}", HostLabelUtil.label(applicationKey), err.getMessage());
                   authEndpointSupport.respondError(ctx, 500, "Failed to list providers");
               });
     }
@@ -88,7 +88,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
         identityService.findByEmail(email, applicationKey.organizationId(), applicationKey.applicationId())
               .compose(user -> resolveSsoOrPassword(ctx, applicationKey, user))
               .onFailure(err -> {
-                  log.warn("App login lookup failed for {}/{}: {}", AppHostUtil.label(applicationKey), email, err.getMessage());
+                  log.warn("App login lookup failed for {}/{}: {}", HostLabelUtil.label(applicationKey), email, err.getMessage());
                   authEndpointSupport.respondError(ctx, 500, "Lookup failed");
               });
     }
@@ -166,12 +166,12 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
         String host = URI.create(origin).getHost();
         Pattern localUiOrigins = properties.getLocalUiOriginPattern();
         // the CORS pattern holds sites to the sites domain, so a site is named by the first label of its host
-        return (host != null && AppHostUtil.isSiteLabel(applicationKey, StringUtils.substringBefore(host, ".")))
+        return (host != null && HostLabelUtil.isSiteLabel(applicationKey, StringUtils.substringBefore(host, ".")))
                 || (localUiOrigins != null && localUiOrigins.matcher(origin).matches());
     }
 
     // the application's API host is the callback's base, so the IdP returns the browser to the host it left
     private String callbackUrl(ApplicationKey applicationKey, String configId) {
-        return AppHostUtil.apiUrl(applicationKey, properties.getApiBaseUrl()) + "/api/auth/app/login/oidc/callback/" + configId;
+        return HostLabelUtil.apiUrl(applicationKey, properties.getApiBaseUrl()) + "/api/auth/app/login/oidc/callback/" + configId;
     }
 }

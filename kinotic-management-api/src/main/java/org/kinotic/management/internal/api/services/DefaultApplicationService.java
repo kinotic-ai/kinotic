@@ -5,7 +5,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.ApplicationKey;
-import org.kinotic.domain.api.utils.AppHostUtil;
+import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
@@ -109,10 +109,10 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
         DomainUtil.validateApplicationId(entity.getId());
         ApplicationKey applicationKey = new ApplicationKey(requireOrganizationId(), entity.getId());
         // neither id changes after creation, so an application too long for a site label could never publish a UI
-        Validate.isTrue(AppHostUtil.label(applicationKey).length() + AppHostUtil.HOST_LABEL_SEPARATOR.length() + MIN_UI_NAME_LENGTH <= AppHostUtil.MAX_HOST_LABEL_LENGTH,
+        Validate.isTrue(HostLabelUtil.label(applicationKey).length() + HostLabelUtil.HOST_LABEL_SEPARATOR.length() + MIN_UI_NAME_LENGTH <= HostLabelUtil.MAX_HOST_LABEL_LENGTH,
                         "The application's host label '%s' leaves no room for a UI name in its sites' labels, which DNS limits"
                                 + " to %d characters; shorten the application name",
-                        AppHostUtil.label(applicationKey), AppHostUtil.MAX_HOST_LABEL_LENGTH);
+                        HostLabelUtil.label(applicationKey), HostLabelUtil.MAX_HOST_LABEL_LENGTH);
         entity.setUpdated(new Date());
         Future<String> primaryUiUrl;
         if (entity.getPrimaryUiId() == null) {
@@ -132,7 +132,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
 
     private Future<String> publishedUiUrl(ApplicationKey applicationKey, String uiName) {
         // a site's label names its application and UI, so a site with this label is one of this application's UIs
-        return uiDeploymentRepository.findById(AppHostUtil.siteLabel(applicationKey, uiName))
+        return uiDeploymentRepository.findById(HostLabelUtil.siteLabel(applicationKey, uiName))
                 .map(site -> {
                     Validate.isTrue(site != null, "The application '%s' has no published UI named '%s'",
                                     applicationKey.applicationId(), uiName);
