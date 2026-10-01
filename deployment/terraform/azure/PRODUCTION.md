@@ -21,7 +21,7 @@ Status and next steps for the Azure deployment. Items are ordered by priority wi
 - [x] `beta_mode` toggle — single command to scale from beta to production topology
 - [x] KinD parity — same namespace layout, charts, TLS, NetworkPolicy, secret sync
 - [x] Load generator for sample data
-- [x] Observability — Loki (log storage), Alloy (DaemonSet log collector), Grafana (dashboards, port-forward only)
+- [x] Observability — Loki (log storage), Tempo (trace storage), Mimir (metrics storage), Alloy (DaemonSet log collector), Grafana (dashboards, port-forward only)
 - [x] Grafana Entra ID login — auto-provisioned App Registration, on by default
 - [x] Azure Key Vault — the servers access it via workload identity (Secrets Officer role)
 - [x] Azure Communication Services — email via workload identity, custom domain (kinotic.ai) with automated DNS verification

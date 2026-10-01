@@ -1,0 +1,19 @@
+# Azure overrides for Tempo: trace blocks in Azure Blob Storage, in the tempo-traces container of
+# the observability storage account (observability.tf). The persistent volume holds only the
+# write-ahead log and the metrics-generator's state.
+# Tempo authenticates as its own workload identity; terraform sets the account name
+# (tempo.storage.trace.azure.storage_account_name) and the identity's client id
+# (serviceAccount.annotations).
+
+tempo:
+  storage:
+    trace:
+      backend: azure
+      local: null
+      azure:
+        container_name: tempo-traces
+        use_federated_token: true
+
+# The workload identity webhook injects the federated token into pods with this label
+podLabels:
+  azure.workload.identity/use: "true"

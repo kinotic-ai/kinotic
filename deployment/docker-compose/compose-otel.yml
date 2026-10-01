@@ -16,6 +16,7 @@ services:
       - mimir
 
   tempo:
+    # Canonical Tempo version: helm/observability/values-tempo.yaml pins the same tag
     image: grafana/tempo:2.6.1
     command: ["-config.file=/etc/tempo/tempo.yml"]
     volumes:
@@ -37,6 +38,7 @@ services:
     command: -config.file=/etc/loki/local-config.yaml -auth.enabled=true -querier.multi-tenant-queries-enabled=true -compactor.retention-enabled=true -compactor.delete-request-store=filesystem -compactor.delete-request-cancel-period=1h -compactor.working-directory=/tmp/loki/compactor
 
   mimir:
+    # Canonical Mimir version: helm/mimir/values.yaml pins the same tag
     image: grafana/mimir:2.14.3
     command: ["-target=all", "-config.file=/etc/mimir/mimir.yml"]
     volumes:

@@ -1,4 +1,4 @@
-# ── Observability: Loki + Alloy + Grafana ─────────────────────────────────────
+# ── Observability: Loki + Tempo + Mimir + Alloy + Grafana ────────────────────
 
 resource "kubernetes_namespace" "observability" {
   metadata {
@@ -6,6 +6,92 @@ resource "kubernetes_namespace" "observability" {
     labels = { "app.kubernetes.io/managed-by" = "terraform" }
   }
   depends_on = [module.aks]
+}
+
+# ── Blob storage for Loki, Tempo and Mimir ────────────────────────────────────
+# One account holds the three stores' data, each in containers of its own. Each store runs as a
+# workload identity of its own, which may read and write only its own containers. The account is
+# reached only through its private endpoint in the VNet, and only with Entra ID tokens.
+
+locals {
+  # Storage account names allow 3 to 24 lowercase letters and digits
+  observability_storage_account_name = substr("st${replace(local.name_prefix, "-", "")}obs", 0, 24)
+
+  # Each store's service account (named after its release) and the containers it owns
+  observability_stores = {
+    loki  = ["loki-chunks", "loki-ruler"]
+    tempo = ["tempo-traces"]
+    mimir = ["mimir-blocks", "mimir-ruler"]
+  }
+  observability_containers = merge([
+    for store, containers in local.observability_stores : { for c in containers : c => store }
+  ]...)
+}
+
+resource "azurerm_storage_account" "observability" {
+  name                            = local.observability_storage_account_name
+  resource_group_name             = azurerm_resource_group.main.name
+  location                        = var.location
+  account_kind                    = "StorageV2"
+  account_tier                    = "Standard"
+  account_replication_type        = "LRS"
+  min_tls_version                 = "TLS1_2"
+  allow_nested_items_to_be_public = false
+  public_network_access_enabled   = false
+  shared_access_key_enabled       = false
+  default_to_oauth_authentication = true
+  tags                            = local.common_tags
+}
+
+resource "azurerm_private_endpoint" "observability_blob" {
+  name                = "pe-${local.observability_storage_account_name}-blob"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  subnet_id           = module.networking.private_endpoints_subnet_id
+  tags                = local.common_tags
+
+  private_service_connection {
+    name                           = "${local.observability_storage_account_name}-blob"
+    private_connection_resource_id = azurerm_storage_account.observability.id
+    subresource_names              = ["blob"]
+    is_manual_connection           = false
+  }
+
+  private_dns_zone_group {
+    name                 = "blob"
+    private_dns_zone_ids = [module.networking.blob_private_dns_zone_id]
+  }
+}
+
+resource "azurerm_storage_container" "observability" {
+  for_each              = local.observability_containers
+  name                  = each.key
+  storage_account_id    = azurerm_storage_account.observability.id
+  container_access_type = "private"
+}
+
+resource "azurerm_user_assigned_identity" "observability" {
+  for_each            = local.observability_stores
+  name                = "id-${local.name_prefix}-${each.key}"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  tags                = local.common_tags
+}
+
+resource "azurerm_role_assignment" "observability_blob" {
+  for_each             = local.observability_containers
+  scope                = azurerm_storage_container.observability[each.key].resource_manager_id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_user_assigned_identity.observability[each.value].principal_id
+}
+
+resource "azurerm_federated_identity_credential" "observability" {
+  for_each                  = local.observability_stores
+  name                      = "${each.key}-federated"
+  user_assigned_identity_id = azurerm_user_assigned_identity.observability[each.key].id
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = data.azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject                   = "system:serviceaccount:observability:${each.key}"
 }
 
 # ── Loki (log storage with Azure Blob backend) ───────────────────────────────
@@ -21,9 +107,71 @@ resource "helm_release" "loki" {
 
   values = [
     file("${path.module}/../../../helm/observability/values-loki.yaml"),
+    file("${path.module}/../../../helm/observability/values-loki-azure.yaml"),
   ]
 
-  depends_on = [kubernetes_namespace.observability]
+  set = [
+    { name = "loki.storage.azure.accountName", value = azurerm_storage_account.observability.name },
+    { name = "serviceAccount.annotations.azure\\.workload\\.identity/client-id", value = azurerm_user_assigned_identity.observability["loki"].client_id },
+  ]
+
+  depends_on = [
+    kubernetes_namespace.observability,
+    azurerm_role_assignment.observability_blob,
+    azurerm_federated_identity_credential.observability,
+  ]
+}
+
+# ── Mimir (metrics storage with Azure Blob backend, multi-tenant) ────────────
+
+resource "helm_release" "mimir" {
+  name      = "mimir"
+  namespace = kubernetes_namespace.observability.metadata[0].name
+  chart     = "${path.module}/../../../helm/mimir"
+  wait      = true
+  timeout   = 600
+
+  values = [file("${path.module}/../../../helm/mimir/values-azure.yaml")]
+
+  set = [
+    { name = "config.blocks_storage.azure.account_name", value = azurerm_storage_account.observability.name },
+    { name = "config.ruler_storage.azure.account_name", value = azurerm_storage_account.observability.name },
+    { name = "serviceAccount.annotations.azure\\.workload\\.identity/client-id", value = azurerm_user_assigned_identity.observability["mimir"].client_id },
+  ]
+
+  depends_on = [
+    kubernetes_namespace.observability,
+    azurerm_role_assignment.observability_blob,
+    azurerm_federated_identity_credential.observability,
+  ]
+}
+
+# ── Tempo (trace storage with Azure Blob backend; span metrics to Mimir) ─────
+
+resource "helm_release" "tempo" {
+  name       = "tempo"
+  namespace  = kubernetes_namespace.observability.metadata[0].name
+  repository = "https://grafana.github.io/helm-charts"
+  chart      = "tempo"
+  version    = "1.14.0"
+  wait       = true
+  timeout    = 600
+
+  values = [
+    file("${path.module}/../../../helm/observability/values-tempo.yaml"),
+    file("${path.module}/../../../helm/observability/values-tempo-azure.yaml"),
+  ]
+
+  set = [
+    { name = "tempo.storage.trace.azure.storage_account_name", value = azurerm_storage_account.observability.name },
+    { name = "serviceAccount.annotations.azure\\.workload\\.identity/client-id", value = azurerm_user_assigned_identity.observability["tempo"].client_id },
+  ]
+
+  depends_on = [
+    helm_release.mimir,
+    azurerm_role_assignment.observability_blob,
+    azurerm_federated_identity_credential.observability,
+  ]
 }
 
 # ── Alloy config (ConfigMap) ──────────────────────────────────────────────────
@@ -64,7 +212,7 @@ resource "helm_release" "alloy" {
   ]
 }
 
-# ── Grafana (log UI) ──────────────────────────────────────────────────────────
+# ── Grafana (logs, traces, metrics UI) ───────────────────────────────────────
 
 locals {
   grafana_entra_enabled = local.global.grafana_entra_client_id != ""
@@ -102,5 +250,5 @@ resource "helm_release" "grafana" {
     { name = "grafana\\.ini.auth\\.azuread.client_secret", value = local.global.grafana_entra_client_secret },
   ] : []
 
-  depends_on = [helm_release.loki]
+  depends_on = [helm_release.loki, helm_release.tempo, helm_release.mimir]
 }

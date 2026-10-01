@@ -31,8 +31,9 @@ helm/
 │   └── values-azure-beta.yaml
 ├── kinotic/            # The org, system and app servers (a Deployment, Service and ConfigMap each), one Ignite cluster, the migration Job, RBAC
 ├── es-secret-sync/     # ES credential copy (elastic → kinotic namespace)
+├── mimir/              # Mimir in monolithic mode (-target=all) on a persistent volume
 ├── load-generator/     # Load testing Job
-└── observability/      # Loki, Alloy, Grafana values + Alloy pipeline config
+└── observability/      # Loki, Tempo, Alloy, Grafana values + Alloy pipeline config
 ```
 
 Charts use a **layered values** pattern. The base `values.yaml` contains defaults that work across environments. Environment-specific files override what differs (resource limits, TLS, service type, storage classes, node topology).
@@ -48,7 +49,7 @@ Both KinD and Azure use the same layout:
 | `elastic-system` | ECK operator |
 | `elastic` | Elasticsearch cluster |
 | `kinotic` | The Kinotic servers, TLS certs, Keycloak (when enabled), load generator |
-| `observability` | Loki, Alloy, Grafana |
+| `observability` | Loki, Tempo, Mimir, Alloy, Grafana |
 
 ## Network Policy
 
@@ -82,11 +83,17 @@ Keycloak and Grafana also read from the same TLS secret.
 
 ## Observability
 
-Centralized log collection using Grafana's stack:
+Centralized logs, traces and metrics using Grafana's stack:
 
 - **Alloy** — DaemonSet on each node, collects pod logs, ships to Loki under the `kinotic-system` tenant. Pipeline config in `helm/observability/alloy-config.alloy`.
 - **Loki** — Multi-tenant log storage (`auth_enabled: true`): one tenant per organization for workload logs, plus the reserved `kinotic-system` tenant for platform logs. Filesystem in KinD, Azure Blob Storage in Azure.
-- **Grafana** — Query and dashboards. The Loki datasource browses the `kinotic-system` tenant by default; multi-tenant queries accept pipe-separated ids (`acme|kinotic-system`). Local auth in KinD, Entra ID (Azure AD) in Azure.
+- **Tempo** — Multi-tenant trace storage (`multitenancy_enabled: true`), the grafana/tempo single-binary chart with `values-tempo.yaml`. It receives OTLP on 4317/4318 and serves its HTTP API on 3100; its metrics-generator writes each tenant's span metrics to Mimir under the same tenant. Traces are kept 30 days: on a persistent volume in KinD, in Azure Blob Storage in Azure (`values-tempo-azure.yaml`).
+- **Mimir** — Multi-tenant metrics storage, the local `helm/mimir` chart running one monolithic process. It receives OTLP at `/otlp` and serves the Prometheus API under `/prometheus` on 9009. Blocks are kept 30 days: on a persistent volume in KinD, in Azure Blob Storage in Azure (`helm/mimir/values-azure.yaml`).
+
+On Azure the three stores share one storage account, `st<prefix>obs`, each in containers of its own (`loki-chunks`, `loki-ruler`, `tempo-traces`, `mimir-blocks`, `mimir-ruler`), and each authenticates as a workload identity of its own (`id-<prefix>-loki`, `-tempo`, `-mimir`) holding Storage Blob Data Contributor on its containers alone. The account takes no public traffic and no shared keys: the stores reach it through its private endpoint in the VNet's private-endpoints subnet, resolved by the `privatelink.blob.core.windows.net` zone linked to the VNet, with Entra ID tokens. Terraform manages it through the resource manager alone (`data_plane_available = false` in the cluster root's provider). Their persistent volumes hold only write-ahead logs and caches.
+- **Grafana** — Query and dashboards, with Loki, Tempo and Mimir datasources linked to each other. Each datasource browses the `kinotic-system` tenant by default; Loki's multi-tenant queries accept pipe-separated ids (`acme|kinotic-system`). Local auth in KinD, Entra ID (Azure AD) in Azure.
+
+Each server runs the OpenTelemetry Java agent its image embeds, exporting its traces to Tempo and its metrics to Mimir over OTLP/HTTP under the `kinotic-system` tenant (`otel.*` in the kinotic chart's values); its logs go through Alloy, so the agent exports none.
 
 Customer workload (micro VM) logs are shipped separately: each vm-manager node runs its own Alloy process that tails per-workload log directories and routes each stream to the workload organization's tenant. See the observability page on the website for the architecture.
 
