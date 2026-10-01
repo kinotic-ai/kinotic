@@ -1,0 +1,32 @@
+# One-shot service of the test stacks (compose.kinotic-test.yml, compose.kinotic-e2e-test.yml) that shortens
+# Elasticsearch's refresh interval to 50ms. Every Refresh.WaitFor write blocks until the next scheduled refresh,
+# 1s by default, which dominates the suites' run time. A lowest-priority catch-all index template covers every
+# index created afterwards, and the settings update covers any index created before it; an index a platform
+# template matches keeps the default interval. Never include this in a deployment's compose file.
+services:
+  kinotic-elasticsearch-test-settings:
+    # The Elasticsearch image, for its curl, without the node's ports, volume or memory reservation
+    extends:
+      file: compose.elasticsearch.yml
+      service: kinotic-elasticsearch
+    container_name: kinotic-elasticsearch-test-settings
+    ports: !reset []
+    volumes: !reset []
+    deploy: !reset {}
+    healthcheck:
+      disable: true
+    stdin_open: false
+    tty: false
+    depends_on:
+      kinotic-elasticsearch:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        curl --silent --show-error --fail-with-body -X PUT -H 'Content-Type: application/json'
+        http://kinotic-elasticsearch:9200/_index_template/kinotic-test-refresh-interval
+        -d '{"index_patterns":["*"],"priority":1,"template":{"settings":{"index":{"refresh_interval":"50ms"}}}}'
+        && curl --silent --show-error --fail-with-body -X PUT -H 'Content-Type: application/json'
+        'http://kinotic-elasticsearch:9200/*/_settings?expand_wildcards=open&allow_no_indices=true'
+        -d '{"index":{"refresh_interval":"50ms"}}'
+    restart: "no"
