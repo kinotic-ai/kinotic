@@ -32,6 +32,80 @@ View microservice logs directly from the dashboard with the ability to temporari
 
 The same dialog edits a node's [trace log filters](/platform/configuration#trace-logging), so turning a logger up to TRACE does not have to mean drowning in whatever service talks most. Both changes last until the node restarts.
 
+The servers' own logs are in Loki's `kinotic-system` tenant, and every stream of them carries two labels: `service_name`, the server (`kinotic-server-management`, `kinotic-server-system` or `kinotic-server-app`), and `service_instance_id`, the node. Each node reads both from its `OTEL_SERVICE_NAME` and the `service.instance.id` in its `OTEL_RESOURCE_ATTRIBUTES`, and every deployment sets them to match how its logs are shipped:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Deployment
+    </th>
+    
+    <th>
+      How the logs reach Loki
+    </th>
+    
+    <th>
+      <code>
+        service.instance.id
+      </code>
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      Development server
+    </td>
+    
+    <td>
+      The OpenTelemetry agent, which labels them from those same settings
+    </td>
+    
+    <td>
+      The server's name and the container's vmid, <code>
+        kinotic-server-app-123
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Compose
+    </td>
+    
+    <td>
+      The OpenTelemetry agent, as above
+    </td>
+    
+    <td>
+      The container's name
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Kubernetes
+    </td>
+    
+    <td>
+      Alloy, from each pod's output, labelling the server pods' streams from their <code>
+        app
+      </code>
+      
+       label and pod name
+    </td>
+    
+    <td>
+      The pod's name
+    </td>
+  </tr>
+</tbody>
+</table>
+
+The system console's Cluster page lists each server node with the server it runs (`management`, `system` or `app`) and its Kinotic version, and its **Logs** button follows that node's logs alone. A node with no `service.instance.id` shows every node of its server interleaved, and one with no `OTEL_SERVICE_NAME` shows no button. `LogService.tailServer` and `LogService.serverHistory` read them, for a system participant alone.
+
 ## Workload Logs
 
 Logs from micro VM workloads (builds, deploys, and application containers) are shipped to Grafana Loki and can be tailed live or queried historically, per workload.
@@ -222,7 +296,7 @@ Loki runs multi-tenant. A workload's logs are stored in its organization's tenan
 
 ### Reading workload logs
 
-The `LogService` (`@kinotic-ai/management-api`) streams (`tail`) and queries (`history`) the logs of workloads the caller may view: an organization participant sees its own organization's workloads, a system participant sees any. Both methods return raw Loki response bytes for the caller to parse.
+The `LogService` (`@kinotic-ai/management-api`) streams (`tail`) and queries (`history`) the logs of workloads the caller may view: an organization participant sees its own organization's workloads, a system participant sees any. Its `tailServer` and `serverHistory` read a platform server's logs the same way (see [Application Logs](#application-logs)). Every method returns raw Loki response bytes for the caller to parse.
 
 ## Workload Traces and Metrics
 

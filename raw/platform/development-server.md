@@ -1497,6 +1497,34 @@ What the three share:
       No collector: the agent exports each signal to its store under the platform tenant, which is what the compose collector stamps on
     </td>
   </tr>
+  
+  <tr>
+    <td>
+      <code>
+        OTEL_RESOURCE_ATTRIBUTES
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        service.name
+      </code>
+      
+      , the server's name, and <code>
+        service.instance.id
+      </code>
+      
+      , the name and the container's vmid (<code>
+        kinotic-server-app-123
+      </code>
+      
+      )
+    </td>
+    
+    <td>
+      The instance id labels the node's logs, which the system console's Cluster page selects one node's by
+    </td>
+  </tr>
 </tbody>
 </table>
 
