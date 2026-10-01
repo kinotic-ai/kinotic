@@ -44,7 +44,7 @@ INSERT INTO Role (id, tenantId, name) VALUES ('role-member', 'acme', 'Member') W
 
 ## Supported Statements
 
-A migration uses the four data statements. Each names an entity of the application.
+A migration uses the four data statements. Each names an entity of the application. Keywords match in any case, but entity and field names are case-sensitive and must be written the way the entity class spells them: `Person` and `firstName`, not `person` and `FIRSTNAME`. An entity name in the wrong case fails the run, naming the entity meant; a field name in the wrong case is not an error, so an `UPDATE` or `DELETE` that uses one changes no rows. See [Case](/apps/reference/migration-sql-grammar#case).
 
 ### INSERT INTO
 
@@ -84,7 +84,7 @@ UPDATE Person SET active = false WHERE age < 18 WITH REFRESH;
 An `UPDATE` reaches every tenant's rows that match; narrow it with the tenant field when one tenant is meant:
 
 ```sql
-UPDATE Person SET plan = 'trial' WHERE tenantId == 'acme' WITH REFRESH;
+UPDATE Person SET plan = 'trial' WHERE tenantId = 'acme' WITH REFRESH;
 ```
 
 A composite field is set from the same literals INSERT uses. An object literal merges into the
@@ -93,16 +93,16 @@ one sub-field by naming only that one. Arrays and scalars are replaced outright:
 
 ```sql
 -- street keeps its stored value; only city changes
-UPDATE Person SET address = { city: 'Shelbyville' } WHERE id == 'p-1' WITH REFRESH;
+UPDATE Person SET address = { city: 'Shelbyville' } WHERE id = 'p-1' WITH REFRESH;
 ```
 
 Since omitting a sub-field keeps it, `null` is what clears one. The literal's nesting addresses the
 field, so any depth is reachable:
 
 ```sql
-UPDATE Person SET address = { street: null } WHERE id == 'p-1' WITH REFRESH;          -- address.street
-UPDATE Person SET address = { coords: { lat: null } } WHERE id == 'p-1' WITH REFRESH; -- address.coords.lat
-UPDATE Person SET nickname = null WHERE id == 'p-1' WITH REFRESH;                     -- the whole field
+UPDATE Person SET address = { street: null } WHERE id = 'p-1' WITH REFRESH;          -- address.street
+UPDATE Person SET address = { coords: { lat: null } } WHERE id = 'p-1' WITH REFRESH; -- address.coords.lat
+UPDATE Person SET nickname = null WHERE id = 'p-1' WITH REFRESH;                     -- the whole field
 ```
 
 ### DELETE FROM ... WHERE
@@ -110,7 +110,7 @@ UPDATE Person SET nickname = null WHERE id == 'p-1' WITH REFRESH;               
 Remove rows matching a condition. Like `UPDATE`, it reaches every tenant unless the condition names one.
 
 ```sql
-DELETE FROM Person WHERE active == false WITH REFRESH;
+DELETE FROM Person WHERE active = false WITH REFRESH;
 ```
 
 ### REINDEX
@@ -122,6 +122,17 @@ REINDEX LegacyOrder INTO Order WITH (SKIP_IF_NO_SOURCE = TRUE);
 ```
 
 Both names are entities of the application. The rows are copied as stored, so their ids and tenants travel with them.
+
+A `SCRIPT` transforms each row as it is copied, in [Painless](https://www.elastic.co/docs/explore-analyze/scripting/modules-scripting-painless). The row is `ctx._source`, and `ctx.op` set to `'noop'` skips it or `'delete'` removes it from the destination:
+
+```sql
+REINDEX LegacyOrder INTO Order WITH (
+    SCRIPT = 'ctx._source.total = Double.parseDouble(ctx._source.total); if (ctx._source.status == "void") { ctx.op = "noop" }',
+    SKIP_IF_NO_SOURCE = TRUE
+);
+```
+
+The script reaches `ctx` only as `ctx._source` or `ctx.op`, and does not call `metadata()`; a row's index, id and routing are the platform's. A migration whose script does otherwise fails the run.
 
 ## Best Practices
 

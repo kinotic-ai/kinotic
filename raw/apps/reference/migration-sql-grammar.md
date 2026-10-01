@@ -6,9 +6,9 @@
 
 This grammar reference applies to migration scripts used for schema and data migrations in Kinotic, and to [named queries](/apps/persistence/named-queries), which use the same SQL dialect for `SELECT`, `INSERT`, `UPDATE` and `DELETE`.
 
-All statements must end with a semicolon (`;`). Identifiers must start with a letter or underscore and can contain letters, numbers, and underscores. Strings are enclosed in single quotes (`'...'`).
+All statements must end with a semicolon (`;`). Identifiers must start with a letter or underscore and can contain letters, numbers, and underscores; double quotes make a [reserved word](#keywords) a name (`"order"`). Keywords match in any case, but names are case-sensitive: see [Case](#case). Strings are enclosed in single quotes (`'...'`).
 
-An application's migrations, the ones `kinotic sync` runs from its `migrations` folder, use only the data statements: `INSERT`, `UPDATE`, `DELETE` and `REINDEX`. There `<index_name>` is the name of one of the application's entities, which the platform resolves to the entity's backing store, and an `INSERT` carries neither `ROUTING` nor `DOCUMENT_ID`, since both are derived from the row's id and tenant fields. See [Migrations](/apps/persistence/migrations). The remaining statements, and the storage names in the examples below, belong to the platform's own [system migrations](/platform/system-migrations).
+An application's migrations, the ones `kinotic sync` runs from its `migrations` folder, use only the data statements: `INSERT`, `UPDATE`, `DELETE` and `REINDEX`. There `<index_name>` is the name of one of the application's entities, which the platform resolves to the entity's backing store, and an `INSERT` carries neither `ROUTING` nor `DOCUMENT_ID`, since both are derived from the row's id and tenant fields. A `REINDEX` `SCRIPT` there reaches `ctx` only as `ctx._source` or `ctx.op`. See [Migrations](/apps/persistence/migrations). The remaining statements, and the storage names in the examples below, belong to the platform's own [system migrations](/platform/system-migrations).
 
 ## Statements Overview
 
@@ -606,7 +606,7 @@ UPDATE <index_name> SET <field> = <expression> [, <field> = <expression>]*
 
 ```sql
 UPDATE products SET inStock = false, updatedAt = '2024-01-15'
-    WHERE sku == 'WDG-001' WITH REFRESH ;
+    WHERE sku = 'WDG-001' WITH REFRESH ;
 ```
 
 ### Updating composite columns
@@ -617,28 +617,28 @@ A composite column is set from the same object and array literals `INSERT` uses:
 UPDATE persons
    SET address = { street: '99 Elm St', city: 'Shelbyville' },
        tags    = [ { label: 'Area', value: 'grammar' }, { label: 'Release', value: 'v2' } ]
- WHERE id == 'p-1' WITH REFRESH ;
+ WHERE id = 'p-1' WITH REFRESH ;
 ```
 
 An object literal is **merged into** the stored object rather than replacing it, matching the merge Elasticsearch performs for a partial document update. Sub-fields the statement does not mention keep their stored values, so a single sub-field can be changed by naming only that one:
 
 ```sql
 -- street and zip keep their stored values; only city changes
-UPDATE persons SET address = { city: 'Shelbyville' } WHERE id == 'p-1' ;
+UPDATE persons SET address = { city: 'Shelbyville' } WHERE id = 'p-1' ;
 ```
 
 The merge is recursive, so an object inside an object merges the same way:
 
 ```sql
 -- coords.lon is left alone
-UPDATE persons SET address = { coords: { lat: 30.26 } } WHERE id == 'p-1' ;
+UPDATE persons SET address = { coords: { lat: 30.26 } } WHERE id = 'p-1' ;
 ```
 
 Everything that is not an object is replaced outright — arrays, including a `NESTED` column's list, are never appended to or merged element-wise:
 
 ```sql
 -- tags becomes exactly this one element, whatever it held before
-UPDATE articles SET tags = [ { label: 'Area', value: 'grammar' } ] WHERE id == 'a-1' ;
+UPDATE articles SET tags = [ { label: 'Area', value: 'grammar' } ] WHERE id = 'a-1' ;
 ```
 
 The stored side decides too: if the column currently holds a scalar, an array, or nothing at all, there is nothing to merge into, so the object is written as though merged into an empty one.
@@ -647,13 +647,13 @@ Because omitting a sub-field keeps it, `null` is what removes one. Name the colu
 
 ```sql
 -- removes address.street; city and the rest of the address are untouched
-UPDATE persons SET address = { street: null } WHERE id == 'p-1' ;
+UPDATE persons SET address = { street: null } WHERE id = 'p-1' ;
 
 -- removes address.coords.lat; lon and the rest of coords are untouched
-UPDATE persons SET address = { coords: { lat: null } } WHERE id == 'p-1' ;
+UPDATE persons SET address = { coords: { lat: null } } WHERE id = 'p-1' ;
 
 -- removes the whole address column
-UPDATE persons SET address = null WHERE id == 'p-1' ;
+UPDATE persons SET address = null WHERE id = 'p-1' ;
 ```
 
 A cleared field is gone rather than stored as an empty value, leaving the document exactly as if it had never carried one. Nothing is stored as null, so a later read gives you the same absent field either way.
@@ -677,32 +677,40 @@ DELETE FROM <index_name> WHERE <where_clause> [WITH REFRESH] ;
 **Example:**
 
 ```sql
-DELETE FROM products WHERE inStock == false WITH REFRESH ;
+DELETE FROM products WHERE inStock = false WITH REFRESH ;
 ```
 
 ---
 
 ## SELECT
 
-Reads the documents matching a where clause, whole or projected to the listed fields. A `SELECT` is the statement of a [named query](/apps/persistence/named-queries#select); a migration has no use for one.
+Reads the documents matching a where clause, whole or projected to the listed fields, or aggregates them. A `SELECT` is the statement of a [named query](/apps/persistence/named-queries#select); a migration has no use for one.
 
 **Syntax:**
 
 ```sql
-SELECT (* | <column_name> [, <column_name>]*) FROM <index_name>
+SELECT (* | <select_item> [, <select_item>]*) FROM <index_name>
     [WHERE <where_clause>]
-    [ORDER BY <column_name> [ASC | DESC] [, <column_name> [ASC | DESC]]*]
+    [GROUP BY <select_expression> [, <select_expression>]*]
+    [ORDER BY <field> [ASC | DESC] [, <field> [ASC | DESC]]*]
     [LIMIT <integer>] ;
+
+<select_item>       ::= <select_expression> [AS <alias>]
+<select_expression> ::= <field> | <function>([* | <argument> [, <argument>]*])
+<argument>          ::= <select_expression> | 'string' | number | :parameter
+<field>             ::= <name>[.<name>]*
 ```
 
 - `*` reads each document whole; a column list reads the listed top-level fields, each whole, so an object field comes back with all its sub-fields.
-- `ORDER BY` orders the documents by the listed fields, in precedence order, ascending unless `DESC` is given.
-- `LIMIT` caps the number of documents read.
+- A `SELECT` that calls a function (`COUNT(*)`, `SUM(total)`, `HISTOGRAM(age, 10)`, …) or has a `GROUP BY` is an aggregate, and runs on [Elasticsearch SQL](https://www.elastic.co/docs/reference/query-languages/sql/sql-functions), whose functions it can call. It returns one row per group, holding the listed columns; `AS` names a column, and a field can be a sub-field of an object field (`address.city`). A `SELECT` that does neither lists top-level fields without aliases.
+- `ORDER BY` orders the documents by the listed fields, or an aggregate's rows by its fields and column aliases, in precedence order, ascending unless `DESC` is given.
+- `LIMIT` caps the number of documents or rows read.
 
 **Example:**
 
 ```sql
-SELECT firstName, address FROM persons WHERE lastName == :lastName AND age >= 18 ORDER BY lastName, firstName DESC LIMIT 50 ;
+SELECT firstName, address FROM persons WHERE lastName = :lastName AND age >= 18 ORDER BY lastName, firstName DESC LIMIT 50 ;
+SELECT COUNT(*) AS total, address.city FROM persons WHERE age >= 18 GROUP BY address.city ORDER BY total DESC ;
 ```
 
 ---
@@ -730,15 +738,17 @@ Where clauses are used in `UPDATE`, `DELETE` and `SELECT` statements.
 <where_clause> OR <where_clause>
 ```
 
-**Operators:** `==`, `!=`, `<`, `>`, `<=`, `>=`
+**Operators:** `=`, `!=`, `<`, `>`, `<=`, `>=`. `=` compares in a where clause, and assigns in `SET` and `WITH` options.
+
+`<field>` is a field, or a sub-field of an object field joined by dots (`address.city`).
 
 **Values:** String, number, or boolean literal, or parameter (`:name`). Object and array literals cannot be compared.
 
 **Example:**
 
 ```sql
-WHERE status == 'archived' AND createdAt < '2023-01-01'
-WHERE (category == 'electronics' OR category == 'appliances') AND price > 100
+WHERE status = 'archived' AND createdAt < '2023-01-01'
+WHERE (category = 'electronics' OR category = 'appliances') AND price > 100
 ```
 
 ---
@@ -942,11 +952,11 @@ Object and array literals nest to any depth, so an `OBJECT` holding a `NESTED` h
 A parameter can stand anywhere a value can, including inside an object or array literal, and the same name may be used more than once in a statement:
 
 ```sql
-UPDATE persons SET address = { street: :street, city: :city } WHERE id == :id ;
+UPDATE persons SET address = { street: :street, city: :city } WHERE id = :id ;
 DELETE FROM events WHERE created < :cutoff OR updated < :cutoff ;
 ```
 
-Values are supplied per execution, keyed by parameter name, so two parameters on the same field stay distinct — `SET price = :newPrice WHERE price == :oldPrice` resolves each from its own name. A statement that names a parameter with no value supplied fails, naming it.
+Values are supplied per execution, keyed by parameter name, so two parameters on the same field stay distinct — `SET price = :newPrice WHERE price = :oldPrice` resolves each from its own name. A statement that names a parameter with no value supplied fails, naming it.
 
 Object and array literals are accepted wherever a value is written — `INSERT ... VALUES` (see [Inserting composite columns](#inserting-composite-columns)) and `UPDATE ... SET` (see [Updating composite columns](#updating-composite-columns)). `WHERE` conditions take scalar values only.
 
@@ -1481,14 +1491,41 @@ Expressions appear on the right of an `UPDATE ... SET` assignment.
 
 - **Values:** any form in [Values](#values) — `'string'`, `123`, `12.5`, `-3`, `true`, `false`, `{ ... }`, `[ ... ]`
 - **Parameters:** `:name`
-- **Binary Expressions:** `<field> + <value>`, `<field> - <value>`, etc.
+- **Binary Expressions:** `<field> + <value>`, `<field> - <value>`, `<field> * <value>`, `<field> / <value>`; a comparison belongs in the `WHERE` clause
 
 A binary expression reads the named field from the stored document, so its operands are scalars; object and array literals are only meaningful as a whole value.
 
 ---
 
-## Reserved Keywords
+## Keywords
 
-The literals `true`, `false`, and `null` are lowercase and reserved — they cannot be used as an identifier, though an object literal can carry such a field name as a quoted key (`{ 'null': 1 }`). All other keywords are uppercase:
+Keywords match in any case: `SELECT`, `select` and `Select` are the same keyword. The literals `true`, `false` and `null` match in any case too, and cannot be used as a name, though an object literal can carry such a field name as a quoted key (`{ 'null': 1 }`).
 
-`ABORT`, `ADD`, `ALTER`, `AND`, `ASC`, `AUTO`, `BINARY`, `BOOLEAN`, `BY`, `COLUMN`, `COMPONENT`, `CONFLICTS`, `CREATE`, `DATA`, `DATA_RETENTION`, `DATE`, `DECIMAL`, `DELETE`, `DESC`, `DOUBLE`, `EXISTS`, `FLOAT`, `FOR`, `FROM`, `GEO_POINT`, `GEO_SHAPE`, `IF`, `INDEX`, `INDEXED`, `INSERT`, `INTEGER`, `INTO`, `JSON`, `KEYWORD`, `LIMIT`, `LONG`, `MAX_DOCS`, `NESTED`, `NOT`, `NUMBER_OF_REPLICAS`, `NUMBER_OF_SHARDS`, `OBJECT`, `OR`, `ORDER`, `PROCEED`, `QUERY`, `REFRESH`, `REINDEX`, `SCRIPT`, `SELECT`, `SET`, `SIZE`, `SLICES`, `SOURCE_FIELDS`, `STREAM`, `TABLE`, `TEMPLATE`, `TEXT`, `TIME_REFERENCE`, `TRUE`, `FALSE`, `UNION`, `UPDATE`, `USING`, `UUID`, `VALUES`, `WAIT`, `WHERE`, `WITH`, `SKIP_IF_NO_SOURCE`
+Only the words that structure a statement are reserved:
+
+`ALTER`, `AND`, `AS`, `BY`, `CREATE`, `DELETE`, `FROM`, `GROUP`, `INSERT`, `INTO`, `LIMIT`, `NOT`, `OR`, `ORDER`, `REINDEX`, `SELECT`, `SET`, `UPDATE`, `VALUES`, `WHERE`, `WITH`
+
+Every other keyword, such as a type (`date`, `text`, `keyword`) or an option (`size`, `query`, `script`), is also a name wherever a name can appear, so a field can be called `date` or `size`. A reserved word is a name when double-quoted: `SELECT "order" FROM Order`.
+
+### Case
+
+Keywords ignore case. Names do not: an entity, field or alias name is written exactly the way the entity class spells it, since that is how it is stored. `firstName`, `FirstName` and `FIRSTNAME` are three different fields.
+
+A name in the wrong case behaves differently depending on what it names:
+
+- **An entity name** in the wrong case fails the statement, and the error names the entity you meant: `Application shop has no published entity named person; did you mean Person?`
+- **A field name** in the wrong case is not an error. It names a field no row has, so **you get nothing**: a `SELECT` or aggregate returns no rows, and an `UPDATE` or `DELETE` changes none. When a query unexpectedly returns nothing, check the case of its field names first.
+
+```sql
+-- the same statement: keywords in any case
+SELECT COUNT(*) AS total FROM Person WHERE lastName = 'Doe';
+select count(*) as total from Person where lastName = 'Doe';
+
+-- fails: no entity is named person
+SELECT COUNT(*) AS total FROM person WHERE lastName = 'Doe';
+
+-- returns nothing: LASTNAME is not the lastName field
+SELECT COUNT(*) AS total FROM Person WHERE LASTNAME = 'Doe';
+```
+
+The same holds for a field named like a keyword: `SELECT date FROM Event` reads the field `date`, while `SELECT DATE FROM Event` reads a field named `DATE`, which no row has. An alias keeps the case it is written in, and a returned row's columns are named by it.
