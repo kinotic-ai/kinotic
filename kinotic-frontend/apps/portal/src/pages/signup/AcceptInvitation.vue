@@ -8,7 +8,7 @@
 
     <div v-else-if="phase === 'invalid'" class="login-form">
       <div class="text-center py-8">
-        <span class="pi pi-exclamation-triangle text-5xl text-primary-500 mb-4"></span>
+        <span class="login-status-icon pi pi-exclamation-triangle"></span>
         <h2 class="signup-title">Invitation unavailable</h2>
         <p class="login-form__subtitle">{{ invalidMessage }}</p>
       </div>

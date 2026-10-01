@@ -157,13 +157,14 @@
   min-height: 3.5rem;
   border-radius: 5px;
   border: none;
-  background: var(--p-primary-500);
-  color: #ffffff;
+  background: var(--p-button-primary-background);
+  color: var(--p-button-primary-color);
   font-weight: 600;
 }
 
 .login-submit.p-button:hover {
-  background: var(--p-primary-600);
+  background: var(--p-button-primary-hover-background);
+  color: var(--p-button-primary-hover-color);
 }
 
 .login-provider__button {
@@ -214,13 +215,13 @@
   padding: 0.75rem 0;
   border: none;
   background: transparent;
-  color: var(--p-primary-500);
+  color: var(--lp-link-color);
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
 }
 
-.login-back-link:hover { color: var(--p-primary-600); }
+.login-back-link:hover { text-decoration: underline; }
 
 .login-signup-link {
   display: flex;
@@ -232,19 +233,10 @@
   color: var(--lp-text-muted);
 }
 
-.login-signup-link a {
-  color: var(--p-primary-500);
-  font-weight: 600;
-}
-
+.login-signup-link a,
 .login-link {
-  color: var(--p-primary-500);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.login-link:hover {
-  color: var(--p-primary-600);
+  color: var(--lp-link-color);
+  font-weight: 500;
   text-decoration: underline;
 }
 
@@ -272,7 +264,7 @@
   height: 2rem;
   border-radius: 999px;
   border: 2px solid rgba(255, 255, 255, 0.18);
-  border-top-color: var(--p-primary-500);
+  border-top-color: var(--lp-text);
   animation: login-spin 0.9s linear infinite;
 }
 
@@ -306,6 +298,28 @@
 }
 
 .login-footer__divider { color: var(--lp-footer-divider); }
+
+/* Round tile behind the icon that heads a status step (check your email, connect GitHub). */
+.login-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin-bottom: 1.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lp-text) 8%, transparent);
+  color: var(--lp-text);
+  /* PrimeVue's .pi rule sizes every icon from --p-icon-size */
+  --p-icon-size: 2rem;
+}
+
+/* Icon heading an error or result message (missing token, device approved, consent unavailable). */
+.login-status-icon {
+  margin-bottom: 1rem;
+  color: var(--lp-text);
+  --p-icon-size: 3rem;
+}
 
 /* Shared heading used by signup-flow pages (Signup, CompleteOrg). */
 .signup-title {

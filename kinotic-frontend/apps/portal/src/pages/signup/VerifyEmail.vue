@@ -4,8 +4,8 @@
       <!-- Password form -->
       <div class="login-form__step">
         <div class="text-center mb-6">
-          <span class="inline-flex items-center justify-center w-18 h-18 rounded-full mb-6 bg-[color-mix(in_srgb,var(--p-primary-color)_14%,transparent)]">
-            <span class="pi pi-shield text-[2rem] text-primary"></span>
+          <span class="login-icon-badge">
+            <span class="pi pi-shield"></span>
           </span>
           <h2 class="text-2xl font-semibold mb-2 text-center leading-tight">Email verified</h2>
           <p class="mt-1 mb-6 leading-normal text-muted-color text-center">Name your organization and set a password to finish.</p>

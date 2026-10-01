@@ -43,7 +43,7 @@ const emit = defineEmits<{
       <!-- The mark doubles as the sidebar toggle: hovering or focusing it swaps in the panel icon -->
       <button
         type="button"
-        class="group relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-surface-100 text-surface-800 transition-colors hover:bg-surface-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 dark:bg-surface-800 dark:text-surface-100 dark:hover:bg-surface-700"
+        class="group relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-surface-100 text-surface-800 transition-colors hover:bg-surface-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--p-focus-ring-color)] dark:bg-surface-800 dark:text-surface-100 dark:hover:bg-surface-700"
         :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
         v-tooltip.right="'Toggle sidebar'"
         @click="emit('toggle')"

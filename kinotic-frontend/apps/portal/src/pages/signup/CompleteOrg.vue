@@ -2,7 +2,7 @@
   <AuthPageShell :art="loginArt">
     <div v-if="!token" class="login-form">
       <div class="text-center py-8">
-        <span class="pi pi-exclamation-triangle text-5xl text-primary-500 mb-4"></span>
+        <span class="login-status-icon pi pi-exclamation-triangle"></span>
         <h2 class="signup-title">Missing registration token</h2>
         <p class="my-1 leading-normal">
           Open this page from the link your identity provider sent you, or
@@ -13,8 +13,8 @@
 
     <div v-else-if="step === 'connect'" class="login-form">
       <div class="text-center pt-4 pb-2">
-        <span class="inline-flex items-center justify-center w-18 h-18 rounded-full mb-6 bg-[color-mix(in_srgb,var(--p-primary-color)_14%,transparent)]">
-          <span class="pi pi-github text-[2rem] text-primary"></span>
+        <span class="login-icon-badge">
+          <span class="pi pi-github"></span>
         </span>
         <h2 class="signup-title">Your organization is ready</h2>
         <p class="mx-auto mb-6 max-w-96 leading-normal">
