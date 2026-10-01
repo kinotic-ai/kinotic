@@ -1,0 +1,1 @@
+{"id":"0c25a9e607865c6168fe7c15537e6682","fullName":"org.kinotic.sql.parsers.SelectStatementParserTest.whenAggregateFunctionUsed_thenNotAStatementOfThisGrammar","name":"whenAggregateFunctionUsed_thenNotAStatementOfThisGrammar()","status":"passed","testResultsByEnv":{"default":"199f31ceca3d02054c632edbf1610a65"}}
