@@ -13,7 +13,7 @@ public class WhereClauseVisitor extends KinoticSQLBaseVisitor<WhereClause> {
     @Override
     public WhereClause visitWhereClause(KinoticSQLParser.WhereClauseContext ctx) {
         if (ctx.condition() != null) {
-            String field = ctx.condition().ID().getText();
+            String field = ctx.condition().fieldPath().getText();
             String operator = ctx.condition().comparisonOperator().getText();
             String value = ctx.condition().namedParameter() != null ? ctx.condition().namedParameter().getText()
                     : ctx.condition().STRING() != null ? ctx.condition().STRING().getText()

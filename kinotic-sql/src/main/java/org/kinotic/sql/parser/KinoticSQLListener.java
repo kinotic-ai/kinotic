@@ -178,6 +178,66 @@ public interface KinoticSQLListener extends ParseTreeListener {
 	 */
 	void exitSelectList(KinoticSQLParser.SelectListContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#selectItem}.
+	 * @param ctx the parse tree
+	 */
+	void enterSelectItem(KinoticSQLParser.SelectItemContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#selectItem}.
+	 * @param ctx the parse tree
+	 */
+	void exitSelectItem(KinoticSQLParser.SelectItemContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#selectExpression}.
+	 * @param ctx the parse tree
+	 */
+	void enterSelectExpression(KinoticSQLParser.SelectExpressionContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#selectExpression}.
+	 * @param ctx the parse tree
+	 */
+	void exitSelectExpression(KinoticSQLParser.SelectExpressionContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#functionCall}.
+	 * @param ctx the parse tree
+	 */
+	void enterFunctionCall(KinoticSQLParser.FunctionCallContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#functionCall}.
+	 * @param ctx the parse tree
+	 */
+	void exitFunctionCall(KinoticSQLParser.FunctionCallContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#functionArgument}.
+	 * @param ctx the parse tree
+	 */
+	void enterFunctionArgument(KinoticSQLParser.FunctionArgumentContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#functionArgument}.
+	 * @param ctx the parse tree
+	 */
+	void exitFunctionArgument(KinoticSQLParser.FunctionArgumentContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#havingClause}.
+	 * @param ctx the parse tree
+	 */
+	void enterHavingClause(KinoticSQLParser.HavingClauseContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#havingClause}.
+	 * @param ctx the parse tree
+	 */
+	void exitHavingClause(KinoticSQLParser.HavingClauseContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#havingCondition}.
+	 * @param ctx the parse tree
+	 */
+	void enterHavingCondition(KinoticSQLParser.HavingConditionContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#havingCondition}.
+	 * @param ctx the parse tree
+	 */
+	void exitHavingCondition(KinoticSQLParser.HavingConditionContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link KinoticSQLParser#orderBy}.
 	 * @param ctx the parse tree
 	 */
@@ -187,6 +247,16 @@ public interface KinoticSQLListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitOrderBy(KinoticSQLParser.OrderByContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#fieldPath}.
+	 * @param ctx the parse tree
+	 */
+	void enterFieldPath(KinoticSQLParser.FieldPathContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#fieldPath}.
+	 * @param ctx the parse tree
+	 */
+	void exitFieldPath(KinoticSQLParser.FieldPathContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link KinoticSQLParser#insertOption}.
 	 * @param ctx the parse tree

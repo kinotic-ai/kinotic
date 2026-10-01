@@ -89,8 +89,8 @@ describe('Kinotic JS', () => {
                         INSERT INTO PersonWithTenant (id, tenantId, firstName, lastName, age) VALUES ('p-2', 'tenant01', 'John', 'Doe', 31) WITH REFRESH;
                         INSERT INTO PersonWithTenant (id, tenantId, firstName, lastName, age) VALUES ('p-1', 'tenant02', 'Ada', 'Lovelace', 36) WITH REFRESH;
                     `),
-                    migration(2, `UPDATE PersonWithTenant SET firstName = 'Janet' WHERE id == 'p-1' WITH REFRESH;`),
-                    migration(3, `DELETE FROM PersonWithTenant WHERE tenantId == 'tenant02' WITH REFRESH;`)
+                    migration(2, `UPDATE PersonWithTenant SET firstName = 'Janet' WHERE id = 'p-1' WITH REFRESH;`),
+                    migration(3, `DELETE FROM PersonWithTenant WHERE tenantId = 'tenant02' WITH REFRESH;`)
                 ]
             })
             expect(result.errorMessage).toBeFalsy()
@@ -174,7 +174,7 @@ describe('Kinotic JS', () => {
             for (const name of ['kinotic_application', 'users']) {
                 const result = await Kinotic.migrations.executeMigrations({
                     projectId,
-                    migrations: [migration(1, `DELETE FROM ${name} WHERE id == 'x' WITH REFRESH;`)]
+                    migrations: [migration(1, `DELETE FROM ${name} WHERE id = 'x' WITH REFRESH;`)]
                 })
                 expect(result.success).toBe(false)
                 expect(result.errorMessage).toContain(`has no published entity named ${name}`)
@@ -243,7 +243,7 @@ describe('Kinotic JS', () => {
                 projectId,
                 migrations: [
                     migration(1, `INSERT INTO PersonWithTenant (id, tenantId, firstName, lastName) VALUES ('p-1', 'tenant01', 'Jane', 'Doe') WITH REFRESH;`),
-                    migration(2, `DELETE FROM nothing WHERE id == 'x';`)
+                    migration(2, `DELETE FROM nothing WHERE id = 'x';`)
                 ]
             })
             expect(result.success).toBe(false)
@@ -260,7 +260,7 @@ describe('Kinotic JS', () => {
             await expect(Kinotic.migrations.isMigrationApplied(unknownProject, '1')).rejects.toThrow(/not found/)
             const result = await Kinotic.migrations.executeMigrations({
                 projectId: unknownProject,
-                migrations: [migration(1, `DELETE FROM PersonWithTenant WHERE id == 'x';`)]
+                migrations: [migration(1, `DELETE FROM PersonWithTenant WHERE id = 'x';`)]
             })
             expect(result.success).toBe(false)
             expect(result.errorMessage).toContain('not found')
@@ -297,7 +297,7 @@ describe('Kinotic JS', () => {
 
             // A second run applies only the new file: the applied ones would otherwise insert their rows again
             await writeFile(join(migrationsDir, 'V10__tenth.sql'),
-                            `UPDATE PersonWithTenant SET lastName = 'Roe' WHERE tenantId == 'tenant01' WITH REFRESH;`)
+                            `UPDATE PersonWithTenant SET lastName = 'Roe' WHERE tenantId = 'tenant01' WITH REFRESH;`)
             await expect(projectMigrationService.applyMigrations(projectId, migrationsDir, true)).resolves.toBeUndefined()
             await expect(adminPeople.count(['tenant01'])).resolves.toBe(2)
             await expect(Kinotic.migrations.getLastAppliedMigrationVersion(projectId)).resolves.toBe(10)

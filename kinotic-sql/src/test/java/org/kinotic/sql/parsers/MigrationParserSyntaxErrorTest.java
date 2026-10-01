@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Verifies that a migration with invalid syntax fails the parse with an error naming
  * the line and offending token, instead of being silently repaired by ANTLR error recovery.
- * Also pins the operator roles: '=' assigns, '==' compares — each role has exactly one operator.
+ * Also pins the operator: '=' assigns in SET and WITH options and compares in WHERE, and '==' is not an operator.
  */
 class MigrationParserSyntaxErrorTest {
 
@@ -45,36 +45,25 @@ class MigrationParserSyntaxErrorTest {
     }
 
     @Test
-    void whenAssignUsedInAllAssignmentPositions_thenParses() {
+    void whenEqualsUsedInAssignmentsAndComparisons_thenParses() {
         MigrationContent content = parser.parse("""
             CREATE COMPONENT TEMPLATE settings (NUMBER_OF_SHARDS = 1, NUMBER_OF_REPLICAS = 0);
             CREATE DATA STREAM events (level KEYWORD) WITH (DATA_RETENTION = '30d');
             REINDEX old_events INTO new_events WITH (SKIP_IF_NO_SOURCE = TRUE);
-            UPDATE events SET level = 'INFO' WHERE level == 'DEBUG';
+            UPDATE events SET level = 'INFO' WHERE level = 'DEBUG';
             """);
 
         assertEquals(4, content.statements().size());
     }
 
     @Test
-    void whenDoubleEqualsUsedInAssignmentPosition_thenErrorNamesExpectedOperator() {
+    void whenDoubleEqualsUsedInComparison_thenParseFailsNamingTheOperator() {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parser.parse(
-            "CREATE DATA STREAM events (level KEYWORD) WITH (DATA_RETENTION == '30d');"));
+            "UPDATE events SET level = 'INFO' WHERE level == 'DEBUG';"));
 
         assertTrue(e.getMessage().contains("line 1"), "expected line number in: " + e.getMessage());
-        assertTrue(e.getMessage().contains("near '=='"), "expected offending operator in: " + e.getMessage());
-        assertTrue(e.getMessage().contains("expecting '='"), "expected correct operator hint in: " + e.getMessage());
-    }
-
-    @Test
-    void whenSingleEqualsUsedInComparison_thenErrorNamesExpectedOperators() {
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parser.parse(
-            "UPDATE events SET level = 'INFO' WHERE level = 'DEBUG';"));
-
-        assertTrue(e.getMessage().contains("line 1"), "expected line number in: " + e.getMessage());
-        // "near '='" cannot match the '==' token, so this pins the offending operator precisely
+        // '==' lexes as two '=' tokens, so the second one is where the parse stops
         assertTrue(e.getMessage().contains("near '='"), "expected offending operator in: " + e.getMessage());
-        assertTrue(e.getMessage().contains("'=='"), "expected comparison operators in hint: " + e.getMessage());
     }
 
     @Test

@@ -12,6 +12,7 @@ import org.kinotic.domain.api.services.EntityStatementResolver;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.WhereClause;
+import org.kinotic.sql.domain.statements.AggregateStatement;
 import org.kinotic.sql.domain.statements.DeleteStatement;
 import org.kinotic.sql.domain.statements.InsertStatement;
 import org.kinotic.sql.domain.statements.ReindexStatement;
@@ -118,6 +119,7 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
             case UpdateStatement update -> List.of(update.tableName());
             case DeleteStatement delete -> List.of(delete.tableName());
             case SelectStatement select -> List.of(select.tableName());
+            case AggregateStatement aggregate -> List.of(aggregate.tableName());
             case ReindexStatement reindex -> List.of(reindex.source(), reindex.dest());
             default -> throw new IllegalArgumentException(kind(statement) + " does not act on an entity");
         };
@@ -136,6 +138,9 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
                                                                delete.refresh());
             case SelectStatement select -> new SelectStatement(entity.apply(select.tableName()).itemIndex(), select.columns(),
                                                                select.whereClause(), select.orderBy(), select.limit());
+            case AggregateStatement aggregate -> new AggregateStatement(entity.apply(aggregate.tableName()).itemIndex(),
+                                                                        aggregate.projections(), aggregate.whereClause(),
+                                                                        aggregate.groupBy(), aggregate.orderBy(), aggregate.limit());
             case ReindexStatement reindex -> {
                 requireRowScopedScript(reindex);
                 yield new ReindexStatement(entity.apply(reindex.source()).itemIndex(),
@@ -217,7 +222,7 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
             ret = whereClause;
         } else {
             // quoted as the grammar writes a string literal, which is how QueryBuilder tells it from a number
-            ret = new WhereClause.AndClause(whereClause, new WhereClause.Condition(tenantField(entity), "==", "'" + tenantId + "'"));
+            ret = new WhereClause.AndClause(whereClause, new WhereClause.Condition(tenantField(entity), "=", "'" + tenantId + "'"));
         }
         return ret;
     }

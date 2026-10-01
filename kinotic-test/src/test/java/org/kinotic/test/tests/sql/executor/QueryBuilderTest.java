@@ -26,7 +26,7 @@ class QueryBuilderTest {
     @Test
     void whenBuildingSimpleTermQuery_thenCorrectQueryBuilt() {
         // Given
-        WhereClause.Condition condition = new WhereClause.Condition("field", "==", "'value'");
+        WhereClause.Condition condition = new WhereClause.Condition("field", "=", "'value'");
 
         // When
         Query query = QueryBuilder.buildQuery(condition, parameters);
@@ -58,8 +58,8 @@ class QueryBuilderTest {
     @Test
     void whenBuildingAndClause_thenCorrectQueryBuilt() {
         // Given
-        WhereClause.Condition condition1 = new WhereClause.Condition("field1", "==", "'value1'");
-        WhereClause.Condition condition2 = new WhereClause.Condition("field2", "==", "'value2'");
+        WhereClause.Condition condition1 = new WhereClause.Condition("field1", "=", "'value1'");
+        WhereClause.Condition condition2 = new WhereClause.Condition("field2", "=", "'value2'");
         WhereClause.AndClause andClause = new WhereClause.AndClause(condition1, condition2);
 
         // When
@@ -82,8 +82,8 @@ class QueryBuilderTest {
     @Test
     void whenBuildingOrClause_thenCorrectQueryBuilt() {
         // Given
-        WhereClause.Condition condition1 = new WhereClause.Condition("field1", "==", "'value1'");
-        WhereClause.Condition condition2 = new WhereClause.Condition("field2", "==", "'value2'");
+        WhereClause.Condition condition1 = new WhereClause.Condition("field1", "=", "'value1'");
+        WhereClause.Condition condition2 = new WhereClause.Condition("field2", "=", "'value2'");
         WhereClause.OrClause orClause = new WhereClause.OrClause(condition1, condition2);
 
         // When
@@ -107,11 +107,11 @@ class QueryBuilderTest {
     @Test
     void whenBuildingNestedClause_thenCorrectQueryBuilt() {
         // Given
-        WhereClause.Condition condition1 = new WhereClause.Condition("field1", "==", "'value1'");
-        WhereClause.Condition condition2 = new WhereClause.Condition("field2", "==", "'value2'");
+        WhereClause.Condition condition1 = new WhereClause.Condition("field1", "=", "'value1'");
+        WhereClause.Condition condition2 = new WhereClause.Condition("field2", "=", "'value2'");
         WhereClause.AndClause innerClause = new WhereClause.AndClause(condition1, condition2);
         
-        WhereClause.Condition condition3 = new WhereClause.Condition("field3", "==", "'value3'");
+        WhereClause.Condition condition3 = new WhereClause.Condition("field3", "=", "'value3'");
         WhereClause.AndClause outerClause = new WhereClause.AndClause(innerClause, condition3);
 
         // When
@@ -135,7 +135,7 @@ class QueryBuilderTest {
     @Test
     void whenUsingParameterizedQuery_thenParameterSubstituted() {
         // Given
-        WhereClause.Condition condition = new WhereClause.Condition("field", "==", ":wanted");
+        WhereClause.Condition condition = new WhereClause.Condition("field", "=", ":wanted");
         parameters.put("wanted", "value");
 
         // When
@@ -169,7 +169,7 @@ class QueryBuilderTest {
     @Test
     void whenUsingParameterizedQueryWithoutParameters_thenExceptionThrown() {
         // Given
-        WhereClause.Condition condition = new WhereClause.Condition("field", "==", ":wanted");
+        WhereClause.Condition condition = new WhereClause.Condition("field", "=", ":wanted");
 
         // When/Then
         assertThrows(IllegalStateException.class, () -> 
@@ -180,7 +180,7 @@ class QueryBuilderTest {
     @Test
     void whenUsingParameterizedQueryWithMissingParameter_thenExceptionThrown() {
         // Given
-        WhereClause.Condition condition = new WhereClause.Condition("field", "==", ":wanted");
+        WhereClause.Condition condition = new WhereClause.Condition("field", "=", ":wanted");
 
         // When/Then
         assertThrows(IllegalArgumentException.class, () -> 

@@ -82,16 +82,43 @@ insertStatement
     ;
 
 selectStatement
-    : SELECT selectList FROM ID (WHERE whereClause)? (ORDER BY orderBy (COMMA orderBy)*)? (LIMIT INTEGER_LITERAL)? SEMICOLON
+    : SELECT selectList FROM ID (WHERE whereClause)? (GROUP BY selectExpression (COMMA selectExpression)*)?
+      (ORDER BY orderBy (COMMA orderBy)*)? (LIMIT INTEGER_LITERAL)? SEMICOLON
     ;
 
 selectList
     : MULTIPLY
-    | columnName (COMMA columnName)*
+    | selectItem (COMMA selectItem)*
+    ;
+
+selectItem
+    : selectExpression (AS ID)?
+    ;
+
+// A field or a function call; a statement whose SELECT list or GROUP BY calls a function is an aggregate
+selectExpression
+    : functionCall
+    | fieldPath
+    ;
+
+functionCall
+    : ID LPAREN (MULTIPLY | functionArgument (COMMA functionArgument)*)? RPAREN
+    ;
+
+functionArgument
+    : selectExpression
+    | STRING
+    | numberLiteral
+    | namedParameter
     ;
 
 orderBy
-    : ID (ASC | DESC)?
+    : fieldPath (ASC | DESC)?
+    ;
+
+// A field, or a sub-field of an object field joined by dots
+fieldPath
+    : ID (DOT ID)*
     ;
 
 insertOption
@@ -144,7 +171,7 @@ assignment
 
 expression
     : value
-    | ID operator expression  // e.g., age + 1, status == 'active'
+    | ID operator expression  // e.g., age + 1
     | LPAREN expression RPAREN
     ;
 
@@ -153,7 +180,6 @@ operator
     | MINUS
     | MULTIPLY
     | DIVIDE
-    | EQUALS  // For expressions like status == 'active'
     ;
 
 whereClause
@@ -164,11 +190,12 @@ whereClause
     ;
 
 condition
-    : ID comparisonOperator (namedParameter | STRING | numberLiteral | BOOLEAN_LITERAL)
+    : fieldPath comparisonOperator (namedParameter | STRING | numberLiteral | BOOLEAN_LITERAL)
     ;
 
+// '=' compares here and assigns in SET and WITH options; a comparison only appears in WHERE
 comparisonOperator
-    : EQUALS
+    : ASSIGN
     | NOT_EQUALS
     | LESS_THAN
     | GREATER_THAN
@@ -221,6 +248,7 @@ ABORT: 'ABORT';
 ADD: 'ADD';
 ALTER: 'ALTER';
 AND: 'AND';
+AS: 'AS';
 ASC: 'ASC';
 AUTO: 'AUTO';
 BY: 'BY';
@@ -239,6 +267,7 @@ EXISTS: 'EXISTS';
 FLOAT: 'FLOAT';
 FOR: 'FOR';
 FROM: 'FROM';
+GROUP: 'GROUP';
 IF: 'IF';
 INDEX: 'INDEX';
 INDEXED: 'INDEXED';
@@ -293,12 +322,11 @@ DECIMAL: 'DECIMAL';
 UNION: 'UNION';
 
 // Punctuation and Operators
-// '=' assigns (WITH options, SET); '==' compares (WHERE, expressions) — each role has exactly one operator
 ASSIGN: '=';
 COLON: ':';
 COMMA: ',';
 DIVIDE: '/';
-EQUALS: '==';
+DOT: '.';
 GREATER_THAN: '>';
 GREATER_THAN_EQUALS: '>=';
 LBRACE: '{';
