@@ -5,7 +5,6 @@ import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.utils.ZoneUtil;
-import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
@@ -81,7 +80,7 @@ public class UiSitePublisher {
      * enforces the label's uniqueness on create, which keeps a UI name to one project of the application.
      */
     private Future<UiDeployment> mintDeployment(Project project, UiArtifact ui) {
-        String label = HostLabelUtil.siteLabel(new ApplicationKey(project.getOrganizationId(), project.getApplicationId()), ui.name());
+        String label = HostLabelUtil.siteLabel(project.applicationKey(), ui.name());
         // guards rows written around the services that validate each part, such as a migration's seed data:
         // a label outside DNS's grammar names no host under the sites domain
         ZoneUtil.validateLabel(label);

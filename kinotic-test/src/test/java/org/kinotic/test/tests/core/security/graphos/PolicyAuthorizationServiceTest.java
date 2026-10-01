@@ -24,6 +24,7 @@ public class PolicyAuthorizationServiceTest {
     @Test
     public void testAuthorizeWithNoPoliciesOnStructure() {
         EntityDefinition structure = new EntityDefinition();
+        structure.setOrganizationId("testOrganization");
         structure.setApplicationId("testApplication");
         structure.setName("testName");
 
@@ -40,6 +41,7 @@ public class PolicyAuthorizationServiceTest {
     @Test
     public void testAuthorizeWithEntityOnlyPolicies(){
         EntityDefinition structure = new EntityDefinition();
+        structure.setOrganizationId("testOrganization");
         structure.setApplicationId("testApplication");
         structure.setName("testName");
 
@@ -57,6 +59,7 @@ public class PolicyAuthorizationServiceTest {
     @Test
     public void testAuthorizeDeniedWithEntityOnlyPolicies(){
         EntityDefinition structure = new EntityDefinition();
+        structure.setOrganizationId("testOrganization");
         structure.setApplicationId("testApplication");
         structure.setName("testName");
 

@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.management.api.model.deployment.DeploymentState;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.internal.api.repositories.AbstractReconcilableRepository;
@@ -61,15 +62,12 @@ public class UiDeploymentRepository extends AbstractReconcilableRepository<UiDep
     /**
      * Lists the deployments of the UIs of all the application's projects, ordered by name.
      *
-     * @param organizationId the organization the application belongs to
-     * @param applicationId  the application whose UI deployments to list
+     * @param applicationKey the application whose UI deployments to list
      * @return a future emitting the deployments, empty when the application has none
      */
-    public Future<List<UiDeployment>> findAllForApplication(String organizationId, String applicationId) {
-        Validate.notBlank(organizationId, "organizationId cannot be blank");
-        Validate.notBlank(applicationId, "applicationId cannot be blank");
-        return findAllOrderedByName(composeFilter(termFilter("organizationId", organizationId),
-                                                  termFilter("applicationId", applicationId)));
+    public Future<List<UiDeployment>> findAllForApplication(ApplicationKey applicationKey) {
+        return findAllOrderedByName(composeFilter(termFilter("organizationId", applicationKey.organizationId()),
+                                                  termFilter("applicationId", applicationKey.applicationId())));
     }
 
     private Future<List<UiDeployment>> findAllOrderedByName(Query filter) {

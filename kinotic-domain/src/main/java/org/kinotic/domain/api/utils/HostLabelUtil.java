@@ -27,8 +27,8 @@ public final class HostLabelUtil {
     }
 
     /** The label of the application's API host, {@code <organizationId>--<applicationId>}. */
-    public static String label(ApplicationKey application) {
-        return application.organizationId() + HOST_LABEL_SEPARATOR + application.applicationId();
+    public static String label(ApplicationKey applicationKey) {
+        return applicationKey.organizationId() + HOST_LABEL_SEPARATOR + applicationKey.applicationId();
     }
 
     /**
@@ -69,20 +69,20 @@ public final class HostLabelUtil {
      *
      * @param apiBaseUrl the base URL every application's API host is a label under
      */
-    public static String apiUrl(ApplicationKey application, String apiBaseUrl) {
+    public static String apiUrl(ApplicationKey applicationKey, String apiBaseUrl) {
         URI base = URI.create(apiBaseUrl);
-        return base.getScheme() + "://" + label(application) + "." + base.getRawAuthority();
+        return base.getScheme() + "://" + label(applicationKey) + "." + base.getRawAuthority();
     }
 
     /** The label of the site of the application's UI {@code uiName}, {@code <organizationId>--<applicationId>--<uiName>}. */
-    public static String siteLabel(ApplicationKey application, String uiName) {
-        return label(application) + HOST_LABEL_SEPARATOR + uiName;
+    public static String siteLabel(ApplicationKey applicationKey, String uiName) {
+        return label(applicationKey) + HOST_LABEL_SEPARATOR + uiName;
     }
 
     /** Whether {@code label} is the {@link #siteLabel(ApplicationKey, String) label of the site} of one of the application's UIs. */
-    public static boolean isSiteLabel(ApplicationKey application, String label) {
+    public static boolean isSiteLabel(ApplicationKey applicationKey, String label) {
         String[] names = label.split(HOST_LABEL_SEPARATOR, -1);
-        return names.length == 3 && names[0].equals(application.organizationId()) && names[1].equals(application.applicationId())
+        return names.length == 3 && names[0].equals(applicationKey.organizationId()) && names[1].equals(applicationKey.applicationId())
                 && !names[2].isEmpty();
     }
 }
