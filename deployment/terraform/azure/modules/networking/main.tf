@@ -9,6 +9,11 @@ variable "aks_identity_principal_id" {
   type        = string
 }
 
+variable "private_endpoints_subnet_cidr" {
+  description = "CIDR for the subnet private endpoints are placed in"
+  type        = string
+}
+
 variable "enable_firecracker" {
   description = "Create a subnet for Firecracker VM hosts"
   type        = bool
@@ -54,6 +59,31 @@ resource "azurerm_subnet" "firecracker" {
   address_prefixes     = [var.firecracker_subnet_cidr]
 }
 
+# ── Private endpoints ─────────────────────────────────────────────────────────
+# Storage accounts the cluster reaches only privately get their endpoint in this subnet, and
+# resolve to it through the blob private DNS zone linked to the VNet.
+
+resource "azurerm_subnet" "private_endpoints" {
+  name                 = "snet-${var.name_prefix}-private-endpoints"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = [var.private_endpoints_subnet_cidr]
+}
+
+resource "azurerm_private_dns_zone" "blob" {
+  name                = "privatelink.blob.core.windows.net"
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "blob" {
+  name                  = "blob-${var.name_prefix}"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = azurerm_private_dns_zone.blob.name
+  virtual_network_id    = azurerm_virtual_network.main.id
+  tags                  = var.tags
+}
+
 # ── RBAC: kubelet identity needs Network Contributor to manage LBs ────────────
 
 resource "azurerm_role_assignment" "kubelet_network_contributor_subnet" {
@@ -80,6 +110,14 @@ output "vnet_name" {
 
 output "aks_subnet_id" {
   value = azurerm_subnet.aks.id
+}
+
+output "private_endpoints_subnet_id" {
+  value = azurerm_subnet.private_endpoints.id
+}
+
+output "blob_private_dns_zone_id" {
+  value = azurerm_private_dns_zone.blob.id
 }
 
 output "firecracker_subnet_id" {

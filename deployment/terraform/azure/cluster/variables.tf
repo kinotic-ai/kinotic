@@ -24,6 +24,7 @@ variable "kubernetes_version" {
 
 variable "vnet_address_space" { type = list(string) }
 variable "aks_subnet_cidr" { type = string }
+variable "private_endpoints_subnet_cidr" { type = string }
 variable "pod_cidr" { type = string }
 variable "service_cidr" { type = string }
 variable "dns_service_ip" { type = string }

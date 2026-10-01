@@ -10,7 +10,8 @@ resource "kubernetes_namespace" "observability" {
 
 # ── Blob storage for Loki, Tempo and Mimir ────────────────────────────────────
 # One account holds the three stores' data, each in containers of its own. Each store runs as a
-# workload identity of its own, which may read and write only its own containers.
+# workload identity of its own, which may read and write only its own containers. The account is
+# reached only through its private endpoint in the VNet, and only with Entra ID tokens.
 
 locals {
   # Storage account names allow 3 to 24 lowercase letters and digits
@@ -36,7 +37,30 @@ resource "azurerm_storage_account" "observability" {
   account_replication_type        = "LRS"
   min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
+  public_network_access_enabled   = false
+  shared_access_key_enabled       = false
+  default_to_oauth_authentication = true
   tags                            = local.common_tags
+}
+
+resource "azurerm_private_endpoint" "observability_blob" {
+  name                = "pe-${local.observability_storage_account_name}-blob"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  subnet_id           = module.networking.private_endpoints_subnet_id
+  tags                = local.common_tags
+
+  private_service_connection {
+    name                           = "${local.observability_storage_account_name}-blob"
+    private_connection_resource_id = azurerm_storage_account.observability.id
+    subresource_names              = ["blob"]
+    is_manual_connection           = false
+  }
+
+  private_dns_zone_group {
+    name                 = "blob"
+    private_dns_zone_ids = [module.networking.blob_private_dns_zone_id]
+  }
 }
 
 resource "azurerm_storage_container" "observability" {
