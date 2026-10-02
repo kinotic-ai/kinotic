@@ -218,15 +218,10 @@ card still markets the unbuilt access-control engine ("Define who can do what
 in plain language and the platform enforces it everywhere"). The homepage was
 intentionally left unchanged; revisit this card when the engine ships.
 
-`docs/future-prompts/Gateway ABAC.md` — the design prompt for the planned
-authorization overhaul — was kept in the roadmap folder. It is a
-forward-looking planning doc, not user-facing documentation presenting ABAC as
-shipped.
-
-`docs/future-prompts/Multi-environment architecture.md` still references the
-planned Gateway ABAC work (and "RBAC-defined path patterns"). Those are
-forward-looking references inside a design/planning doc — they describe future
-work rather than presenting ABAC as shipped — so they were kept.
+The design prompt for the planned authorization overhaul now lives in Jira
+as KINOTIC-86 (Gateway ABAC). The multi-environment plan, KINOTIC-87, still
+references that planned work (and "RBAC-defined path patterns"). Both describe
+future work rather than presenting ABAC as shipped.
 
 Kubernetes RBAC (`deployment/helm/**`, `deployment/terraform/**`,
 `archive/docs/kubernetes/**`) is unrelated infrastructure role-binding, not the
