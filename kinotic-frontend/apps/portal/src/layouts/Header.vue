@@ -110,11 +110,25 @@
     <div class="flex items-center gap-2">
       <HeaderSearchButton @open="searchOpen = true" />
 
+      <!-- The count turns red only when an unread entry reports a failure -->
+      <span class="relative">
+        <HeaderIconButton :label="notificationsLabel" tooltip="Notifications" @click="notificationsOpen = true">
+          <Bell :size="18" :stroke-width="1.75" aria-hidden="true" />
+        </HeaderIconButton>
+        <span v-if="NOTIFICATION_STATE.unreadCount > 0" aria-hidden="true"
+              :class="['pointer-events-none absolute -right-1 -top-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums ring-2 ring-surface-0 dark:ring-surface-900',
+                       NOTIFICATION_STATE.hasUnreadFailure ? 'bg-red-500 text-white' : 'bg-surface-950 text-surface-0 dark:bg-surface-0 dark:text-surface-950']">
+          {{ NOTIFICATION_STATE.unreadCount > 9 ? '9+' : NOTIFICATION_STATE.unreadCount }}
+        </span>
+      </span>
+
       <HeaderIconButton :href="DOCUMENTATION_URL" label="Help (opens the documentation in a new tab)" tooltip="Help">
         <CircleHelp :size="18" :stroke-width="1.75" aria-hidden="true" />
       </HeaderIconButton>
       <ThemeToggleButton />
     </div>
+
+    <NotificationDrawer :visible="notificationsOpen" @close="notificationsOpen = false" />
 
     <CommandPalette v-model:visible="searchOpen" :groups="searchGroups" label="Search applications, pages and actions"
                     @show="onSearchShow" />
@@ -130,7 +144,9 @@ import { Kinotic, Pageable } from '@kinotic-ai/core';
 import type { Project } from '@kinotic-ai/management-api';
 import { BreadcrumbSwitcher, CommandPalette, type CommandPaletteGroup, createDebug, HeaderIconButton, HeaderSearchButton, ScopePill,
          sidebarPageEntries, ThemeToggleButton } from '@kinotic-ai/frontend-common'
-import { BookOpenText, CircleHelp, Plus } from '@lucide/vue';
+import { Bell, BookOpenText, CircleHelp, Plus } from '@lucide/vue';
+import NotificationDrawer from '@/components/NotificationDrawer.vue';
+import { NOTIFICATION_STATE } from '@/states/INotificationState';
 import { DOCUMENTATION_URL } from '@/util/externalLinks';
 
 const debug = createDebug('header');
@@ -148,6 +164,11 @@ const route = useRoute();
 const router = useRouter();
 
 const searchOpen = ref(false);
+const notificationsOpen = ref(false);
+
+const notificationsLabel = computed(() => NOTIFICATION_STATE.unreadCount > 0
+    ? `Notifications, ${NOTIFICATION_STATE.unreadCount} unread`
+    : 'Notifications');
 
 const projectsForCurrentApp = ref<Project[]>([]);
 
@@ -210,6 +231,7 @@ onMounted(() => {
   if (APPLICATION_STATE.allApplications.length === 0) {
     APPLICATION_STATE.loadAllApplications();
   }
+  NOTIFICATION_STATE.start();
 });
 
 const applicationPath = computed(() => `/application/${encodeURIComponent(crumbApplicationId.value ?? '')}`);

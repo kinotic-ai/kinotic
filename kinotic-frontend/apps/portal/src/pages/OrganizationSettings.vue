@@ -16,6 +16,9 @@
         <TabPanel value="integrations">
           <GitHubLinkStatus return-to="/organization-settings" />
         </TabPanel>
+        <TabPanel value="notifications">
+          <NotificationSettings />
+        </TabPanel>
         <TabPanel v-for="tab in upcomingTabs" :key="tab.id" :value="tab.id">
           <FeatureEmptyState badge="coming-soon" :icon="tab.icon" :tint="tab.upcoming.tint" :title="tab.upcoming.title"
                            :description="tab.upcoming.description" :points="tab.upcoming.points"
@@ -91,7 +94,7 @@
 <script setup lang="ts">
 import { markRaw, type Component } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
-import { ArrowRight, CircleCheck, CreditCard, IdCard, KeyRound, Minus, Plug, ShieldCheck } from '@lucide/vue'
+import { ArrowRight, Bell, CircleCheck, CreditCard, IdCard, KeyRound, Minus, Plug, ShieldCheck } from '@lucide/vue'
 import Tab from 'primevue/tab'
 import TabList from 'primevue/tablist'
 import TabPanel from 'primevue/tabpanel'
@@ -101,6 +104,7 @@ import Tag from 'primevue/tag'
 import { PageHeader, TINTS } from '@kinotic-ai/frontend-common'
 import FeatureEmptyState from '@/components/FeatureEmptyState.vue'
 import GitHubLinkStatus from '@/components/GitHubLinkStatus.vue'
+import NotificationSettings from '@/components/NotificationSettings.vue'
 import { useQueryTab } from '@/composables/useQueryTab'
 import { DOCUMENTATION_URL } from '@/util/externalLinks'
 import githubLogo from '@/assets/github-icon.svg'
@@ -121,7 +125,7 @@ interface UpcomingFeature {
 
 /** A tab of the settings page; one with upcoming set is not built yet and says what it will hold. */
 interface SettingsTab {
-  id: 'integrations' | 'authentication' | 'identity-mapping' | 'roles' | 'billing'
+  id: 'integrations' | 'notifications' | 'authentication' | 'identity-mapping' | 'roles' | 'billing'
   label: string
   icon: Component
   upcoming?: UpcomingFeature
@@ -129,6 +133,7 @@ interface SettingsTab {
 
 const TABS: SettingsTab[] = [
   { id: 'integrations', label: 'Integrations', icon: markRaw(Plug) },
+  { id: 'notifications', label: 'Notifications', icon: markRaw(Bell) },
   {
     id: 'authentication', label: 'Authentication providers', icon: markRaw(KeyRound),
     upcoming: {
