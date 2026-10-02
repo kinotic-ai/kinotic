@@ -262,7 +262,9 @@ Azure root has uploaded them.
   servers' and the Elasticsearch nodes' markers (`/var/lib/kinotic/state/keepalive/<vmid>`),
   stop them, empty `/es1/data`, `/es2/data` and `/es3/data`, and remove
   `/var/lib/kinotic/state/120.ran` and `images.deployed`. `./redeploy.sh` then replaces the
-  servers and runs the migration against the empty cluster; then `bootstrap-identities.sh`,
+  servers and runs the migration against the empty cluster; then `bootstrap-identities.sh`
+  (to keep the system user's password, read its `kinotic_identity_credential` `secretHash`
+  before emptying the cluster and pass it as `ADMIN_SECRET_HASH`),
   and the snapshot repository and policy again, since they live in the cluster's state. Clear
   each node's old workloads first: stop `kinotic-vm-manager`, remove the containers labelled
   `ai.kinotic.managed-by=kinotic-vm-manager`, `/root/.kinotic/vm-state/cloud-hypervisor/*.json`

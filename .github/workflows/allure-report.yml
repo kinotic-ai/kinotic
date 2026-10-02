@@ -26,19 +26,21 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Allure 3 CLI version, pinned for reproducible report output and history handling.
-      ALLURE_VERSION: "3.12.0"
+      ALLURE_VERSION: "3.19.1"
       # Number of newest reports kept under test-results/, and the history depth passed to
       # `allure generate`. One number for both: the report folders retained on gh-pages and the
       # trend entries embedded in them describe the same window of runs.
       RETAINED_RUNS: "10"
       RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
     steps:
-      # Sparse-checkout just allurerc.mjs (needed for historyPath). Must precede the download below,
-      # since checkout cleans its destination.
+      # Sparse-checkout just the report config (allurerc.mjs, needed for historyPath) and its theme.
+      # Must precede the download below, since checkout cleans its destination.
       - name: Checkout report config
         uses: actions/checkout@v7
         with:
-          sparse-checkout: allurerc.mjs
+          sparse-checkout: |
+            allurerc.mjs
+            allure-theme.css
           sparse-checkout-cone-mode: false
 
       - name: Set up Node
@@ -96,10 +98,15 @@ jobs:
           if [ -f gh-pages/test-results/history.jsonl ]; then
             cp gh-pages/test-results/history.jsonl history.jsonl
           fi
+          report="allure-history/test-results/${RUN_NUMBER}"
           npx --yes "allure@${ALLURE_VERSION}" generate allure-results \
             --config allurerc.mjs \
             --history-limit "${RETAINED_RUNS}" \
-            --output "allure-history/test-results/${RUN_NUMBER}"
+            --output "$report"
+          # Allure has no option for a custom stylesheet, so the theme is linked into index.html by hand;
+          # the icon, linked after Allure's, replaces its favicon.
+          cp allure-theme.css "$report/kinotic-theme.css"
+          sed -i 's#</head>#<link rel="stylesheet" href="kinotic-theme.css"><link rel="icon" type="image/svg+xml" href="/favicon.svg"></head>#' "$report/index.html"
           mkdir -p allure-history/test-results
           # --history-limit caps what generate reads back, but Allure only appends to history.jsonl
           # and never truncates it; drop the entries past the limit that nothing will read again.
