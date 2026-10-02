@@ -3,7 +3,7 @@
     v-model:visible="visible"
     modal
     :header="`Logs — ${workloadName}`"
-    :style="{ width: '70rem', maxWidth: '95vw' }"
+    :style="{ width: '95vw' }"
   >
     <!-- Mounted with the dialog, so a reopen starts a fresh history load and tail -->
     <WorkloadLogView v-if="visible" :organization-id="organizationId" :workload-id="workloadId" :run="workloadRun(workload)" />

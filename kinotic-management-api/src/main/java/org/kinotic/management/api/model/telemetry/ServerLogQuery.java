@@ -31,7 +31,7 @@ public class ServerLogQuery {
     private long start;
 
     /**
-     * End of the time range, epoch milliseconds (inclusive).
+     * End of the time range, epoch milliseconds (exclusive).
      */
     private long end;
 

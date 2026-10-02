@@ -142,9 +142,9 @@ describe('Kinotic JS', () => {
             const people = new ArrayC3Type(entityDefinition.schema)
             await Kinotic.namedQueriesDefinitions.saveSync(new NamedQueriesDefinition(entityDefinition.id as string,
                 TEST_ORG_ID, applicationIdUsed, projectIdUsed, entityDefinition.name, [
-                    adminQuery('adminFindByLastName', 'SELECT * FROM PersonWithTenant WHERE lastName == :lastName', people, 'lastName'),
-                    adminQuery('adminRenameByLastName', 'UPDATE PersonWithTenant SET firstName = :firstName WHERE lastName == :lastName WITH REFRESH', writeCount(applicationIdUsed), 'firstName', 'lastName'),
-                    adminQuery('adminDeleteByLastName', 'DELETE FROM PersonWithTenant WHERE lastName == :lastName WITH REFRESH', writeCount(applicationIdUsed), 'lastName'),
+                    adminQuery('adminFindByLastName', 'SELECT * FROM PersonWithTenant WHERE lastName = :lastName', people, 'lastName'),
+                    adminQuery('adminRenameByLastName', 'UPDATE PersonWithTenant SET firstName = :firstName WHERE lastName = :lastName WITH REFRESH', writeCount(applicationIdUsed), 'firstName', 'lastName'),
+                    adminQuery('adminDeleteByLastName', 'DELETE FROM PersonWithTenant WHERE lastName = :lastName WITH REFRESH', writeCount(applicationIdUsed), 'lastName'),
                     adminQuery('adminAddPerson', 'INSERT INTO PersonWithTenant (id, firstName, lastName) VALUES (:id, :firstName, :lastName) WITH REFRESH', writeCount(applicationIdUsed), 'id', 'firstName', 'lastName')
                 ]))
 
@@ -188,11 +188,11 @@ describe('Kinotic JS', () => {
             const people = new ArrayC3Type(entityDefinition.schema)
             await Kinotic.namedQueriesDefinitions.saveSync(new NamedQueriesDefinition(entityDefinition.id as string,
                 TEST_ORG_ID, applicationIdUsed, projectIdUsed, entityDefinition.name, [
-                    query('findByLastName', 'SELECT * FROM PersonWithTenant WHERE lastName == :lastName', people, 'lastName'),
-                    query('renameByLastName', 'UPDATE PersonWithTenant SET firstName = :firstName WHERE lastName == :lastName WITH REFRESH', writeCount(applicationIdUsed), 'firstName', 'lastName'),
-                    query('deleteByLastName', 'DELETE FROM PersonWithTenant WHERE lastName == :lastName WITH REFRESH', writeCount(applicationIdUsed), 'lastName'),
+                    query('findByLastName', 'SELECT * FROM PersonWithTenant WHERE lastName = :lastName', people, 'lastName'),
+                    query('renameByLastName', 'UPDATE PersonWithTenant SET firstName = :firstName WHERE lastName = :lastName WITH REFRESH', writeCount(applicationIdUsed), 'firstName', 'lastName'),
+                    query('deleteByLastName', 'DELETE FROM PersonWithTenant WHERE lastName = :lastName WITH REFRESH', writeCount(applicationIdUsed), 'lastName'),
                     query('addPerson', 'INSERT INTO PersonWithTenant (id, firstName, lastName, tenantId) VALUES (:id, :firstName, :lastName, :tenantId) WITH REFRESH', writeCount(applicationIdUsed), 'id', 'firstName', 'lastName', 'tenantId'),
-                    adminQuery('adminFindByLastName', 'SELECT * FROM PersonWithTenant WHERE lastName == :lastName', people, 'lastName')
+                    adminQuery('adminFindByLastName', 'SELECT * FROM PersonWithTenant WHERE lastName = :lastName', people, 'lastName')
                 ]))
 
             const appKinotic = await initKinoticAppClient(applicationIdUsed, 'tenant01')

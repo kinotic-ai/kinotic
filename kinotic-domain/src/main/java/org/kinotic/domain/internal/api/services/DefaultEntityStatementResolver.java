@@ -12,6 +12,7 @@ import org.kinotic.domain.api.services.EntityStatementResolver;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.WhereClause;
+import org.kinotic.sql.domain.statements.AggregateStatement;
 import org.kinotic.sql.domain.statements.DeleteStatement;
 import org.kinotic.sql.domain.statements.InsertStatement;
 import org.kinotic.sql.domain.statements.ReindexStatement;
@@ -23,9 +24,10 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Created by Navíd Mitchell 🤝 Claude on 10/1/26.
@@ -33,6 +35,14 @@ import java.util.function.Function;
 @Component
 @RequiredArgsConstructor
 public class DefaultEntityStatementResolver implements EntityStatementResolver {
+
+    // A reindex script can redirect its writes to any index through ctx._index, ctx._id, ctx._routing or metadata().
+    // Matched on the raw script text: Painless lexes the source as written and an identifier is plain ASCII, so ctx
+    // and metadata can only be spelled literally. A name directly after a dot is a member, such as a source field.
+    private static final Pattern SCRIPT_METADATA_ACCESS =
+            Pattern.compile("(?<![.\\w])(?:ctx(?!\\.(?:_source|op)(?!\\w))|metadata)(?!\\w)");
+    // the access a SCRIPT_METADATA_ACCESS match starts, with the member, index or call that follows it, to name in an error
+    private static final Pattern SCRIPT_ACCESS_SHOWN = Pattern.compile("\\w+(?:\\s*\\??\\.\\s*\\w+|\\s*\\[[^\\]]*]|\\s*\\(\\s*\\))?");
 
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final DomainPersistenceProperties domainPersistenceProperties;
@@ -43,12 +53,12 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
         Map<String, Future<EntityDescriptor>> lookups = new LinkedHashMap<>();
         for (Statement statement : statements) {
             for (String name : names(statement)) {
-                lookups.computeIfAbsent(name.toLowerCase(Locale.ROOT), key -> requireEntity(name, applicationKey));
+                lookups.computeIfAbsent(name, key -> requireEntity(name, applicationKey));
             }
         }
         return Future.all(new ArrayList<>(lookups.values()))
                      .map(v -> {
-                         Function<String, EntityDescriptor> entity = name -> lookups.get(name.toLowerCase(Locale.ROOT)).result();
+                         Function<String, EntityDescriptor> entity = name -> lookups.get(name).result();
                          return statements.stream()
                                           .map(statement -> statement instanceof InsertStatement insert
                                                   ? identifyFromRow(insert, entity.apply(insert.tableName()))
@@ -60,7 +70,7 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
     @Override
     public List<Statement> resolve(List<Statement> statements, EntityDescriptor entity) {
         Function<String, EntityDescriptor> own = name -> {
-            Validate.isTrue(entity.name().equalsIgnoreCase(name), "A named query of %s acts on %s, not %s",
+            Validate.isTrue(entity.name().equals(name), "A named query of %s acts on %s, not %s",
                             entity.name(), entity.name(), name);
             return entity;
         };
@@ -95,7 +105,13 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
                                              Validate.isTrue(definition != null && definition.isPublished(),
                                                              "Application %s has no published entity named %s",
                                                              applicationKey.applicationId(), name);
-                                             return definition.toDescriptor();
+                                             // the definition id ignores case, so a name in the wrong case finds the
+                                             // entity it was meant for, which the error can then suggest
+                                             EntityDescriptor ret = definition.toDescriptor();
+                                             Validate.isTrue(ret.name().equals(name),
+                                                             "Application %s has no published entity named %s; did you mean %s?",
+                                                             applicationKey.applicationId(), name, ret.name());
+                                             return ret;
                                          });
     }
 
@@ -108,6 +124,7 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
             case UpdateStatement update -> List.of(update.tableName());
             case DeleteStatement delete -> List.of(delete.tableName());
             case SelectStatement select -> List.of(select.tableName());
+            case AggregateStatement aggregate -> List.of(aggregate.tableName());
             case ReindexStatement reindex -> List.of(reindex.source(), reindex.dest());
             default -> throw new IllegalArgumentException(kind(statement) + " does not act on an entity");
         };
@@ -126,11 +143,17 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
                                                                delete.refresh());
             case SelectStatement select -> new SelectStatement(entity.apply(select.tableName()).itemIndex(), select.columns(),
                                                                select.whereClause(), select.orderBy(), select.limit());
-            case ReindexStatement reindex -> new ReindexStatement(entity.apply(reindex.source()).itemIndex(),
-                                                                  entity.apply(reindex.dest()).itemIndex(),
-                                                                  reindex.conflicts(), reindex.maxDocs(), reindex.slices(),
-                                                                  reindex.size(), reindex.sourceFields(), reindex.query(),
-                                                                  reindex.script(), reindex.waitForReindex(), reindex.skipIfNoSource());
+            case AggregateStatement aggregate -> new AggregateStatement(entity.apply(aggregate.tableName()).itemIndex(),
+                                                                        aggregate.projections(), aggregate.whereClause(),
+                                                                        aggregate.groupBy(), aggregate.orderBy(), aggregate.limit());
+            case ReindexStatement reindex -> {
+                requireRowScopedScript(reindex);
+                yield new ReindexStatement(entity.apply(reindex.source()).itemIndex(),
+                                           entity.apply(reindex.dest()).itemIndex(),
+                                           reindex.conflicts(), reindex.maxDocs(), reindex.slices(),
+                                           reindex.size(), reindex.sourceFields(), reindex.query(),
+                                           reindex.script(), reindex.waitForReindex(), reindex.skipIfNoSource());
+            }
             default -> throw new IllegalArgumentException(kind(statement) + " does not act on an entity");
         };
     }
@@ -204,7 +227,7 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
             ret = whereClause;
         } else {
             // quoted as the grammar writes a string literal, which is how QueryBuilder tells it from a number
-            ret = new WhereClause.AndClause(whereClause, new WhereClause.Condition(tenantField(entity), "==", "'" + tenantId + "'"));
+            ret = new WhereClause.AndClause(whereClause, new WhereClause.Condition(tenantField(entity), "=", "'" + tenantId + "'"));
         }
         return ret;
     }
@@ -215,6 +238,23 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
     private String tenantField(EntityDescriptor entity) {
         Validate.isTrue(entity.multiTenancyType() == MultiTenancyType.SHARED, "Entity %s has no tenant field", entity.name());
         return entity.isMultiTenantSelectionEnabled() ? entity.tenantIdFieldName() : domainPersistenceProperties.getTenantIdFieldName();
+    }
+
+    /**
+     * Refuses a REINDEX whose SCRIPT reaches a row's index, id or routing, naming the access and where it is.
+     */
+    private static void requireRowScopedScript(ReindexStatement reindex) {
+        String script = reindex.script();
+        Matcher access = script != null ? SCRIPT_METADATA_ACCESS.matcher(script) : null;
+        if (access != null && access.find()) {
+            Matcher shown = SCRIPT_ACCESS_SHOWN.matcher(script).region(access.start(), script.length());
+            throw new IllegalArgumentException(String.format(
+                    "REINDEX %s INTO %s: the SCRIPT uses %s at character %d. A reindex script changes the row through "
+                            + "ctx._source and can skip or delete it by setting ctx.op to 'noop' or 'delete'. The row's index, "
+                            + "id and routing belong to the platform, so the script cannot use ctx in any other way or call "
+                            + "metadata().",
+                    reindex.source(), reindex.dest(), shown.lookingAt() ? shown.group() : access.group(), access.start() + 1));
+        }
     }
 
     private static String kind(Statement statement) {

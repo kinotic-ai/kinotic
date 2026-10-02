@@ -298,7 +298,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
             INSERT INTO test_table_update (id, name, age) VALUES ('1', 'test', 20) WITH REFRESH;
             """;
         String updateContent = """
-            UPDATE test_table_update SET age = 21 WHERE id == '1' WITH REFRESH;
+            UPDATE test_table_update SET age = 21 WHERE id = '1' WITH REFRESH;
             """;
 
         Migration createTableMigration = migration(1, "V1__create_test_table", createTableContent);
@@ -400,7 +400,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
             INSERT INTO test_table_binary (id, quantity) VALUES ('1', 12) WITH REFRESH;
             """;
         String updateContent = """
-            UPDATE test_table_binary SET quantity = quantity + 1 WHERE id == '1' WITH REFRESH;
+            UPDATE test_table_binary SET quantity = quantity + 1 WHERE id = '1' WITH REFRESH;
             """;
 
         // When
@@ -434,7 +434,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
             INSERT INTO test_table_delete (id, name) VALUES ('1', 'test') WITH REFRESH;
             """;
         String deleteContent = """
-            DELETE FROM test_table_delete WHERE id == '1' WITH REFRESH;
+            DELETE FROM test_table_delete WHERE id = '1' WITH REFRESH;
             """;
 
         Migration createTableMigration = migration(1, "V1__create_test_table", createTableContent);

@@ -129,7 +129,8 @@ describe('sync entrypoint', () => {
         // never signals a reload for a commit the server does not know the artifacts of
         const fakeCli = join(baseDir, 'fake-cli.ts')
         writeFileSync(fakeCli, `import { appendFileSync } from 'node:fs'
-                                appendFileSync('${join(baseDir, 'cli-invocations.log')}', process.argv.slice(2).join(' ') + '\\n')`)
+                                appendFileSync('${join(baseDir, 'cli-invocations.log')}', process.argv.slice(2).join(' ') + '\\n')
+                                console.log({ synced: true })`)
 
         const result = runSync({
             GIT_CLONE_URL: `file://${originDir}`,
@@ -145,6 +146,8 @@ describe('sync entrypoint', () => {
 
         expect(readFileSync(join(baseDir, 'cli-invocations.log'), 'utf-8').trim())
             .toBe('sync --publish --server http://127.0.0.1:58503')
+        // The CLI's output is forwarded in color, bun coloring an inspected object only when forced to
+        expect(result.stdout).toMatch(/\x1b\[[0-9;]*msynced/)
         expect(result.status).not.toBe(0)
         expect(result.stderr).toContain('[workload-runner] sync failed')
         expect(existsSync(join(workspaceDir, '.kinotic', 'reload'))).toBe(false)

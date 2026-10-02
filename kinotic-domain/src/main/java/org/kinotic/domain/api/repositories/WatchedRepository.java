@@ -8,7 +8,7 @@ import org.kinotic.domain.api.model.WatchedType;
 
 /**
  * What the reconcile master needs from the repository of one kind of {@link Watched} record: to find
- * the records whose last write it has not seen, to read one afresh, and to mark a write as seen.
+ * the records whose last write it has not seen, to read one afresh, and to enter its writes in the ledger and mark them as seen.
  *
  * @param <R> the kind of record
  */
@@ -41,11 +41,11 @@ public interface WatchedRepository<R extends Watched> {
     Future<Page<R>> findDirty(Pageable pageable);
 
     /**
-     * Marks the write the master saw as seen. A record written again since keeps its mark.
+     * Enters the writes the record holds unrecorded in the ledger, then marks the write the master saw
+     * as seen. A record written again since keeps its mark, as does one whose entries could not be
+     * entered.
      *
-     * @param id      the record's id
-     * @param scope   the scope the record is stored under
-     * @param dirtyAt the write the master saw, as the record's state stamped it
+     * @param record the record as the master read it
      */
-    Future<Void> clearDirty(String id, String scope, long dirtyAt);
+    Future<Void> clearDirty(R record);
 }

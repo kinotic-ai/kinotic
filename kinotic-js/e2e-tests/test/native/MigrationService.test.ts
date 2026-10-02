@@ -89,8 +89,8 @@ describe('Kinotic JS', () => {
                         INSERT INTO PersonWithTenant (id, tenantId, firstName, lastName, age) VALUES ('p-2', 'tenant01', 'John', 'Doe', 31) WITH REFRESH;
                         INSERT INTO PersonWithTenant (id, tenantId, firstName, lastName, age) VALUES ('p-1', 'tenant02', 'Ada', 'Lovelace', 36) WITH REFRESH;
                     `),
-                    migration(2, `UPDATE PersonWithTenant SET firstName = 'Janet' WHERE id == 'p-1' WITH REFRESH;`),
-                    migration(3, `DELETE FROM PersonWithTenant WHERE tenantId == 'tenant02' WITH REFRESH;`)
+                    migration(2, `UPDATE PersonWithTenant SET firstName = 'Janet' WHERE id = 'p-1' WITH REFRESH;`),
+                    migration(3, `DELETE FROM PersonWithTenant WHERE tenantId = 'tenant02' WITH REFRESH;`)
                 ]
             })
             expect(result.errorMessage).toBeFalsy()
@@ -174,10 +174,75 @@ describe('Kinotic JS', () => {
             for (const name of ['kinotic_application', 'users']) {
                 const result = await Kinotic.migrations.executeMigrations({
                     projectId,
-                    migrations: [migration(1, `DELETE FROM ${name} WHERE id == 'x' WITH REFRESH;`)]
+                    migrations: [migration(1, `DELETE FROM ${name} WHERE id = 'x' WITH REFRESH;`)]
                 })
                 expect(result.success).toBe(false)
                 expect(result.errorMessage).toContain(`has no published entity named ${name}`)
+            }
+            await expect(Kinotic.migrations.getLastAppliedMigrationVersion(projectId)).resolves.toBeNull()
+        }
+    )
+
+    it<LocalTestContext>(
+        'transforms the rows a REINDEX copies with its SCRIPT',
+        async ({projectId, person}) => {
+            const result = await Kinotic.migrations.executeMigrations({
+                projectId,
+                migrations: [
+                    migration(1, `
+                        INSERT INTO PersonWithTenant (id, tenantId, firstName, lastName) VALUES ('p-1', '${APP_TENANT}', 'Grace', 'Hopper') WITH REFRESH;
+                        INSERT INTO PersonWithTenant (id, tenantId, firstName, lastName) VALUES ('p-2', '${APP_TENANT}', 'Skip', 'Me') WITH REFRESH;
+                    `),
+                    migration(2, `REINDEX PersonWithTenant INTO Person WITH (
+                        SCRIPT = 'if (ctx._source.firstName == "Skip") { ctx.op = "noop" } else { ctx._source.lastName = ctx._source.lastName.toUpperCase() }',
+                        WAIT = TRUE
+                    );`)
+                ]
+            })
+            expect(result.errorMessage).toBeFalsy()
+            expect(result.success).toBe(true)
+
+            const appKinotic = await initKinoticAppClient(APP_ID, APP_TENANT)
+            try {
+                const people: IEntityRepository<Person> = new EntityRepository(TEST_ORG_ID, APP_ID, person.name, new EntitiesRepository(appKinotic))
+                const grace = await people.findById('p-1')
+                expect(grace?.lastName).toBe('HOPPER')
+                await expect(people.findById('p-2')).resolves.toBeNull()
+            } finally {
+                await appKinotic.disconnect()
+            }
+        }
+    )
+
+    it<LocalTestContext>(
+        'rejects an entity name written in another case, naming the entity',
+        async ({projectId}) => {
+            const result = await Kinotic.migrations.executeMigrations({
+                projectId,
+                migrations: [migration(1, `delete from personwithtenant where id = 'x' with refresh;`)]
+            })
+            expect(result.success).toBe(false)
+            expect(result.errorMessage).toContain('has no published entity named personwithtenant; did you mean PersonWithTenant?')
+            await expect(Kinotic.migrations.getLastAppliedMigrationVersion(projectId)).resolves.toBeNull()
+        }
+    )
+
+    it<LocalTestContext>(
+        'rejects a REINDEX SCRIPT that reaches beyond the row',
+        async ({projectId}) => {
+            // Through the index, id or routing a reindex script could write the rows into storage outside the application
+            for (const [script, named] of [
+                ['ctx._index = "kinotic_application"', 'uses ctx._index at character 1'],
+                ['def c = ctx; c._routing = "x"', 'uses ctx at character 9'],
+                ['metadata().setIndex("kinotic_application")', 'uses metadata() at character 1']
+            ]) {
+                const result = await Kinotic.migrations.executeMigrations({
+                    projectId,
+                    migrations: [migration(1, `REINDEX PersonWithTenant INTO Person WITH (SCRIPT = '${script}');`)]
+                })
+                expect(result.success).toBe(false)
+                expect(result.errorMessage).toContain(`REINDEX PersonWithTenant INTO Person: the SCRIPT ${named}`)
+                expect(result.errorMessage).toContain('setting ctx.op to \'noop\' or \'delete\'')
             }
             await expect(Kinotic.migrations.getLastAppliedMigrationVersion(projectId)).resolves.toBeNull()
         }
@@ -191,7 +256,7 @@ describe('Kinotic JS', () => {
                 projectId,
                 migrations: [
                     migration(1, `INSERT INTO PersonWithTenant (id, tenantId, firstName, lastName) VALUES ('p-1', 'tenant01', 'Jane', 'Doe') WITH REFRESH;`),
-                    migration(2, `DELETE FROM nothing WHERE id == 'x';`)
+                    migration(2, `DELETE FROM nothing WHERE id = 'x';`)
                 ]
             })
             expect(result.success).toBe(false)
@@ -208,7 +273,7 @@ describe('Kinotic JS', () => {
             await expect(Kinotic.migrations.isMigrationApplied(unknownProject, '1')).rejects.toThrow(/not found/)
             const result = await Kinotic.migrations.executeMigrations({
                 projectId: unknownProject,
-                migrations: [migration(1, `DELETE FROM PersonWithTenant WHERE id == 'x';`)]
+                migrations: [migration(1, `DELETE FROM PersonWithTenant WHERE id = 'x';`)]
             })
             expect(result.success).toBe(false)
             expect(result.errorMessage).toContain('not found')
@@ -245,7 +310,7 @@ describe('Kinotic JS', () => {
 
             // A second run applies only the new file: the applied ones would otherwise insert their rows again
             await writeFile(join(migrationsDir, 'V10__tenth.sql'),
-                            `UPDATE PersonWithTenant SET lastName = 'Roe' WHERE tenantId == 'tenant01' WITH REFRESH;`)
+                            `UPDATE PersonWithTenant SET lastName = 'Roe' WHERE tenantId = 'tenant01' WITH REFRESH;`)
             await expect(projectMigrationService.applyMigrations(projectId, migrationsDir, true)).resolves.toBeUndefined()
             await expect(adminPeople.count(['tenant01'])).resolves.toBe(2)
             await expect(Kinotic.migrations.getLastAppliedMigrationVersion(projectId)).resolves.toBe(10)

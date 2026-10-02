@@ -21,21 +21,19 @@ import org.kinotic.persistence.internal.api.services.sql.executors.PreAuthorizat
 import org.kinotic.persistence.internal.api.services.sql.executors.QueryExecutor;
 import org.kinotic.persistence.internal.api.services.sql.executors.SelectQueryExecutor;
 import org.kinotic.persistence.internal.api.services.sql.executors.StatementQueryExecutor;
-import org.kinotic.persistence.internal.utils.QueryUtils;
 import org.kinotic.sql.domain.Statement;
+import org.kinotic.sql.domain.statements.AggregateStatement;
 import org.kinotic.sql.domain.statements.DeleteStatement;
 import org.kinotic.sql.domain.statements.InsertStatement;
 import org.kinotic.sql.domain.statements.SelectStatement;
 import org.kinotic.sql.domain.statements.UpdateStatement;
+import org.kinotic.sql.executor.ElasticsearchSqlWriter;
 import org.kinotic.sql.executor.StatementExecutor;
 import org.kinotic.sql.parsers.MigrationParser;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/28/24.
@@ -43,11 +41,6 @@ import java.util.regex.Pattern;
 @Component
 @RequiredArgsConstructor
 public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
-
-    // the index an Elasticsearch SQL statement reads, bare or double-quoted
-    private static final Pattern FROM_ENTITY = Pattern.compile("(?i)\\bFROM\\s+(\"?)([A-Za-z_][A-Za-z0-9_.-]*)\\1");
-    // a single-quoted string is matched whole, so a colon inside one is not a parameter; nor is a `::` cast
-    private static final Pattern PARAMETER = Pattern.compile("'(?:[^']|'')*'|(?<!:):([A-Za-z_][A-Za-z0-9_]*)");
 
     private final ElasticVertxClient elasticVertxClient;
     private final DomainPersistenceProperties domainPersistenceProperties;
@@ -95,27 +88,20 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
     private QueryExecutor createQueryExecutorForStatement(EntityDescriptor entityDescriptor,
                                                           String queryName,
                                                           String statements) {
-        QueryExecutor ret;
-        if(QueryUtils.isAggregate(statements)){
-            // an aggregate runs on Elasticsearch SQL as written, apart from the entity it names and its parameters
-            ret = new AggregateQueryExecutor(entityDescriptor,
-                                             elasticVertxClient,
-                                             positional(addressAggregate(statements, entityDescriptor, queryName)),
-                                             parameterNames(statements),
-                                             domainPersistenceProperties);
-        }else{
-            Statement statement = entityStatementResolver.resolve(parse(statements, queryName), entityDescriptor).getFirst();
-            ret = switch (statement) {
-                case SelectStatement select -> new SelectQueryExecutor(entityDescriptor, queryName, select, crudServiceTemplate,
-                                                                       readPreProcessor, readPostProcessor);
-                case InsertStatement _, UpdateStatement _, DeleteStatement _ -> write(entityDescriptor, statement);
-                default -> throw new IllegalArgumentException("Named query " + queryName
-                                                                      + ": a named query is a SELECT, INSERT, UPDATE or DELETE, so "
-                                                                      + statement.getClass().getSimpleName().replace("Statement", "")
-                                                                      + " is not allowed");
-            };
-        }
-        return ret;
+        Statement statement = entityStatementResolver.resolve(parse(statements, queryName), entityDescriptor).getFirst();
+        return switch (statement) {
+            case SelectStatement select -> new SelectQueryExecutor(entityDescriptor, queryName, select, crudServiceTemplate,
+                                                                   readPreProcessor, readPostProcessor);
+            case AggregateStatement aggregate -> new AggregateQueryExecutor(entityDescriptor,
+                                                                            elasticVertxClient,
+                                                                            ElasticsearchSqlWriter.write(aggregate),
+                                                                            domainPersistenceProperties);
+            case InsertStatement _, UpdateStatement _, DeleteStatement _ -> write(entityDescriptor, statement);
+            default -> throw new IllegalArgumentException("Named query " + queryName
+                                                                  + ": a named query is a SELECT, INSERT, UPDATE or DELETE, so "
+                                                                  + statement.getClass().getSimpleName().replace("Statement", "")
+                                                                  + " is not allowed");
+        };
     }
 
     private List<Statement> parse(String statements, String queryName) {
@@ -134,41 +120,5 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No executor found for statement: " + statement.getClass().getSimpleName()));
         return new StatementQueryExecutor(entityDescriptor, statement, entityStatementResolver, executor, jsonMapper);
-    }
-
-    /**
-     * Replaces the entity an aggregate names in FROM with the entity's index. The entity must be the one the
-     * named query belongs to.
-     */
-    private static String addressAggregate(String statement, EntityDescriptor entityDescriptor, String queryName) {
-        Matcher matcher = FROM_ENTITY.matcher(statement);
-        Validate.isTrue(matcher.find(), "Named query %s names no entity in FROM", queryName);
-        return matcher.replaceAll(match -> {
-            Validate.isTrue(entityDescriptor.name().equalsIgnoreCase(match.group(2)),
-                            "A named query of %s acts on %s, not %s", entityDescriptor.name(), entityDescriptor.name(), match.group(2));
-            return Matcher.quoteReplacement("FROM \"" + entityDescriptor.itemIndex() + "\"");
-        });
-    }
-
-    /**
-     * The names of an aggregate's {@code :name} parameters, in the order they appear.
-     */
-    private static List<String> parameterNames(String statement) {
-        List<String> ret = new ArrayList<>();
-        Matcher matcher = PARAMETER.matcher(statement);
-        while (matcher.find()) {
-            if (matcher.group(1) != null) {
-                ret.add(matcher.group(1));
-            }
-        }
-        return ret;
-    }
-
-    /**
-     * The aggregate with each {@code :name} parameter replaced by the {@code ?} placeholder Elasticsearch SQL takes.
-     */
-    private static String positional(String statement) {
-        return PARAMETER.matcher(statement)
-                        .replaceAll(match -> match.group(1) != null ? "?" : Matcher.quoteReplacement(match.group()));
     }
 }

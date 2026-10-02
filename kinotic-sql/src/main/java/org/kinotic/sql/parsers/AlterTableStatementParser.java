@@ -20,8 +20,8 @@ public class AlterTableStatementParser implements StatementParser {
     @Override
     public Statement parse(KinoticSQLParser.StatementContext ctx) {
         KinoticSQLParser.AlterTableStatementContext alterCtx = ctx.alterTableStatement();
-        String tableName = alterCtx.ID(0).getText();
-        String columnName = alterCtx.ID(1).getText();
+        String tableName = Identifiers.name(alterCtx.identifier(0));
+        String columnName = Identifiers.name(alterCtx.identifier(1));
         return new AlterTableStatement(tableName, TypeParser.parseColumnType(columnName, alterCtx.type()));
     }
 }

@@ -6,6 +6,7 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.WatchedParent;
@@ -28,14 +29,33 @@ public class WatchEventRepository {
     private final CrudServiceTemplate crudServiceTemplate;
 
     /**
-     * Appends the event to the ledger.
+     * Appends the event to the ledger under the given id. An event entered under the id since the
+     * ledger last rolled over is left as it is, so entering the same event again is a no-op.
      *
-     * @param event what happened
-     * @return a future that completes once the entry is accepted
+     * @param eventId the id the event is entered under
+     * @param event   what happened
+     * @return a future that completes once the entry is accepted, or found entered already
      */
-    public Future<Void> record(WatchEvent event) {
+    public Future<Void> record(String eventId, WatchEvent event) {
+        Validate.notBlank(eventId, "eventId cannot be blank");
         Validate.notNull(event, "event cannot be null");
-        return crudServiceTemplate.appendToDataStream(DATA_STREAM, event).mapEmpty();
+        return crudServiceTemplate.create(DATA_STREAM, eventId, event)
+                                  .<Void>mapEmpty()
+                                  .recover(error -> error instanceof AlreadyExistsException
+                                          ? Future.succeededFuture()
+                                          : Future.failedFuture(error));
+    }
+
+    /**
+     * Lists what happened to every watched record, newest first.
+     *
+     * @param pageable the page to return
+     * @return a future emitting a page of entries
+     */
+    public Future<Page<WatchEvent>> findAll(Pageable pageable) {
+        Validate.notNull(pageable, "pageable cannot be null");
+        return crudServiceTemplate.search(DATA_STREAM, pageable, WatchEvent.class,
+                                          b -> b.sort(so -> so.field(f -> f.field("@timestamp").order(SortOrder.Desc))));
     }
 
     /**

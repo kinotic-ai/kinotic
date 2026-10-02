@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import {
-    Box, Building2, ChartLine, CloudUpload, Cpu, Gauge, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, Server, Users
+    Box, Building2, ChartLine, CloudUpload, Cpu, Gauge, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, ScrollText, Server, Users
 } from '@lucide/vue'
 import { ConnectedAppsPage, OAuthConsentPage, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
@@ -144,6 +144,12 @@ const routes: RouteRecordRaw[] = [
             },
             // The platform's runtime sits in the Platform section rather than one of its own
             ...runtimeRoutes('', '', (label, icon, order) => consoleItem(label, icon, order, 'Platform'), 'console', 40, true),
+            {
+                name: 'change-log',
+                path: 'change-log',
+                component: () => import('./pages/ChangeLogPage.vue'),
+                meta: { sidebar: consoleItem('Change log', ScrollText, 65, 'Platform') }
+            },
             {
                 name: 'organizations',
                 path: 'organizations',

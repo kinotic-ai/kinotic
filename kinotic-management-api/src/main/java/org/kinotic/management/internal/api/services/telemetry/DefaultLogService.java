@@ -24,13 +24,13 @@ public class DefaultLogService implements LogService {
     private final TenantAccess tenantAccess;
 
     @Override
-    public Flux<Buffer> tail(String organizationId, String workloadId) {
+    public Flux<Buffer> tail(String organizationId, String workloadId, long start) {
         Flux<Buffer> ret;
         try {
             Validate.notBlank(workloadId, "workloadId cannot be blank");
             // Authorization runs before subscription: the participant is read from the calling Vert.x context
             String tenant = tenantAccess.readableTenant(tenantAccess.currentParticipant(), organizationId);
-            ret = lokiClient.tail(tenant, TelemetryTenant.workloadLogSelector(workloadId));
+            ret = lokiClient.tail(tenant, TelemetryTenant.workloadLogSelector(workloadId), start);
         } catch (Exception e) {
             ret = Flux.error(e);
         }
@@ -56,13 +56,13 @@ public class DefaultLogService implements LogService {
     }
 
     @Override
-    public Flux<Buffer> tailServer(String telemetryServiceName, String telemetryServiceInstanceId) {
+    public Flux<Buffer> tailServer(String telemetryServiceName, String telemetryServiceInstanceId, long start) {
         Flux<Buffer> ret;
         try {
             String selector = TelemetryTenant.serverLogSelector(telemetryServiceName, telemetryServiceInstanceId);
             // the platform's tenant, which admits a system participant alone
             String tenant = tenantAccess.readableTenant(tenantAccess.currentParticipant(), null);
-            ret = lokiClient.tail(tenant, selector);
+            ret = lokiClient.tail(tenant, selector, start);
         } catch (Exception e) {
             ret = Flux.error(e);
         }

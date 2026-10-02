@@ -19,27 +19,31 @@ public interface EntityStatementResolver {
 
     /**
      * Resolves a migration's statements against the published entities of an application. Every name a statement
-     * carries must be one of the application's published entities and is replaced by the entity's index. An INSERT
-     * is also given the document id and routing the entity service gives a row it saves, from the row's id field
-     * and, on a {@link MultiTenancyType#SHARED} entity, its tenant field, so the row is reachable through the
-     * entity's repository afterwards.
+     * carries must be the name of one of the application's published entities, written in its case, and is replaced
+     * by the entity's index. An INSERT is also given the document id and routing the entity service gives a row it
+     * saves, from the row's id field and, on a {@link MultiTenancyType#SHARED} entity, its tenant field, so the row is
+     * reachable through the entity's repository afterwards.
      *
      * @param statements  the statements to resolve
      * @param applicationKey the application whose entities the statements name
      * @return the resolved statements, in the order given; fails when a name is not one of the application's
-     *         published entities, a statement does not act on an entity, or an INSERT row lacks its id or tenant
+     *         published entities, a statement does not act on an entity, an INSERT row lacks its id or tenant, or
+     *         a REINDEX SCRIPT reaches ctx other than as {@code ctx._source} or {@code ctx.op}, or calls
+     *         {@code metadata()}
      */
     Future<List<Statement>> resolve(List<Statement> statements, ApplicationKey applicationKey);
 
     /**
      * Resolves a named query's statements against the entity the query belongs to. Every name a statement carries
-     * must be that entity's name, compared ignoring case, and is replaced by the entity's index. A write is given
+     * must be that entity's name, written in its case, and is replaced by the entity's index. A write is given
      * its identity when it runs, see {@link #confine}, since its row and tenant are only known then.
      *
      * @param statements the statements to resolve
      * @param entity     the entity the named query belongs to
      * @return the resolved statements, in the order given
-     * @throws IllegalArgumentException if a name is not the entity's, or a statement does not act on an entity
+     * @throws IllegalArgumentException if a name is not the entity's, a statement does not act on an entity, or a
+     *                                  REINDEX SCRIPT reaches ctx other than as {@code ctx._source} or
+     *                                  {@code ctx.op}, or calls {@code metadata()}
      */
     List<Statement> resolve(List<Statement> statements, EntityDescriptor entity);
 

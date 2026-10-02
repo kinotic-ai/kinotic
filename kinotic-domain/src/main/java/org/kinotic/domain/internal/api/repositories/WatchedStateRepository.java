@@ -1,7 +1,10 @@
 package org.kinotic.domain.internal.api.repositories;
 
+import co.elastic.clients.elasticsearch._types.Refresh;
+import co.elastic.clients.elasticsearch.core.UpdateRequest;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
 import org.kinotic.core.api.crud.Page;
@@ -9,24 +12,30 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.Watched;
-import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedState;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.WatchEventKind;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.type.TypeReference;
 
-import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * The writer of the {@link WatchedState} a {@link Watched} record carries under {@code state}, on
  * whichever index the record lives in. Every write is one shard operation on the record, so two
  * writers never lose each other's entry, every write marks the record dirty for the reconcile
- * master in the same operation, and every write that changed the record goes to the ledger. A
- * record's own repository composes this one and passes its index.
+ * master in the same operation, and every write that changed the record is entered in the ledger:
+ * the entry is held on the record by the write itself, so a write that landed is entered even when
+ * the server that made it fails before entering it. A record's own repository composes this one and
+ * passes its index.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class WatchedStateRepository {
@@ -34,8 +43,10 @@ public class WatchedStateRepository {
     /**
      * Shared by every script that writes a watched record: the guard for a record written before its
      * index had the column, the lookup of a condition by type, and {@code touched}, which every
-     * write ends with. The reconciled flag exists only on a reconcilable's state, so it is recomputed
-     * only where it is present.
+     * write run through {@link #write} ends with as {@code touched(ctx._source, s, params)}. It
+     * marks the record for the reconcile master and holds the write's ledger entry on the record,
+     * stamped with a time later than every earlier write to the record. The reconciled flag exists
+     * only on a reconcilable's state, so it is recomputed only where it is present.
      */
     public static final String STATE_FUNCTIONS = """
             Map state(def source) {
@@ -61,14 +72,27 @@ public class WatchedStateRepository {
                     && s.conditions.isEmpty()
                     && s.deletionRequested == null;
             }
-            void touched(Map s, long now) {
+            void touched(def source, Map s, Map input) {
+                // dirtyAt only rises, so the ledger orders a record's writes as they landed whatever the writers' clocks say
+                long now = (long) input.now;
+                long next = s.dirtyAt == null ? 0L : (long) s.dirtyAt + 1;
+                long at = now > next ? now : next;
                 s.dirty = true;
-                s.dirtyAt = now;
+                s.dirtyAt = at;
                 if (s.containsKey('reconciled')) {
                     s.reconciled = reconciled(s);
                 }
+                if (s.unrecorded == null) {
+                    s.unrecorded = new HashMap();
+                }
+                Map entry = new HashMap(input.event);
+                entry['@timestamp'] = at;
+                entry.scope = source['%s'];
+                entry.parent = s.parent;
+                entry.generation = s.generation;
+                s.unrecorded[input.eventId] = entry;
             }
-            """;
+            """.formatted(AbstractOrganizationScopedRepository.ORGANIZATION_ID_FIELD);
 
     /**
      * The statements that add the condition {@code params.type}, {@code params.message} and
@@ -84,7 +108,7 @@ public class WatchedStateRepository {
                 ctx.op = 'noop';
             } else {
                 s.conditions.add(['type': params.type, 'message': params.message, 'since': params.since]);
-                touched(s, params.now);
+                touched(ctx._source, s, params);
             }
             """;
 
@@ -97,7 +121,7 @@ public class WatchedStateRepository {
                 ctx.op = 'noop';
             } else {
                 s.conditions.remove(s.conditions.indexOf(c));
-                touched(s, params.now);
+                touched(ctx._source, s, params);
             }
             """;
 
@@ -111,6 +135,27 @@ public class WatchedStateRepository {
                 s.dirty = false;
             }
             """;
+
+    // Bookkeeping like CLEAR_DIRTY, so the record is not touched
+    private static final String REMOVE_ENTERED = """
+            def unrecorded = ctx._source.state?.unrecorded;
+            boolean removed = false;
+            if (unrecorded != null) {
+                for (def id : params.ids) {
+                    if (unrecorded.remove(id) != null) {
+                        removed = true;
+                    }
+                }
+            }
+            if (!removed) {
+                ctx.op = 'noop';
+            }
+            """;
+
+    private static final TypeReference<Map<String, WatchEvent>> UNRECORDED = new TypeReference<>() {};
+
+    // Rounds a delete may make before it gives up on a record that keeps being written
+    private static final int DELETE_ATTEMPTS = 5;
 
     private final CrudServiceTemplate crudServiceTemplate;
     private final WatchEventRepository watchEventRepository;
@@ -129,14 +174,21 @@ public class WatchedStateRepository {
     }
 
     /**
-     * Marks the write the reconcile master saw as seen. A record written again since keeps its mark.
+     * Enters the writes the record holds unrecorded in the ledger, then marks the write the reconcile
+     * master saw as seen. A record written again since keeps its mark, as does one whose entries could
+     * not be entered, so the master's next look enters them.
      *
      * @param document the record
-     * @param dirtyAt  the write the master saw, as the record's state stamped it
+     * @param state    the record's state as the master read it
      */
-    public Future<Void> clearDirty(WatchedDocument document, long dirtyAt) {
+    public Future<Void> clearDirty(WatchedDocument document, WatchedState state) {
         Validate.notNull(document, "document cannot be null");
-        return run(document, CLEAR_DIRTY, Map.of("dirtyAt", dirtyAt)).mapEmpty();
+        Validate.notNull(state, "state cannot be null");
+        return enter(document, state.getUnrecorded())
+                .compose(v -> crudServiceTemplate.scriptedUpdateReturningSourceSync(document.index().name(), document.documentId(),
+                                                                                    CLEAR_DIRTY, Map.of("dirtyAt", state.getDirtyAt()),
+                                                                                    request(document, null)))
+                .mapEmpty();
     }
 
     /**
@@ -181,11 +233,9 @@ public class WatchedStateRepository {
         params.put("type", condition.type().name());
         params.put("message", condition.message());
         params.put("since", condition.since().toInstant().toString());
-        params.put("now", System.currentTimeMillis());
-        return run(document, script, params)
-                .compose(written -> recorded(document, written,
-                                             new WatchedChange(WatchEventKind.CONDITION_SET, source,
-                                                               condition.message(), condition)));
+        return write(document, script, params,
+                     new WatchedChange(WatchEventKind.CONDITION_SET, source, condition.message(), condition))
+                .map(written -> written != null);
     }
 
     /**
@@ -201,73 +251,183 @@ public class WatchedStateRepository {
         Validate.notNull(document, "document cannot be null");
         Validate.notNull(type, "type cannot be null");
         Validate.notBlank(source, "source cannot be blank");
-        return run(document, CLEAR_CONDITION, Map.of("type", type.name(),
-                                                    "now", System.currentTimeMillis()))
-                .compose(written -> recorded(document, written,
-                                             new WatchedChange(WatchEventKind.CONDITION_CLEARED, source,
-                                                               type + " cleared", Map.of("type", type))));
+        return write(document, CLEAR_CONDITION, Map.of("type", type.name()),
+                     new WatchedChange(WatchEventKind.CONDITION_CLEARED, source, type + " cleared", Map.of("type", type)))
+                .map(written -> written != null);
     }
 
     /**
-     * Records a write to the record in the ledger, naming the scope the record is addressed under,
-     * what it belongs to and its generation as the write left them.
+     * Runs a state script against the record and enters what it changed in the ledger. The script is
+     * opened by {@link #STATE_FUNCTIONS}, reads {@code params.now} as the write's time beside its own
+     * parameters, and ends every branch that changes the record with
+     * {@code touched(ctx._source, s, params)}. Visible to search on completion.
      *
      * @param document the record
-     * @param written  the record as the write left it
-     * @param change   what the write was
-     * @return a future that completes once the entry is accepted
-     */
-    public Future<Void> record(WatchedDocument document, Map<String, Object> written, WatchedChange change) {
-        Validate.notNull(document, "document cannot be null");
-        Validate.notNull(written, "written cannot be null");
-        Validate.notNull(change, "change cannot be null");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> state = (Map<String, Object>) written.get("state");
-        WatchedParent parent = null;
-        Long generation = null;
-        if (state != null) {
-            if (state.get("parent") != null) {
-                parent = WatchedParent.parse((String) state.get("parent"));
-            }
-            if (state.get("generation") != null) {
-                generation = ((Number) state.get("generation")).longValue();
-            }
-        }
-        // the scope a record is addressed under is its organization, the field every organization-owned
-        // record carries and a node has not: what its repository's scopeOf gives and a pointer to it carries
-        String scope = (String) written.get(AbstractOrganizationScopedRepository.ORGANIZATION_ID_FIELD);
-        return watchEventRepository.record(new WatchEvent(new Date(), document.index().type(), document.id(), scope,
-                                                          parent, change.kind(), change.source(), kinotic.serverInfo().getNodeId(),
-                                                          generation, change.message(),
-                                                          crudServiceTemplate.getObjectMapper().valueToTree(change.value())));
-    }
-
-    /**
-     * Runs a state script against the record, on the document id and routing its repository stores it
-     * under, and completes with the record as the script left it, or null when the script declined.
-     *
-     * @param document the record
-     * @param script   the Painless source, reading its inputs from {@code params}
+     * @param script   the Painless source
      * @param params   the values the script reads as {@code params.<name>}
-     * @return the record as written, or null when the script left it as it was
+     * @param change   what the write is, for the ledger
+     * @return the record as written, or null when the script declined
      */
-    public Future<Map<String, Object>> run(WatchedDocument document, String script, Map<String, Object> params) {
-        return crudServiceTemplate.scriptedUpdateReturningSourceSync(document.index().name(), document.documentId(), script, params,
-                                                                     u -> {
-                                                                         if (document.routing() != null) {
-                                                                             u.routing(document.routing());
-                                                                         }
-                                                                     });
+    public Future<Map<String, Object>> write(WatchedDocument document, String script, Map<String, Object> params, WatchedChange change) {
+        return write(document, script, params, change, null);
     }
 
-    // A script that declined returns no document, and a write that did not happen is not recorded
-    private Future<Boolean> recorded(WatchedDocument document, Map<String, Object> written, WatchedChange change) {
-        Future<Boolean> ret;
-        if (written == null) {
-            ret = Future.succeededFuture(false);
+    /**
+     * As {@link #write(WatchedDocument, String, Map, WatchedChange)}, with an upsert document the
+     * script runs against when the record does not exist yet, in which case the future completes with
+     * the created record.
+     *
+     * @param document the record
+     * @param script   the Painless source
+     * @param params   the values the script reads as {@code params.<name>}
+     * @param change   what the write is, for the ledger
+     * @param upsert   the record to create when none exists, or null when a missing record is an error
+     * @return the record as written, or null when the script declined
+     */
+    public Future<Map<String, Object>> write(WatchedDocument document,
+                                             String script,
+                                             Map<String, Object> params,
+                                             WatchedChange change,
+                                             Map<String, Object> upsert) {
+        Validate.notNull(document, "document cannot be null");
+        Validate.notBlank(script, "script cannot be blank");
+        Validate.notNull(params, "params cannot be null");
+        Validate.notNull(change, "change cannot be null");
+        Map<String, Object> stamped = new HashMap<>(params);
+        stamped.put("now", System.currentTimeMillis());
+        stamped.put("eventId", UUID.randomUUID().toString());
+        // the script stamps the entry's time, scope, parent and generation as the write leaves the record
+        stamped.put("event", new WatchEvent(null, document.index().type(), document.id(), null, null,
+                                            change.kind(), change.source(), kinotic.serverInfo().getNodeId(), null,
+                                            change.message(), crudServiceTemplate.getObjectMapper().valueToTree(change.value())));
+        return crudServiceTemplate.scriptedUpdateReturningSourceSync(document.index().name(), document.documentId(), script, stamped,
+                                                                     request(document, upsert))
+                                  .compose(written -> written == null
+                                          ? Future.succeededFuture()
+                                          : enterWritten(document, written).map(written));
+    }
+
+    /**
+     * Deletes the record once every write to it is entered in the ledger. A record that does not exist
+     * is left as it is.
+     *
+     * @param document the record
+     * @return a future that completes once the record is gone, or fails when it kept being written
+     * through every attempt to delete it
+     */
+    public Future<Void> delete(WatchedDocument document) {
+        Validate.notNull(document, "document cannot be null");
+        return delete(document, Refresh.False, 1);
+    }
+
+    /**
+     * As {@link #delete(WatchedDocument)}, waiting for the deletion to be visible to search.
+     *
+     * @param document the record
+     * @return a future that completes once the record is gone, or fails when it kept being written
+     * through every attempt to delete it
+     */
+    public Future<Void> deleteSync(WatchedDocument document) {
+        Validate.notNull(document, "document cannot be null");
+        return delete(document, Refresh.WaitFor, 1);
+    }
+
+    // The delete is conditional on the record as read, so a write landing between the read and the
+    // delete fails it with a conflict, and the next round enters that write's entry before deleting
+    private Future<Void> delete(WatchedDocument document, Refresh refresh, int attempt) {
+        return crudServiceTemplate.findById(document.index().name(), document.documentId(), Map.class,
+                                            g -> {
+                                                if (document.routing() != null) {
+                                                    g.routing(document.routing());
+                                                }
+                                            },
+                                            Function.identity())
+                .compose(read -> {
+                    Future<Void> ret;
+                    if (!read.found()) {
+                        ret = Future.succeededFuture();
+                    } else {
+                        @SuppressWarnings("unchecked")
+                        Map<String, WatchEvent> unrecorded = unrecordedIn((Map<String, Object>) read.source());
+                        if (!unrecorded.isEmpty()) {
+                            // entering the entries removes them from the record, which is another write
+                            ret = enter(document, unrecorded).compose(v -> deleteAgain(document, refresh, attempt));
+                        } else {
+                            ret = crudServiceTemplate.deleteById(document.index().name(), document.documentId(),
+                                                                 d -> {
+                                                                     if (document.routing() != null) {
+                                                                         d.routing(document.routing());
+                                                                     }
+                                                                     d.ifSeqNo(read.seqNo())
+                                                                      .ifPrimaryTerm(read.primaryTerm())
+                                                                      .refresh(refresh);
+                                                                 })
+                                                     .<Void>mapEmpty()
+                                                     .recover(error -> CrudServiceTemplate.isVersionConflict(error)
+                                                             ? deleteAgain(document, refresh, attempt)
+                                                             : Future.failedFuture(error));
+                        }
+                    }
+                    return ret;
+                });
+    }
+
+    private Future<Void> deleteAgain(WatchedDocument document, Refresh refresh, int attempt) {
+        Future<Void> ret;
+        if (attempt < DELETE_ATTEMPTS) {
+            ret = delete(document, refresh, attempt + 1);
         } else {
-            ret = record(document, written, change).map(true);
+            ret = Future.failedFuture(new IllegalStateException(document.index().type() + " " + document.id()
+                    + " kept being written through " + DELETE_ATTEMPTS + " attempts to delete it"));
         }
         return ret;
+    }
+
+    // The write landed with its entry held on the record, so an entry not entered here is entered by
+    // the master's next look at the record, which the write marked dirty
+    private Future<Void> enterWritten(WatchedDocument document, Map<String, Object> written) {
+        return enter(document, unrecordedIn(written))
+                .recover(error -> {
+                    log.warn("Could not enter the writes to {} {} in the ledger, leaving them to the reconcile master",
+                             document.index().type(), document.id(), error);
+                    return Future.succeededFuture();
+                });
+    }
+
+    // A record no write has touched carries no entries
+    private Map<String, WatchEvent> unrecordedIn(Map<String, Object> source) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> state = (Map<String, Object>) source.get("state");
+        Map<String, WatchEvent> ret = null;
+        if (state != null) {
+            ret = crudServiceTemplate.getObjectMapper().convertValue(state.get("unrecorded"), UNRECORDED);
+        }
+        return ret != null ? ret : Map.of();
+    }
+
+    // Each entry is appended under its own id, so one another server entered already is refused and counts as entered
+    private Future<Void> enter(WatchedDocument document, Map<String, WatchEvent> unrecorded) {
+        Future<Void> ret;
+        if (unrecorded.isEmpty()) {
+            ret = Future.succeededFuture();
+        } else {
+            List<String> ids = List.copyOf(unrecorded.keySet());
+            ret = Future.all(ids.stream().map(id -> watchEventRepository.record(id, unrecorded.get(id))).toList())
+                        .compose(v -> crudServiceTemplate.scriptedUpdate(document.index().name(), document.documentId(),
+                                                                         REMOVE_ENTERED, Map.of("ids", ids), request(document, null)))
+                        .mapEmpty();
+        }
+        return ret;
+    }
+
+    private static Consumer<UpdateRequest.Builder<Map, Map<String, Object>>> request(WatchedDocument document, Map<String, Object> upsert) {
+        return u -> {
+            if (document.routing() != null) {
+                u.routing(document.routing());
+            }
+            if (upsert != null) {
+                u.upsert(upsert).scriptedUpsert(true);
+            }
+        };
     }
 }

@@ -14,7 +14,7 @@
                     :allow-empty="false" size="small" />
       <Select checkmark v-model="limit" :options="LIMIT_OPTIONS" option-label="label" option-value="value" size="small" />
       <Button label="Reload" icon="pi pi-refresh" severity="secondary" outlined size="small"
-              :loading="loadingHistory" @click="loadHistory" />
+              :loading="loadingHistory" @click="refresh" />
       <span class="text-xs text-muted-color">{{ lineCountText }}</span>
       <Message v-if="error" severity="error" :closable="false" class="flex-1">{{ error }}</Message>
     </div>
@@ -23,23 +23,26 @@
       <span class="text-xs text-muted-color">to</span>
       <DatePicker v-model="customEnd" show-time hour-format="24" size="small" placeholder="To" />
       <Button label="Apply" size="small" :disabled="resolveRange() === null" :loading="loadingHistory"
-              @click="loadHistory" />
+              @click="refresh" />
     </div>
-    <div v-if="lines.length === 0" class="h-[60vh] p-3 rounded-md bg-surface-950 text-surface-400 font-mono text-xs">
+    <div v-if="rows.length === 0" class="h-[60vh] p-3 rounded-md bg-surface-950 text-surface-400 font-mono text-xs">
       <span v-if="!loadingHistory">No log entries {{ rangeDescription }}</span>
     </div>
     <VirtualScroller
       v-else
       ref="scroller"
-      :items="lines"
+      :items="rows"
       :itemSize="LINE_HEIGHT_PX"
       class="h-[60vh] rounded-md bg-surface-950 text-surface-200 font-mono text-xs"
       @scroll="onScroll"
     >
       <template #item="{ item }">
+        <!-- A continuation row keeps its entry's timestamp and level invisible so its text aligns under the first row's -->
         <div class="flex gap-3 whitespace-pre px-3 h-5 items-center">
-          <span class="shrink-0 text-surface-500">{{ formatTimestamp(item.ts) }}</span>
-          <span>{{ item.line }}</span>
+          <span class="shrink-0 text-surface-500" :class="{ invisible: item.continuation }">{{ formatTimestamp(item.ts) }}</span>
+          <span v-if="item.level" class="shrink-0 min-w-[5ch] uppercase" :class="{ invisible: item.continuation }"
+                :style="{ color: LEVEL_COLORS[item.level as LogLevel] }">{{ item.level }}</span>
+          <span><span v-for="(segment, i) in item.segments" :key="i" :style="segment.style">{{ segment.text }}</span></span>
         </div>
       </template>
     </VirtualScroller>
@@ -68,8 +71,7 @@ const props = defineProps<{
   source: LogSource
   /**
    * The window a workload ran over, when the caller knows it. A run that has ended opens on
-   * its own span rather than the last hour, and does not follow, since nothing more is coming;
-   * the run is also offered as a span while it is still going.
+   * its own span rather than the last hour; the run is also offered as a span while it is still going.
    */
   run?: WorkloadRun
 }>()
@@ -92,14 +94,100 @@ const CUSTOM_OPTION = { label: 'Custom', value: CUSTOM_SPAN, description: 'in th
 const LIMIT_OPTIONS = [500, 1000, 2000, 5000].map(value => ({ value, label: `${value.toLocaleString()} lines` }))
 // The VirtualScroller keeps the DOM viewport-sized regardless of buffer length, so the
 // cap only bounds heap and the per-frame concat cost of a long-running tail.
-const MAX_LINES = 25_000
+const MAX_ROWS = 25_000
 /** Fixed row height the VirtualScroller positions rows by; rows must render at exactly this height. */
 const LINE_HEIGHT_PX = 20
 const DAY_MS = 24 * 60 * 60_000
 
-interface LogLine {
+// The 16 ANSI colors as a dark terminal renders them: normal 0-7, then bright 8-15
+const ANSI_PALETTE = [
+  '#000000', '#cd3131', '#0dbc79', '#e5e510', '#2472c8', '#bc3fbc', '#11a8cd', '#e5e5e5',
+  '#666666', '#f14c4c', '#23d18b', '#f5f543', '#3b8eea', '#d670d6', '#29b8db', '#ffffff'
+]
+const ANSI_CUBE_STEPS = [0, 95, 135, 175, 215, 255]
+// The view's own text and background colors, which inverse video swaps in for a default color
+const DEFAULT_FG = 'var(--p-surface-200)'
+const DEFAULT_BG = 'var(--p-surface-950)'
+// CSI sequences, then OSC, DCS, APC and PM strings, then every other escape: an optional run of
+// intermediate bytes, as in a charset designation such as ESC ( B, before one final byte
+const ANSI_ESCAPE = /\x1b\[([0-?]*)([ -\/]*)([@-~])|\x1b[\]P_^X][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[ -\/]*[0-~]?/g
+// A CSI sequence is SGR only when it carries plain numeric parameters; ESC[>4;2m is a keyboard mode, not a style
+const SGR_PARAMS = /^[0-9;:]*$/
+// The C0 controls a log line can carry besides tab and carriage return, which draw nothing
+const INVISIBLE_CONTROLS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g
+// SGR codes that set or reset one attribute other than a color
+const SGR_ATTRIBUTES: Record<number, Partial<AnsiStyle>> = {
+  1: { bold: true },
+  2: { faint: true },
+  3: { italic: true },
+  4: { underline: 'solid' },
+  7: { inverse: true },
+  8: { concealed: true },
+  9: { strikethrough: true },
+  21: { underline: 'double' },
+  22: { bold: false, faint: false },
+  23: { italic: false },
+  24: { underline: null },
+  27: { inverse: false },
+  28: { concealed: false },
+  29: { strikethrough: false },
+  39: { fg: null },
+  49: { bg: null },
+  53: { overline: true },
+  55: { overline: false },
+  59: { underlineColor: null }
+}
+// The styles 4:n selects, by n; 4:0 removes the underline
+const UNDERLINE_STYLES: (UnderlineStyle | null)[] = [null, 'solid', 'double', 'wavy', 'dotted', 'dashed']
+
+// The logback levels an OTLP-shipped entry's severity_text names, lowercased, colored as Spring Boot's
+// console colors its level column
+const LEVEL_COLORS = {
+  error: ANSI_PALETTE[1]!,
+  warn: ANSI_PALETTE[3]!,
+  info: ANSI_PALETTE[2]!,
+  debug: ANSI_PALETTE[2]!,
+  trace: ANSI_PALETTE[2]!
+}
+type LogLevel = keyof typeof LEVEL_COLORS
+
+/** One Loki entry; its text may span several lines. */
+interface LogEntry {
   ts: number
-  line: string
+  level: LogLevel | null
+  text: string
+}
+
+/** A run of a line's text drawn in one ANSI style. */
+interface StyledSegment {
+  text: string
+  style: string | undefined
+}
+
+/** One line of an entry's text, the unit the VirtualScroller lays out. */
+interface LogRow {
+  ts: number
+  level: LogLevel | null
+  /** True for every line of an entry after its first. */
+  continuation: boolean
+  segments: StyledSegment[]
+}
+
+type UnderlineStyle = 'solid' | 'double' | 'wavy' | 'dotted' | 'dashed'
+
+/** The SGR attributes in effect at a point in an entry's text. */
+interface AnsiStyle {
+  fg: string | null
+  bg: string | null
+  underlineColor: string | null
+  underline: UnderlineStyle | null
+  bold: boolean
+  faint: boolean
+  italic: boolean
+  inverse: boolean
+  concealed: boolean
+  strikethrough: boolean
+  overline: boolean
 }
 
 function hasEnded(run: WorkloadRun | undefined): boolean {
@@ -108,9 +196,11 @@ function hasEnded(run: WorkloadRun | undefined): boolean {
 
 const spanOptions = computed(() => props.run ? [...PRESET_OPTIONS, RUN_OPTION, CUSTOM_OPTION] : [...PRESET_OPTIONS, CUSTOM_OPTION])
 
-// shallowRef: lines are immutable once parsed, so per-line reactive proxies buy nothing
-const lines = shallowRef<LogLine[]>([])
-const following = ref(!hasEnded(props.run))
+// shallowRef: rows are immutable once parsed, so per-row reactive proxies buy nothing
+const rows = shallowRef<LogRow[]>([])
+// The entries behind rows; rows outnumber them by every extra line of a multi-line entry
+const entryCount = ref(0)
+const following = ref(false)
 const span = ref<Span>(hasEnded(props.run) ? RUN_SPAN : TIME_RANGE_PRESETS[1]!.ms)
 const limit = ref(1000)
 const customStart = ref<Date | null>(null)
@@ -124,6 +214,8 @@ const scroller = ref<InstanceType<typeof VirtualScroller> | null>(null)
 // Auto-scroll only while the user is at the bottom; scrolling up pins the view in place
 let pinnedToBottom = true
 let tailSubscription: { unsubscribe(): void } | null = null
+// Each refresh supersedes the ones before it, so a slower earlier response neither replaces newer rows nor opens a tail
+let refreshGeneration = 0
 
 const rangeDescription = computed(() => {
   let ret: string
@@ -137,7 +229,7 @@ const rangeDescription = computed(() => {
 })
 
 const lineCountText = computed(() => {
-  const count = `${lines.value.length} lines`
+  const count = `${entryCount.value} lines`
   return limitReached.value ? `${count} · newest ${limit.value.toLocaleString()} in range` : count
 })
 
@@ -149,15 +241,195 @@ const showDate = computed(() => {
           || new Date(range.start).toDateString() !== new Date(range.end).toDateString())
 })
 
-// Both Loki payloads carry entries as streams of [nanosecond-timestamp, line] tuples
-function parseStreams(streams: Array<{ values?: [string, string][] }> | undefined): LogLine[] {
-  const out: LogLine[] = []
-  for (const stream of streams ?? []) {
-    for (const [ns, line] of stream.values ?? []) {
-      out.push({ ts: Number(ns) / 1_000_000, line })
+// Both Loki payloads carry entries as streams of [nanosecond-timestamp, line] tuples. Loki merges an
+// entry's structured metadata into its stream labels, which is where an OTLP-shipped log keeps the
+// severity_text its logger set and the stack trace of the exception it was logged with. The level is that
+// severity_text because Loki's detected_level is a keyword guess on a plain-text line, labelling some lines
+// of a workload log and leaving the rest bare.
+function parseStreams(streams: Array<{ stream?: Record<string, string>; values?: [string, string][] }> | undefined): LogEntry[] {
+  const out: LogEntry[] = []
+  for (const { stream, values } of streams ?? []) {
+    const severity = stream?.severity_text?.toLowerCase()
+    const level = severity !== undefined && Object.hasOwn(LEVEL_COLORS, severity) ? severity as LogLevel : null
+    const stackTrace = stream?.exception_stacktrace
+    for (const [ns, line] of values ?? []) {
+      const message = line.replace(/\n+$/, '')
+      out.push({ ts: Number(ns) / 1_000_000, level, text: stackTrace ? `${message}\n${stackTrace}` : message })
     }
   }
   return out
+}
+
+function toRows(entries: LogEntry[]): LogRow[] {
+  const out: LogRow[] = []
+  for (const entry of entries) {
+    // A style carries across the entry's lines, as a terminal carries it across a newline
+    const style = plainStyle()
+    entry.text.split(/\r?\n/).forEach((line, i) => {
+      out.push({ ts: entry.ts, level: entry.level, continuation: i > 0, segments: styleSegments(line, style) })
+    })
+  }
+  return out
+}
+
+function plainStyle(): AnsiStyle {
+  return {
+    fg: null,
+    bg: null,
+    underlineColor: null,
+    underline: null,
+    bold: false,
+    faint: false,
+    italic: false,
+    inverse: false,
+    concealed: false,
+    strikethrough: false,
+    overline: false
+  }
+}
+
+// Splits a line at its ANSI escapes into styled runs, applying SGR escapes to style and dropping the rest
+function styleSegments(line: string, style: AnsiStyle): StyledSegment[] {
+  const out: StyledSegment[] = []
+  // Text after a carriage return redraws the line from its start, as a progress bar does on a terminal
+  let redraw = false
+  const append = (text: string) => {
+    text.replace(INVISIBLE_CONTROLS, '').split('\r').forEach((piece, i) => {
+      redraw ||= i > 0
+      if (piece.length > 0) {
+        if (redraw) {
+          out.length = 0
+          redraw = false
+        }
+        out.push({ text: piece, style: toCss(style) })
+      }
+    })
+  }
+  let textStart = 0
+  for (const match of line.matchAll(ANSI_ESCAPE)) {
+    append(line.slice(textStart, match.index))
+    if (match[3] === 'm' && match[2] === '' && SGR_PARAMS.test(match[1]!)) {
+      applySgr(match[1]!, style)
+    }
+    textStart = match.index + match[0].length
+  }
+  append(line.slice(textStart))
+  return out
+}
+
+function applySgr(params: string, style: AnsiStyle) {
+  // A colon-separated field carries its own sub-parameters, as in 38:2::r:g:b or 4:3; an omitted value
+  // means 0, so a bare ESC[m is a reset
+  const fields = params.split(';').map(field => field.split(':').map(value => value === '' ? 0 : Number(value)))
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i]!
+    const code = field[0]!
+    if (code === 0) {
+      Object.assign(style, plainStyle())
+    } else if (code === 4 && field.length > 1) {
+      const selected = UNDERLINE_STYLES[field[1]!]
+      style.underline = selected === undefined ? 'solid' : selected
+    } else if (Object.hasOwn(SGR_ATTRIBUTES, code)) {
+      Object.assign(style, SGR_ATTRIBUTES[code])
+    } else if (code >= 30 && code <= 37) {
+      style.fg = ANSI_PALETTE[code - 30]!
+    } else if (code >= 40 && code <= 47) {
+      style.bg = ANSI_PALETTE[code - 40]!
+    } else if (code >= 90 && code <= 97) {
+      style.fg = ANSI_PALETTE[code - 90 + 8]!
+    } else if (code >= 100 && code <= 107) {
+      style.bg = ANSI_PALETTE[code - 100 + 8]!
+    } else if (code === 38 || code === 48 || code === 58) {
+      // 5;n picks from the 256-color table and 2;r;g;b is a 24-bit color, either as the fields that follow
+      // or as colon sub-parameters, where a 24-bit color may name a color space before its components
+      let color: string | null
+      if (field.length > 1) {
+        const components = field[1] === 2 && field.length >= 6 ? field.slice(3) : field.slice(2)
+        color = extendedColor(field[1]!, components)
+      } else {
+        const selector = fields[i + 1]?.[0]
+        const argumentCount = selector === 5 ? 1 : selector === 2 ? 3 : 0
+        color = extendedColor(selector, fields.slice(i + 2, i + 2 + argumentCount).map(arg => arg[0]!))
+        i += selector === undefined ? 0 : 1 + argumentCount
+      }
+      if (code === 38) {
+        style.fg = color
+      } else if (code === 48) {
+        style.bg = color
+      } else {
+        style.underlineColor = color
+      }
+    }
+  }
+}
+
+function extendedColor(selector: number | undefined, components: number[]): string | null {
+  let ret: string | null
+  if (selector === 5) {
+    ret = color256(components[0])
+  } else if (selector === 2) {
+    ret = rgb(components[0], components[1], components[2])
+  } else {
+    ret = null
+  }
+  return ret
+}
+
+// The xterm 256-color table: the 16 ANSI colors, a 6x6x6 color cube, then a 24-step gray ramp
+function color256(index: number | undefined): string | null {
+  let ret: string | null
+  if (index === undefined || !Number.isInteger(index) || index < 0 || index > 255) {
+    ret = null
+  } else if (index < 16) {
+    ret = ANSI_PALETTE[index]!
+  } else if (index < 232) {
+    const cube = index - 16
+    ret = rgb(ANSI_CUBE_STEPS[Math.floor(cube / 36)], ANSI_CUBE_STEPS[Math.floor(cube / 6) % 6], ANSI_CUBE_STEPS[cube % 6])
+  } else {
+    const gray = 8 + (index - 232) * 10
+    ret = rgb(gray, gray, gray)
+  }
+  return ret
+}
+
+function rgb(...components: (number | undefined)[]): string | null {
+  const valid = components.every(component => component !== undefined && Number.isInteger(component) && component >= 0 && component <= 255)
+  return valid ? `rgb(${components.join(', ')})` : null
+}
+
+function toCss(style: AnsiStyle): string | undefined {
+  const declarations: string[] = []
+  const fg = style.inverse ? style.bg ?? DEFAULT_BG : style.fg
+  const bg = style.inverse ? style.fg ?? DEFAULT_FG : style.bg
+  if (fg) {
+    declarations.push(`color: ${fg}`)
+  }
+  if (bg) {
+    declarations.push(`background-color: ${bg}`)
+  }
+  if (style.bold) {
+    declarations.push('font-weight: bold')
+  }
+  if (style.faint) {
+    declarations.push('opacity: 0.6')
+  }
+  if (style.italic) {
+    declarations.push('font-style: italic')
+  }
+  const lines = [style.underline && 'underline', style.strikethrough && 'line-through', style.overline && 'overline'].filter(Boolean)
+  if (lines.length > 0) {
+    declarations.push(`text-decoration-line: ${lines.join(' ')}`)
+  }
+  if (style.underline && style.underline !== 'solid') {
+    declarations.push(`text-decoration-style: ${style.underline}`)
+  }
+  if (style.underline && style.underlineColor) {
+    declarations.push(`text-decoration-color: ${style.underlineColor}`)
+  }
+  if (style.concealed) {
+    declarations.push('visibility: hidden')
+  }
+  return declarations.length > 0 ? declarations.join('; ') : undefined
 }
 
 /** The range the current selection asks for, or null while a custom range is incomplete or inverted. */
@@ -184,41 +456,58 @@ function runRange(): TimeRange {
   return { start: start - RUN_MARGIN_MS, end }
 }
 
-async function loadHistory() {
+/** Loads the selected range and, while following, tails on from where the range ends. */
+async function refresh() {
   const range = resolveRange()
   if (range === null) {
     return
   }
+  const generation = ++refreshGeneration
+  // A tail opened before this load would repeat or skip entries around the new range's end
+  stopTail()
   loadingHistory.value = true
   error.value = null
   try {
     const bytes = await props.source.history(range.start, range.end, limit.value)
-    // Raw Loki query_range response: {status, data: {result: [{stream, values}]}}
-    const body = parseJsonBytes(bytes)
-    lines.value = parseStreams(body?.data?.result).sort((a, b) => a.ts - b.ts)
-    loadedRange.value = range
-    // Loki answers newest-first up to the limit, so a full page means the range holds more
-    limitReached.value = lines.value.length >= limit.value
-    scrollToBottom()
+    if (generation === refreshGeneration) {
+      // Raw Loki query_range response: {status, data: {result: [{stream, values}]}}
+      const body = parseJsonBytes(bytes)
+      const entries = parseStreams(body?.data?.result).sort((a, b) => a.ts - b.ts)
+      rows.value = toRows(entries)
+      entryCount.value = entries.length
+      loadedRange.value = range
+      // Loki answers newest-first up to the limit, so a full page means the range holds more
+      limitReached.value = entries.length >= limit.value
+      scrollToBottom()
+      if (following.value) {
+        // The range's end is exclusive and the tail's start inclusive, so together they read each entry once
+        startTail(range.end)
+      }
+    }
   } catch (err) {
-    error.value = errorMessage(err, 'Failed to load log history')
+    if (generation === refreshGeneration) {
+      following.value = false
+      error.value = errorMessage(err, 'Failed to load log history')
+    }
   } finally {
-    loadingHistory.value = false
+    if (generation === refreshGeneration) {
+      loadingHistory.value = false
+    }
   }
 }
 
-function startTail() {
-  if (tailSubscription) {
-    return
-  }
-  tailSubscription = props.source.tail().subscribe({
+function startTail(start: number) {
+  tailSubscription = props.source.tail(start).subscribe({
     next: (bytes: Uint8Array) => {
       // Raw Loki tail WebSocket frame: {streams: [{stream, values}], dropped_entries?}
       const frame = parseJsonBytes(bytes)
       const fresh = parseStreams(frame?.streams)
       if (fresh.length > 0) {
-        const merged = lines.value.concat(fresh)
-        lines.value = merged.length > MAX_LINES ? merged.slice(-MAX_LINES) : merged
+        const merged = rows.value.concat(toRows(fresh))
+        const overflow = Math.max(0, merged.length - MAX_ROWS)
+        const droppedEntries = merged.slice(0, overflow).filter(row => !row.continuation).length
+        rows.value = overflow > 0 ? merged.slice(overflow) : merged
+        entryCount.value += fresh.length - droppedEntries
         scrollToBottom()
       }
     },
@@ -235,18 +524,17 @@ function stopTail() {
   tailSubscription = null
 }
 
-onMounted(() => {
-  loadHistory()
-  if (following.value) {
-    startTail()
-  }
-})
+onMounted(refresh)
 
-onUnmounted(stopTail)
+onUnmounted(() => {
+  // Supersedes a load still in flight, which would otherwise open a tail nothing closes
+  refreshGeneration++
+  stopTail()
+})
 
 watch(following, follow => {
   if (follow) {
-    startTail()
+    refresh()
   } else {
     stopTail()
   }
@@ -261,11 +549,11 @@ watch(span, selected => {
     customStart.value = new Date(seed.start)
     customEnd.value = new Date(seed.end)
   } else {
-    loadHistory()
+    refresh()
   }
 })
 
-watch(limit, loadHistory)
+watch(limit, refresh)
 
 // A run that ends while on screen has nothing more to tail; its span is what is left to read
 watch(() => hasEnded(props.run), ended => {
@@ -282,7 +570,7 @@ function onScroll(event: Event) {
 
 function scrollToBottom() {
   if (pinnedToBottom) {
-    nextTick(() => scroller.value?.scrollToIndex(lines.value.length - 1))
+    nextTick(() => scroller.value?.scrollToIndex(rows.value.length - 1))
   }
 }
 

@@ -20,8 +20,8 @@ public class ReindexStatementParser implements StatementParser {
     @Override
     public Statement parse(KinoticSQLParser.StatementContext ctx) {
         KinoticSQLParser.ReindexStatementContext reindexCtx = ctx.reindexStatement();
-        String source = reindexCtx.ID(0).getText();
-        String dest = reindexCtx.ID(1).getText();
+        String source = Identifiers.name(reindexCtx.identifier(0));
+        String dest = Identifiers.name(reindexCtx.identifier(1));
         String conflicts = null;
         Integer maxDocs = null;
         String slices = null;
@@ -49,17 +49,9 @@ public class ReindexStatementParser implements StatementParser {
                 } else if (option.SCRIPT() != null) {
                     script = option.STRING().getText().replaceAll("'", "");
                 } else if (option.WAIT() != null) {
-                    if (option.TRUE() != null) {
-                        waitForReindex = true;
-                    } else if (option.FALSE() != null) {
-                        waitForReindex = false;
-                    }
+                    waitForReindex = Boolean.parseBoolean(option.BOOLEAN_LITERAL().getText());
                 } else if (option.SKIP_IF_NO_SOURCE() != null) {
-                    if (option.TRUE() != null) {
-                        skipIfNoSource = true;
-                    } else if (option.FALSE() != null) {
-                        skipIfNoSource = false;
-                    }
+                    skipIfNoSource = Boolean.parseBoolean(option.BOOLEAN_LITERAL().getText());
                 }
             }
         }

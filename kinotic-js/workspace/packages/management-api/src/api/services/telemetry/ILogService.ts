@@ -15,13 +15,15 @@ import type { ServerLogQuery } from '@/api/model/telemetry/ServerLogQuery'
 export interface ILogService {
 
     /**
-     * Opens a live tail of the given workload's logs. Each emission is a raw Loki tail frame,
-     * and the stream stays open until unsubscribed.
+     * Opens a live tail of the given workload's logs from start: the entries since start, then each
+     * new one as it arrives. A history whose range ends at start reads what came before, with no entry
+     * read twice. Each emission is a raw Loki tail frame, and the stream stays open until unsubscribed.
      * @param organizationId the organization the workload runs for; null for the platform's own,
      *        which only a system participant may read
      * @param workloadId the id of the workload to follow
+     * @param start the moment to follow from, epoch milliseconds (inclusive)
      */
-    tail(organizationId: string | null, workloadId: string): Observable<Uint8Array>
+    tail(organizationId: string | null, workloadId: string, start: number): Observable<Uint8Array>
 
     /**
      * Returns a workload's historical logs as the raw Loki query_range response.
@@ -30,14 +32,17 @@ export interface ILogService {
     history(query: LogQuery): Promise<Uint8Array>
 
     /**
-     * Opens a live tail of a platform server's logs, one node's or every node's together. Each
-     * emission is a raw Loki tail frame, and the stream stays open until unsubscribed.
+     * Opens a live tail of a platform server's logs, one node's or every node's together, from start:
+     * the entries since start, then each new one as it arrives. A serverHistory whose range ends at
+     * start reads what came before, with no entry read twice. Each emission is a raw Loki tail frame,
+     * and the stream stays open until unsubscribed.
      * @param telemetryServiceName the service name that labels the server's logs, as its cluster
      *        nodes report it
      * @param telemetryServiceInstanceId the service instance id that labels one node's logs, as
      *        that cluster node reports it; null for every node of the server
+     * @param start the moment to follow from, epoch milliseconds (inclusive)
      */
-    tailServer(telemetryServiceName: string, telemetryServiceInstanceId: string | null): Observable<Uint8Array>
+    tailServer(telemetryServiceName: string, telemetryServiceInstanceId: string | null, start: number): Observable<Uint8Array>
 
     /**
      * Returns a platform server's historical logs, one node's or every node's together, as the raw
@@ -55,16 +60,16 @@ export class LogService implements ILogService {
         this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.telemetry.LogService`)
     }
 
-    public tail(organizationId: string | null, workloadId: string): Observable<Uint8Array> {
-        return this.serviceProxy.invokeStream('tail', [organizationId, workloadId])
+    public tail(organizationId: string | null, workloadId: string, start: number): Observable<Uint8Array> {
+        return this.serviceProxy.invokeStream('tail', [organizationId, workloadId, start])
     }
 
     public history(query: LogQuery): Promise<Uint8Array> {
         return this.serviceProxy.invoke('history', [query])
     }
 
-    public tailServer(telemetryServiceName: string, telemetryServiceInstanceId: string | null): Observable<Uint8Array> {
-        return this.serviceProxy.invokeStream('tailServer', [telemetryServiceName, telemetryServiceInstanceId])
+    public tailServer(telemetryServiceName: string, telemetryServiceInstanceId: string | null, start: number): Observable<Uint8Array> {
+        return this.serviceProxy.invokeStream('tailServer', [telemetryServiceName, telemetryServiceInstanceId, start])
     }
 
     public serverHistory(query: ServerLogQuery): Promise<Uint8Array> {

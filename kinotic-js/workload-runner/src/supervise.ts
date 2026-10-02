@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from 'node:child_process'
 import { watchFile } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { sentinelPath } from './sentinel.ts'
-import { forwardOutput, log, logError } from './log.ts'
+import { FORCED_COLOR_ENV, forwardOutput, log, logError } from './log.ts'
 
 /**
  * Long-lived entrypoint of the runtime workload: runs the project's microservice process
@@ -46,7 +46,8 @@ function startChild(): void {
     reloading = false
     startedAt = Date.now()
     log(`[workload-runner] starting ${entry}`)
-    child = spawn('bun', ['--preload', instrumentation, entry], { cwd: appDir, stdio: ['inherit', 'pipe', 'pipe'] })
+    child = spawn('bun', ['--preload', instrumentation, entry],
+                  { cwd: appDir, env: { ...FORCED_COLOR_ENV, ...process.env }, stdio: ['inherit', 'pipe', 'pipe'] })
     forwardOutput(child)
     child.on('exit', (code, signal) => {
         child = null
