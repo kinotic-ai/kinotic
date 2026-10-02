@@ -77,7 +77,7 @@ export class VmNode implements Reconcilable<VmNodeState> {
     /**
      * The date and time the node was last seen/heartbeat.
      */
-    public lastSeen: number | null = null
+    public lastSeen: string | null = null
 
     /**
      * Base directory every workload volume mount on this node must live under. Reported by

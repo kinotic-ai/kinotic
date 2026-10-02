@@ -48,8 +48,8 @@ export class UiDeployment implements Reconcilable<DeploymentState> {
      */
     public state: ReconcileState<DeploymentState> = new ReconcileState()
 
-    public created: number | null = null
+    public created: string | null = null
 
-    public updated: number | null = null
+    public updated: string | null = null
 
 }

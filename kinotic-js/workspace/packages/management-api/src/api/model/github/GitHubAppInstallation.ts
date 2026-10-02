@@ -12,7 +12,7 @@ export class GitHubAppInstallation implements Identifiable<string> {
     public githubInstallationId: number = 0
     public accountLogin: string = ''
     public accountType: string = ''
-    public suspendedAt: number | null = null
-    public created: number | null = null
-    public updated: number | null = null
+    public suspendedAt: string | null = null
+    public created: string | null = null
+    public updated: string | null = null
 }

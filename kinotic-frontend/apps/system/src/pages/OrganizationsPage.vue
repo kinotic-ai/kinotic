@@ -109,7 +109,7 @@ interface OrganizationRow extends DescriptiveIdentifiable {
   applications: number | null
   running: number
   members: number | null
-  created: number | null
+  created: string | null
 }
 
 

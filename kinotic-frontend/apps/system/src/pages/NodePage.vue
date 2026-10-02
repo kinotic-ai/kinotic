@@ -18,12 +18,12 @@
 
     <template v-if="node">
       <Message v-if="node.state.deletionRequested" severity="info" :closable="false" class="mb-4">
-        <b>Deregistering.</b> Its removal was asked for {{ formatEpochDateTime(node.state.deletionRequested) }};
+        <b>Deregistering.</b> Its removal was asked for {{ formatDateTime(node.state.deletionRequested) }};
         the orchestrator records any run still open on it as failed and removes the node.
       </Message>
       <Message v-if="health === NodeHealth.UNREACHABLE" severity="error" :closable="false" class="mb-4">
-        <b>Unreachable.</b> {{ unreachable?.message }}, since {{ formatEpochDateTime(unreachable?.since ?? null) }}.
-        Last heartbeat {{ formatEpochDateTime(node.lastSeen) }}. The orchestrator places nothing new here;
+        <b>Unreachable.</b> {{ unreachable?.message }}, since {{ formatDateTime(unreachable?.since ?? null) }}.
+        Last heartbeat {{ formatDateTime(node.lastSeen) }}. The orchestrator places nothing new here;
         its {{ workloads.length }} workloads keep their last reported status until the node's next
         heartbeat, which makes it reachable again, or its deregistration, which records the open ones as failed.
       </Message>
@@ -101,7 +101,7 @@ const props = defineProps<{
 
 const HISTORY_PAGE_SIZE = 50
 
-const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
+const formatDateTime = DatetimeUtil.formatDateTime
 
 const node = ref<VmNode | null>(null)
 const workloads = ref<Workload[]>([])
@@ -166,7 +166,7 @@ const facts = computed(() => {
     { label: 'Host', icon: markRaw(Network), value: n?.hostname ?? '—', mono: true },
     { label: 'Provider', icon: markRaw(Layers), value: n?.providerType ?? '—' },
     { label: 'Data dir', icon: markRaw(FolderOpen), value: n?.workloadDataDir ?? '—', mono: true },
-    { label: 'Last heartbeat', icon: markRaw(Clock), value: formatEpochDateTime(n?.lastSeen ?? null) }
+    { label: 'Last heartbeat', icon: markRaw(Clock), value: formatDateTime(n?.lastSeen ?? null) }
   ]
 })
 

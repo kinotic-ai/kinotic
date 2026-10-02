@@ -131,7 +131,7 @@ interface WorkloadRow extends DescriptiveIdentifiable {
   owner: string | null
   image: string
   resources: string
-  created: number | null
+  created: string | null
   detached: boolean
 }
 

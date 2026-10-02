@@ -37,7 +37,7 @@ export class Application implements Identifiable<string> {
      */
     public primaryUiUrl: string | null = null
 
-    public updated: number | null = null
+    public updated: string | null = null
 
     constructor(name: string, description: string) {
         this.name = name

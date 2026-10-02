@@ -102,8 +102,8 @@ interface RunRow extends DescriptiveIdentifiable {
   status: ExecutionStatus
   owner: string | null
   nodeId: string | null
-  started: number | null
-  finished: number | null
+  started: string | null
+  finished: string | null
 }
 
 const formatDuration = DatetimeUtil.formatDuration

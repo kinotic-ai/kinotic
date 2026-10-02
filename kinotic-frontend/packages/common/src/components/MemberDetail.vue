@@ -50,7 +50,7 @@ const facts = computed(() => {
     { label: 'Signs in with', icon: markRaw(member.authType === 'OIDC' ? ShieldCheck : KeyRound),
       value: member.authType ? authTypeLabel(member.authType) : null },
     { label: member.invite ? 'Invited' : 'Joined', icon: markRaw(CalendarPlus),
-      value: member.created ? DatetimeUtil.formatEpochDateTime(member.created) : null },
+      value: member.created ? DatetimeUtil.formatDateTime(member.created) : null },
     { label: member.invite ? 'Invitation id' : 'User id', icon: markRaw(Hash), value: member.id, mono: true }
   ]
 })

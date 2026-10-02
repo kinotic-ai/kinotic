@@ -127,7 +127,7 @@ const props = defineProps<{
   nextStep?: string
 }>()
 
-const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
+const formatDateTime = DatetimeUtil.formatDateTime
 const formatDuration = DatetimeUtil.formatDuration
 
 const { run, root, percentComplete, loading, error, live } = useJobRunProgress(props.jobRunId)
@@ -191,8 +191,8 @@ const facts = computed<RunFact[]>(() => {
   const out: RunFact[] = []
   if (current) {
     out.push(
-      { label: 'Started', icon: markRaw(CalendarClock), value: current.started ? formatEpochDateTime(current.started) : 'Not started' },
-      { label: 'Finished', icon: markRaw(CalendarCheck), value: current.finished ? formatEpochDateTime(current.finished) : (current.started ? 'In progress' : '—') },
+      { label: 'Started', icon: markRaw(CalendarClock), value: current.started ? formatDateTime(current.started) : 'Not started' },
+      { label: 'Finished', icon: markRaw(CalendarCheck), value: current.finished ? formatDateTime(current.finished) : (current.started ? 'In progress' : '—') },
       { label: 'Duration', icon: markRaw(Timer), value: current.started ? formatDuration(current.started, current.finished, now.value) : '—', mono: true }
     )
     if (current.resumedFrom) {

@@ -179,7 +179,7 @@ const shownMembers = computed(() => shownRows.value as MemberRow[])
 const { selected: selectedMember, visible: drawerVisible, position, open: openMember, step: stepMember,
         highlighted: highlightedMember, hover: hoverMember } = useSteppingDrawer(shownMembers, member => member.id)
 
-const formatDate = DatetimeUtil.formatEpochDate
+const formatDate = DatetimeUtil.formatLocaleDate
 
 // An application's members are its users, which tells them apart from the organization's members
 const title = computed<string>(() => props.applicationId !== null ? 'Users' : 'Members')

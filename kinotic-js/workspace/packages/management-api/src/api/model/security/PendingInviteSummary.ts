@@ -19,8 +19,8 @@ export class PendingInviteSummary implements Identifiable<string> {
     /** Display name of the member who sent the invitation. */
     public invitedByName: string | null = null
 
-    public created: number | null = null
+    public created: string | null = null
 
     /** When the invitation stops being acceptable. */
-    public expiresAt: number | null = null
+    public expiresAt: string | null = null
 }

@@ -9,6 +9,6 @@ export interface StatusCondition {
     type: StatusConditionType
     /** Why, for an operator. */
     message: string
-    /** When the inference was first made, epoch milliseconds. */
-    since: number
+    /** When the inference was first made, as an ISO-8601 timestamp. */
+    since: string
 }

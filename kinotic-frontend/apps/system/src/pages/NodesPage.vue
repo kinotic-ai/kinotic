@@ -91,7 +91,7 @@
 
         <div class="mt-auto flex items-center justify-between gap-3 border-t border-surface-100 pt-3 text-xs text-muted-color dark:border-surface-800">
           <span><b class="font-semibold tabular-nums text-surface-900 dark:text-surface-50">{{ runningOn(node.id) }}</b> of {{ workloadsOn(node.id).length }} workloads running</span>
-          <span class="whitespace-nowrap" v-tooltip.top="node.lastSeen ? DatetimeUtil.formatEpochDateTime(node.lastSeen) : undefined">
+          <span class="whitespace-nowrap" v-tooltip.top="node.lastSeen ? DatetimeUtil.formatDateTime(node.lastSeen) : undefined">
             Seen {{ node.lastSeen ? DatetimeUtil.formatRelativeDate(node.lastSeen).toLowerCase() : 'never' }}
           </span>
         </div>

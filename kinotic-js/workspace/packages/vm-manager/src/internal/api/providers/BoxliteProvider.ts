@@ -260,8 +260,8 @@ export class BoxliteProvider implements IVmProvider {
         const id = workload.id ?? crypto.randomUUID()
         workload.id = id
         workload.status = WorkloadStatus.STARTING
-        workload.created = Date.now()
-        workload.updated = Date.now()
+        workload.created = new Date().toISOString()
+        workload.updated = new Date().toISOString()
         workload.exitCode = null
 
         this.workloads.set(id, workload)
@@ -313,7 +313,7 @@ export class BoxliteProvider implements IVmProvider {
             throw error
         } finally {
             this.starting.delete(id)
-            workload.updated = Date.now()
+            workload.updated = new Date().toISOString()
             this.persist(workload)
         }
 
@@ -340,7 +340,7 @@ export class BoxliteProvider implements IVmProvider {
         const box = await this.boxHandle(workloadId)
 
         workload.status = WorkloadStatus.STOPPING
-        workload.updated = Date.now()
+        workload.updated = new Date().toISOString()
         this.persist(workload)
 
         await box.stop()
@@ -349,7 +349,7 @@ export class BoxliteProvider implements IVmProvider {
         workload.exitCode = info ? this.readExitCode(info.id) : null
 
         workload.status = WorkloadStatus.STOPPED
-        workload.updated = Date.now()
+        workload.updated = new Date().toISOString()
         // The log dir is kept so already-written logs remain shippable until destroy
         this.activeVms.delete(workloadId)
         this.persist(workload)
@@ -450,7 +450,7 @@ export class BoxliteProvider implements IVmProvider {
             console.error(`Failed to reattach workload ${id}:`, error)
             workload.status = WorkloadStatus.FAILED
         }
-        workload.updated = Date.now()
+        workload.updated = new Date().toISOString()
         this.persist(workload)
     }
 
@@ -486,7 +486,7 @@ export class BoxliteProvider implements IVmProvider {
         if (status !== workload.status || exitCode !== workload.exitCode) {
             workload.status = status
             workload.exitCode = exitCode
-            workload.updated = Date.now()
+            workload.updated = new Date().toISOString()
             // The log dir is kept so already-written logs remain shippable until destroy
             this.activeVms.delete(workload.id!)
             this.persist(workload)
