@@ -6,6 +6,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.repositories.ReconcilableRepository;
 import org.kinotic.domain.api.model.WatchEvent;
+import org.kinotic.domain.api.model.WatchEventKind;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.management.api.model.deployment.DeploymentState;
 import org.kinotic.domain.internal.api.repositories.AbstractApplicationScopedRepository;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Component
@@ -57,6 +59,21 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
         Validate.notBlank(projectId, "projectId cannot be blank");
         Validate.notBlank(orgId, "orgId cannot be blank");
         return watchEventRepository.findHistory(WATCHED.type(), orgId, projectId, pageable);
+    }
+
+    /**
+     * Lists what happened to the deployment of every project in the organization and to the records
+     * they made, newest first: the entries {@link #findHistory(String, String, Pageable)} lists for
+     * each project, limited to the given kinds.
+     *
+     * @param orgId    the organization the projects belong to
+     * @param kinds    the kinds of entries to list
+     * @param pageable the page to return
+     * @return a future emitting a page of ledger entries
+     */
+    public Future<Page<WatchEvent>> findAllHistory(String orgId, List<WatchEventKind> kinds, Pageable pageable) {
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        return watchEventRepository.findHistoryOfAll(WATCHED.type(), orgId, kinds, pageable);
     }
 
     @Override
