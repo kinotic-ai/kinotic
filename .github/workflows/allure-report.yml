@@ -33,12 +33,14 @@ jobs:
       RETAINED_RUNS: "10"
       RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
     steps:
-      # Sparse-checkout just allurerc.mjs (needed for historyPath). Must precede the download below,
-      # since checkout cleans its destination.
+      # Sparse-checkout just the report config (allurerc.mjs, needed for historyPath) and its theme.
+      # Must precede the download below, since checkout cleans its destination.
       - name: Checkout report config
         uses: actions/checkout@v7
         with:
-          sparse-checkout: allurerc.mjs
+          sparse-checkout: |
+            allurerc.mjs
+            allure-theme.css
           sparse-checkout-cone-mode: false
 
       - name: Set up Node
@@ -96,10 +98,15 @@ jobs:
           if [ -f gh-pages/test-results/history.jsonl ]; then
             cp gh-pages/test-results/history.jsonl history.jsonl
           fi
+          report="allure-history/test-results/${RUN_NUMBER}"
           npx --yes "allure@${ALLURE_VERSION}" generate allure-results \
             --config allurerc.mjs \
             --history-limit "${RETAINED_RUNS}" \
-            --output "allure-history/test-results/${RUN_NUMBER}"
+            --output "$report"
+          # Allure has no option for a custom stylesheet. Linked last in <head>, the theme overrides the
+          # tokens Allure's stylesheet declares, and the later icon replaces Allure's favicon.
+          cp allure-theme.css "$report/kinotic-theme.css"
+          sed -i 's#</head>#<link rel="stylesheet" href="kinotic-theme.css"><link rel="icon" type="image/svg+xml" href="/favicon.svg"></head>#' "$report/index.html"
           mkdir -p allure-history/test-results
           # --history-limit caps what generate reads back, but Allure only appends to history.jsonl
           # and never truncates it; drop the entries past the limit that nothing will read again.

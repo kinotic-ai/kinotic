@@ -1,0 +1,90 @@
+/* Kinotic theme for the published Allure reports, matching kinotic.ai: its type stacks, its dark
+   canvas, and the mint and red accents from website/app/app.css. The publish_test_report job in
+   .github/workflows/allure-report.yml copies this file into each report and links it after Allure's
+   own stylesheet, so these declarations override the report's design tokens of the same names.
+   The fonts load from the website's /fonts/, on the same origin as /test-results/. */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('/fonts/fira-code-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('/fonts/fira-code-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* The selectors repeat Allure's own, so each declaration here has their specificity and wins by
+   coming later. */
+:root {
+  --font-family: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-family-mono: 'Fira Code', ui-monospace, monospace;
+}
+
+/* Light: the brand red is the accent, since mint text is unreadable on white. */
+:root:not([data-theme=dark]) {
+  --color-focus-ring: #EC1F52;
+  --color-link-text: #D11646;
+  --color-link-text-hover: #EC1F52;
+  --color-link-text-active: #EC1F52;
+  --color-intent-primary-bg: #EC1F52;
+  --color-intent-primary-bg-hover: #D11646;
+  --color-intent-primary-bg-active: #D11646;
+  --color-intent-primary-text: #D11646;
+  --color-intent-primary-on-bg: #FFFFFF;
+  --color-nav-item-bg-active: rgba(236, 31, 82, 0.1);
+  --color-nav-item-bg-active-hover: rgba(236, 31, 82, 0.14);
+  --color-nav-item-text-active: #D11646;
+  --color-nav-item-icon-active: #D11646;
+}
+
+/* Dark: the website's canvas, panels, borders and text, with mint as the accent. */
+:root[data-theme=dark] {
+  --color-bg-canvas: #0C0D0F;
+  --color-bg-primary: #08090A;
+  --color-bg-secondary: #0C0D0F;
+  --color-bg-raised: #101012;
+  --color-border-default: #2B2A32;
+  --color-border-medium: #2B2A32;
+
+  --color-text-primary: #EDEDEF;
+  --color-text-secondary: #B4B4BB;
+  --color-text-muted: #9A9AA2;
+
+  --color-focus-ring: #28FEB4;
+  --color-link-text: #28FEB4;
+  --color-link-text-hover: #5CFEC6;
+  --color-link-text-active: #5CFEC6;
+  --color-intent-primary-bg: #28FEB4;
+  --color-intent-primary-bg-hover: #5CFEC6;
+  --color-intent-primary-bg-active: #5CFEC6;
+  --color-intent-primary-text: #28FEB4;
+  --color-intent-primary-on-bg: #08090A;
+  --color-nav-item-bg-active: rgba(40, 254, 180, 0.1);
+  --color-nav-item-bg-active-hover: rgba(40, 254, 180, 0.14);
+  --color-nav-item-text-active: #28FEB4;
+  --color-nav-item-icon-active: #28FEB4;
+}
