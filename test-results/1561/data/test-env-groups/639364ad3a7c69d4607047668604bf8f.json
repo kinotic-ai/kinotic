@@ -1,0 +1,1 @@
+{"id":"639364ad3a7c69d4607047668604bf8f","fullName":"org.kinotic.test.tests.sql.executor.QueryBuilderTest.whenBuildingRangeQuery_thenCorrectQueryBuilt","name":"whenBuildingRangeQuery_thenCorrectQueryBuilt()","status":"passed","testResultsByEnv":{"default":"84c46f78b53992c1b406cb67f32fa52c"}}

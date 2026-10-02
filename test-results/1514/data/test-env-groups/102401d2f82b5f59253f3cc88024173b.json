@@ -1,1 +1,0 @@
-{"id":"102401d2f82b5f59253f3cc88024173b","fullName":"org.kinotic.test.tests.system.WorkloadOrchestrationTests.heartbeatWithProblemsDrainsTheNodeUntilItReportsNone","name":"heartbeatWithProblemsDrainsTheNodeUntilItReportsNone()","status":"passed","testResultsByEnv":{"default":"f9f9d0a1cc05c36fa9d6db94663cceb2"}}
