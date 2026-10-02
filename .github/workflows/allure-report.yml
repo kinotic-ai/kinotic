@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Allure 3 CLI version, pinned for reproducible report output and history handling.
-      ALLURE_VERSION: "3.12.0"
+      ALLURE_VERSION: "3.19.1"
       # Number of newest reports kept under test-results/, and the history depth passed to
       # `allure generate`. One number for both: the report folders retained on gh-pages and the
       # trend entries embedded in them describe the same window of runs.
@@ -103,8 +103,8 @@ jobs:
             --config allurerc.mjs \
             --history-limit "${RETAINED_RUNS}" \
             --output "$report"
-          # Allure has no option for a custom stylesheet. Linked last in <head>, the theme overrides the
-          # tokens Allure's stylesheet declares, and the later icon replaces Allure's favicon.
+          # Allure has no option for a custom stylesheet, so the theme is linked into index.html by hand;
+          # the icon, linked after Allure's, replaces its favicon.
           cp allure-theme.css "$report/kinotic-theme.css"
           sed -i 's#</head>#<link rel="stylesheet" href="kinotic-theme.css"><link rel="icon" type="image/svg+xml" href="/favicon.svg"></head>#' "$report/index.html"
           mkdir -p allure-history/test-results
