@@ -365,7 +365,7 @@ Signing up instead creates an organization of your own, which starts empty.
         healthcare
       </code>
       
-      ; the GraphQL playground over those entities; your profile
+      ; your profile
     </td>
     
     <td>
