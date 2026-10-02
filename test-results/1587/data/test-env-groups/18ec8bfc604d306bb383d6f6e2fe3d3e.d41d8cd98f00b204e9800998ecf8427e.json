@@ -1,0 +1,1 @@
+{"id":"18ec8bfc604d306bb383d6f6e2fe3d3e.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/e2e-tests:test/native/SystemLogin.test.ts#System login route refuses the system admin at the management server's login","name":"refuses the system admin at the management server's login","status":"passed","testResultsByEnv":{"default":"36563b130c43f27eaba10fb2fbf373e8"}}
