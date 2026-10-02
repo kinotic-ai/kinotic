@@ -8,9 +8,11 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <!-- The page reads in bands, one kind of content per row: how much, what needs me, how
-         healthy, what happened -->
+    <!-- The page reads in order of what an operator acts on: what needs me, the platform's vital
+         signs, how healthy it has been, then what happened -->
     <div class="flex flex-col gap-4">
+      <AttentionList :items="attention" />
+
       <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         <StatCard v-for="stat in stats" :key="stat.label" :icon="stat.icon" :tint="stat.tint" :label="stat.label"
                   :value="stat.tag ? undefined : stat.value" :detail="stat.detail" :to="stat.to" :loading="loading && stat.value === '—'">
@@ -23,10 +25,12 @@
         </StatCard>
       </div>
 
-      <AttentionList :items="attention" />
-
       <div class="grid gap-4 lg:grid-cols-3">
-        <DashboardSection :icon="Gauge" :tint="TINTS.orange" title="Worker capacity"
+        <WorkloadStateCard :tint="TINTS.ink" :workloads="workloads" description="Every workload on the platform." view-all-to="/workloads" />
+
+        <JobRunsByDayChart :tint="TINTS.ink" :runs="runs" view-all-to="/jobs" />
+
+        <DashboardSection :icon="Gauge" :tint="TINTS.ink" title="Worker capacity"
                           description="Allocated on the nodes that are online." link-to="/worker-nodes" link-label="Nodes">
           <div class="p-5">
             <div v-if="nodes.length === 0" class="py-6 text-center text-sm text-muted-color">
@@ -44,13 +48,9 @@
             </div>
           </div>
         </DashboardSection>
-
-        <WorkloadStateCard :workloads="workloads" description="Every workload on the platform." view-all-to="/workloads" />
-
-        <JobRunsByDayChart :runs="runs" view-all-to="/jobs" />
       </div>
 
-      <RecentRunsTable :runs="recentRuns" :scope="{}" />
+      <RecentRunsTable :tint="TINTS.ink" :runs="recentRuns" :scope="{}" />
     </div>
   </div>
 </template>
@@ -130,6 +130,9 @@ const stats = computed<Stat[]>(() => {
   const dayAgo = Date.now() - DAY_MS
   const today = runs.value.filter(run => (DatetimeUtil.toEpochMillis(run.started) ?? 0) >= dayAgo)
   const runningRuns = runs.value.filter(run => run.status === ExecutionStatus.RUNNING).length
+  const failedWorkloads = workloads.value.filter(workload => workload.status === WorkloadStatus.FAILED).length
+  const failedToday = today.filter(run => run.status === ExecutionStatus.FAILED).length
+  const offlineNodes = nodes.value.length - onlineNodes.value.length
   return [
     {
       label: 'Cluster',
@@ -143,26 +146,27 @@ const stats = computed<Stat[]>(() => {
     {
       label: 'Worker nodes',
       value: nodes.value.length === 0 && !loading.value ? '0' : `${onlineNodes.value.length} / ${nodes.value.length}`,
-      detail: 'online, of those registered',
+      detail: offlineNodes > 0 ? `online · ${offlineNodes} not online` : 'online, of those registered',
       to: '/worker-nodes',
       icon: markRaw(Server),
-      tint: nodes.value.length > 0 && onlineNodes.value.length === 0 ? TINTS.red : TINTS.orange
+      // none online stops placement altogether; some offline is a warning
+      tint: nodes.value.length > 0 && onlineNodes.value.length === 0 ? TINTS.red : offlineNodes > 0 ? TINTS.orange : TINTS.ink
     },
     {
       label: 'Workloads',
       value: `${running}`,
-      detail: `running of ${workloads.value.length}`,
+      detail: failedWorkloads > 0 ? `running of ${workloads.value.length} · ${failedWorkloads} failed` : `running of ${workloads.value.length}`,
       to: '/workloads',
       icon: markRaw(Boxes),
-      tint: TINTS.sky
+      tint: failedWorkloads > 0 ? TINTS.red : TINTS.ink
     },
     {
       label: 'Jobs · 24 h',
       value: `${today.length}`,
-      detail: `${runningRuns} running now`,
+      detail: failedToday > 0 ? `${failedToday} failed · ${runningRuns} running now` : `${runningRuns} running now`,
       to: '/jobs',
       icon: markRaw(LaptopMinimalCheck),
-      tint: TINTS.purple
+      tint: failedToday > 0 ? TINTS.red : TINTS.ink
     },
     {
       label: 'Organizations',
@@ -170,7 +174,7 @@ const stats = computed<Stat[]>(() => {
       detail: 'registered on the platform',
       to: '/organizations',
       icon: markRaw(Building2),
-      tint: TINTS.blue
+      tint: TINTS.ink
     }
   ]
 })

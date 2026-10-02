@@ -10,6 +10,28 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
+    <!-- the fleet at a glance: what the online nodes have placed of what they offer -->
+    <section v-if="nodes.length > 0"
+             class="mb-4 grid gap-5 rounded-xl border border-surface-200 bg-surface-0 px-5 py-4 sm:grid-cols-2 lg:grid-cols-[auto_repeat(3,minmax(0,1fr))] dark:border-surface-700 dark:bg-surface-800/30">
+      <div class="flex items-center gap-3 lg:pr-3">
+        <span :class="['flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', TINTS.ink]">
+          <ServerCog :size="18" :stroke-width="1.75" aria-hidden="true" />
+        </span>
+        <div class="leading-tight">
+          <div class="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-color">Fleet online</div>
+          <div class="mt-0.5 text-sm"><b class="text-lg font-semibold tabular-nums text-surface-950 dark:text-surface-0">{{ onlineNodes.length }}</b>
+            <span class="text-muted-color"> of {{ nodes.length }} nodes</span></div>
+        </div>
+      </div>
+      <div v-for="row in fleetRows" :key="row.label" class="min-w-0">
+        <div class="mb-1 flex justify-between gap-2 text-xs">
+          <span class="font-semibold uppercase tracking-wider text-muted-color">{{ row.label }}</span>
+          <span class="truncate tabular-nums text-surface-700 dark:text-surface-200">{{ row.text }}</span>
+        </div>
+        <CapacityBar :pct="row.pct" />
+      </div>
+    </section>
+
     <StatusChips v-model="statusFilter" :chips="chips" class="mb-4" />
 
     <div v-if="nodes.length === 0 && !loading"
@@ -21,39 +43,52 @@
       No worker node is {{ statusFilter?.toLowerCase() }}
     </div>
 
-    <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4">
+    <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <RouterLink v-for="node in shown" :key="node.id" :to="`/worker-nodes/${encodeURIComponent(node.id)}`"
-                  class="flex flex-col gap-3 rounded-xl border border-surface-200 bg-surface-0 p-5 text-color no-underline transition-colors hover:border-surface-300 hover:bg-surface-100 dark:border-surface-700 dark:bg-surface-800/30 dark:hover:border-surface-600 dark:hover:bg-surface-800/70">
+                  class="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-surface-200 bg-surface-0 p-5 text-color no-underline transition-colors hover:border-surface-300 hover:bg-surface-100 dark:border-surface-700 dark:bg-surface-800/30 dark:hover:border-surface-600 dark:hover:bg-surface-800/70">
+        <!-- a thin line in the node's status colour along the card's top edge -->
+        <span :class="['absolute inset-x-0 top-0 h-0.5', STATUS_LINE[nodeHealth(node)]]" aria-hidden="true" />
         <div class="flex items-start gap-3">
-          <span :class="['flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', TINTS.orange]">
-            <Server :size="18" :stroke-width="1.75" aria-hidden="true" />
+          <span :class="['flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', HEARTBEAT_TINTS[nodeHeartbeat(nodeHealth(node))]]">
+            <HeartbeatIcon :state="nodeHeartbeat(nodeHealth(node))" :size="20" :stroke-width="1.75" />
           </span>
           <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-semibold text-surface-950 dark:text-surface-0">{{ node.name }}</div>
-            <div class="truncate font-mono text-xs text-muted-color" v-tooltip.top="node.hostname">{{ node.hostname }}</div>
+            <div class="truncate font-semibold text-surface-950 dark:text-surface-0" v-tooltip.top="node.name">{{ node.name }}</div>
+            <div class="flex min-w-0 items-center gap-1.5 text-xs text-muted-color">
+              <span class="truncate font-mono" v-tooltip.top="node.hostname">{{ node.hostname }}</span>
+              <span class="shrink-0 rounded bg-surface-100 px-1 font-mono text-[0.625rem] text-surface-500 dark:bg-surface-800 dark:text-surface-400">{{ node.providerType }}</span>
+            </div>
           </div>
           <Tag :value="nodeHealth(node)" :severity="nodeSeverity(nodeHealth(node))" />
         </div>
 
-        <div v-if="nodeHealth(node) === NodeHealth.UNREACHABLE" class="text-sm text-muted-color">
-          {{ nodeUnreachable(node)?.message }}. Nothing is placed here until its next heartbeat.
-          {{ workloadsOn(node.id).length > 0 ? `Its ${workloadsOn(node.id).length} workloads are unreachable with it.` : '' }}
+        <div v-if="nodeHealth(node) === NodeHealth.UNREACHABLE">
+          <p class="text-sm font-medium text-red-700 dark:text-red-400">Not answering its heartbeat</p>
+          <p class="mt-0.5 text-[0.8125rem] text-muted-color">
+            Nothing new is placed here<template v-if="workloadsOn(node.id).length > 0"> · {{ workloadsOn(node.id).length }} {{ workloadsOn(node.id).length === 1 ? 'workload' : 'workloads' }} unreachable</template>
+          </p>
+          <!-- what it last reported, faded so it never reads as live -->
+          <div class="mt-3 opacity-45 grayscale">
+            <div class="mb-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-color">Last reported</div>
+            <CapacityRows :capacity="capacityOf([node])" />
+          </div>
         </div>
         <CapacityRows v-else :capacity="capacityOf([node])" />
 
-        <Message v-if="node.healthMessage" severity="warn" :closable="false" class="text-xs">
+        <p v-if="node.healthMessage" class="flex items-start gap-2 text-[0.8125rem] text-amber-700 dark:text-amber-300">
+          <TriangleAlert :size="15" :stroke-width="1.75" class="mt-0.5 shrink-0" aria-hidden="true" />
           {{ node.healthMessage }}
-        </Message>
-        <Message v-if="node.state.deletionRequested" severity="info" :closable="false" class="text-xs">
+        </p>
+        <p v-if="node.state.deletionRequested" class="flex items-center gap-2 text-[0.8125rem] text-muted-color">
+          <LoaderCircle :size="15" :stroke-width="1.75" class="shrink-0 animate-spin" aria-hidden="true" />
           Deregistering
-        </Message>
+        </p>
 
-        <div class="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-surface-200 pt-3 text-xs text-muted-color dark:border-surface-700">
-          <span class="flex items-center gap-2">
-            <Tag :value="node.providerType" severity="secondary" />
-            {{ runningOn(node.id) }} running · {{ workloadsOn(node.id).length }} workloads
+        <div class="mt-auto flex items-center justify-between gap-3 border-t border-surface-100 pt-3 text-xs text-muted-color dark:border-surface-800">
+          <span><b class="font-semibold tabular-nums text-surface-900 dark:text-surface-50">{{ runningOn(node.id) }}</b> of {{ workloadsOn(node.id).length }} workloads running</span>
+          <span class="whitespace-nowrap" v-tooltip.top="node.lastSeen ? DatetimeUtil.formatEpochDateTime(node.lastSeen) : undefined">
+            Seen {{ node.lastSeen ? DatetimeUtil.formatRelativeDate(node.lastSeen).toLowerCase() : 'never' }}
           </span>
-          <span class="flex items-center gap-1.5">Last seen <TimePill :date="node.lastSeen" /></span>
         </div>
       </RouterLink>
     </div>
@@ -66,18 +101,27 @@ import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import { Server } from '@lucide/vue'
+import { LoaderCircle, ServerCog, TriangleAlert } from '@lucide/vue'
 
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { PageHeader, TINTS, TimePill, errorMessage } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, HEARTBEAT_TINTS, HeartbeatIcon, PageHeader, TINTS, errorMessage, formatMb } from '@kinotic-ai/frontend-common'
 
+import CapacityBar from '@/components/CapacityBar.vue'
 import CapacityRows from '@/components/CapacityRows.vue'
 import StatusChips, { type StatusChip } from '@/components/StatusChips.vue'
-import { NodeHealth, capacityOf, loadNodes, nodeHealth, nodeSeverity, nodeUnreachable } from '@/util/nodes'
+import { NodeHealth, capacityOf, formatCpus, loadNodes, nodeHealth, nodeHeartbeat, nodeSeverity, percentOf } from '@/util/nodes'
 import { scanWorkloads } from '@/util/workloads'
 
 const NODE_STATES = [NodeHealth.ONLINE, NodeHealth.DRAINING, NodeHealth.UNREACHABLE]
+
+/** The colour of each status's line along a card's top edge, as the status tags use. */
+const STATUS_LINE: Record<NodeHealth, string> = {
+  [NodeHealth.ONLINE]: 'bg-green-500',
+  [NodeHealth.DRAINING]: 'bg-amber-500',
+  [NodeHealth.UNREACHABLE]: 'bg-red-500',
+  [NodeHealth.UNKNOWN]: 'bg-surface-300'
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -98,9 +142,22 @@ const chips = computed<StatusChip[]>(() => [
   ...NODE_STATES.map(state => ({
     label: state.charAt(0) + state.slice(1).toLowerCase(),
     value: state,
-    count: nodes.value.filter(node => nodeHealth(node) === state).length
+    count: nodes.value.filter(node => nodeHealth(node) === state).length,
+    severity: nodeSeverity(state)
   }))
 ])
+
+const onlineNodes = computed(() => nodes.value.filter(node => nodeHealth(node) === NodeHealth.ONLINE))
+
+// The fleet's capacity counts only what the online nodes offer; an unreachable node's is not placeable
+const fleetRows = computed(() => {
+  const c = capacityOf(onlineNodes.value)
+  return [
+    { label: 'CPU', text: `${formatCpus(c.usedCpus)} / ${c.cpus} CPU`, pct: percentOf(c.usedCpus, c.cpus) },
+    { label: 'Memory', text: `${formatMb(c.usedMemoryMb)} / ${formatMb(c.memoryMb)}`, pct: percentOf(c.usedMemoryMb, c.memoryMb) },
+    { label: 'Disk', text: `${formatMb(c.usedDiskMb)} / ${formatMb(c.diskMb)}`, pct: percentOf(c.usedDiskMb, c.diskMb) }
+  ]
+})
 
 const shown = computed(() => statusFilter.value
     ? nodes.value.filter(node => nodeHealth(node) === statusFilter.value)

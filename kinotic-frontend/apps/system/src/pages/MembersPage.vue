@@ -1,6 +1,26 @@
 <template>
   <div class="flex flex-col">
     <PageHeader :title="title" :description="description" />
+
+    <!-- the people at a glance, from the server's own totals -->
+    <section v-if="peopleTotal !== null"
+             class="mb-4 flex flex-wrap items-center gap-x-10 gap-y-3 rounded-xl border border-surface-200 bg-surface-0 px-5 py-4 dark:border-surface-700 dark:bg-surface-800/30">
+      <div class="flex items-center gap-3">
+        <span :class="['flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', scopeTint(scope)]">
+          <Users :size="18" :stroke-width="1.75" aria-hidden="true" />
+        </span>
+        <div class="leading-tight">
+          <div class="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-color">{{ title }}</div>
+          <div class="mt-0.5 text-lg font-semibold tabular-nums text-surface-950 dark:text-surface-0">{{ peopleTotal }}</div>
+        </div>
+      </div>
+      <div v-if="inviteTotal > 0" class="leading-tight">
+        <div class="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-color">Pending invitations</div>
+        <div class="mt-0.5 flex items-center gap-2 text-lg font-semibold tabular-nums text-surface-950 dark:text-surface-0">
+          <span class="h-2 w-2 rounded-full bg-sky-500" aria-hidden="true" />{{ inviteTotal }}
+        </div>
+      </div>
+    </section>
     <CrudTable
       ref="crudTable"
       :headers="headers"
@@ -14,12 +34,11 @@
       <template #item.email="{ item, index }">
         <span class="flex min-w-0 items-center gap-2.5">
           <InitialsTile :name="item.displayName || item.email" :index="index" />
-          <span class="truncate" v-tooltip.top="item.email">{{ item.email }}</span>
+          <span class="min-w-0">
+            <span class="block truncate font-sans text-sm font-semibold text-surface-950 dark:text-surface-0">{{ item.displayName || item.email }}</span>
+            <span v-if="item.displayName" class="block truncate text-xs text-muted-color" v-tooltip.top="item.email">{{ item.email }}</span>
+          </span>
         </span>
-      </template>
-
-      <template #item.displayName="{ item }">
-        {{ item.displayName || '—' }}
       </template>
 
       <template #item.status="{ item }">
@@ -27,7 +46,11 @@
       </template>
 
       <template #item.authType="{ item }">
-        {{ item.authType || '—' }}
+        <span v-if="item.authType" class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-surface-100 px-2 py-0.5 font-sans text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-200">
+          <component :is="item.authType === 'OIDC' ? ShieldCheck : KeyRound" :size="13" :stroke-width="1.75" aria-hidden="true" />
+          {{ item.authType === 'OIDC' ? 'OIDC' : item.authType === 'LOCAL' ? 'Local password' : item.authType }}
+        </span>
+        <span v-else class="text-muted-color">—</span>
       </template>
 
       <template #item.created="{ item }">
@@ -38,7 +61,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { KeyRound, ShieldCheck, Users } from '@lucide/vue'
 import Tag from 'primevue/tag'
 
 import {
@@ -60,6 +84,8 @@ import {
   type CrudHeader,
   type DescriptiveIdentifiable
 } from '@kinotic-ai/frontend-common'
+
+import { scopeTint, type Scope } from '@/util/scope'
 
 /**
  * The platform's operators when no scope is given, otherwise the people with access to an
@@ -87,11 +113,10 @@ interface MemberRow extends DescriptiveIdentifiable {
 }
 
 const headers: CrudHeader[] = [
-  { field: 'email', header: 'Email', sortable: false },
-  { field: 'displayName', header: 'Name', sortable: false, optional: true },
-  { field: 'status', header: 'Status', sortable: false },
-  { field: 'authType', header: 'Auth type', sortable: false, optional: true },
-  { field: 'created', header: 'Created', sortable: false, optional: true }
+  { field: 'email', header: 'Person', sortable: false, width: '40%' },
+  { field: 'status', header: 'Status', sortable: false, width: '16%' },
+  { field: 'authType', header: 'Signs in with', sortable: false, optional: true, width: '22%' },
+  { field: 'created', header: 'Created', sortable: false, optional: true, width: '22%' }
 ]
 
 // An organization's people are its members; an application's and the platform's are its users
@@ -108,6 +133,12 @@ const description = computed(() => {
   }
   return ret
 })
+
+const scope = computed<Scope>(() => ({ organizationId: props.organizationId, applicationId: props.applicationId }))
+
+/** The server's totals behind the summary: the people, and the invitations still pending. */
+const peopleTotal = ref<number | null>(null)
+const inviteTotal = ref(0)
 
 const { tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
 
@@ -126,6 +157,10 @@ async function platformOperators(pageable: Pageable, searchText: string | null):
       ? await Kinotic.systemMembers.searchUsers(searchText, pageable)
       : await Kinotic.systemMembers.findUsers(pageable)
 
+  if (!searchText) {
+    peopleTotal.value = users.totalElements ?? 0
+    inviteTotal.value = 0
+  }
   return {
     content: (users.content ?? []).map(user => toMemberRow(user)),
     totalElements: users.totalElements ?? 0,
@@ -145,13 +180,18 @@ async function organizationMembers(organizationId: string,
 
   const invites = await Kinotic.systemOrganizations.findPendingInvites(organizationId, applicationId, Pageable.create(0, INVITE_PAGE_SIZE, null))
   let inviteRows = (invites.content ?? []).map(invite => toInviteRow(invite))
-  let inviteTotal = invites.totalElements ?? inviteRows.length
+  let inviteCount = invites.totalElements ?? inviteRows.length
+  // the summary counts what exists, so a search leaves it as it was
+  if (!searchText) {
+    peopleTotal.value = membersPage.totalElements ?? 0
+    inviteTotal.value = inviteCount
+  }
   if (searchText) {
     const needle = searchText.trim().toLowerCase()
     inviteRows = inviteRows.filter(row =>
         row.email.toLowerCase().includes(needle) ||
         (row.displayName ?? '').toLowerCase().includes(needle))
-    inviteTotal = inviteRows.length
+    inviteCount = inviteRows.length
   }
   if (pageNumberOf(pageable) !== 0) {
     inviteRows = []
@@ -159,7 +199,7 @@ async function organizationMembers(organizationId: string,
 
   return {
     content: [...inviteRows, ...(membersPage.content ?? []).map(user => toMemberRow(user))],
-    totalElements: (membersPage.totalElements ?? 0) + inviteTotal,
+    totalElements: (membersPage.totalElements ?? 0) + inviteCount,
     cursor: undefined
   }
 }

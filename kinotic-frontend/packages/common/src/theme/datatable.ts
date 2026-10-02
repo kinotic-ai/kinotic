@@ -219,5 +219,23 @@ import type { DataTableDesignTokens } from '@primeuix/themes/types/datatable';
                 selectedBorderColor: "{primary.900}"
             }
         }
-    }
+    },
+    // Every table is framed evenly: the first and last columns sit the same 1.25rem in from the
+    // table's edges; a status tag in a row sits at the row's small type size
+    css: `
+        .p-datatable .p-datatable-thead > tr > th:first-child,
+        .p-datatable .p-datatable-tbody > tr > td:first-child {
+            padding-inline-start: 1.25rem;
+        }
+        .p-datatable .p-datatable-thead > tr > th:last-child,
+        .p-datatable .p-datatable-tbody > tr > td:last-child {
+            padding-inline-end: 1.25rem;
+        }
+        .p-datatable .p-datatable-tbody .p-tag {
+            font-size: 0.6875rem;
+            line-height: 1rem;
+            padding: 0.125rem 0.375rem;
+            letter-spacing: 0.02em;
+        }
+    `
 } satisfies DataTableDesignTokens;

@@ -9,5 +9,7 @@ export const TINTS = {
   purple: 'bg-purple-100 text-purple-600 dark:bg-purple-500/15 dark:text-purple-300',
   red: 'bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300',
   sky: 'bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300',
+  // neutral marks for the platform's own pages, strong enough to read apart from surface's faint 'nothing yet'
+  ink: 'bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-200',
   surface: 'bg-surface-100 text-surface-400 dark:bg-surface-800 dark:text-surface-500'
 } as const

@@ -2,6 +2,7 @@
 import { CrudTable } from "@kinotic-ai/frontend-common";
 import ApplicationSidebar from "@/components/ApplicationSidebar.vue";
 import ApplicationProjectsLink from "@/components/ApplicationProjectsLink.vue";
+import DeleteApplicationDialog from "@/components/DeleteApplicationDialog.vue";
 import { InitialsTile, PageHeader, TimePill } from "@kinotic-ai/frontend-common";
 import { Kinotic } from "@kinotic-ai/core";
 import {
@@ -13,8 +14,6 @@ import type { CrudHeader } from "@kinotic-ai/frontend-common";
 import type { Identifiable } from "@kinotic-ai/core";
 import { onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useToast } from "primevue/usetoast";
-import { showErrorToast } from "@kinotic-ai/frontend-common";
 import { createDebug } from "@kinotic-ai/frontend-common";
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 
@@ -22,7 +21,6 @@ const debug = createDebug('application-list');
 
 const route = useRoute();
 const router = useRouter();
-const toast = useToast();
 
 const headers: CrudHeader[] = [
   { field: "name", header: "Name", sortable: false, width: "22%" },
@@ -111,17 +109,20 @@ function onApplicationSubmit(created: Application): void {
   router.push(`/application/${encodeURIComponent(created.id)}/projects?openNewProject=1`);
 }
 
-async function deleteApplication(item: Application): Promise<void> {
-  try {
-    await dataSource.deleteById(item.id!);
-    toast.add({ severity: "success", summary: "Application deleted", life: 4000 });
-    APPLICATION_STATE.allApplications = APPLICATION_STATE.allApplications.filter(
-      (a) => a.id !== item.id
-    );
-    refreshTable();
-  } catch (err) {
-    showErrorToast(toast, "Failed to delete application", err, { life: 8000 });
-  }
+const applicationToDelete = ref<Application | null>(null);
+
+// A failed delete may have removed some of the application's projects, so the counts refresh
+function onDeleteDialogClose(): void {
+  applicationToDelete.value = null;
+  refreshTable();
+}
+
+function onApplicationDeleted(deleted: Application): void {
+  applicationToDelete.value = null;
+  APPLICATION_STATE.allApplications = APPLICATION_STATE.allApplications.filter(
+    (a) => a.id !== deleted.id
+  );
+  refreshTable();
 }
 </script>
 
@@ -142,7 +143,7 @@ async function deleteApplication(item: Application): Promise<void> {
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddItem"
-      @delete-item="deleteApplication"
+      @delete-item="applicationToDelete = $event"
       @onRowClick="toApplicationPage"
       class="application-list__table !text-sm"
     >
@@ -171,6 +172,12 @@ async function deleteApplication(item: Application): Promise<void> {
       <TimePill :date="item.updated" />
     </template>
     </CrudTable>
+
+    <DeleteApplicationDialog
+      :application="applicationToDelete"
+      @deleted="onApplicationDeleted"
+      @close="onDeleteDialogClose"
+    />
 
     <ApplicationSidebar
       :visible="showSidebar"

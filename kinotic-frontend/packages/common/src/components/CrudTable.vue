@@ -18,7 +18,6 @@ import type { PageState } from "primevue/paginator";
 import TablePaginator from "./TablePaginator.vue";
 import SelectButton from "primevue/selectbutton";
 import Skeleton from "primevue/skeleton";
-import { useConfirm } from "primevue/useconfirm";
 
 import {
   type IDataSource,
@@ -68,8 +67,8 @@ const props = withDefaults(defineProps<{
   // When set, each row gets an ellipsis button opening a popup menu with these
   // items. Rows for which the function returns an empty array get no button.
   rowActions?: (item: any) => MenuItem[]
-  // Appends a Delete item to the row menu that confirms with the user, then
-  // emits deleteItem. The parent performs the actual deletion.
+  // Appends a Delete item to the row menu that emits deleteItem. The parent confirms
+  // with the user and performs the deletion.
   isShowDelete?: boolean
 }>(), {
   multiSort: false,
@@ -140,7 +139,6 @@ const viewOptions = [
 ];
 
 const rowMenus = ref<Record<string, any>>({});
-const confirm = useConfirm();
 
 function toggleRowMenu(event: Event, itemId: string): void {
   rowMenus.value[itemId]?.toggle(event);
@@ -176,21 +174,10 @@ function rowMenuItems(item: DescriptiveIdentifiable): MenuItem[] {
     menuItems.push({
       label: "Delete",
       icon: "pi pi-trash",
-      command: () => confirmDelete(item),
+      command: () => emit("deleteItem", item),
     });
   }
   return menuItems;
-}
-
-function confirmDelete(item: DescriptiveIdentifiable): void {
-  confirm.require({
-    header: "Confirm delete",
-    message: `Permanently delete ${item.name ?? "this item"}? This cannot be undone.`,
-    icon: "pi pi-exclamation-triangle",
-    acceptProps: { label: "Delete", severity: "danger" },
-    rejectProps: { label: "Cancel", severity: "secondary", outlined: true },
-    accept: () => emit("deleteItem", item),
-  });
 }
 
 const computedHeaders = computed<CrudHeader[]>(() => {
@@ -386,6 +373,8 @@ defineExpose({ find });
       </IconField>
 
       <div class="crud-table__actions flex items-center gap-2 h-[36px]">
+        <!-- the page's own controls for the list, such as filters, beside the search -->
+        <slot name="toolbar" />
         <SelectButton
           class="crud-table__view-switcher"
           size="small"
@@ -577,6 +566,11 @@ defineExpose({ find });
 </template>
 
 <style>
+/* With no controls beside it, the search runs the full width of the table below */
+.crud-table__actions:empty {
+  display: none;
+}
+
 /* Status tags read as part of the row's monospace data */
 .crud-table__datatable .p-tag {
   font-family: var(--font-mono);

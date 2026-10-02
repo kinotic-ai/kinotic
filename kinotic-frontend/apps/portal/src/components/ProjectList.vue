@@ -5,6 +5,7 @@ import { InitialsTile, showErrorToast, TimePill } from '@kinotic-ai/frontend-com
 import { useToast } from 'primevue/usetoast'
 import { CrudTable } from '@kinotic-ai/frontend-common'
 import NewProjectSidebar from '@/components/NewProjectSidebar.vue'
+import DeleteProjectDialog from '@/components/DeleteProjectDialog.vue'
 import type { IDataSource, Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { Kinotic } from '@kinotic-ai/core'
@@ -124,14 +125,11 @@ async function onProjectSubmit(): Promise<void> {
   }
 }
 
-async function deleteProject(item: Project): Promise<void> {
-  try {
-    await Kinotic.projects.deleteByIdSync(item.id!)
-    toast.add({ severity: 'success', summary: 'Project deleted', life: 4000 })
-    refreshTable()
-  } catch (err) {
-    showErrorToast(toast, 'Failed to delete project', err, { life: 8000 })
-  }
+const projectToDelete = ref<Project | null>(null)
+
+function onProjectDeleted(): void {
+  projectToDelete.value = null
+  refreshTable()
 }
 
 async function toProjectPage(item: Identifiable<string>): Promise<void> {
@@ -188,7 +186,7 @@ async function retryRepoInit(project: Project): Promise<void> {
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddProject"
-      @delete-item="deleteProject"
+      @delete-item="projectToDelete = $event"
       @onRowClick="toProjectPage"
       createNewButtonText="New Project"
       emptyStateText="No projects yet"
@@ -234,6 +232,12 @@ async function retryRepoInit(project: Project): Promise<void> {
         </span>
       </template>
     </CrudTable>
+
+    <DeleteProjectDialog
+      :project="projectToDelete"
+      @deleted="onProjectDeleted"
+      @close="projectToDelete = null"
+    />
 
     <NewProjectSidebar
       :visible="showProjectSidebar"

@@ -49,13 +49,13 @@
             </Message>
 
             <div class="grid gap-4 lg:grid-cols-2">
-              <DashboardSection :icon="Terminal" :tint="TINTS.sky" title="Runtime">
+              <DashboardSection :icon="Terminal" :tint="tint" title="Runtime">
                 <div class="px-5 pb-3">
                   <FactList :facts="runtimeFacts" />
                 </div>
               </DashboardSection>
 
-              <DashboardSection :icon="Network" :tint="TINTS.purple" title="Network"
+              <DashboardSection :icon="Network" :tint="tint" title="Network"
                                 description="Every destination other than the allowed hosts is blocked.">
                 <div class="p-5">
                   <div class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-color">Allowed hosts</div>
@@ -72,7 +72,7 @@
                 </div>
               </DashboardSection>
 
-              <DashboardSection :icon="KeyRound" :tint="TINTS.orange" title="Environment" :count="environmentNames.length"
+              <DashboardSection :icon="KeyRound" :tint="tint" title="Environment" :count="environmentNames.length"
                                 description="Names only. Values and secrets are not shown.">
                 <EmptyChartCharacter v-if="environmentNames.length === 0" class="py-6" title="No environment variables" />
                 <div v-else class="flex flex-wrap gap-1.5 p-5">
@@ -80,7 +80,7 @@
                 </div>
               </DashboardSection>
 
-              <DashboardSection :icon="HardDrive" :tint="TINTS.blue" title="Volumes" :count="volumes.length">
+              <DashboardSection :icon="HardDrive" :tint="tint" title="Volumes" :count="volumes.length">
                 <EmptyChartCharacter v-if="volumes.length === 0" class="py-6" title="No volume mounts" hint="The VM has its own disk only." />
                 <div v-else class="flex flex-wrap gap-1.5 p-5">
                   <span v-for="volume in volumes" :key="volume" class="rounded-md bg-emphasis px-2 py-0.5 font-mono text-xs">{{ volume }}</span>
@@ -100,7 +100,7 @@
               What happened to the workload, newest first: each status its run passed through and each mark set beside it,
               with what caused it. The latest {{ HISTORY_PAGE_SIZE }} entries.
             </p>
-            <WatchEventsTable :entries="history" empty-text="Nothing has happened to the workload yet." />
+            <WatchEventsTimeline :entries="history" empty-text="Nothing has happened to the workload yet." />
           </div>
         </TabPanel>
       </TabPanels>
@@ -127,11 +127,11 @@ import { useToast } from 'primevue/usetoast'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { NetworkMode, WorkloadStatus, type WatchEvent, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DashboardSection, HeartbeatIcon, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, WatchEventsTable, WorkloadLogView, errorMessage,
+import { DashboardSection, HeartbeatIcon, DatetimeUtil, FactList, PageHeader, StatCard, WatchEventsTimeline, WorkloadLogView, errorMessage,
          formatMb, showErrorToast, workloadRun, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState } from '@kinotic-ai/frontend-common'
 
 import { formatCpus, nodeHealth } from '@/util/nodes'
-import { applicationPath, organizationPath, scopePath, type Scope } from '@/util/scope'
+import { applicationPath, organizationPath, scopePath, scopeTint, type Scope } from '@/util/scope'
 import { nodeUnreachable, runOpen, workloadSeverity } from '@/util/workloads'
 
 /**
@@ -161,6 +161,7 @@ const scope = computed<Scope>(() => ({
 }))
 
 const listPath = computed(() => `${scopePath(scope.value)}/workloads`)
+const tint = computed(() => scopeTint(scope.value))
 
 const workload = ref<Workload | null>(null)
 const node = ref<VmNode | null>(null)
@@ -266,7 +267,7 @@ const stats = computed<Stat[]>(() => {
       detail: node.value ? `${nodeHealth(node.value).toLowerCase()} · ${node.value.providerType}` : 'not placed yet',
       to: w.nodeId ? `/worker-nodes/${encodeURIComponent(w.nodeId)}` : undefined,
       icon: markRaw(Server),
-      tint: TINTS.orange
+      tint: tint.value
     },
     {
       label: 'Owner',
@@ -274,14 +275,14 @@ const stats = computed<Stat[]>(() => {
       detail: ownerDetail,
       to: ownerTo,
       icon: markRaw(ownerIcon),
-      tint: TINTS.purple
+      tint: tint.value
     },
     {
       label: 'Resources',
       value: `${formatCpus(w.cpus)} CPU`,
       detail: `${formatMb(w.memoryMb)} memory · ${formatMb(w.diskSizeMb)} disk`,
       icon: markRaw(Cpu),
-      tint: TINTS.sky
+      tint: tint.value
     }
   ]
 })

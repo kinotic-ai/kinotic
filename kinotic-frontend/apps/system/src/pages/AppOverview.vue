@@ -52,7 +52,7 @@
           </ul>
         </DashboardSection>
 
-        <DashboardSection :icon="LayoutGrid" :tint="TINTS.purple" title="About"
+        <DashboardSection :icon="LayoutGrid" :tint="TINTS.blue" title="About"
                           description="As the organization configured it; the settings are theirs to change.">
           <div class="px-5 pb-2">
             <FactList :facts="facts" />
@@ -182,7 +182,7 @@ const stats = computed<Stat[]>(() => {
       detail: pending === 1 ? '1 pending invite' : `${pending} pending invites`,
       to: `${basePath.value}/users`,
       icon: markRaw(Users),
-      tint: TINTS.green
+      tint: TINTS.blue
     },
     {
       label: 'Workloads',
@@ -190,7 +190,7 @@ const stats = computed<Stat[]>(() => {
       detail: `running of ${workloads.value.length}`,
       to: `${basePath.value}/workloads`,
       icon: markRaw(Boxes),
-      tint: TINTS.sky
+      tint: TINTS.blue
     },
     {
       label: 'Jobs',
@@ -198,7 +198,7 @@ const stats = computed<Stat[]>(() => {
       detail: `${failed} failed · ${runningRuns} running`,
       to: `${basePath.value}/jobs`,
       icon: markRaw(LaptopMinimalCheck),
-      tint: TINTS.purple
+      tint: TINTS.blue
     }
   ]
 })

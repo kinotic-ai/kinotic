@@ -2,6 +2,26 @@
   <div class="flex flex-col">
     <PageHeader title="Organizations" description="Every organization registered on the platform." />
 
+    <!-- the tenants at a glance: how many there are and how much they run -->
+    <section v-if="organizationCount !== null"
+             class="mb-4 flex flex-wrap items-center gap-x-10 gap-y-3 rounded-xl border border-surface-200 bg-surface-0 px-5 py-4 dark:border-surface-700 dark:bg-surface-800/30">
+      <div class="flex items-center gap-3">
+        <span :class="['flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', TINTS.green]">
+          <Building2 :size="18" :stroke-width="1.75" aria-hidden="true" />
+        </span>
+        <div class="leading-tight">
+          <div class="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-color">Organizations</div>
+          <div class="mt-0.5 text-lg font-semibold tabular-nums text-surface-950 dark:text-surface-0">{{ organizationCount }}</div>
+        </div>
+      </div>
+      <div class="leading-tight">
+        <div class="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-color">Running workloads</div>
+        <div class="mt-0.5 flex items-center gap-2 text-lg font-semibold tabular-nums text-surface-950 dark:text-surface-0">
+          <span class="h-2 w-2 rounded-full bg-green-500" aria-hidden="true" />{{ runningTotal }}
+        </div>
+      </div>
+    </section>
+
     <CrudTable
       ref="crudTable"
       :headers="headers"
@@ -17,20 +37,32 @@
       <template #item.name="{ item, index }">
         <span class="flex min-w-0 items-center gap-2.5">
           <InitialsTile :name="item.name || item.id" :index="index" />
-          <span class="truncate" v-tooltip.top="item.name">{{ item.name }}</span>
+          <span class="min-w-0">
+            <span class="block truncate font-sans text-sm font-semibold text-surface-950 dark:text-surface-0" v-tooltip.top="item.name">{{ item.name }}</span>
+            <span class="block truncate text-xs text-muted-color">{{ item.id }}</span>
+          </span>
         </span>
       </template>
 
-      <template #item.id="{ item }">
-        <span class="font-mono text-sm">{{ item.id }}</span>
+      <template #item.applications="{ item }">
+        <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-surface-100 px-2 py-0.5 font-sans text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-200">
+          <LayoutGrid :size="13" :stroke-width="1.75" aria-hidden="true" />
+          <span class="tabular-nums">{{ item.applications ?? '—' }} {{ item.applications === 1 ? 'app' : 'apps' }}</span>
+        </span>
       </template>
 
-      <template #item.applications="{ item }">
-        {{ item.applications ?? '—' }}
+      <template #item.running="{ item }">
+        <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-surface-100 px-2 py-0.5 font-sans text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-200">
+          <span :class="['h-2 w-2 rounded-full', item.running > 0 ? 'bg-green-500' : 'bg-surface-400']" aria-hidden="true" />
+          <span class="tabular-nums">{{ item.running }} running</span>
+        </span>
       </template>
 
       <template #item.members="{ item }">
-        {{ item.members ?? '—' }}
+        <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-surface-100 px-2 py-0.5 font-sans text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-200">
+          <Users :size="13" :stroke-width="1.75" aria-hidden="true" />
+          <span class="tabular-nums">{{ item.members ?? '—' }} {{ item.members === 1 ? 'member' : 'members' }}</span>
+        </span>
       </template>
 
       <template #item.created="{ item }">
@@ -41,7 +73,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { Building2, LayoutGrid, Users } from '@lucide/vue'
 import { useRouter } from 'vue-router'
 
 import { FunctionalIterablePage, Kinotic, Pageable, type IterablePage, type Page } from '@kinotic-ai/core'
@@ -51,6 +84,7 @@ import {
   InitialsTile,
   PageHeader,
   TimePill,
+  TINTS,
   useCrudTablePage,
   type CrudHeader,
   type DescriptiveIdentifiable
@@ -72,16 +106,17 @@ interface OrganizationRow extends DescriptiveIdentifiable {
 const router = useRouter()
 
 const headers: CrudHeader[] = [
-  { field: 'name', header: 'Name', sortable: true },
-  { field: 'id', header: 'Id', sortable: false, optional: true },
-  { field: 'applications', header: 'Apps', sortable: false, optional: true },
-  { field: 'running', header: 'Running', sortable: false, optional: true },
-  { field: 'members', header: 'Members', sortable: false, optional: true },
-  { field: 'created', header: 'Created', sortable: true, optional: true }
+  { field: 'name', header: 'Name', sortable: true, width: '34%' },
+  { field: 'applications', header: 'Apps', sortable: false, optional: true, width: '16%' },
+  { field: 'running', header: 'Running', sortable: false, optional: true, width: '16%' },
+  { field: 'members', header: 'Members', sortable: false, optional: true, width: '16%' },
+  { field: 'created', header: 'Created', sortable: true, optional: true, width: '18%' }
 ]
 
 // Running workloads per organization, from one scan shared by every page of the table
 const runningByOrganization = ref<Record<string, number>>({})
+const runningTotal = computed(() => Object.values(runningByOrganization.value).reduce((sum, count) => sum + count, 0))
+const organizationCount = ref<number | null>(null)
 
 const { tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
 
@@ -121,6 +156,8 @@ function openOrganization(row: DescriptiveIdentifiable) {
 }
 
 onMounted(async () => {
+  Kinotic.systemOrganizations.countOrganizations().then(count => { organizationCount.value = count })
+         .catch(() => { /* the summary stays hidden; the table still lists */ })
   try {
     const counts: Record<string, number> = {}
     for (const workload of await scanWorkloads({})) {

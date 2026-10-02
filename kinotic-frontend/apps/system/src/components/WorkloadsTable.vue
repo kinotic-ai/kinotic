@@ -14,9 +14,19 @@
       @update:search="tableSearch = $event"
       @on-row-click="open"
     >
+      <template #toolbar>
+        <slot name="toolbar" />
+      </template>
+
       <template #item.name="{ item }">
-        <span class="block max-w-[16rem] truncate" v-tooltip.top="item.name">{{ item.name }}</span>
-        <span v-if="!item.detached" class="block text-xs text-muted-color">one-off</span>
+        <span class="block max-w-full truncate font-sans text-sm font-semibold text-surface-950 dark:text-surface-0" v-tooltip.top="item.name">{{ item.name }}</span>
+        <span class="mt-0.5 flex max-w-full items-center gap-1.5 truncate text-xs text-muted-color">
+          <template v-if="ownerHeader">
+            <span v-if="item.owner" class="truncate" v-tooltip.top="item.owner">{{ item.owner }}</span>
+            <span v-else>{{ ownerFallback }}</span>
+          </template>
+          <span v-if="!item.detached" class="shrink-0 rounded bg-surface-100 px-1 font-sans text-[0.625rem] font-medium uppercase tracking-wide text-surface-500 dark:bg-surface-800 dark:text-surface-400">one-off</span>
+        </span>
       </template>
 
       <template #item.status="{ item }">
@@ -27,17 +37,17 @@
 
       <template #item.node="{ item }">
         <RouterLink v-if="item.nodeId" :to="`/worker-nodes/${encodeURIComponent(item.nodeId)}`"
-                    class="hover:underline" @click.stop>{{ item.node }}</RouterLink>
+                    class="text-surface-600 hover:text-surface-950 hover:underline dark:text-surface-300 dark:hover:text-surface-0" @click.stop>{{ item.node }}</RouterLink>
         <span v-else>—</span>
       </template>
 
-      <template #item.owner="{ item }">
-        <span v-if="item.owner" class="font-mono text-sm">{{ item.owner }}</span>
-        <span v-else class="text-muted-color">{{ ownerFallback }}</span>
+      <template #item.image="{ item }">
+        <span class="inline-block max-w-full truncate rounded-md bg-surface-100 px-1.5 py-0.5 text-xs text-surface-600 dark:bg-surface-800 dark:text-surface-300"
+              v-tooltip.top="item.image">{{ imageName(item.image) }}</span>
       </template>
 
-      <template #item.image="{ item }">
-        <span class="block max-w-[16rem] truncate font-mono text-xs" v-tooltip.top="item.image">{{ shortImage(item.image) }}</span>
+      <template #item.resources="{ item }">
+        <span class="text-xs text-surface-600 dark:text-surface-300">{{ item.resources }}</span>
       </template>
 
       <template #item.created="{ item }">
@@ -128,23 +138,25 @@ const ownerHeader = computed<string | null>(() => {
   return ret
 })
 
+/** An image as its name and tag, without the registry or repository path: "workload-runner:latest". */
+function imageName(image: string): string {
+  return shortImage(image).split('/').pop() ?? image
+}
+
 const ownerFallback = computed(() => ownerHeader.value === 'Organization' ? 'platform' : 'organization')
 
 const headers = computed<CrudHeader[]>(() => {
   const ret: CrudHeader[] = [
-    { field: 'name', header: 'Name', sortable: true },
-    { field: 'status', header: 'Status', sortable: true }
+    { field: 'name', header: 'Name', sortable: true, width: '28%' },
+    { field: 'status', header: 'Status', sortable: true, width: '12%' }
   ]
   if (props.showNode) {
-    ret.push({ field: 'node', header: 'Node', sortable: false, optional: true })
-  }
-  if (ownerHeader.value) {
-    ret.push({ field: 'owner', header: ownerHeader.value, sortable: false, optional: true })
+    ret.push({ field: 'node', header: 'Node', sortable: false, optional: true, width: '16%' })
   }
   ret.push(
-    { field: 'image', header: 'Image', sortable: false, optional: true },
-    { field: 'resources', header: 'Resources', sortable: false, optional: true },
-    { field: 'created', header: 'Created', sortable: true, optional: true }
+    { field: 'image', header: 'Image', sortable: false, optional: true, width: '16%' },
+    { field: 'resources', header: 'Resources', sortable: false, optional: true, width: '15%' },
+    { field: 'created', header: 'Created', sortable: true, optional: true, width: '13%' }
   )
   return ret
 })

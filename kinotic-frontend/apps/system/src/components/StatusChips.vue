@@ -1,32 +1,38 @@
 <template>
-  <div class="flex flex-wrap items-center gap-1.5">
+  <div class="inline-flex flex-wrap items-center gap-1 self-start rounded-lg border border-surface-200 bg-surface-50 p-1 dark:border-surface-700 dark:bg-surface-800/60">
     <button
       v-for="chip in chips"
       :key="chip.value ?? 'all'"
       type="button"
+      :aria-pressed="chip.value === modelValue"
       :class="[
-        'flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-xs leading-none transition-colors',
+        'flex items-center gap-2 whitespace-nowrap rounded-md px-2.5 py-1 text-[0.8125rem] transition-colors',
         chip.value === modelValue
-          ? 'border-transparent bg-primary-50 font-medium text-primary-700 dark:bg-primary-400/15 dark:text-primary-300'
-          : 'border-surface text-muted-color hover:bg-emphasis hover:text-color'
+          ? 'bg-surface-0 font-medium text-surface-950 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:text-surface-0 dark:ring-surface-700'
+          : 'text-surface-600 hover:bg-surface-100 hover:text-surface-950 dark:text-surface-300 dark:hover:bg-surface-800 dark:hover:text-surface-0'
       ]"
       @click="emit('update:modelValue', chip.value)"
     >
+      <span v-if="chip.severity" :class="['h-2 w-2 shrink-0 rounded-full', SEVERITY_FILL[chip.severity] ?? SEVERITY_FILL.secondary]" aria-hidden="true" />
       {{ chip.label }}
-      <span class="tabular-nums">{{ chip.count }}</span>
+      <span class="rounded-md bg-surface-100 px-1.5 text-xs font-medium tabular-nums text-surface-600 dark:bg-surface-800 dark:text-surface-300">{{ chip.count }}</span>
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { SEVERITY_FILL } from '@/util/severity'
+
 /** One chip: a state and how many items are in it; a null value stands for every state. */
 export interface StatusChip {
   label: string
   value: string | null
   count: number
+  /** The state's status, as a Tag severity, which colours its dot; the All chip has none. */
+  severity?: string
 }
 
-/** A row of state filters with their counts; the selected value is the model. */
+/** A segmented row of state filters, each with its status dot and count; the selected value is the model. */
 defineProps<{
   chips: StatusChip[]
   modelValue: string | null

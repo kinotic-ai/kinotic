@@ -10,7 +10,7 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <WatchEventsTable :entries="entries" show-record empty-text="Nothing has happened on the platform yet." />
+    <WatchEventsTimeline :entries="entries" show-record empty-text="Nothing has happened on the platform yet." />
 
     <TablePaginator v-if="total > 0" class="mt-3"
                     :first="first" :rows="rows" :total-records="total" :rows-per-page-options="ROWS_PER_PAGE"
@@ -26,7 +26,7 @@ import type { PageState } from 'primevue/paginator'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import type { WatchEvent } from '@kinotic-ai/management-api'
-import { PageHeader, TablePaginator, WatchEventsTable, errorMessage } from '@kinotic-ai/frontend-common'
+import { PageHeader, TablePaginator, WatchEventsTimeline, errorMessage } from '@kinotic-ai/frontend-common'
 
 const ROWS_PER_PAGE = [25, 50, 100]
 

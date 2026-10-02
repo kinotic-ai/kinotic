@@ -558,7 +558,8 @@ export default {
                 focusColor: "rgba(255,255,255,.87)"
             },
             mask: {
-                background: "rgba(0,0,0,0.6)",
+                // a light veil lifts the dark page so a dark modal stands apart from it
+                background: "rgba(255,255,255,0.25)",
                 color: "{surface.200}"
             },
             formField: {

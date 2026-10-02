@@ -83,5 +83,21 @@ import type { SelectDesignTokens } from '@primeuix/themes/types/select';
     },
     emptyMessage: {
         padding: "{list.option.padding}"
-    }
+    },
+    // A small clear button with a hover state, so it reads as something to click rather than a stray glyph
+    css: ({ dt }) => `
+        .p-select-clear-icon {
+            box-sizing: content-box;
+            width: 0.625rem;
+            height: 0.625rem;
+            padding: 0.25rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .p-select-clear-icon:hover {
+            background: ${dt('content.hover.background')};
+            color: ${dt('text.color')};
+        }
+    `
 } satisfies SelectDesignTokens;

@@ -115,3 +115,16 @@ export function clusterHeartbeat(cluster: KinoticClusterInfo | null): HeartbeatS
   }
   return ret
 }
+
+/** The heartbeat a worker node shows: alive while online, failed when unreachable, idle while draining. */
+export function nodeHeartbeat(health: NodeHealth): HeartbeatState {
+  let ret: HeartbeatState
+  if (health === NodeHealth.ONLINE) {
+    ret = HeartbeatState.ALIVE
+  } else if (health === NodeHealth.UNREACHABLE) {
+    ret = HeartbeatState.FAILED
+  } else {
+    ret = HeartbeatState.IDLE
+  }
+  return ret
+}

@@ -31,38 +31,64 @@
 
     </CrudTable>
 
-    <Dialog v-model:visible="inviteDialogVisible" modal :header="inviteLabel" :style="{ width: '28rem' }">
-      <div class="flex flex-col gap-4">
-        <div class="flex flex-col gap-1">
-          <label for="invite-email" class="text-sm font-medium">Email</label>
-          <InputText id="invite-email" v-model="inviteEmail" type="email" placeholder="person@example.com" autocomplete="off" autofocus />
+    <FormDialog v-model:visible="inviteDialogVisible" :icon="UserPlus" :title="inviteLabel" :description="inviteDescription"
+                @submit="sendInvite">
+        <div class="flex flex-col gap-5">
+          <div>
+            <label for="invite-email" class="mb-2 block text-sm font-medium">Email</label>
+            <IconField>
+              <InputIcon><Mail :size="16" :stroke-width="1.75" aria-hidden="true" /></InputIcon>
+              <InputText id="invite-email" v-model="inviteEmail" type="email" placeholder="person@example.com" autocomplete="off" autofocus class="w-full" />
+            </IconField>
+            <p class="mt-1.5 text-[0.8125rem] text-muted-color">Use the address they'll sign in with.</p>
+          </div>
+          <div>
+            <label for="invite-name" class="mb-2 flex items-center justify-between text-sm font-medium">
+              Display name
+              <span class="text-xs font-normal text-muted-color">Optional</span>
+            </label>
+            <IconField>
+              <InputIcon><UserRound :size="16" :stroke-width="1.75" aria-hidden="true" /></InputIcon>
+              <InputText id="invite-name" v-model="inviteDisplayName" placeholder="Their name" autocomplete="off" class="w-full" />
+            </IconField>
+          </div>
         </div>
-        <div class="flex flex-col gap-1">
-          <label for="invite-name" class="text-sm font-medium">Display name (optional)</label>
-          <InputText id="invite-name" v-model="inviteDisplayName" placeholder="Their name" autocomplete="off" @keyup.enter="sendInvite" />
+
+        <div class="rounded-xl border border-surface-200 bg-surface-0 px-4 pt-3.5 pb-1 dark:border-surface-700 dark:bg-surface-900">
+          <p class="mb-2.5 text-sm font-semibold text-surface-950 dark:text-surface-0">They can accept by</p>
+          <ul>
+            <li v-for="method in signInMethods" :key="method.name"
+                class="flex items-center gap-3 border-t border-surface-100 py-2.5 dark:border-surface-800">
+              <img v-if="method.logo" :src="method.logo" alt="" class="h-5 w-5 shrink-0" />
+              <component :is="method.icon" v-else :size="20" :stroke-width="1.75" class="shrink-0 text-surface-600 dark:text-surface-300" aria-hidden="true" />
+              <span class="flex-1 text-sm text-surface-800 dark:text-surface-100">{{ method.name }}</span>
+              <Check :size="16" :stroke-width="2" class="shrink-0 text-emerald-500" aria-hidden="true" />
+            </li>
+          </ul>
         </div>
-        <p class="text-sm text-muted-color m-0">
-          They'll be able to accept by setting a password{{ providersHint }}.
-          Invite the email address they'll sign in with.
-        </p>
-      </div>
-      <template #footer>
-        <Button label="Cancel" severity="secondary" outlined @click="inviteDialogVisible = false" />
-        <Button label="Send invitation" :loading="inviting" @click="sendInvite" />
-      </template>
-    </Dialog>
+
+        <template #footer>
+          <Button type="button" label="Cancel" severity="secondary" outlined @click="inviteDialogVisible = false" />
+          <Button type="submit" label="Send invitation" icon="pi pi-send" :loading="inviting" :disabled="inviteEmail.trim() === ''" />
+        </template>
+    </FormDialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, markRaw, onMounted, ref, type Component } from 'vue'
 import Button from 'primevue/button'
-import Dialog from 'primevue/dialog'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 import Tag from 'primevue/tag'
 import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
+import { Check, Globe, KeyRound, Mail, ShieldCheck, UserPlus, UserRound } from '@lucide/vue'
+import githubLogo from '@/assets/github-icon.svg'
+import googleLogo from '@/assets/google-icon.svg'
+import microsoftLogo from '@/assets/microsoft_online-icon.svg'
 
 import {
   FunctionalIterablePage,
@@ -73,7 +99,7 @@ import {
 } from '@kinotic-ai/core'
 import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/management-api'
 
-import { CrudTable } from '@kinotic-ai/frontend-common'
+import { CrudTable, FormDialog } from '@kinotic-ai/frontend-common'
 import { PageHeader } from '@kinotic-ai/frontend-common'
 import { statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
@@ -116,6 +142,19 @@ const headers: CrudHeader[] = [
   { field: 'created', header: 'Created', sortable: false, width: '18%', optional: true }
 ]
 
+/** One way an invitee can accept, with the provider's logo or, for the rest, an icon. */
+interface SignInMethod {
+  name: string
+  logo?: string
+  icon?: Component
+}
+
+const PROVIDER_BRANDS: Record<string, { name: string, logo: string }> = {
+  google: { name: 'Google', logo: googleLogo },
+  'azure-ad': { name: 'Microsoft', logo: microsoftLogo },
+  github: { name: 'GitHub', logo: githubLogo }
+}
+
 const inviteDialogVisible = ref(false)
 const inviteEmail = ref('')
 const inviteDisplayName = ref('')
@@ -140,15 +179,18 @@ const membersDescription = computed<string>(() => {
       : 'Everyone in your organization, including pending invitations.'
 })
 
-const providersHint = computed<string>(() => {
-  if (props.applicationId !== null) {
-    return " or signing in with any provider configured for this application"
-  }
-  if (socialProviderKeys.value.length === 0) {
-    return ''
-  }
-  const names = socialProviderKeys.value.map(key => providerDisplayName(key))
-  return ' or signing in with ' + names.join(', ')
+const inviteDescription = computed<string>(() => {
+  return props.applicationId !== null
+      ? 'Send an invitation to sign in to this application.'
+      : 'Send an invitation to join your organization.'
+})
+
+// The ways an invitee can accept, one row each in the invite dialog
+const signInMethods = computed<SignInMethod[]>(() => {
+  const password: SignInMethod = { name: 'Setting a password', icon: markRaw(KeyRound) }
+  return props.applicationId !== null
+      ? [password, { name: 'Any provider configured for this application', icon: markRaw(ShieldCheck) }]
+      : [password, ...socialProviderKeys.value.map(providerMethod)]
 })
 
 onMounted(async () => {
@@ -230,13 +272,11 @@ function isSelf(item: MemberRow): boolean {
   return item.id === userState.connectedInfo?.participant?.id
 }
 
-function providerDisplayName(key: string): string {
-  switch (key) {
-    case 'google':   return 'Google'
-    case 'azure-ad': return 'Microsoft'
-    case 'github':   return 'GitHub'
-    default:         return key.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
-  }
+function providerMethod(key: string): SignInMethod {
+  const brand = PROVIDER_BRANDS[key]
+  return brand
+      ? { name: `Signing in with ${brand.name}`, logo: brand.logo }
+      : { name: `Signing in with ${key.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')}`, icon: markRaw(Globe) }
 }
 
 function openInviteDialog() {

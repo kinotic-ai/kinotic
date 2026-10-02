@@ -14,15 +14,15 @@
 
     <template v-if="latestRun">
       <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard :icon="CloudUpload" :tint="TINTS.sky" label="Status"
+        <StatCard :icon="CloudUpload" :tint="TINTS.purple" label="Status"
                   :detail="latestRun.started ? `Started ${DatetimeUtil.formatRelativeDate(latestRun.started)}` : undefined">
           <Tag :value="latestRun.status" :severity="executionStatusSeverity(latestRun.status)" />
         </StatCard>
-        <StatCard :icon="GitCommitHorizontal" :tint="TINTS.green" label="Commit" detail="the commit the latest run deploys">
+        <StatCard :icon="GitCommitHorizontal" :tint="TINTS.purple" label="Commit" detail="the commit the latest run deploys">
           <span class="font-mono text-2xl font-semibold tracking-tight text-surface-950 dark:text-surface-0"
                 v-tooltip.top="latestSha ?? undefined">{{ latestSha ? shortSha(latestSha) : '—' }}</span>
         </StatCard>
-        <StatCard :icon="Server" :tint="TINTS.orange" label="Microservices" :value="services.length"
+        <StatCard :icon="Server" :tint="TINTS.purple" label="Microservices" :value="services.length"
                   :detail="`${runningServices} running, each in a VM of its own`" />
         <StatCard :icon="LaptopMinimalCheck" :tint="TINTS.purple" label="Deploy runs" :value="deployRuns.length"
                   :detail="`${failedRuns} failed`" :to="`${basePath}/jobs`" />
@@ -33,7 +33,7 @@
       </Message>
 
       <div class="mb-4 grid gap-4 lg:grid-cols-3">
-        <DashboardSection :icon="Activity" :tint="TINTS.green" title="Workloads by status" :count="services.length">
+        <DashboardSection :icon="Activity" :tint="TINTS.purple" title="Workloads by status" :count="services.length">
           <div class="flex flex-col gap-4 p-5">
             <div v-for="bucket in statusBuckets" :key="bucket.label" :class="['border-l-[3px] pl-3', bucket.border]">
               <div class="text-2xl font-semibold leading-7 tabular-nums text-surface-950 dark:text-surface-0">{{ bucket.count }}</div>
@@ -42,7 +42,7 @@
           </div>
         </DashboardSection>
 
-        <DashboardSection :icon="Network" :tint="TINTS.sky" title="Placement" :count="placement.length"
+        <DashboardSection :icon="Network" :tint="TINTS.purple" title="Placement" :count="placement.length"
                           description="The worker nodes the microservices run on.">
           <EmptyChartCharacter v-if="placement.length === 0" class="py-6" title="No microservice has been placed on a node" />
           <div v-else class="divide-y divide-surface-100 px-5 py-2 text-sm dark:divide-surface-800">
@@ -76,10 +76,10 @@
       </div>
 
       <div class="flex flex-col gap-4">
-        <DashboardSection :icon="LaptopMinimalCheck" :tint="TINTS.blue" title="Latest deployment run"
+        <DashboardSection :icon="LaptopMinimalCheck" :tint="TINTS.purple" title="Latest deployment run"
                           description="Each step of the latest deploy run, live while it runs; open a step for its detail.">
           <div class="p-5">
-            <JobRunProgress :key="latestRun.id ?? ''" :job-run-id="latestRun.id ?? ''" :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf">
+            <JobRunProgress :key="latestRun.id ?? ''" :job-run-id="latestRun.id ?? ''" :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf" :failure-of="ProjectDeployResultNames.failureOf">
               <template #detail="{ node, root }">
                 <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
               </template>
@@ -87,7 +87,7 @@
           </div>
         </DashboardSection>
 
-        <DashboardSection :icon="Server" :tint="TINTS.orange" title="Runtime workloads" :count="services.length"
+        <DashboardSection :icon="Server" :tint="TINTS.purple" title="Runtime workloads" :count="services.length"
                           description="The microservice VMs this project's deployments have left running, where the platform placed them, and what an operator can do about each.">
           <!-- WorkloadsTable brings its own search bar and paginator, which need the card's padding -->
           <div v-if="services.length > 0" class="p-4">
@@ -96,7 +96,7 @@
           <EmptyChartCharacter v-else class="py-6" title="No microservice workload is running" />
         </DashboardSection>
 
-        <DashboardSection :icon="Clock" :tint="TINTS.sky" title="Previous runs" :count="previousRuns.length"
+        <DashboardSection :icon="Clock" :tint="TINTS.purple" title="Previous runs" :count="previousRuns.length"
                           description="Earlier deployments of this project. Open one to see its tasks.">
           <DataTable v-if="previousRuns.length > 0" :value="previousRuns" size="small" class="text-sm" row-hover
                      @row-click="openRun($event.data)">

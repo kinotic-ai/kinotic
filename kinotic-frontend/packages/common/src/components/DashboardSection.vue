@@ -7,7 +7,7 @@
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2">
           <h2 class="text-sm font-semibold text-surface-950 dark:text-surface-0">{{ title }}</h2>
-          <span v-if="count !== undefined" class="rounded-md bg-surface-100 px-1.5 text-xs font-medium tabular-nums text-surface-600 dark:bg-surface-800 dark:text-surface-300">{{ count }}</span>
+          <span v-if="count !== undefined" class="rounded-md bg-indigo-50 px-1.5 text-xs font-semibold tabular-nums text-indigo-600 ring-1 ring-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-300 dark:ring-indigo-500/30">{{ count }}</span>
         </div>
         <p v-if="description" class="mt-0.5 max-w-[860px] text-xs leading-5 text-muted-color">{{ description }}</p>
       </div>
@@ -18,7 +18,7 @@
       </RouterLink>
       <slot name="actions" />
     </div>
-    <div class="flex-1">
+    <div class="dashboard-section__body flex-1">
       <slot />
     </div>
   </section>
@@ -32,7 +32,8 @@ import { ArrowUpRight } from '@lucide/vue'
 /**
  * A titled card on a dashboard page: a tinted icon, the title with an optional count badge, an
  * optional line saying what the section shows and an optional link at the right, then the
- * section's content edge to edge beneath a divider, so a table's rows reach the card's sides.
+ * section's content edge to edge beneath a divider, so a table's rows reach the card's sides
+ * while its first and last columns line up with the header's icon and link.
  */
 withDefaults(defineProps<{
   icon: Component
@@ -48,3 +49,31 @@ withDefaults(defineProps<{
   linkLabel: 'View all'
 })
 </script>
+
+<style>
+/* A table in a section runs edge to edge, so the card's border closes its last row */
+.dashboard-section__body .p-datatable-tbody > tr:last-child > td {
+  border-bottom-width: 0;
+}
+
+/* One type scale for a section's table: muted headers and every cell at the 13px CrudTable's
+   rows use, so a cell's font (mono for names and ids, sans for prose) is its only variation */
+.dashboard-section__body .p-datatable-thead > tr > th {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--p-text-muted-color);
+}
+
+.dashboard-section__body .p-datatable-tbody > tr > td {
+  font-size: 0.8125rem;
+}
+
+.dashboard-section__body .p-datatable .p-button {
+  font-size: 0.8125rem;
+}
+
+/* Status tags read as part of the row's monospace data, as in CrudTable */
+.dashboard-section__body .p-datatable .p-tag {
+  font-family: var(--font-mono);
+}
+</style>

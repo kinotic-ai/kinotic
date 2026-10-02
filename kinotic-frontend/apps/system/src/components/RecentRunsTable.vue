@@ -1,5 +1,5 @@
 <template>
-  <DashboardSection :icon="LaptopMinimalCheck" :tint="TINTS.blue" title="Recent runs" :count="runs.length"
+  <DashboardSection :icon="LaptopMinimalCheck" :tint="tint" title="Recent runs" :count="runs.length"
                     description="The latest job runs; open one for its tasks." :link-to="listPath">
     <EmptyChartCharacter v-if="runs.length === 0" class="py-6" title="No runs yet" />
     <DataTable v-else :value="runs" size="small" class="text-sm" row-hover @row-click="open($event.data)">
@@ -43,7 +43,7 @@ import Tag from 'primevue/tag'
 
 import { StatusConditionType, findStatusCondition, type JobRun, type StatusCondition } from '@kinotic-ai/management-api'
 import { LaptopMinimalCheck } from '@lucide/vue'
-import { DashboardSection, DatetimeUtil, TimePill, TINTS, executionStatusSeverity, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, TimePill, executionStatusSeverity, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 
 import { scopePath, type Scope } from '@/util/scope'
 
@@ -53,6 +53,8 @@ import { scopePath, type Scope } from '@/util/scope'
  * an organization.
  */
 const props = defineProps<{
+  /** The icon tint of the page it sits on, one of TINTS. */
+  tint: string
   runs: JobRun[]
   scope: Scope
 }>()

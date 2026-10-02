@@ -1,5 +1,5 @@
 <template>
-  <DashboardSection :icon="ChartColumn" :tint="TINTS.purple" :title="`Job runs, last ${days} days`"
+  <DashboardSection :icon="ChartColumn" :tint="tint" :title="`Job runs, last ${days} days`"
                     description="Per day, and how many failed." :link-to="viewAllTo">
     <div v-if="runs.length === 0" class="flex h-44 items-center justify-center text-sm text-muted-color">
       No runs in the last {{ days }} days
@@ -18,7 +18,7 @@ import { ChartColumn } from '@lucide/vue'
 import VChart from 'vue-echarts'
 
 import { ExecutionStatus, type JobRun } from '@kinotic-ai/management-api'
-import { DashboardSection, DatetimeUtil, TINTS, accentColor, chartGridColor, chartLegend, chartTextColor, isDark } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, accentColor, chartGridColor, chartLegend, chartTextColor, isDark } from '@kinotic-ai/frontend-common'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -27,6 +27,8 @@ const DAY_MS = 24 * 60 * 60 * 1000
  * that completed, and the ones that failed. Runs still going or cancelled are not drawn.
  */
 const props = withDefaults(defineProps<{
+  /** The icon tint of the page it sits on, one of TINTS. */
+  tint: string
   runs: JobRun[]
   days?: number
   viewAllTo?: RouteLocationRaw

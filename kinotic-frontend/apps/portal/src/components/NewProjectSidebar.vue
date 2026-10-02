@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import { showErrorToast } from '@kinotic-ai/frontend-common';
@@ -14,6 +14,8 @@ import Button from 'primevue/button';
 import ToggleSwitch from 'primevue/toggleswitch';
 import { createDebug } from '@kinotic-ai/frontend-common';
 import { FormDrawer } from '@kinotic-ai/frontend-common'
+import CreationStatus from '@/components/CreationStatus.vue';
+import { useCreationPhase } from '@/composables/useCreationPhase';
 
 const debug = createDebug('new-project-sidebar');
 
@@ -43,7 +45,18 @@ const form = ref<ProjectForm>({
     repoPrivate: true
 });
 
-const loading = ref(false);
+const { phase, create, holdReady } = useCreationPhase();
+const created = ref<Project | null>(null);
+
+// Each step reflects what the one create request has actually done so far
+const setupSteps = computed(() => {
+    const ready = phase.value === 'ready';
+    return [
+        { label: `Saving ${form.value.name.trim()}`, done: ready, active: !ready },
+        { label: ready ? `Created ${created.value?.repoFullName}` : 'Creating its GitHub repository', done: ready, active: false },
+        { label: 'Ready', done: ready, active: false }
+    ];
+});
 
 /** null = checking; false = no install (prompt to link); true = install present (show form). */
 const githubLinked = ref<boolean | null>(null);
@@ -70,12 +83,11 @@ async function onVisibleChanged(isOpen: boolean): Promise<void> {
 
 
 async function handleSubmit(): Promise<void> {
-    loading.value = true;
     try {
         const app = APPLICATION_STATE.currentApplication;
         if (!app) throw new Error('No current application selected');
 
-        const project = new Project(null, app.id, form.value.name, form.value.description);
+        const project = new Project(null, app.id, form.value.name.trim(), form.value.description);
         project.organizationId = USER_STATE.getOrganizationId();
         project.sourceOfTruth = ProjectType.TYPESCRIPT;
         project.repoPrivate = form.value.repoPrivate;
@@ -85,17 +97,9 @@ async function handleSubmit(): Promise<void> {
         // metadata on the project before persisting. Fails if a project with the
         // derived id already exists. createSync so the list re-query the submit
         // handler fires sees the new project rather than a pre-refresh index.
-        const createdProject = await Kinotic.projects.createSync(project);
-
-        toast.add({
-            severity: 'success',
-            summary: 'Success',
-            detail: 'Project successfully added',
-            life: 3000
-        });
-
-        resetForm();
-        emit('submit', createdProject);
+        created.value = await create(() => Kinotic.projects.createSync(project));
+        await holdReady();
+        finish();
     } catch (error) {
         debug('Failed to create project: %O', error);
         const message = (error as Error)?.message ?? '';
@@ -104,14 +108,25 @@ async function handleSubmit(): Promise<void> {
         } else {
             showErrorToast(toast, 'Failed to create project', error);
         }
-    } finally {
-        loading.value = false;
+    }
+}
+
+// Hands the created project to the page once, whether the hold ran out or the user closed early
+function finish(): void {
+    const createdProject = created.value;
+    if (createdProject) {
+        resetForm();
+        emit('submit', createdProject);
     }
 }
 
 function handleClose(): void {
-    resetForm();
-    emit('close');
+    if (phase.value === 'ready') {
+        finish();
+    } else if (phase.value === 'form') {
+        resetForm();
+        emit('close');
+    }
 }
 
 /**
@@ -153,6 +168,8 @@ function resetForm(): void {
         description: '',
         repoPrivate: true
     };
+    phase.value = 'form';
+    created.value = null;
 }
 </script>
 
@@ -184,36 +201,51 @@ function resetForm(): void {
             Checking GitHub link…
         </div>
 
-        <!-- Project form -->
-        <form v-else id="new-project-form" class="flex flex-col gap-5" @submit.prevent="handleSubmit">
-            <div>
-                <label for="new-project-name" class="mb-2 block text-sm font-medium">Name</label>
-                <InputText id="new-project-name" v-model="form.name" placeholder="Project name" required class="w-full" autofocus />
-            </div>
-
-            <div>
-                <label for="new-project-description" class="mb-2 block text-sm font-medium">Description</label>
-                <Textarea id="new-project-description" v-model="form.description" rows="3" class="w-full" />
-                <p class="mt-1.5 text-[0.8125rem] text-surface-500 dark:text-surface-400">Optional.</p>
-            </div>
-
-            <div class="flex items-center justify-between gap-4 border-t border-surface-200 pt-5 dark:border-surface-800">
+        <!-- Project form, then its creation progress -->
+        <div v-else class="flex h-full flex-col">
+            <form v-if="phase === 'form'" id="new-project-form" class="flex flex-col gap-5" @submit.prevent="handleSubmit">
                 <div>
-                    <label for="new-project-private" class="block text-sm font-medium">Private repository</label>
-                    <p class="mt-1.5 text-[0.8125rem] text-surface-500 dark:text-surface-400">
-                        Visibility of the GitHub repo created for this project.
-                    </p>
+                    <label for="new-project-name" class="mb-2 block text-sm font-medium">Name</label>
+                    <InputText id="new-project-name" v-model="form.name" placeholder="Project name" required class="w-full" autofocus />
                 </div>
-                <ToggleSwitch inputId="new-project-private" v-model="form.repoPrivate" />
-            </div>
-        </form>
+
+                <div>
+                    <label for="new-project-description" class="mb-2 block text-sm font-medium">Description</label>
+                    <Textarea id="new-project-description" v-model="form.description" rows="3" class="w-full" />
+                    <p class="mt-1.5 text-[0.8125rem] text-surface-500 dark:text-surface-400">Optional.</p>
+                </div>
+
+                <div class="flex items-center justify-between gap-4 border-t border-surface-200 pt-5 dark:border-surface-800">
+                    <div>
+                        <label for="new-project-private" class="block text-sm font-medium">Private repository</label>
+                        <p class="mt-1.5 text-[0.8125rem] text-surface-500 dark:text-surface-400">
+                            Visibility of the GitHub repo created for this project.
+                        </p>
+                    </div>
+                    <ToggleSwitch inputId="new-project-private" v-model="form.repoPrivate" />
+                </div>
+            </form>
+
+            <CreationStatus
+                :phase="phase"
+                :name="form.name.trim()"
+                hint="Name your project and Kinotic creates its GitHub repository."
+                next-step="Next, connect it from Claude Code and build."
+                :steps="setupSteps"
+            />
+        </div>
 
         <template #footer>
-            <Button type="button" severity="secondary" variant="outlined" label="Cancel" @click="handleClose" />
+            <Button v-if="phase !== 'ready'" type="button" severity="secondary" variant="outlined" label="Cancel"
+                    :disabled="phase === 'creating'" @click="handleClose" />
             <Button v-if="linkingState === 'error'" type="button" label="Try again" @click="linkGitHub" />
             <Button v-else-if="linkingState === 'idle' && githubLinked === false" type="button" label="Link GitHub" @click="linkGitHub" />
-            <Button v-else-if="linkingState === 'idle' && githubLinked === true" type="submit" form="new-project-form"
-                    :loading="loading" :disabled="loading" label="Create project" />
+            <template v-else-if="linkingState === 'idle' && githubLinked === true">
+                <Button v-if="phase === 'form'" type="submit" form="new-project-form"
+                        :disabled="form.name.trim() === ''" label="Create project" />
+                <Button v-else-if="phase === 'creating'" type="button" :loading="true" label="Creating…" />
+                <Button v-else type="button" label="Done" @click="finish" />
+            </template>
         </template>
     </FormDrawer>
 </template>

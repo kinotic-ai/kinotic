@@ -4,7 +4,7 @@
       <template #eyebrow>
         <RouterLink :to="listPath" class="hover:underline">Jobs</RouterLink>
         <i class="pi pi-chevron-right" :style="{ fontSize: '10px' }" />
-        <span class="truncate font-mono">{{ jobRunId }}</span>
+        <span class="inline-flex min-w-0 items-center rounded-full border border-surface-200 bg-surface-100 px-2.5 py-0.5 font-mono text-xs text-surface-600 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300"><span class="truncate">{{ jobRunId }}</span></span>
       </template>
       <template #actions>
         <Button v-if="owningOrganizationPath" :label="`Open ${owningOrganizationId}`" icon="pi pi-building" severity="secondary" outlined
@@ -12,7 +12,7 @@
       </template>
     </PageHeader>
 
-    <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf">
+    <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf" :failure-of="ProjectDeployResultNames.failureOf">
       <template #detail="{ node, root }">
         <ProjectDeployTaskDetail :organization-id="scope.organizationId ?? owningOrganizationId" :node="node" :root="root" />
       </template>

@@ -13,20 +13,20 @@
     @on-row-click="row => emit('open', row.id)"
   >
     <template #item.name="{ item }">
-      <span class="block max-w-[24rem] truncate" v-tooltip.top="item.description || item.name">{{ item.name }}</span>
+      <span class="block max-w-full truncate font-sans text-sm font-semibold text-surface-950 dark:text-surface-0"
+            v-tooltip.top="item.description || item.name">{{ item.name }}</span>
+      <span v-if="ownerHeader" class="mt-0.5 block max-w-full truncate text-xs text-muted-color" v-tooltip.top="item.owner ?? undefined">
+        {{ item.owner ?? ownerFallback }}
+      </span>
     </template>
 
     <template #item.status="{ item }">
       <Tag :value="item.status" :severity="executionStatusSeverity(item.status)" />
     </template>
 
-    <template #item.owner="{ item }">
-      <span v-if="item.owner" class="font-mono text-sm">{{ item.owner }}</span>
-      <span v-else class="text-muted-color">{{ ownerFallback }}</span>
-    </template>
-
     <template #item.nodeId="{ item }">
-      <span v-if="item.nodeId" class="font-mono text-xs">{{ item.nodeId }}</span>
+      <span v-if="item.nodeId" class="rounded-md bg-surface-100 px-1.5 py-0.5 text-xs text-surface-600 dark:bg-surface-800 dark:text-surface-300"
+            v-tooltip.top="item.nodeId">{{ item.nodeId.split('-')[0] }}</span>
       <span v-else>—</span>
     </template>
 
@@ -35,7 +35,7 @@
     </template>
 
     <template #item.duration="{ item }">
-      <span class="font-mono text-xs tabular-nums">{{ formatDuration(item.started, item.finished) }}</span>
+      <span class="text-xs tabular-nums text-surface-600 dark:text-surface-300">{{ formatDuration(item.started, item.finished) }}</span>
     </template>
   </CrudTable>
 </template>
@@ -58,9 +58,9 @@ import { scanJobRuns, type JobRunFilter } from './jobRunScan'
 /**
  * The job runs the caller may view, most recently started first, narrowed to a scope when one
  * is given: an organization's runs ({@code organizationId}, null for the runs with none), one
- * of its applications', one of its projects', or the runs in one status. The owner column
- * names what the scope leaves unsaid — the organization, the application, or the project —
- * and disappears inside a project. Emits open with the run id when a row is clicked;
+ * of its applications', one of its projects', or the runs in one status. Under each run's name
+ * sits what the scope leaves unsaid — the organization, the application, or the project —
+ * and nothing inside a project. Emits open with the run id when a row is clicked;
  * refresh() reloads the table.
  */
 const props = defineProps<{
@@ -118,16 +118,13 @@ const ownerFallback = computed(() => {
 
 const headers = computed<CrudHeader[]>(() => {
   const ret: CrudHeader[] = [
-    { field: 'name', header: 'Name', sortable: true },
-    { field: 'status', header: 'Status', sortable: false }
+    { field: 'name', header: 'Name', sortable: true, width: '38%' },
+    { field: 'status', header: 'Status', sortable: false, width: '14%' }
   ]
-  if (ownerHeader.value) {
-    ret.push({ field: 'owner', header: ownerHeader.value, sortable: false, optional: true })
-  }
   ret.push(
-    { field: 'nodeId', header: 'Ran on', sortable: false, optional: true },
-    { field: 'started', header: 'Started', sortable: true, optional: true },
-    { field: 'duration', header: 'Duration', sortable: false, width: '8rem' }
+    { field: 'nodeId', header: 'Ran on', sortable: false, optional: true, width: '16%' },
+    { field: 'started', header: 'Started', sortable: true, optional: true, width: '18%' },
+    { field: 'duration', header: 'Duration', sortable: false, width: '14%' }
   )
   return ret
 })

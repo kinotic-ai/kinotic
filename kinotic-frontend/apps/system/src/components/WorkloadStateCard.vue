@@ -1,5 +1,5 @@
 <template>
-  <DashboardSection :icon="Boxes" :tint="TINTS.sky" title="Workloads by state" :count="workloads.length"
+  <DashboardSection :icon="Boxes" :tint="tint" title="Workloads by state" :count="workloads.length"
                     :description="description" :link-to="viewAllTo">
     <div v-if="workloads.length === 0" class="py-8 text-center text-sm text-muted-color">
       No workloads
@@ -23,24 +23,33 @@ import type { RouteLocationRaw } from 'vue-router'
 import { Boxes } from '@lucide/vue'
 
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
-import { accentColor, DashboardSection, isDark, TINTS, type ChartAccent } from '@kinotic-ai/frontend-common'
+import { accentColor, DashboardSection, isDark, type ChartAccent } from '@kinotic-ai/frontend-common'
 
 import CapacityBar from './CapacityBar.vue'
 import { WORKLOAD_STATES, countByStatus, workloadStateLabel } from '@/util/workloads'
 
-// Theme accents validated for adjacent-pair separation in both modes; STOPPED is a deliberate
-// achromatic neutral, and every row carries its label and count, so identity is never color alone
-const ACCENT_BY_STATE: Record<WorkloadStatus, ChartAccent | null> = {
+// The states take the platform's status colours: green running, sky on the way up or down, red
+// failed, and neutral greys for waiting and stopped; every row carries its label and count, so
+// identity is never color alone
+const ACCENT_BY_STATE: Record<WorkloadStatus, ChartAccent | 'waiting' | 'stopped'> = {
   [WorkloadStatus.RUNNING]: 'green',
   [WorkloadStatus.STARTING]: 'sky',
-  [WorkloadStatus.PENDING]: 'violet',
-  [WorkloadStatus.STOPPING]: 'amber',
-  [WorkloadStatus.STOPPED]: null,
+  [WorkloadStatus.PENDING]: 'waiting',
+  [WorkloadStatus.STOPPING]: 'sky',
+  [WorkloadStatus.STOPPED]: 'stopped',
   [WorkloadStatus.FAILED]: 'red'
+}
+
+// The neutral greys: waiting is the lighter, so it reads as not yet started beside stopped
+const NEUTRALS = {
+  waiting: { light: '#A1A1AA', dark: '#71717A' },
+  stopped: { light: '#52525B', dark: '#A1A1AA' }
 }
 
 /** The state breakdown of the given workloads: one bar per state, longest first, with its count. */
 const props = defineProps<{
+  /** The icon tint of the page it sits on, one of TINTS. */
+  tint: string
   workloads: Workload[]
   description: string
   viewAllTo?: RouteLocationRaw
@@ -56,7 +65,9 @@ const rows = computed(() => {
       label: workloadStateLabel(state),
       count: counts[state],
       pct: Math.round((counts[state] / max) * 100),
-      color: accent ? accentColor(accent, isDark.value) : (isDark.value ? '#9CA3AF' : '#6B7280')
+      color: accent === 'waiting' || accent === 'stopped'
+        ? NEUTRALS[accent][isDark.value ? 'dark' : 'light']
+        : accentColor(accent, isDark.value)
     }
   })
 })
