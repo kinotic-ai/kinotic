@@ -1,1 +1,0 @@
-{"id":"8dcc8270af24e711640cf4464f6b9c47","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenOptionsOutOfOrder_thenEachStillLandsOnItsOwnField","name":"whenOptionsOutOfOrder_thenEachStillLandsOnItsOwnField()","status":"passed","testResultsByEnv":{"default":"6c243ee4653cf4c19b7cc9e30c45815f"}}
