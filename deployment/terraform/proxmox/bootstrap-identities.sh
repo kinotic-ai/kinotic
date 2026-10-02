@@ -11,6 +11,10 @@
 # /etc/kinotic/vm-manager.secrets.env and are never written locally. Each node's vm-manager is
 # restarted with its new credentials.
 #
+# ADMIN_SECRET_HASH, the bcrypt hash of a password the admin already has (its
+# kinotic_identity_credential's secretHash, read before the cluster was emptied), keeps that
+# password; no password file is written.
+#
 # Runs from the machine that applies this root: terraform, htpasswd, ssh to the host and the nodes.
 set -euo pipefail
 
@@ -27,8 +31,8 @@ bcrypt() { htpasswd -bnBC 12 "" "$1" | tr -d ':\n'; }
 es() { ssh "root@$HOST" "curl -sf -H 'Content-Type: application/json' $*"; }
 
 # A participant identity and its credential, as the bulk API takes them
-rows() {   # <id> <secret> <identity json>
-  python3 - "$1" "$(bcrypt "$2")" "$3" <<'PY'
+rows() {   # <id> <secret hash> <identity json>
+  python3 - "$1" "$2" "$3" <<'PY'
 import json, sys
 _id, secret_hash, identity = sys.argv[1:]
 print(json.dumps({"index": {"_index": "kinotic_participant_identity", "_id": _id}}))
@@ -52,20 +56,29 @@ if [[ "$existing" != "0" ]]; then
 fi
 
 admin_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
-admin_password="$(secret 24)"
-rows "$admin_id" "$admin_password" \
+if [[ -n "${ADMIN_SECRET_HASH:-}" ]]; then
+  admin_hash="$ADMIN_SECRET_HASH"
+else
+  admin_password="$(secret 24)"
+  admin_hash="$(bcrypt "$admin_password")"
+fi
+rows "$admin_id" "$admin_hash" \
   "{\"id\":\"$admin_id\",\"type\":\"USER\",\"email\":\"$ADMIN_EMAIL\",\"displayName\":\"$ADMIN_EMAIL\",\"authType\":\"LOCAL\",\"enabled\":true,\"created\":\"$NOW\",\"updated\":\"$NOW\"}" \
   | bulk
-password_file="$(mktemp -t kinotic-system-admin)"
-echo "$admin_password" > "$password_file"
-echo "==> System user $ADMIN_EMAIL; its password is in $password_file, delete it once saved"
+if [[ -n "${ADMIN_SECRET_HASH:-}" ]]; then
+  echo "==> System user $ADMIN_EMAIL, with the password it already had"
+else
+  password_file="$(mktemp -t kinotic-system-admin)"
+  echo "$admin_password" > "$password_file"
+  echo "==> System user $ADMIN_EMAIL; its password is in $password_file, delete it once saved"
+fi
 
 for arg in "$@"; do
   target="${arg%%=*}"
   node="${arg#*=}"
   machine_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
   machine_secret="$(secret 40)"
-  rows "$machine_id" "$machine_secret" \
+  rows "$machine_id" "$(bcrypt "$machine_secret")" \
     "{\"id\":\"$machine_id\",\"type\":\"MACHINE\",\"machineKind\":\"CLIENT\",\"displayName\":\"$node vm-manager\",\"authType\":\"CLIENT_CREDENTIALS\",\"enabled\":true,\"created\":\"$NOW\",\"updated\":\"$NOW\"}" \
     | bulk
   printf 'KINOTIC_CLIENT_ID=%s\nKINOTIC_CLIENT_SECRET=%s\n' "$machine_id" "$machine_secret" \
