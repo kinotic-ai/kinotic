@@ -34,6 +34,8 @@ declare module 'vue' {
     JobRunDetail: typeof import('./src/components/JobRunDetail.vue')['default']
     MicroserviceDeploymentsTable: typeof import('./src/components/MicroserviceDeploymentsTable.vue')['default']
     NewProjectSidebar: typeof import('./src/components/NewProjectSidebar.vue')['default']
+    NotificationDrawer: typeof import('./src/components/NotificationDrawer.vue')['default']
+    NotificationSettings: typeof import('./src/components/NotificationSettings.vue')['default']
     ObjectNode: typeof import('./src/components/nodes/ObjectNode.vue')['default']
     ProjectList: typeof import('./src/components/ProjectList.vue')['default']
     PropertyType: typeof import('./src/components/entity-definitions/flow-components/PropertyType.vue')['default']
