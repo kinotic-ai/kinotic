@@ -11,4 +11,11 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties
 @ComponentScan
 public class KinoticSqlLibrary {
+
+    /**
+     * The name of the {@code ElasticsearchAsyncClient} bean that the {@code MigrationExecutor} and the statement
+     * executors run against. An application using this library must provide a bean with this name.
+     */
+    public static final String ELASTIC_CLIENT = "kinoticSqlElasticClient";
+
 }

@@ -2,10 +2,19 @@
 kinotic:
   debug: true
   domain:
-    elastic-connections:
-      - scheme: "http"
-        host: "localhost"
-        port: "9200"
+    # the cluster that stores the platform's domain objects
+    elastic:
+      connections:
+        - scheme: "http"
+          host: "localhost"
+          port: "9200"
+    # the cluster that stores entity data
+    persistence:
+      elastic:
+        connections:
+          - scheme: "http"
+            host: "localhost"
+            port: "9200"
     secretStorage:
       backend: ~
       # The management server's dev key: SecretNameDeriver must derive the same storage names on every

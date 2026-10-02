@@ -2,6 +2,7 @@ package org.kinotic.persistence.internal.api.services.sql;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
@@ -30,6 +31,7 @@ import org.kinotic.sql.domain.statements.UpdateStatement;
 import org.kinotic.sql.executor.ElasticsearchSqlWriter;
 import org.kinotic.sql.executor.StatementExecutor;
 import org.kinotic.sql.parsers.MigrationParser;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -48,6 +50,7 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
     private final MigrationParser migrationParser;
     private final EntityStatementResolver entityStatementResolver;
     private final List<StatementExecutor<?, ?>> statementExecutors;
+    @Qualifier(DomainUtil.ENTITY_DATA_CRUD_SERVICE_TEMPLATE)
     private final CrudServiceTemplate crudServiceTemplate;
     private final ReadPreProcessor readPreProcessor;
     private final ReadPostProcessor readPostProcessor;

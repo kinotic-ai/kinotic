@@ -96,9 +96,16 @@ spec:
             # The service_instance_id label Alloy gives this pod's logs
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: "service.instance.id=$(POD_NAME)"
-            - name: KINOTIC_DOMAIN_ELASTICUSERNAME
+            - name: KINOTIC_DOMAIN_ELASTIC_USERNAME
               value: "{{ $.Values.kinotic.elastic.username }}"
-            - name: KINOTIC_DOMAIN_ELASTICPASSWORD
+            - name: KINOTIC_DOMAIN_ELASTIC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.kinotic.elastic.secretName }}
+                  key: {{ $.Values.kinotic.elastic.secretKey }}
+            - name: KINOTIC_DOMAIN_PERSISTENCE_ELASTIC_USERNAME
+              value: "{{ $.Values.kinotic.elastic.username }}"
+            - name: KINOTIC_DOMAIN_PERSISTENCE_ELASTIC_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ $.Values.kinotic.elastic.secretName }}

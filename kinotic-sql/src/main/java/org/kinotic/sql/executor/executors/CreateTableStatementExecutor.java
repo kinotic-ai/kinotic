@@ -1,5 +1,7 @@
 package org.kinotic.sql.executor.executors;
 
+import org.kinotic.sql.KinoticSqlLibrary;
+import org.springframework.beans.factory.annotation.Qualifier;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.mapping.DynamicMapping;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
@@ -22,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 @Component
 @RequiredArgsConstructor
 public class CreateTableStatementExecutor implements StatementExecutor<CreateTableStatement, Void> {
+    @Qualifier(KinoticSqlLibrary.ELASTIC_CLIENT)
     private final ElasticsearchAsyncClient client;
 
     @Override

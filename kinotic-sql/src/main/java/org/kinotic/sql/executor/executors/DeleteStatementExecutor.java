@@ -1,5 +1,7 @@
 package org.kinotic.sql.executor.executors;
 
+import org.kinotic.sql.KinoticSqlLibrary;
+import org.springframework.beans.factory.annotation.Qualifier;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch.core.DeleteByQueryResponse;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 @Component
 @RequiredArgsConstructor
 public class DeleteStatementExecutor implements StatementExecutor<DeleteStatement, Long> {
+    @Qualifier(KinoticSqlLibrary.ELASTIC_CLIENT)
     private final ElasticsearchAsyncClient client;
 
     @Override

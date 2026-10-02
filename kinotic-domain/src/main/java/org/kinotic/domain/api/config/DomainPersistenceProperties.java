@@ -1,6 +1,8 @@
 package org.kinotic.domain.api.config;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -25,5 +27,13 @@ public class DomainPersistenceProperties {
      */
     @NotBlank
     private String tenantIdFieldName = "tenantId";
+
+    /**
+     * The Elasticsearch cluster that stores entity data: the indices, index templates and data streams of published
+     * {@code EntityDefinition}s and the documents saved to them.
+     */
+    @Valid
+    @NotNull
+    private ElasticClusterProperties elastic = new ElasticClusterProperties();
 
 }

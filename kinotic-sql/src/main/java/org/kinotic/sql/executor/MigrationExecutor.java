@@ -4,11 +4,13 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch.core.search.TotalHits;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
+import org.kinotic.sql.KinoticSqlLibrary;
 import org.kinotic.sql.domain.Migration;
 import org.kinotic.sql.domain.MigrationContent;
 import org.kinotic.sql.domain.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -35,7 +37,7 @@ public class MigrationExecutor {
     private final ElasticsearchAsyncClient client;
     private final List<StatementExecutor<?, ?>> executors;
 
-    public MigrationExecutor(ElasticsearchAsyncClient client, 
+    public MigrationExecutor(@Qualifier(KinoticSqlLibrary.ELASTIC_CLIENT) ElasticsearchAsyncClient client,
                              List<StatementExecutor<?, ?>> executors) {
         this.client = client;
         this.executors = executors;
