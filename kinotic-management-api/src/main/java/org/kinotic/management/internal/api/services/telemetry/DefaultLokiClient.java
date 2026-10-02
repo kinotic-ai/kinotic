@@ -32,8 +32,8 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
     private static final String TAIL_PATH = "/loki/api/v1/tail";
     private static final String DELETE_PATH = "/loki/api/v1/delete";
     // Loki sends a tail response of up to 100 entries, each with its stream's labels, as a single WebSocket
-    // frame; the Vert.x default of 64 KB fails a tail on a batch of long lines, so this allows 2 MB
-    private static final int TAIL_MAX_MESSAGE_BYTES = 2 * 1024 * 1024;
+    // frame; the Vert.x default of 64 KB fails a tail on a batch of long lines, so this allows 10 MB
+    private static final int TAIL_MAX_MESSAGE_BYTES = 10 * 1024 * 1024;
 
     private final String lokiUrl;
     private WebSocketClient webSocketClient;

@@ -27,7 +27,7 @@ public interface LokiClient {
      * Opens a Loki {@code tail} WebSocket and emits each tail frame's raw bytes, carrying the entries
      * that arrive from the moment it opens; earlier entries are read with {@link #queryRange}. The
      * WebSocket is closed when the returned {@link Flux} is cancelled or completed, and the Flux fails
-     * on a frame larger than 2 MB.
+     * on a frame larger than 10 MB.
      *
      * @param tenant the Loki tenant ({@code X-Scope-OrgID})
      * @param query  the LogQL query to follow
