@@ -89,10 +89,7 @@
 
         <DashboardSection :icon="Server" :tint="TINTS.purple" title="Runtime workloads" :count="services.length"
                           description="The microservice VMs this project's deployments have left running, where the platform placed them, and what an operator can do about each.">
-          <!-- WorkloadsTable brings its own search bar and paginator, which need the card's padding -->
-          <div v-if="services.length > 0" class="p-4">
-            <WorkloadsTable :workloads="services" :scope="scope" :node-names="nodeNames" @changed="load" />
-          </div>
+          <WorkloadsTable v-if="services.length > 0" :workloads="services" :scope="scope" :node-names="nodeNames" @changed="load" />
           <EmptyChartCharacter v-else class="py-6" title="No microservice workload is running" />
         </DashboardSection>
 

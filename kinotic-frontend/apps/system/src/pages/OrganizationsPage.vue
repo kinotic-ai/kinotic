@@ -45,24 +45,18 @@
       </template>
 
       <template #item.applications="{ item }">
-        <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-surface-100 px-2 py-0.5 font-sans text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-200">
-          <LayoutGrid :size="13" :stroke-width="1.75" aria-hidden="true" />
-          <span class="tabular-nums">{{ item.applications ?? '—' }} {{ item.applications === 1 ? 'app' : 'apps' }}</span>
-        </span>
+        <TableChip :icon="LayoutGrid">{{ item.applications ?? '—' }} {{ item.applications === 1 ? 'app' : 'apps' }}</TableChip>
       </template>
 
       <template #item.running="{ item }">
-        <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-surface-100 px-2 py-0.5 font-sans text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-200">
+        <TableChip>
           <span :class="['h-2 w-2 rounded-full', item.running > 0 ? 'bg-green-500' : 'bg-surface-400']" aria-hidden="true" />
-          <span class="tabular-nums">{{ item.running }} running</span>
-        </span>
+          {{ item.running }} running
+        </TableChip>
       </template>
 
       <template #item.members="{ item }">
-        <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-surface-100 px-2 py-0.5 font-sans text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-200">
-          <Users :size="13" :stroke-width="1.75" aria-hidden="true" />
-          <span class="tabular-nums">{{ item.members ?? '—' }} {{ item.members === 1 ? 'member' : 'members' }}</span>
-        </span>
+        <TableChip :icon="Users">{{ item.members ?? '—' }} {{ item.members === 1 ? 'member' : 'members' }}</TableChip>
       </template>
 
       <template #item.created="{ item }">
@@ -83,6 +77,7 @@ import {
   CrudTable,
   InitialsTile,
   PageHeader,
+  TableChip,
   TimePill,
   TINTS,
   useCrudTablePage,

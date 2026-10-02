@@ -147,7 +147,7 @@ const facts = computed(() => {
     { label: 'Organization', icon: markRaw(Building2), value: props.organizationId, to: organizationPath(props.organizationId) },
     { label: 'Zone', icon: markRaw(Waypoints), value: `app.${props.organizationId}.${props.applicationId}`, mono: true },
     { label: 'Tenancy', icon: markRaw(Users), value: tenancy },
-    { label: 'Updated', icon: markRaw(CalendarClock), value: app?.updated ? DatetimeUtil.formatRelativeDate(app.updated) : '—' }
+    { label: 'Updated', icon: markRaw(CalendarClock), value: app?.updated ? DatetimeUtil.formatRelativeDate(app.updated) : null }
   ]
 })
 

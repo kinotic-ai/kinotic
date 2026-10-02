@@ -56,6 +56,21 @@ withDefaults(defineProps<{
   border-bottom-width: 0;
 }
 
+/* A CrudTable in a section drops its own frame and runs edge to edge like any section table; its
+   search bar and paginator keep the 1.25rem inset the table's first and last columns use */
+.dashboard-section__body .crud-table__toolbar {
+  padding: 1rem 1.25rem 0;
+}
+
+.dashboard-section__body .crud-table__table-shell {
+  border-width: 1px 0 0;
+  border-radius: 0;
+}
+
+.dashboard-section__body .crud-table__table-shell + * {
+  padding-inline: 1.25rem;
+}
+
 /* One type scale for a section's table: muted headers and every cell at the 13px CrudTable's
    rows use, so a cell's font (mono for names and ids, sans for prose) is its only variation */
 .dashboard-section__body .p-datatable-thead > tr > th {

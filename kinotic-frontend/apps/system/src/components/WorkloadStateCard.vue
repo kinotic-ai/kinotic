@@ -10,7 +10,7 @@
           <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ background: row.color }" />
           {{ row.label }}
         </span>
-        <CapacityBar :pct="row.pct" :color="row.color" :tooltip="`${row.label}: ${row.count}`" />
+        <CapacityBar :pct="row.pct" :color="row.color" :hover="{ heading: row.label, name: 'Workloads', value: `${row.count} of ${workloads.length}` }" />
         <span class="text-right font-semibold tabular-nums">{{ row.count }}</span>
       </div>
     </div>

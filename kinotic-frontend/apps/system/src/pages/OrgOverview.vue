@@ -130,8 +130,8 @@ const facts = computed(() => {
     { label: 'Id', icon: markRaw(Hash), value: props.organizationId, mono: true },
     { label: 'Name', icon: markRaw(TagIcon), value: org?.name ?? '—' },
     { label: 'Description', icon: markRaw(FileText), value: org?.description || '—' },
-    { label: 'Created', icon: markRaw(CalendarClock), value: org?.created ? DatetimeUtil.formatRelativeDate(org.created) : '—' },
-    { label: 'Created by', icon: markRaw(UserRound), value: org?.createdBy ?? '—', mono: true }
+    { label: 'Created', icon: markRaw(CalendarClock), value: org?.created ? DatetimeUtil.formatRelativeDate(org.created) : null },
+    { label: 'Created by', icon: markRaw(UserRound), value: org?.createdBy || null, mono: true }
   ]
 })
 

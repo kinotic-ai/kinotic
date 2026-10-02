@@ -28,7 +28,21 @@
       </template>
 
       <template #item.description="{ item }">
-        <span class="block max-w-[22rem] truncate" v-tooltip.top="item.description">{{ item.description || '—' }}</span>
+        <!-- the right padding keeps a gap before Projects as wide as the Id column leaves before it -->
+        <span class="block max-w-full truncate pr-10" v-tooltip.top="item.description || null">{{ item.description || '—' }}</span>
+      </template>
+
+      <template #item.projects="{ item }">
+        <TableChip :icon="ProjectsIcon" :to="`${applicationPath(organizationId, item.id)}/projects`">
+          {{ item.projects }} {{ item.projects === 1 ? 'project' : 'projects' }}
+        </TableChip>
+      </template>
+
+      <template #item.running="{ item }">
+        <TableChip>
+          <span :class="['h-2 w-2 rounded-full', item.running > 0 ? 'bg-green-500' : 'bg-surface-400']" aria-hidden="true" />
+          {{ item.running }} running
+        </TableChip>
       </template>
 
       <template #item.updated="{ item }">
@@ -49,6 +63,8 @@ import {
   CrudTable,
   InitialsTile,
   PageHeader,
+  ProjectsIcon,
+  TableChip,
   TimePill,
   errorMessage,
   filteredPageLoader,
@@ -70,12 +86,12 @@ const PROJECT_PAGE_SIZE = 200
 const router = useRouter()
 
 const headers: CrudHeader[] = [
-  { field: 'name', header: 'Name', sortable: true },
-  { field: 'id', header: 'Id', sortable: false, optional: true },
-  { field: 'description', header: 'Description', sortable: false, optional: true },
-  { field: 'projects', header: 'Projects', sortable: false, optional: true },
-  { field: 'running', header: 'Running', sortable: false, optional: true },
-  { field: 'updated', header: 'Updated', sortable: false }
+  { field: 'name', header: 'Name', sortable: true, width: '20%' },
+  { field: 'id', header: 'Id', sortable: false, optional: true, width: '17%' },
+  { field: 'description', header: 'Description', sortable: false, optional: true, width: '27%' },
+  { field: 'projects', header: 'Projects', sortable: false, optional: true, width: '12%' },
+  { field: 'running', header: 'Running', sortable: false, optional: true, width: '12%' },
+  { field: 'updated', header: 'Updated', sortable: false, width: '12%' }
 ]
 
 // Per-application counts, read once for the organization and shared by every page of the table

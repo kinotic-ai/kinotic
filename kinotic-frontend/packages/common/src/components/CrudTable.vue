@@ -37,7 +37,7 @@ import EmptyChartCharacter from './EmptyChartCharacter.vue'
 const debug = createDebug('crud-table');
 
 /** Wide enough for the ellipsis button plus the body cell padding. */
-const ROW_MENU_COLUMN_WIDTH = '4.5rem';
+const ROW_MENU_COLUMN_WIDTH = '3.5rem';
 
 const props = withDefaults(defineProps<{
   // any: parents bind entity-specific IDataSource implementations (EntityDefinition,
@@ -513,13 +513,15 @@ defineExpose({ find });
 
             <Column v-if="hasRowMenu" header="" :style="{ width: ROW_MENU_COLUMN_WIDTH }">
               <template #body="slotProps">
-                <div class="flex min-h-6 w-full items-center justify-center">
+                <!-- The button's own inset is pulled into the cell's padding, so its dots sit the
+                     table's 1.25rem in from the edge, as the first column's text does -->
+                <div class="flex min-h-6 w-full items-center justify-end">
                   <Skeleton v-if="showSkeleton" shape="circle" size="1.25rem" />
                   <template v-else-if="rowMenuItems(slotProps.data).length > 0">
                     <Button
                       icon="pi pi-ellipsis-v"
                       size="small"
-                      class="!h-6 !w-6"
+                      class="!-mr-[0.72rem] !h-6 !w-6"
                       @click.stop="(event) => toggleRowMenu(event, slotProps.data.id)"
                       aria-haspopup="true"
                       :aria-controls="'action_menu_' + slotProps.data.id"

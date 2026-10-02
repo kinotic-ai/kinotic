@@ -30,9 +30,10 @@
       </template>
 
       <template #item.status="{ item }">
-        <Tag :value="item.status" :severity="workloadSeverity(item.status)" />
-        <Tag v-if="item.unreachable" value="node unreachable" severity="warn" icon="pi pi-exclamation-triangle"
-             class="ml-1" v-tooltip.top="item.unreachable.message" />
+        <span class="flex flex-col items-start gap-1">
+          <Tag :value="item.status" :severity="workloadSeverity(item.status)" />
+          <NodeUnreachableNote v-if="item.unreachable" :message="item.unreachable.message" />
+        </span>
       </template>
 
       <template #item.node="{ item }">
@@ -77,7 +78,7 @@ import { Direction, FunctionalIterablePage, Kinotic, Order,
          type IterablePage, type Page, type Pageable, type Sort } from '@kinotic-ai/core'
 import { WorkloadStatus, type StatusCondition, type Workload } from '@kinotic-ai/management-api'
 import { CrudTable, DatetimeUtil, TimePill, WorkloadLogsDialog, formatMb, pageNumberOf, useCrudTablePage,
-         type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
+         NodeUnreachableNote, type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
 
 import { formatCpus } from '@/util/nodes'
 import { scopePath, type Scope } from '@/util/scope'

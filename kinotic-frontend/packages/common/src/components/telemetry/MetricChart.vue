@@ -23,7 +23,7 @@ import { computed, type Component } from 'vue'
 import Message from 'primevue/message'
 import VChart from 'vue-echarts'
 
-import { chartGridColor, chartLegend, chartTextColor, seriesColor } from '../../charts/chartTheme'
+import { chartGridColor, chartLegend, chartTextColor, chartTooltip, seriesColor } from '../../charts/chartTheme'
 import { isDark } from '../../composables/useTheme'
 import DatetimeUtil from '../../util/DatetimeUtil'
 import DashboardSection from '../DashboardSection.vue'
@@ -65,11 +65,10 @@ const option = computed(() => {
       axisLabel: { color: chartTextColor(dark), formatter: (value: number) => props.format(value) },
       splitLine: { lineStyle: { color: chartGridColor(dark) } }
     },
-    tooltip: {
-      trigger: 'axis',
-      confine: true,
-      valueFormatter: (value: number) => props.format(value)
-    },
+    tooltip: chartTooltip(dark, {
+      format: value => props.format(value),
+      heading: value => typeof value === 'number' ? DatetimeUtil.formatEpochDateTime(value) : String(value ?? '')
+    }),
     legend: chartLegend(dark),
     series: props.series.map((entry, index) => ({
       name: entry.name,

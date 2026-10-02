@@ -18,7 +18,7 @@ import { ChartColumn } from '@lucide/vue'
 import VChart from 'vue-echarts'
 
 import { ExecutionStatus, type JobRun } from '@kinotic-ai/management-api'
-import { DashboardSection, DatetimeUtil, accentColor, chartGridColor, chartLegend, chartTextColor, isDark } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, accentColor, chartGridColor, chartLegend, chartTextColor, chartTooltip, isDark } from '@kinotic-ai/frontend-common'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -73,7 +73,7 @@ const option = computed(() => {
     animationDuration: 300,
     // containLabel keeps the axis labels inside the grid's box; the bottom margin is the legend's row
     grid: { left: 8, right: 16, top: 12, bottom: 36, containLabel: true },
-    tooltip: { trigger: 'axis', confine: true },
+    tooltip: chartTooltip(dark, { pointer: 'shadow', totalLabel: 'Total runs' }),
     legend: chartLegend(dark),
     xAxis: {
       type: 'category',

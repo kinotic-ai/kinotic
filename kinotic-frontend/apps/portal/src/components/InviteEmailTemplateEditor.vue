@@ -50,24 +50,34 @@
               <span :class="LABEL_CLASS">Body</span>
               <SelectButton v-model="bodyFormat" :options="BODY_FORMATS" option-label="label" option-value="value" :allow-empty="false" size="small" />
             </div>
-            <Textarea v-if="bodyFormat === 'html'" id="tpl-html" v-model="htmlBody" aria-label="HTML body"
-                      class="mt-2 w-full !font-mono !text-[13px] !leading-6" rows="14" />
-            <Textarea v-else id="tpl-text" v-model="textBody" aria-label="Plain-text body"
-                      class="mt-2 w-full !font-mono !text-[13px] !leading-6" rows="14" />
+            <TemplateCodeEditor v-if="bodyFormat === 'html'" id="tpl-html" v-model="htmlBody" html
+                                file-name="invitation.html" aria-label="HTML body" class="mt-2" />
+            <TemplateCodeEditor v-else id="tpl-text" v-model="textBody"
+                                file-name="invitation.txt" aria-label="Plain-text body" class="mt-2" />
             <p :class="HELP_CLASS">
-              <template v-if="bodyFormat === 'html'">What most mail clients show. Put <code v-pre class="font-mono">{{{acceptUrl}}}</code>, with triple braces, inside links so the URL isn't HTML-escaped.</template>
+              <template v-if="bodyFormat === 'html'">What most mail clients show. Put <code v-pre class="rounded-sm bg-indigo-50 font-mono text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">{{{acceptUrl}}}</code>, with triple braces, inside links so the URL isn't HTML-escaped.</template>
               <template v-else>For mail clients that don't render HTML.</template>
             </p>
           </div>
 
-          <div>
-            <span :class="LABEL_CLASS">Variables</span>
-            <p :class="HELP_CLASS">Templates are Handlebars. Click a variable to copy it.</p>
-            <div class="mt-2 flex flex-wrap gap-2">
+          <!-- framed like the code editor above, with each variable in the colour the editor marks it in -->
+          <div class="overflow-hidden rounded-lg border border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-950">
+            <div class="flex items-center justify-between gap-3 border-b border-surface-200 bg-surface-50 px-3 py-2 dark:border-surface-700 dark:bg-surface-900">
+              <span class="flex items-center gap-2 text-[13px] text-surface-700 dark:text-surface-200">
+                <Braces :size="15" :stroke-width="1.75" class="shrink-0 text-surface-500" aria-hidden="true" />
+                Variables
+              </span>
+              <span class="truncate text-xs text-muted-color">Handlebars · click to copy</span>
+            </div>
+            <div class="flex flex-wrap gap-2 px-4 py-3">
               <button v-for="variable in VARIABLES" :key="variable" type="button"
-                      class="rounded-md border border-surface-200 bg-surface-50 px-2 py-1 font-mono text-xs text-surface-700 transition-colors hover:border-surface-300 hover:bg-surface-100 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-200 dark:hover:bg-surface-700"
+                      class="group inline-flex items-center gap-1.5 rounded-md bg-indigo-50 px-2 py-1 font-mono text-[13px] leading-5 text-indigo-700 ring-1 ring-inset ring-indigo-100 transition-colors hover:bg-indigo-100 hover:ring-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-300 dark:ring-indigo-500/20 dark:hover:bg-indigo-500/25"
                       v-tooltip.top="copied === variable ? 'Copied' : 'Copy'"
-                      @click="copyVariable(variable)">{{ placeholderOf(variable) }}</button>
+                      @click="copyVariable(variable)">
+                {{ placeholderOf(variable) }}
+                <Check v-if="copied === variable" :size="12" :stroke-width="2" class="text-green-600 dark:text-green-400" aria-hidden="true" />
+                <Copy v-else :size="12" :stroke-width="1.75" class="text-indigo-400 group-hover:text-indigo-600 dark:text-indigo-400/70 dark:group-hover:text-indigo-300" aria-hidden="true" />
+              </button>
             </div>
           </div>
         </div>
@@ -116,12 +126,11 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Mail } from '@lucide/vue'
+import { Braces, Check, Copy, Mail } from '@lucide/vue'
 import Button from 'primevue/button'
 import ConfirmDialog from 'primevue/confirmdialog'
 import InputText from 'primevue/inputtext'
 import SelectButton from 'primevue/selectbutton'
-import Textarea from 'primevue/textarea'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 
@@ -129,6 +138,7 @@ import { Kinotic } from '@kinotic-ai/core'
 import { InviteEmailTemplate } from '@kinotic-ai/management-api'
 import { showErrorToast, TINTS } from '@kinotic-ai/frontend-common'
 import FeatureEmptyState from '@/components/FeatureEmptyState.vue'
+import TemplateCodeEditor from '@/components/TemplateCodeEditor.vue'
 import kinoticLogo from '@/assets/header-logo.svg'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { PROFILE_STATE } from '@/states/IProfileState'
@@ -182,6 +192,11 @@ function placeholderOf(variable: Variable): string {
 async function copyVariable(variable: Variable): Promise<void> {
   await navigator.clipboard.writeText(placeholderOf(variable))
   copied.value = variable
+  setTimeout(() => {
+    if (copied.value === variable) {
+      copied.value = null
+    }
+  }, 1500)
 }
 
 function escapeHtml(value: string): string {

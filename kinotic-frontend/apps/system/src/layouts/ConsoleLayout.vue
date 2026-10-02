@@ -29,8 +29,8 @@ const router = useRouter()
 
 const profile = ref<UserParticipantIdentity | null>(null)
 const profileName = computed(() => profile.value?.displayName ?? 'System operator')
-const profileDetail = computed(() => profile.value?.email ?? SYSTEM_USER_STATE.connectedInfo?.participant?.id ?? '')
-const initials = computed(() => avatarInitials(profile.value?.displayName, profile.value?.email))
+const profileDetail = computed(() => profile.value?.email ?? '')
+const initials = computed(() => avatarInitials(profileName.value, profile.value?.email))
 
 // lucideIcon is rendered by SidebarUserMenu's item slot
 const accountMenuItems: MenuItem[] = [
@@ -43,7 +43,7 @@ onMounted(async () => {
     try {
         profile.value = await Kinotic.profile.findMyProfile()
     } catch (error) {
-        // the participant id in profileDetail keeps the menu meaningful
+        // the menu falls back to the generic operator name
         debug('Failed to load profile: %O', error)
     }
 })

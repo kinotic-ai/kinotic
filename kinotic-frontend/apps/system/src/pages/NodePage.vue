@@ -6,8 +6,10 @@
         <i class="pi pi-chevron-right" :style="{ fontSize: '10px' }" />
         <span class="truncate">{{ node?.name ?? nodeId }}</span>
       </template>
-      <template #actions>
+      <template #status>
         <Tag v-if="node" :value="nodeHealth(node)" :severity="nodeSeverity(nodeHealth(node))" />
+      </template>
+      <template #actions>
         <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined :loading="loading" @click="load" />
       </template>
     </PageHeader>
@@ -44,10 +46,7 @@
         <DashboardSection :icon="Boxes" :tint="TINTS.ink" title="Workloads on this node" :count="workloads.length"
                           description="Click a row for the workload; its menu shows its logs, stops, restarts or destroys it."
                           :link-to="{ path: '/workloads', query: { node: nodeId } }" link-label="Filter workloads">
-          <!-- WorkloadsTable brings its own search bar and paginator, which need the card's padding -->
-          <div class="p-4">
-            <WorkloadsTable :workloads="workloads" :scope="{}" :show-node="false" @changed="load" />
-          </div>
+          <WorkloadsTable :workloads="workloads" :scope="{}" :show-node="false" @changed="load" />
         </DashboardSection>
 
         <div class="grid gap-4 lg:grid-cols-2">

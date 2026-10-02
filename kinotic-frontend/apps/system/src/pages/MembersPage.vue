@@ -46,10 +46,9 @@
       </template>
 
       <template #item.authType="{ item }">
-        <span v-if="item.authType" class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-surface-100 px-2 py-0.5 font-sans text-xs font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-200">
-          <component :is="item.authType === 'OIDC' ? ShieldCheck : KeyRound" :size="13" :stroke-width="1.75" aria-hidden="true" />
+        <TableChip v-if="item.authType" :icon="item.authType === 'OIDC' ? ShieldCheck : KeyRound">
           {{ item.authType === 'OIDC' ? 'OIDC' : item.authType === 'LOCAL' ? 'Local password' : item.authType }}
-        </span>
+        </TableChip>
         <span v-else class="text-muted-color">—</span>
       </template>
 
@@ -77,6 +76,7 @@ import {
   CrudTable,
   InitialsTile,
   PageHeader,
+  TableChip,
   TimePill,
   pageNumberOf,
   statusSeverity,

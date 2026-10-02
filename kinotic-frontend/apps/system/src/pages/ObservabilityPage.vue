@@ -17,13 +17,12 @@
       />
     </div>
 
-    <TelemetryPanel :organization-id="organizationId ?? null" :application-id="applicationId ?? selectedApplicationId" :trace-route="traceRoute" />
+    <TelemetryPanel :organization-id="organizationId ?? null" :application-id="applicationId ?? selectedApplicationId" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { RouteLocationRaw } from 'vue-router'
 import Message from 'primevue/message'
 import Select from 'primevue/select'
 
@@ -31,12 +30,11 @@ import { Kinotic, Pageable } from '@kinotic-ai/core'
 import type { Application } from '@kinotic-ai/management-api'
 import { PageHeader, TelemetryPanel, errorMessage } from '@kinotic-ai/frontend-common'
 
-import { scopePath } from '@/util/scope'
 
 /**
  * The traces and metrics of the scope the route names: the system tenant for the platform
  * itself, an organization's across all of its applications or one of them, or one
- * application's. A trace opens on its own page under this one.
+ * application's.
  */
 const props = defineProps<{
   organizationId?: string
@@ -61,10 +59,6 @@ const description = computed(() => {
   }
   return ret
 })
-
-function traceRoute(traceId: string): RouteLocationRaw {
-  return `${scopePath({ organizationId: props.organizationId, applicationId: props.applicationId })}/observability/traces/${encodeURIComponent(traceId)}`
-}
 
 async function loadApplications() {
   error.value = null

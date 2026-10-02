@@ -193,11 +193,14 @@ import type { DataTableDesignTokens } from '@primeuix/themes/types/datatable';
                 selectedBackground: "{surface.200}",
                 selectedColor: "{surface.950}"
             },
+            // A selected row reads as the hover grey; the brand red stays for failures
             row: {
-                stripedBackground: "{surface.50}"
+                stripedBackground: "{surface.50}",
+                selectedBackground: "{surface.100}",
+                selectedColor: "{surface.950}"
             },
             bodyCell: {
-                selectedBorderColor: "{primary.100}"
+                selectedBorderColor: "{surface.200}"
             }
         },
         dark: {
@@ -213,10 +216,12 @@ import type { DataTableDesignTokens } from '@primeuix/themes/types/datatable';
                 selectedColor: "{surface.0}"
             },
             row: {
-                stripedBackground: "{surface.950}"
+                stripedBackground: "{surface.950}",
+                selectedBackground: "{surface.800}",
+                selectedColor: "{surface.0}"
             },
             bodyCell: {
-                selectedBorderColor: "{primary.900}"
+                selectedBorderColor: "{surface.700}"
             }
         }
     },
@@ -230,6 +235,13 @@ import type { DataTableDesignTokens } from '@primeuix/themes/types/datatable';
         .p-datatable .p-datatable-thead > tr > th:last-child,
         .p-datatable .p-datatable-tbody > tr > td:last-child {
             padding-inline-end: 1.25rem;
+        }
+        /* A text button ending a row reaches into the cell's padding, so its label keeps the same inset */
+        .p-datatable .p-datatable-tbody > tr > td:last-child .p-button-text:not(.p-button-icon-only):last-child {
+            margin-inline-end: calc(-1 * var(--p-button-padding-x));
+        }
+        .p-datatable .p-datatable-tbody > tr > td:last-child .p-button-text.p-button-sm:not(.p-button-icon-only):last-child {
+            margin-inline-end: calc(-1 * var(--p-button-sm-padding-x));
         }
         .p-datatable .p-datatable-tbody .p-tag {
             font-size: 0.6875rem;

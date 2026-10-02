@@ -128,7 +128,7 @@ const facts = computed(() => {
       value: repository ? `${repository}${project.value?.repoDefaultBranch ? ` · ${project.value.repoDefaultBranch}` : ''}` : '—' },
     { label: 'Source of truth', icon: markRaw(FileCode), value: project.value?.sourceOfTruth ?? '—' },
     { label: 'Updated', icon: markRaw(CalendarClock),
-      value: project.value?.updated ? DatetimeUtil.formatRelativeDate(project.value.updated) : '—' }
+      value: project.value?.updated ? DatetimeUtil.formatRelativeDate(project.value.updated) : null }
   ]
 })
 

@@ -218,7 +218,7 @@ const facts = computed(() => [
   { label: 'Tenancy', icon: markRaw(Users), value: application.value?.tenantPerUser ? 'Tenant per user' : 'Shared tenant', mono: false },
   { label: 'Primary UI', icon: markRaw(Globe), value: application.value?.primaryUiId ?? 'Not set', mono: false },
   { label: 'Updated', icon: markRaw(CalendarClock),
-    value: application.value?.updated ? DatetimeUtil.formatRelativeDate(application.value.updated) : '—', mono: false }
+    value: application.value?.updated ? DatetimeUtil.formatRelativeDate(application.value.updated) : null, mono: false }
 ])
 
 const tiles = computed(() => {

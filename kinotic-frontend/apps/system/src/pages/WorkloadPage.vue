@@ -6,10 +6,11 @@
         <i class="pi pi-chevron-right" :style="{ fontSize: '10px' }" />
         <span class="truncate">{{ workload?.name ?? workloadId }}</span>
       </template>
-      <template #actions>
+      <template #status>
         <Tag v-if="workload" :value="workload.status" :severity="workloadSeverity(workload.status)" />
-        <Tag v-if="unreachable" value="node unreachable" severity="warn" icon="pi pi-exclamation-triangle" />
-        <Button label="View logs" icon="pi pi-align-left" severity="secondary" outlined @click="tab = 'logs'" />
+        <NodeUnreachableNote v-if="unreachable" :message="unreachable.message" />
+      </template>
+      <template #actions>
         <Button v-if="canStop" label="Stop" icon="pi pi-stop-circle" severity="secondary" outlined
                 @click="act(() => Kinotic.workloadOrchestration.stopWorkload(workloadId), 'Workload stopping', 'Failed to stop workload')" />
         <Button v-if="canDestroy" label="Destroy" icon="pi pi-power-off" severity="danger" outlined @click="confirmDestroy" />
@@ -96,11 +97,10 @@
         </TabPanel>
         <TabPanel value="history">
           <div class="pt-2">
-            <p class="mb-3 text-xs text-muted-color">
-              What happened to the workload, newest first: each status its run passed through and each mark set beside it,
-              with what caused it. The latest {{ HISTORY_PAGE_SIZE }} entries.
-            </p>
-            <WatchEventsTimeline :entries="history" empty-text="Nothing has happened to the workload yet." />
+            <DashboardSection :icon="History" :tint="tint" title="History" :count="history.length"
+                              :description="`What happened to the workload, newest first: each status its run passed through and each mark set beside it, with what caused it. The latest ${HISTORY_PAGE_SIZE} entries.`">
+              <WatchEventsTimeline :entries="history" empty-text="Nothing has happened to the workload yet." />
+            </DashboardSection>
           </div>
         </TabPanel>
       </TabPanels>
@@ -109,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { Building2, CalendarClock, CalendarPlus, Clock, Cpu, FileText, HardDrive, KeyRound, LayoutDashboard, LayoutGrid,
+import { Building2, CalendarClock, CalendarPlus, Clock, Cpu, FileText, HardDrive, History, KeyRound, LayoutDashboard, LayoutGrid,
          Network, Package, Radio, Repeat, ScrollText, Server, Shield, Terminal } from '@lucide/vue'
 import { computed, markRaw, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -128,7 +128,7 @@ import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { NetworkMode, WorkloadStatus, type WatchEvent, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
 import { DashboardSection, HeartbeatIcon, DatetimeUtil, FactList, PageHeader, StatCard, WatchEventsTimeline, WorkloadLogView, errorMessage,
-         formatMb, showErrorToast, workloadRun, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState } from '@kinotic-ai/frontend-common'
+         formatMb, showErrorToast, workloadRun, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, NodeUnreachableNote } from '@kinotic-ai/frontend-common'
 
 import { formatCpus, nodeHealth } from '@/util/nodes'
 import { applicationPath, organizationPath, scopePath, scopeTint, type Scope } from '@/util/scope'
@@ -197,8 +197,8 @@ const runtimeFacts = computed(() => {
     { label: 'Telemetry', icon: markRaw(Radio), value: w?.telemetry ? 'Traces and metrics shipped through the node' : 'Off' },
     { label: 'Log policy', icon: markRaw(FileText),
       value: w?.logPolicy ? `${w.logPolicy.maxSizeMb} MB × ${w.logPolicy.maxFiles} files` : '—' },
-    { label: 'Created', icon: markRaw(CalendarPlus), value: formatEpochDateTime(w?.created ?? null) },
-    { label: 'Updated', icon: markRaw(CalendarClock), value: formatEpochDateTime(w?.updated ?? null) }
+    { label: 'Created', icon: markRaw(CalendarPlus), value: w?.created ? formatEpochDateTime(w.created) : null },
+    { label: 'Updated', icon: markRaw(CalendarClock), value: w?.updated ? formatEpochDateTime(w.updated) : null }
   ]
 })
 

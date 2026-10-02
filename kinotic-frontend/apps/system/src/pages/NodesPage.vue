@@ -28,7 +28,7 @@
           <span class="font-semibold uppercase tracking-wider text-muted-color">{{ row.label }}</span>
           <span class="truncate tabular-nums text-surface-700 dark:text-surface-200">{{ row.text }}</span>
         </div>
-        <CapacityBar :pct="row.pct" />
+        <CapacityBar :pct="row.pct" :hover="{ heading: row.label, name: 'Allocated', value: `${row.text} · ${row.pct}%` }" />
       </div>
     </section>
 
