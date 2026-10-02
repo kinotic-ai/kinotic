@@ -1,0 +1,1 @@
+{"id":"bc9cd3940cd42842d168dcb20ec445ee.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.SelectStatementParserTest.whenPlainSelectNamesAliasOrSubField_thenRefused","name":"whenPlainSelectNamesAliasOrSubField_thenRefused()","status":"passed","testResultsByEnv":{"default":"cd2f6745a67c65192d8752cf5230fa59"}}
