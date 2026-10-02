@@ -4,35 +4,20 @@ import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
-import { Check, Circle, LoaderCircle } from '@lucide/vue'
 import { createDebug } from '@kinotic-ai/frontend-common'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
 import type {Application} from "@kinotic-ai/management-api";
 import {Kinotic} from "@kinotic-ai/core";
 import { USER_STATE } from '@/states/IUserState'
 import { FormDrawer } from '@kinotic-ai/frontend-common'
-import characterUrl from '@/assets/kinotic-character-tile.svg'
+import CreationStatus from '@/components/CreationStatus.vue'
+import { useCreationPhase } from '@/composables/useCreationPhase'
 
 const debug = createDebug('application-sidebar');
-
-// Long enough to read the status view even when the server answers instantly
-const MIN_CREATING_MS = 700
-// How long the finished status stays up before the drawer closes
-const READY_HOLD_MS = 1200
 
 interface ApplicationForm {
   name: string
   description: string
-}
-
-/** form: filling in the fields; creating: the request is in flight; ready: the server created it. */
-type Phase = 'form' | 'creating' | 'ready'
-
-interface SetupStep {
-  label: string
-  done: boolean
-  /** The step the request is working on; later steps wait for it. */
-  active: boolean
 }
 
 const props = defineProps<{ visible: boolean }>()
@@ -49,13 +34,13 @@ const form = reactive<ApplicationForm>({
   description: ''
 })
 
-const phase = ref<Phase>('form')
+const { phase, create, holdReady } = useCreationPhase()
 const created = ref<Application | null>(null)
 
 const isSubmitDisabled = computed(() => phase.value !== 'form' || form.name.trim() === '')
 
 // Each step reflects what the one create request has actually done so far
-const setupSteps = computed<SetupStep[]>(() => {
+const setupSteps = computed(() => {
   const ready = phase.value === 'ready'
   return [
     { label: `Saving ${form.name.trim()}`, done: ready, active: !ready },
@@ -72,7 +57,6 @@ function resetForm(): void {
 }
 
 async function handleSubmit(): Promise<void> {
-  phase.value = 'creating'
   try {
     // The server mints the id from the slugified name, so send an empty id.
     const applicationData: Application = {
@@ -86,19 +70,12 @@ async function handleSubmit(): Promise<void> {
       updated: null
     }
 
-    const [createdApplication] = await Promise.all([
-      Kinotic.applications.createSync(applicationData),
-      delay(MIN_CREATING_MS)
-    ])
-    created.value = createdApplication
-    phase.value = 'ready'
-
-    await delay(READY_HOLD_MS)
+    created.value = await create(() => Kinotic.applications.createSync(applicationData))
+    await holdReady()
     finish()
   } catch (error) {
     debug('Failed to create application: %O', error)
     showErrorToast(toast, 'Failed to create application', error)
-    phase.value = 'form'
   }
 }
 
@@ -118,10 +95,6 @@ function handleClose(): void {
     resetForm()
     emit('close')
   }
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
 }
 </script>
 
@@ -146,32 +119,13 @@ function delay(ms: number): Promise<void> {
         </div>
       </form>
 
-      <div class="flex flex-1 flex-col items-center justify-center gap-5 py-8 text-center">
-        <img :src="characterUrl" alt="" class="h-48 w-48" />
-
-        <p v-if="phase === 'form'" class="max-w-xs text-sm text-surface-500 dark:text-surface-400">
-          Give your application a name to get started.
-        </p>
-
-        <div v-else class="flex flex-col items-center gap-4" aria-live="polite">
-          <p class="text-base font-medium text-surface-950 dark:text-surface-0">
-            {{ phase === 'ready' ? `${form.name.trim()} is ready` : `Setting up ${form.name.trim()}` }}
-          </p>
-          <p v-if="phase === 'ready'" class="-mt-2 text-sm text-surface-500 dark:text-surface-400">Next, add its first project.</p>
-          <ul class="flex flex-col gap-2 text-left">
-            <li
-              v-for="step in setupSteps"
-              :key="step.label"
-              :class="['flex items-center gap-2.5 font-mono text-[0.8125rem]', step.done ? 'text-surface-800 dark:text-surface-100' : 'text-surface-500 dark:text-surface-400']"
-            >
-              <Check v-if="step.done" :size="16" :stroke-width="2" class="text-green-600 dark:text-green-400" aria-hidden="true" />
-              <LoaderCircle v-else-if="step.active" :size="16" :stroke-width="2" class="animate-spin" aria-hidden="true" />
-              <Circle v-else :size="16" :stroke-width="2" class="opacity-40" aria-hidden="true" />
-              {{ step.label }}
-            </li>
-          </ul>
-        </div>
-      </div>
+      <CreationStatus
+        :phase="phase"
+        :name="form.name.trim()"
+        hint="Give your application a name to get started."
+        next-step="Next, add its first project."
+        :steps="setupSteps"
+      />
     </div>
 
     <template #footer>

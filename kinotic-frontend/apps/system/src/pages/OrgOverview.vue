@@ -18,13 +18,13 @@
       <AttentionList :items="attention" />
 
       <div class="grid gap-4 lg:grid-cols-2">
-        <WorkloadStateCard :workloads="workloads" description="The organization's workloads." :view-all-to="`${basePath}/workloads`" />
-        <JobRunsByDayChart :runs="runs" :view-all-to="`${basePath}/jobs`" />
+        <WorkloadStateCard :tint="TINTS.green" :workloads="workloads" description="The organization's workloads." :view-all-to="`${basePath}/workloads`" />
+        <JobRunsByDayChart :tint="TINTS.green" :runs="runs" :view-all-to="`${basePath}/jobs`" />
       </div>
 
-      <RecentRunsTable :runs="recentRuns" :scope="{ organizationId }" />
+      <RecentRunsTable :tint="TINTS.green" :runs="recentRuns" :scope="{ organizationId }" />
 
-      <DashboardSection :icon="Building2" :tint="TINTS.blue" title="About">
+      <DashboardSection :icon="Building2" :tint="TINTS.green" title="About">
         <div class="px-5 pb-2">
           <FactList :facts="facts" />
         </div>
@@ -95,7 +95,7 @@ const stats = computed<Stat[]>(() => {
       detail: `${projectCount.value ?? '—'} project${projectCount.value === 1 ? '' : 's'} across them`,
       to: `${basePath.value}/applications`,
       icon: markRaw(LayoutGrid),
-      tint: TINTS.blue
+      tint: TINTS.green
     },
     {
       label: 'Members',
@@ -111,7 +111,7 @@ const stats = computed<Stat[]>(() => {
       detail: `running of ${workloads.value.length}`,
       to: `${basePath.value}/workloads`,
       icon: markRaw(Boxes),
-      tint: TINTS.sky
+      tint: TINTS.green
     },
     {
       label: `Jobs · ${RUN_WINDOW_DAYS} d`,
@@ -119,7 +119,7 @@ const stats = computed<Stat[]>(() => {
       detail: `${runningRuns} running now`,
       to: `${basePath.value}/jobs`,
       icon: markRaw(LaptopMinimalCheck),
-      tint: TINTS.purple
+      tint: TINTS.green
     }
   ]
 })
@@ -130,8 +130,8 @@ const facts = computed(() => {
     { label: 'Id', icon: markRaw(Hash), value: props.organizationId, mono: true },
     { label: 'Name', icon: markRaw(TagIcon), value: org?.name ?? '—' },
     { label: 'Description', icon: markRaw(FileText), value: org?.description || '—' },
-    { label: 'Created', icon: markRaw(CalendarClock), value: org?.created ? DatetimeUtil.formatRelativeDate(org.created) : '—' },
-    { label: 'Created by', icon: markRaw(UserRound), value: org?.createdBy ?? '—', mono: true }
+    { label: 'Created', icon: markRaw(CalendarClock), value: org?.created ? DatetimeUtil.formatRelativeDate(org.created) : null },
+    { label: 'Created by', icon: markRaw(UserRound), value: org?.createdBy || null, mono: true }
   ]
 })
 

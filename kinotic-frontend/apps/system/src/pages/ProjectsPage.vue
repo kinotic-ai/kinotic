@@ -15,7 +15,9 @@
       :enable-row-hover="true"
       empty-state-text="No projects"
       @update:search="tableSearch = $event"
-      @on-row-click="openProject"
+      :selected-id="highlightedProject?.id"
+      @row-hover="row => hoverProject(row as ProjectRow)"
+      @on-row-click="row => openProject(row as ProjectRow)"
     >
       <template #item.name="{ item, index }">
         <span class="flex min-w-0 items-center gap-2.5">
@@ -56,12 +58,22 @@
         <TimePill :date="item.updated" />
       </template>
     </CrudTable>
+
+    <!-- The picked project opens beside the list; the arrows step through the rows the table shows -->
+    <SteppingDrawer v-model:visible="drawerVisible" :position="position" :total="shownProjects.length"
+                    :expand-to="selectedProject ? projectPath(organizationId, selectedProject.applicationId, selectedProject.id) : undefined"
+                    expand-label="Open the project" @step="stepProject">
+      <template #title>
+        <span v-if="selectedProject" class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">{{ selectedProject.name }}</span>
+      </template>
+      <ProjectOverview v-if="selectedProject" :key="selectedProject.id" :organization-id="organizationId"
+                       :application-id="selectedProject.applicationId" :project-id="selectedProject.id" />
+    </SteppingDrawer>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 
@@ -78,12 +90,15 @@ import {
   pageNumberOf,
   scanJobRuns,
   shortSha,
+  SteppingDrawer,
   useCrudTablePage,
+  useSteppingDrawer,
   type CrudHeader,
   type DescriptiveIdentifiable
 } from '@kinotic-ai/frontend-common'
 
 import { commitShaOf, deployRunsByProject } from '@/util/runs'
+import ProjectOverview from '@/pages/ProjectOverview.vue'
 import { applicationPath, projectPath, scopePath } from '@/util/scope'
 
 /**
@@ -113,8 +128,6 @@ interface ProjectRow extends DescriptiveIdentifiable {
 
 const DEFAULT_SORT = [new Order('name', Direction.ASC)]
 
-const router = useRouter()
-
 const description = computed(() => props.applicationId
     ? 'The functional units that make up this application, each backed by a GitHub repository, with the state of its last deploy run.'
     : 'The organization\'s projects across all of its applications, with the state of each project\'s last deploy run.')
@@ -137,7 +150,7 @@ const headers = computed<CrudHeader[]>(() => {
 const rows = ref<ProjectRow[]>([])
 const error = ref<string | null>(null)
 
-const { tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
+const { tableSearch, dataSource, refreshTable, shownRows } = useCrudTablePage(load)
 
 // The rows are read once for the scope and searched, sorted and paged in memory
 async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
@@ -192,12 +205,10 @@ function runPath(run: JobRun): string {
   return `${scopePath({ organizationId: props.organizationId, applicationId: props.applicationId })}/jobs/${encodeURIComponent(run.id ?? '')}`
 }
 
-function openProject(row: DescriptiveIdentifiable) {
-  const project = rows.value.find(candidate => candidate.id === row.id)
-  if (project) {
-    router.push(projectPath(props.organizationId, project.applicationId, project.id))
-  }
-}
+const shownProjects = computed(() => shownRows.value as ProjectRow[])
+const { selected: selectedProject, visible: drawerVisible, position, open: openProject, step: stepProject,
+        highlighted: highlightedProject, hover: hoverProject } =
+    useSteppingDrawer(shownProjects, project => project.id)
 
 async function loadRows() {
   error.value = null

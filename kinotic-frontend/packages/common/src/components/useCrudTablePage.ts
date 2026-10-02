@@ -16,8 +16,10 @@ export type PageLoader = (pageable: Pageable, searchText: string | null) => Prom
 
 /**
  * The state and behavior every CrudTable management page shares: {@link refreshTable}, the
- * search model, a dataSource delegating to the page's load function, and {@link run} — a
- * mutation wrapped in success/failure toasts, refreshing on success.
+ * search model, a dataSource delegating to the page's load function, {@link run} — a
+ * mutation wrapped in success/failure toasts, refreshing on success — shownRows, the rows
+ * the table currently shows in their order, and {@link removeRow}, which takes a row the page
+ * just deleted out of view before the server's next page reflects it.
  *
  * The page's CrudTable must carry `ref="crudTable"` for refreshes to reach it.
  */
@@ -31,8 +33,14 @@ export function useCrudTablePage(load: PageLoader) {
     search: (searchText: string, pageable: Pageable) => load(pageable, searchText)
   }))
 
+  const shownRows = computed<DescriptiveIdentifiable[]>(() => crudTable.value?.items ?? [])
+
   function refreshTable() {
     crudTable.value?.find()
+  }
+
+  function removeRow(id: string) {
+    crudTable.value?.removeRow(id)
   }
 
   async function run(action: () => Promise<void>, successMessage: string, failureMessage: string) {
@@ -45,7 +53,7 @@ export function useCrudTablePage(load: PageLoader) {
     }
   }
 
-  return { tableSearch, dataSource, refreshTable, run }
+  return { tableSearch, dataSource, refreshTable, run, shownRows, removeRow }
 }
 
 /**

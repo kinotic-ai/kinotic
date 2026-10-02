@@ -118,7 +118,7 @@ const ALL = 'all'
 const DIALOG_PT = {
   root: { class: '!w-[min(640px,calc(100vw-2rem))] !rounded-2xl !border-surface-200 !p-0 overflow-hidden dark:!border-surface-800' },
   content: { class: '!p-0' },
-  mask: { class: '!bg-surface-950/20 backdrop-blur-[3px] !items-start pt-[12vh]' }
+  mask: { class: '!bg-surface-950/20 dark:!bg-white/25 backdrop-blur-[3px] !items-start pt-[12vh]' }
 }
 
 const KBD_CLASS = 'rounded border border-surface-300 px-1 py-px font-sans text-[11px] text-surface-600 dark:border-surface-700 dark:text-surface-300'

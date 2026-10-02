@@ -1,27 +1,30 @@
 <template>
-  <DataTable :value="deployments" size="small">
+  <DataTable :value="deployments">
     <Column header="Microservice" style="width: 20%">
-      <template #body="{ data }"><span class="font-mono text-sm">{{ data.name }}</span></template>
+      <template #body="{ data }"><span class="font-mono">{{ data.name }}</span></template>
     </Column>
     <Column header="Status" style="width: 14%">
       <template #body="{ data }">
-        <span v-tooltip.top="data.failureMessage ?? undefined">
-          <Tag :value="observedPhase(data.state.observed)" :severity="observedPhaseSeverity(data.state.observed)" />
+        <span class="flex flex-col items-start gap-1">
+          <span class="flex items-center gap-1">
+            <span v-tooltip.top="data.failureMessage ?? undefined">
+              <Tag :value="observedPhase(data.state.observed)" :severity="observedPhaseSeverity(data.state.observed)" />
+            </span>
+            <Tag v-if="data.state.deletionRequested" value="removing" severity="secondary" />
+          </span>
+          <NodeUnreachableNote v-if="unreachable(data)" :message="unreachable(data)?.message" />
         </span>
-        <Tag v-if="unreachable(data)" value="node unreachable" severity="warn" icon="pi pi-exclamation-triangle"
-             class="ml-1" v-tooltip.top="unreachable(data)?.message" />
-        <Tag v-if="data.state.deletionRequested" value="removing" severity="secondary" class="ml-1" />
       </template>
     </Column>
     <Column header="Commit" style="width: 12%">
       <template #body="{ data }">
-        <span class="font-mono text-sm text-muted-color" v-tooltip.top="data.state.observed?.commitSha ?? undefined">
+        <span class="font-mono text-muted-color" v-tooltip.top="data.state.observed?.commitSha ?? undefined">
           {{ data.state.observed?.commitSha ? shortSha(data.state.observed.commitSha) : '—' }}
         </span>
       </template>
     </Column>
     <Column header="Entry point" style="width: 28%">
-      <template #body="{ data }"><span class="font-mono text-xs">{{ data.entryPoint ?? '—' }}</span></template>
+      <template #body="{ data }"><span class="font-mono">{{ data.entryPoint ?? '—' }}</span></template>
     </Column>
     <Column style="width: 26%">
       <template #body="{ data }">
@@ -44,7 +47,7 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
 import { StatusConditionType, findStatusCondition, type MicroserviceDeployment, type StatusCondition } from '@kinotic-ai/management-api'
-import { observedPhase, observedPhaseSeverity, shortSha } from '@kinotic-ai/frontend-common'
+import { NodeUnreachableNote, observedPhase, observedPhaseSeverity, shortSha } from '@kinotic-ai/frontend-common'
 
 /**
  * The microservices a project's deployments have ensured, one row each with the phase it reports,

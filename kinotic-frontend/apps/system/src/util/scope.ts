@@ -1,3 +1,5 @@
+import { TINTS } from '@kinotic-ai/frontend-common'
+
 /**
  * Where a console page sits: the platform when nothing is set, an organization, one of its
  * applications, or one of its projects. Pages that exist in every scope (workloads, jobs,
@@ -39,4 +41,22 @@ export function scopePath(scope: Scope): string {
 /** How a sentence names the scope: the id of the narrowest thing set, or the platform. */
 export function scopeName(scope: Scope): string {
     return scope.projectId ?? scope.applicationId ?? scope.organizationId ?? 'the platform'
+}
+
+/**
+ * The icon tint of the scope's pages, matching its breadcrumb pill: purple for a project, blue for
+ * an application, green for an organization, and neutral ink for the platform's own pages.
+ */
+export function scopeTint(scope: Scope): string {
+    let ret: string
+    if (scope.projectId) {
+        ret = TINTS.purple
+    } else if (scope.applicationId) {
+        ret = TINTS.blue
+    } else if (scope.organizationId) {
+        ret = TINTS.green
+    } else {
+        ret = TINTS.ink
+    }
+    return ret
 }

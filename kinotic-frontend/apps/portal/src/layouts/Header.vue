@@ -21,16 +21,16 @@
 
       <!-- On small screens only the deepest segment stays; the sidebar's back row names the rest.
            On wider screens the separator takes no width so the "/" centres on the sidebar edge. -->
-      <span :class="['text-lg text-surface-300 md:flex md:w-0 md:justify-center dark:text-surface-600', applicationId ? 'hidden' : '']">/</span>
-      <div :class="['items-center gap-1', applicationId ? 'hidden md:flex' : 'flex']">
+      <span :class="['text-lg text-surface-300 md:flex md:w-0 md:justify-center dark:text-surface-600', crumbApplicationId ? 'hidden' : '']">/</span>
+      <div :class="['items-center gap-1', crumbApplicationId ? 'hidden md:flex' : 'flex']">
         <RouterLink to="/applications"
-          class="flex items-center gap-1.5 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100">
+          class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100">
           {{ organizationId }}
-          <span class="text-[11px] font-normal text-surface-500">org</span>
+          <ScopePill kind="organization" />
         </RouterLink>
         <!-- Inside an application its own segment carries the switcher -->
         <BreadcrumbSwitcher
-          v-if="!applicationId"
+          v-if="!crumbApplicationId"
           :items="applicationItems"
           label="Switch application"
           search-placeholder="Find application…"
@@ -42,17 +42,20 @@
         />
       </div>
 
-      <template v-if="applicationId">
-        <span :class="['text-lg text-surface-300 dark:text-surface-600', projectId ? 'hidden md:inline' : '']">/</span>
-        <div :class="['items-center gap-1', projectId ? 'hidden md:flex' : 'flex']">
+      <!-- A segment the route no longer names is one the trail remembers from further down, shown
+           muted so the way back stays one click away -->
+      <template v-if="crumbApplicationId">
+        <span :class="['text-lg text-surface-300 dark:text-surface-600', crumbProjectId ? 'hidden md:inline' : '']">/</span>
+        <div :class="['items-center gap-1', crumbProjectId ? 'hidden md:flex' : 'flex']">
           <RouterLink :to="applicationPath"
-            class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100">
-            {{ applicationId }}
+            class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100"
+            :class="{ '!text-surface-400 dark:!text-surface-500': !applicationId }">
+            {{ crumbApplicationId }}
             <ScopePill kind="application" />
           </RouterLink>
           <BreadcrumbSwitcher
             :items="applicationItems"
-            :current-id="applicationId"
+            :current-id="crumbApplicationId"
             label="Switch application"
             search-placeholder="Find application…"
             all-label="All applications"
@@ -65,7 +68,7 @@
       </template>
 
       <!-- Inside an application with projects but none open: a way to pick one from here -->
-      <template v-if="applicationId && !projectId && projectItems.length > 0">
+      <template v-if="crumbApplicationId && !crumbProjectId && projectItems.length > 0">
         <span class="text-lg text-surface-300 dark:text-surface-600">/</span>
         <BreadcrumbSwitcher
           :items="projectItems"
@@ -80,17 +83,18 @@
         />
       </template>
 
-      <template v-if="applicationId && projectId">
+      <template v-if="crumbApplicationId && crumbProjectId">
         <span class="text-lg text-surface-300 dark:text-surface-600">/</span>
         <div class="flex items-center gap-1">
-          <RouterLink :to="`${applicationPath}/project/${encodeURIComponent(projectId)}`"
-            class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100">
+          <RouterLink :to="`${applicationPath}/project/${encodeURIComponent(crumbProjectId)}`"
+            class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100"
+            :class="{ '!text-surface-400 dark:!text-surface-500': !projectId }">
             {{ currentProjectName }}
             <ScopePill kind="project" />
           </RouterLink>
           <BreadcrumbSwitcher
             :items="projectItems"
-            :current-id="projectId"
+            :current-id="crumbProjectId"
             label="Switch project"
             search-placeholder="Find project…"
             all-label="All projects"
@@ -182,13 +186,33 @@ const organizationId = computed(() => USER_STATE.getOrganizationId());
 const applicationId = computed(() => route.params.applicationId as string | undefined);
 const projectId = computed(() => route.params.projectId as string | undefined);
 
+/** The deepest scopes visited, kept while the route moves back up within them. */
+const trail = ref<{ applicationId?: string, projectId?: string }>({});
+
+// Going down records the scope; switching to another application starts a new trail
+watch([applicationId, projectId], ([appId, projId]) => {
+  const next = { ...trail.value };
+  if (appId && appId !== next.applicationId) {
+    next.applicationId = appId;
+    next.projectId = undefined;
+  }
+  if (projId) {
+    next.projectId = projId;
+  }
+  trail.value = next;
+}, { immediate: true });
+
+const crumbApplicationId = computed(() => applicationId.value ?? trail.value.applicationId);
+const crumbProjectId = computed(() => projectId.value
+    ?? (crumbApplicationId.value === trail.value.applicationId ? trail.value.projectId : undefined));
+
 onMounted(() => {
   if (APPLICATION_STATE.allApplications.length === 0) {
     APPLICATION_STATE.loadAllApplications();
   }
 });
 
-const applicationPath = computed(() => `/application/${encodeURIComponent(applicationId.value ?? '')}`);
+const applicationPath = computed(() => `/application/${encodeURIComponent(crumbApplicationId.value ?? '')}`);
 
 const applicationItems = computed(() =>
     APPLICATION_STATE.allApplications.map(app => ({ id: app.id, label: app.name || app.id })));
@@ -197,17 +221,17 @@ const projectItems = computed(() =>
     projectsForCurrentApp.value.map(proj => ({ id: proj.id ?? '', label: proj.name })));
 
 const currentProjectName = computed(() => {
-  const project = projectsForCurrentApp.value.find(p => p.id === projectId.value);
-  return project?.name ?? projectId.value ?? '';
+  const project = projectsForCurrentApp.value.find(p => p.id === crumbProjectId.value);
+  return project?.name ?? crumbProjectId.value ?? '';
 });
 
-watch(applicationId, onApplicationChanged, { immediate: true });
+watch(crumbApplicationId, onApplicationChanged, { immediate: true });
 async function onApplicationChanged(id: string | undefined) {
   projectsForCurrentApp.value = [];
   if (id === undefined) {
     return;
   }
-  if (APPLICATION_STATE.currentApplication?.id !== id) {
+  if (applicationId.value === id && APPLICATION_STATE.currentApplication?.id !== id) {
     await syncCurrentApplication(id);
   }
   await loadProjectsForCurrentApp(id);
@@ -230,7 +254,7 @@ async function loadProjectsForCurrentApp(id: string): Promise<void> {
   try {
     const result = await Kinotic.projects.findAllForApplication(id, Pageable.create(0, 100));
     // the route may have moved to another application while this request was in flight
-    if (applicationId.value === id) {
+    if (crumbApplicationId.value === id) {
       projectsForCurrentApp.value = result.content ?? [];
     }
   } catch (error) {
@@ -257,6 +281,6 @@ function selectProject(id: string) {
   // only the first segment carries over: an entity or job run belongs to this project alone
   const section = pathBelow(scopePath).split('/')[1];
   const below = section ? `/${section}` : '';
-  router.push(`/application/${encodeURIComponent(applicationId.value ?? '')}/project/${encodeURIComponent(id)}${below}`);
+  router.push(`/application/${encodeURIComponent(crumbApplicationId.value ?? '')}/project/${encodeURIComponent(id)}${below}`);
 }
 </script>

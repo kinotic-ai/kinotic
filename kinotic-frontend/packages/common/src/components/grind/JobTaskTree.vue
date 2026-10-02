@@ -1,17 +1,17 @@
 <template>
   <div class="overflow-hidden rounded-xl border border-surface-200 dark:border-surface-700">
-    <div v-for="row in rows" :key="row.node.taskPath"
+    <div v-for="row in rows" :key="row.node.taskPath" :data-task-path="row.node.taskPath"
          class="border-b border-surface-200 last:border-b-0 dark:border-surface-700"
          :class="row.node.status === ExecutionStatus.RUNNING ? 'bg-sky-50 dark:bg-sky-500/10' : ''">
       <div class="flex items-center gap-2.5 py-2.5 pr-3"
-           :style="{ paddingLeft: `${row.depth * 1.25 + 0.75}rem` }">
+           :style="{ paddingLeft: `${row.depth * 1.25 + (nested ? 0.75 : FLAT_INSET_REM)}rem` }">
         <button v-if="row.node.children.length > 0"
                 class="w-5 shrink-0 text-muted-color hover:text-color"
                 type="button"
                 @click="toggle(row.node.taskPath)">
           <component :is="collapsed.has(row.node.taskPath) ? ChevronRight : ChevronDown" :size="14" :stroke-width="2" aria-hidden="true" />
         </button>
-        <span v-else class="w-5 shrink-0" />
+        <span v-else-if="nested" class="w-5 shrink-0" />
 
         <span class="flex h-5 w-5 shrink-0 items-center justify-center">
           <component :is="TASK_STATUS_STYLE[row.node.status].rowIcon" :size="18" :stroke-width="2"
@@ -19,11 +19,15 @@
         </span>
 
         <span class="truncate text-sm"
-              :class="row.node.status === ExecutionStatus.PENDING ? 'text-muted-color' : 'font-medium text-surface-900 dark:text-surface-50'"
+              :class="[row.node.status === ExecutionStatus.PENDING ? 'text-muted-color' : 'font-medium text-surface-900 dark:text-surface-50',
+                       row.node.error ? 'max-w-[45%] shrink-0' : '']"
               v-tooltip.top="row.node.description">{{ row.node.description || `Task ${row.node.sequence}` }}</span>
         <i v-if="row.node.dynamicTasks"
            v-tooltip.top="'This task generated further tasks while running'"
            class="pi pi-sitemap shrink-0 text-xs text-muted-color" />
+        <!-- the error shares the row, cut to fit, with the whole of it on hover -->
+        <span v-if="row.node.error" class="min-w-0 flex-1 truncate text-xs text-red-500"
+              v-tooltip.top="row.node.error">{{ row.node.error }}</span>
 
         <span class="ml-auto shrink-0 font-mono text-xs text-muted-color">{{ row.node.taskPath }}</span>
         <span class="w-16 shrink-0 text-right font-mono text-xs tabular-nums"
@@ -52,11 +56,6 @@
         <div class="mt-1 truncate text-xs text-muted-color">{{ row.node.progress.message }}</div>
       </div>
 
-      <div v-if="row.node.error"
-           class="pb-2 pr-3 text-xs text-red-500"
-           :style="{ paddingLeft: `${row.depth * 1.25 + 2.5}rem` }">
-        {{ row.node.error }}
-      </div>
     </div>
 
     <EmptyChartCharacter v-if="rows.length === 0" class="py-6" title="No tasks discovered yet" />
@@ -64,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import ProgressBar from 'primevue/progressbar'
 import { ChevronDown, ChevronRight, ChevronUp } from '@lucide/vue'
 import { ExecutionStatus } from '@kinotic-ai/management-api'
@@ -99,6 +98,12 @@ defineSlots<{
 const collapsed = ref(new Set<string>())
 // Paths whose detail the user flipped away from its default of "open while running"
 const detailToggled = ref(new Set<string>())
+
+// A flat ledger has no expander column, so its status icons line up under the start tile of
+// JobTaskPipeline, whose ring sits 1.625rem in from the card edge (px-8 less its 6px ring)
+const FLAT_INSET_REM = 1.625
+
+const nested = computed<boolean>(() => props.root.children.some(node => node.children.length > 0))
 
 const rows = computed<TreeRow[]>(() => {
   const out: TreeRow[] = []
@@ -137,4 +142,24 @@ function toggleDetail(taskPath: string): void {
   }
   detailToggled.value = next
 }
+
+/** Opens the task's row, with its detail pane when it has one, and scrolls it into view. */
+function reveal(taskPath: string): void {
+  // a task inside a collapsed ancestor has no row until the ancestor opens
+  const collapsedAncestors = [...collapsed.value].filter(path => taskPath.startsWith(`${path}/`))
+  if (collapsedAncestors.length > 0) {
+    const next = new Set(collapsed.value)
+    collapsedAncestors.forEach(path => next.delete(path))
+    collapsed.value = next
+  }
+  const node = rows.value.find(row => row.node.taskPath === taskPath)?.node
+  if (node && props.expandable?.(node) && !detailOpen(node)) {
+    toggleDetail(taskPath)
+  }
+  nextTick(() => {
+    document.querySelector(`[data-task-path="${CSS.escape(taskPath)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+}
+
+defineExpose({ reveal })
 </script>

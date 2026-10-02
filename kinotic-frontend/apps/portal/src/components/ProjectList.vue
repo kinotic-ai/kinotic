@@ -3,10 +3,11 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { InitialsTile, showErrorToast, TimePill } from '@kinotic-ai/frontend-common'
 import { useToast } from 'primevue/usetoast'
-import { CrudTable } from '@kinotic-ai/frontend-common'
+import { CrudTable, SteppingDrawer, useSteppingDrawer } from '@kinotic-ai/frontend-common'
+import ProjectOverview from '@/pages/ProjectOverview.vue'
 import NewProjectSidebar from '@/components/NewProjectSidebar.vue'
-import type { IDataSource, Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
-import { APPLICATION_STATE } from '@/states/IApplicationState'
+import DeleteProjectDialog from '@/components/DeleteProjectDialog.vue'
+import type { IDataSource, IterablePage, Pageable } from '@kinotic-ai/core'
 import { Kinotic } from '@kinotic-ai/core'
 import { Project, RepositoryConnectionStatus } from '@kinotic-ai/management-api'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
@@ -77,9 +78,7 @@ watch(() => props.applicationId, () => {
 
 const dataSource = computed<IDataSource<Project>>(() => ({
   findAll: async (pageable: Pageable): Promise<IterablePage<Project>> => {
-    const result = await Kinotic.projects.findAllForApplication(props.applicationId, pageable)
-    APPLICATION_STATE.projectsCount = result.totalElements ?? 0
-    return result
+    return Kinotic.projects.findAllForApplication(props.applicationId, pageable)
   },
   search: async (_searchText: string, pageable: Pageable): Promise<IterablePage<Project>> => {
     const search = `applicationId:${props.applicationId} && ${searchText.value}`
@@ -124,30 +123,24 @@ async function onProjectSubmit(): Promise<void> {
   }
 }
 
-async function deleteProject(item: Project): Promise<void> {
-  try {
-    await Kinotic.projects.deleteByIdSync(item.id!)
-    toast.add({ severity: 'success', summary: 'Project deleted', life: 4000 })
-    refreshTable()
-  } catch (err) {
-    showErrorToast(toast, 'Failed to delete project', err, { life: 8000 })
+const projectToDelete = ref<Project | null>(null)
+
+function onProjectDeleted(deleted: Project): void {
+  projectToDelete.value = null
+  if (deleted.id) {
+    crudTable.value?.removeRow(deleted.id)
   }
+  refreshTable()
 }
 
-async function toProjectPage(item: Identifiable<string>): Promise<void> {
-  if (!item.id) return
-
-  try {
-    const appId = props.applicationId
-    const projectId = item.id
-
-    debug('Navigating to project: %s, ID: %s, App ID: %s', (item as any).name, projectId, appId)
-
-    await router.push(`/application/${encodeURIComponent(appId)}/project/${encodeURIComponent(projectId)}`)
-  } catch (error) {
-    debug('Failed to navigate to project page: %O', error)
-  }
+function projectPath(projectId: string): string {
+  return `/application/${encodeURIComponent(props.applicationId)}/project/${encodeURIComponent(projectId)}`
 }
+
+const shownProjects = computed(() => (crudTable.value?.items ?? []) as Project[])
+const { selected: selectedProject, visible: drawerVisible, position, open: openProject, step: stepProject,
+        highlighted: highlightedProject, hover: hoverProject } =
+    useSteppingDrawer(shownProjects, project => project.id)
 
 function isRetrying(id: string | null): boolean {
   return id != null && retryingIds.value.includes(id)
@@ -188,8 +181,10 @@ async function retryRepoInit(project: Project): Promise<void> {
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddProject"
-      @delete-item="deleteProject"
-      @onRowClick="toProjectPage"
+      @delete-item="projectToDelete = $event"
+      :selected-id="highlightedProject?.id"
+      @row-hover="row => hoverProject(row as Project)"
+      @onRowClick="row => openProject(row as Project)"
       createNewButtonText="New Project"
       emptyStateText="No projects yet"
       :isShowDelete="true"
@@ -234,6 +229,22 @@ async function retryRepoInit(project: Project): Promise<void> {
         </span>
       </template>
     </CrudTable>
+
+    <!-- The picked project opens beside the list; the arrows step through the rows the table shows -->
+    <SteppingDrawer v-model:visible="drawerVisible" :position="position" :total="shownProjects.length"
+                    :expand-to="selectedProject?.id ? projectPath(selectedProject.id) : undefined"
+                    expand-label="Open the project" @step="stepProject">
+      <template #title>
+        <span v-if="selectedProject" class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">{{ selectedProject.name }}</span>
+      </template>
+      <ProjectOverview v-if="selectedProject?.id" :key="selectedProject.id" :application-id="applicationId" :project-id="selectedProject.id" />
+    </SteppingDrawer>
+
+    <DeleteProjectDialog
+      :project="projectToDelete"
+      @deleted="onProjectDeleted"
+      @close="projectToDelete = null"
+    />
 
     <NewProjectSidebar
       :visible="showProjectSidebar"
