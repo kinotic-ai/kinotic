@@ -16,7 +16,8 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
  * Elasticsearch CRUD over one index of {@link Watched} records stored by id alone, with what the
  * reconcile master reads of them and the writes every watched record shares: marking a write as
  * seen, and setting or clearing a condition. Each write is one shard operation that enters the
- * ledger, and the ledger is read back per record.
+ * ledger, a record is deleted only once every write to it is entered, and the ledger is read back
+ * per record.
  *
  * @param <T> the kind of record
  */
@@ -54,8 +55,24 @@ public abstract class AbstractWatchedRepository<T extends Watched> extends Abstr
     }
 
     @Override
-    public Future<Void> clearDirty(String id, String scope, long dirtyAt) {
-        return watchedStateRepository.clearDirty(document(id), dirtyAt);
+    public Future<Void> clearDirty(T record) {
+        return watchedStateRepository.clearDirty(document(record.getId()), record.getState());
+    }
+
+    /**
+     * @see WatchedStateRepository#delete(WatchedDocument)
+     */
+    @Override
+    public Future<Void> deleteById(String id) {
+        return watchedStateRepository.delete(document(id));
+    }
+
+    /**
+     * @see WatchedStateRepository#deleteSync(WatchedDocument)
+     */
+    @Override
+    public Future<Void> deleteByIdSync(String id) {
+        return watchedStateRepository.deleteSync(document(id));
     }
 
     /**

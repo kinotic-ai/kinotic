@@ -6,7 +6,9 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * What the platform keeps on a {@link Watched} record beside the fields the record's own authority
@@ -36,8 +38,14 @@ public class WatchedState {
     private boolean dirty;
 
     /**
-     * When {@link #isDirty()} was last set, epoch milliseconds, so the master clears only the write
-     * it saw.
+     * When the record was last written, epoch milliseconds, later than every earlier write to it, so
+     * the master clears only the write it saw.
      */
     private long dirtyAt;
+
+    /**
+     * The ledger entries of writes to the record that are not in the ledger yet, by entry id. Empty
+     * once every write is entered.
+     */
+    private Map<String, WatchEvent> unrecorded = new HashMap<>();
 }
