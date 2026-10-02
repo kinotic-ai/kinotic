@@ -16,10 +16,14 @@ export default {
   // "test"/"<package>"/"<file>.test.ts" while the Java modules (no titlePath) already fall back to
   // parentSuite. Setting groupBy forces buildTreeByLabels for every result, so JS and Java group
   // uniformly by parentSuite > suite > subSuite.
+  //
+  // logo is the website's own mark, served from the same origin as /test-results/. The rest of the
+  // styling is allure-theme.css, which the CI job links into each generated report.
   plugins: {
     awesome: {
       options: {
         groupBy: ["parentSuite", "suite", "subSuite"],
+        logo: "/favicon.svg",
       },
     },
   },
