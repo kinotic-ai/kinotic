@@ -12,6 +12,6 @@ export class Organization implements Identifiable<string> {
     public description: string | null = null
     public oidcConfigurationIds: string[] | null = null
     public createdBy: string | null = null
-    public created: number | null = null
-    public updated: number | null = null
+    public created: string | null = null
+    public updated: string | null = null
 }

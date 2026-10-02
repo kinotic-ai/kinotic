@@ -123,7 +123,7 @@ interface ProjectRow extends DescriptiveIdentifiable {
   lastRun: JobRun | null
   lastRunSha: string | null
   description?: string
-  updated: number | null
+  updated: string | null
 }
 
 const DEFAULT_SORT = [new Order('name', Direction.ASC)]

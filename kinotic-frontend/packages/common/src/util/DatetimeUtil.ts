@@ -32,14 +32,14 @@ public static formatRelativeDate(dateStr: string | number | Date): string {
     if (diffDays === 1) return '1 day ago'
     return `${diffDays} days ago`
 }
-/** Renders epoch millis as the 24-hour locale time of day. */
-public static formatTime(epochMillis: number): string {
-    return new Date(epochMillis).toLocaleTimeString('en-US', { hour12: false })
+/** Renders a timestamp (epoch millis or an ISO-8601 string) as the 24-hour locale time of day. */
+public static formatTime(timestamp: number | string): string {
+    return new Date(timestamp).toLocaleTimeString('en-US', { hour12: false })
 }
 
-/** Renders epoch millis as the locale date, or an em dash when absent. */
-public static formatEpochDate(epochMillis: number | null): string {
-    return epochMillis ? new Date(epochMillis).toLocaleDateString() : '—'
+/** Renders a timestamp (epoch millis or an ISO-8601 string) as the locale date, or an em dash when absent. */
+public static formatLocaleDate(timestamp: number | string | null): string {
+    return timestamp ? new Date(timestamp).toLocaleDateString() : '—'
 }
 
 /**
@@ -67,7 +67,7 @@ public static formatDuration(started: number | string | Date | null, finished: n
     return ret
 }
 
-/** Epoch millis of a timestamp however it arrived (millis, a date string, a Date), or null when absent or unreadable. */
+/** Epoch millis of a timestamp (epoch millis, an ISO-8601 string, a Date), or null when absent or unreadable. */
 public static toEpochMillis(value: number | string | Date | null): number | null {
     let ret: number | null
     if (!value) {
@@ -79,9 +79,9 @@ public static toEpochMillis(value: number | string | Date | null): number | null
     return ret
 }
 
-/** Renders epoch millis as the locale date and time, or an em dash when absent. */
-public static formatEpochDateTime(epochMillis: number | null): string {
-    return epochMillis ? new Date(epochMillis).toLocaleString() : '—'
+/** Renders a timestamp (epoch millis or an ISO-8601 string) as the locale date and time, or an em dash when absent. */
+public static formatDateTime(timestamp: number | string | null): string {
+    return timestamp ? new Date(timestamp).toLocaleString() : '—'
 }
 
 public static formatMonthDayYear(dateStr: string | number | Date): string {

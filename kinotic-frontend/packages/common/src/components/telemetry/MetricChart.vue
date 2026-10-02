@@ -67,7 +67,7 @@ const option = computed(() => {
     },
     tooltip: chartTooltip(dark, {
       format: value => props.format(value),
-      heading: value => typeof value === 'number' ? DatetimeUtil.formatEpochDateTime(value) : String(value ?? '')
+      heading: value => typeof value === 'number' ? DatetimeUtil.formatDateTime(value) : String(value ?? '')
     }),
     legend: chartLegend(dark),
     series: props.series.map((entry, index) => ({

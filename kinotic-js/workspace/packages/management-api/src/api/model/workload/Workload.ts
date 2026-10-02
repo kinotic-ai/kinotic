@@ -153,12 +153,12 @@ export class Workload implements Watched {
     /**
      * The date and time the workload was created.
      */
-    public created: number | null = null
+    public created: string | null = null
 
     /**
      * The date and time the workload was last updated.
      */
-    public updated: number | null = null
+    public updated: string | null = null
 
     constructor(name: string, image: string) {
         this.name = name

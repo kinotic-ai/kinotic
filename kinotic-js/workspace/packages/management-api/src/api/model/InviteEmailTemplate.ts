@@ -23,7 +23,7 @@ export class InviteEmailTemplate implements Identifiable<string> {
     /** Handlebars source for the plain-text body. */
     public textBody: string = ''
 
-    public created: number | null = null
+    public created: string | null = null
 
-    public updated: number | null = null
+    public updated: string | null = null
 }

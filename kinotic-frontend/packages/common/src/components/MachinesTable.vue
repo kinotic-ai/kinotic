@@ -138,7 +138,7 @@ interface MachineRow extends DescriptiveIdentifiable {
   id: string
   displayName: string | null
   status: 'Active' | 'Disabled'
-  created: number | null
+  created: string | null
   enabled: boolean
 }
 

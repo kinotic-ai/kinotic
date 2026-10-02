@@ -159,7 +159,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
-const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
+const formatDateTime = DatetimeUtil.formatDateTime
 
 const scope = computed<Scope>(() => ({
   organizationId: props.organizationId,
@@ -204,8 +204,8 @@ const runtimeFacts = computed(() => {
     { label: 'Telemetry', icon: markRaw(Radio), value: w?.telemetry ? 'Traces and metrics shipped through the node' : 'Off' },
     { label: 'Log policy', icon: markRaw(FileText),
       value: w?.logPolicy ? `${w.logPolicy.maxSizeMb} MB × ${w.logPolicy.maxFiles} files` : '—' },
-    { label: 'Created', icon: markRaw(CalendarPlus), value: w?.created ? formatEpochDateTime(w.created) : null },
-    { label: 'Updated', icon: markRaw(CalendarClock), value: w?.updated ? formatEpochDateTime(w.updated) : null }
+    { label: 'Created', icon: markRaw(CalendarPlus), value: w?.created ? formatDateTime(w.created) : null },
+    { label: 'Updated', icon: markRaw(CalendarClock), value: w?.updated ? formatDateTime(w.updated) : null }
   ]
 })
 
@@ -263,7 +263,7 @@ const stats = computed<Stat[]>(() => {
     {
       label: 'Status',
       value: w.status,
-      detail: w.exitCode !== null ? `exit code ${w.exitCode}` : `since ${formatEpochDateTime(w.updated ?? w.created)}`,
+      detail: w.exitCode !== null ? `exit code ${w.exitCode}` : `since ${formatDateTime(w.updated ?? w.created)}`,
       tag: workloadSeverity(w.status),
       heartbeat: workloadHeartbeat(w.status),
       tint: HEARTBEAT_TINTS[workloadHeartbeat(w.status)]

@@ -8,6 +8,6 @@ export interface MemberSummary extends DescriptiveIdentifiable {
     status: 'Invited' | 'Active' | 'Disabled'
     /** How the person signs in, OIDC or LOCAL; null for an invitation. */
     authType: string | null
-    created: number | null
+    created: string | null
     invite?: boolean
 }

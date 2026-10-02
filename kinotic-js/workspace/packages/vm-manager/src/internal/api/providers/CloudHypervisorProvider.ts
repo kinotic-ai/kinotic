@@ -212,8 +212,8 @@ export class CloudHypervisorProvider implements IVmProvider {
         const id = workload.id ?? crypto.randomUUID()
         workload.id = id
         workload.status = WorkloadStatus.STARTING
-        workload.created = Date.now()
-        workload.updated = Date.now()
+        workload.created = new Date().toISOString()
+        workload.updated = new Date().toISOString()
         workload.exitCode = null
 
         this.workloads.set(id, workload)
@@ -251,7 +251,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             throw error
         } finally {
             this.starting.delete(id)
-            workload.updated = Date.now()
+            workload.updated = new Date().toISOString()
             this.persist(workload)
         }
 
@@ -268,7 +268,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         const workload = this.requireWorkload(workloadId)
 
         workload.status = WorkloadStatus.STOPPING
-        workload.updated = Date.now()
+        workload.updated = new Date().toISOString()
         this.persist(workload)
 
         const container = this.docker.getContainer(workloadId)
@@ -277,7 +277,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         this.egress.release(workloadId)
 
         workload.status = WorkloadStatus.STOPPED
-        workload.updated = Date.now()
+        workload.updated = new Date().toISOString()
         this.persist(workload)
     }
 
@@ -359,7 +359,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             console.error(`Failed to reattach workload ${id}:`, error)
             workload.status = WorkloadStatus.FAILED
         }
-        workload.updated = Date.now()
+        workload.updated = new Date().toISOString()
         this.persist(workload)
     }
 
@@ -394,7 +394,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         if (status !== workload.status || exitCode !== workload.exitCode) {
             workload.status = status
             workload.exitCode = exitCode
-            workload.updated = Date.now()
+            workload.updated = new Date().toISOString()
             this.egress.release(workload.id!)
             this.persist(workload)
         }

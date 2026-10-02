@@ -23,7 +23,7 @@
               <template v-else>{{ entry.message }}</template>
             </p>
             <p class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-color">
-              <span v-tooltip.top="formatEpochDateTime(entry['@timestamp'])" class="tabular-nums">{{ formatTime(entry['@timestamp']) }}</span>
+              <span v-tooltip.top="formatDateTime(entry['@timestamp'])" class="tabular-nums">{{ formatTime(entry['@timestamp']) }}</span>
               <span aria-hidden="true">·</span>
               <span>{{ kindLabel(entry.kind) }}</span>
               <template v-if="showRecord">
@@ -105,7 +105,7 @@ const DONE_WORDS = new Set(['DEPLOYED', 'READY', 'COMPLETED'])
 const ACTIVE_WORDS = new Set(['DEPLOYING', 'RUNNING', 'PENDING', 'PUBLISHING'])
 const STATUS_WORD = /\b(FAILED|DEPLOYED|READY|COMPLETED|DEPLOYING|RUNNING|PENDING|PUBLISHING)\b/
 
-const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
+const formatDateTime = DatetimeUtil.formatDateTime
 const formatRelativeDate = DatetimeUtil.formatRelativeDate
 const formatTime = DatetimeUtil.formatTime
 

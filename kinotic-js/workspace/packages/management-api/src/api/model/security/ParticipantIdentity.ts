@@ -21,6 +21,6 @@ export abstract class ParticipantIdentity implements Identifiable<string> {
     public applicationId: string | null = null
     public tenantId: string | null = null
     public enabled: boolean = true
-    public created: number | null = null
-    public updated: number | null = null
+    public created: string | null = null
+    public updated: string | null = null
 }

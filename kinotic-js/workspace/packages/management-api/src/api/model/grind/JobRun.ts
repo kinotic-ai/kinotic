@@ -68,14 +68,14 @@ export class JobRun implements Watched {
     public nodeId: string | null = null
 
     /**
-     * When the run started executing, as epoch milliseconds.
+     * When the run started executing, as an ISO-8601 timestamp.
      */
-    public started: number | null = null
+    public started: string | null = null
 
     /**
-     * When the run reached a terminal status, as epoch milliseconds.
+     * When the run reached a terminal status, as an ISO-8601 timestamp.
      */
-    public finished: number | null = null
+    public finished: string | null = null
 
 
     /**

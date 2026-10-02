@@ -8,7 +8,7 @@ export interface DelegateSession {
     /** The label supplied when the session started (e.g. a device name), or null. */
     label: string | null
     /** When the session's current token was minted — issuance, or the latest rotation. */
-    lastRefreshedAt: number
+    lastRefreshedAt: string
     /** When the session ends on its own if never refreshed again. */
-    expiresAt: number
+    expiresAt: string
 }

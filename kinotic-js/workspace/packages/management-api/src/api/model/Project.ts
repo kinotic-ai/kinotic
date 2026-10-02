@@ -69,7 +69,7 @@ export class Project implements Identifiable<string> {
     /**
      * The date and time the project was updated.
      */
-    public updated: number | null = null
+    public updated: string | null = null
 
     constructor(id: string | null, applicationId: string, name: string, description?: string) {
         this.id = id

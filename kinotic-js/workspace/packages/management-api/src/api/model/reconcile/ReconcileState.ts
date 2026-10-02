@@ -23,8 +23,8 @@ export class ReconcileState<S> extends WatchedState {
     /** The generation the authority had processed when it last reported. */
     public observedGeneration: number = 0
 
-    /** When the record's deletion was asked for, epoch milliseconds, or null while it was not. */
-    public deletionRequested: number | null = null
+    /** When the record's deletion was asked for, as an ISO-8601 timestamp, or null while it was not. */
+    public deletionRequested: string | null = null
 
     /** Whether the record is in its desired state. */
     public reconciled: boolean = false

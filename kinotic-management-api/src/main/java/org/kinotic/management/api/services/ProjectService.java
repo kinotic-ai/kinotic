@@ -5,6 +5,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.WatchEvent;
+import org.kinotic.domain.api.model.WatchEventKind;
 import org.kinotic.domain.api.services.ApplicationScopedCrudService;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.deployment.ProjectDependencies;
@@ -60,6 +61,18 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      *         been deployed
      */
     Future<Page<WatchEvent>> findDeploymentHistory(String projectId, Pageable pageable);
+
+    /**
+     * Lists what happened to the deployments of every project in the current participant's
+     * organization and to the records they made, newest first, with what caused each: the entries
+     * {@link #findDeploymentHistory(String, Pageable)} lists for each project, limited to the given
+     * kinds.
+     *
+     * @param kinds    the kinds of entries to list
+     * @param pageable the page to return
+     * @return a {@link Future} emitting a page of ledger entries
+     */
+    Future<Page<WatchEvent>> findAllDeploymentHistory(List<WatchEventKind> kinds, Pageable pageable);
 
     /**
      * Finds the SBOM of the given project in the current participant's organization: every

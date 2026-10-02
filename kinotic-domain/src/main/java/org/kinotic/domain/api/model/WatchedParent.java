@@ -39,10 +39,20 @@ public record WatchedParent(WatchedType type, String scope, String id) {
     }
 
     /**
+     * @param type  the parents' kind
+     * @param scope the scope the parents are stored under
+     * @return what the {@link #value()} of every parent of the type under the scope starts with,
+     *         {@code TYPE:scope:}
+     */
+    public static String valuePrefix(WatchedType type, String scope) {
+        return type + ":" + scope + ":";
+    }
+
+    /**
      * @return the parent as one string, {@code TYPE:scope:id}
      */
     @JsonValue
     public String value() {
-        return type + ":" + scope + ":" + id;
+        return valuePrefix(type, scope) + id;
     }
 }

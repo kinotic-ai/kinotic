@@ -55,11 +55,11 @@ export class MicroserviceDeployment implements Reconcilable<DeploymentState> {
     public failureMessage: string | null = null
 
     /**
-     * When a VM that exited is started again, epoch milliseconds, or null while none is waiting:
+     * When a VM that exited is started again, as an ISO-8601 timestamp, or null while none is waiting:
      * each failure since the last deployment doubles the wait, from thirty seconds to ten minutes,
      * and a new deployment or a restart starts it at once.
      */
-    public restartAt: number | null = null
+    public restartAt: string | null = null
 
     /**
      * What the deployment should be, the commit its project's last deployment asked it to run,
@@ -69,8 +69,8 @@ export class MicroserviceDeployment implements Reconcilable<DeploymentState> {
      */
     public state: ReconcileState<DeploymentState> = new ReconcileState()
 
-    public created: number | null = null
+    public created: string | null = null
 
-    public updated: number | null = null
+    public updated: string | null = null
 
 }

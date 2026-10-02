@@ -78,7 +78,7 @@ interface DelegateRow extends DescriptiveIdentifiable {
   displayName: string | null
   kind: string
   status: 'Active' | 'Revoked'
-  created: number | null
+  created: string | null
   enabled: boolean
 }
 
@@ -107,8 +107,8 @@ const { tableSearch, dataSource, refreshTable, removeRow } = useCrudTablePage(
   )
 )
 
-const formatDate = DatetimeUtil.formatEpochDate
-const formatDateTime = DatetimeUtil.formatEpochDateTime
+const formatDate = DatetimeUtil.formatLocaleDate
+const formatDateTime = DatetimeUtil.formatDateTime
 
 function toRow(delegate: DelegatingParticipantIdentity): DelegateRow {
   return {

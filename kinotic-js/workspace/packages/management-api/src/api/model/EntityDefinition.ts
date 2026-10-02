@@ -25,10 +25,10 @@ export class EntityDefinition implements Identifiable<string> {
     public name!: string
     public schema!: ObjectC3Type
     public description?: string | null
-    public created!: number // do not ever set, system managed
-    public updated!: number // do not ever set, system managed
+    public created!: string // do not ever set, system managed
+    public updated!: string // do not ever set, system managed
     public published!: boolean // do not ever set, system managed
-    public publishedTimestamp!: number // do not ever set, system managed
+    public publishedTimestamp!: string // do not ever set, system managed
 
     constructor(organizationId: string,
                 applicationId: string,

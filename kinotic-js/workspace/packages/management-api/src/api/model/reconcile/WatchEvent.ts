@@ -7,8 +7,8 @@ import type { WatchedType } from './WatchedType'
  * says what it is now; its entries say how it got there.
  */
 export interface WatchEvent {
-    /** When the write landed, epoch milliseconds. */
-    '@timestamp': number
+    /** When the write landed, as an ISO-8601 timestamp. */
+    '@timestamp': string
     /** The kind of record that changed. */
     type: WatchedType
     /** The record's id. */

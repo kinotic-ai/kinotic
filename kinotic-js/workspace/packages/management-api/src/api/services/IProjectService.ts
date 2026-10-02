@@ -4,6 +4,7 @@ import { Project } from '@/api/model/Project'
 import type { ProjectDependencies } from '@/api/model/deployment/ProjectDependencies'
 import type { ProjectDeployment } from '@/api/model/deployment/ProjectDeployment'
 import type { WatchEvent } from '@/api/model/reconcile/WatchEvent'
+import type { WatchEventKind } from '@/api/model/reconcile/WatchEventKind'
 
 export interface IProjectService extends ICrudServiceProxy<Project> {
 
@@ -20,6 +21,15 @@ export interface IProjectService extends ICrudServiceProxy<Project> {
      * @return Promise emitting the created project or the existing project if it already exists
      */
     createProjectIfNotExist(project: Project): Promise<Project>
+
+    /**
+     * Lists what happened to the deployments of every project in the current participant's
+     * organization and to the records they made, newest first, with what caused each: the entries
+     * findDeploymentHistory lists for each project, limited to the given kinds.
+     * @param kinds the kinds of entries to list
+     * @param pageable the page to return
+     */
+    findAllDeploymentHistory(kinds: WatchEventKind[], pageable: Pageable): Promise<IterablePage<WatchEvent>>
 
     /**
      * Finds all projects for the given application.
@@ -86,6 +96,16 @@ export class ProjectService extends CrudServiceProxy<Project> implements IProjec
 
     public createProjectIfNotExist(project: Project): Promise<Project> {
         return this.serviceProxy.invoke('createProjectIfNotExist', [project])
+    }
+
+    public async findAllDeploymentHistory(kinds: WatchEventKind[], pageable: Pageable): Promise<IterablePage<WatchEvent>> {
+        const page: Page<WatchEvent> = await this.findAllDeploymentHistorySinglePage(kinds, pageable)
+        return new FunctionalIterablePage(pageable, page,
+            (pageable: Pageable) => this.findAllDeploymentHistorySinglePage(kinds, pageable))
+    }
+
+    public findAllDeploymentHistorySinglePage(kinds: WatchEventKind[], pageable: Pageable): Promise<Page<WatchEvent>> {
+        return this.serviceProxy.invoke('findAllDeploymentHistory', [kinds, pageable])
     }
 
     public async findAllForApplication(applicationId: string, pageable: Pageable): Promise<IterablePage<Project>> {

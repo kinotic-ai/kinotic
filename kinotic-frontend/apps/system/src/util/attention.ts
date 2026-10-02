@@ -28,8 +28,8 @@ const FULL_SHA = /\b[0-9a-f]{40}\b/
 /** How many failed runs and workloads a list names before it stops. */
 const MAX_PER_KIND = 5
 
-function relative(epochMillis: number | null): string {
-    return epochMillis ? DatetimeUtil.formatRelativeDate(epochMillis).toLowerCase() : ''
+function relative(timestamp: string | null): string {
+    return timestamp ? DatetimeUtil.formatRelativeDate(timestamp).toLowerCase() : ''
 }
 
 /** The short form of the commit sha a run's description names, or null when it names none. */

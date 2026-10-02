@@ -234,7 +234,7 @@ const rangeDescription = computed(() => {
   let ret: string
   const range = loadedRange.value
   if (span.value === CUSTOM_SPAN && range) {
-    ret = `between ${DatetimeUtil.formatEpochDateTime(range.start)} and ${DatetimeUtil.formatEpochDateTime(range.end)}`
+    ret = `between ${DatetimeUtil.formatDateTime(range.start)} and ${DatetimeUtil.formatDateTime(range.end)}`
   } else {
     ret = spanOptions.value.find(option => option.value === span.value)!.description
   }
