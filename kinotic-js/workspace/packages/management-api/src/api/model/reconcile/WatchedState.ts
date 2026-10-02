@@ -1,5 +1,6 @@
 import type { StatusCondition } from './StatusCondition'
 import type { WatchedParent } from './WatchedParent'
+import type { WatchEvent } from './WatchEvent'
 
 /**
  * What the platform keeps on a watched record beside the fields the record's own authority writes:
@@ -24,7 +25,13 @@ export class WatchedState {
     public dirty: boolean = false
 
     /**
-     * When dirty was last set, epoch milliseconds.
+     * When the record was last written, epoch milliseconds, later than every earlier write to it.
      */
     public dirtyAt: number = 0
+
+    /**
+     * The ledger entries of writes to the record that are not in the ledger yet, by entry id. Empty
+     * once every write is entered.
+     */
+    public unrecorded: Record<string, WatchEvent> = {}
 }

@@ -55,7 +55,7 @@ public class ReconcileStateRepository {
                 s.desired = params.desired;
                 s.generation = (long) s.generation + 1;
                 s.desiredAt = params.now;
-                touched(s, params.now);
+                touched(ctx._source, s, params);
             }
             """;
 
@@ -66,7 +66,7 @@ public class ReconcileStateRepository {
             } else {
                 s.observed = params.observed;
                 s.observedGeneration = params.seen;
-                touched(s, params.now);
+                touched(ctx._source, s, params);
             }
             """;
 
@@ -78,7 +78,7 @@ public class ReconcileStateRepository {
             } else {
                 s.generation = (long) s.generation + 1;
                 s.desiredAt = params.now;
-                touched(s, params.now);
+                touched(ctx._source, s, params);
             }
             """;
 
@@ -89,7 +89,7 @@ public class ReconcileStateRepository {
                 ctx.op = 'noop';
             } else {
                 s.deletionRequested = params.at;
-                touched(s, params.now);
+                touched(ctx._source, s, params);
             }
             """;
 
@@ -128,21 +128,11 @@ public class ReconcileStateRepository {
         Validate.notBlank(source, "source cannot be blank");
         Map<String, Object> params = new HashMap<>();
         params.put("desired", desired);
-        params.put("now", System.currentTimeMillis());
         @SuppressWarnings("unchecked")
         Map<String, Object> upsertDocument = upsert == null ? null : crudServiceTemplate.getObjectMapper().convertValue(upsert, Map.class);
-        return crudServiceTemplate.scriptedUpdateReturningSourceSync(document.index().name(), document.documentId(), UPDATE_DESIRED, params,
-                                                                     u -> {
-                                                                         if (document.routing() != null) {
-                                                                             u.routing(document.routing());
-                                                                         }
-                                                                         if (upsertDocument != null) {
-                                                                             u.upsert(upsertDocument).scriptedUpsert(true);
-                                                                         }
-                                                                     })
-                                  .compose(written -> recorded(document, written,
-                                                               new WatchedChange(WatchEventKind.DESIRED_UPDATED, source,
-                                                                                 "Desired " + desired, desired)));
+        return watchedStateRepository.write(document, UPDATE_DESIRED, params,
+                                            new WatchedChange(WatchEventKind.DESIRED_UPDATED, source, "Desired " + desired, desired),
+                                            upsertDocument);
     }
 
     /**
@@ -163,11 +153,8 @@ public class ReconcileStateRepository {
         Map<String, Object> params = new HashMap<>();
         params.put("observed", observed);
         params.put("seen", seen);
-        params.put("now", System.currentTimeMillis());
-        return watchedStateRepository.run(document, REPORT_OBSERVED, params)
-                                     .compose(written -> recorded(document, written,
-                                                                  new WatchedChange(WatchEventKind.OBSERVED_REPORTED, source,
-                                                                                    "Observed " + observed, observed)));
+        return watchedStateRepository.write(document, REPORT_OBSERVED, params,
+                                            new WatchedChange(WatchEventKind.OBSERVED_REPORTED, source, "Observed " + observed, observed));
     }
 
     /**
@@ -182,12 +169,8 @@ public class ReconcileStateRepository {
     public Future<Map<String, Object>> renewDesired(WatchedDocument document, String source) {
         Validate.notNull(document, "document cannot be null");
         Validate.notBlank(source, "source cannot be blank");
-        Map<String, Object> params = new HashMap<>();
-        params.put("now", System.currentTimeMillis());
-        return watchedStateRepository.run(document, RENEW_DESIRED, params)
-                                     .compose(written -> recorded(document, written,
-                                                                  new WatchedChange(WatchEventKind.DESIRED_RENEWED, source,
-                                                                                    "Desired renewed", null)));
+        return watchedStateRepository.write(document, RENEW_DESIRED, Map.of(),
+                                            new WatchedChange(WatchEventKind.DESIRED_RENEWED, source, "Desired renewed", null));
     }
 
     /**
@@ -203,23 +186,7 @@ public class ReconcileStateRepository {
         Validate.notNull(document, "document cannot be null");
         Validate.notBlank(source, "source cannot be blank");
         Date at = new Date();
-        Map<String, Object> params = new HashMap<>();
-        params.put("at", at.toInstant().toString());
-        params.put("now", System.currentTimeMillis());
-        return watchedStateRepository.run(document, REQUEST_DELETION, params)
-                                     .compose(written -> recorded(document, written,
-                                                                  new WatchedChange(WatchEventKind.DELETION_REQUESTED, source,
-                                                                                    "Deletion requested", at)));
-    }
-
-    // A script that declined returns no document, and a write that did not happen is not recorded
-    private Future<Map<String, Object>> recorded(WatchedDocument document, Map<String, Object> written, WatchedChange change) {
-        Future<Map<String, Object>> ret;
-        if (written == null) {
-            ret = Future.succeededFuture();
-        } else {
-            ret = watchedStateRepository.record(document, written, change).map(written);
-        }
-        return ret;
+        return watchedStateRepository.write(document, REQUEST_DELETION, Map.of("at", at.toInstant().toString()),
+                                            new WatchedChange(WatchEventKind.DELETION_REQUESTED, source, "Deletion requested", at));
     }
 }

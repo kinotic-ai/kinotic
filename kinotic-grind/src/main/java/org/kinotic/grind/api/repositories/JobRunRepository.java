@@ -53,7 +53,7 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
             if (left != null) {
                 s.conditions.remove(s.conditions.indexOf(left));
             }
-            touched(s, params.now);
+            touched(ctx._source, s, params);
             """;
 
     // A mark says the run is still executing on a node that left, so a run that has finished declines
@@ -118,11 +118,9 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
         params.put("error", error);
         params.put("finished", finished.toInstant().toString());
         params.put("nodeLeft", StatusConditionType.SERVER_NODE_LEFT.name());
-        params.put("now", System.currentTimeMillis());
-        return crudServiceTemplate.scriptedUpdateReturningSourceSync(indexName, jobRunId, RECORD_OUTCOME, params)
-                                  .compose(document -> watchedStateRepository.record(
-                                          document(jobRunId), document,
-                                          new WatchedChange(WatchEventKind.STATUS_CHANGED, source, "Run " + status, status)));
+        return watchedStateRepository.write(document(jobRunId), RECORD_OUTCOME, params,
+                                            new WatchedChange(WatchEventKind.STATUS_CHANGED, source, "Run " + status, status))
+                                     .mapEmpty();
     }
 
     /**

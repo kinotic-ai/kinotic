@@ -9,7 +9,8 @@ import java.util.Date;
  * One entry of the ledger: what happened to a watched record, from where, and why. The record itself
  * says what it is now; its entries say how it got there.
  *
- * @param timestamp    when the write landed, the data stream's time field
+ * @param timestamp    when the write landed, later than every earlier write to the same record; the
+ *                     data stream's time field
  * @param type         the kind of record that changed
  * @param id           the record's id
  * @param scope        the scope the record is addressed under, as its repository's {@code scopeOf} gives

@@ -45,7 +45,7 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
                 ctx._source.exitCode = params.exitCode;
             }
             ctx._source.updated = params.updated;
-            touched(state(ctx._source), params.now);
+            touched(ctx._source, state(ctx._source), params);
             """;
 
     // A run only moves forward: a status ranked below the recorded one is a write made from a read
@@ -233,20 +233,16 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
             params.put("exitCode", exitCode);
         }
         params.put("updated", Instant.now().toString());
-        params.put("now", System.currentTimeMillis());
         params.put("rank", RANKS);
         params.put("terminal", TERMINAL_STATUSES);
         Map<String, Object> run = new LinkedHashMap<>();
         run.put("status", status);
         run.put("exitCode", exitCode);
-        return crudServiceTemplate.scriptedUpdateReturningSourceSync(indexName, workloadId, script, params)
-                                  .compose(document -> document == null
-                                          ? Future.succeededFuture(false)
-                                          : watchedStateRepository.record(
-                                                  document(workloadId), document,
-                                                  new WatchedChange(WatchEventKind.STATUS_CHANGED, source,
-                                                                    exitCode != null ? "Run " + status + " with exit code " + exitCode : "Run " + status,
-                                                                    run)).map(true));
+        return watchedStateRepository.write(document(workloadId), script, params,
+                                            new WatchedChange(WatchEventKind.STATUS_CHANGED, source,
+                                                              exitCode != null ? "Run " + status + " with exit code " + exitCode : "Run " + status,
+                                                              run))
+                                     .map(written -> written != null);
     }
 
 }

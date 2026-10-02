@@ -133,7 +133,7 @@ public class ReconcileMaster implements Service {
             enqueue(new Key(parent.type(), parent.id(), parent.scope()));
         }
         // compare-and-clear: a write that landed between the scan and this keeps the record dirty
-        repository.clearDirty(record.getId(), scope, record.getState().getDirtyAt())
+        repository.clearDirty(record)
                   .onFailure(error -> log.error("Could not mark {} {} as seen", repository.type(), record.getId(), error));
     }
 
