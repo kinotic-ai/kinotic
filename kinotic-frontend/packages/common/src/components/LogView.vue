@@ -1,15 +1,10 @@
 <template>
   <div class="flex flex-col gap-3">
     <div class="flex flex-wrap items-center gap-3">
-      <ToggleButton
-        v-model="following"
-        on-label="Following"
-        off-label="Follow"
-        on-icon="pi pi-pause"
-        off-icon="pi pi-play"
-        size="small"
-        :disabled="span === CUSTOM_SPAN"
-      />
+      <label class="flex items-center gap-2 text-sm" :class="span === CUSTOM_SPAN ? 'text-muted-color' : 'text-color cursor-pointer'">
+        <ToggleSwitch v-model="following" :disabled="span === CUSTOM_SPAN" />
+        Live tail
+      </label>
       <SelectButton v-model="span" :options="spanOptions" option-label="label" option-value="value"
                     :allow-empty="false" size="small" />
       <Select checkmark v-model="limit" :options="LIMIT_OPTIONS" option-label="label" option-value="value" size="small" />
@@ -56,7 +51,7 @@ import DatePicker from 'primevue/datepicker'
 import Message from 'primevue/message'
 import Select from 'primevue/select'
 import SelectButton from 'primevue/selectbutton'
-import ToggleButton from 'primevue/togglebutton'
+import ToggleSwitch from 'primevue/toggleswitch'
 import VirtualScroller from 'primevue/virtualscroller'
 
 import DatetimeUtil from '../util/DatetimeUtil'
@@ -71,8 +66,7 @@ const props = defineProps<{
   source: LogSource
   /**
    * The window a workload ran over, when the caller knows it. A run that has ended opens on
-   * its own span rather than the last hour, and does not follow, since nothing more is coming;
-   * the run is also offered as a span while it is still going.
+   * its own span rather than the last hour; the run is also offered as a span while it is still going.
    */
   run?: WorkloadRun
 }>()
@@ -201,7 +195,7 @@ const spanOptions = computed(() => props.run ? [...PRESET_OPTIONS, RUN_OPTION, C
 const rows = shallowRef<LogRow[]>([])
 // The entries behind rows; rows outnumber them by every extra line of a multi-line entry
 const entryCount = ref(0)
-const following = ref(!hasEnded(props.run))
+const following = ref(false)
 const span = ref<Span>(hasEnded(props.run) ? RUN_SPAN : TIME_RANGE_PRESETS[1]!.ms)
 const limit = ref(1000)
 const customStart = ref<Date | null>(null)
