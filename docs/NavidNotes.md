@@ -11,8 +11,6 @@ No phase may rewrite, refactor or restructure what an earlier phase produced. If
 
 * Fix DefaultPendingRegistrationService.applyPendingScope (Should not be needed)
 * Review login handlers and the per-server security services in detail.
-* Verify DefaultOpenAPIService.addNamedQueryPathItems (call looks up named queries without org)
-* No OpenAPI routes have the org in the path.
 
 ### App invite links
 

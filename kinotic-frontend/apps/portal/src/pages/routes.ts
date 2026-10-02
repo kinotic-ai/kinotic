@@ -100,32 +100,6 @@ const pageRoutes: RouteRecordRaw[] = [
   ]),
 
   {
-    path: '/graphql',
-    component: layout,
-    meta: { sidebarGroup: 'organization', fullWidth: true } as RouteMeta,
-    children: [
-      {
-        name: 'graphql-playground',
-        path: '',
-        component: () => import('@/pages/GraphQLPlayground.vue')
-      }
-    ]
-  },
-
-  {
-    path: '/openapi',
-    component: layout,
-    meta: { sidebarGroup: 'organization', fullWidth: true } as RouteMeta,
-    children: [
-      {
-        name: 'openapi-playground',
-        path: '',
-        component: () => import('@/pages/OpenAPIPlayground.vue')
-      }
-    ]
-  },
-
-  {
     path: '/account',
     redirect: '/account/profile',
     component: layout,

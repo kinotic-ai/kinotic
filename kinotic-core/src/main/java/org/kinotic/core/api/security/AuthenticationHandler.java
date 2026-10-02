@@ -4,7 +4,6 @@ import io.vertx.core.Context;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.RoutingContext;
-import org.kinotic.core.api.event.EventConstants;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -37,10 +36,6 @@ public class AuthenticationHandler implements Handler<RoutingContext> {
         securityService.authenticate(authInfo)
                        .onComplete(event -> {
                            if(event.succeeded()){
-                               // RoutingContext stash read only by the OpenAPI/GraphQL
-                               // RoutingContextToEntityContextAdapter; every other consumer reads
-                               // the SecurityContext binding below
-                               ctx.put(EventConstants.SENDER_HEADER, event.result());
                                // Bind the Participant to the current Vert.x context so downstream
                                // handlers (and anything they call) can read it via
                                // SecurityContext.currentParticipant().
