@@ -12,7 +12,7 @@ export interface ServerLogQuery {
     /** Start of the time range, epoch milliseconds (inclusive). */
     start: number
 
-    /** End of the time range, epoch milliseconds (inclusive). */
+    /** End of the time range, epoch milliseconds (exclusive). */
     end: number
 
     /** Maximum number of log entries to return. */

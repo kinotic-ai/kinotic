@@ -17,23 +17,24 @@ public interface LokiClient {
      * @param tenant the Loki tenant ({@code X-Scope-OrgID})
      * @param query  the LogQL query selecting the log streams to return
      * @param start  start of the time range, epoch milliseconds (inclusive)
-     * @param end    end of the time range, epoch milliseconds (inclusive)
+     * @param end    end of the time range, epoch milliseconds (exclusive)
      * @param limit  maximum number of log entries to return
      * @return a {@link Future} of the raw Loki response body
      */
     Future<Buffer> queryRange(String tenant, String query, long start, long end, int limit);
 
     /**
-     * Opens a Loki {@code tail} WebSocket and emits each tail frame's raw bytes, carrying the entries
-     * that arrive from the moment it opens; earlier entries are read with {@link #queryRange}. The
-     * WebSocket is closed when the returned {@link Flux} is cancelled or completed, and the Flux fails
-     * on a frame larger than 10 MB.
+     * Opens a Loki {@code tail} WebSocket and emits each tail frame's raw bytes: first the entries from
+     * start up to the moment it opens, then each entry as it arrives. A {@link #queryRange} ending at the
+     * same start reads the entries before it, with none read twice. The WebSocket is closed when the
+     * returned {@link Flux} is cancelled or completed, and the Flux fails on a frame larger than 10 MB.
      *
      * @param tenant the Loki tenant ({@code X-Scope-OrgID})
      * @param query  the LogQL query to follow
+     * @param start  the moment to follow from, epoch milliseconds (inclusive)
      * @return a {@link Flux} of raw Loki tail frames
      */
-    Flux<Buffer> tail(String tenant, String query);
+    Flux<Buffer> tail(String tenant, String query, long start);
 
     /**
      * Asks Loki to delete every log entry the query selects within the time range. The entries leave

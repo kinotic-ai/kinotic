@@ -25,6 +25,6 @@ const source = computed<LogSource>(() => ({
     end,
     limit
   }),
-  tail: () => Kinotic.logs.tail(props.organizationId, props.workloadId)
+  tail: start => Kinotic.logs.tail(props.organizationId, props.workloadId, start)
 }))
 </script>

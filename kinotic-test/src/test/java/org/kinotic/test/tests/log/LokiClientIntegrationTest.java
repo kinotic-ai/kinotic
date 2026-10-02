@@ -104,7 +104,7 @@ class LokiClientIntegrationTest {
         String marker = "tail-marker-" + UUID.randomUUID();
         CompletableFuture<String> received = new CompletableFuture<>();
 
-        Disposable subscription = lokiClient.tail("org-a", "{workload_id=\"wl-tail\"}")
+        Disposable subscription = lokiClient.tail("org-a", "{workload_id=\"wl-tail\"}", System.currentTimeMillis())
                 .subscribe(frame -> {
                               if (frame.toString().contains(marker)) {
                                   received.complete(frame.toString());
@@ -130,7 +130,7 @@ class LokiClientIntegrationTest {
         String line = marker + " " + "x".repeat(200_000);
         CompletableFuture<String> received = new CompletableFuture<>();
 
-        Disposable subscription = lokiClient.tail("org-a", "{workload_id=\"wl-large-tail\"}")
+        Disposable subscription = lokiClient.tail("org-a", "{workload_id=\"wl-large-tail\"}", System.currentTimeMillis())
                 .subscribe(frame -> {
                               if (frame.toString().contains(marker)) {
                                   received.complete(frame.toString());
@@ -150,29 +150,38 @@ class LokiClientIntegrationTest {
     }
 
     @Test
-    void tailCarriesOnlyLinesWrittenAfterItOpens() throws Exception {
-        String earlier = "before-tail-" + UUID.randomUUID();
-        String later = "after-tail-" + UUID.randomUUID();
-        push("org-a", "wl-tail-start", earlier);
-        awaitQueryContains("org-a", "wl-tail-start", earlier);
+    void tailFollowsOnFromWhereAQueryRangeEnds() throws Exception {
+        String run = UUID.randomUUID().toString();
+        String workloadId = "wl-handoff-" + run;
+        long boundaryMs = System.currentTimeMillis() - 10_000;
+        long boundaryNs = boundaryMs * 1_000_000L;
+        pushAt("org-a", workloadId, "before-" + run, boundaryNs - 1_000_000L);
+        pushAt("org-a", workloadId, "at-" + run, boundaryNs);
+        pushAt("org-a", workloadId, "after-" + run, boundaryNs + 1_000_000L);
+        awaitQueryContains("org-a", workloadId, "after-" + run);
+
+        String history = lokiClient.queryRange("org-a", "{workload_id=\"" + workloadId + "\"}",
+                                               boundaryMs - 60_000, boundaryMs, 100)
+                                   .toCompletionStage().toCompletableFuture()
+                                   .get(10, TimeUnit.SECONDS)
+                                   .toString();
+        assertTrue(history.contains("before-" + run));
+        assertFalse(history.contains("at-" + run));
+        assertFalse(history.contains("after-" + run));
 
         StringBuffer frames = new StringBuffer();
-        CompletableFuture<Void> received = new CompletableFuture<>();
-        Disposable subscription = lokiClient.tail("org-a", "{workload_id=\"wl-tail-start\"}")
+        CompletableFuture<Void> replayed = new CompletableFuture<>();
+        Disposable subscription = lokiClient.tail("org-a", "{workload_id=\"" + workloadId + "\"}", boundaryMs)
                 .subscribe(frame -> {
                               frames.append(frame);
-                              if (frame.toString().contains(later)) {
-                                  received.complete(null);
+                              if (frames.toString().contains("at-" + run) && frames.toString().contains("after-" + run)) {
+                                  replayed.complete(null);
                               }
                           },
-                          received::completeExceptionally);
+                          replayed::completeExceptionally);
         try {
-            for (int i = 0; i < 40 && !received.isDone(); i++) {
-                push("org-a", "wl-tail-start", later);
-                Thread.sleep(500);
-            }
-            received.get(5, TimeUnit.SECONDS);
-            assertFalse(frames.toString().contains(earlier));
+            replayed.get(15, TimeUnit.SECONDS);
+            assertFalse(frames.toString().contains("before-" + run));
         } finally {
             subscription.dispose();
         }
@@ -218,7 +227,10 @@ class LokiClientIntegrationTest {
     }
 
     private static void push(String tenant, String workloadId, String line) throws Exception {
-        long timestampNs = System.currentTimeMillis() * 1_000_000L;
+        pushAt(tenant, workloadId, line, System.currentTimeMillis() * 1_000_000L);
+    }
+
+    private static void pushAt(String tenant, String workloadId, String line, long timestampNs) throws Exception {
         String body = "{\"streams\":[{\"stream\":{\"workload_id\":\"" + workloadId + "\"}," +
                       "\"values\":[[\"" + timestampNs + "\",\"" + line + "\"]]}]}";
         HttpRequest request = HttpRequest.newBuilder(URI.create(lokiUrl + "/loki/api/v1/push"))

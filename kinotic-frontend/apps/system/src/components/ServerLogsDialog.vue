@@ -37,6 +37,6 @@ const source = computed<LogSource>(() => ({
     end,
     limit
   }),
-  tail: () => Kinotic.logs.tailServer(props.telemetryServiceName, props.telemetryServiceInstanceId)
+  tail: start => Kinotic.logs.tailServer(props.telemetryServiceName, props.telemetryServiceInstanceId, start)
 }))
 </script>

@@ -14,7 +14,7 @@
                     :allow-empty="false" size="small" />
       <Select checkmark v-model="limit" :options="LIMIT_OPTIONS" option-label="label" option-value="value" size="small" />
       <Button label="Reload" icon="pi pi-refresh" severity="secondary" outlined size="small"
-              :loading="loadingHistory" @click="loadHistory" />
+              :loading="loadingHistory" @click="refresh" />
       <span class="text-xs text-muted-color">{{ lineCountText }}</span>
       <Message v-if="error" severity="error" :closable="false" class="flex-1">{{ error }}</Message>
     </div>
@@ -23,7 +23,7 @@
       <span class="text-xs text-muted-color">to</span>
       <DatePicker v-model="customEnd" show-time hour-format="24" size="small" placeholder="To" />
       <Button label="Apply" size="small" :disabled="resolveRange() === null" :loading="loadingHistory"
-              @click="loadHistory" />
+              @click="refresh" />
     </div>
     <div v-if="rows.length === 0" class="h-[60vh] p-3 rounded-md bg-surface-950 text-surface-400 font-mono text-xs">
       <span v-if="!loadingHistory">No log entries {{ rangeDescription }}</span>
@@ -215,6 +215,8 @@ const scroller = ref<InstanceType<typeof VirtualScroller> | null>(null)
 // Auto-scroll only while the user is at the bottom; scrolling up pins the view in place
 let pinnedToBottom = true
 let tailSubscription: { unsubscribe(): void } | null = null
+// Each refresh supersedes the ones before it, so a slower earlier response neither replaces newer rows nor opens a tail
+let refreshGeneration = 0
 
 const rangeDescription = computed(() => {
   let ret: string
@@ -455,36 +457,48 @@ function runRange(): TimeRange {
   return { start: start - RUN_MARGIN_MS, end }
 }
 
-async function loadHistory() {
+/** Loads the selected range and, while following, tails on from where the range ends. */
+async function refresh() {
   const range = resolveRange()
   if (range === null) {
     return
   }
+  const generation = ++refreshGeneration
+  // A tail opened before this load would repeat or skip entries around the new range's end
+  stopTail()
   loadingHistory.value = true
   error.value = null
   try {
     const bytes = await props.source.history(range.start, range.end, limit.value)
-    // Raw Loki query_range response: {status, data: {result: [{stream, values}]}}
-    const body = parseJsonBytes(bytes)
-    const entries = parseStreams(body?.data?.result).sort((a, b) => a.ts - b.ts)
-    rows.value = toRows(entries)
-    entryCount.value = entries.length
-    loadedRange.value = range
-    // Loki answers newest-first up to the limit, so a full page means the range holds more
-    limitReached.value = entries.length >= limit.value
-    scrollToBottom()
+    if (generation === refreshGeneration) {
+      // Raw Loki query_range response: {status, data: {result: [{stream, values}]}}
+      const body = parseJsonBytes(bytes)
+      const entries = parseStreams(body?.data?.result).sort((a, b) => a.ts - b.ts)
+      rows.value = toRows(entries)
+      entryCount.value = entries.length
+      loadedRange.value = range
+      // Loki answers newest-first up to the limit, so a full page means the range holds more
+      limitReached.value = entries.length >= limit.value
+      scrollToBottom()
+      if (following.value) {
+        // The range's end is exclusive and the tail's start inclusive, so together they read each entry once
+        startTail(range.end)
+      }
+    }
   } catch (err) {
-    error.value = errorMessage(err, 'Failed to load log history')
+    if (generation === refreshGeneration) {
+      following.value = false
+      error.value = errorMessage(err, 'Failed to load log history')
+    }
   } finally {
-    loadingHistory.value = false
+    if (generation === refreshGeneration) {
+      loadingHistory.value = false
+    }
   }
 }
 
-function startTail() {
-  if (tailSubscription) {
-    return
-  }
-  tailSubscription = props.source.tail().subscribe({
+function startTail(start: number) {
+  tailSubscription = props.source.tail(start).subscribe({
     next: (bytes: Uint8Array) => {
       // Raw Loki tail WebSocket frame: {streams: [{stream, values}], dropped_entries?}
       const frame = parseJsonBytes(bytes)
@@ -511,18 +525,17 @@ function stopTail() {
   tailSubscription = null
 }
 
-onMounted(() => {
-  loadHistory()
-  if (following.value) {
-    startTail()
-  }
-})
+onMounted(refresh)
 
-onUnmounted(stopTail)
+onUnmounted(() => {
+  // Supersedes a load still in flight, which would otherwise open a tail nothing closes
+  refreshGeneration++
+  stopTail()
+})
 
 watch(following, follow => {
   if (follow) {
-    startTail()
+    refresh()
   } else {
     stopTail()
   }
@@ -537,11 +550,11 @@ watch(span, selected => {
     customStart.value = new Date(seed.start)
     customEnd.value = new Date(seed.end)
   } else {
-    loadHistory()
+    refresh()
   }
 })
 
-watch(limit, loadHistory)
+watch(limit, refresh)
 
 // A run that ends while on screen has nothing more to tail; its span is what is left to read
 watch(() => hasEnded(props.run), ended => {
