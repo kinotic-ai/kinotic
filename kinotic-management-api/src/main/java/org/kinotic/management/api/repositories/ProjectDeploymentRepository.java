@@ -84,6 +84,24 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
         return watchedStateRepository.clearDirty(document(record.getId(), record.getOrganizationId()), record.getState());
     }
 
+    /**
+     * @see WatchedStateRepository#delete(WatchedDocument)
+     */
+    @Override
+    public Future<Void> deleteById(String projectId, String orgId) {
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        return watchedStateRepository.delete(document(projectId, orgId));
+    }
+
+    /**
+     * @see WatchedStateRepository#deleteSync(WatchedDocument)
+     */
+    @Override
+    public Future<Void> deleteByIdSync(String projectId, String orgId) {
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        return watchedStateRepository.deleteSync(document(projectId, orgId));
+    }
+
     @Override
     public Future<Page<ProjectDeployment>> findUnreconciled(Pageable pageable) {
         return reconcileStateRepository.findUnreconciled(indexName, type, pageable);

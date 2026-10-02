@@ -80,9 +80,10 @@ public class CrudServiceTemplate {
 
     /**
      * True when {@code throwable} or one of its causes is an Elasticsearch 409 — i.e. an
-     * {@code op_type=create} index that hit an already-present document id.
+     * {@code op_type=create} index that hit an already-present document id, or a write conditional
+     * on {@code if_seq_no}/{@code if_primary_term} that found the document changed.
      */
-    private static boolean isVersionConflict(Throwable throwable) {
+    public static boolean isVersionConflict(Throwable throwable) {
         for (Throwable cause = throwable; cause != null; cause = cause.getCause()) {
             if (cause instanceof ElasticsearchException esException && esException.status() == 409) {
                 return true;

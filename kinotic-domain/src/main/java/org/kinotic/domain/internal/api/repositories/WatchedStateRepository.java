@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
+import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch.core.UpdateRequest;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * The writer of the {@link WatchedState} a {@link Watched} record carries under {@code state}, on
@@ -151,6 +153,9 @@ public class WatchedStateRepository {
             """;
 
     private static final TypeReference<Map<String, WatchEvent>> UNRECORDED = new TypeReference<>() {};
+
+    // Rounds a delete may make before it gives up on a record that keeps being written
+    private static final int DELETE_ATTEMPTS = 5;
 
     private final CrudServiceTemplate crudServiceTemplate;
     private final WatchEventRepository watchEventRepository;
@@ -302,18 +307,102 @@ public class WatchedStateRepository {
                                           : enterWritten(document, written).map(written));
     }
 
+    /**
+     * Deletes the record once every write to it is entered in the ledger. A record that does not exist
+     * is left as it is.
+     *
+     * @param document the record
+     * @return a future that completes once the record is gone, or fails when it kept being written
+     * through every attempt to delete it
+     */
+    public Future<Void> delete(WatchedDocument document) {
+        Validate.notNull(document, "document cannot be null");
+        return delete(document, Refresh.False, 1);
+    }
+
+    /**
+     * As {@link #delete(WatchedDocument)}, waiting for the deletion to be visible to search.
+     *
+     * @param document the record
+     * @return a future that completes once the record is gone, or fails when it kept being written
+     * through every attempt to delete it
+     */
+    public Future<Void> deleteSync(WatchedDocument document) {
+        Validate.notNull(document, "document cannot be null");
+        return delete(document, Refresh.WaitFor, 1);
+    }
+
+    // The delete is conditional on the record as read, so a write landing between the read and the
+    // delete fails it with a conflict, and the next round enters that write's entry before deleting
+    private Future<Void> delete(WatchedDocument document, Refresh refresh, int attempt) {
+        return crudServiceTemplate.findById(document.index().name(), document.documentId(), Map.class,
+                                            g -> {
+                                                if (document.routing() != null) {
+                                                    g.routing(document.routing());
+                                                }
+                                            },
+                                            Function.identity())
+                .compose(read -> {
+                    Future<Void> ret;
+                    if (!read.found()) {
+                        ret = Future.succeededFuture();
+                    } else {
+                        @SuppressWarnings("unchecked")
+                        Map<String, WatchEvent> unrecorded = unrecordedIn((Map<String, Object>) read.source());
+                        if (!unrecorded.isEmpty()) {
+                            // entering the entries removes them from the record, which is another write
+                            ret = enter(document, unrecorded).compose(v -> deleteAgain(document, refresh, attempt));
+                        } else {
+                            ret = crudServiceTemplate.deleteById(document.index().name(), document.documentId(),
+                                                                 d -> {
+                                                                     if (document.routing() != null) {
+                                                                         d.routing(document.routing());
+                                                                     }
+                                                                     d.ifSeqNo(read.seqNo())
+                                                                      .ifPrimaryTerm(read.primaryTerm())
+                                                                      .refresh(refresh);
+                                                                 })
+                                                     .<Void>mapEmpty()
+                                                     .recover(error -> CrudServiceTemplate.isVersionConflict(error)
+                                                             ? deleteAgain(document, refresh, attempt)
+                                                             : Future.failedFuture(error));
+                        }
+                    }
+                    return ret;
+                });
+    }
+
+    private Future<Void> deleteAgain(WatchedDocument document, Refresh refresh, int attempt) {
+        Future<Void> ret;
+        if (attempt < DELETE_ATTEMPTS) {
+            ret = delete(document, refresh, attempt + 1);
+        } else {
+            ret = Future.failedFuture(new IllegalStateException(document.index().type() + " " + document.id()
+                    + " kept being written through " + DELETE_ATTEMPTS + " attempts to delete it"));
+        }
+        return ret;
+    }
+
     // The write landed with its entry held on the record, so an entry not entered here is entered by
     // the master's next look at the record, which the write marked dirty
     private Future<Void> enterWritten(WatchedDocument document, Map<String, Object> written) {
-        @SuppressWarnings("unchecked")
-        Map<String, Object> state = (Map<String, Object>) written.get("state");
-        Map<String, WatchEvent> unrecorded = crudServiceTemplate.getObjectMapper().convertValue(state.get("unrecorded"), UNRECORDED);
-        return enter(document, unrecorded)
+        return enter(document, unrecordedIn(written))
                 .recover(error -> {
                     log.warn("Could not enter the writes to {} {} in the ledger, leaving them to the reconcile master",
                              document.index().type(), document.id(), error);
                     return Future.succeededFuture();
                 });
+    }
+
+    // A record no write has touched carries no entries
+    private Map<String, WatchEvent> unrecordedIn(Map<String, Object> source) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> state = (Map<String, Object>) source.get("state");
+        Map<String, WatchEvent> ret = null;
+        if (state != null) {
+            ret = crudServiceTemplate.getObjectMapper().convertValue(state.get("unrecorded"), UNRECORDED);
+        }
+        return ret != null ? ret : Map.of();
     }
 
     // Each entry is appended under its own id, so one another server entered already is refused and counts as entered
