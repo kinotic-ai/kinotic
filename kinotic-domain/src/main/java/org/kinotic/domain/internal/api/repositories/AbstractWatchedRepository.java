@@ -54,8 +54,8 @@ public abstract class AbstractWatchedRepository<T extends Watched> extends Abstr
     }
 
     @Override
-    public Future<Void> clearDirty(String id, String scope, long dirtyAt) {
-        return watchedStateRepository.clearDirty(document(id), dirtyAt);
+    public Future<Void> clearDirty(T record) {
+        return watchedStateRepository.clearDirty(document(record.getId()), record.getState());
     }
 
     /**

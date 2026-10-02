@@ -80,8 +80,8 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
     }
 
     @Override
-    public Future<Void> clearDirty(String id, String scope, long dirtyAt) {
-        return watchedStateRepository.clearDirty(document(id, scope), dirtyAt);
+    public Future<Void> clearDirty(ProjectDeployment record) {
+        return watchedStateRepository.clearDirty(document(record.getId(), record.getOrganizationId()), record.getState());
     }
 
     @Override

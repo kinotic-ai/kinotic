@@ -162,9 +162,11 @@ public class CrudServiceTemplate {
     /**
      * Indexes a document only if its id is not already present, using Elasticsearch's
      * {@code create} op-type. Fails with {@link AlreadyExistsException} when a document with the
-     * same id already exists, instead of overwriting it the way {@link #save} would.
+     * same id already exists, instead of overwriting it the way {@link #save} would. Also appends to
+     * a data stream, whose documents must carry a {@code @timestamp} date field; a data stream
+     * refuses an id only while the backing index that holds it is the stream's write index.
      *
-     * @param indexName name of the index
+     * @param indexName name of the index or data stream
      * @param id        id the document must be created under
      * @param document  the document to index
      * @return a {@link Future} completing with the {@link IndexResponse}, or failing
@@ -671,7 +673,7 @@ public class CrudServiceTemplate {
                                               String id,
                                               String source,
                                               Map<String, Object> params) {
-        return scriptedUpdate(indexName, id, source, params, false, null)
+        return scriptedUpdate(indexName, id, source, params, false, Refresh.WaitFor, null)
                 .map(response -> response.result() != Result.NoOp);
     }
 
@@ -714,10 +716,32 @@ public class CrudServiceTemplate {
                                                                          String source,
                                                                          Map<String, Object> params,
                                                                          Consumer<UpdateRequest.Builder<Map, Map<String, Object>>> builderConsumer) {
-        return scriptedUpdate(indexName, id, source, params, true, builderConsumer)
+        return scriptedUpdate(indexName, id, source, params, true, Refresh.WaitFor, builderConsumer)
                 .map(response -> response.result() == Result.NoOp || response.get() == null
                         ? null
                         : (Map<String, Object>) response.get().source());
+    }
+
+    /**
+     * As {@link #scriptedUpdateSync(String, String, String, Map)}, with full {@link UpdateRequest}
+     * customization, completing without waiting for a refresh: the change is visible to a get and to
+     * the next script on completion, and to search after the index's next refresh.
+     *
+     * @param indexName       name of the index
+     * @param id              of the document to update
+     * @param source          the Painless source, reading its inputs from {@code params}
+     * @param params          the values the script reads as {@code params.<name>}
+     * @param builderConsumer to customize the {@link UpdateRequest}, or null if no customization is needed
+     * @return a {@link Future} that will complete with true when the script changed the document and false
+     * when it declined, or fail when the document does not exist
+     */
+    public Future<Boolean> scriptedUpdate(String indexName,
+                                          String id,
+                                          String source,
+                                          Map<String, Object> params,
+                                          Consumer<UpdateRequest.Builder<Map, Map<String, Object>>> builderConsumer) {
+        return scriptedUpdate(indexName, id, source, params, false, Refresh.False, builderConsumer)
+                .map(response -> response.result() != Result.NoOp);
     }
 
     @SuppressWarnings("rawtypes")
@@ -726,6 +750,7 @@ public class CrudServiceTemplate {
                                                        String source,
                                                        Map<String, Object> params,
                                                        boolean returnSource,
+                                                       Refresh refresh,
                                                        Consumer<UpdateRequest.Builder<Map, Map<String, Object>>> builderConsumer) {
         Map<String, JsonData> scriptParams = new HashMap<>();
         // JsonData.of(null) has no serializer to look up and throws; a jakarta JsonValue is written as it
@@ -737,7 +762,7 @@ public class CrudServiceTemplate {
              .script(s -> s.source(src -> src.scriptString(source))
                            .params(scriptParams))
              .retryOnConflict(UPDATE_CONFLICT_RETRIES)
-             .refresh(Refresh.WaitFor);
+             .refresh(refresh);
             if (returnSource) {
                 u.source(sc -> sc.fetch(true));
             }

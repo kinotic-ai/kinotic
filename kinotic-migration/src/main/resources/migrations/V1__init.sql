@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
 -- Deployment state per project: which node holds the checkout, which workload serves it, and
 -- the reconcile contract every watched record carries: state.conditions (what the platform
 -- inferred beside what the record's owner reported), state.parent (the record it belongs to) and
--- state.dirty/dirtyAt (whether its last write has been seen by the reconcile master), and for a
+-- state.dirty/dirtyAt (whether its last write has been seen by the reconcile master),
+-- state.unrecorded (the ledger entries of its writes not yet in kinotic_watch_event), and for a
 -- reconcilable record what it should be (state.desired, the commit its last push asked for), what
 -- it is (state.observed, the phase it is in and the commit it serves), the generations that tie
 -- the two, deletionRequested and reconciled. failureMessage keeps the reason a deployment failed.
@@ -68,7 +69,7 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     sbomGenerated BOOLEAN,
     lastJobRunId KEYWORD,
     failureMessage TEXT,
-    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, unrecorded JSON NOT INDEXED, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
     created DATE,
     updated DATE
 );
@@ -105,7 +106,7 @@ CREATE TABLE IF NOT EXISTS kinotic_microservice_deployment (
     entryPoint KEYWORD,
     failureMessage TEXT,
     restartAt DATE,
-    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, unrecorded JSON NOT INDEXED, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
     created DATE,
     updated DATE
 );
@@ -122,7 +123,7 @@ CREATE TABLE IF NOT EXISTS kinotic_ui_deployment (
     name KEYWORD,
     url KEYWORD,
     observation TEXT,
-    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, unrecorded JSON NOT INDEXED, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
     created DATE,
     updated DATE
 );
@@ -398,7 +399,7 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     id KEYWORD,
     name KEYWORD,
     hostname KEYWORD,
-    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD), observed OBJECT (phase KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, unrecorded JSON NOT INDEXED, desired OBJECT (phase KEYWORD), observed OBJECT (phase KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN),
     healthMessage TEXT,
     providerType KEYWORD,
     totalCpus INTEGER,
@@ -433,7 +434,7 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     detached BOOLEAN,
     status KEYWORD,
     exitCode INTEGER,
-    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG),
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, unrecorded JSON NOT INDEXED),
     environment JSON NOT INDEXED,
     secrets JSON NOT INDEXED,
     portMappings OBJECT (hostPort INTEGER, guestPort INTEGER, protocol KEYWORD, hostIp KEYWORD),
@@ -461,7 +462,7 @@ CREATE TABLE IF NOT EXISTS kinotic_job_run (
     nodeId KEYWORD,
     started DATE,
     finished DATE,
-    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG)
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, unrecorded JSON NOT INDEXED)
 );
 
 -- Create the task_record table for the per-task history of a job run
