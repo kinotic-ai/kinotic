@@ -1,5 +1,8 @@
 <template>
-  <section class="flex flex-col overflow-hidden rounded-xl border border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-800/30">
+  <!-- overflow-clip clips to the rounded corners while leaving the section a non-scroll container,
+       whose flex min-height is its content, so a page's flex column keeps the section at its
+       content's height and the layout scrolls to its last rows. -->
+  <section class="flex flex-col overflow-clip rounded-xl border border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-800/30">
     <div class="flex items-start gap-3 border-b border-surface-200 px-5 py-4 dark:border-surface-700">
       <span :class="['flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', tint]">
         <component :is="icon" :size="18" :stroke-width="1.75" aria-hidden="true" />
