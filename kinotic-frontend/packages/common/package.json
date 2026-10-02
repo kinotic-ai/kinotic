@@ -8,6 +8,7 @@
     "@kinotic-ai/core": "catalog:",
     "@kinotic-ai/management-api": "catalog:",
     "@lucide/vue": "^1.48.0",
+    "@vueuse/core": "^14.4.0",
     "debug": "^4.4.3",
     "echarts": "^6.1.0",
     "vue-echarts": "^8.1.0"

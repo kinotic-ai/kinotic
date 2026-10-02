@@ -1,29 +1,24 @@
 <template>
-  <div class="rounded-lg border border-surface p-4">
-    <div class="mb-3 flex items-start justify-between gap-3">
-      <div>
-        <h2 class="text-base font-semibold">Job runs, last {{ days }} days</h2>
-        <p class="text-xs text-muted-color">Per day, and how many failed.</p>
-      </div>
-      <RouterLink v-if="viewAllTo" :to="viewAllTo" class="whitespace-nowrap text-sm text-muted-color hover:text-color">View all</RouterLink>
-    </div>
+  <DashboardSection :icon="ChartColumn" :tint="TINTS.purple" :title="`Job runs, last ${days} days`"
+                    description="Per day, and how many failed." :link-to="viewAllTo">
     <div v-if="runs.length === 0" class="flex h-44 items-center justify-center text-sm text-muted-color">
       No runs in the last {{ days }} days
     </div>
     <!-- vue-echarts sizes from inline style, so the fixed height lives on a wrapper -->
-    <div v-else class="h-44 w-full">
+    <div v-else class="h-48 w-full px-3 pt-3">
       <VChart style="height: 100%; width: 100%;" :option="option" autoresize />
     </div>
-  </div>
+  </DashboardSection>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterLink, type RouteLocationRaw } from 'vue-router'
+import type { RouteLocationRaw } from 'vue-router'
+import { ChartColumn } from '@lucide/vue'
 import VChart from 'vue-echarts'
 
 import { ExecutionStatus, type JobRun } from '@kinotic-ai/management-api'
-import { DatetimeUtil, accentColor, chartGridColor, chartLegend, chartTextColor, isDark } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, TINTS, accentColor, chartGridColor, chartLegend, chartTextColor, isDark } from '@kinotic-ai/frontend-common'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 

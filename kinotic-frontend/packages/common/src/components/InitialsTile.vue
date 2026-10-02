@@ -7,7 +7,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { TINTS } from '@/util/tints'
+import { TINTS } from '../util/tints'
 
 /**
  * A coloured tile carrying a name's initials, so neighbouring applications or projects are told

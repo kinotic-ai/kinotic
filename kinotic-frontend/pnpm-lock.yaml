@@ -252,6 +252,9 @@ importers:
       '@primeuix/themes':
         specifier: ^2.0.3
         version: 2.0.3
+      '@vueuse/core':
+        specifier: ^14.4.0
+        version: 14.4.0(vue@3.5.41(typescript@5.8.3))
       debug:
         specifier: ^4.4.3
         version: 4.4.3

@@ -29,7 +29,15 @@
         <TabPanel value="overview">
           <div v-if="workload" class="flex flex-col gap-4 pt-2">
             <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
-              <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
+              <StatCard v-for="stat in stats" :key="stat.label" :icon="stat.icon" :tint="stat.tint" :label="stat.label"
+                        :value="stat.tag ? undefined : stat.value" :detail="stat.detail" :to="stat.to">
+                <template v-if="stat.heartbeat !== undefined" #icon>
+                  <HeartbeatIcon :state="stat.heartbeat" :size="20" :stroke-width="1.75" />
+                </template>
+                <template v-if="stat.tag" #default>
+                  <Tag :value="stat.value" :severity="stat.tag" />
+                </template>
+              </StatCard>
             </div>
 
             <Message v-if="unreachable" severity="warn" :closable="false">
@@ -41,58 +49,43 @@
             </Message>
 
             <div class="grid gap-4 lg:grid-cols-2">
-              <div class="rounded-lg border border-surface p-4">
-                <h2 class="mb-2 text-base font-semibold">Runtime</h2>
-                <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
-                  <dt class="text-muted-color">Image</dt>
-                  <dd class="break-all font-mono">{{ workload.image }}</dd>
-                  <dt class="text-muted-color">Command</dt>
-                  <dd class="break-all font-mono">{{ command || '—' }}</dd>
-                  <dt class="text-muted-color">Detached</dt>
-                  <dd>{{ workload.detached ? 'Yes — a long-running service' : 'No — a one-off task' }}</dd>
-                  <dt class="text-muted-color">Telemetry</dt>
-                  <dd>{{ workload.telemetry ? 'Traces and metrics shipped through the node' : 'Off' }}</dd>
-                  <dt class="text-muted-color">Log policy</dt>
-                  <dd>{{ workload.logPolicy ? `${workload.logPolicy.maxSizeMb} MB × ${workload.logPolicy.maxFiles} files` : '—' }}</dd>
-                  <dt class="text-muted-color">Created</dt>
-                  <dd>{{ formatEpochDateTime(workload.created) }}</dd>
-                  <dt class="text-muted-color">Updated</dt>
-                  <dd>{{ formatEpochDateTime(workload.updated) }}</dd>
-                </dl>
-              </div>
-
-              <div class="rounded-lg border border-surface p-4">
-                <h2 class="mb-2 text-base font-semibold">Network</h2>
-                <div class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-color">Allowed hosts</div>
-                <div v-if="workload.network?.mode === NetworkMode.DISABLED" class="text-sm text-muted-color">Networking is disabled for this VM.</div>
-                <div v-else-if="allowedHosts.length === 0" class="text-sm text-muted-color">No host is allowed; the node adds the resolver and, for telemetry, its own OTLP endpoint.</div>
-                <div v-else class="flex flex-wrap gap-1.5">
-                  <span v-for="host in allowedHosts" :key="host" class="rounded-md bg-emphasis px-2 py-0.5 font-mono text-xs">{{ host }}</span>
+              <DashboardSection :icon="Terminal" :tint="TINTS.sky" title="Runtime">
+                <div class="px-5 pb-3">
+                  <FactList :facts="runtimeFacts" />
                 </div>
-                <p class="mt-2 mb-4 text-xs text-muted-color">Every other destination is blocked.</p>
-                <div class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-color">Ports</div>
-                <div v-if="ports.length === 0" class="text-sm text-muted-color">None published</div>
-                <div v-else class="flex flex-wrap gap-1.5">
-                  <span v-for="port in ports" :key="port" class="rounded-md bg-emphasis px-2 py-0.5 font-mono text-xs">{{ port }}</span>
-                </div>
-              </div>
+              </DashboardSection>
 
-              <div class="rounded-lg border border-surface p-4">
-                <h2 class="mb-2 text-base font-semibold">Environment</h2>
-                <div v-if="environmentNames.length === 0" class="text-sm text-muted-color">No environment variables.</div>
-                <div v-else class="flex flex-wrap gap-1.5">
+              <DashboardSection :icon="Network" :tint="TINTS.purple" title="Network"
+                                description="Every destination other than the allowed hosts is blocked.">
+                <div class="p-5">
+                  <div class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-color">Allowed hosts</div>
+                  <div v-if="workload.network?.mode === NetworkMode.DISABLED" class="text-sm text-muted-color">Networking is disabled for this VM.</div>
+                  <div v-else-if="allowedHosts.length === 0" class="text-sm text-muted-color">No host is allowed; the node adds the resolver and, for telemetry, its own OTLP endpoint.</div>
+                  <div v-else class="flex flex-wrap gap-1.5">
+                    <span v-for="host in allowedHosts" :key="host" class="rounded-md bg-emphasis px-2 py-0.5 font-mono text-xs">{{ host }}</span>
+                  </div>
+                  <div class="mt-4 mb-1 text-xs font-medium uppercase tracking-wide text-muted-color">Ports</div>
+                  <div v-if="ports.length === 0" class="text-sm text-muted-color">None published</div>
+                  <div v-else class="flex flex-wrap gap-1.5">
+                    <span v-for="port in ports" :key="port" class="rounded-md bg-emphasis px-2 py-0.5 font-mono text-xs">{{ port }}</span>
+                  </div>
+                </div>
+              </DashboardSection>
+
+              <DashboardSection :icon="KeyRound" :tint="TINTS.orange" title="Environment" :count="environmentNames.length"
+                                description="Names only. Values and secrets are not shown.">
+                <EmptyChartCharacter v-if="environmentNames.length === 0" class="py-6" title="No environment variables" />
+                <div v-else class="flex flex-wrap gap-1.5 p-5">
                   <span v-for="name in environmentNames" :key="name" class="rounded-md bg-emphasis px-2 py-0.5 font-mono text-xs">{{ name }}</span>
                 </div>
-                <p class="mt-2 text-xs text-muted-color">Names only. Values and secrets are not shown.</p>
-              </div>
+              </DashboardSection>
 
-              <div class="rounded-lg border border-surface p-4">
-                <h2 class="mb-2 text-base font-semibold">Volumes</h2>
-                <div v-if="volumes.length === 0" class="text-sm text-muted-color">No volume mounts; the VM has its own disk only.</div>
-                <div v-else class="flex flex-wrap gap-1.5">
+              <DashboardSection :icon="HardDrive" :tint="TINTS.blue" title="Volumes" :count="volumes.length">
+                <EmptyChartCharacter v-if="volumes.length === 0" class="py-6" title="No volume mounts" hint="The VM has its own disk only." />
+                <div v-else class="flex flex-wrap gap-1.5 p-5">
                   <span v-for="volume in volumes" :key="volume" class="rounded-md bg-emphasis px-2 py-0.5 font-mono text-xs">{{ volume }}</span>
                 </div>
-              </div>
+              </DashboardSection>
             </div>
           </div>
           <div v-else-if="loading" class="p-6 text-sm text-muted-color">Loading workload…</div>
@@ -116,8 +109,9 @@
 </template>
 
 <script setup lang="ts">
-import { Clock, LayoutDashboard, ScrollText } from '@lucide/vue'
-import { computed, ref, watch } from 'vue'
+import { Building2, CalendarClock, CalendarPlus, Clock, Cpu, FileText, HardDrive, KeyRound, LayoutDashboard, LayoutGrid,
+         Network, Package, Radio, Repeat, ScrollText, Server, Shield, Terminal } from '@lucide/vue'
+import { computed, markRaw, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
@@ -133,10 +127,9 @@ import { useToast } from 'primevue/usetoast'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { NetworkMode, WorkloadStatus, type WatchEvent, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, PageHeader, WatchEventsTable, WorkloadLogView, errorMessage, formatMb, showErrorToast,
-         workloadRun } from '@kinotic-ai/frontend-common'
+import { DashboardSection, HeartbeatIcon, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, WatchEventsTable, WorkloadLogView, errorMessage,
+         formatMb, showErrorToast, workloadRun, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState } from '@kinotic-ai/frontend-common'
 
-import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import { formatCpus, nodeHealth } from '@/util/nodes'
 import { applicationPath, organizationPath, scopePath, type Scope } from '@/util/scope'
 import { nodeUnreachable, runOpen, workloadSeverity } from '@/util/workloads'
@@ -194,70 +187,101 @@ const environmentNames = computed(() => Object.keys(workload.value?.environment 
 const volumes = computed(() => (workload.value?.volumeMounts ?? []).map(volume =>
     `${volume.hostPath} → ${volume.guestPath}${volume.readOnly ? ' (ro)' : ''}`))
 
+const runtimeFacts = computed(() => {
+  const w = workload.value
+  return [
+    { label: 'Image', icon: markRaw(Package), value: w?.image ?? '—', mono: true },
+    { label: 'Command', icon: markRaw(Terminal), value: command.value || '—', mono: true },
+    { label: 'Detached', icon: markRaw(Repeat), value: w?.detached ? 'Yes — a long-running service' : 'No — a one-off task' },
+    { label: 'Telemetry', icon: markRaw(Radio), value: w?.telemetry ? 'Traces and metrics shipped through the node' : 'Off' },
+    { label: 'Log policy', icon: markRaw(FileText),
+      value: w?.logPolicy ? `${w.logPolicy.maxSizeMb} MB × ${w.logPolicy.maxFiles} files` : '—' },
+    { label: 'Created', icon: markRaw(CalendarPlus), value: formatEpochDateTime(w?.created ?? null) },
+    { label: 'Updated', icon: markRaw(CalendarClock), value: formatEpochDateTime(w?.updated ?? null) }
+  ]
+})
+
 interface Stat {
   label: string
   value: string
-  description: string
+  detail: string
+  /** Renders the value as a Tag of this severity instead of a number. */
   tag?: string
   to?: string
-  icon?: string
-  accent?: StatTileAccent
+  icon?: Component
+  /** Shows a HeartbeatIcon in this state in place of the icon. */
+  heartbeat?: HeartbeatState
+  /** One of TINTS. */
+  tint: string
+}
+
+/** The heartbeat a workload's status shows: alive while running, failed once failed, idle otherwise. */
+function workloadHeartbeat(status: WorkloadStatus): HeartbeatState {
+  let ret: HeartbeatState
+  if (status === WorkloadStatus.RUNNING) {
+    ret = HeartbeatState.ALIVE
+  } else if (status === WorkloadStatus.FAILED) {
+    ret = HeartbeatState.FAILED
+  } else {
+    ret = HeartbeatState.IDLE
+  }
+  return ret
 }
 
 const stats = computed<Stat[]>(() => {
   const w = workload.value
   if (!w) return []
   let ownerName: string
-  let ownerDescription: string
+  let ownerDetail: string
   let ownerTo: string
-  let ownerIcon: string
+  let ownerIcon: Component
   if (w.organizationId && w.applicationId) {
     ownerName = w.applicationId
-    ownerDescription = `application of ${w.organizationId}`
+    ownerDetail = `application of ${w.organizationId}`
     ownerTo = applicationPath(w.organizationId, w.applicationId)
-    ownerIcon = 'pi-th-large'
+    ownerIcon = LayoutGrid
   } else if (w.organizationId) {
     ownerName = w.organizationId
-    ownerDescription = 'the organization itself'
+    ownerDetail = 'the organization itself'
     ownerTo = organizationPath(w.organizationId)
-    ownerIcon = 'pi-building'
+    ownerIcon = Building2
   } else {
     ownerName = 'platform'
-    ownerDescription = 'runs for the platform itself'
+    ownerDetail = 'runs for the platform itself'
     ownerTo = '/cluster'
-    ownerIcon = 'pi-shield'
+    ownerIcon = Shield
   }
   return [
     {
       label: 'Status',
       value: w.status,
-      description: w.exitCode !== null ? `exit code ${w.exitCode}` : `since ${formatEpochDateTime(w.updated ?? w.created)}`,
+      detail: w.exitCode !== null ? `exit code ${w.exitCode}` : `since ${formatEpochDateTime(w.updated ?? w.created)}`,
       tag: workloadSeverity(w.status),
-      icon: 'pi-wave-pulse',
-      accent: w.status === WorkloadStatus.FAILED ? 'red' : 'green'
+      heartbeat: workloadHeartbeat(w.status),
+      tint: HEARTBEAT_TINTS[workloadHeartbeat(w.status)]
     },
     {
       label: 'Node',
       value: node.value?.name ?? w.nodeId ?? '—',
-      description: node.value ? `${nodeHealth(node.value).toLowerCase()} · ${node.value.providerType}` : 'not placed yet',
+      detail: node.value ? `${nodeHealth(node.value).toLowerCase()} · ${node.value.providerType}` : 'not placed yet',
       to: w.nodeId ? `/worker-nodes/${encodeURIComponent(w.nodeId)}` : undefined,
-      icon: 'pi-server',
-      accent: 'amber'
+      icon: markRaw(Server),
+      tint: TINTS.orange
     },
     {
       label: 'Owner',
       value: ownerName,
-      description: ownerDescription,
+      detail: ownerDetail,
       to: ownerTo,
-      icon: ownerIcon,
-      accent: 'teal'
+      icon: markRaw(ownerIcon),
+      tint: TINTS.purple
     },
     {
       label: 'Resources',
       value: `${formatCpus(w.cpus)} CPU`,
-      description: `${formatMb(w.memoryMb)} memory · ${formatMb(w.diskSizeMb)} disk`,
-      icon: 'pi-microchip',
-      accent: 'sky'
+      detail: `${formatMb(w.memoryMb)} memory · ${formatMb(w.diskSizeMb)} disk`,
+      icon: markRaw(Cpu),
+      tint: TINTS.sky
     }
   ]
 })

@@ -1,9 +1,9 @@
 import type { Component } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import {
-    Box, Building2, ChartLine, CloudUpload, Cpu, LayoutDashboard, LayoutGrid, Link, Network, ScrollText, Server, Users
+    Box, Building2, ChartLine, CloudUpload, Cpu, Gauge, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, ScrollText, Server, Users
 } from '@lucide/vue'
-import { ConnectedAppsPage, JobsIcon, OAuthConsentPage, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import { ConnectedAppsPage, OAuthConsentPage, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
 import { SYSTEM_USER_STATE } from './states/SystemUserState'
 
@@ -66,7 +66,7 @@ function runtimeRoutes(prefix: string, name: string, item: (label: string, icon:
             path: at('jobs'),
             component: () => import('./pages/JobsPage.vue'),
             props: true,
-            meta: { sidebar: item('Jobs', JobsIcon, order + 10, 'Runtime') }
+            meta: { sidebar: item('Jobs', LaptopMinimalCheck, order + 10, 'Runtime') }
         },
         {
             name: `${name}job-run`,
@@ -121,7 +121,7 @@ const routes: RouteRecordRaw[] = [
                 name: 'dashboard',
                 path: 'dashboard',
                 component: () => import('./pages/Dashboard.vue'),
-                meta: { sidebar: consoleItem('Dashboard', LayoutDashboard, 10) }
+                meta: { sidebar: consoleItem('Dashboard', Gauge, 10) }
             },
             {
                 name: 'cluster',

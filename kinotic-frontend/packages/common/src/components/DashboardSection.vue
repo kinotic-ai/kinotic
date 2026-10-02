@@ -11,6 +11,11 @@
         </div>
         <p v-if="description" class="mt-0.5 max-w-[860px] text-xs leading-5 text-muted-color">{{ description }}</p>
       </div>
+      <RouterLink v-if="linkTo" :to="linkTo"
+                  class="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm text-surface-500 transition-colors hover:text-surface-950 dark:text-surface-400 dark:hover:text-surface-0">
+        {{ linkLabel }}
+        <ArrowUpRight :size="14" :stroke-width="1.75" aria-hidden="true" />
+      </RouterLink>
       <slot name="actions" />
     </div>
     <div class="flex-1">
@@ -21,18 +26,25 @@
 
 <script setup lang="ts">
 import type { Component } from 'vue'
+import { RouterLink, type RouteLocationRaw } from 'vue-router'
+import { ArrowUpRight } from '@lucide/vue'
 
 /**
  * A titled card on a dashboard page: a tinted icon, the title with an optional count badge, an
- * optional line saying what the section shows, then the section's content edge to edge beneath a
- * divider, so a table's rows reach the card's sides.
+ * optional line saying what the section shows and an optional link at the right, then the
+ * section's content edge to edge beneath a divider, so a table's rows reach the card's sides.
  */
-defineProps<{
+withDefaults(defineProps<{
   icon: Component
   /** Classes of the icon tile's colour, one of TINTS. */
   tint: string
   title: string
   count?: number
   description?: string
-}>()
+  /** Where the header's link leads, e.g. the full list the section samples. */
+  linkTo?: RouteLocationRaw
+  linkLabel?: string
+}>(), {
+  linkLabel: 'View all'
+})
 </script>

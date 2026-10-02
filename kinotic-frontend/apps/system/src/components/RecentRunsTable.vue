@@ -1,10 +1,7 @@
 <template>
-  <div class="rounded-lg border border-surface">
-    <div class="flex items-start justify-between gap-3 px-4 pt-4 pb-2">
-      <h2 class="text-base font-semibold">Recent runs</h2>
-      <RouterLink :to="listPath" class="whitespace-nowrap text-sm text-muted-color hover:text-color">View all</RouterLink>
-    </div>
-    <div v-if="runs.length === 0" class="px-4 pb-6 pt-2 text-center text-sm text-muted-color">No runs yet</div>
+  <DashboardSection :icon="LaptopMinimalCheck" :tint="TINTS.blue" title="Recent runs" :count="runs.length"
+                    description="The latest job runs; open one for its tasks." :link-to="listPath">
+    <EmptyChartCharacter v-if="runs.length === 0" class="py-6" title="No runs yet" />
     <DataTable v-else :value="runs" size="small" class="text-sm" row-hover @row-click="open($event.data)">
       <Column header="Run">
         <template #body="{ data }">
@@ -28,13 +25,13 @@
         <template #body="{ data }"><span class="font-mono text-xs">{{ data.nodeId ?? '—' }}</span></template>
       </Column>
       <Column header="Started" class="hidden md:table-cell">
-        <template #body="{ data }">{{ formatEpochDateTime(data.started) }}</template>
+        <template #body="{ data }"><TimePill :date="data.started" /></template>
       </Column>
       <Column header="Duration" style="width: 8rem">
-        <template #body="{ data }">{{ formatDuration(data.started, data.finished) }}</template>
+        <template #body="{ data }"><span class="font-mono text-xs tabular-nums">{{ formatDuration(data.started, data.finished) }}</span></template>
       </Column>
     </DataTable>
-  </div>
+  </DashboardSection>
 </template>
 
 <script setup lang="ts">
@@ -45,7 +42,8 @@ import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
 
 import { StatusConditionType, findStatusCondition, type JobRun, type StatusCondition } from '@kinotic-ai/management-api'
-import { DatetimeUtil, executionStatusSeverity } from '@kinotic-ai/frontend-common'
+import { LaptopMinimalCheck } from '@lucide/vue'
+import { DashboardSection, DatetimeUtil, TimePill, TINTS, executionStatusSeverity, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 
 import { scopePath, type Scope } from '@/util/scope'
 
@@ -60,7 +58,6 @@ const props = defineProps<{
 }>()
 
 const router = useRouter()
-const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
 const formatDuration = DatetimeUtil.formatDuration
 
 /** The mark that the node running the run left the cluster while it was live, or undefined. */

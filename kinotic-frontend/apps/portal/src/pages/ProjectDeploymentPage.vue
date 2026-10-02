@@ -4,18 +4,14 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <div v-if="!loading && !deployment" class="flex flex-col items-center rounded-xl border border-dashed border-surface-300 px-6 py-14 text-center dark:border-surface-700">
-      <span :class="['flex h-12 w-12 items-center justify-center rounded-xl', TINTS.sky]">
-        <CloudUpload :size="24" :stroke-width="1.75" aria-hidden="true" />
-      </span>
-      <p class="mt-4 text-sm font-medium text-surface-950 dark:text-surface-0">Never deployed</p>
-      <p class="mt-1 text-sm text-muted-color">Pushing to the repository's default branch deploys this project.</p>
-    </div>
+    <EmptyChartCharacter v-if="!loading && !deployment" class="rounded-xl border border-dashed border-surface-300 py-14 dark:border-surface-700"
+                         title="Never deployed" hint="Pushing to the repository's default branch deploys this project." />
 
     <template v-if="deployment">
       <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard :icon="CloudUpload" :tint="TINTS.sky" label="Status"
+        <StatCard :tint="HEARTBEAT_TINTS[deploymentHeartbeat(phase)]" label="Status"
                   :detail="deployment.updated ? `Updated ${DatetimeUtil.formatRelativeDate(deployment.updated)}` : undefined">
+          <template #icon><HeartbeatIcon :state="deploymentHeartbeat(phase)" :size="20" :stroke-width="1.75" /></template>
           <Tag :value="phase ?? 'UNKNOWN'" :severity="phase ? deploymentStatusSeverity(phase) : 'secondary'" />
         </StatCard>
         <StatCard :icon="GitCommitHorizontal" :tint="TINTS.green" label="Live commit"
@@ -84,7 +80,7 @@
       </div>
 
       <div class="flex flex-col gap-4">
-        <DashboardSection v-if="deployment.lastJobRunId" :icon="JobsIcon" :tint="TINTS.blue" title="Latest deployment run"
+        <DashboardSection v-if="deployment.lastJobRunId" :icon="LaptopMinimalCheck" :tint="TINTS.blue" title="Latest deployment run"
                           description="Each step of the run the last push started, live while it runs; open a step for its detail.">
           <div class="p-5">
           <JobRunProgress :key="deployment.lastJobRunId"
@@ -101,13 +97,13 @@
                           description="Each microservice the deployment has ensured runs in a VM of its own, kept running by the platform: a VM that exits is replaced. Restart stops the VM and a fresh one takes its place; Remove stops the VM and deletes its machine identity — a microservice the current commit still contains comes back with the next deployment.">
           <MicroserviceDeploymentsTable v-if="microservices.length" :deployments="microservices"
                                         @logs="openLogs" @restart="confirmRestart" @remove="confirmRemove" />
-          <p v-else class="px-5 py-4 text-sm text-muted-color">No microservice has been deployed yet.</p>
+          <EmptyChartCharacter v-else class="py-6" title="No microservice has been deployed yet" />
         </DashboardSection>
 
         <DashboardSection :icon="Globe" :tint="TINTS.purple" title="UIs" :count="uis.length"
                           description="Each UI the deployment has published is served from a site of its own, checked until it serves the published commit. Remove takes the site down and deletes its files — a UI the current commit still contains comes back with the next deployment, at a new site.">
           <UiDeploymentsTable v-if="uis.length" :deployments="uis" @remove="confirmRemoveUi" />
-          <p v-else class="px-5 py-4 text-sm text-muted-color">No UI has been published yet.</p>
+          <EmptyChartCharacter v-else class="py-6" title="No UI has been published yet" />
         </DashboardSection>
 
         <DashboardSection v-if="machines.length" :icon="KeyRound" :tint="TINTS.red" title="Machine identities" :count="machines.length"
@@ -154,9 +150,9 @@ import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
-import { Activity, Boxes, CircleCheck, CircleOff, Clock, CloudUpload, GitCommitHorizontal, Globe, KeyRound, Server } from '@lucide/vue'
-import { DatetimeUtil, JobRunProgress, JobsIcon, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
-         WatchEventsTable, WorkloadLogsDialog, deploymentStatusSeverity, observedPhaseSeverity, shortSha, showErrorToast } from '@kinotic-ai/frontend-common'
+import { Activity, Boxes, CircleCheck, CircleOff, Clock, GitCommitHorizontal, Globe, KeyRound, LaptopMinimalCheck, Server } from '@lucide/vue'
+import { DatetimeUtil, HeartbeatIcon, JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
+         WatchEventsTable, WorkloadLogsDialog, deploymentStatusSeverity, observedPhaseSeverity, shortSha, showErrorToast, EmptyChartCharacter, HEARTBEAT_TINTS, deploymentHeartbeat } from '@kinotic-ai/frontend-common'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DeploymentStatusType,
          type MachineParticipantIdentity,
@@ -167,9 +163,7 @@ import { DeploymentStatusType,
 import MicroserviceDeploymentsTable from '@/components/MicroserviceDeploymentsTable.vue'
 import { KinoticStates } from '@/states'
 import UiDeploymentsTable from '@/components/UiDeploymentsTable.vue'
-import DashboardSection from '@/components/DashboardSection.vue'
-import StatCard from '@/components/StatCard.vue'
-import { TINTS } from '@/util/tints'
+import { DashboardSection, StatCard, TINTS } from '@kinotic-ai/frontend-common'
 
 /** One row — a machine the deployment provisioned, labelled by the workload it authenticates. */
 interface MachineRow extends MachineParticipantIdentity {

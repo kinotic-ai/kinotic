@@ -18,12 +18,10 @@
         <i class="pi pi-spin pi-spinner text-3xl"></i>
       </div>
       <div v-else-if="!hasWidgets" class="flex items-center justify-center flex-1">
-          <div class="app-muted-text text-center">
-          <i class="pi pi-chart-bar text-6xl mb-4"></i>
-          <h3 class="text-lg font-semibold mb-2">No widgets yet</h3>
-          <p class="text-surface-400">This dashboard doesn't have any widgets configured.</p>
+          <div class="flex flex-col items-center">
+            <EmptyChartCharacter title="No widgets yet" hint="This dashboard doesn't have any widgets configured." />
             <Button @click="editDashboard" label="Add Widgets" class="app-neutral-button mt-4" />
-        </div>
+          </div>
       </div>
       <div v-else class="dashboard-view-container">
         <div class="dashboard-widgets grid gap-4" :style="dashboardGridStyle">
@@ -62,7 +60,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { showErrorToast } from '@kinotic-ai/frontend-common'
+import { showErrorToast, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 // import { GridStack } from 'gridstack'
 import 'gridstack/dist/gridstack.min.css'
 import { DashboardEntityRepository } from '@/services/DashboardEntityRepository'

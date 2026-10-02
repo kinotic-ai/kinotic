@@ -1,16 +1,10 @@
 <template>
-  <div class="rounded-lg border border-surface p-4">
-    <div class="mb-3 flex items-start justify-between gap-3">
-      <div>
-        <h2 class="text-base font-semibold">Workloads by state</h2>
-        <p class="text-xs text-muted-color">{{ description }}</p>
-      </div>
-      <RouterLink v-if="viewAllTo" :to="viewAllTo" class="whitespace-nowrap text-sm text-muted-color hover:text-color">View all</RouterLink>
-    </div>
-    <div v-if="workloads.length === 0" class="py-6 text-center text-sm text-muted-color">
+  <DashboardSection :icon="Boxes" :tint="TINTS.sky" title="Workloads by state" :count="workloads.length"
+                    :description="description" :link-to="viewAllTo">
+    <div v-if="workloads.length === 0" class="py-8 text-center text-sm text-muted-color">
       No workloads
     </div>
-    <div v-else class="flex flex-col gap-2">
+    <div v-else class="flex flex-col gap-2.5 p-5">
       <div v-for="row in rows" :key="row.state" class="grid grid-cols-[6.5rem_minmax(0,1fr)_2rem] items-center gap-3 text-sm">
         <span class="flex items-center gap-2 text-muted-color">
           <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ background: row.color }" />
@@ -20,15 +14,16 @@
         <span class="text-right font-semibold tabular-nums">{{ row.count }}</span>
       </div>
     </div>
-  </div>
+  </DashboardSection>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterLink, type RouteLocationRaw } from 'vue-router'
+import type { RouteLocationRaw } from 'vue-router'
+import { Boxes } from '@lucide/vue'
 
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
-import { accentColor, isDark, type ChartAccent } from '@kinotic-ai/frontend-common'
+import { accentColor, DashboardSection, isDark, TINTS, type ChartAccent } from '@kinotic-ai/frontend-common'
 
 import CapacityBar from './CapacityBar.vue'
 import { WORKLOAD_STATES, countByStatus, workloadStateLabel } from '@/util/workloads'

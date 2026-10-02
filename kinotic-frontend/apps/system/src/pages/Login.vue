@@ -1,5 +1,5 @@
 <template>
-  <!-- Mint-recolored art marks this as the system login, not the portal's -->
+  <!-- The red art and red links mark this as the system login, not the portal's -->
   <AuthPageShell :art="loginArt">
     <div class="login-form">
       <div class="login-form__step">
@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
@@ -45,15 +45,12 @@ import Button from 'primevue/button'
 import IconField from 'primevue/iconfield'
 import { useToast } from 'primevue/usetoast'
 
-import { AuthPageShell, createDebug, isDark, postCredentials } from '@kinotic-ai/frontend-common'
+import { AuthPageShell, createDebug, postCredentials } from '@kinotic-ai/frontend-common'
 
-import loginArtDark from '@/assets/login-art-dark.png'
-import loginArtLight from '@/assets/login-art-light.png'
+import loginArt from '@/assets/login-background.svg'
 import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
 
 const debug = createDebug('system-login')
-
-const loginArt = computed(() => isDark.value ? loginArtDark : loginArtLight)
 
 const email = ref<string>('')
 const password = ref<string>('')
@@ -97,3 +94,14 @@ function displayError(text: string) {
   toast.add({ severity: 'error', summary: 'Error', detail: text, life: 10000 })
 }
 </script>
+
+<style scoped>
+/* AuthPageShell's root carries this component's scope, so its footer links take the brand red */
+.login-page {
+  --lp-footer-link: var(--p-primary-500);
+}
+
+.dark .login-page {
+  --lp-footer-link: var(--p-primary-400);
+}
+</style>

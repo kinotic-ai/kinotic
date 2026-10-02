@@ -11,7 +11,8 @@
     <!-- The same bands as the dashboard: tiles, attention, charts, runs, then the records -->
     <div class="flex flex-col gap-4">
       <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
+        <StatCard v-for="stat in stats" :key="stat.label" :icon="stat.icon" :tint="stat.tint" :label="stat.label"
+                  :value="stat.value" :detail="stat.detail" :to="stat.to" :loading="loading && stat.value === '—'" />
       </div>
 
       <AttentionList :items="attention" />
@@ -23,38 +24,28 @@
 
       <RecentRunsTable :runs="recentRuns" :scope="{ organizationId }" />
 
-      <div class="flex flex-col gap-2 rounded-lg border border-surface p-4">
-        <h2 class="text-base font-semibold">Details</h2>
-        <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
-          <dt class="text-muted-color">Id</dt>
-          <dd class="font-mono">{{ organizationId }}</dd>
-          <dt class="text-muted-color">Name</dt>
-          <dd>{{ organization?.name ?? '—' }}</dd>
-          <dt class="text-muted-color">Description</dt>
-          <dd>{{ organization?.description || '—' }}</dd>
-          <dt class="text-muted-color">Created</dt>
-          <dd>{{ formatEpochDate(organization?.created ?? null) }}</dd>
-          <dt class="text-muted-color">Created by</dt>
-          <dd class="break-all font-mono">{{ organization?.createdBy ?? '—' }}</dd>
-        </dl>
-      </div>
+      <DashboardSection :icon="Building2" :tint="TINTS.blue" title="About">
+        <div class="px-5 pb-2">
+          <FactList :facts="facts" />
+        </div>
+      </DashboardSection>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, markRaw, ref, watch, type Component } from 'vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
+import { Boxes, Building2, CalendarClock, FileText, Hash, LaptopMinimalCheck, LayoutGrid, Tag as TagIcon, UserRound, Users } from '@lucide/vue'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { ExecutionStatus, WorkloadStatus, type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
-import { DatetimeUtil, PageHeader, errorMessage, scanJobRuns } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, errorMessage, scanJobRuns } from '@kinotic-ai/frontend-common'
 
 import AttentionList from '@/components/AttentionList.vue'
 import JobRunsByDayChart from '@/components/JobRunsByDayChart.vue'
 import RecentRunsTable from '@/components/RecentRunsTable.vue'
-import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import WorkloadStateCard from '@/components/WorkloadStateCard.vue'
 import { organizationAttention } from '@/util/attention'
 import { organizationPath } from '@/util/scope'
@@ -68,8 +59,6 @@ const RECENT_RUN_COUNT = 5
 const props = defineProps<{
   organizationId: string
 }>()
-
-const formatEpochDate = DatetimeUtil.formatEpochDate
 
 const basePath = computed(() => organizationPath(props.organizationId))
 
@@ -89,11 +78,11 @@ const recentRuns = computed(() => runs.value.slice(0, RECENT_RUN_COUNT))
 interface Stat {
   label: string
   value: string
-  description: string
-  tag?: string
-  to?: string
-  icon?: string
-  accent?: StatTileAccent
+  detail: string
+  to: string
+  icon: Component
+  /** One of TINTS. */
+  tint: string
 }
 
 const stats = computed<Stat[]>(() => {
@@ -103,35 +92,46 @@ const stats = computed<Stat[]>(() => {
     {
       label: 'Applications',
       value: applicationCount.value?.toString() ?? '—',
-      description: `${projectCount.value ?? '—'} project${projectCount.value === 1 ? '' : 's'} across them`,
+      detail: `${projectCount.value ?? '—'} project${projectCount.value === 1 ? '' : 's'} across them`,
       to: `${basePath.value}/applications`,
-      icon: 'pi-th-large',
-      accent: 'sky'
+      icon: markRaw(LayoutGrid),
+      tint: TINTS.blue
     },
     {
       label: 'Members',
       value: memberCount.value?.toString() ?? '—',
-      description: `${inviteCount.value ?? '—'} invitation${inviteCount.value === 1 ? '' : 's'} pending`,
+      detail: `${inviteCount.value ?? '—'} invitation${inviteCount.value === 1 ? '' : 's'} pending`,
       to: `${basePath.value}/members`,
-      icon: 'pi-users',
-      accent: 'green'
+      icon: markRaw(Users),
+      tint: TINTS.green
     },
     {
       label: 'Workloads',
       value: `${running}`,
-      description: `running of ${workloads.value.length}`,
+      detail: `running of ${workloads.value.length}`,
       to: `${basePath.value}/workloads`,
-      icon: 'pi-box',
-      accent: 'amber'
+      icon: markRaw(Boxes),
+      tint: TINTS.sky
     },
     {
       label: `Jobs · ${RUN_WINDOW_DAYS} d`,
       value: `${runs.value.length}`,
-      description: `${runningRuns} running now`,
+      detail: `${runningRuns} running now`,
       to: `${basePath.value}/jobs`,
-      icon: 'pi-list-check',
-      accent: 'violet'
+      icon: markRaw(LaptopMinimalCheck),
+      tint: TINTS.purple
     }
+  ]
+})
+
+const facts = computed(() => {
+  const org = organization.value
+  return [
+    { label: 'Id', icon: markRaw(Hash), value: props.organizationId, mono: true },
+    { label: 'Name', icon: markRaw(TagIcon), value: org?.name ?? '—' },
+    { label: 'Description', icon: markRaw(FileText), value: org?.description || '—' },
+    { label: 'Created', icon: markRaw(CalendarClock), value: org?.created ? DatetimeUtil.formatRelativeDate(org.created) : '—' },
+    { label: 'Created by', icon: markRaw(UserRound), value: org?.createdBy ?? '—', mono: true }
   ]
 })
 

@@ -33,8 +33,9 @@ import type { ToggleSwitchDesignTokens } from '@primeuix/themes/types/toggleswit
                 background: "{surface.300}",
                 disabledBackground: "{form.field.disabled.background}",
                 hoverBackground: "{surface.400}",
-                checkedBackground: "{primary.color}",
-                checkedHoverBackground: "{primary.hover.color}"
+                // on reads as near-black, like the primary buttons
+                checkedBackground: "{surface.950}",
+                checkedHoverBackground: "{surface.800}"
             },
             handle: {
                 background: "{surface.0}",
@@ -44,8 +45,8 @@ import type { ToggleSwitchDesignTokens } from '@primeuix/themes/types/toggleswit
                 checkedHoverBackground: "{surface.0}",
                 color: "{text.muted.color}",
                 hoverColor: "{text.color}",
-                checkedColor: "{primary.color}",
-                checkedHoverColor: "{primary.hover.color}"
+                checkedColor: "{surface.950}",
+                checkedHoverColor: "{surface.800}"
             }
         },
         dark: {
@@ -53,8 +54,9 @@ import type { ToggleSwitchDesignTokens } from '@primeuix/themes/types/toggleswit
                 background: "{surface.700}",
                 disabledBackground: "{surface.600}",
                 hoverBackground: "{surface.600}",
-                checkedBackground: "{primary.color}",
-                checkedHoverBackground: "{primary.hover.color}"
+                // inverted in dark mode, as the primary buttons are
+                checkedBackground: "{surface.0}",
+                checkedHoverBackground: "{surface.200}"
             },
             handle: {
                 background: "{surface.400}",
@@ -64,8 +66,8 @@ import type { ToggleSwitchDesignTokens } from '@primeuix/themes/types/toggleswit
                 checkedHoverBackground: "{surface.900}",
                 color: "{surface.900}",
                 hoverColor: "{surface.800}",
-                checkedColor: "{primary.color}",
-                checkedHoverColor: "{primary.hover.color}"
+                checkedColor: "{surface.0}",
+                checkedHoverColor: "{surface.200}"
             }
         }
     }

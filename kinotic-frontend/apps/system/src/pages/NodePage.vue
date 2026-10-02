@@ -37,70 +37,57 @@
 
       <div class="flex flex-col gap-4">
         <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
-          <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
+          <StatCard v-for="stat in stats" :key="stat.label" :icon="stat.icon" :tint="stat.tint" :label="stat.label"
+                    :value="stat.value" :detail="stat.detail" :to="stat.to" />
         </div>
 
-        <div class="rounded-lg border border-surface p-4">
-          <div class="mb-3 flex items-start justify-between gap-3">
-            <div>
-              <h2 class="text-base font-semibold">Workloads on this node</h2>
-              <p class="text-xs text-muted-color">Click a row for the workload; its menu shows its logs, stops, restarts or destroys it.</p>
-            </div>
-            <RouterLink :to="{ path: '/workloads', query: { node: nodeId } }"
-                        class="whitespace-nowrap text-sm text-muted-color hover:text-color">Filter workloads</RouterLink>
+        <DashboardSection :icon="Boxes" :tint="TINTS.green" title="Workloads on this node" :count="workloads.length"
+                          description="Click a row for the workload; its menu shows its logs, stops, restarts or destroys it."
+                          :link-to="{ path: '/workloads', query: { node: nodeId } }" link-label="Filter workloads">
+          <!-- WorkloadsTable brings its own search bar and paginator, which need the card's padding -->
+          <div class="p-4">
+            <WorkloadsTable :workloads="workloads" :scope="{}" :show-node="false" @changed="load" />
           </div>
-          <WorkloadsTable :workloads="workloads" :scope="{}" :show-node="false" @changed="load" />
-        </div>
+        </DashboardSection>
 
         <div class="grid gap-4 lg:grid-cols-2">
-          <div class="rounded-lg border border-surface p-4">
-            <h2 class="mb-2 text-base font-semibold">Details</h2>
-            <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
-              <dt class="text-muted-color">Node id</dt>
-              <dd class="break-all font-mono">{{ node.id }}</dd>
-              <dt class="text-muted-color">Host</dt>
-              <dd class="break-all font-mono">{{ node.hostname }}</dd>
-              <dt class="text-muted-color">Provider</dt>
-              <dd>{{ node.providerType }}</dd>
-              <dt class="text-muted-color">Workload data dir</dt>
-              <dd class="break-all font-mono">{{ node.workloadDataDir ?? '—' }}</dd>
-              <dt class="text-muted-color">Last heartbeat</dt>
-              <dd>{{ formatEpochDateTime(node.lastSeen) }}</dd>
-            </dl>
-          </div>
-          <div class="rounded-lg border border-surface p-4">
-            <h2 class="text-base font-semibold">Capacity</h2>
-            <p class="mb-3 text-xs text-muted-color">What the node promised at registration, less what is placed on it.</p>
-            <CapacityRows :capacity="capacityOf([node])" />
-          </div>
+          <DashboardSection :icon="Server" :tint="TINTS.orange" title="Details">
+            <div class="px-5 pb-3">
+              <FactList :facts="facts" />
+            </div>
+          </DashboardSection>
+          <DashboardSection :icon="Gauge" :tint="TINTS.sky" title="Capacity"
+                            description="What the node promised at registration, less what is placed on it.">
+            <div class="p-5">
+              <CapacityRows :capacity="capacityOf([node])" />
+            </div>
+          </DashboardSection>
         </div>
 
-        <div class="rounded-lg border border-surface p-4">
-          <h2 class="text-base font-semibold">History</h2>
-          <p class="mb-3 text-xs text-muted-color">
-            What happened to the node, newest first: each change of what it should be and of what it reports, and each mark
-            set beside them, with what caused it. The latest {{ HISTORY_PAGE_SIZE }} entries.
-          </p>
-          <WatchEventsTable :entries="history" empty-text="Nothing has happened to the node yet." />
-        </div>
+        <DashboardSection :icon="History" :tint="TINTS.purple" title="History" :count="history.length"
+                          :description="`What happened to the node, newest first: each change of what it should be and of what it reports, and each mark set beside them, with what caused it. The latest ${HISTORY_PAGE_SIZE} entries.`">
+          <EmptyChartCharacter v-if="history.length === 0" class="py-6" title="Nothing has happened to the node yet" />
+          <WatchEventsTable v-else :entries="history" empty-text="Nothing has happened to the node yet." />
+        </DashboardSection>
       </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, markRaw, ref, watch, type Component } from 'vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
+import { Boxes, Clock, Cpu, FolderOpen, Gauge, HardDrive, Hash, History, Layers, MemoryStick, Network, Server } from '@lucide/vue'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { WorkloadStatus, type WatchEvent, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, PageHeader, WatchEventsTable, errorMessage, formatMb } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, WatchEventsTable, errorMessage,
+         formatMb, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 
 import CapacityRows from '@/components/CapacityRows.vue'
-import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import WorkloadsTable from '@/components/WorkloadsTable.vue'
 import { NodeHealth, capacityOf, formatCpus, nodeHealth, nodeSeverity, nodeUnreachable, percentOf } from '@/util/nodes'
 import { scanWorkloads } from '@/util/workloads'
@@ -129,10 +116,11 @@ const unreachable = computed(() => node.value ? nodeUnreachable(node.value) : un
 interface Stat {
   label: string
   value: string
-  description: string
-  to?: object
-  icon?: string
-  accent?: StatTileAccent
+  detail: string
+  to?: string
+  icon: Component
+  /** One of TINTS. */
+  tint: string
 }
 
 const stats = computed<Stat[]>(() => {
@@ -143,32 +131,43 @@ const stats = computed<Stat[]>(() => {
     {
       label: 'CPU',
       value: `${percentOf(n.totalCpus - n.freeCpus, n.totalCpus)}%`,
-      description: `${formatCpus(n.totalCpus - n.freeCpus)} of ${n.totalCpus} CPU allocated`,
-      icon: 'pi-microchip',
-      accent: 'sky'
+      detail: `${formatCpus(n.totalCpus - n.freeCpus)} of ${n.totalCpus} CPU allocated`,
+      icon: markRaw(Cpu),
+      tint: TINTS.sky
     },
     {
       label: 'Memory',
       value: `${percentOf(n.totalMemoryMb - n.freeMemoryMb, n.totalMemoryMb)}%`,
-      description: `${formatMb(n.totalMemoryMb - n.freeMemoryMb)} of ${formatMb(n.totalMemoryMb)}`,
-      icon: 'pi-database',
-      accent: 'violet'
+      detail: `${formatMb(n.totalMemoryMb - n.freeMemoryMb)} of ${formatMb(n.totalMemoryMb)}`,
+      icon: markRaw(MemoryStick),
+      tint: TINTS.purple
     },
     {
       label: 'Disk',
       value: `${percentOf(n.totalDiskMb - n.freeDiskMb, n.totalDiskMb)}%`,
-      description: `${formatMb(n.totalDiskMb - n.freeDiskMb)} of ${formatMb(n.totalDiskMb)}`,
-      icon: 'pi-inbox',
-      accent: 'teal'
+      detail: `${formatMb(n.totalDiskMb - n.freeDiskMb)} of ${formatMb(n.totalDiskMb)}`,
+      icon: markRaw(HardDrive),
+      tint: TINTS.blue
     },
     {
       label: 'Workloads',
       value: `${running}`,
-      description: `running of ${workloads.value.length} placed here`,
-      to: { path: '/workloads', query: { node: props.nodeId } },
-      icon: 'pi-box',
-      accent: 'green'
+      detail: `running of ${workloads.value.length} placed here`,
+      to: `/workloads?node=${encodeURIComponent(props.nodeId)}`,
+      icon: markRaw(Boxes),
+      tint: TINTS.green
     }
+  ]
+})
+
+const facts = computed(() => {
+  const n = node.value
+  return [
+    { label: 'Node id', icon: markRaw(Hash), value: n?.id ?? props.nodeId, mono: true },
+    { label: 'Host', icon: markRaw(Network), value: n?.hostname ?? '—', mono: true },
+    { label: 'Provider', icon: markRaw(Layers), value: n?.providerType ?? '—' },
+    { label: 'Data dir', icon: markRaw(FolderOpen), value: n?.workloadDataDir ?? '—', mono: true },
+    { label: 'Last heartbeat', icon: markRaw(Clock), value: formatEpochDateTime(n?.lastSeen ?? null) }
   ]
 })
 

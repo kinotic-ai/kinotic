@@ -31,7 +31,7 @@
     </CrudTable>
 
     <Dialog v-model:visible="sessionsDialogVisible" modal :header="sessionsDialogTitle" :style="{ width: '34rem' }">
-      <p v-if="sessions.length === 0" class="text-sm text-muted-color m-0">No live sessions.</p>
+      <EmptyChartCharacter v-if="sessions.length === 0" class="py-4" title="No live sessions" />
       <div v-else class="flex flex-col gap-3">
         <div v-for="session in sessions" :key="session.familyId"
              class="flex items-center justify-between gap-4 border rounded-md p-3 border-surface-200 dark:border-surface-700">
@@ -70,6 +70,7 @@ import type { CrudHeader } from '../types/CrudHeader'
 import type { DescriptiveIdentifiable } from '../types/DescriptiveIdentifiable'
 import DatetimeUtil from '../util/DatetimeUtil'
 import { showErrorToast } from '../util/helpers'
+import EmptyChartCharacter from './EmptyChartCharacter.vue'
 
 /** One table row — a client authorized to act on the signed-in user's behalf. */
 interface DelegateRow extends DescriptiveIdentifiable {

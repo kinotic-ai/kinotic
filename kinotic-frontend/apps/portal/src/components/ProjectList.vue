@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { showErrorToast } from '@kinotic-ai/frontend-common'
+import { InitialsTile, showErrorToast, TimePill } from '@kinotic-ai/frontend-common'
 import { useToast } from 'primevue/usetoast'
 import { CrudTable } from '@kinotic-ai/frontend-common'
 import NewProjectSidebar from '@/components/NewProjectSidebar.vue'
-import InitialsTile from '@/components/InitialsTile.vue'
-import TimePill from '@/components/TimePill.vue'
 import type { IDataSource, Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { Kinotic } from '@kinotic-ai/core'

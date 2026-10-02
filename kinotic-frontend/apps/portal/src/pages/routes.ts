@@ -1,9 +1,7 @@
 import type { Component } from 'vue'
 import { type RouteMeta, type RouteRecordRaw } from 'vue-router'
-import {
-    ChartLine, CloudUpload, LayoutDashboard, LayoutGrid, Link, ListTree, Server, Settings, Table, User, Users
-} from '@lucide/vue'
-import { JobsIcon, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import { ChartLine, CloudUpload, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, ListTree, Server, Settings, Table, User, Users, Zap } from '@lucide/vue'
+import { ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
 import loginPageLeft from '@/assets/login-page-left.svg'
 import { USER_STATE } from '@/states/IUserState'
@@ -46,6 +44,14 @@ function organizationPage(path: string, sidebar: SidebarItemMeta, children: Rout
 }
 
 const pageRoutes: RouteRecordRaw[] = [
+  organizationPage('/quickstart', organizationItem('Quickstart', Zap, 5, 'Getting started'), [
+    {
+      name: 'quickstart',
+      path: '',
+      component: () => import('@/pages/QuickstartPage.vue')
+    }
+  ]),
+
   organizationPage('/applications', organizationItem('Applications', LayoutGrid, 10, 'Organization'), [
     {
       name: 'applications',
@@ -54,7 +60,7 @@ const pageRoutes: RouteRecordRaw[] = [
     }
   ]),
 
-  organizationPage('/jobs', organizationItem('Jobs', JobsIcon, 20, 'Organization'), [
+  organizationPage('/jobs', organizationItem('Jobs', LaptopMinimalCheck, 20, 'Organization'), [
     {
       name: 'jobs',
       path: '',

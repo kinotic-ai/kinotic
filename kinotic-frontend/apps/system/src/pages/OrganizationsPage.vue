@@ -14,6 +14,13 @@
       @update:search="tableSearch = $event"
       @on-row-click="openOrganization"
     >
+      <template #item.name="{ item, index }">
+        <span class="flex min-w-0 items-center gap-2.5">
+          <InitialsTile :name="item.name || item.id" :index="index" />
+          <span class="truncate" v-tooltip.top="item.name">{{ item.name }}</span>
+        </span>
+      </template>
+
       <template #item.id="{ item }">
         <span class="font-mono text-sm">{{ item.id }}</span>
       </template>
@@ -27,7 +34,7 @@
       </template>
 
       <template #item.created="{ item }">
-        {{ formatDate(item.created) }}
+        <TimePill :date="item.created" />
       </template>
     </CrudTable>
   </div>
@@ -41,8 +48,9 @@ import { FunctionalIterablePage, Kinotic, Pageable, type IterablePage, type Page
 import { WorkloadStatus, type Organization } from '@kinotic-ai/management-api'
 import {
   CrudTable,
+  InitialsTile,
   PageHeader,
-  DatetimeUtil,
+  TimePill,
   useCrudTablePage,
   type CrudHeader,
   type DescriptiveIdentifiable
@@ -62,7 +70,6 @@ interface OrganizationRow extends DescriptiveIdentifiable {
 }
 
 const router = useRouter()
-const formatDate = DatetimeUtil.formatEpochDate
 
 const headers: CrudHeader[] = [
   { field: 'name', header: 'Name', sortable: true },

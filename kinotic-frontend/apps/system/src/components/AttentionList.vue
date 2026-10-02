@@ -1,15 +1,8 @@
 <template>
-  <div class="overflow-hidden rounded-lg border border-surface">
-    <div class="flex items-center gap-2 border-b border-surface px-4 py-2.5 text-sm font-semibold">
-      <i class="pi pi-bell text-muted-color" :style="{ fontSize: '13px' }" />
-      Needs attention
-      <span v-if="items.length > 0"
-            class="rounded-full bg-red-500/10 px-1.5 text-xs font-semibold tabular-nums text-red-600 dark:text-red-400">
-        {{ items.length }}
-      </span>
-    </div>
-    <div v-if="items.length === 0" class="flex items-center gap-2 px-4 py-3.5 text-sm text-green-600 dark:text-green-400">
-      <i class="pi pi-check-circle" />
+  <DashboardSection :icon="Bell" :tint="items.length > 0 ? TINTS.red : TINTS.green" title="Needs attention"
+                    :count="items.length" description="What an operator has to look at, each leading to where it is handled.">
+    <div v-if="items.length === 0" class="flex items-center gap-2 px-5 py-4 text-sm text-green-700 dark:text-green-300">
+      <CircleCheck :size="16" :stroke-width="1.75" aria-hidden="true" />
       Nothing needs an operator right now
     </div>
     <RouterLink
@@ -17,7 +10,7 @@
       :key="item.to + item.text"
       :to="item.to"
       :class="[
-        'flex items-center gap-3 border-b border-l-[3px] border-b-surface px-3.5 py-2.5 text-color no-underline transition-colors last:border-b-0 hover:bg-emphasis',
+        'flex items-center gap-3 border-b border-l-[3px] border-b-surface-200 px-4 py-2.5 text-color no-underline transition-colors last:border-b-0 hover:bg-surface-100 dark:border-b-surface-700 dark:hover:bg-surface-800',
         item.severity === 'danger' ? 'border-l-red-500' : 'border-l-amber-500'
       ]"
       v-tooltip.top="item.detail"
@@ -27,12 +20,14 @@
         {{ item.text }}
         <span class="text-xs text-muted-color"> · {{ item.detail }}</span>
       </span>
-      <i class="pi pi-chevron-right text-muted-color" :style="{ fontSize: '10px' }" />
+      <ChevronRight :size="14" :stroke-width="1.75" class="shrink-0 text-surface-400" aria-hidden="true" />
     </RouterLink>
-  </div>
+  </DashboardSection>
 </template>
 
 <script setup lang="ts">
+import { Bell, ChevronRight, CircleCheck } from '@lucide/vue'
+import { DashboardSection, TINTS } from '@kinotic-ai/frontend-common'
 import type { AttentionItem } from '@/util/attention'
 
 /** The list of what an operator has to look at, each row leading to the page where it is handled. */

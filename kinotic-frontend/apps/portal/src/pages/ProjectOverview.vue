@@ -11,15 +11,16 @@
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
     <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <StatCard :icon="CloudUpload" :tint="TINTS.sky" label="Deployment" :loading="loading" :to="`${basePath}/deployment`"
+      <StatCard :tint="HEARTBEAT_TINTS[heartbeat]" label="Deployment" :loading="loading" :to="`${basePath}/deployment`"
                 :detail="deployment ? deploymentDetail : 'Pushing to the default branch deploys it'">
+        <template #icon><HeartbeatIcon :state="heartbeat" :size="20" :stroke-width="1.75" /></template>
         <Tag v-if="deployment" :value="deployment.state.observed?.phase ?? 'UNKNOWN'"
              :severity="observedPhaseSeverity(deployment.state.observed)" />
         <Tag v-else value="Never deployed" severity="secondary" />
       </StatCard>
       <StatCard :icon="Server" :tint="TINTS.orange" label="Microservices" :value="microserviceCount" :loading="loading"
                 detail="deployed from this project" :to="`${basePath}/deployment`" />
-      <StatCard :icon="Table" :tint="TINTS.purple" label="Entities" :value="entityCount" :loading="entityCount === null"
+      <StatCard :icon="Table" :tint="TINTS.purple" label="Entities" :value="entityCount ?? '—'" :loading="loadingEntities"
                 detail="in this project's data model" :to="`${basePath}/entities`" />
       <StatCard :icon="GitBranch" :tint="TINTS.green" label="Repository" :loading="loading"
                 :detail="project?.repoFullName ?? '—'" mono-detail
@@ -44,9 +45,8 @@
         <div v-if="loading" class="mt-4 flex flex-col gap-3">
           <Skeleton v-for="n in 2" :key="n" height="2.5rem" />
         </div>
-        <p v-else-if="uis.length === 0" class="mt-4 text-sm text-muted-color">
-          No UI has been published yet. A UI the project contains is published with its next deployment.
-        </p>
+        <EmptyChartCharacter v-else-if="uis.length === 0" class="py-6" title="No UI has been published yet"
+                             hint="A UI the project contains is published with its next deployment." />
         <ul v-else class="mt-3 grid gap-3 md:grid-cols-2">
           <li v-for="ui in uis" :key="ui.id ?? ui.name" class="flex items-center gap-3 rounded-lg border border-surface-200 px-3 py-2.5 dark:border-surface-700">
             <span :class="['flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', TINTS.sky]">
@@ -71,17 +71,14 @@
 
 <script setup lang="ts">
 import { computed, markRaw, ref, watch } from 'vue'
-import { CalendarClock, ChevronRight, CloudUpload, FileCode, GitBranch, Globe, Hash, LayoutGrid, Server, Table } from '@lucide/vue'
+import { CalendarClock, ChevronRight, FileCode, GitBranch, Globe, Hash, LayoutGrid, Server, Table } from '@lucide/vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
 import { type Project, type ProjectDeployment, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
-import { DatetimeUtil, observedPhase, observedPhaseSeverity, PageHeader } from '@kinotic-ai/frontend-common'
-import FactList from '@/components/FactList.vue'
-import StatCard from '@/components/StatCard.vue'
-import { TINTS } from '@/util/tints'
+import { createDebug, DatetimeUtil, FactList, HeartbeatIcon, observedPhase, observedPhaseSeverity, PageHeader, StatCard, TINTS, EmptyChartCharacter, HEARTBEAT_TINTS, deploymentHeartbeat } from '@kinotic-ai/frontend-common'
 
 /**
  * The landing page of one project: its repository, its deployment state, how many entities
@@ -95,15 +92,20 @@ const props = defineProps<{
 
 const RepoStatus = RepositoryConnectionStatus
 
+const debug = createDebug('project-overview')
+
 const cardClass = 'rounded-xl border border-surface-200 bg-surface-0 p-5 dark:border-surface-700 dark:bg-surface-800/30'
 
 const basePath = computed(() => `/application/${encodeURIComponent(props.applicationId)}/project/${encodeURIComponent(props.projectId)}`)
 
 const project = ref<Project | null>(null)
 const deployment = ref<ProjectDeployment | null>(null)
+/** What the Deployment card's heartbeat shows: beating while running, a dropped beat once failed. */
+const heartbeat = computed(() => deploymentHeartbeat(deployment.value?.state.observed?.phase))
 const microserviceCount = ref(0)
 const uis = ref<UiDeployment[]>([])
 const entityCount = ref<number | null>(null)
+const loadingEntities = ref(true)
 const loading = ref(true)
 const error = ref<string | null>(null)
 
@@ -137,7 +139,10 @@ const facts = computed(() => {
   ]
 })
 
-watch(() => props.projectId, load, { immediate: true })
+watch(() => props.projectId, () => {
+  void load()
+  void loadEntityCount()
+}, { immediate: true })
 
 async function load(): Promise<void> {
   loading.value = true
@@ -146,24 +151,35 @@ async function load(): Promise<void> {
   deployment.value = null
   microserviceCount.value = 0
   uis.value = []
-  entityCount.value = null
   try {
-    const [loadedProject, loadedDeployment, microservices, loadedUis, count] = await Promise.all([
+    const [loadedProject, loadedDeployment, microservices, loadedUis] = await Promise.all([
       Kinotic.projects.findById(props.projectId),
       Kinotic.projects.findDeployment(props.projectId),
       Kinotic.microserviceDeployments.findAllForProject(props.projectId),
-      Kinotic.uiDeployments.findAllForProject(props.projectId),
-      Kinotic.entityDefinitions.countForProject(props.projectId)
+      Kinotic.uiDeployments.findAllForProject(props.projectId)
     ])
     project.value = loadedProject
     deployment.value = loadedDeployment
     microserviceCount.value = microservices.length
     uis.value = loadedUis
-    entityCount.value = count
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
     loading.value = false
+  }
+}
+
+// The entity count comes from another service than the rest of the page, so it loads on its own:
+// when that service can't be reached, only the Entities card goes without its figure
+async function loadEntityCount(): Promise<void> {
+  loadingEntities.value = true
+  entityCount.value = null
+  try {
+    entityCount.value = await Kinotic.entityDefinitions.countForProject(props.projectId)
+  } catch (err) {
+    debug('Failed to count the entities of %s: %O', props.projectId, err)
+  } finally {
+    loadingEntities.value = false
   }
 }
 </script>
