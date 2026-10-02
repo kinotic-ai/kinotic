@@ -1,0 +1,1 @@
+{"id":"3031a5491b470ff94590ef044e57bf9c.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/e2e-tests:test/native/OAuthMcp.test.ts#Kinotic JS rejects a client_id that is not a usable metadata document URL","name":"rejects a client_id that is not a usable metadata document URL","status":"passed","testResultsByEnv":{"default":"6c9d33bcd3e6cdeb1d77a36463427051"}}
