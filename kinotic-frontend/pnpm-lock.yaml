@@ -85,9 +85,6 @@ importers:
       debug:
         specifier: ^4.4.3
         version: 4.4.3
-      gridstack:
-        specifier: ^12.6.0
-        version: 12.6.0
       js-cookie:
         specifier: ^3.0.8
         version: 3.0.8
@@ -1041,9 +1038,6 @@ packages:
 
   graphlib@2.1.8:
     resolution: {integrity: sha512-jcLLfkpoVGmH7/InMC/1hIvOPSUh38oJtGhvrOFGzioE1DZ+0YW16RgmOJhHiuWTvGiJQ9Z1Ik43JvkRPRvE+A==}
-
-  gridstack@12.6.0:
-    resolution: {integrity: sha512-dUrqsormSybFn/2P4Dz8AgprftKD5e/IiV7UmC0XLQU+G+/WtkAeFiCSNLoAGhPDXoJ/O61Xtj3gljY/Ds83yQ==}
 
   hasown@2.0.2:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
@@ -2357,8 +2351,6 @@ snapshots:
   graphlib@2.1.8:
     dependencies:
       lodash: 4.17.21
-
-  gridstack@12.6.0: {}
 
   hasown@2.0.2:
     dependencies:

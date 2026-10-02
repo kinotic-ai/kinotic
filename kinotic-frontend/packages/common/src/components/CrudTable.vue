@@ -42,7 +42,7 @@ const ROW_MENU_COLUMN_WIDTH = '4.5rem';
 
 const props = withDefaults(defineProps<{
   // any: parents bind entity-specific IDataSource implementations (EntityDefinition,
-  // Dashboard, ...) and IDataSource's type parameter is invariant.
+  // Project, ...) and IDataSource's type parameter is invariant.
   dataSource: IDataSource<any>
   headers: CrudHeader[]
   multiSort?: boolean
@@ -94,7 +94,7 @@ const emit = defineEmits<{
   (e: "update:search", value: string): void;
   (e: "addItem"): void;
   // any: listeners type these payloads as their concrete entity (EntityDefinition,
-  // Dashboard, ...), which is narrower than the Identifiable<string> rows the table holds.
+  // Project, ...), which is narrower than the Identifiable<string> rows the table holds.
   (e: "deleteItem", item: any): void;
   (e: "onRowClick", data: any): void;
   (e: "items-count", count: number): void;

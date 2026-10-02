@@ -19,7 +19,7 @@ localStorage.setItem('debug', 'kinotic-ui:*')
 localStorage.setItem('debug', 'kinotic-ui:login,kinotic-ui:entity-list')
 
 // Enable with wildcards
-localStorage.setItem('debug', 'kinotic-ui:*,-kinotic-ui:saved-widget-item')
+localStorage.setItem('debug', 'kinotic-ui:*,-kinotic-ui:crud-table')
 ```
 
 Then refresh the page.
@@ -47,8 +47,6 @@ localStorage.removeItem('debug')
 - `kinotic-ui:entityDefinitions-list`, `kinotic-ui:entity-list`,
   `kinotic-ui:entity-list-entityDefinitions`, `kinotic-ui:entity-list-old`
 - `kinotic-ui:crud-table`
-- `kinotic-ui:dashboard-view`, `kinotic-ui:dashboard-details`
-- `kinotic-ui:saved-widgets`, `kinotic-ui:saved-widget-item`
 
 `apps/system`:
 
