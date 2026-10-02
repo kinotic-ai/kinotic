@@ -1,10 +1,15 @@
 <template>
   <div class="flex flex-col gap-3">
     <div class="flex flex-wrap items-center gap-3">
-      <label class="flex items-center gap-2 text-sm" :class="span === CUSTOM_SPAN ? 'text-muted-color' : 'text-color cursor-pointer'">
-        <ToggleSwitch v-model="following" :disabled="span === CUSTOM_SPAN" />
-        Live tail
-      </label>
+      <ToggleButton
+        v-model="following"
+        on-label="Following"
+        off-label="Follow"
+        on-icon="pi pi-pause"
+        off-icon="pi pi-play"
+        size="small"
+        :disabled="span === CUSTOM_SPAN"
+      />
       <SelectButton v-model="span" :options="spanOptions" option-label="label" option-value="value"
                     :allow-empty="false" size="small" />
       <Select checkmark v-model="limit" :options="LIMIT_OPTIONS" option-label="label" option-value="value" size="small" />
@@ -51,7 +56,7 @@ import DatePicker from 'primevue/datepicker'
 import Message from 'primevue/message'
 import Select from 'primevue/select'
 import SelectButton from 'primevue/selectbutton'
-import ToggleSwitch from 'primevue/toggleswitch'
+import ToggleButton from 'primevue/togglebutton'
 import VirtualScroller from 'primevue/virtualscroller'
 
 import DatetimeUtil from '../util/DatetimeUtil'
