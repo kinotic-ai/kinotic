@@ -37,9 +37,7 @@ public class AuthenticationHandler implements Handler<RoutingContext> {
         securityService.authenticate(authInfo)
                        .onComplete(event -> {
                            if(event.succeeded()){
-                               // RoutingContext stash read only by the OpenAPI/GraphQL
-                               // RoutingContextToEntityContextAdapter; every other consumer reads
-                               // the SecurityContext binding below
+                               // Exposes the Participant to route handlers that read it from the RoutingContext
                                ctx.put(EventConstants.SENDER_HEADER, event.result());
                                // Bind the Participant to the current Vert.x context so downstream
                                // handlers (and anything they call) can read it via

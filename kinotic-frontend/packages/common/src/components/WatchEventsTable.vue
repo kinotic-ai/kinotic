@@ -1,9 +1,9 @@
 <template>
   <EmptyChartCharacter v-if="entries.length === 0" class="py-6" :title="emptyText" />
   <DataTable v-else :value="entries" size="small" class="text-sm">
-    <Column header="When" style="width: 11rem">
+    <Column header="When" style="width: 13rem">
       <template #body="{ data }">
-        <span v-tooltip.top="formatEpochDateTime(data['@timestamp'])">{{ formatRelativeDate(data['@timestamp']) }}</span>
+        <span class="whitespace-nowrap">{{ formatEpochDateTime(data['@timestamp']) }}</span>
       </template>
     </Column>
     <Column v-if="showRecord" header="Record" class="hidden md:table-cell" style="width: 18rem">
@@ -47,7 +47,6 @@ withDefaults(defineProps<{
 })
 
 const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
-const formatRelativeDate = DatetimeUtil.formatRelativeDate
 
 /** Tag severity by what the entry records: a mark set is a warning, a mark cleared or an intent good news. */
 const SEVERITY_BY_KIND: Record<string, string> = {

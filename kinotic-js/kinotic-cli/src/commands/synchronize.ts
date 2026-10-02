@@ -83,10 +83,6 @@ export class Synchronize extends Command {
                                              namedQueries.push(...serviceInfo.namedQueries)
                                          }
 
-                                         // We sync named queries first since currently the backend cache eviction logic is a little dumb
-                                         // i.e. The cache eviction for the EntityDefinition deletes the GraphQL schema
-                                         //      This will evict the named query execution plan cache
-                                         //      We want to make sure the GraphQL schema is updated after both these are updated and the EntityDefinition below
                                          if(!flags.dryRun && namedQueries.length > 0){
                                              await this.synchronizeNamedQueries(kinoticProjectConfig.organizationId, (project as Project).id as string, entityInfo.entity, namedQueries)
                                          }

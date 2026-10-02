@@ -11,7 +11,7 @@ The high-level TypeScript API for managing everything in your Kinotic cloud OS. 
 ## Why @kinotic-ai/management-api?
 
 - **Manage your whole cloud OS from code.** Applications, projects, schemas, migrations, and analytics are all first-class operations — no console required.
-- **Ship data APIs in seconds.** Publish a schema at runtime and the platform creates storage, REST endpoints, and a GraphQL schema automatically.
+- **Ship data APIs in seconds.** Publish a schema at runtime and the platform creates its storage and registers its services automatically.
 - **Migrations as code.** Run and track schema migrations programmatically, not through ad-hoc scripts or manual steps.
 - **One line to activate.** Plugs directly into your existing Kinotic connection — no additional setup, no separate configuration.
 - **Full observability built in.** Structured logging and built-in analytics give you visibility into your applications without extra tooling.
@@ -24,7 +24,7 @@ The high-level TypeScript API for managing everything in your Kinotic cloud OS. 
 Create, configure, and manage cloud applications and projects programmatically. Automate provisioning as part of your deployment pipeline rather than through manual console operations.
 
 ### Runtime Schema Publishing
-Define and publish new data schemas at runtime. The moment a schema is published, the platform creates the backing storage, generates REST API endpoints, and builds the corresponding GraphQL schema — all automatically.
+Define and publish new data schemas at runtime. The moment a schema is published, the platform creates the backing storage and registers the services that read and write it — all automatically.
 
 ### Schema Migrations
 Run and track schema migrations from your application code. Migration state is managed by the platform, so you always know what has been applied and what is pending.
