@@ -39,6 +39,18 @@ public class WatchEventRepository {
     }
 
     /**
+     * Lists what happened to every watched record, newest first.
+     *
+     * @param pageable the page to return
+     * @return a future emitting a page of entries
+     */
+    public Future<Page<WatchEvent>> findAll(Pageable pageable) {
+        Validate.notNull(pageable, "pageable cannot be null");
+        return crudServiceTemplate.search(DATA_STREAM, pageable, WatchEvent.class,
+                                          b -> b.sort(so -> so.field(f -> f.field("@timestamp").order(SortOrder.Desc))));
+    }
+
+    /**
      * Lists what happened to a record and to the records it made, newest first.
      *
      * @param type     the record's kind
