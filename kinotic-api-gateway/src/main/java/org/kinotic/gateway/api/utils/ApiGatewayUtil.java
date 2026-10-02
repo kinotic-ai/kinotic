@@ -21,8 +21,7 @@ import java.util.Set;
 /**
  * Helpers for the Vert.x HTTP servers and routers fronted by the api-gateway: CORS handling,
  * PEM-based TLS, router assembly, and rendering exceptions as JSON error responses. Applied to
- * every browser-facing route (STOMP, static web, and the openapi/graphql routes mounted by
- * other modules).
+ * every browser-facing route (STOMP, static web, and the routes mounted by other modules).
  */
 @Slf4j
 public final class ApiGatewayUtil {

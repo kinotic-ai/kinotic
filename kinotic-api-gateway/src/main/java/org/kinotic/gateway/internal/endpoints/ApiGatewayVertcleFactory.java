@@ -48,8 +48,7 @@ public class ApiGatewayVertcleFactory {
         // Vert.x's default bare reason-phrase 500. CORS: the SPA is a different origin from this
         // gateway (portal.kinotic.ai vs api.kinotic.ai in prod, vite's :5173 in dev). They're
         // same-site, so the SameSite=Lax session cookie flows; credentialed CORS
-        // (kinotic.apiGateway.cors.*) lets the cross-origin login fetch store it. Shared with the
-        // openapi/graphql routes.
+        // (kinotic.apiGateway.cors.*) lets the cross-origin login fetch store it.
         Router router = ApiGatewayUtil.createRouterWithCors(vertx, properties.getApiGateway().getCors());
 
         // Health check on the api-gateway port so probes work even when the static

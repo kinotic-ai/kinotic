@@ -22,7 +22,7 @@ import lombok.experimental.Accessors;
 public class SslProperties {
 
     /**
-     * Enable TLS on all Vert.x HTTP servers (STOMP, OpenAPI, GraphQL, Web).
+     * Enable TLS on all Vert.x HTTP servers (STOMP, Web).
      */
     private boolean enabled = false;
 

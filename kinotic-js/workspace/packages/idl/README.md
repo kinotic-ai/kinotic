@@ -11,7 +11,7 @@ The type schema layer that makes Kinotic's cross-language RPC safe and consisten
 - **One schema, every language.** Define a data structure or service interface once in a language-neutral format — Java, TypeScript, and the platform all stay in sync automatically.
 - **No more integration surprises.** Schema contracts are enforced across the RPC boundary, catching mismatches at definition time rather than in production.
 - **Rich metadata, zero boilerplate.** Attach validation rules and behavioral decorators to your models without writing custom validators or annotation processors.
-- **Drives the whole platform.** OpenAPI specifications, GraphQL schemas, and serialization logic are all generated from the same IDL definitions — change once, update everywhere.
+- **Drives the whole platform.** Entity storage, entity services, and serialization logic are all derived from the same IDL definitions — change once, update everywhere.
 
 ---
 
@@ -21,7 +21,7 @@ The type schema layer that makes Kinotic's cross-language RPC safe and consisten
 Describe any data structure or service interface in a format that is not tied to any one language or runtime. The same definition drives both the Java server and the TypeScript client.
 
 ### Automatic API Generation
-Publish a schema and the platform generates OpenAPI endpoints, GraphQL types, and serialization mappings for you. There is no manual mapping layer to maintain.
+Publish a schema and the platform creates its backing storage, registers its services, and derives its serialization mappings for you. There is no manual mapping layer to maintain.
 
 ### Validation and Behavioral Metadata
 Annotate data models with constraints and behavioral hints directly in the schema. Validation rules travel with the definition instead of being scattered across your codebase.

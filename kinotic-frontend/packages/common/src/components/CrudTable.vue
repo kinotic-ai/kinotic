@@ -16,8 +16,6 @@ import type { MenuItem } from "primevue/menuitem";
 import type { DataTableSortMeta } from "primevue/datatable";
 import type { PageState } from "primevue/paginator";
 import TablePaginator from "./TablePaginator.vue";
-import GraphQLIcon from "./GraphQLIcon.vue";
-import { BookOpenText } from "@lucide/vue";
 import SelectButton from "primevue/selectbutton";
 import Skeleton from "primevue/skeleton";
 import { useConfirm } from "primevue/useconfirm";
@@ -418,8 +416,8 @@ defineExpose({ find });
             v-for="(item, index) in displayRows"
             :key="item.id || index"
             :class="[
-              'relative flex flex-col justify-between border transition-shadow',
-              $slots['card.icon'] ? 'h-[226px]' : 'h-[170px]',
+              'flex flex-col justify-between border transition-shadow',
+              $slots['card.icon'] ? 'h-[184px]' : 'h-[120px]',
               showSkeleton ? '' : 'cursor-pointer',
               isDark
                 ? [
@@ -448,34 +446,6 @@ defineExpose({ find });
               </p>
             </template>
 
-            <template #footer>
-              <div v-if="!showSkeleton" class="absolute bottom-0 left-0 flex gap-2 p-5">
-                <Button
-                  severity="secondary"
-                  variant="outlined"
-                  size="small"
-                  class="!min-h-0 !h-7 !gap-1.5 !px-2.5 !text-xs"
-                  aria-label="Open the GraphQL playground for this application"
-                  v-tooltip.top="'Query this application\'s data in the GraphQL playground'"
-                  @click.stop="$router.push({ path: '/graphql', query: { namespace: item.id } })"
-                >
-                  <GraphQLIcon :size="14" :stroke-width="1.75" />
-                  GraphQL
-                </Button>
-                <Button
-                  severity="secondary"
-                  variant="outlined"
-                  size="small"
-                  class="!min-h-0 !h-7 !gap-1.5 !px-2.5 !text-xs"
-                  aria-label="Open the OpenAPI reference for this application"
-                  v-tooltip.top="'Browse and try this application\'s REST API in its OpenAPI reference'"
-                  @click.stop="$router.push({ path: '/openapi', query: { namespace: item.id } })"
-                >
-                  <BookOpenText :size="14" :stroke-width="1.75" aria-hidden="true" />
-                  OpenAPI
-                </Button>
-              </div>
-            </template>
           </Card>
         </div>
         <div
