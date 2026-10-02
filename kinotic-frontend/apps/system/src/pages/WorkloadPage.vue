@@ -111,7 +111,7 @@
 <script setup lang="ts">
 import { Building2, CalendarClock, CalendarPlus, Clock, Cpu, FileText, HardDrive, History, KeyRound, LayoutDashboard, LayoutGrid,
          Network, Package, Radio, Repeat, ScrollText, Server, Shield, Terminal } from '@lucide/vue'
-import { computed, markRaw, ref, watch, type Component } from 'vue'
+import { computed, getCurrentInstance, markRaw, ref, watch, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
@@ -145,6 +145,13 @@ const props = defineProps<{
   applicationId?: string
   projectId?: string
 }>()
+
+const emit = defineEmits<{
+  (e: 'deleted', workloadId: string): void
+}>()
+
+// Shown inside a list's drawer, the list handles a delete; on its own the page returns to the list
+const embedded = !!getCurrentInstance()?.vnode.props?.onDeleted
 
 const HISTORY_PAGE_SIZE = 50
 
@@ -337,7 +344,10 @@ function confirmDelete() {
       try {
         await Kinotic.workloadOrchestration.deleteWorkload(props.workloadId)
         toast.add({ severity: 'success', summary: 'Workload deleted', life: 4000 })
-        router.push(listPath.value)
+        emit('deleted', props.workloadId)
+        if (!embedded) {
+          router.push(listPath.value)
+        }
       } catch (err) {
         showErrorToast(toast, 'Failed to delete workload', err, { life: 8000 })
       }

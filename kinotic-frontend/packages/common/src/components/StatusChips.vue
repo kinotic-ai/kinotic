@@ -21,16 +21,9 @@
 </template>
 
 <script setup lang="ts">
-import { SEVERITY_FILL } from '@/util/severity'
+import type { StatusChip } from '../types/StatusChip'
+import { SEVERITY_FILL } from '../util/severity'
 
-/** One chip: a state and how many items are in it; a null value stands for every state. */
-export interface StatusChip {
-  label: string
-  value: string | null
-  count: number
-  /** The state's status, as a Tag severity, which colours its dot; the All chip has none. */
-  severity?: string
-}
 
 /** A segmented row of state filters, each with its status dot and count; the selected value is the model. */
 defineProps<{

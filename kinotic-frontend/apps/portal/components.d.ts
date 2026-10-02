@@ -31,6 +31,7 @@ declare module 'vue' {
     Glitch: typeof import('./src/components/Glitch.vue')['default']
     GlobalObjectNode: typeof import('./src/components/nodes/GlobalObjectNode.vue')['default']
     InviteEmailTemplateEditor: typeof import('./src/components/InviteEmailTemplateEditor.vue')['default']
+    JobRunDetail: typeof import('./src/components/JobRunDetail.vue')['default']
     MicroserviceDeploymentsTable: typeof import('./src/components/MicroserviceDeploymentsTable.vue')['default']
     NewProjectSidebar: typeof import('./src/components/NewProjectSidebar.vue')['default']
     ObjectNode: typeof import('./src/components/nodes/ObjectNode.vue')['default']

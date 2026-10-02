@@ -185,9 +185,13 @@ const HEALTH_BUCKETS = [
 
 const organizationId = computed(() => USER_STATE.getOrganizationId())
 const basePath = computed(() => `/application/${encodeURIComponent(props.applicationId)}`)
+// The route's application when the overview is that page, otherwise the same application from the
+// list the header loads, so a preview of another application shows its own facts
 const application = computed(() => {
   const current = APPLICATION_STATE.currentApplication
-  return current?.id === props.applicationId ? current : null
+  return current?.id === props.applicationId
+      ? current
+      : APPLICATION_STATE.allApplications.find(app => app.id === props.applicationId) ?? null
 })
 
 const projects = ref<Project[]>([])
@@ -195,8 +199,10 @@ const loadingProjects = ref(true)
 const deploymentStatus = ref<Record<string, DeploymentStatusType>>({})
 const uis = ref<UiDeployment[]>([])
 const loadingUis = ref(true)
-const usersCount = ref<number | null>(null)
-const machinesCount = ref<number | null>(null)
+// A count reads '—' once it fails to load, rather than loading for ever
+const usersCount = ref<number | string | null>(null)
+const machinesCount = ref<number | string | null>(null)
+const entitiesCount = ref<number | string | null>(null)
 
 // The project list's own total, so it shows even when the shared counts fail to load
 const projectsCount = ref<number | null>(null)
@@ -222,7 +228,6 @@ const facts = computed(() => [
 ])
 
 const tiles = computed(() => {
-  const countsLoaded = application.value !== null && APPLICATION_STATE.countsLoaded
   // Summarises the same phases as the health bar, worst news first
   const count = (label: string) => health.value.find(bucket => bucket.label === label)?.count ?? 0
   let projectsDetail: string
@@ -241,18 +246,13 @@ const tiles = computed(() => {
     { label: 'Projects', icon: markRaw(ProjectsIcon), tint: TINTS.blue, to: `${basePath.value}/projects`,
       value: projectsCount.value, detail: projectsDetail },
     { label: 'Entities', icon: markRaw(Table), tint: TINTS.blue, to: `${basePath.value}/entities`,
-      value: countsLoaded ? countOrDash(APPLICATION_STATE.entityDefinitionsCount) : null, detail: 'across all projects' },
+      value: entitiesCount.value, detail: 'across all projects' },
     { label: 'Users', icon: markRaw(Users), tint: TINTS.blue, to: `${basePath.value}/users`,
       value: usersCount.value, detail: 'people who sign in to this application' },
     { label: 'Machines', icon: markRaw(Server), tint: TINTS.blue, to: `${basePath.value}/machines`,
       value: machinesCount.value, detail: 'client-credential callers' }
   ]
 })
-
-// APPLICATION_STATE holds -1 for a count it failed to load
-function countOrDash(count: number): number | string {
-  return count < 0 ? '—' : count
-}
 
 watch(() => props.applicationId, load, { immediate: true })
 
@@ -263,8 +263,9 @@ async function load(): Promise<void> {
   uis.value = []
   usersCount.value = null
   machinesCount.value = null
+  entitiesCount.value = null
   projectsCount.value = null
-  await Promise.all([loadProjects(), loadUis(), loadUsersCount(), loadMachinesCount()])
+  await Promise.all([loadProjects(), loadUis(), loadUsersCount(), loadMachinesCount(), loadEntitiesCount()])
 }
 
 async function loadProjects(): Promise<void> {
@@ -309,15 +310,25 @@ async function loadUsersCount(): Promise<void> {
     usersCount.value = page.totalElements ?? 0
   } catch (error) {
     debug('Failed to count users: %O', error)
+    usersCount.value = '—'
   }
 }
 
+async function loadEntitiesCount(): Promise<void> {
+  try {
+    entitiesCount.value = await Kinotic.entityDefinitions.countForApplication(props.applicationId)
+  } catch (error) {
+    debug('Failed to count entity definitions: %O', error)
+    entitiesCount.value = '—'
+  }
+}
 async function loadMachinesCount(): Promise<void> {
   try {
     const page = await Kinotic.machines.findMachines(props.applicationId, Pageable.create(0, 1))
     machinesCount.value = page.totalElements ?? 0
   } catch (error) {
     debug('Failed to count machines: %O', error)
+    machinesCount.value = '—'
   }
 }
 </script>

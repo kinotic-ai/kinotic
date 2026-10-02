@@ -10,7 +10,9 @@
     :enable-row-hover="true"
     empty-state-text="No job runs"
     @update:search="tableSearch = $event"
-    @on-row-click="row => emit('open', row.id)"
+    :selected-id="highlightedRun?.id"
+      @row-hover="row => hoverRun(row as RunRow)"
+    @on-row-click="row => openRun(row as RunRow)"
   >
     <template #item.name="{ item }">
       <span class="block max-w-full truncate font-sans text-sm font-semibold text-surface-950 dark:text-surface-0"
@@ -38,15 +40,31 @@
       <span class="text-xs tabular-nums text-surface-600 dark:text-surface-300">{{ formatDuration(item.started, item.finished) }}</span>
     </template>
   </CrudTable>
+
+  <!-- The picked run opens beside the list; the arrows step through the rows the table shows -->
+  <SteppingDrawer v-model:visible="drawerVisible" :position="position" :total="shownRows.length"
+                  :expand-to="runRoute && selectedRun ? runRoute(selectedRun.id) : undefined"
+                  expand-label="Open the run's page" @step="stepRun">
+    <template #title>
+      <template v-if="selectedRun">
+        <span class="truncate text-sm font-medium text-surface-950 dark:text-surface-0" v-tooltip.bottom="selectedRun.name">{{ selectedRun.name }}</span>
+        <Tag :value="selectedRun.status" :severity="executionStatusSeverity(selectedRun.status)" class="shrink-0" />
+      </template>
+    </template>
+    <slot v-if="selectedRun" name="run" :job-run-id="selectedRun.id" />
+  </SteppingDrawer>
 </template>
 
 <script setup lang="ts">
 import { computed, watch } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 import Tag from 'primevue/tag'
 import { Direction, Kinotic, FunctionalIterablePage, Order,
          type IterablePage, type Page, type Pageable, type Sort } from '@kinotic-ai/core'
 import type { ExecutionStatus, JobRun } from '@kinotic-ai/management-api'
 import CrudTable from '../CrudTable.vue'
+import SteppingDrawer from '../SteppingDrawer.vue'
+import { useSteppingDrawer } from '../../composables/useSteppingDrawer'
 import { pageNumberOf, useCrudTablePage } from '../useCrudTablePage'
 import type { CrudHeader } from '../../types/CrudHeader'
 import type { DescriptiveIdentifiable } from '../../types/DescriptiveIdentifiable'
@@ -60,18 +78,20 @@ import { scanJobRuns, type JobRunFilter } from './jobRunScan'
  * is given: an organization's runs ({@code organizationId}, null for the runs with none), one
  * of its applications', one of its projects', or the runs in one status. Under each run's name
  * sits what the scope leaves unsaid — the organization, the application, or the project —
- * and nothing inside a project. Emits open with the run id when a row is clicked;
- * refresh() reloads the table.
+ * and nothing inside a project. A clicked run opens in a drawer beside the list, showing the
+ * {@code run} slot (given the run's id), whose arrows step through the rows on the page; given
+ * {@code runRoute}, the drawer links to the run's own page. refresh() reloads the table.
  */
 const props = defineProps<{
   organizationId?: string | null
   applicationId?: string
   projectId?: string
   status?: ExecutionStatus | null
+  runRoute?: (jobRunId: string) => RouteLocationRaw
 }>()
 
-const emit = defineEmits<{
-  (e: 'open', jobRunId: string): void
+defineSlots<{
+  run(props: { jobRunId: string }): unknown
 }>()
 
 /** One row of the table. */
@@ -139,7 +159,7 @@ const filter = computed<JobRunFilter | null>(() => {
   return Object.keys(ret).length > 0 ? ret : null
 })
 
-const { tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
+const { tableSearch, dataSource, refreshTable, shownRows: tableRows } = useCrudTablePage(load)
 
 // The scan behind a narrowed table, kept across its pages; page 0 and refresh() read anew
 let scanned: JobRun[] | null = null
@@ -219,6 +239,12 @@ function refresh() {
   scanned = null
   refreshTable()
 }
+
+const shownRows = computed(() => tableRows.value as RunRow[])
+
+const { selected: selectedRun, visible: drawerVisible, position, open: openRun, step: stepRun,
+        highlighted: highlightedRun, hover: hoverRun } =
+    useSteppingDrawer(shownRows, row => row.id)
 
 watch(filter, refresh)
 

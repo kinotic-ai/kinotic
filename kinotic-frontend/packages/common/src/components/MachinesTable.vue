@@ -189,7 +189,7 @@ const toast = useToast()
 const confirm = useConfirm()
 
 // no server-side machine search; a scope has few machines, so filtering the page suffices
-const { tableSearch, dataSource, refreshTable, run } = useCrudTablePage(
+const { tableSearch, dataSource, refreshTable, run, removeRow } = useCrudTablePage(
   filteredPageLoader(
     pageable => props.machines.findMachines(pageable).then(page => {
       machineTotal.value = page.totalElements ?? page.content?.length ?? 0
@@ -293,7 +293,10 @@ function confirmRemove(item: MachineRow) {
     icon: 'pi pi-exclamation-triangle',
     acceptProps: { label: 'Remove', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-    accept: () => run(() => props.machines.removeMachine(item.id), 'Machine removed', 'Failed to remove machine')
+    accept: () => run(async () => {
+      await props.machines.removeMachine(item.id)
+      removeRow(item.id)
+    }, 'Machine removed', 'Failed to remove machine')
   })
 }
 </script>

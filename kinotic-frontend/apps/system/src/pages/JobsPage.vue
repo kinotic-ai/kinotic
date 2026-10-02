@@ -39,7 +39,11 @@
                   :application-id="scope.applicationId"
                   :project-id="scope.projectId"
                   :status="statusFilter"
-                  @open="openRun" />
+                  :run-route="runRoute">
+      <template #run="{ jobRunId }">
+        <JobRunDetail :job-run-id="jobRunId" :organization-id="scope.organizationId" />
+      </template>
+    </JobRunsTable>
   </div>
 </template>
 
@@ -50,9 +54,9 @@ import Button from 'primevue/button'
 import { LaptopMinimalCheck } from '@lucide/vue'
 
 import { ExecutionStatus, type JobRun } from '@kinotic-ai/management-api'
-import { JobRunsTable, PageHeader, executionStatusSeverity, scanJobRuns } from '@kinotic-ai/frontend-common'
+import { JobRunsTable, PageHeader, executionStatusSeverity, scanJobRuns, StatusChips, type StatusChip } from '@kinotic-ai/frontend-common'
 
-import StatusChips, { type StatusChip } from '@/components/StatusChips.vue'
+import JobRunDetail from '@/components/JobRunDetail.vue'
 import { scopeName, scopePath, scopeTint, type Scope } from '@/util/scope'
 
 /**
@@ -137,8 +141,8 @@ function refresh() {
   count()
 }
 
-function openRun(jobRunId: string) {
-  router.push(`${scopePath(scope.value)}/jobs/${encodeURIComponent(jobRunId)}`)
+function runRoute(jobRunId: string): string {
+  return `${scopePath(scope.value)}/jobs/${encodeURIComponent(jobRunId)}`
 }
 
 // The header's switchers navigate in place, so the router reuses this instance across scopes

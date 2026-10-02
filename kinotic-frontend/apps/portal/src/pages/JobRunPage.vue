@@ -12,51 +12,26 @@
       </template>
     </PageHeader>
 
-    <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf" :failure-of="ProjectDeployResultNames.failureOf"
-                    :next-step="projectDeploymentPath ? ProjectDeployResultNames.RETRY_HINT : undefined">
-      <template #detail="{ node, root }">
-        <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
-      </template>
-    </JobRunProgress>
+    <JobRunDetail :job-run-id="jobRunId" @project="projectDeploymentPath = $event" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
-import { Kinotic } from '@kinotic-ai/core'
-import { createDebug, JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail } from '@kinotic-ai/frontend-common'
-import { KinoticStates } from '@/states'
-
-const debug = createDebug('job-run-page')
+import { PageHeader } from '@kinotic-ai/frontend-common'
+import JobRunDetail from '@/components/JobRunDetail.vue'
 
 /**
  * One job run opened from the organization's Jobs list. The eyebrow leads back to that
  * list; a run that belongs to a project also offers the jump to that project's Deployment page.
  */
-const props = defineProps<{
+defineProps<{
   jobRunId: string
 }>()
 
 const router = useRouter()
-const organizationId = KinoticStates.getUserState().getOrganizationId()
 
 const projectDeploymentPath = ref<string | null>(null)
-
-watch(() => props.jobRunId, loadOwningProject, { immediate: true })
-
-/** Resolves the run's project so the page can offer a way into it. */
-async function loadOwningProject(): Promise<void> {
-  projectDeploymentPath.value = null
-  try {
-    const run = await Kinotic.jobMonitoring.findJobRun(props.jobRunId)
-    if (run.applicationId && run.projectId) {
-      projectDeploymentPath.value =
-          `/application/${encodeURIComponent(run.applicationId)}/project/${encodeURIComponent(run.projectId)}/deployment`
-    }
-  } catch (error) {
-    debug('Failed to load job run %s: %O', props.jobRunId, error)
-  }
-}
 </script>

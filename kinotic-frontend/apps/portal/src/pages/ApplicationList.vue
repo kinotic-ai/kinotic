@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { CrudTable } from "@kinotic-ai/frontend-common";
+import { CrudTable, SteppingDrawer, useSteppingDrawer } from "@kinotic-ai/frontend-common";
+import ApplicationOverview from "@/pages/ApplicationOverview.vue";
 import ApplicationSidebar from "@/components/ApplicationSidebar.vue";
 import ApplicationProjectsLink from "@/components/ApplicationProjectsLink.vue";
 import DeleteApplicationDialog from "@/components/DeleteApplicationDialog.vue";
@@ -11,8 +12,7 @@ import {
 } from "@kinotic-ai/management-api";
 import { APPLICATION_STATE } from "@/states/IApplicationState";
 import type { CrudHeader } from "@kinotic-ai/frontend-common";
-import type { Identifiable } from "@kinotic-ai/core";
-import { onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { createDebug } from "@kinotic-ai/frontend-common";
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
@@ -77,16 +77,10 @@ function onAddItem(): void {
   showSidebar.value = true;
 }
 
-async function toApplicationPage(item: Identifiable<string>): Promise<void> {
-  try {
-    const appId = item.id ?? "";
-    const app = await dataSource.findById(appId);
-    APPLICATION_STATE.currentApplication = app;
-    router.push(`/application/${encodeURIComponent(appId)}`);
-  } catch (e) {
-    debug('Failed to navigate to application: %O', e);
-  }
-}
+const shownApplications = computed(() => (crudTable.value?.items ?? []) as Application[]);
+const { selected: selectedApplication, visible: drawerVisible, position, open: openApplication, step: stepApplication,
+        highlighted: highlightedApplication, hover: hoverApplication } =
+    useSteppingDrawer(shownApplications, app => app.id);
 
 function onSidebarClose(): void {
   showSidebar.value = false;
@@ -119,6 +113,7 @@ function onDeleteDialogClose(): void {
 
 function onApplicationDeleted(deleted: Application): void {
   applicationToDelete.value = null;
+  crudTable.value?.removeRow(deleted.id);
   APPLICATION_STATE.allApplications = APPLICATION_STATE.allApplications.filter(
     (a) => a.id !== deleted.id
   );
@@ -144,7 +139,9 @@ function onApplicationDeleted(deleted: Application): void {
       @update:search="updateRouteQuery"
       @add-item="onAddItem"
       @delete-item="applicationToDelete = $event"
-      @onRowClick="toApplicationPage"
+      :selected-id="highlightedApplication?.id"
+      @row-hover="row => hoverApplication(row as Application)"
+      @onRowClick="row => openApplication(row as Application)"
       class="application-list__table !text-sm"
     >
     <template #item.name="{ item, index }">
@@ -172,6 +169,16 @@ function onApplicationDeleted(deleted: Application): void {
       <TimePill :date="item.updated" />
     </template>
     </CrudTable>
+
+    <!-- The picked application opens beside the list; the arrows step through the rows the table shows -->
+    <SteppingDrawer v-model:visible="drawerVisible" :position="position" :total="shownApplications.length"
+                    :expand-to="selectedApplication ? `/application/${encodeURIComponent(selectedApplication.id)}` : undefined"
+                    expand-label="Open the application" @step="stepApplication">
+      <template #title>
+        <span v-if="selectedApplication" class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">{{ selectedApplication.name || selectedApplication.id }}</span>
+      </template>
+      <ApplicationOverview v-if="selectedApplication" :key="selectedApplication.id" :application-id="selectedApplication.id" />
+    </SteppingDrawer>
 
     <DeleteApplicationDialog
       :application="applicationToDelete"

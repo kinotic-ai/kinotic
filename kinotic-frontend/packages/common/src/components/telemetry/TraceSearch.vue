@@ -52,7 +52,7 @@
     </p>
     <div class="trace-list overflow-hidden rounded-xl border border-surface-200 dark:border-surface-700">
     <DataTable
-      v-model:selection="selectedTrace"
+      :selection="highlightedTrace"
       v-model:sort-field="sortField"
       v-model:sort-order="sortOrder"
       :value="traces"
@@ -61,7 +61,8 @@
       :meta-key-selection="false"
       :table-style="{ tableLayout: 'fixed' }"
       :class="['text-sm', { 'datatable-loading': loading }]"
-      @row-select="openTrace($event.data)"
+      @row-click="openTrace($event.data)"
+      @mouseover="onRowsMouseover"
     >
       <template #empty>
         <div v-if="loading" class="py-6 text-center text-sm text-muted-color">Searching traces…</div>
@@ -108,43 +109,34 @@
     </div>
 
     <!-- The picked trace opens beside the list; the arrows step through the list in its current order -->
-    <Drawer v-model:visible="detailVisible" position="right" modal blockScroll
-            class="!w-full lg:!w-[min(72rem,92vw)]" :pt="DRAWER_PT" @hide="selectedTrace = null">
-      <template #header>
-        <div class="flex min-w-0 flex-1 items-center gap-3 pr-3">
-          <span class="shrink-0 text-sm tabular-nums text-surface-600 dark:text-surface-300">{{ position }} of {{ orderedTraces.length }}</span>
-          <span class="flex shrink-0 gap-1">
-            <button v-for="step in STEPS" :key="step.delta" type="button" :class="STEP_CLASS" :aria-label="step.label"
-                    v-tooltip.bottom="step.label" :disabled="!canStep(step.delta)" @click="stepTrace(step.delta)">
-              <component :is="step.icon" :size="16" :stroke-width="1.75" aria-hidden="true" />
-            </button>
-          </span>
-          <span v-if="selectedTrace" class="ml-2 flex min-w-0 items-center gap-2 border-l border-surface-200 pl-4 dark:border-surface-700">
-            <span class="h-2 w-2 shrink-0 rounded-full" :style="{ background: serviceColor(selectedTrace.rootService) }" aria-hidden="true" />
-            <span class="truncate text-sm font-medium text-surface-950 dark:text-surface-0" v-tooltip.bottom="selectedTrace.rootName">{{ selectedTrace.rootName }}</span>
-            <span class="hidden truncate text-xs text-muted-color sm:inline">{{ selectedTrace.rootService }}</span>
-          </span>
-        </div>
-      </template>
-      <template #closeicon>
-        <X :size="20" :stroke-width="1.75" aria-hidden="true" />
+    <SteppingDrawer v-model:visible="drawerVisible" :position="position" :total="orderedTraces.length"
+                    :expand-to="traceRoute && selectedTrace ? traceRoute(selectedTrace.traceId) : undefined"
+                    expand-label="Open the trace's page" @step="stepTrace">
+      <template #title>
+        <template v-if="selectedTrace">
+          <span class="h-2 w-2 shrink-0 rounded-full" :style="{ background: serviceColor(selectedTrace.rootService) }" aria-hidden="true" />
+          <span class="truncate text-sm font-medium text-surface-950 dark:text-surface-0" v-tooltip.bottom="selectedTrace.rootName">{{ selectedTrace.rootName }}</span>
+          <span class="hidden truncate text-xs text-muted-color sm:inline">{{ selectedTrace.rootService }}</span>
+        </template>
       </template>
       <TraceDetail v-if="selectedTrace" :organization-id="organizationId" :trace-id="selectedTrace.traceId" />
-    </Drawer>
+    </SteppingDrawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
-import Drawer from 'primevue/drawer'
 import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
-import { ChartGantt, ChevronDown, ChevronUp, X } from '@lucide/vue'
+import { ChartGantt } from '@lucide/vue'
 import EmptyChartCharacter from '../EmptyChartCharacter.vue'
+import SteppingDrawer from '../SteppingDrawer.vue'
+import { useSteppingDrawer } from '../../composables/useSteppingDrawer'
 import TableChip from '../TableChip.vue'
 
 import '../../styles/datatable-loading.css'
@@ -161,13 +153,15 @@ import { formatDuration } from './telemetryDisplay'
 /**
  * Searches the organization's traces — or one application's — over the given range, and opens
  * the one picked from the results in a drawer beside them, whose arrows and the arrow keys step
- * through the results in their current order. searchErrors() narrows the search to the traces with a failed
+ * through the results in their current order; {@code traceRoute}, when given, links from there to
+ * the trace's own page. searchErrors() narrows the search to the traces with a failed
  * span and runs it.
  */
 const props = defineProps<{
   organizationId: string | null
   applicationId: string | null
   range: TimeRange
+  traceRoute?: (traceId: string) => RouteLocationRaw
 }>()
 
 /** How many traces one search returns. */
@@ -186,25 +180,8 @@ const loading = ref(false)
 // Searches can overlap when the range or the filters change mid-flight; only the latest lands
 let searchSequence = 0
 const error = ref<string | null>(null)
-const selectedTrace = ref<TraceSummary | null>(null)
-const detailVisible = ref(false)
 const sortField = ref<string>('startMs')
 const sortOrder = ref<number>(-1)
-
-const STEP_CLASS = 'flex h-8 w-8 items-center justify-center rounded-md border border-surface-200 text-surface-600 transition-colors hover:bg-surface-100 hover:text-surface-950 disabled:pointer-events-none disabled:opacity-40 dark:border-surface-700 dark:text-surface-300 dark:hover:bg-surface-800 dark:hover:text-surface-0'
-const STEPS = [
-  { delta: -1, label: 'Previous trace', icon: ChevronUp },
-  { delta: 1, label: 'Next trace', icon: ChevronDown }
-]
-const DRAWER_PT = {
-  mask: { class: '!bg-surface-950/20 dark:!bg-white/25 backdrop-blur-[3px]' },
-  header: { class: 'border-b border-surface-200 dark:border-surface-800' },
-  pcCloseButton: {
-    root: {
-      class: '!h-9 !w-9 !rounded-md !text-surface-700 hover:!bg-surface-100 hover:!text-surface-950 dark:!text-surface-300 dark:hover:!bg-surface-800 dark:hover:!text-surface-0'
-    }
-  }
-}
 
 /** The status filter's choices: every trace, or only the ones that hold an error. */
 const STATUS_OPTIONS = [
@@ -292,41 +269,19 @@ const orderedTraces = computed(() => {
   })
 })
 
-const selectedIndex = computed(() =>
-    orderedTraces.value.findIndex(trace => trace.traceId === selectedTrace.value?.traceId))
+const { selected: selectedTrace, visible: drawerVisible, position, open: openTrace, step: stepTrace,
+        highlighted: highlightedTrace, hover: hoverTrace } =
+    useSteppingDrawer(orderedTraces, trace => trace.traceId)
 
-const position = computed(() => selectedIndex.value + 1)
-
-function canStep(delta: number): boolean {
-  const next = selectedIndex.value + delta
-  return selectedIndex.value >= 0 && next >= 0 && next < orderedTraces.value.length
-}
-
-function stepTrace(delta: number) {
-  if (canStep(delta)) {
-    selectedTrace.value = orderedTraces.value[selectedIndex.value + delta]
+// The pointer moving onto a trace lets a kept selection go; the table shows orderedTraces' order
+function onRowsMouseover(event: MouseEvent) {
+  const row = (event.target as Element | null)?.closest?.('tbody > tr')
+  const index = row?.parentElement ? Array.from(row.parentElement.children).indexOf(row) : -1
+  const trace = index >= 0 ? orderedTraces.value[index] : undefined
+  if (trace) {
+    hoverTrace(trace)
   }
 }
-
-// The arrow keys step while the drawer is open, unless a field inside it has the focus
-function onKeydown(event: KeyboardEvent) {
-  const target = event.target
-  const typing = target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"]')
-  if (!typing && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
-    event.preventDefault()
-    stepTrace(event.key === 'ArrowUp' ? -1 : 1)
-  }
-}
-
-watch(detailVisible, visible => {
-  if (visible) {
-    window.addEventListener('keydown', onKeydown)
-  } else {
-    window.removeEventListener('keydown', onKeydown)
-  }
-})
-
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 async function search() {
   const sequence = ++searchSequence
@@ -352,11 +307,6 @@ async function search() {
 function searchErrors() {
   filters.onlyErrors = true
   return search()
-}
-
-function openTrace(trace: TraceSummary) {
-  selectedTrace.value = trace
-  detailVisible.value = true
 }
 
 // The panel replaces the range on every refresh and scope change, so it is the one trigger

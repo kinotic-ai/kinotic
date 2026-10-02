@@ -70,6 +70,8 @@ const props = withDefaults(defineProps<{
   // Appends a Delete item to the row menu that emits deleteItem. The parent confirms
   // with the user and performs the deletion.
   isShowDelete?: boolean
+  // The id of the row a drawer beside the table is showing; that row stays highlighted.
+  selectedId?: string | null
 }>(), {
   multiSort: false,
   mustSort: true,
@@ -96,14 +98,30 @@ const emit = defineEmits<{
   // Project, ...), which is narrower than the Identifiable<string> rows the table holds.
   (e: "deleteItem", item: any): void;
   (e: "onRowClick", data: any): void;
+  // The row the pointer moved onto, for a parent that releases a kept selection on hover.
+  (e: "rowHover", data: any): void;
   (e: "items-count", count: number): void;
 }>();
 
 const route = useRoute()
 
-function getRowClass() {
+let hoveredRowId: string | null | undefined = null;
+
+// Reports each row once as the pointer enters it, found by its place among the body's rows
+function onTableMouseover(event: MouseEvent) {
+  const row = (event.target as Element | null)?.closest?.("tbody > tr");
+  const index = row?.parentElement ? Array.from(row.parentElement.children).indexOf(row) : -1;
+  const item = index >= 0 ? displayRows.value[index] : undefined;
+  if (item && item.id !== hoveredRowId) {
+    hoveredRowId = item.id;
+    emit("rowHover", item);
+  }
+}
+
+function getRowClass(row: DescriptiveIdentifiable) {
   return {
     "dynamic-hover": props.enableRowHover && !showSkeleton.value,
+    "crud-table__row--selected": !!props.selectedId && row.id === props.selectedId,
     "transition-all": true,
   };
 }
@@ -334,8 +352,17 @@ function find() {
   queryPromise
     .then((page: Page<Identifiable<string>>) => {
       loading.value = false;
-      totalItems.value = page.totalElements ?? 0;
-      items.value = page.content ?? [];
+      const content = page.content ?? [];
+      // A row deleted a moment ago can still come back while the search index catches up; it stays
+      // hidden until a load no longer returns it
+      const stale = content.filter((row) => row.id != null && removedIds.has(row.id));
+      for (const id of [...removedIds]) {
+        if (!stale.some((row) => row.id === id)) {
+          removedIds.delete(id);
+        }
+      }
+      totalItems.value = Math.max(0, (page.totalElements ?? 0) - stale.length);
+      items.value = content.filter((row) => !stale.includes(row));
       initialSearchCompleted.value = true;
 
       emit("items-count", items.value.length);
@@ -348,7 +375,19 @@ function find() {
     });
 }
 
-defineExpose({ find });
+const removedIds = new Set<string>();
+
+// Takes a deleted row out of view at once, without waiting for the server's next page to agree
+function removeRow(id: string) {
+  removedIds.add(id);
+  const before = items.value.length;
+  items.value = items.value.filter((row) => row.id !== id);
+  totalItems.value = Math.max(0, totalItems.value - (before - items.value.length));
+}
+
+// items: the rows the table currently shows, in their order, for a parent that steps through them;
+// removeRow(id): takes a row a parent just deleted out of view, and keeps it out of reloads
+defineExpose({ find, items, removeRow });
 </script>
 
 <template>
@@ -478,6 +517,7 @@ defineExpose({ find });
             scrollable
             scrollHeight="flex"
             @row-click="onRowClick"
+            @mouseover="onTableMouseover"
             lazy
             sortMode="multiple"
             v-model:multiSortMeta="sortMeta"
@@ -638,5 +678,11 @@ html.dark .p-paginator .p-paginator-last {
 
 html.dark .dynamic-hover:hover {
   background-color: var(--p-surface-800) !important;
+}
+
+/* The row a drawer is showing keeps the selected-row grey as the drawer steps through the list */
+.crud-table__row--selected,
+.crud-table__row--selected:hover {
+  background-color: var(--p-datatable-row-selected-background) !important;
 }
 </style>

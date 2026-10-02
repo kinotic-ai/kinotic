@@ -99,7 +99,7 @@ const toast = useToast()
 const confirm = useConfirm()
 
 // no server-side delegate search; a user has few delegates, so filtering the page suffices
-const { tableSearch, dataSource, refreshTable } = useCrudTablePage(
+const { tableSearch, dataSource, refreshTable, removeRow } = useCrudTablePage(
   filteredPageLoader(
     pageable => Kinotic.delegates.findMyDelegates(pageable),
     toRow,
@@ -174,6 +174,7 @@ function confirmRevoke(item: DelegateRow) {
       try {
         await Kinotic.delegates.revokeDelegate(item.id)
         toast.add({ severity: 'success', summary: 'Access revoked', detail: item.displayName ?? undefined, life: 5000 })
+        removeRow(item.id)
         refreshTable()
       } catch (err) {
         showErrorToast(toast, 'Failed to revoke access', err, { life: 8000 })

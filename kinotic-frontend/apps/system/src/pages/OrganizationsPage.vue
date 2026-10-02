@@ -32,7 +32,9 @@
       :enable-row-hover="true"
       empty-state-text="No organizations"
       @update:search="tableSearch = $event"
-      @on-row-click="openOrganization"
+      :selected-id="highlightedOrganization?.id"
+      @row-hover="row => hoverOrganization(row as OrganizationRow)"
+      @on-row-click="row => openOrganization(row as OrganizationRow)"
     >
       <template #item.name="{ item, index }">
         <span class="flex min-w-0 items-center gap-2.5">
@@ -63,13 +65,22 @@
         <TimePill :date="item.created" />
       </template>
     </CrudTable>
+
+    <!-- The picked organization opens beside the list; the arrows step through the rows the table shows -->
+    <SteppingDrawer v-model:visible="drawerVisible" :position="position" :total="shownOrganizations.length"
+                    :expand-to="selectedOrganization?.id ? organizationPath(selectedOrganization.id) : undefined"
+                    expand-label="Open the organization" @step="stepOrganization">
+      <template #title>
+        <span v-if="selectedOrganization" class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">{{ selectedOrganization.name }}</span>
+      </template>
+      <OrgOverview v-if="selectedOrganization?.id" :key="selectedOrganization.id" :organization-id="selectedOrganization.id" />
+    </SteppingDrawer>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { Building2, LayoutGrid, Users } from '@lucide/vue'
-import { useRouter } from 'vue-router'
 
 import { FunctionalIterablePage, Kinotic, Pageable, type IterablePage, type Page } from '@kinotic-ai/core'
 import { WorkloadStatus, type Organization } from '@kinotic-ai/management-api'
@@ -80,11 +91,14 @@ import {
   TableChip,
   TimePill,
   TINTS,
+  SteppingDrawer,
   useCrudTablePage,
+  useSteppingDrawer,
   type CrudHeader,
   type DescriptiveIdentifiable
 } from '@kinotic-ai/frontend-common'
 
+import OrgOverview from '@/pages/OrgOverview.vue'
 import { organizationPath } from '@/util/scope'
 import { scanWorkloads } from '@/util/workloads'
 
@@ -98,7 +112,6 @@ interface OrganizationRow extends DescriptiveIdentifiable {
   created: number | null
 }
 
-const router = useRouter()
 
 const headers: CrudHeader[] = [
   { field: 'name', header: 'Name', sortable: true, width: '34%' },
@@ -113,7 +126,7 @@ const runningByOrganization = ref<Record<string, number>>({})
 const runningTotal = computed(() => Object.values(runningByOrganization.value).reduce((sum, count) => sum + count, 0))
 const organizationCount = ref<number | null>(null)
 
-const { tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
+const { tableSearch, dataSource, refreshTable, shownRows } = useCrudTablePage(load)
 
 async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
   const orgs = searchText
@@ -146,9 +159,9 @@ async function toRow(org: Organization): Promise<OrganizationRow> {
   }
 }
 
-function openOrganization(row: DescriptiveIdentifiable) {
-  router.push(organizationPath(row.id ?? ''))
-}
+const shownOrganizations = computed(() => shownRows.value as OrganizationRow[])
+const { selected: selectedOrganization, visible: drawerVisible, position, open: openOrganization, step: stepOrganization,
+        highlighted: highlightedOrganization, hover: hoverOrganization } = useSteppingDrawer(shownOrganizations, row => row.id)
 
 onMounted(async () => {
   Kinotic.systemOrganizations.countOrganizations().then(count => { organizationCount.value = count })

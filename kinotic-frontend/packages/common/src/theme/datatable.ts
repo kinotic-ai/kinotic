@@ -243,6 +243,24 @@ import type { DataTableDesignTokens } from '@primeuix/themes/types/datatable';
         .p-datatable .p-datatable-tbody > tr > td:last-child .p-button-text.p-button-sm:not(.p-button-icon-only):last-child {
             margin-inline-end: calc(-1 * var(--p-button-sm-padding-x));
         }
+        /* The sort-order badge means something only once two columns sort together; it reads as a
+           quiet grey count then, never the brand red the platform keeps for failures */
+        .p-datatable .p-datatable-sort-badge {
+            min-width: 1rem;
+            height: 1rem;
+            font-size: 0.625rem;
+            line-height: 1rem;
+            background: var(--p-surface-200);
+            color: var(--p-surface-700);
+        }
+        .p-dark .p-datatable .p-datatable-sort-badge,
+        .dark .p-datatable .p-datatable-sort-badge {
+            background: var(--p-surface-700);
+            color: var(--p-surface-100);
+        }
+        .p-datatable-thead:not(:has(th:is([aria-sort="ascending"], [aria-sort="descending"]) ~ th:is([aria-sort="ascending"], [aria-sort="descending"]))) .p-datatable-sort-badge {
+            display: none;
+        }
         .p-datatable .p-datatable-tbody .p-tag {
             font-size: 0.6875rem;
             line-height: 1rem;

@@ -10,7 +10,7 @@
       </div>
 
       <template v-for="(task, index) in tasks" :key="task.taskPath">
-        <div class="flex h-2.5 min-w-[6.75rem] flex-1 items-center" :style="connectorStyle(index)">
+        <div class="flex h-2.5 min-w-[6rem] flex-1 items-center" :style="connectorStyle(index)">
           <span class="line h-1 flex-1" />
         </div>
 
@@ -30,7 +30,7 @@
                          :class="task.status === ExecutionStatus.RUNNING ? 'animate-spin' : ''" aria-hidden="true" />
             </span>
           </component>
-          <div class="absolute left-1/2 top-full mt-3 w-36 -translate-x-1/2 text-center">
+          <div class="absolute left-1/2 top-full mt-3 w-32 -translate-x-1/2 text-center">
             <div class="label-eyebrow">Step {{ index + 1 }}</div>
             <div class="mt-0.5 line-clamp-2 text-sm font-medium leading-5"
                  :class="task.status === ExecutionStatus.PENDING ? 'text-surface-400 dark:text-surface-500' : 'text-surface-950 dark:text-surface-0'"
@@ -39,7 +39,7 @@
         </div>
       </template>
 
-      <div class="flex h-2.5 min-w-[6.75rem] flex-1 items-center" :style="connectorStyle(tasks.length)">
+      <div class="flex h-2.5 min-w-[6rem] flex-1 items-center" :style="connectorStyle(tasks.length)">
         <span class="line h-1 flex-1" />
       </div>
       <div class="relative shrink-0" :style="stepColor(DONE_COLOR)">

@@ -29,7 +29,10 @@
       :is-show-add-new="false"
       :disable-modifications="true"
       empty-state-text="No members"
+      :selected-id="highlightedMember?.id"
       @update:search="tableSearch = $event"
+      @row-hover="row => hoverMember(row as MemberSummary)"
+      @on-row-click="row => openMember(row as MemberSummary)"
     >
       <template #item.email="{ item, index }">
         <span class="flex min-w-0 items-center gap-2.5">
@@ -47,7 +50,7 @@
 
       <template #item.authType="{ item }">
         <TableChip v-if="item.authType" :icon="item.authType === 'OIDC' ? ShieldCheck : KeyRound">
-          {{ item.authType === 'OIDC' ? 'OIDC' : item.authType === 'LOCAL' ? 'Local password' : item.authType }}
+          {{ authTypeLabel(item.authType) }}
         </TableChip>
         <span v-else class="text-muted-color">—</span>
       </template>
@@ -56,6 +59,14 @@
         <TimePill :date="item.created" />
       </template>
     </CrudTable>
+
+    <!-- The picked person opens beside the list; the arrows step through the rows the table shows -->
+    <SteppingDrawer v-model:visible="drawerVisible" :position="position" :total="shownMembers.length" @step="stepMember">
+      <template #title>
+        <span v-if="selectedMember" class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">{{ selectedMember.displayName || selectedMember.email }}</span>
+      </template>
+      <MemberDetail v-if="selectedMember" :member="selectedMember" :tint="scopeTint(scope)" :index="position - 1" />
+    </SteppingDrawer>
   </div>
 </template>
 
@@ -80,7 +91,12 @@ import {
   TimePill,
   pageNumberOf,
   statusSeverity,
+  MemberDetail,
+  SteppingDrawer,
+  authTypeLabel,
   useCrudTablePage,
+  useSteppingDrawer,
+  type MemberSummary,
   type CrudHeader,
   type DescriptiveIdentifiable
 } from '@kinotic-ai/frontend-common'
@@ -102,16 +118,6 @@ const props = defineProps<{
 const INVITE_PAGE_SIZE = 100
 
 /** One table row — a member or, when {@link invite} is true, a pending invitation. */
-interface MemberRow extends DescriptiveIdentifiable {
-  id: string
-  email: string
-  displayName: string | null
-  status: 'Invited' | 'Active' | 'Disabled'
-  authType: string | null
-  created: number | null
-  invite?: boolean
-}
-
 const headers: CrudHeader[] = [
   { field: 'email', header: 'Person', sortable: false, width: '40%' },
   { field: 'status', header: 'Status', sortable: false, width: '16%' },
@@ -140,7 +146,11 @@ const scope = computed<Scope>(() => ({ organizationId: props.organizationId, app
 const peopleTotal = ref<number | null>(null)
 const inviteTotal = ref(0)
 
-const { tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
+const { tableSearch, dataSource, refreshTable, shownRows } = useCrudTablePage(load)
+
+const shownMembers = computed(() => shownRows.value as MemberSummary[])
+const { selected: selectedMember, visible: drawerVisible, position, open: openMember, step: stepMember,
+        highlighted: highlightedMember, hover: hoverMember } = useSteppingDrawer(shownMembers, member => member.id)
 
 async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
   const organizationId = props.organizationId
@@ -162,7 +172,7 @@ async function platformOperators(pageable: Pageable, searchText: string | null):
     inviteTotal.value = 0
   }
   return {
-    content: (users.content ?? []).map(user => toMemberRow(user)),
+    content: (users.content ?? []).map(user => toMemberSummary(user)),
     totalElements: users.totalElements ?? 0,
     cursor: undefined
   }
@@ -198,13 +208,13 @@ async function organizationMembers(organizationId: string,
   }
 
   return {
-    content: [...inviteRows, ...(membersPage.content ?? []).map(user => toMemberRow(user))],
+    content: [...inviteRows, ...(membersPage.content ?? []).map(user => toMemberSummary(user))],
     totalElements: (membersPage.totalElements ?? 0) + inviteCount,
     cursor: undefined
   }
 }
 
-function toInviteRow(invite: PendingInviteSummary): MemberRow {
+function toInviteRow(invite: PendingInviteSummary): MemberSummary {
   return {
     id: invite.id ?? '',
     email: invite.email,
@@ -216,7 +226,7 @@ function toInviteRow(invite: PendingInviteSummary): MemberRow {
   }
 }
 
-function toMemberRow(user: UserParticipantIdentity): MemberRow {
+function toMemberSummary(user: UserParticipantIdentity): MemberSummary {
   return {
     id: user.id ?? '',
     email: user.email,

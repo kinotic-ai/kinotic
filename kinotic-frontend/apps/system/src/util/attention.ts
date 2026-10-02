@@ -1,6 +1,6 @@
 import { ExecutionStatus, WorkloadStatus, type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
 import type { KinoticClusterInfo, VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, shortSha } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, shortSha, withoutExceptionPrefix } from '@kinotic-ai/frontend-common'
 import { AttentionKind } from './AttentionKind'
 import { NodeHealth, nodeHealth, nodeUnreachable as nodeMark } from './nodes'
 import { scopePath, type Scope } from './scope'
@@ -24,8 +24,6 @@ export interface AttentionItem {
 
 // A full commit sha reads as noise in a one-line title; its first characters identify it
 const FULL_SHA = /\b[0-9a-f]{40}\b/
-// "java.lang.IllegalStateException: SBOM workload … failed" reads as its message alone
-const EXCEPTION_PREFIX = /^(?:[a-z_$][\w$]*\.)+[A-Z][\w$]*(?:Exception|Error): /
 
 /** How many failed runs and workloads a list names before it stops. */
 const MAX_PER_KIND = 5
@@ -58,7 +56,7 @@ function failedRuns(runs: JobRun[], scope: Scope): AttentionItem[] {
                    badge: run.projectId ? shortShaIn(run.description) : null,
                    // the title already names the project, so the owner stops at its application
                    owner: ownerOf({ ...run, projectId: null }, scope),
-                   reason: run.error?.replace(EXCEPTION_PREFIX, '') ?? null,
+                   reason: run.error ? withoutExceptionPrefix(run.error) : null,
                    when: relative(run.started),
                    to: `${scopePath(scope)}/jobs/${encodeURIComponent(run.id ?? '')}`
                }))

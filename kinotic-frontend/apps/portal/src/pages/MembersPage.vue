@@ -10,7 +10,10 @@
       :create-new-button-text="inviteLabel"
       empty-state-text="No members yet"
       :row-actions="rowActions"
+      :selected-id="highlightedMember?.id"
       @update:search="tableSearch = $event"
+      @row-hover="row => hoverMember(row as MemberRow)"
+      @on-row-click="row => openMember(row as MemberRow)"
       @add-item="openInviteDialog"
     >
       <template #item.displayName="{ item }">
@@ -22,7 +25,8 @@
       </template>
 
       <template #item.authType="{ item }">
-        {{ item.authType || '—' }}
+        <TableChip v-if="item.authType" :icon="item.authType === 'OIDC' ? ShieldCheck : KeyRound">{{ authTypeLabel(item.authType) }}</TableChip>
+        <span v-else class="text-muted-color">—</span>
       </template>
 
       <template #item.created="{ item }">
@@ -30,6 +34,14 @@
       </template>
 
     </CrudTable>
+
+    <!-- The picked person opens beside the list; the arrows step through the rows the table shows -->
+    <SteppingDrawer v-model:visible="drawerVisible" :position="position" :total="shownMembers.length" @step="stepMember">
+      <template #title>
+        <span v-if="selectedMember" class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">{{ selectedMember.displayName || selectedMember.email }}</span>
+      </template>
+      <MemberDetail v-if="selectedMember" :member="selectedMember" :tint="memberTint" :index="position - 1" />
+    </SteppingDrawer>
 
     <FormDialog v-model:visible="inviteDialogVisible" :icon="UserPlus" :title="inviteLabel" :description="inviteDescription"
                 @submit="sendInvite">
@@ -99,7 +111,8 @@ import {
 } from '@kinotic-ai/core'
 import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/management-api'
 
-import { CrudTable, FormDialog } from '@kinotic-ai/frontend-common'
+import { CrudTable, FormDialog, MemberDetail, SteppingDrawer, TableChip, TINTS, authTypeLabel, useSteppingDrawer,
+         type MemberSummary } from '@kinotic-ai/frontend-common'
 import { PageHeader } from '@kinotic-ai/frontend-common'
 import { statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
@@ -112,15 +125,8 @@ import { createDebug } from '@kinotic-ai/frontend-common'
 const debug = createDebug('members')
 
 /** One table row — a member or, when {@link invite} is true, a pending invitation. */
-interface MemberRow extends DescriptiveIdentifiable {
-  id: string
-  email: string
-  displayName: string | null
-  status: 'Invited' | 'Active' | 'Disabled'
-  authType: string | null
-  created: number | null
+interface MemberRow extends MemberSummary {
   enabled?: boolean
-  invite?: boolean
 }
 
 /**
@@ -165,7 +171,13 @@ const toast = useToast()
 const confirm = useConfirm()
 const userState = KinoticStates.getUserState()
 
-const {tableSearch, dataSource, refreshTable, run } = useCrudTablePage(load)
+const {tableSearch, dataSource, refreshTable, run, shownRows, removeRow } = useCrudTablePage(load)
+
+// An organization's members sit in its green; an application's users in the application's blue
+const memberTint = computed(() => props.applicationId !== null ? TINTS.blue : TINTS.green)
+const shownMembers = computed(() => shownRows.value as MemberRow[])
+const { selected: selectedMember, visible: drawerVisible, position, open: openMember, step: stepMember,
+        highlighted: highlightedMember, hover: hoverMember } = useSteppingDrawer(shownMembers, member => member.id)
 
 const formatDate = DatetimeUtil.formatEpochDate
 
@@ -336,7 +348,10 @@ function confirmCancelInvite(item: MemberRow) {
     icon: 'pi pi-exclamation-triangle',
     acceptProps: { label: 'Cancel invitation', severity: 'danger' },
     rejectProps: { label: 'Keep', severity: 'secondary', outlined: true },
-    accept: () => run(() => Kinotic.members.cancelInvite(item.id), 'Invitation cancelled', 'Failed to cancel invitation')
+    accept: () => run(async () => {
+      await Kinotic.members.cancelInvite(item.id)
+      removeRow(item.id)
+    }, 'Invitation cancelled', 'Failed to cancel invitation')
   })
 }
 
@@ -364,7 +379,10 @@ function confirmRemove(item: MemberRow) {
     icon: 'pi pi-exclamation-triangle',
     acceptProps: { label: 'Remove', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-    accept: () => run(() => Kinotic.members.removeMember(item.id), 'Member removed', 'Failed to remove member')
+    accept: () => run(async () => {
+      await Kinotic.members.removeMember(item.id)
+      removeRow(item.id)
+    }, 'Member removed', 'Failed to remove member')
   })
 }
 

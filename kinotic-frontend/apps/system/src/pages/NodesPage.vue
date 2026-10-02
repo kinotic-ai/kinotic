@@ -44,8 +44,13 @@
     </div>
 
     <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <RouterLink v-for="node in shown" :key="node.id" :to="`/worker-nodes/${encodeURIComponent(node.id)}`"
-                  class="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-surface-200 bg-surface-0 p-5 text-color no-underline transition-colors hover:border-surface-300 hover:bg-surface-100 dark:border-surface-700 dark:bg-surface-800/30 dark:hover:border-surface-600 dark:hover:bg-surface-800/70">
+      <!-- A card opens its node in the drawer; the card the drawer shows stays marked -->
+      <div v-for="node in shown" :key="node.id" role="button" tabindex="0" :aria-label="`Open ${node.name}`"
+           :class="['relative flex cursor-pointer flex-col gap-3 overflow-hidden rounded-xl border p-5 text-color transition-colors focus-visible:outline-2 focus-visible:outline-offset-2',
+                    highlightedNode?.id === node.id
+                      ? 'border-surface-300 bg-surface-100 dark:border-surface-600 dark:bg-surface-800/70'
+                      : 'border-surface-200 bg-surface-0 hover:border-surface-300 hover:bg-surface-100 dark:border-surface-700 dark:bg-surface-800/30 dark:hover:border-surface-600 dark:hover:bg-surface-800/70']"
+           @click="openNode(node)" @keydown.enter="openNode(node)" @mouseenter="hoverNode(node)">
         <!-- a thin line in the node's status colour along the card's top edge -->
         <span :class="['absolute inset-x-0 top-0 h-0.5', STATUS_LINE[nodeHealth(node)]]" aria-hidden="true" />
         <div class="flex items-start gap-3">
@@ -90,8 +95,20 @@
             Seen {{ node.lastSeen ? DatetimeUtil.formatRelativeDate(node.lastSeen).toLowerCase() : 'never' }}
           </span>
         </div>
-      </RouterLink>
+      </div>
     </div>
+
+    <SteppingDrawer v-model:visible="drawerVisible" :position="position" :total="shown.length"
+                    :expand-to="selectedNode ? `/worker-nodes/${encodeURIComponent(selectedNode.id)}` : undefined"
+                    expand-label="Open the node's page" @step="stepNode">
+      <template #title>
+        <template v-if="selectedNode">
+          <span class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">{{ selectedNode.name }}</span>
+          <Tag :value="nodeHealth(selectedNode)" :severity="nodeSeverity(nodeHealth(selectedNode))" class="shrink-0" />
+        </template>
+      </template>
+      <NodePage v-if="selectedNode" :key="selectedNode.id" :node-id="selectedNode.id" />
+    </SteppingDrawer>
   </div>
 </template>
 
@@ -105,13 +122,14 @@ import { LoaderCircle, ServerCog, TriangleAlert } from '@lucide/vue'
 
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, HEARTBEAT_TINTS, HeartbeatIcon, PageHeader, TINTS, errorMessage, formatMb } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, HEARTBEAT_TINTS, HeartbeatIcon, PageHeader, SteppingDrawer, TINTS, errorMessage, formatMb,
+         useSteppingDrawer, StatusChips, type StatusChip } from '@kinotic-ai/frontend-common'
 
 import CapacityBar from '@/components/CapacityBar.vue'
 import CapacityRows from '@/components/CapacityRows.vue'
-import StatusChips, { type StatusChip } from '@/components/StatusChips.vue'
 import { NodeHealth, capacityOf, formatCpus, loadNodes, nodeHealth, nodeHeartbeat, nodeSeverity, percentOf } from '@/util/nodes'
 import { scanWorkloads } from '@/util/workloads'
+import NodePage from '@/pages/NodePage.vue'
 
 const NODE_STATES = [NodeHealth.ONLINE, NodeHealth.DRAINING, NodeHealth.UNREACHABLE]
 
@@ -162,6 +180,9 @@ const fleetRows = computed(() => {
 const shown = computed(() => statusFilter.value
     ? nodes.value.filter(node => nodeHealth(node) === statusFilter.value)
     : nodes.value)
+
+const { selected: selectedNode, visible: drawerVisible, position, open: openNode, step: stepNode,
+        highlighted: highlightedNode, hover: hoverNode } = useSteppingDrawer(shown, node => node.id)
 
 function workloadsOn(nodeId: string): Workload[] {
   return workloads.value.filter(workload => workload.nodeId === nodeId)

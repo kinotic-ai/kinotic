@@ -12,25 +12,19 @@
       </template>
     </PageHeader>
 
-    <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf" :failure-of="ProjectDeployResultNames.failureOf">
-      <template #detail="{ node, root }">
-        <ProjectDeployTaskDetail :organization-id="scope.organizationId ?? owningOrganizationId" :node="node" :root="root" />
-      </template>
-    </JobRunProgress>
+    <JobRunDetail :job-run-id="jobRunId" :organization-id="scope.organizationId" @organization="owningOrganizationId = $event" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 
-import { Kinotic } from '@kinotic-ai/core'
-import { JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail, createDebug } from '@kinotic-ai/frontend-common'
+import { PageHeader } from '@kinotic-ai/frontend-common'
 
+import JobRunDetail from '@/components/JobRunDetail.vue'
 import { organizationPath, scopePath, type Scope } from '@/util/scope'
-
-const debug = createDebug('job-run-page')
 
 /**
  * One job run opened from a Jobs list. The eyebrow leads back to that list; on the platform a
@@ -55,20 +49,4 @@ const listPath = computed(() => `${scopePath(scope.value)}/jobs`)
 
 const owningOrganizationId = ref<string | null>(null)
 const owningOrganizationPath = computed(() => owningOrganizationId.value ? organizationPath(owningOrganizationId.value) : null)
-
-watch(() => props.jobRunId, loadOwningOrganization, { immediate: true })
-
-/** Resolves the run's organization so the platform view can offer a way into it. */
-async function loadOwningOrganization(): Promise<void> {
-  owningOrganizationId.value = null
-  if (scope.value.organizationId) {
-    return
-  }
-  try {
-    const run = await Kinotic.jobMonitoring.findJobRun(props.jobRunId)
-    owningOrganizationId.value = run.organizationId
-  } catch (error) {
-    debug('Failed to load job run %s: %O', props.jobRunId, error)
-  }
-}
 </script>

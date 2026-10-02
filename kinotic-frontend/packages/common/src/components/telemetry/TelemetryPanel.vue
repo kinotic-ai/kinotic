@@ -36,7 +36,7 @@
         </TabPanel>
         <TabPanel value="traces">
           <KeepAlive>
-            <TraceSearch v-if="activeTab === 'traces'" ref="traceSearch" :organization-id="organizationId" :application-id="applicationId" :range="range" />
+            <TraceSearch v-if="activeTab === 'traces'" ref="traceSearch" :organization-id="organizationId" :application-id="applicationId" :range="range" :trace-route="traceRoute" />
           </KeepAlive>
         </TabPanel>
       </TabPanels>
@@ -46,6 +46,7 @@
 
 <script setup lang="ts">
 import { ArrowRight, CalendarClock, ChartGantt, ChartLine } from '@lucide/vue'
+import type { RouteLocationRaw } from 'vue-router'
 import { nextTick, ref, watch } from 'vue'
 import Button from 'primevue/button'
 import Select from 'primevue/select'
@@ -66,11 +67,13 @@ import { TIME_RANGE_PRESETS, rangeEndingNow } from './telemetryApi'
  * one application when one is given. The organization is the one whose tenant the signed-in
  * user may read: an organization user's own, or the one the system console is drilled into;
  * null reads the system tenant, the platform's own telemetry, which only a platform operator
- * may. A trace picked from the search opens in a drawer over the results.
+ * may. A trace picked from the search opens in a drawer over the results; {@code traceRoute}, when
+ * given, links from there to the trace's own page.
  */
 const props = defineProps<{
   organizationId: string | null
   applicationId: string | null
+  traceRoute?: (traceId: string) => RouteLocationRaw
 }>()
 
 const formatDateFromEpoch = DatetimeUtil.formatDateFromEpoch

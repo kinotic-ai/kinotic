@@ -12,7 +12,9 @@
       :row-actions="rowActions"
       empty-state-text="No workloads"
       @update:search="tableSearch = $event"
-      @on-row-click="open"
+      :selected-id="highlightedWorkload?.id"
+      @row-hover="row => hoverWorkload(row as WorkloadRow)"
+      @on-row-click="row => openWorkload(row as WorkloadRow)"
     >
       <template #toolbar>
         <slot name="toolbar" />
@@ -56,6 +58,20 @@
       </template>
     </CrudTable>
 
+    <!-- The picked workload opens beside the list; the arrows step through the rows the table shows -->
+    <SteppingDrawer v-model:visible="drawerVisible" :position="position" :total="shownWorkloads.length"
+                    :expand-to="selectedWorkload ? workloadPath(selectedWorkload.id) : undefined"
+                    expand-label="Open the workload's page" @step="stepWorkload" @hide="onDrawerHide">
+      <template #title>
+        <template v-if="selectedWorkload">
+          <span class="truncate text-sm font-medium text-surface-950 dark:text-surface-0" v-tooltip.bottom="selectedWorkload.name">{{ selectedWorkload.name }}</span>
+          <Tag :value="selectedWorkload.status" :severity="workloadSeverity(selectedWorkload.status)" class="shrink-0" />
+        </template>
+      </template>
+      <WorkloadPage v-if="selectedWorkload" :key="selectedWorkload.id" :workload-id="selectedWorkload.id" @deleted="onDeletedInDrawer"
+                    :organization-id="scope.organizationId" :application-id="scope.applicationId" :project-id="scope.projectId" />
+    </SteppingDrawer>
+
     <WorkloadLogsDialog
       v-if="logsWorkload"
       v-model:visible="logsVisible"
@@ -69,7 +85,6 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import Tag from 'primevue/tag'
 import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
@@ -77,19 +92,20 @@ import { useConfirm } from 'primevue/useconfirm'
 import { Direction, FunctionalIterablePage, Kinotic, Order,
          type IterablePage, type Page, type Pageable, type Sort } from '@kinotic-ai/core'
 import { WorkloadStatus, type StatusCondition, type Workload } from '@kinotic-ai/management-api'
-import { CrudTable, DatetimeUtil, TimePill, WorkloadLogsDialog, formatMb, pageNumberOf, useCrudTablePage,
-         NodeUnreachableNote, type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
+import { CrudTable, DatetimeUtil, SteppingDrawer, TimePill, WorkloadLogsDialog, formatMb, pageNumberOf, useCrudTablePage,
+         useSteppingDrawer, NodeUnreachableNote, type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
 
+import WorkloadPage from '@/pages/WorkloadPage.vue'
 import { formatCpus } from '@/util/nodes'
 import { scopePath, type Scope } from '@/util/scope'
 import { nodeUnreachable, runOpen, shortImage, workloadSeverity } from '@/util/workloads'
 
 /**
- * The given workloads as a searchable, sortable table whose rows open the workload's page
- * under the scope, with a menu that shows its logs, stops, restarts or destroys it. The owner
+ * The given workloads as a searchable, sortable table; a clicked workload opens in a drawer
+ * beside it, stepping through the rows shown, with a link to its page under the scope, and a menu that shows its logs, stops, restarts or destroys it. The owner
  * column names what the scope leaves unsaid: the organization on the platform, the
- * application inside an organization, nothing deeper. Emits changed after an action so the
- * caller can read the workloads again.
+ * application inside an organization, nothing deeper. Emits changed after an action, or once the
+ * drawer closes since its page can act on the workload, so the caller can read the workloads again.
  */
 const props = withDefaults(defineProps<{
   workloads: Workload[]
@@ -121,7 +137,6 @@ interface WorkloadRow extends DescriptiveIdentifiable {
 
 const DEFAULT_SORT = [new Order('created', Direction.DESC)]
 
-const router = useRouter()
 const confirm = useConfirm()
 
 const logsWorkload = ref<Workload | null>(null)
@@ -162,7 +177,7 @@ const headers = computed<CrudHeader[]>(() => {
   return ret
 })
 
-const { tableSearch, dataSource, refreshTable, run } = useCrudTablePage(load)
+const { tableSearch, dataSource, refreshTable, run, shownRows, removeRow } = useCrudTablePage(load)
 
 async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
   const needle = searchText?.trim().toLowerCase()
@@ -223,8 +238,23 @@ function toRow(workload: Workload): WorkloadRow {
   }
 }
 
-function open(row: DescriptiveIdentifiable) {
-  router.push(`${scopePath(props.scope)}/workloads/${encodeURIComponent(row.id ?? '')}`)
+function workloadPath(workloadId: string): string {
+  return `${scopePath(props.scope)}/workloads/${encodeURIComponent(workloadId)}`
+}
+
+const shownWorkloads = computed(() => shownRows.value as WorkloadRow[])
+const { selected: selectedWorkload, visible: drawerVisible, position, open: openWorkload, step: stepWorkload,
+        highlighted: highlightedWorkload, hover: hoverWorkload } =
+    useSteppingDrawer(shownWorkloads, row => row.id)
+
+function onDrawerHide() {
+  emit('changed')
+}
+
+// A workload deleted from its page in the drawer leaves the list, and the drawer closes on it
+function onDeletedInDrawer(workloadId: string) {
+  removeRow(workloadId)
+  drawerVisible.value = false
 }
 
 function act(action: () => Promise<unknown>, successMessage: string, failureMessage: string): Promise<void> {
@@ -273,7 +303,10 @@ function rowActions(item: WorkloadRow): MenuItem[] {
         icon: 'pi pi-exclamation-triangle',
         acceptProps: { label: 'Delete', severity: 'danger' },
         rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-        accept: () => act(() => Kinotic.workloadOrchestration.deleteWorkload(item.id), 'Workload deleted', 'Failed to delete workload')
+        accept: () => act(async () => {
+          await Kinotic.workloadOrchestration.deleteWorkload(item.id)
+          removeRow(item.id)
+        }, 'Workload deleted', 'Failed to delete workload')
       })
     })
   }

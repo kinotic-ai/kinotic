@@ -91,12 +91,10 @@ import { Boxes, Building2, Server } from '@lucide/vue'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { WorkloadStatus, type Organization, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { PageHeader, errorMessage, formatMb } from '@kinotic-ai/frontend-common'
+import { PageHeader, errorMessage, formatMb, StatusChips, type StatusChip, SEVERITY_FILL } from '@kinotic-ai/frontend-common'
 
-import StatusChips, { type StatusChip } from '@/components/StatusChips.vue'
 import WorkloadsTable from '@/components/WorkloadsTable.vue'
 import { formatCpus, loadNodes } from '@/util/nodes'
-import { SEVERITY_FILL } from '@/util/severity'
 import { scopeName, scopeTint, type Scope } from '@/util/scope'
 import { PLATFORM_ONLY, WORKLOAD_STATES, countByStatus, scanWorkloads, workloadSeverity, workloadStateLabel } from '@/util/workloads'
 

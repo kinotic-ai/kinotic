@@ -15,12 +15,13 @@
       </template>
     </PageHeader>
 
-    <TelemetryPanel :organization-id="organizationId" :application-id="applicationId" />
+    <TelemetryPanel :organization-id="organizationId" :application-id="applicationId" :trace-route="traceRoute" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 import Select from 'primevue/select'
 import { PageHeader, TelemetryPanel } from '@kinotic-ai/frontend-common'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
@@ -28,7 +29,7 @@ import { USER_STATE } from '@/states/IUserState'
 
 /**
  * The organization's traces and metrics across every application, narrowed to one with the
- * filter.
+ * filter; a trace opens on its own page under this one.
  */
 const organizationId = computed(() => USER_STATE.getOrganizationId())
 const applicationId = ref<string | null>(null)
@@ -38,4 +39,8 @@ onMounted(() => {
     APPLICATION_STATE.loadAllApplications()
   }
 })
+
+function traceRoute(traceId: string): RouteLocationRaw {
+  return { name: 'organization-trace', params: { traceId } }
+}
 </script>
