@@ -1,0 +1,1 @@
+{"id":"ada0d0381c9ea7f751217feebd534e68.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/core:test/ServiceIdentifier.test.ts#Kinotic JS packages/core ServiceIdentifier construction rejects stray scope delimiters","name":"rejects stray scope delimiters","status":"passed","testResultsByEnv":{"default":"6616394161bad0df3e4cacc96d97c875"}}

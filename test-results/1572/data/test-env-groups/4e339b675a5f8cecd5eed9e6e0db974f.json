@@ -1,1 +1,0 @@
-{"id":"4e339b675a5f8cecd5eed9e6e0db974f","fullName":"@kinotic-ai/e2e-tests:test/native/ServerPlanes.test.ts#Server planes serves each application's OAuth metadata at its own API host","name":"serves each application's OAuth metadata at its own API host","status":"passed","testResultsByEnv":{"default":"70cc52a237798abbb84de8b59db7c8c7"}}
