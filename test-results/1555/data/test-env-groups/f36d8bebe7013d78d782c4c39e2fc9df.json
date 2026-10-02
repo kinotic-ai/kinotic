@@ -1,1 +1,0 @@
-{"id":"f36d8bebe7013d78d782c4c39e2fc9df","fullName":"@kinotic-ai/core:test/ConnectionLifecycle.test.ts#connection lifecycle rejects a connect still waiting for its socket when disconnect() is called","name":"rejects a connect still waiting for its socket when disconnect() is called","status":"passed","testResultsByEnv":{"default":"08c40cbc37e50b084e780e724f5b75e0"}}

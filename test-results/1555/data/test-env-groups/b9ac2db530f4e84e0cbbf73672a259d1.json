@@ -1,1 +1,0 @@
-{"id":"b9ac2db530f4e84e0cbbf73672a259d1","fullName":"org.kinotic.sql.executor.ElasticsearchSqlWriterTest.whenEveryClauseGiven_thenEachIsWrittenInOrder","name":"whenEveryClauseGiven_thenEachIsWrittenInOrder()","status":"passed","testResultsByEnv":{"default":"f651fee3aef433b2be8c3b724d80c7c7"}}

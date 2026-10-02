@@ -1,0 +1,1 @@
+{"id":"7c069d72eca85504a4fd027abdbd2e35.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testClientSuppliedSenderHeaderIsDropped","name":"testClientSuppliedSenderHeaderIsDropped()","status":"passed","testResultsByEnv":{"default":"06f9177e14ca74cea61554fa507ee080"}}

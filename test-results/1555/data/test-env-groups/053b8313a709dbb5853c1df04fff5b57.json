@@ -1,1 +1,0 @@
-{"id":"053b8313a709dbb5853c1df04fff5b57","fullName":"org.kinotic.sql.executor.ElasticsearchSqlWriterTest.whenStringHoldsSqlText_thenItIsOnlyAPlaceholderValue","name":"whenStringHoldsSqlText_thenItIsOnlyAPlaceholderValue()","status":"passed","testResultsByEnv":{"default":"f62d4e11b356a6da529a594126a56ac5"}}

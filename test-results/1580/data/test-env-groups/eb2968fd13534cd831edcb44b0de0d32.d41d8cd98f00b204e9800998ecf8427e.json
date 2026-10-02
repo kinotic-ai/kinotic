@@ -1,0 +1,1 @@
+{"id":"eb2968fd13534cd831edcb44b0de0d32.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.SelectStatementParserTest.whenFunctionCalled_thenAggregateWithItsProjectionsGroupingAndOrder","name":"whenFunctionCalled_thenAggregateWithItsProjectionsGroupingAndOrder()","status":"passed","testResultsByEnv":{"default":"440ff48e6b452cf0beecc84a01c9ef97"}}
