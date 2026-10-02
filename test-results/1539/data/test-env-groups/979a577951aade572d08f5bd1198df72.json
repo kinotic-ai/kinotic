@@ -1,1 +1,0 @@
-{"id":"979a577951aade572d08f5bd1198df72","fullName":"@kinotic-ai/e2e-tests:test/native/ServerPlanes.test.ts#Server planes authenticates a session only at the server that issued it","name":"authenticates a session only at the server that issued it","status":"passed","testResultsByEnv":{"default":"2ba3f5c21fd50cd62492d45bbd88dc31"}}

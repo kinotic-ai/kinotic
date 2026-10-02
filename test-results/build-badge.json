@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "label": "build",
-  "message": "failing",
-  "color": "EC1F52",
+  "message": "passing",
+  "color": "28FEB4",
   "labelColor": "171717"
 }

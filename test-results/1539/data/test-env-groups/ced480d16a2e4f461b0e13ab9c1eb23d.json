@@ -1,1 +1,0 @@
-{"id":"ced480d16a2e4f461b0e13ab9c1eb23d","fullName":"@kinotic-ai/e2e-tests:test/native/MigrationService.test.ts#Kinotic JS rejects a row of a multi-tenant entity that names no tenant","name":"rejects a row of a multi-tenant entity that names no tenant","status":"passed","testResultsByEnv":{"default":"827a4c09d6b88e5023563bc9e5deecb3"}}
