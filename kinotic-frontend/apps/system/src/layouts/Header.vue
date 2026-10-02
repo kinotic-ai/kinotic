@@ -29,8 +29,10 @@
         </RouterLink>
       </div>
 
+      <!-- A segment the route no longer names is one the trail remembers from further down, shown
+           muted so the way back stays one click away -->
       <!-- On the platform pages: a way to pick an organization from here -->
-      <template v-if="!organizationId && organizationItems.length > 0">
+      <template v-if="!crumbOrganizationId && organizationItems.length > 0">
         <span class="text-lg text-surface-300 dark:text-surface-600">/</span>
         <BreadcrumbSwitcher
           :items="organizationItems"
@@ -43,17 +45,18 @@
         />
       </template>
 
-      <template v-if="organizationId">
-        <span :class="['text-lg text-surface-300 dark:text-surface-600', applicationId ? 'hidden md:inline' : '']">/</span>
-        <div :class="['items-center gap-1', applicationId ? 'hidden md:flex' : 'flex']">
-          <RouterLink :to="organizationPath(organizationId)"
-            class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100">
+      <template v-if="crumbOrganizationId">
+        <span :class="['text-lg text-surface-300 dark:text-surface-600', crumbApplicationId ? 'hidden md:inline' : '']">/</span>
+        <div :class="['items-center gap-1', crumbApplicationId ? 'hidden md:flex' : 'flex']">
+          <RouterLink :to="organizationPath(crumbOrganizationId)"
+            class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100"
+            :class="{ '!text-surface-400 dark:!text-surface-500': !organizationId }">
             {{ organizationName }}
             <ScopePill kind="organization" />
           </RouterLink>
           <BreadcrumbSwitcher
             :items="organizationItems"
-            :current-id="organizationId"
+            :current-id="crumbOrganizationId"
             label="Switch organization"
             search-placeholder="Find organization…"
             all-label="All organizations"
@@ -63,7 +66,7 @@
         </div>
       </template>
 
-      <template v-if="organizationId && !applicationId && applicationItems.length > 0">
+      <template v-if="crumbOrganizationId && !crumbApplicationId && applicationItems.length > 0">
         <span class="text-lg text-surface-300 dark:text-surface-600">/</span>
         <BreadcrumbSwitcher
           :items="applicationItems"
@@ -71,32 +74,33 @@
           placeholder="Select application"
           search-placeholder="Find application…"
           all-label="All applications"
-          :all-to="`${organizationPath(organizationId)}/applications`"
+          :all-to="`${organizationPath(crumbOrganizationId)}/applications`"
           @select="selectApplication"
         />
       </template>
 
-      <template v-if="organizationId && applicationId">
-        <span :class="['text-lg text-surface-300 dark:text-surface-600', projectId ? 'hidden md:inline' : '']">/</span>
-        <div :class="['items-center gap-1', projectId ? 'hidden md:flex' : 'flex']">
-          <RouterLink :to="applicationPath(organizationId, applicationId)"
-            class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100">
-            {{ applicationId }}
+      <template v-if="crumbOrganizationId && crumbApplicationId">
+        <span :class="['text-lg text-surface-300 dark:text-surface-600', crumbProjectId ? 'hidden md:inline' : '']">/</span>
+        <div :class="['items-center gap-1', crumbProjectId ? 'hidden md:flex' : 'flex']">
+          <RouterLink :to="applicationPath(crumbOrganizationId, crumbApplicationId)"
+            class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100"
+            :class="{ '!text-surface-400 dark:!text-surface-500': !applicationId }">
+            {{ crumbApplicationId }}
             <ScopePill kind="application" />
           </RouterLink>
           <BreadcrumbSwitcher
             :items="applicationItems"
-            :current-id="applicationId"
+            :current-id="crumbApplicationId"
             label="Switch application"
             search-placeholder="Find application…"
             all-label="All applications"
-            :all-to="`${organizationPath(organizationId)}/applications`"
+            :all-to="`${organizationPath(crumbOrganizationId)}/applications`"
             @select="selectApplication"
           />
         </div>
       </template>
 
-      <template v-if="organizationId && applicationId && !projectId && projectItems.length > 0">
+      <template v-if="crumbOrganizationId && crumbApplicationId && !crumbProjectId && projectItems.length > 0">
         <span class="text-lg text-surface-300 dark:text-surface-600">/</span>
         <BreadcrumbSwitcher
           :items="projectItems"
@@ -104,26 +108,27 @@
           placeholder="Select project"
           search-placeholder="Find project…"
           all-label="All projects"
-          :all-to="`${applicationPath(organizationId, applicationId)}/projects`"
+          :all-to="`${applicationPath(crumbOrganizationId, crumbApplicationId)}/projects`"
           @select="selectProject"
         />
       </template>
 
-      <template v-if="organizationId && applicationId && projectId">
+      <template v-if="crumbOrganizationId && crumbApplicationId && crumbProjectId">
         <span class="text-lg text-surface-300 dark:text-surface-600">/</span>
         <div class="flex items-center gap-1">
-          <RouterLink :to="projectPath(organizationId, applicationId, projectId)"
-            class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100">
+          <RouterLink :to="projectPath(crumbOrganizationId, crumbApplicationId, crumbProjectId)"
+            class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100"
+            :class="{ '!text-surface-400 dark:!text-surface-500': !projectId }">
             {{ projectName }}
             <ScopePill kind="project" />
           </RouterLink>
           <BreadcrumbSwitcher
             :items="projectItems"
-            :current-id="projectId"
+            :current-id="crumbProjectId"
             label="Switch project"
             search-placeholder="Find project…"
             all-label="All projects"
-            :all-to="`${applicationPath(organizationId, applicationId)}/projects`"
+            :all-to="`${applicationPath(crumbOrganizationId, crumbApplicationId)}/projects`"
             @select="selectProject"
           />
         </div>
@@ -186,15 +191,42 @@ const organizationId = computed(() => route.params.organizationId as string | un
 const applicationId = computed(() => route.params.applicationId as string | undefined)
 const projectId = computed(() => route.params.projectId as string | undefined)
 
+/** The deepest scopes visited, kept while the route moves back up within them. */
+const trail = ref<{ organizationId?: string, applicationId?: string, projectId?: string }>({})
+
+// Going down records the scope; switching to another organization or application starts a new trail
+watch([organizationId, applicationId, projectId], ([orgId, appId, projId]) => {
+  const next = { ...trail.value }
+  if (orgId && orgId !== next.organizationId) {
+    next.organizationId = orgId
+    next.applicationId = undefined
+    next.projectId = undefined
+  }
+  if (appId && appId !== next.applicationId) {
+    next.applicationId = appId
+    next.projectId = undefined
+  }
+  if (projId) {
+    next.projectId = projId
+  }
+  trail.value = next
+}, { immediate: true })
+
+const crumbOrganizationId = computed(() => organizationId.value ?? trail.value.organizationId)
+const crumbApplicationId = computed(() => applicationId.value
+    ?? (crumbOrganizationId.value === trail.value.organizationId ? trail.value.applicationId : undefined))
+const crumbProjectId = computed(() => projectId.value
+    ?? (crumbApplicationId.value && crumbApplicationId.value === trail.value.applicationId ? trail.value.projectId : undefined))
+
 const organizationItems = computed(() => organizations.value.map(org => ({ id: org.id ?? '', label: org.name })))
 const applicationItems = computed(() => applications.value.map(app => ({ id: app.id, label: app.id })))
-const projects = computed(() => organizationProjects.value.filter(project => project.applicationId === applicationId.value))
+const projects = computed(() => organizationProjects.value.filter(project => project.applicationId === crumbApplicationId.value))
 const projectItems = computed(() => projects.value.map(project => ({ id: project.id ?? '', label: project.name })))
 
 const organizationName = computed(() =>
-    organizations.value.find(org => org.id === organizationId.value)?.name ?? organizationId.value ?? '')
+    organizations.value.find(org => org.id === crumbOrganizationId.value)?.name ?? crumbOrganizationId.value ?? '')
 const projectName = computed(() =>
-    projects.value.find(project => project.id === projectId.value)?.name ?? projectId.value ?? '')
+    projects.value.find(project => project.id === crumbProjectId.value)?.name ?? crumbProjectId.value ?? '')
 
 const searchGroups = computed<CommandPaletteGroup[]>(() => [
   {
@@ -234,7 +266,7 @@ async function loadOrganizations(): Promise<void> {
 }
 
 // An organization's applications and projects load once it opens, so its pickers are ready without a click
-watch(organizationId, async orgId => {
+watch(crumbOrganizationId, async orgId => {
   applications.value = []
   organizationProjects.value = []
   if (!orgId) {
@@ -246,7 +278,7 @@ watch(organizationId, async orgId => {
       Kinotic.systemOrganizations.findProjects(orgId, Pageable.create(0, PICKER_PAGE_SIZE))
     ])
     // the route may have moved on while the requests were in flight
-    if (organizationId.value === orgId) {
+    if (crumbOrganizationId.value === orgId) {
       applications.value = apps.content ?? []
       organizationProjects.value = orgProjects.content ?? []
     }
@@ -269,11 +301,11 @@ function selectOrganization(id: string) {
 function selectApplication(id: string) {
   // a project page has no counterpart in another application, so those land on the overview
   const section = !applicationId.value || projectId.value ? '' : pathBelow(applicationPath(organizationId.value ?? '', applicationId.value)).split('/')[1]
-  router.push(`${applicationPath(organizationId.value ?? '', id)}${section ? `/${section}` : ''}`)
+  router.push(`${applicationPath(crumbOrganizationId.value ?? '', id)}${section ? `/${section}` : ''}`)
 }
 
 function selectProject(id: string) {
   const section = !projectId.value ? '' : pathBelow(projectPath(organizationId.value ?? '', applicationId.value ?? '', projectId.value)).split('/')[1]
-  router.push(`${projectPath(organizationId.value ?? '', applicationId.value ?? '', id)}${section ? `/${section}` : ''}`)
+  router.push(`${projectPath(crumbOrganizationId.value ?? '', crumbApplicationId.value ?? '', id)}${section ? `/${section}` : ''}`)
 }
 </script>

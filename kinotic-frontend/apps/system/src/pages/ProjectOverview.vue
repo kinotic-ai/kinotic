@@ -13,16 +13,16 @@
 
     <div class="flex flex-col gap-4">
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard :icon="CloudUpload" :tint="lastRun?.status === ExecutionStatus.FAILED ? TINTS.red : TINTS.sky" label="Last deploy run"
+        <StatCard :icon="CloudUpload" :tint="lastRun?.status === ExecutionStatus.FAILED ? TINTS.red : TINTS.purple" label="Last deploy run"
                   :loading="loading" :to="`${basePath}/deployment`" :detail="lastRunDetail">
           <Tag v-if="lastRun" :value="lastRun.status" :severity="executionStatusSeverity(lastRun.status)" />
           <Tag v-else value="Never" severity="secondary" />
         </StatCard>
-        <StatCard :icon="Server" :tint="TINTS.orange" label="Services running" :value="runningServices" :loading="loading"
+        <StatCard :icon="Server" :tint="TINTS.purple" label="Services running" :value="runningServices" :loading="loading"
                   :detail="`of ${services.length} microservice workload${services.length === 1 ? '' : 's'}`" :to="`${basePath}/workloads`" />
         <StatCard :icon="LaptopMinimalCheck" :tint="TINTS.purple" label="Deploy runs" :value="deployRuns.length" :loading="loading"
                   :detail="`${failedRuns} failed`" :to="`${basePath}/jobs`" />
-        <StatCard :icon="GitBranch" :tint="TINTS.green" label="Repository" :loading="loading"
+        <StatCard :icon="GitBranch" :tint="TINTS.purple" label="Repository" :loading="loading"
                   :detail="project?.repoFullName ?? '—'" mono-detail
                   :href="project?.repoFullName ? `https://github.com/${project.repoFullName}` : undefined">
           <Tag v-if="project?.repoConnectionStatus === RepoStatus.INITIALIZATION_FAILED" value="Init failed" severity="warn" />
@@ -32,7 +32,7 @@
       </div>
 
       <div class="grid gap-4 lg:grid-cols-3">
-        <DashboardSection :icon="Server" :tint="TINTS.orange" title="Microservices" :count="services.length"
+        <DashboardSection :icon="Server" :tint="TINTS.purple" title="Microservices" :count="services.length"
                           description="The microservice workloads this project's deployments have started."
                           :link-to="`${basePath}/deployment`" link-label="Deployment" class="lg:col-span-2">
           <EmptyChartCharacter v-if="services.length === 0" class="py-6" title="No microservice workload has been started" />
@@ -50,7 +50,7 @@
           </ul>
         </DashboardSection>
 
-        <DashboardSection :icon="ProjectsIcon" :tint="TINTS.blue" title="About">
+        <DashboardSection :icon="ProjectsIcon" :tint="TINTS.purple" title="About">
           <div class="px-5 pb-2">
             <FactList :facts="facts" />
           </div>
@@ -128,7 +128,7 @@ const facts = computed(() => {
       value: repository ? `${repository}${project.value?.repoDefaultBranch ? ` · ${project.value.repoDefaultBranch}` : ''}` : '—' },
     { label: 'Source of truth', icon: markRaw(FileCode), value: project.value?.sourceOfTruth ?? '—' },
     { label: 'Updated', icon: markRaw(CalendarClock),
-      value: project.value?.updated ? DatetimeUtil.formatRelativeDate(project.value.updated) : '—' }
+      value: project.value?.updated ? DatetimeUtil.formatRelativeDate(project.value.updated) : null }
   ]
 })
 

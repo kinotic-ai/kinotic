@@ -3,7 +3,7 @@
     <PageHeader title="Machines"
                 description="Non-human callers that connect to this application's API with their own client id and secret." />
 
-    <MachinesTable :machines="machines">
+    <MachinesTable :machines="machines" :tint="TINTS.blue">
       <template #create-hint>
         A machine connects to this application's API with the Kinotic client, using the
         client id and secret shown after creation.
@@ -14,7 +14,7 @@
 
 <script setup lang="ts">
 import { Kinotic } from '@kinotic-ai/core'
-import { MachinesTable, PageHeader, type MachineOperations } from '@kinotic-ai/frontend-common'
+import { MachinesTable, PageHeader, TINTS, type MachineOperations } from '@kinotic-ai/frontend-common'
 
 /** Machine API clients of one application, managed by the owning org's members. */
 const props = defineProps<{

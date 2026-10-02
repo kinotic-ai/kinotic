@@ -18,7 +18,6 @@ import type { PageState } from "primevue/paginator";
 import TablePaginator from "./TablePaginator.vue";
 import SelectButton from "primevue/selectbutton";
 import Skeleton from "primevue/skeleton";
-import { useConfirm } from "primevue/useconfirm";
 
 import {
   type IDataSource,
@@ -38,7 +37,7 @@ import EmptyChartCharacter from './EmptyChartCharacter.vue'
 const debug = createDebug('crud-table');
 
 /** Wide enough for the ellipsis button plus the body cell padding. */
-const ROW_MENU_COLUMN_WIDTH = '4.5rem';
+const ROW_MENU_COLUMN_WIDTH = '3.5rem';
 
 const props = withDefaults(defineProps<{
   // any: parents bind entity-specific IDataSource implementations (EntityDefinition,
@@ -68,9 +67,11 @@ const props = withDefaults(defineProps<{
   // When set, each row gets an ellipsis button opening a popup menu with these
   // items. Rows for which the function returns an empty array get no button.
   rowActions?: (item: any) => MenuItem[]
-  // Appends a Delete item to the row menu that confirms with the user, then
-  // emits deleteItem. The parent performs the actual deletion.
+  // Appends a Delete item to the row menu that emits deleteItem. The parent confirms
+  // with the user and performs the deletion.
   isShowDelete?: boolean
+  // The id of the row a drawer beside the table is showing; that row stays highlighted.
+  selectedId?: string | null
 }>(), {
   multiSort: false,
   mustSort: true,
@@ -97,14 +98,30 @@ const emit = defineEmits<{
   // Project, ...), which is narrower than the Identifiable<string> rows the table holds.
   (e: "deleteItem", item: any): void;
   (e: "onRowClick", data: any): void;
+  // The row the pointer moved onto, for a parent that releases a kept selection on hover.
+  (e: "rowHover", data: any): void;
   (e: "items-count", count: number): void;
 }>();
 
 const route = useRoute()
 
-function getRowClass() {
+let hoveredRowId: string | null | undefined = null;
+
+// Reports each row once as the pointer enters it, found by its place among the body's rows
+function onTableMouseover(event: MouseEvent) {
+  const row = (event.target as Element | null)?.closest?.("tbody > tr");
+  const index = row?.parentElement ? Array.from(row.parentElement.children).indexOf(row) : -1;
+  const item = index >= 0 ? displayRows.value[index] : undefined;
+  if (item && item.id !== hoveredRowId) {
+    hoveredRowId = item.id;
+    emit("rowHover", item);
+  }
+}
+
+function getRowClass(row: DescriptiveIdentifiable) {
   return {
     "dynamic-hover": props.enableRowHover && !showSkeleton.value,
+    "crud-table__row--selected": !!props.selectedId && row.id === props.selectedId,
     "transition-all": true,
   };
 }
@@ -140,7 +157,6 @@ const viewOptions = [
 ];
 
 const rowMenus = ref<Record<string, any>>({});
-const confirm = useConfirm();
 
 function toggleRowMenu(event: Event, itemId: string): void {
   rowMenus.value[itemId]?.toggle(event);
@@ -176,21 +192,10 @@ function rowMenuItems(item: DescriptiveIdentifiable): MenuItem[] {
     menuItems.push({
       label: "Delete",
       icon: "pi pi-trash",
-      command: () => confirmDelete(item),
+      command: () => emit("deleteItem", item),
     });
   }
   return menuItems;
-}
-
-function confirmDelete(item: DescriptiveIdentifiable): void {
-  confirm.require({
-    header: "Confirm delete",
-    message: `Permanently delete ${item.name ?? "this item"}? This cannot be undone.`,
-    icon: "pi pi-exclamation-triangle",
-    acceptProps: { label: "Delete", severity: "danger" },
-    rejectProps: { label: "Cancel", severity: "secondary", outlined: true },
-    accept: () => emit("deleteItem", item),
-  });
 }
 
 const computedHeaders = computed<CrudHeader[]>(() => {
@@ -347,8 +352,17 @@ function find() {
   queryPromise
     .then((page: Page<Identifiable<string>>) => {
       loading.value = false;
-      totalItems.value = page.totalElements ?? 0;
-      items.value = page.content ?? [];
+      const content = page.content ?? [];
+      // A row deleted a moment ago can still come back while the search index catches up; it stays
+      // hidden until a load no longer returns it
+      const stale = content.filter((row) => row.id != null && removedIds.has(row.id));
+      for (const id of [...removedIds]) {
+        if (!stale.some((row) => row.id === id)) {
+          removedIds.delete(id);
+        }
+      }
+      totalItems.value = Math.max(0, (page.totalElements ?? 0) - stale.length);
+      items.value = content.filter((row) => !stale.includes(row));
       initialSearchCompleted.value = true;
 
       emit("items-count", items.value.length);
@@ -361,7 +375,19 @@ function find() {
     });
 }
 
-defineExpose({ find });
+const removedIds = new Set<string>();
+
+// Takes a deleted row out of view at once, without waiting for the server's next page to agree
+function removeRow(id: string) {
+  removedIds.add(id);
+  const before = items.value.length;
+  items.value = items.value.filter((row) => row.id !== id);
+  totalItems.value = Math.max(0, totalItems.value - (before - items.value.length));
+}
+
+// items: the rows the table currently shows, in their order, for a parent that steps through them;
+// removeRow(id): takes a row a parent just deleted out of view, and keeps it out of reloads
+defineExpose({ find, items, removeRow });
 </script>
 
 <template>
@@ -386,6 +412,8 @@ defineExpose({ find });
       </IconField>
 
       <div class="crud-table__actions flex items-center gap-2 h-[36px]">
+        <!-- the page's own controls for the list, such as filters, beside the search -->
+        <slot name="toolbar" />
         <SelectButton
           class="crud-table__view-switcher"
           size="small"
@@ -489,6 +517,7 @@ defineExpose({ find });
             scrollable
             scrollHeight="flex"
             @row-click="onRowClick"
+            @mouseover="onTableMouseover"
             lazy
             sortMode="multiple"
             v-model:multiSortMeta="sortMeta"
@@ -524,13 +553,15 @@ defineExpose({ find });
 
             <Column v-if="hasRowMenu" header="" :style="{ width: ROW_MENU_COLUMN_WIDTH }">
               <template #body="slotProps">
-                <div class="flex min-h-6 w-full items-center justify-center">
+                <!-- The button's own inset is pulled into the cell's padding, so its dots sit the
+                     table's 1.25rem in from the edge, as the first column's text does -->
+                <div class="flex min-h-6 w-full items-center justify-end">
                   <Skeleton v-if="showSkeleton" shape="circle" size="1.25rem" />
                   <template v-else-if="rowMenuItems(slotProps.data).length > 0">
                     <Button
                       icon="pi pi-ellipsis-v"
                       size="small"
-                      class="!h-6 !w-6"
+                      class="!-mr-[0.72rem] !h-6 !w-6"
                       @click.stop="(event) => toggleRowMenu(event, slotProps.data.id)"
                       aria-haspopup="true"
                       :aria-controls="'action_menu_' + slotProps.data.id"
@@ -577,6 +608,11 @@ defineExpose({ find });
 </template>
 
 <style>
+/* With no controls beside it, the search runs the full width of the table below */
+.crud-table__actions:empty {
+  display: none;
+}
+
 /* Status tags read as part of the row's monospace data */
 .crud-table__datatable .p-tag {
   font-family: var(--font-mono);
@@ -642,5 +678,11 @@ html.dark .p-paginator .p-paginator-last {
 
 html.dark .dynamic-hover:hover {
   background-color: var(--p-surface-800) !important;
+}
+
+/* The row a drawer is showing keeps the selected-row grey as the drawer steps through the list */
+.crud-table__row--selected,
+.crud-table__row--selected:hover {
+  background-color: var(--p-datatable-row-selected-background) !important;
 }
 </style>

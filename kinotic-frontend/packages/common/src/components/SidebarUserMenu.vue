@@ -14,7 +14,7 @@
     <Avatar :label="initials" shape="circle" class="shrink-0" />
     <div v-if="!collapsed" class="min-w-0">
       <div class="truncate text-sm font-semibold text-surface-950 dark:text-surface-0" v-tooltip.top="name">{{ name }}</div>
-      <div class="app-subtle-text truncate text-xs">{{ detail }}</div>
+      <div v-if="detail" class="app-subtle-text truncate text-xs">{{ detail }}</div>
     </div>
   </button>
 

@@ -1,7 +1,7 @@
 <template>
-  <DataTable :value="deployments" size="small">
+  <DataTable :value="deployments">
     <Column header="UI" style="width: 20%">
-      <template #body="{ data }"><span class="font-mono text-sm">{{ data.name }}</span></template>
+      <template #body="{ data }"><span class="font-mono">{{ data.name }}</span></template>
     </Column>
     <Column header="Status" style="width: 14%">
       <template #body="{ data }">
@@ -13,12 +13,12 @@
     </Column>
     <Column header="Site" style="width: 34%">
       <template #body="{ data }">
-        <a :href="data.url" target="_blank" rel="noopener" class="font-mono text-sm break-all">{{ data.url }}</a>
+        <a :href="data.url" target="_blank" rel="noopener" class="font-mono break-all">{{ data.url }}</a>
       </template>
     </Column>
     <Column header="Commit" style="width: 12%">
       <template #body="{ data }">
-        <span class="font-mono text-sm text-muted-color" v-tooltip.top="data.state.observed?.commitSha ?? undefined">
+        <span class="font-mono text-muted-color" v-tooltip.top="data.state.observed?.commitSha ?? undefined">
           {{ data.state.observed?.commitSha ? shortSha(data.state.observed.commitSha) : '—' }}
         </span>
       </template>

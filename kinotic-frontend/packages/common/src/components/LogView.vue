@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-3">
-    <div class="flex flex-wrap items-center gap-3">
+    <div class="flex flex-wrap items-center gap-2">
       <ToggleButton
         v-model="following"
         on-label="Following"
@@ -12,40 +12,53 @@
       />
       <SelectButton v-model="span" :options="spanOptions" option-label="label" option-value="value"
                     :allow-empty="false" size="small" />
-      <Select checkmark v-model="limit" :options="LIMIT_OPTIONS" option-label="label" option-value="value" size="small" />
-      <Button label="Reload" icon="pi pi-refresh" severity="secondary" outlined size="small"
-              :loading="loadingHistory" @click="refresh" />
-      <span class="text-xs text-muted-color">{{ lineCountText }}</span>
-      <Message v-if="error" severity="error" :closable="false" class="flex-1">{{ error }}</Message>
+      <div class="ml-auto flex items-center gap-2">
+        <Select checkmark v-model="limit" :options="LIMIT_OPTIONS" option-label="label" option-value="value" size="small" />
+        <Button icon="pi pi-refresh" severity="secondary" outlined size="small" aria-label="Reload"
+                v-tooltip.top="'Reload'" :loading="loadingHistory" @click="refresh" />
+      </div>
     </div>
-    <div v-if="span === CUSTOM_SPAN" class="flex flex-wrap items-center gap-3">
+    <div v-if="span === CUSTOM_SPAN"
+         class="flex flex-wrap items-center gap-3 rounded-lg border border-surface-200 bg-surface-50 px-3 py-2 dark:border-surface-700 dark:bg-surface-800/50">
       <DatePicker v-model="customStart" show-time hour-format="24" size="small" placeholder="From" />
       <span class="text-xs text-muted-color">to</span>
       <DatePicker v-model="customEnd" show-time hour-format="24" size="small" placeholder="To" />
       <Button label="Apply" size="small" :disabled="resolveRange() === null" :loading="loadingHistory"
               @click="refresh" />
     </div>
-    <div v-if="rows.length === 0" class="h-[60vh] p-3 rounded-md bg-surface-950 text-surface-400 font-mono text-xs">
-      <span v-if="!loadingHistory">No log entries {{ rangeDescription }}</span>
+    <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
+
+    <div class="overflow-hidden rounded-xl border border-surface-800 bg-surface-950 shadow-sm">
+      <div class="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-2 text-[11px] text-surface-400">
+        <span class="flex min-w-0 items-center gap-2">
+          <span :class="['h-1.5 w-1.5 shrink-0 rounded-full', following ? 'animate-pulse bg-emerald-400' : 'bg-surface-600']" />
+          <span class="truncate">{{ following ? 'Live' : `Logs ${rangeDescription}` }}</span>
+        </span>
+        <span class="shrink-0 tabular-nums">{{ lineCountText }}</span>
+      </div>
+      <div v-if="rows.length === 0" class="flex h-[60vh] items-center justify-center font-mono text-xs text-surface-500">
+        <span v-if="!loadingHistory">No log entries {{ rangeDescription }}</span>
+      </div>
+      <VirtualScroller
+        v-else
+        ref="scroller"
+        :items="rows"
+        :itemSize="LINE_HEIGHT_PX"
+        class="h-[60vh] py-1 font-mono text-[0.78rem] text-surface-200"
+        @scroll="onScroll"
+      >
+        <template #item="{ item }">
+          <!-- A continuation row keeps its entry's timestamp and level invisible so its text aligns under the first row's -->
+          <div class="flex h-[22px] items-center gap-3 whitespace-pre pr-4 hover:bg-white/[0.04]">
+            <span class="shrink-0 select-none border-r border-white/[0.06] px-4 tabular-nums text-surface-500"
+                  :class="{ invisible: item.continuation }">{{ formatTimestamp(item.ts) }}</span>
+            <span v-if="item.level" class="shrink-0 min-w-[5ch] uppercase" :class="{ invisible: item.continuation }"
+                  :style="{ color: LEVEL_COLORS[item.level as LogLevel] }">{{ item.level }}</span>
+            <span><span v-for="(segment, i) in item.segments" :key="i" :style="segment.style">{{ segment.text }}</span></span>
+          </div>
+        </template>
+      </VirtualScroller>
     </div>
-    <VirtualScroller
-      v-else
-      ref="scroller"
-      :items="rows"
-      :itemSize="LINE_HEIGHT_PX"
-      class="h-[60vh] rounded-md bg-surface-950 text-surface-200 font-mono text-xs"
-      @scroll="onScroll"
-    >
-      <template #item="{ item }">
-        <!-- A continuation row keeps its entry's timestamp and level invisible so its text aligns under the first row's -->
-        <div class="flex gap-3 whitespace-pre px-3 h-5 items-center">
-          <span class="shrink-0 text-surface-500" :class="{ invisible: item.continuation }">{{ formatTimestamp(item.ts) }}</span>
-          <span v-if="item.level" class="shrink-0 min-w-[5ch] uppercase" :class="{ invisible: item.continuation }"
-                :style="{ color: LEVEL_COLORS[item.level as LogLevel] }">{{ item.level }}</span>
-          <span><span v-for="(segment, i) in item.segments" :key="i" :style="segment.style">{{ segment.text }}</span></span>
-        </div>
-      </template>
-    </VirtualScroller>
   </div>
 </template>
 
@@ -96,7 +109,7 @@ const LIMIT_OPTIONS = [500, 1000, 2000, 5000].map(value => ({ value, label: `${v
 // cap only bounds heap and the per-frame concat cost of a long-running tail.
 const MAX_ROWS = 25_000
 /** Fixed row height the VirtualScroller positions rows by; rows must render at exactly this height. */
-const LINE_HEIGHT_PX = 20
+const LINE_HEIGHT_PX = 22
 const DAY_MS = 24 * 60 * 60_000
 
 // The 16 ANSI colors as a dark terminal renders them: normal 0-7, then bright 8-15

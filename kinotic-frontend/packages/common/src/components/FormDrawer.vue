@@ -50,7 +50,7 @@ const emit = defineEmits<{
 }>()
 
 const pt = {
-  mask: { class: '!bg-surface-950/20 backdrop-blur-[3px]' },
+  mask: { class: '!bg-surface-950/20 dark:!bg-white/25 backdrop-blur-[3px]' },
   header: { class: 'items-start border-b border-surface-200 dark:border-surface-800' },
   footer: { class: 'border-t border-surface-200 dark:border-surface-800' },
   // A square hover tile matching the controls' 6px radius, rather than the default circle

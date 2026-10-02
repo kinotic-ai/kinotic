@@ -10,12 +10,18 @@
       </div>
 
       <template v-for="(task, index) in tasks" :key="task.taskPath">
-        <div class="flex h-2.5 min-w-[6.75rem] flex-1 items-center" :style="connectorStyle(index)">
+        <div class="flex h-2.5 min-w-[6rem] flex-1 items-center" :style="connectorStyle(index)">
           <span class="line h-1 flex-1" />
         </div>
 
         <div class="relative shrink-0" :style="stepColor(task.status === ExecutionStatus.COMPLETED ? DONE_COLOR : colorOf(index))">
-          <div :class="['tile relative z-[1] flex h-11 w-11 items-center justify-center rounded-xl', `tile--${task.status.toLowerCase()}`]">
+          <!-- a failed step opens its row in the ledger, where its log and error are -->
+          <component :is="task.status === ExecutionStatus.FAILED ? 'button' : 'div'"
+                     v-bind="task.status === ExecutionStatus.FAILED ? { type: 'button', 'aria-label': `Show why ${task.description} failed` } : {}"
+                     :class="['tile relative z-[1] flex h-11 w-11 items-center justify-center rounded-xl',
+                              `tile--${task.status.toLowerCase()}`,
+                              task.status === ExecutionStatus.FAILED ? 'cursor-pointer transition-transform hover:scale-105' : '']"
+                     @click="task.status === ExecutionStatus.FAILED && emit('select', task)">
             <component :is="taskIcon?.(task) ?? Workflow" :size="20" :stroke-width="1.75" aria-hidden="true" />
             <span v-if="TASK_STATUS_STYLE[task.status].badge"
                   class="absolute -top-3.5 left-1/2 flex h-[1.125rem] w-[1.125rem] -translate-x-1/2 items-center justify-center rounded-full ring-2 ring-surface-0 dark:ring-surface-900"
@@ -23,8 +29,8 @@
               <component :is="TASK_STATUS_STYLE[task.status].icon" :size="11" :stroke-width="3"
                          :class="task.status === ExecutionStatus.RUNNING ? 'animate-spin' : ''" aria-hidden="true" />
             </span>
-          </div>
-          <div class="absolute left-1/2 top-full mt-3 w-36 -translate-x-1/2 text-center">
+          </component>
+          <div class="absolute left-1/2 top-full mt-3 w-32 -translate-x-1/2 text-center">
             <div class="label-eyebrow">Step {{ index + 1 }}</div>
             <div class="mt-0.5 line-clamp-2 text-sm font-medium leading-5"
                  :class="task.status === ExecutionStatus.PENDING ? 'text-surface-400 dark:text-surface-500' : 'text-surface-950 dark:text-surface-0'"
@@ -33,7 +39,7 @@
         </div>
       </template>
 
-      <div class="flex h-2.5 min-w-[6.75rem] flex-1 items-center" :style="connectorStyle(tasks.length)">
+      <div class="flex h-2.5 min-w-[6rem] flex-1 items-center" :style="connectorStyle(tasks.length)">
         <span class="line h-1 flex-1" />
       </div>
       <div class="relative shrink-0" :style="stepColor(DONE_COLOR)">
@@ -68,6 +74,11 @@ const props = defineProps<{
   tasks: JobTaskNode[]
   /** The icon of a task's tile, undefined for the default. */
   taskIcon?: (node: JobTaskNode) => Component | undefined
+}>()
+
+const emit = defineEmits<{
+  /** A failed step's tile was clicked. */
+  (e: 'select', task: JobTaskNode): void
 }>()
 
 /** The color of a completed step and of the flags. */

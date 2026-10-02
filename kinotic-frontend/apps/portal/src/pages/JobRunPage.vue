@@ -4,7 +4,7 @@
       <template #eyebrow>
         <RouterLink to="/jobs" class="hover:underline">Jobs</RouterLink>
         <i class="pi pi-chevron-right" :style="{ fontSize: '10px' }" />
-        <span class="font-mono">{{ jobRunId }}</span>
+        <span class="inline-flex min-w-0 items-center rounded-full border border-surface-200 bg-surface-100 px-2.5 py-0.5 font-mono text-xs text-surface-600 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300"><span class="truncate">{{ jobRunId }}</span></span>
       </template>
       <template #actions>
         <Button v-if="projectDeploymentPath" label="Open in project" icon="pi pi-folder" severity="secondary" outlined
@@ -12,50 +12,26 @@
       </template>
     </PageHeader>
 
-    <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf">
-      <template #detail="{ node, root }">
-        <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
-      </template>
-    </JobRunProgress>
+    <JobRunDetail :job-run-id="jobRunId" @project="projectDeploymentPath = $event" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
-import { Kinotic } from '@kinotic-ai/core'
-import { createDebug, JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail } from '@kinotic-ai/frontend-common'
-import { KinoticStates } from '@/states'
-
-const debug = createDebug('job-run-page')
+import { PageHeader } from '@kinotic-ai/frontend-common'
+import JobRunDetail from '@/components/JobRunDetail.vue'
 
 /**
  * One job run opened from the organization's Jobs list. The eyebrow leads back to that
  * list; a run that belongs to a project also offers the jump to that project's Deployment page.
  */
-const props = defineProps<{
+defineProps<{
   jobRunId: string
 }>()
 
 const router = useRouter()
-const organizationId = KinoticStates.getUserState().getOrganizationId()
 
 const projectDeploymentPath = ref<string | null>(null)
-
-watch(() => props.jobRunId, loadOwningProject, { immediate: true })
-
-/** Resolves the run's project so the page can offer a way into it. */
-async function loadOwningProject(): Promise<void> {
-  projectDeploymentPath.value = null
-  try {
-    const run = await Kinotic.jobMonitoring.findJobRun(props.jobRunId)
-    if (run.applicationId && run.projectId) {
-      projectDeploymentPath.value =
-          `/application/${encodeURIComponent(run.applicationId)}/project/${encodeURIComponent(run.projectId)}/deployment`
-    }
-  } catch (error) {
-    debug('Failed to load job run %s: %O', props.jobRunId, error)
-  }
-}
 </script>

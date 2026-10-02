@@ -8,37 +8,73 @@
                          title="Never deployed" hint="Pushing to the repository's default branch deploys this project." />
 
     <template v-if="deployment">
+      <div v-if="phase === StatusType.FAILED && deployment.failureMessage"
+           class="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50/70 px-4 py-3.5 dark:border-red-500/30 dark:bg-red-500/10"
+           role="alert">
+        <span :class="['flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', TINTS.red]">
+          <CircleAlert :size="16" :stroke-width="1.75" aria-hidden="true" />
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-semibold text-red-800 dark:text-red-300">The last deployment failed</p>
+          <p class="mt-0.5 break-words text-[0.8125rem] text-red-700/90 dark:text-red-300/90">{{ deployment.failureMessage }}</p>
+        </div>
+        <a v-if="deployment.lastJobRunId" href="#latest-deployment-run"
+           class="flex shrink-0 items-center gap-1 self-center whitespace-nowrap text-sm font-medium text-red-700 hover:underline dark:text-red-300"
+           @click.prevent="scrollToLatestRun">
+          See what failed
+          <ArrowDown :size="14" :stroke-width="1.75" aria-hidden="true" />
+        </a>
+      </div>
+
       <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard :tint="HEARTBEAT_TINTS[deploymentHeartbeat(phase)]" label="Status"
                   :detail="deployment.updated ? `Updated ${DatetimeUtil.formatRelativeDate(deployment.updated)}` : undefined">
           <template #icon><HeartbeatIcon :state="deploymentHeartbeat(phase)" :size="20" :stroke-width="1.75" /></template>
           <Tag :value="phase ?? 'UNKNOWN'" :severity="phase ? deploymentStatusSeverity(phase) : 'secondary'" />
         </StatCard>
-        <StatCard :icon="GitCommitHorizontal" :tint="TINTS.green" label="Live commit"
+        <StatCard :icon="GitCommitHorizontal" :tint="TINTS.purple" label="Live commit"
                   :detail="deployingCommit ? `deploying ${shortSha(deployingCommit)}` : 'the commit being served'">
           <span class="font-mono text-2xl font-semibold tracking-tight text-surface-950 dark:text-surface-0"
                 v-tooltip.top="liveCommit ?? undefined">{{ liveCommit ? shortSha(liveCommit) : '—' }}</span>
         </StatCard>
-        <StatCard :icon="Server" :tint="TINTS.orange" label="Microservices" :value="microservices.length"
+        <StatCard :icon="Server" :tint="TINTS.purple" label="Microservices" :value="microservices.length"
                   detail="each running in a VM of its own" />
         <StatCard :icon="Globe" :tint="TINTS.purple" label="UIs" :value="uis.length"
                   detail="each served from a site of its own" />
       </div>
 
-      <Message v-if="phase === StatusType.FAILED && deployment.failureMessage"
-               severity="error" :closable="false" class="mb-4">{{ deployment.failureMessage }}</Message>
-
-      <div class="mb-4 grid gap-4 lg:grid-cols-3">
-        <DashboardSection :icon="Activity" :tint="TINTS.green" title="Workloads by status" :count="workloads.length">
-          <div class="flex flex-col gap-4 p-5">
-            <div v-for="bucket in statusBuckets" :key="bucket.label" :class="['border-l-[3px] pl-3', bucket.border]">
-              <div class="text-2xl font-semibold leading-7 tabular-nums text-surface-950 dark:text-surface-0">{{ bucket.count }}</div>
-              <div class="text-xs text-muted-color">{{ bucket.label }}</div>
-            </div>
+      <!-- Sections run in order of what matters most: a run that failed or is deploying comes right
+           under the cards, a settled one drops below what the deployment is serving -->
+      <div class="flex flex-col gap-4">
+        <DashboardSection v-if="deployment.lastJobRunId" id="latest-deployment-run" :class="runNeedsAttention ? 'order-1' : 'order-4'" :icon="LaptopMinimalCheck" :tint="TINTS.purple" title="Latest deployment run"
+                          description="The steps the last push started; open a step for its log.">
+          <div class="p-5">
+          <JobRunProgress :key="deployment.lastJobRunId"
+                          :job-run-id="deployment.lastJobRunId"
+                          :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf" :failure-of="ProjectDeployResultNames.failureOf"
+                          :next-step="ProjectDeployResultNames.RETRY_HINT">
+            <template #detail="{ node, root }">
+              <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
+            </template>
+          </JobRunProgress>
           </div>
         </DashboardSection>
 
-        <DashboardSection :icon="GitCommitHorizontal" :tint="TINTS.sky" title="On the live commit"
+        <DashboardSection :icon="Server" :tint="TINTS.purple" class="order-2" title="Microservices" :count="microservices.length"
+                          description="Each runs in a VM of its own that the platform replaces if it exits. Restart replaces the VM; Remove deletes it until the next deployment.">
+          <MicroserviceDeploymentsTable v-if="microservices.length" :deployments="microservices"
+                                        @logs="openLogs" @restart="confirmRestart" @remove="confirmRemove" />
+          <EmptyChartCharacter v-else class="py-6" title="No microservice has been deployed yet" />
+        </DashboardSection>
+
+        <DashboardSection :icon="Globe" :tint="TINTS.purple" class="order-3" title="UIs" :count="uis.length"
+                          description="Each is served from a site of its own. Remove takes the site down until the next deployment republishes it.">
+          <UiDeploymentsTable v-if="uis.length" :deployments="uis" @remove="confirmRemoveUi" />
+          <EmptyChartCharacter v-else class="py-6" title="No UI has been published yet" />
+        </DashboardSection>
+
+        <div class="order-5 grid gap-4 lg:grid-cols-2">
+        <DashboardSection :icon="GitCommitHorizontal" :tint="TINTS.purple" title="On the live commit"
                           :description="liveCommit ? `Workloads serving ${shortSha(liveCommit)}` : 'No commit is live yet'">
           <div class="p-5">
             <div class="flex items-end justify-between gap-4">
@@ -64,51 +100,19 @@
           </div>
         </DashboardSection>
 
-        <DashboardSection :icon="KeyRound" :tint="TINTS.red" title="Machine identities" :count="machines.length">
+        <DashboardSection :icon="Activity" :tint="TINTS.purple" title="Workloads by status" :count="workloads.length">
           <div class="flex flex-col gap-4 p-5">
-            <div v-for="row in machineSummary" :key="row.label" class="flex items-center gap-3">
-              <span :class="['flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', row.tint]">
-                <component :is="row.icon" :size="18" :stroke-width="1.75" aria-hidden="true" />
-              </span>
-              <div>
-                <div class="text-2xl font-semibold leading-7 tabular-nums text-surface-950 dark:text-surface-0">{{ row.count }}</div>
-                <div class="text-xs text-muted-color">{{ row.label }}</div>
-              </div>
+            <div v-for="bucket in statusBuckets" :key="bucket.label" :class="['border-l-[3px] pl-3', bucket.border]">
+              <div class="text-2xl font-semibold leading-7 tabular-nums text-surface-950 dark:text-surface-0">{{ bucket.count }}</div>
+              <div class="text-xs text-muted-color">{{ bucket.label }}</div>
             </div>
           </div>
         </DashboardSection>
-      </div>
+        </div>
 
-      <div class="flex flex-col gap-4">
-        <DashboardSection v-if="deployment.lastJobRunId" :icon="LaptopMinimalCheck" :tint="TINTS.blue" title="Latest deployment run"
-                          description="Each step of the run the last push started, live while it runs; open a step for its detail.">
-          <div class="p-5">
-          <JobRunProgress :key="deployment.lastJobRunId"
-                          :job-run-id="deployment.lastJobRunId"
-                          :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf">
-            <template #detail="{ node, root }">
-              <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
-            </template>
-          </JobRunProgress>
-          </div>
-        </DashboardSection>
-
-        <DashboardSection :icon="Server" :tint="TINTS.orange" title="Microservices" :count="microservices.length"
-                          description="Each microservice the deployment has ensured runs in a VM of its own, kept running by the platform: a VM that exits is replaced. Restart stops the VM and a fresh one takes its place; Remove stops the VM and deletes its machine identity — a microservice the current commit still contains comes back with the next deployment.">
-          <MicroserviceDeploymentsTable v-if="microservices.length" :deployments="microservices"
-                                        @logs="openLogs" @restart="confirmRestart" @remove="confirmRemove" />
-          <EmptyChartCharacter v-else class="py-6" title="No microservice has been deployed yet" />
-        </DashboardSection>
-
-        <DashboardSection :icon="Globe" :tint="TINTS.purple" title="UIs" :count="uis.length"
-                          description="Each UI the deployment has published is served from a site of its own, checked until it serves the published commit. Remove takes the site down and deletes its files — a UI the current commit still contains comes back with the next deployment, at a new site.">
-          <UiDeploymentsTable v-if="uis.length" :deployments="uis" @remove="confirmRemoveUi" />
-          <EmptyChartCharacter v-else class="py-6" title="No UI has been published yet" />
-        </DashboardSection>
-
-        <DashboardSection v-if="machines.length" :icon="KeyRound" :tint="TINTS.red" title="Machine identities" :count="machines.length"
-                          description="The deployment's workloads connect to Kinotic as these machines, on behalf of your organization. They are created and their secrets reissued by the deployment itself — a secret is never stored, so each one only ever exists inside the workload it was issued for.">
-          <DataTable :value="machines" size="small">
+        <DashboardSection v-if="machines.length" :icon="KeyRound" :tint="TINTS.purple" class="order-6" title="Machine identities" :count="machines.length"
+                          description="What the deployment's workloads connect to Kinotic as. Each secret exists only inside the workload it was issued to.">
+          <DataTable :value="machines">
             <Column field="usedFor" header="Used for" style="width: 20%" />
             <Column header="Status" style="width: 14%">
               <template #body="{ data }">
@@ -116,16 +120,18 @@
                      :severity="data.enabled ? 'success' : 'danger'" />
               </template>
             </Column>
-            <Column field="displayName" header="Name" style="width: 26%" />
+            <Column header="Name" style="width: 26%">
+              <template #body="{ data }"><span class="font-mono">{{ data.displayName }}</span></template>
+            </Column>
             <Column header="Client ID" style="width: 40%">
-              <template #body="{ data }"><span class="font-mono text-sm">{{ data.id }}</span></template>
+              <template #body="{ data }"><span class="font-mono">{{ data.id }}</span></template>
             </Column>
           </DataTable>
         </DashboardSection>
 
-        <DashboardSection :icon="Clock" :tint="TINTS.sky" title="History" :count="history.length"
-                          :description="`What happened to the deployment and to what it made, newest first: each push and each answer to it, each microservice VM's run, each UI's site, and each mark the platform set beside them, with what caused it. The latest ${HISTORY_PAGE_SIZE} entries.`">
-          <WatchEventsTable :entries="history" show-record empty-text="Nothing has happened to the deployment yet." />
+        <DashboardSection :icon="Clock" class="order-7" :tint="TINTS.purple" title="History" :count="history.length"
+                          :description="`Everything that happened to the deployment and what it runs, newest first. The latest ${HISTORY_PAGE_SIZE} entries.`">
+          <WatchEventsTimeline :entries="history" show-record empty-text="Nothing has happened to the deployment yet." />
         </DashboardSection>
       </div>
     </template>
@@ -150,9 +156,9 @@ import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
-import { Activity, Boxes, CircleCheck, CircleOff, Clock, GitCommitHorizontal, Globe, KeyRound, LaptopMinimalCheck, Server } from '@lucide/vue'
+import { Activity, ArrowDown, CircleAlert, Clock, GitCommitHorizontal, Globe, KeyRound, LaptopMinimalCheck, Server } from '@lucide/vue'
 import { DatetimeUtil, HeartbeatIcon, JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
-         WatchEventsTable, WorkloadLogsDialog, deploymentStatusSeverity, observedPhaseSeverity, shortSha, showErrorToast, EmptyChartCharacter, HEARTBEAT_TINTS, deploymentHeartbeat } from '@kinotic-ai/frontend-common'
+         WatchEventsTimeline, WorkloadLogsDialog, deploymentStatusSeverity, observedPhaseSeverity, shortSha, showErrorToast, EmptyChartCharacter, HEARTBEAT_TINTS, deploymentHeartbeat } from '@kinotic-ai/frontend-common'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DeploymentStatusType,
          type MachineParticipantIdentity,
@@ -238,18 +244,17 @@ const onCommit = computed(() => {
   }
 })
 
-const machineSummary = computed(() => {
-  const active = machines.value.filter(machine => machine.enabled).length
-  return [
-    { label: 'Active, connecting on the organization\'s behalf', icon: markRaw(CircleCheck), tint: TINTS.green, count: active },
-    { label: 'Disabled', icon: markRaw(CircleOff), tint: TINTS.red, count: machines.value.length - active },
-    { label: 'Issued to microservices', icon: markRaw(Boxes), tint: TINTS.orange,
-      count: microservices.value.filter(microservice => microservice.machineIdentityId).length }
-  ]
-})
 const error = ref<string | null>(null)
 const logsFor = ref<MicroserviceDeployment | null>(null)
 const logsVisible = ref(false)
+
+// A run that failed or is still deploying is what the page leads with
+const runNeedsAttention = computed<boolean>(() =>
+    phase.value === DeploymentStatusType.FAILED || phase.value === DeploymentStatusType.DEPLOYING)
+
+function scrollToLatestRun(): void {
+  document.getElementById('latest-deployment-run')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 async function loadDeployment(): Promise<void> {
   try {

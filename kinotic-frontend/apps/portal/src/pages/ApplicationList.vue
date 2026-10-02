@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { CrudTable } from "@kinotic-ai/frontend-common";
+import { CrudTable, SteppingDrawer, useSteppingDrawer } from "@kinotic-ai/frontend-common";
+import ApplicationOverview from "@/pages/ApplicationOverview.vue";
 import ApplicationSidebar from "@/components/ApplicationSidebar.vue";
 import ApplicationProjectsLink from "@/components/ApplicationProjectsLink.vue";
+import DeleteApplicationDialog from "@/components/DeleteApplicationDialog.vue";
 import { InitialsTile, PageHeader, TimePill } from "@kinotic-ai/frontend-common";
 import { Kinotic } from "@kinotic-ai/core";
 import {
@@ -10,11 +12,8 @@ import {
 } from "@kinotic-ai/management-api";
 import { APPLICATION_STATE } from "@/states/IApplicationState";
 import type { CrudHeader } from "@kinotic-ai/frontend-common";
-import type { Identifiable } from "@kinotic-ai/core";
-import { onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useToast } from "primevue/usetoast";
-import { showErrorToast } from "@kinotic-ai/frontend-common";
 import { createDebug } from "@kinotic-ai/frontend-common";
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 
@@ -22,7 +21,6 @@ const debug = createDebug('application-list');
 
 const route = useRoute();
 const router = useRouter();
-const toast = useToast();
 
 const headers: CrudHeader[] = [
   { field: "name", header: "Name", sortable: false, width: "22%" },
@@ -79,16 +77,10 @@ function onAddItem(): void {
   showSidebar.value = true;
 }
 
-async function toApplicationPage(item: Identifiable<string>): Promise<void> {
-  try {
-    const appId = item.id ?? "";
-    const app = await dataSource.findById(appId);
-    APPLICATION_STATE.currentApplication = app;
-    router.push(`/application/${encodeURIComponent(appId)}`);
-  } catch (e) {
-    debug('Failed to navigate to application: %O', e);
-  }
-}
+const shownApplications = computed(() => (crudTable.value?.items ?? []) as Application[]);
+const { selected: selectedApplication, visible: drawerVisible, position, open: openApplication, step: stepApplication,
+        highlighted: highlightedApplication, hover: hoverApplication } =
+    useSteppingDrawer(shownApplications, app => app.id);
 
 function onSidebarClose(): void {
   showSidebar.value = false;
@@ -111,17 +103,21 @@ function onApplicationSubmit(created: Application): void {
   router.push(`/application/${encodeURIComponent(created.id)}/projects?openNewProject=1`);
 }
 
-async function deleteApplication(item: Application): Promise<void> {
-  try {
-    await dataSource.deleteById(item.id!);
-    toast.add({ severity: "success", summary: "Application deleted", life: 4000 });
-    APPLICATION_STATE.allApplications = APPLICATION_STATE.allApplications.filter(
-      (a) => a.id !== item.id
-    );
-    refreshTable();
-  } catch (err) {
-    showErrorToast(toast, "Failed to delete application", err, { life: 8000 });
-  }
+const applicationToDelete = ref<Application | null>(null);
+
+// A failed delete may have removed some of the application's projects, so the counts refresh
+function onDeleteDialogClose(): void {
+  applicationToDelete.value = null;
+  refreshTable();
+}
+
+function onApplicationDeleted(deleted: Application): void {
+  applicationToDelete.value = null;
+  crudTable.value?.removeRow(deleted.id);
+  APPLICATION_STATE.allApplications = APPLICATION_STATE.allApplications.filter(
+    (a) => a.id !== deleted.id
+  );
+  refreshTable();
 }
 </script>
 
@@ -142,8 +138,10 @@ async function deleteApplication(item: Application): Promise<void> {
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddItem"
-      @delete-item="deleteApplication"
-      @onRowClick="toApplicationPage"
+      @delete-item="applicationToDelete = $event"
+      :selected-id="highlightedApplication?.id"
+      @row-hover="row => hoverApplication(row as Application)"
+      @onRowClick="row => openApplication(row as Application)"
       class="application-list__table !text-sm"
     >
     <template #item.name="{ item, index }">
@@ -171,6 +169,22 @@ async function deleteApplication(item: Application): Promise<void> {
       <TimePill :date="item.updated" />
     </template>
     </CrudTable>
+
+    <!-- The picked application opens beside the list; the arrows step through the rows the table shows -->
+    <SteppingDrawer v-model:visible="drawerVisible" :position="position" :total="shownApplications.length"
+                    :expand-to="selectedApplication ? `/application/${encodeURIComponent(selectedApplication.id)}` : undefined"
+                    expand-label="Open the application" @step="stepApplication">
+      <template #title>
+        <span v-if="selectedApplication" class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">{{ selectedApplication.name || selectedApplication.id }}</span>
+      </template>
+      <ApplicationOverview v-if="selectedApplication" :key="selectedApplication.id" :application-id="selectedApplication.id" />
+    </SteppingDrawer>
+
+    <DeleteApplicationDialog
+      :application="applicationToDelete"
+      @deleted="onApplicationDeleted"
+      @close="onDeleteDialogClose"
+    />
 
     <ApplicationSidebar
       :visible="showSidebar"

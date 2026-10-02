@@ -9,7 +9,7 @@
 import { computed } from 'vue'
 import VChart from 'vue-echarts'
 
-import { accentColor, isDark } from '@kinotic-ai/frontend-common'
+import { accentColor, chartItemTooltip, isDark } from '@kinotic-ai/frontend-common'
 
 /**
  * A single gauge: the percentage fills a surface-colored track. An allocation gauge turns
@@ -19,8 +19,8 @@ import { accentColor, isDark } from '@kinotic-ai/frontend-common'
 const props = defineProps<{
   pct: number
   color?: string
-  /** What the hover says; the allocation percentage when unset. */
-  tooltip?: string
+  /** What the hover card says: its heading, and the one row under it, swatched in the bar's colour. */
+  hover: { heading: string, name: string, value: string }
 }>()
 
 const option = computed(() => {
@@ -35,13 +35,12 @@ const option = computed(() => {
   } else {
     fill = accentColor('sky', isDark.value)
   }
-  const tooltip = props.tooltip ?? `${props.pct}% allocated`
   return {
     animationDuration: 300,
     grid: { left: 0, right: 0, top: 0, bottom: 0 },
     xAxis: { type: 'value', show: false, max: 100 },
     yAxis: { type: 'category', show: false, data: [''] },
-    tooltip: { trigger: 'item', confine: true, formatter: () => tooltip },
+    tooltip: chartItemTooltip(isDark.value, props.hover.heading, [{ name: props.hover.name, value: props.hover.value, color: fill }]),
     series: [{
       type: 'bar',
       barWidth: 12,

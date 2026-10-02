@@ -1,6 +1,7 @@
 import { markRaw, type Component } from 'vue'
 import { Crosshair, FolderGit2, Globe, ListTree, Package, Server } from '@lucide/vue'
 import type { ProjectArtifacts } from '@kinotic-ai/management-api'
+import type { JobTaskFailure } from '../grind/JobTaskFailure'
 import type { JobTaskNode } from '../grind/JobTaskNode'
 
 /** Mirrors DeployTarget on the server: what a deployment run's first task decided. */
@@ -15,8 +16,8 @@ export interface DeployTarget {
 /**
  * The names a project deployment run's tasks store their results under, mirroring
  * ProjectDeployResultNames on the server, and what those results mean for the job page: each
- * step's icon, which task's row lists the deployed commit's artifacts, and which rows attach the
- * log of the workload their task ran.
+ * step's icon, how its failure reads, which task's row lists the deployed commit's artifacts, and
+ * which rows attach the log of the workload their task ran.
  */
 export default class ProjectDeployResultNames {
 
@@ -34,6 +35,25 @@ export default class ProjectDeployResultNames {
     [ProjectDeployResultNames.MICROSERVICE_DEPLOYMENTS]: markRaw(Server),
     [ProjectDeployResultNames.UI_DEPLOYMENTS]: markRaw(Globe),
     [ProjectDeployResultNames.SBOM]: markRaw(ListTree)
+  }
+
+  /** How to start another deployment run, for a run that failed. */
+  public static readonly RETRY_HINT = 'To try again, push a commit to the project\'s default branch; each push starts a new deployment run.'
+
+  // Steps whose failure is the platform's to fix, whatever the project contains
+  private static readonly PLATFORM_FAILURES: Record<string, string> = {
+    [ProjectDeployResultNames.DEPLOY_TARGET]:
+      'Kinotic could not choose where to run this deployment. This is a problem on Kinotic\'s side, not something you did.',
+    [ProjectDeployResultNames.SBOM]:
+      'Kinotic could not build the dependency inventory (SBOM) for this commit. This is a problem on Kinotic\'s side, not something you did.'
+  }
+
+  /** How the task's failure reads: a plain explanation, and whether the platform is at fault. */
+  public static failureOf(node: JobTaskNode): JobTaskFailure {
+    const platform = node.storedName ? ProjectDeployResultNames.PLATFORM_FAILURES[node.storedName] : undefined
+    return platform
+      ? { explanation: platform, platform: true }
+      : { explanation: 'Open the step\'s log to see what went wrong.', platform: false }
   }
 
   /** The icon of the deployment step the task is, or undefined for a task outside the six steps. */

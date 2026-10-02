@@ -6,8 +6,10 @@
         <i class="pi pi-chevron-right" :style="{ fontSize: '10px' }" />
         <span class="truncate">{{ node?.name ?? nodeId }}</span>
       </template>
-      <template #actions>
+      <template #status>
         <Tag v-if="node" :value="nodeHealth(node)" :severity="nodeSeverity(nodeHealth(node))" />
+      </template>
+      <template #actions>
         <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined :loading="loading" @click="load" />
       </template>
     </PageHeader>
@@ -41,22 +43,19 @@
                     :value="stat.value" :detail="stat.detail" :to="stat.to" />
         </div>
 
-        <DashboardSection :icon="Boxes" :tint="TINTS.green" title="Workloads on this node" :count="workloads.length"
+        <DashboardSection :icon="Boxes" :tint="TINTS.ink" title="Workloads on this node" :count="workloads.length"
                           description="Click a row for the workload; its menu shows its logs, stops, restarts or destroys it."
                           :link-to="{ path: '/workloads', query: { node: nodeId } }" link-label="Filter workloads">
-          <!-- WorkloadsTable brings its own search bar and paginator, which need the card's padding -->
-          <div class="p-4">
-            <WorkloadsTable :workloads="workloads" :scope="{}" :show-node="false" @changed="load" />
-          </div>
+          <WorkloadsTable :workloads="workloads" :scope="{}" :show-node="false" @changed="load" />
         </DashboardSection>
 
         <div class="grid gap-4 lg:grid-cols-2">
-          <DashboardSection :icon="Server" :tint="TINTS.orange" title="Details">
+          <DashboardSection :icon="Server" :tint="TINTS.ink" title="Details">
             <div class="px-5 pb-3">
               <FactList :facts="facts" />
             </div>
           </DashboardSection>
-          <DashboardSection :icon="Gauge" :tint="TINTS.sky" title="Capacity"
+          <DashboardSection :icon="Gauge" :tint="TINTS.ink" title="Capacity"
                             description="What the node promised at registration, less what is placed on it.">
             <div class="p-5">
               <CapacityRows :capacity="capacityOf([node])" />
@@ -64,10 +63,10 @@
           </DashboardSection>
         </div>
 
-        <DashboardSection :icon="History" :tint="TINTS.purple" title="History" :count="history.length"
+        <DashboardSection :icon="History" :tint="TINTS.ink" title="History" :count="history.length"
                           :description="`What happened to the node, newest first: each change of what it should be and of what it reports, and each mark set beside them, with what caused it. The latest ${HISTORY_PAGE_SIZE} entries.`">
           <EmptyChartCharacter v-if="history.length === 0" class="py-6" title="Nothing has happened to the node yet" />
-          <WatchEventsTable v-else :entries="history" empty-text="Nothing has happened to the node yet." />
+          <WatchEventsTimeline v-else :entries="history" empty-text="Nothing has happened to the node yet." />
         </DashboardSection>
       </div>
     </template>
@@ -84,7 +83,7 @@ import { Boxes, Clock, Cpu, FolderOpen, Gauge, HardDrive, Hash, History, Layers,
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { WorkloadStatus, type WatchEvent, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DashboardSection, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, WatchEventsTable, errorMessage,
+import { DashboardSection, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, WatchEventsTimeline, errorMessage,
          formatMb, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 
 import CapacityRows from '@/components/CapacityRows.vue'
@@ -133,21 +132,21 @@ const stats = computed<Stat[]>(() => {
       value: `${percentOf(n.totalCpus - n.freeCpus, n.totalCpus)}%`,
       detail: `${formatCpus(n.totalCpus - n.freeCpus)} of ${n.totalCpus} CPU allocated`,
       icon: markRaw(Cpu),
-      tint: TINTS.sky
+      tint: TINTS.ink
     },
     {
       label: 'Memory',
       value: `${percentOf(n.totalMemoryMb - n.freeMemoryMb, n.totalMemoryMb)}%`,
       detail: `${formatMb(n.totalMemoryMb - n.freeMemoryMb)} of ${formatMb(n.totalMemoryMb)}`,
       icon: markRaw(MemoryStick),
-      tint: TINTS.purple
+      tint: TINTS.ink
     },
     {
       label: 'Disk',
       value: `${percentOf(n.totalDiskMb - n.freeDiskMb, n.totalDiskMb)}%`,
       detail: `${formatMb(n.totalDiskMb - n.freeDiskMb)} of ${formatMb(n.totalDiskMb)}`,
       icon: markRaw(HardDrive),
-      tint: TINTS.blue
+      tint: TINTS.ink
     },
     {
       label: 'Workloads',
@@ -155,7 +154,7 @@ const stats = computed<Stat[]>(() => {
       detail: `running of ${workloads.value.length} placed here`,
       to: `/workloads?node=${encodeURIComponent(props.nodeId)}`,
       icon: markRaw(Boxes),
-      tint: TINTS.green
+      tint: TINTS.ink
     }
   ]
 })

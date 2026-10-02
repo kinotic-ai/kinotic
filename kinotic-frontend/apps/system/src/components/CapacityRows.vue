@@ -5,7 +5,7 @@
         <span class="text-muted-color">{{ row.label }}</span>
         <span class="tabular-nums">{{ row.text }}</span>
       </div>
-      <CapacityBar :pct="row.pct" />
+      <CapacityBar :pct="row.pct" :hover="{ heading: row.label, name: 'Allocated', value: `${row.text} · ${row.pct}%` }" />
     </div>
   </div>
 </template>

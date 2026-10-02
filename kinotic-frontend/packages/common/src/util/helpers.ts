@@ -86,3 +86,22 @@ export function shortSha(sha: string): string {
 export function formatMb(mb: number): string {
     return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`
 }
+
+/** How a person signs in, in words: OIDC as is, LOCAL as "Local password", anything else unchanged. */
+export function authTypeLabel(authType: string): string {
+    let ret: string
+    if (authType === 'LOCAL') {
+        ret = 'Local password'
+    } else {
+        ret = authType
+    }
+    return ret
+}
+
+// "java.lang.IllegalStateException: SBOM workload … failed" reads as its message alone
+const EXCEPTION_PREFIX = /^(?:[a-z_$][\w$]*\.)+[A-Z][\w$]*(?:Exception|Error): /
+
+/** A server error message without the Java exception class it starts with. */
+export function withoutExceptionPrefix(message: string): string {
+    return message.replace(EXCEPTION_PREFIX, '')
+}

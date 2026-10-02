@@ -14,6 +14,8 @@
       :enable-row-hover="true"
       empty-state-text="No applications"
       @update:search="tableSearch = $event"
+      :selected-id="highlightedApplication?.id"
+      @row-hover="hoverApplication"
       @on-row-click="openApplication"
     >
       <template #item.name="{ item, index }">
@@ -28,19 +30,42 @@
       </template>
 
       <template #item.description="{ item }">
-        <span class="block max-w-[22rem] truncate" v-tooltip.top="item.description">{{ item.description || '—' }}</span>
+        <!-- the right padding keeps a gap before Projects as wide as the Id column leaves before it -->
+        <span class="block max-w-full truncate pr-10" v-tooltip.top="item.description || null">{{ item.description || '—' }}</span>
+      </template>
+
+      <template #item.projects="{ item }">
+        <TableChip :icon="ProjectsIcon" :to="`${applicationPath(organizationId, item.id)}/projects`">
+          {{ item.projects }} {{ item.projects === 1 ? 'project' : 'projects' }}
+        </TableChip>
+      </template>
+
+      <template #item.running="{ item }">
+        <TableChip>
+          <span :class="['h-2 w-2 rounded-full', item.running > 0 ? 'bg-green-500' : 'bg-surface-400']" aria-hidden="true" />
+          {{ item.running }} running
+        </TableChip>
       </template>
 
       <template #item.updated="{ item }">
         <TimePill :date="item.updated" />
       </template>
     </CrudTable>
+
+    <!-- The picked application opens beside the list; the arrows step through the rows the table shows -->
+    <SteppingDrawer v-model:visible="drawerVisible" :position="position" :total="shownRows.length"
+                    :expand-to="selectedApplication?.id ? applicationPath(organizationId, selectedApplication.id) : undefined"
+                    expand-label="Open the application" @step="stepApplication">
+      <template #title>
+        <span v-if="selectedApplication" class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">{{ selectedApplication.name || selectedApplication.id }}</span>
+      </template>
+      <AppOverview v-if="selectedApplication?.id" :key="selectedApplication.id" :organization-id="organizationId" :application-id="selectedApplication.id" />
+    </SteppingDrawer>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import Message from 'primevue/message'
 
 import { FunctionalIterablePage, Kinotic, Pageable, type IterablePage } from '@kinotic-ai/core'
@@ -49,14 +74,18 @@ import {
   CrudTable,
   InitialsTile,
   PageHeader,
+  ProjectsIcon,
+  TableChip,
   TimePill,
   errorMessage,
   filteredPageLoader,
+  SteppingDrawer,
   useCrudTablePage,
-  type CrudHeader,
-  type DescriptiveIdentifiable
+  useSteppingDrawer,
+  type CrudHeader
 } from '@kinotic-ai/frontend-common'
 
+import AppOverview from '@/pages/AppOverview.vue'
 import { applicationPath } from '@/util/scope'
 import { scanWorkloads } from '@/util/workloads'
 
@@ -67,15 +96,13 @@ const props = defineProps<{
 /** How many of the organization's projects the project counts consider. */
 const PROJECT_PAGE_SIZE = 200
 
-const router = useRouter()
-
 const headers: CrudHeader[] = [
-  { field: 'name', header: 'Name', sortable: true },
-  { field: 'id', header: 'Id', sortable: false, optional: true },
-  { field: 'description', header: 'Description', sortable: false, optional: true },
-  { field: 'projects', header: 'Projects', sortable: false, optional: true },
-  { field: 'running', header: 'Running', sortable: false, optional: true },
-  { field: 'updated', header: 'Updated', sortable: false }
+  { field: 'name', header: 'Name', sortable: true, width: '20%' },
+  { field: 'id', header: 'Id', sortable: false, optional: true, width: '17%' },
+  { field: 'description', header: 'Description', sortable: false, optional: true, width: '27%' },
+  { field: 'projects', header: 'Projects', sortable: false, optional: true, width: '12%' },
+  { field: 'running', header: 'Running', sortable: false, optional: true, width: '12%' },
+  { field: 'updated', header: 'Updated', sortable: false, width: '12%' }
 ]
 
 // Per-application counts, read once for the organization and shared by every page of the table
@@ -89,7 +116,7 @@ function fetchPage(pageable: Pageable): Promise<IterablePage<Application>> {
 }
 
 // findApplications has no server-side search, so filtering is client-side over the page
-const { tableSearch, dataSource, refreshTable } = useCrudTablePage(
+const { tableSearch, dataSource, refreshTable, shownRows } = useCrudTablePage(
     filteredPageLoader(
         fetchPage,
         (app: Application) => ({
@@ -103,9 +130,9 @@ const { tableSearch, dataSource, refreshTable } = useCrudTablePage(
         row => [row.name ?? null, row.id, row.description ?? null]
     ))
 
-function openApplication(row: DescriptiveIdentifiable) {
-  router.push(applicationPath(props.organizationId, row.id ?? ''))
-}
+const { selected: selectedApplication, visible: drawerVisible, position, open: openApplication, step: stepApplication,
+        highlighted: highlightedApplication, hover: hoverApplication } =
+    useSteppingDrawer(shownRows, row => row.id)
 
 async function loadCounts() {
   error.value = null
