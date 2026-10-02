@@ -15,7 +15,6 @@ export class PolicyDecorator extends EntityServiceDecorator {
  * Provides a mechanism to apply the @Policy decorator to an {@link EntityService}
  * @param policies to be supplied
  */
-// @ts-ignore
 export function $Policy(policies: string[][]): PolicyDecorator {
     return new PolicyDecorator(policies)
 }

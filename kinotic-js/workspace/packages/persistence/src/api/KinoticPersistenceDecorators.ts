@@ -7,6 +7,11 @@ import type {EntityServiceDecoratorsConfig} from '@/api/idl/EntityServiceDecorat
 // These are TC39 stage-3 decorators with no runtime behavior: they are source-level
 // markers the Kinotic CLI reads from the TypeScript AST to build entity definitions.
 
+export function AbacPolicy(_expression: string) {
+    return function (_target: any, _propertyKey?: string, _descriptor?: PropertyDescriptor): void {
+    }
+}
+
 /**
  * Signifies that a property is an auto-generated ID for the entity.
  */
