@@ -144,7 +144,7 @@ describe('Kinotic JS', () => {
         expect(await stompHandshake(stompUrl(), tokens.access_token)).toBe('open')
 
         // The device grant's token carries aud=kinotic, but no entry point verifies the claim, so
-        // it also calls MCP tools. Restoring the check (see docs/NavidNotes.md) makes this a 401.
+        // it also calls MCP tools. Restoring the check (Jira KINOTIC-102) makes this a 401.
         const mcpResponse = await fetch(`${restBase()}/mcp`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json', Authorization: `Bearer ${tokens.access_token}`},
