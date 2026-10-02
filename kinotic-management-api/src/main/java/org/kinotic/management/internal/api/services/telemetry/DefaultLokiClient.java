@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.WebSocketClient;
+import io.vertx.core.http.WebSocketClientOptions;
 import io.vertx.core.http.WebSocketConnectOptions;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -30,6 +31,12 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
     private static final String QUERY_RANGE_PATH = "/loki/api/v1/query_range";
     private static final String TAIL_PATH = "/loki/api/v1/tail";
     private static final String DELETE_PATH = "/loki/api/v1/delete";
+    // Loki sends a tail response of up to 100 entries, each with its stream's labels, as a single WebSocket
+    // frame; the Vert.x default of 64 KB fails a tail on a batch of long lines, so this allows 10 MB
+    private static final int TAIL_MAX_MESSAGE_BYTES = 10 * 1024 * 1024;
+    // Loki replays only the newest `limit` entries from start, 100 unless asked; 5000 is the most its default
+    // max_entries_limit_per_query admits, and replayed entries arrive in batches of 100 like live ones
+    private static final int TAIL_REPLAY_LIMIT = 5000;
 
     private final String lokiUrl;
     private WebSocketClient webSocketClient;
@@ -41,7 +48,9 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
 
     @PostConstruct
     public void start() {
-        this.webSocketClient = vertx.createWebSocketClient();
+        this.webSocketClient = vertx.createWebSocketClient(new WebSocketClientOptions()
+                                                                   .setMaxFrameSize(TAIL_MAX_MESSAGE_BYTES)
+                                                                   .setMaxMessageSize(TAIL_MAX_MESSAGE_BYTES));
     }
 
     @Override
@@ -65,8 +74,8 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
     }
 
     @Override
-    public Flux<Buffer> tail(String tenant, String query) {
-        return Flux.create(sink -> webSocketClient.connect(tailOptions(tenant, query))
+    public Flux<Buffer> tail(String tenant, String query, long start) {
+        return Flux.create(sink -> webSocketClient.connect(tailOptions(tenant, query, start))
                 .onSuccess(ws -> {
                     // The Flux can be cancelled before the socket finishes opening; close it straight away.
                     if (sink.isCancelled()) {
@@ -93,7 +102,7 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
                     "Loki delete");
     }
 
-    private WebSocketConnectOptions tailOptions(String tenant, String query) {
+    private WebSocketConnectOptions tailOptions(String tenant, String query, long start) {
         URI base = URI.create(lokiUrl);
         boolean ssl = "https".equalsIgnoreCase(base.getScheme());
         int port = base.getPort() != -1 ? base.getPort() : (ssl ? 443 : 80);
@@ -101,7 +110,9 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
                 .setHost(base.getHost())
                 .setPort(port)
                 .setSsl(ssl)
-                .setURI(TAIL_PATH + "?query=" + URLEncoder.encode(query, StandardCharsets.UTF_8))
+                .setURI(TAIL_PATH + "?query=" + URLEncoder.encode(query, StandardCharsets.UTF_8)
+                        + "&start=" + msToNs(start)
+                        + "&limit=" + TAIL_REPLAY_LIMIT)
                 .addHeader(ORG_ID_HEADER, tenant);
     }
 

@@ -3,7 +3,7 @@
     v-model:visible="visible"
     modal
     :header="`Logs — ${telemetryServiceInstanceId ?? telemetryServiceName}`"
-    :style="{ width: '70rem', maxWidth: '95vw' }"
+    :style="{ width: '95vw' }"
   >
     <p v-if="!telemetryServiceInstanceId" class="mb-3 text-xs text-muted-color">
       This node reports no service instance id, so every node of {{ telemetryServiceName }} is shown, interleaved.
@@ -37,6 +37,6 @@ const source = computed<LogSource>(() => ({
     end,
     limit
   }),
-  tail: () => Kinotic.logs.tailServer(props.telemetryServiceName, props.telemetryServiceInstanceId)
+  tail: start => Kinotic.logs.tailServer(props.telemetryServiceName, props.telemetryServiceInstanceId, start)
 }))
 </script>

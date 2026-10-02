@@ -19,15 +19,18 @@ import reactor.core.publisher.Flux;
 public interface LogService {
 
     /**
-     * Opens a live tail of the given workload's logs. Each emitted element is a raw Loki tail
-     * frame, and the stream stays open until the caller unsubscribes.
+     * Opens a live tail of the given workload's logs from start: the entries since start, then each
+     * new one as it arrives. A {@link #history} whose range ends at start reads what came before, with
+     * no entry read twice. Each emitted element is a raw Loki tail frame, and the stream stays open
+     * until the caller unsubscribes.
      *
      * @param organizationId the organization the workload runs for; null for the platform's own,
      *        which only a system participant may read
      * @param workloadId the id of the workload to follow
+     * @param start the moment to follow from, epoch milliseconds (inclusive)
      * @return a {@link Flux} emitting raw Loki tail frames
      */
-    Flux<Buffer> tail(String organizationId, String workloadId);
+    Flux<Buffer> tail(String organizationId, String workloadId, long start);
 
     /**
      * Returns a workload's historical logs for the given time range.
@@ -38,17 +41,19 @@ public interface LogService {
     Future<Buffer> history(LogQuery query);
 
     /**
-     * Opens a live tail of a platform server's logs, one node's or every node's together. Each
-     * emitted element is a raw Loki tail frame, and the stream stays open until the caller
-     * unsubscribes.
+     * Opens a live tail of a platform server's logs, one node's or every node's together, from start:
+     * the entries since start, then each new one as it arrives. A {@link #serverHistory} whose range
+     * ends at start reads what came before, with no entry read twice. Each emitted element is a raw
+     * Loki tail frame, and the stream stays open until the caller unsubscribes.
      *
      * @param telemetryServiceName the service name that labels the server's logs, as its cluster
      *        nodes report it
      * @param telemetryServiceInstanceId the service instance id that labels one node's logs, as
      *        that cluster node reports it; null for every node of the server
+     * @param start the moment to follow from, epoch milliseconds (inclusive)
      * @return a {@link Flux} emitting raw Loki tail frames
      */
-    Flux<Buffer> tailServer(String telemetryServiceName, String telemetryServiceInstanceId);
+    Flux<Buffer> tailServer(String telemetryServiceName, String telemetryServiceInstanceId, long start);
 
     /**
      * Returns a platform server's historical logs, one node's or every node's together, for the

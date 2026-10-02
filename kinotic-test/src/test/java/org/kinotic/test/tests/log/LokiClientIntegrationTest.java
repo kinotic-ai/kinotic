@@ -104,7 +104,7 @@ class LokiClientIntegrationTest {
         String marker = "tail-marker-" + UUID.randomUUID();
         CompletableFuture<String> received = new CompletableFuture<>();
 
-        Disposable subscription = lokiClient.tail("org-a", "{workload_id=\"wl-tail\"}")
+        Disposable subscription = lokiClient.tail("org-a", "{workload_id=\"wl-tail\"}", System.currentTimeMillis())
                 .subscribe(frame -> {
                               if (frame.toString().contains(marker)) {
                                   received.complete(frame.toString());
@@ -118,6 +118,70 @@ class LokiClientIntegrationTest {
                 Thread.sleep(500);
             }
             assertTrue(received.get(5, TimeUnit.SECONDS).contains(marker));
+        } finally {
+            subscription.dispose();
+        }
+    }
+
+    @Test
+    void tailStreamsAFrameLargerThanTheWebSocketDefault() throws Exception {
+        String marker = "large-tail-marker-" + UUID.randomUUID();
+        // Under Loki's 256 KB max_line_size, and sent by Loki as one frame well past Vert.x's 64 KB default
+        String line = marker + " " + "x".repeat(200_000);
+        CompletableFuture<String> received = new CompletableFuture<>();
+
+        Disposable subscription = lokiClient.tail("org-a", "{workload_id=\"wl-large-tail\"}", System.currentTimeMillis())
+                .subscribe(frame -> {
+                              if (frame.toString().contains(marker)) {
+                                  received.complete(frame.toString());
+                              }
+                          },
+                          received::completeExceptionally);
+        try {
+            // The WebSocket may still be connecting; keep pushing until the line arrives or the tail fails
+            for (int i = 0; i < 40 && !received.isDone(); i++) {
+                push("org-a", "wl-large-tail", line);
+                Thread.sleep(500);
+            }
+            assertTrue(received.get(5, TimeUnit.SECONDS).contains(line));
+        } finally {
+            subscription.dispose();
+        }
+    }
+
+    @Test
+    void tailFollowsOnFromWhereAQueryRangeEnds() throws Exception {
+        String run = UUID.randomUUID().toString();
+        String workloadId = "wl-handoff-" + run;
+        long boundaryMs = System.currentTimeMillis() - 10_000;
+        long boundaryNs = boundaryMs * 1_000_000L;
+        pushAt("org-a", workloadId, "before-" + run, boundaryNs - 1_000_000L);
+        pushAt("org-a", workloadId, "at-" + run, boundaryNs);
+        pushAt("org-a", workloadId, "after-" + run, boundaryNs + 1_000_000L);
+        awaitQueryContains("org-a", workloadId, "after-" + run);
+
+        String history = lokiClient.queryRange("org-a", "{workload_id=\"" + workloadId + "\"}",
+                                               boundaryMs - 60_000, boundaryMs, 100)
+                                   .toCompletionStage().toCompletableFuture()
+                                   .get(10, TimeUnit.SECONDS)
+                                   .toString();
+        assertTrue(history.contains("before-" + run));
+        assertFalse(history.contains("at-" + run));
+        assertFalse(history.contains("after-" + run));
+
+        StringBuffer frames = new StringBuffer();
+        CompletableFuture<Void> replayed = new CompletableFuture<>();
+        Disposable subscription = lokiClient.tail("org-a", "{workload_id=\"" + workloadId + "\"}", boundaryMs)
+                .subscribe(frame -> {
+                              frames.append(frame);
+                              if (frames.toString().contains("at-" + run) && frames.toString().contains("after-" + run)) {
+                                  replayed.complete(null);
+                              }
+                          },
+                          replayed::completeExceptionally);
+        try {
+            replayed.get(15, TimeUnit.SECONDS);
+            assertFalse(frames.toString().contains("before-" + run));
         } finally {
             subscription.dispose();
         }
@@ -163,7 +227,10 @@ class LokiClientIntegrationTest {
     }
 
     private static void push(String tenant, String workloadId, String line) throws Exception {
-        long timestampNs = System.currentTimeMillis() * 1_000_000L;
+        pushAt(tenant, workloadId, line, System.currentTimeMillis() * 1_000_000L);
+    }
+
+    private static void pushAt(String tenant, String workloadId, String line, long timestampNs) throws Exception {
         String body = "{\"streams\":[{\"stream\":{\"workload_id\":\"" + workloadId + "\"}," +
                       "\"values\":[[\"" + timestampNs + "\",\"" + line + "\"]]}]}";
         HttpRequest request = HttpRequest.newBuilder(URI.create(lokiUrl + "/loki/api/v1/push"))

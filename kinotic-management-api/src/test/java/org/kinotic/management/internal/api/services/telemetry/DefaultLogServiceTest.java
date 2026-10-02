@@ -71,17 +71,18 @@ class DefaultLogServiceTest extends ParticipantCallTest {
 
     @Test
     void tailResolvesTheTenantAndQuery() throws Throwable {
-        callAs(ACME_USER, () -> Future.fromCompletionStage(service.tail("acme", "wl-acme").collectList().toFuture(),
+        callAs(ACME_USER, () -> Future.fromCompletionStage(service.tail("acme", "wl-acme", 1_000L).collectList().toFuture(),
                                                            vertx.getOrCreateContext()));
 
         assertEquals("acme", lokiClient.tenant);
         assertEquals("{workload_id=\"wl-acme\"}", lokiClient.query);
+        assertEquals(1_000L, lokiClient.start);
     }
 
     @Test
     void tailOfAnotherOrganizationIsRefused() {
         assertInstanceOf(AuthorizationException.class,
-                         failureOf(ACME_USER, () -> Future.fromCompletionStage(service.tail("globex", "wl-globex").collectList().toFuture(),
+                         failureOf(ACME_USER, () -> Future.fromCompletionStage(service.tail("globex", "wl-globex", 1_000L).collectList().toFuture(),
                                                                                vertx.getOrCreateContext())));
     }
 
@@ -120,7 +121,7 @@ class DefaultLogServiceTest extends ParticipantCallTest {
 
     @Test
     void serverTailResolvesTheSystemTenantAndQuery() throws Throwable {
-        callAs(PLATFORM_OPERATOR, () -> Future.fromCompletionStage(service.tailServer("kinotic-server-app", "kinotic-server-app-7d9f8-x2k4q")
+        callAs(PLATFORM_OPERATOR, () -> Future.fromCompletionStage(service.tailServer("kinotic-server-app", "kinotic-server-app-7d9f8-x2k4q", 1_000L)
                                                                           .collectList()
                                                                           .toFuture(),
                                                                    vertx.getOrCreateContext()));
@@ -128,12 +129,13 @@ class DefaultLogServiceTest extends ParticipantCallTest {
         assertEquals(TelemetryTenant.SYSTEM, lokiClient.tenant);
         assertEquals("{service_name=\"kinotic-server-app\", service_instance_id=\"kinotic-server-app-7d9f8-x2k4q\"}",
                      lokiClient.query);
+        assertEquals(1_000L, lokiClient.start);
     }
 
     @Test
     void serverTailByAnOrganizationParticipantIsRefused() {
         assertInstanceOf(AuthorizationException.class,
-                         failureOf(ACME_USER, () -> Future.fromCompletionStage(service.tailServer("kinotic-server-app", null).collectList().toFuture(),
+                         failureOf(ACME_USER, () -> Future.fromCompletionStage(service.tailServer("kinotic-server-app", null, 1_000L).collectList().toFuture(),
                                                                                vertx.getOrCreateContext())));
     }
 
@@ -168,9 +170,10 @@ class DefaultLogServiceTest extends ParticipantCallTest {
         }
 
         @Override
-        public Flux<Buffer> tail(String tenant, String query) {
+        public Flux<Buffer> tail(String tenant, String query, long start) {
             this.tenant = tenant;
             this.query = query;
+            this.start = start;
             return Flux.empty();
         }
 
