@@ -35,18 +35,20 @@ public class DeploymentHistoryTests extends KinoticTestBase {
 
     private static final List<WatchEventKind> NOTABLE = List.of(WatchEventKind.OBSERVED_REPORTED, WatchEventKind.CONDITION_SET);
 
-    // An organization id the test organization's id is a prefix of
-    private static final String OTHER_ORG_ID = TEST_ORG_ID + "-other";
+    // acme is a prefix of acme-corp, so each listing tells the two apart by the separator that ends the
+    // organization id in a parent pointer
+    private static final String ACME = "acme";
+    private static final String ACME_CORP = "acme-corp";
 
     // The ledger outlives every record, so this run's entries have ids of their own
     private final String suffix = UUID.randomUUID().toString();
     private final String deployed = "history-deployed-" + suffix;
     private final String failing = "history-failing-" + suffix;
     private final String failingMicroservice = "history-failing-ms-" + suffix;
-    private final String otherOrgProject = "history-other-org-" + suffix;
-    private final String otherOrgMicroservice = "history-other-org-ms-" + suffix;
+    private final String corpProject = "history-corp-" + suffix;
+    private final String corpMicroservice = "history-corp-ms-" + suffix;
     private final String unparentedRun = "history-run-" + suffix;
-    private final Set<String> ids = Set.of(deployed, failing, failingMicroservice, otherOrgProject, otherOrgMicroservice, unparentedRun);
+    private final Set<String> ids = Set.of(deployed, failing, failingMicroservice, corpProject, corpMicroservice, unparentedRun);
 
     @Autowired
     private ProjectService projectService;
@@ -60,25 +62,23 @@ public class DeploymentHistoryTests extends KinoticTestBase {
     @Test
     public void listsTheEntriesOfEveryProjectDeploymentInTheOrganizationOfTheKindsAskedFor() throws Exception {
         long now = System.currentTimeMillis();
-        enter(deployed, WatchedType.PROJECT_DEPLOYMENT, TEST_ORG_ID, null, WatchEventKind.DESIRED_UPDATED, now - 4000);
-        enter(deployed, WatchedType.PROJECT_DEPLOYMENT, TEST_ORG_ID, null, WatchEventKind.OBSERVED_REPORTED, now - 3000);
-        enter(failingMicroservice, WatchedType.MICROSERVICE_DEPLOYMENT, TEST_ORG_ID,
-              new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, TEST_ORG_ID, failing), WatchEventKind.CONDITION_SET, now - 2000);
-        enter(unparentedRun, WatchedType.JOB_RUN, TEST_ORG_ID, null, WatchEventKind.CONDITION_SET, now - 1500);
-        enter(otherOrgProject, WatchedType.PROJECT_DEPLOYMENT, OTHER_ORG_ID, null, WatchEventKind.OBSERVED_REPORTED, now - 1000);
-        enter(otherOrgMicroservice, WatchedType.MICROSERVICE_DEPLOYMENT, OTHER_ORG_ID,
-              new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, OTHER_ORG_ID, otherOrgProject), WatchEventKind.CONDITION_SET, now - 500);
+        enter(deployed, WatchedType.PROJECT_DEPLOYMENT, ACME, null, WatchEventKind.DESIRED_UPDATED, now - 4000);
+        enter(deployed, WatchedType.PROJECT_DEPLOYMENT, ACME, null, WatchEventKind.OBSERVED_REPORTED, now - 3000);
+        enter(failingMicroservice, WatchedType.MICROSERVICE_DEPLOYMENT, ACME,
+              new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, ACME, failing), WatchEventKind.CONDITION_SET, now - 2000);
+        enter(unparentedRun, WatchedType.JOB_RUN, ACME, null, WatchEventKind.CONDITION_SET, now - 1500);
+        enter(corpProject, WatchedType.PROJECT_DEPLOYMENT, ACME_CORP, null, WatchEventKind.OBSERVED_REPORTED, now - 1000);
+        enter(corpMicroservice, WatchedType.MICROSERVICE_DEPLOYMENT, ACME_CORP,
+              new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, ACME_CORP, corpProject), WatchEventKind.CONDITION_SET, now - 500);
         elasticsearch.indices().refresh(r -> r.index(WatchEventRepository.DATA_STREAM)).get(30, TimeUnit.SECONDS);
 
-        List<WatchEvent> testOrg = history(TEST_ORGANIZATION_PARTICIPANT);
         assertEquals(List.of(failingMicroservice + " " + WatchEventKind.CONDITION_SET,
                              deployed + " " + WatchEventKind.OBSERVED_REPORTED),
-                     describe(testOrg));
+                     describe(history(member(ACME))));
 
-        List<WatchEvent> otherOrg = history(member(OTHER_ORG_ID));
-        assertEquals(List.of(otherOrgMicroservice + " " + WatchEventKind.CONDITION_SET,
-                             otherOrgProject + " " + WatchEventKind.OBSERVED_REPORTED),
-                     describe(otherOrg));
+        assertEquals(List.of(corpMicroservice + " " + WatchEventKind.CONDITION_SET,
+                             corpProject + " " + WatchEventKind.OBSERVED_REPORTED),
+                     describe(history(member(ACME_CORP))));
     }
 
     private void enter(String id, WatchedType type, String scope, WatchedParent parent, WatchEventKind kind, long at) throws Exception {
