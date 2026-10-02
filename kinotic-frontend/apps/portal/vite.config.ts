@@ -4,6 +4,7 @@ import Components from 'unplugin-vue-components/vite'
 import { PrimeVueResolver } from '@primevue/auto-import-resolver'
 import path from "path"
 import ts from "typescript"
+import { bundleGuards } from "../../packages/common/vite/bundleGuards"
 
 // Lowers TC39 stage-3 decorators in src/domain entities before Vite's oxc transform,
 // which cannot lower decorator syntax. The decorators must stay in the source because
@@ -57,7 +58,8 @@ export default defineConfig(
                 resolvers: [
                     PrimeVueResolver()
                 ]
-            })
+            }),
+            bundleGuards()
         ],
         resolve: {
             alias: {

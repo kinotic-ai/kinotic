@@ -13,6 +13,12 @@ This is a pnpm workspace:
 
 Shared code moves to `packages/common` only once both apps actually consume it.
 
+Import `@kinotic-ai/frontend-common` statically, never with `import()`: its index chunk is in every
+app's startup graph, so a dynamic import loads nothing later and makes that chunk import every chunk
+holding one of its exports, which can close a cycle that leaves the page blank. Both apps' production
+builds fail on a dynamic import of it and on any import cycle between output chunks
+(`packages/common/vite/bundleGuards.ts`).
+
 ## Package Manager
 
 **IMPORTANT:** This project uses **pnpm** for package management and script execution.

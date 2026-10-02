@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
 import { type RouteMeta, type RouteRecordRaw } from 'vue-router'
 import { ChartLine, CloudUpload, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, ListTree, Server, Settings, Table, User, Users, Zap } from '@lucide/vue'
-import { ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import { ConnectedAppsPage, OAuthConsentPage, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
 import loginPageLeft from '@/assets/login-page-left.svg'
 import { USER_STATE } from '@/states/IUserState'
@@ -121,7 +121,7 @@ const pageRoutes: RouteRecordRaw[] = [
         name: 'account-connected-apps',
         path: 'connected-apps',
         meta: { sidebar: accountItem('Connected apps', Link, 20) } as RouteMeta,
-        component: () => import('@kinotic-ai/frontend-common').then(m => m.ConnectedAppsPage)
+        component: ConnectedAppsPage
       }
     ]
   },
@@ -274,7 +274,7 @@ const pageRoutes: RouteRecordRaw[] = [
   {
     path: '/oauth/consent',
     meta: { authenticationRequired: true },
-    component: () => import('@kinotic-ai/frontend-common').then(m => m.OAuthConsentPage),
+    component: OAuthConsentPage,
     props: { session: USER_STATE, art: loginPageLeft }
   },
   {

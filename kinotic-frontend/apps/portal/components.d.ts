@@ -33,13 +33,11 @@ declare module 'vue' {
     ObjectNode: typeof import('./src/components/nodes/ObjectNode.vue')['default']
     ProjectList: typeof import('./src/components/ProjectList.vue')['default']
     PropertyType: typeof import('./src/components/entity-definitions/flow-components/PropertyType.vue')['default']
-    RadioButton: typeof import('primevue/radiobutton')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SetPasswordFields: typeof import('./src/components/SetPasswordFields.vue')['default']
     SocialAuthButton: typeof import('./src/components/SocialAuthButton.vue')['default']
     Tag: typeof import('primevue/tag')['default']
-    Textarea: typeof import('primevue/textarea')['default']
     UiDeploymentsTable: typeof import('./src/components/UiDeploymentsTable.vue')['default']
     UnionNode: typeof import('./src/components/nodes/UnionNode.vue')['default']
   }
