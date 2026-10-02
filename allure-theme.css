@@ -88,3 +88,14 @@
   --color-nav-item-text-active: #28FEB4;
   --color-nav-item-icon-active: #28FEB4;
 }
+
+/* Hides the Allure mark in the section switcher and its menu; the footer's "Powered by" mark
+   (.styles_logo__jHlBl) stays. In the menu the mark keeps its space so the section names stay
+   aligned. The symbol id and classes come from the pinned ALLURE_VERSION's bundle, so an Allure
+   upgrade has to recheck them. */
+svg:has(> use[href="#4af8011a58a597dd8fd8c52187120c54"]):not(.styles_logo__jHlBl) {
+  visibility: hidden;
+}
+.styles_leadingIcon__YCONr:has(> use[href="#4af8011a58a597dd8fd8c52187120c54"]) {
+  display: none;
+}
