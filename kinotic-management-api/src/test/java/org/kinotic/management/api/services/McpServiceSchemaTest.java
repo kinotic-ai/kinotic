@@ -16,7 +16,6 @@ import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.kinotic.idl.internal.directory.DefaultResolvableTypeConverter;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.idl.api.directory.SkippedParameterTypes;
 import org.kinotic.idl.internal.directory.DefaultSchemaFactory;
 import org.kinotic.idl.internal.directory.JsonNodeToC3Type;
 import org.kinotic.idl.internal.directory.ReactiveToC3Type;
@@ -177,8 +176,7 @@ public class McpServiceSchemaTest {
                                                            new TokenBufferToC3Type(),
                                                            new JsonNodeToC3Type(),
                                                            new ReactiveToC3Type(registryProvider()));
-        return new DefaultSchemaFactory(new DefaultResolvableTypeConverter(converters),
-                                        List.of(new SkippedParameterTypes(Set.of(Participant.class))));
+        return new DefaultSchemaFactory(new DefaultResolvableTypeConverter(converters), Set.of(Participant.class));
     }
 
     // a registry carrying the Vert.x Future adapter DefaultKinotic registers at startup, so the

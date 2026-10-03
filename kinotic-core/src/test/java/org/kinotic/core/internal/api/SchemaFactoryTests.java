@@ -2,9 +2,11 @@ package org.kinotic.core.internal.api;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.internal.api.support.RpcTestService;
-import org.kinotic.idl.api.directory.ServiceDeclaration;
+import org.kinotic.idl.api.directory.GenericTypeConverter;
 import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.schema.AnyC3Type;
 import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.AsyncC3Type;
@@ -14,11 +16,13 @@ import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StringC3Type;
+import org.kinotic.idl.internal.directory.DefaultSchemaFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Verifies contract conversion against the full kinotic context, where adapters registered at runtime
@@ -30,7 +34,7 @@ import java.util.List;
 public class SchemaFactoryTests {
 
     @Autowired
-    private SchemaFactory schemaFactory;
+    private GenericTypeConverter typeConverter;
 
     @Test
     public void vertxFutureConvertsToAsyncC3Type() {
@@ -61,6 +65,7 @@ public class SchemaFactoryTests {
     }
 
     private FunctionDefinition findFunction(String name) {
+        SchemaFactory schemaFactory = new DefaultSchemaFactory(typeConverter, Set.of(Participant.class));
         NamespaceDefinition namespace = schemaFactory.createForServices(List.of(new ServiceDeclaration(RpcTestService.class, RpcTestService.class)));
 
         // every type the RPC layer supports must convert, or the service is rejected

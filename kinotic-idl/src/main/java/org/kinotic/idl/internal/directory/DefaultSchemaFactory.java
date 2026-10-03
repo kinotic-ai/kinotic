@@ -9,7 +9,6 @@ import org.kinotic.idl.api.directory.GenericTypeConverter;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.annotations.McpToolInfo;
-import org.kinotic.idl.api.directory.SkippedParameterTypes;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.C3Type;
@@ -25,7 +24,6 @@ import org.springframework.core.MethodParameter;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.ClassUtils;
-import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import java.io.IOException;
@@ -54,15 +52,19 @@ import java.util.concurrent.ConcurrentHashMap;
  * Created by navid on 2019-06-13.
  */
 @Slf4j
-@Component
 public class DefaultSchemaFactory implements SchemaFactory {
 
     private final GenericTypeConverter typeConverter;
-    private final List<SkippedParameterTypes> skippedParameterTypes;
+    private final Set<Class<?>> skippedParameterTypes;
     // extracted Javadoc resources by type; a type without a resource caches an empty map
     private final Map<Class<?>, Map<String, String>> javadocCache = new ConcurrentHashMap<>();
 
-    public DefaultSchemaFactory(GenericTypeConverter typeConverter, List<SkippedParameterTypes> skippedParameterTypes) {
+    /**
+     * @param typeConverter         converts the types a signature names
+     * @param skippedParameterTypes parameter types the platform supplies to a function rather than the request,
+     *                              matched by assignability, which no function's contract advertises
+     */
+    public DefaultSchemaFactory(GenericTypeConverter typeConverter, Set<Class<?>> skippedParameterTypes) {
         this.typeConverter = typeConverter;
         this.skippedParameterTypes = skippedParameterTypes;
     }
@@ -182,8 +184,8 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
     private boolean isSkipped(Class<?> parameterType) {
         boolean ret = false;
-        for (SkippedParameterTypes skipped : skippedParameterTypes) {
-            if (skipped.skips(parameterType)) {
+        for (Class<?> skipped : skippedParameterTypes) {
+            if (skipped.isAssignableFrom(parameterType)) {
                 ret = true;
                 break;
             }

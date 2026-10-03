@@ -30,7 +30,7 @@ public interface SchemaFactory {
      * per method name, an interface that overloads one is rejected — and each function's parameter names, so
      * the published names are the ones named-argument binding resolves at invocation. Generic bindings and
      * annotations resolve against the implementation's most specific method.
-     * A parameter of a type the {@link SkippedParameterTypes} beans name is left out of its function, as the
+     * A parameter of a type the factory is told the platform supplies is left out of its function, as the
      * request leaves it out. A service declaring {@code @AuthzResource} carries its resource decorator, and each
      * of its functions the check derived from its name, parameters and {@code @AuthzCheck}.
      * All services are converted in one session, so complex types shared between services are converted once and

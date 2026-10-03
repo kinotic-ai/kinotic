@@ -18,14 +18,17 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.idl.api.annotations.AuthzResource;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
+import org.kinotic.idl.api.directory.GenericTypeConverter;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.internal.directory.DefaultSchemaFactory;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.AsyncC3Type;
 import org.kinotic.idl.api.schema.C3Type;
@@ -100,12 +103,14 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
 
     public DefaultServiceDirectory(ServiceDirectoryStrategy strategy,
                                    EventBusService eventBusService,
-                                   SchemaFactory schemaFactory,
+                                   GenericTypeConverter typeConverter,
                                    IdlConverterFactory idlConverterFactory,
                                    Ignite ignite) {
         this.strategy = strategy;
         this.eventBusService = eventBusService;
-        this.schemaFactory = schemaFactory;
+        // a Participant is bound from the security context, never from the request, the rule
+        // AbstractJacksonSupport and NamedJsonArgumentResolver bind by, so no contract advertises one
+        this.schemaFactory = new DefaultSchemaFactory(typeConverter, Set.of(Participant.class));
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
         this.ignite = ignite;
     }
