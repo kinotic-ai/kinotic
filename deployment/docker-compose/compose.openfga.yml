@@ -1,0 +1,54 @@
+# OpenFGA, the authorization engine every server checks against, with the Postgres it stores relationships
+# in. The migrate job prepares the schema before the engine starts. The caches match what the servers are
+# tuned for: a check answers from cached subproblems, invalidated by the cache controller on every write.
+services:
+  openfga-db:
+    container_name: openfga-db
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: openfga
+      POSTGRES_USER: openfga
+      POSTGRES_PASSWORD: openfga
+    volumes:
+      - openfga-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openfga -d openfga"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  openfga-migrate:
+    image: openfga/openfga:v1.21.0
+    command: migrate
+    environment:
+      OPENFGA_DATASTORE_ENGINE: postgres
+      OPENFGA_DATASTORE_URI: postgres://openfga:openfga@openfga-db:5432/openfga?sslmode=disable
+    depends_on:
+      openfga-db:
+        condition: service_healthy
+
+  openfga:
+    container_name: openfga
+    image: openfga/openfga:v1.21.0
+    command: run
+    environment:
+      OPENFGA_DATASTORE_ENGINE: postgres
+      OPENFGA_DATASTORE_URI: postgres://openfga:openfga@openfga-db:5432/openfga?sslmode=disable
+      OPENFGA_PLAYGROUND_ENABLED: "false"
+      OPENFGA_CHECK_QUERY_CACHE_ENABLED: "true"
+      OPENFGA_CHECK_ITERATOR_CACHE_ENABLED: "true"
+      OPENFGA_SHARED_ITERATOR_ENABLED: "true"
+      OPENFGA_CACHE_CONTROLLER_ENABLED: "true"
+    ports:
+      - "127.0.0.1:8080:8080"  # HTTP API
+    depends_on:
+      openfga-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=openfga:8081"]
+      interval: 5s
+      timeout: 30s
+      retries: 3
+
+volumes:
+  openfga-db-data:

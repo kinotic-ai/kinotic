@@ -157,8 +157,11 @@ public class AuthzModelGeneratorTest {
                      children(type(model, "project"), "project_can_view", "union"));
         assertEquals(List.of("ttu:role_binding->project_can_delete", "ttu:application->project_can_delete"),
                      children(type(model, "project"), "project_can_delete", "union"));
-        assertEquals(List.of("ttu:role_binding->vm_node_can_register_node"),
-                     children(type(model, "platform"), "vm_node_can_register_node", "union"));
+        // a single source is the relation itself, as the engine refuses a union of one
+        JsonNode registerNode = type(model, "platform").get("relations").get("vm_node_can_register_node");
+        assertFalse(registerNode.has("union"));
+        assertEquals("role_binding", registerNode.get("tupleToUserset").get("tupleset").get("relation").asString());
+        assertEquals("vm_node_can_register_node", registerNode.get("tupleToUserset").get("computedUserset").get("relation").asString());
     }
 
     @Test
