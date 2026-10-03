@@ -12,8 +12,8 @@ public interface AuthzStoreService {
      * Makes the given model the platform store's current one, as {@link #ensureModel} does for a store named
      * by id. The platform store is the one store named {@code kinotic-platform}, created ahead of the servers
      * and never by one; it is looked up on first use and kept once found, and a lookup that fails, because the
-     * engine is unreachable or the name resolves to no store or several, fails the caller and is made again by
-     * the next one.
+     * engine is unreachable or there is no store of the name, fails the caller and is made again by the next
+     * one.
      *
      * @param model the model the platform store must run
      * @return the id of the version the platform store now runs
