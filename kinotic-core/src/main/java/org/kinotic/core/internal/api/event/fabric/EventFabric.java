@@ -1,6 +1,7 @@
 package org.kinotic.core.internal.api.event.fabric;
 
 import io.vertx.core.Future;
+import io.vertx.core.Handler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.annotations.Consumer;
@@ -9,6 +10,7 @@ import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.event.EventFabricService;
 import org.kinotic.core.api.event.Metadata;
 import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
@@ -30,15 +32,16 @@ import java.util.concurrent.ConcurrentHashMap;
  * Wires {@link Emitter} and {@link Consumer} methods to the clustered event bus: an emitter's flux is
  * subscribed once and each element published to the topic address derived from the element type, and
  * one bus consumer per event type per node dispatches incoming events to every {@link Consumer}
- * method of that type. {@link org.kinotic.core.internal.EventFabricBeanPostProcessor} drives wiring
- * from the bean lifecycle.
+ * method of that type and every handler registered through {@link EventFabricService}.
+ * {@link org.kinotic.core.internal.EventFabricBeanPostProcessor} drives the wiring of beans from the
+ * bean lifecycle.
  *
  * Created by Navid Mitchell on 2026-08-23.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class EventFabric {
+public class EventFabric implements EventFabricService {
 
     private final EventBusService eventBusService;
     private final JsonMapper jsonMapper;
@@ -111,6 +114,18 @@ public class EventFabric {
         return downlink.busConsumer.completion();
     }
 
+    @Override
+    public <T> Future<Disposable> registerConsumer(Class<T> eventType, Handler<T> consumer) {
+        if(eventType.isInterface() || Modifier.isAbstract(eventType.getModifiers())){
+            throw new IllegalArgumentException("Event type must be a concrete class but " + eventType.getName() + " is not");
+        }
+        HandlerTarget<T> target = new HandlerTarget<>(eventType, consumer);
+        Downlink downlink = downlinks.computeIfAbsent(eventType, this::createDownlink);
+        downlink.targets.add(target);
+        log.info("Registered consumer of {}", eventType.getName());
+        return downlink.busConsumer.completion().map(v -> () -> removeTarget(eventType, target));
+    }
+
     /**
      * @param bean to check
      * @return true when the bean has emitter or consumer wiring that {@link #unwire(Object)} must tear down
@@ -131,16 +146,21 @@ public class EventFabric {
         }
         wiring.uplinks.forEach(Disposable::dispose);
         for(ConsumerRegistration registration : wiring.consumerTargets){
-            downlinks.computeIfPresent(registration.eventType(), (type, downlink) -> {
-                downlink.targets.remove(registration.target());
-                Downlink ret = downlink;
-                if(downlink.targets.isEmpty()){
-                    downlink.busConsumer.unregister();
-                    ret = null;
-                }
-                return ret;
-            });
+            removeTarget(registration.eventType(), registration.target());
         }
+    }
+
+    // A type's shared bus consumer unregisters with its last target
+    private void removeTarget(Class<?> eventType, ConsumerTarget target) {
+        downlinks.computeIfPresent(eventType, (type, downlink) -> {
+            downlink.targets.remove(target);
+            Downlink ret = downlink;
+            if(downlink.targets.isEmpty()){
+                downlink.busConsumer.unregister();
+                ret = null;
+            }
+            return ret;
+        });
     }
 
     private Downlink createDownlink(Class<?> eventType) {
@@ -161,11 +181,11 @@ public class EventFabric {
             return;
         }
         // One consumer failing must not affect delivery to the others
-        for(MethodTarget target : downlink.targets){
+        for(ConsumerTarget target : downlink.targets){
             try {
-                ReflectionUtils.invokeMethod(target.method(), target.bean(), element);
+                target.accept(element);
             } catch (Throwable t) {
-                log.error("@Consumer method threw for {} event: {}", eventType.getName(), target.method(), t);
+                log.error("Consumer threw for {} event: {}", eventType.getName(), target, t);
             }
         }
     }

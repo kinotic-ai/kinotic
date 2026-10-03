@@ -6,5 +6,5 @@ package org.kinotic.core.internal.api.event.fabric;
  *
  * Created by Navid Mitchell on 2026-08-23.
  */
-record ConsumerRegistration(Class<?> eventType, MethodTarget target) {
+record ConsumerRegistration(Class<?> eventType, ConsumerTarget target) {
 }
