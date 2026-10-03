@@ -109,10 +109,9 @@ properties:
   enableJmx: true
   enableNmt: true
   javaToolOptions: "-Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m"
-  # JPMS opens/exports required by Apache Ignite (java.base reflection) and
-  # Calcite/Janino runtime code generation (jdk.compiler internals).
+  # JPMS opens required by Apache Ignite (java.base reflection).
   # Concatenated onto JAVA_TOOL_OPTIONS in each server's ConfigMap.
-  javaModuleAccess: "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+  javaModuleAccess: "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED"
   bplJvmHeadRoom: 10
 
 # Where each server's OpenTelemetry agent exports its traces and metrics: the OTLP/HTTP endpoints
