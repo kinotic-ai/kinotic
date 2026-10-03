@@ -110,7 +110,6 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
                                                  ParameterHolder parameterHolder,
                                                  Class<T> type,
                                                  EntityContext context) {
-        // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
         return KinoticUtil.toFuture(cache.get(new CacheKey(queryName, entityDescriptor)))
                                   .compose(queryExecutor -> queryExecutor.execute(new QueryContext(context, parameterHolder), type));
     }
@@ -122,7 +121,6 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
                                                      Pageable pageable,
                                                      Class<T> type,
                                                      EntityContext context) {
-        // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
         return KinoticUtil.toFuture(cache.get(new CacheKey(queryName, entityDescriptor)))
                                   .compose(queryExecutor -> queryExecutor.executePage(new QueryContext(context, parameterHolder), pageable, type));
     }

@@ -9,15 +9,11 @@ import org.kinotic.domain.api.model.persistence.idl.decorators.QueryDecorator;
 import org.kinotic.domain.api.services.EntityStatementResolver;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.persistence.api.model.NamedQueryOperation;
-import org.kinotic.persistence.api.services.security.AuthorizationService;
-import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
 import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.persistence.internal.api.services.sql.elasticsearch.ElasticVertxClient;
 import org.kinotic.persistence.internal.api.services.sql.executors.AggregateQueryExecutor;
 import org.kinotic.persistence.internal.api.services.sql.executors.ParameterProcessorExecutor;
-import org.kinotic.persistence.internal.api.services.sql.executors.PreAuthorizationExecutor;
 import org.kinotic.persistence.internal.api.services.sql.executors.QueryExecutor;
 import org.kinotic.persistence.internal.api.services.sql.executors.SelectQueryExecutor;
 import org.kinotic.persistence.internal.api.services.sql.executors.StatementQueryExecutor;
@@ -44,7 +40,6 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
 
     private final ElasticVertxClient elasticVertxClient;
     private final DomainPersistenceProperties domainPersistenceProperties;
-    private final AuthorizationServiceFactory authorizationServiceFactory;
     private final MigrationParser migrationParser;
     private final EntityStatementResolver entityStatementResolver;
     private final List<StatementExecutor<?, ?>> statementExecutors;
@@ -75,14 +70,7 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
         }
 
         QueryExecutor queryExecutor = createQueryExecutorForStatement(entityDescriptor, queryName, queryDecorator.getStatements());
-        AuthorizationService<NamedQueryOperation> authorizationService =
-                authorizationServiceFactory.createNamedQueryAuthorizationService(namedQuery)
-                                           .toCompletionStage().toCompletableFuture().join();
-        return new ParameterProcessorExecutor(entityDescriptor,
-                                              namedQuery,
-                                              new PreAuthorizationExecutor(entityDescriptor,
-                                                                           authorizationService,
-                                                                           queryExecutor));
+        return new ParameterProcessorExecutor(entityDescriptor, namedQuery, queryExecutor);
     }
 
     private QueryExecutor createQueryExecutorForStatement(EntityDescriptor entityDescriptor,

@@ -24,14 +24,10 @@ import {
 } from '@kinotic-ai/management-api'
 import {
     EsIndexConfigurationData,
-    EntityServiceDecoratorsConfig,
-    EntityServiceDecoratorsDecorator,
     EntityType,
-    MultiTenancyType,
-    PolicyDecorator,
-    RoleDecorator
+    MultiTenancyType
 } from '@kinotic-ai/persistence'
-import {Decorator, SyntaxKind, ObjectLiteralExpression, CallExpression} from 'ts-morph'
+import {Decorator, SyntaxKind, ObjectLiteralExpression} from 'ts-morph'
 
 export function tsDecoratorToC3Decorator(decorator: Decorator): C3Decorator | null {
     let ret: C3Decorator | null = null
@@ -75,17 +71,6 @@ export function tsDecoratorToC3Decorator(decorator: Decorator): C3Decorator | nu
             }
         }
         ret = entityDecorator
-    } else if (decorator.getName() === 'EntityServiceDecorators') {
-        const argument = decorator.getArguments()[0]
-        if (argument?.getKind() === SyntaxKind.ObjectLiteralExpression) {
-            const obj = convertToObjectLiteral(argument as ObjectLiteralExpression)
-            ret = {
-                type  : 'EntityServiceDecorators',
-                config: obj as EntityServiceDecoratorsConfig,
-            } as EntityServiceDecoratorsDecorator
-        } else {
-            throw new Error('EntityServiceDecorators must have an object literal argument')
-        }
     } else if (decorator.getName() === 'EsIndexConfiguration') {
         const argument = decorator.getArguments()[0]
         if (argument?.getKind() === SyntaxKind.ObjectLiteralExpression) {
@@ -107,17 +92,6 @@ export function tsDecoratorToC3Decorator(decorator: Decorator): C3Decorator | nu
         ret = new NotIndexedDecorator()
     } else if (decorator.getName() === 'NotNull') {
         ret = new NotNullDecorator()
-    } else if (decorator.getName() === 'Policy') {
-        const argument = decorator.getArguments()[0]
-        if (argument?.getKind() === SyntaxKind.ArrayLiteralExpression) {
-            const obj = parseExpressionToJs(argument)
-            ret = {
-                type: 'PolicyDecorator',
-                policies: obj as string[][],
-            } as PolicyDecorator
-        } else {
-            throw new Error('Policy must have an array literal argument')
-        }
     } else if (decorator.getName() === 'Query') {
         if (decorator.getArguments().length == 1) {
             const argument = decorator.getArguments()[0]
@@ -126,17 +100,6 @@ export function tsDecoratorToC3Decorator(decorator: Decorator): C3Decorator | nu
             } else {
                 throw new Error('statement must be set on Query Decorator')
             }
-        }
-    } else if (decorator.getName() === 'Role') {
-        const argument = decorator.getArguments()[0]
-        if (argument?.getKind() === SyntaxKind.ArrayLiteralExpression) {
-            const obj = parseExpressionToJs(argument)
-            ret = {
-                type: 'RoleDecorator',
-                roles: obj as string[],
-            } as RoleDecorator
-        } else {
-            throw new Error('Role must have an array literal argument')
         }
     } else if (decorator.getName() === 'TenantId') {
         ret = new TenantIdDecorator()
@@ -199,48 +162,8 @@ function parseExpressionToJs(expression: any): any {
             return true
         case SyntaxKind.FalseKeyword:
             return false
-        case SyntaxKind.CallExpression:
-            const callExpr = expression.asKindOrThrow(SyntaxKind.CallExpression)
-            if(callExpr.getText().startsWith('$')){ // Check if it is a supported internal function
-                return convertCallExpressionToJs(callExpr)
-            }else{
-                throw new Error(`Unsupported call expression: ${callExpr.getText()}`)
-            }
         default:
             throw new Error(`Unsupported expression kind: ${expression.getKindName()} text: ${expression.getText()}`)
-    }
-}
-
-function convertCallExpressionToJs(expression: CallExpression): any {
-    const text = expression.getText()
-    if(text.startsWith('$Policy')){
-        if(expression.getArguments().length === 1){
-            const argument = expression.getArguments()[0]
-            const obj = parseExpressionToJs(argument)
-            // Validate the parsed object structure
-            if (!Array.isArray(obj) || !obj.every(arr => Array.isArray(arr) && arr.every(item => typeof item === 'string'))) {
-                throw new Error('Policy must contain an array of string arrays (string[][])')
-            }
-            return {
-                type: 'PolicyDecorator',
-                policies: obj as string[][], // Fixed type assertion
-            } as PolicyDecorator
-        }else {
-            throw new Error('Policy must have an array literal argument')
-        }
-    }else if (text.startsWith('$Role')){
-        if(expression.getArguments().length == 1){
-            const argument = expression.getArguments()[0]
-            const obj = parseExpressionToJs(argument)
-            return {
-                type: 'RoleDecorator',
-                roles: obj as string[],
-            } as RoleDecorator
-        }else {
-            throw new Error('Role must have an array literal argument')
-        }
-    }else{
-        throw new Error(`Unsupported call expression: ${text}`)
     }
 }
 
