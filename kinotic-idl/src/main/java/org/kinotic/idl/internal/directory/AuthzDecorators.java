@@ -1,39 +1,34 @@
-package org.kinotic.core.internal.api.directory;
+package org.kinotic.idl.internal.directory;
 
-import org.kinotic.core.api.crud.Identifiable;
-import org.kinotic.core.api.security.Participant;
 import org.kinotic.idl.api.annotations.AuthzCheck;
 import org.kinotic.idl.api.annotations.AuthzResource;
-import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.directory.ConversionContext;
+import org.kinotic.idl.api.schema.C3Type;
+import org.kinotic.idl.api.schema.ComplexC3Type;
+import org.kinotic.idl.api.schema.ObjectC3Type;
+import org.kinotic.idl.api.schema.ParameterDefinition;
+import org.kinotic.idl.api.schema.PropertyDefinition;
+import org.kinotic.idl.api.schema.ReferenceC3Type;
+import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
-import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.idl.api.utils.AuthzUtil;
-import org.kinotic.idl.api.utils.IdlUtil;
-import org.springframework.beans.BeanUtils;
-import org.springframework.core.BridgeMethodResolver;
-import org.springframework.core.MethodParameter;
 import org.springframework.core.annotation.AnnotationUtils;
-import org.springframework.util.ClassUtils;
 
-import java.beans.PropertyDescriptor;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Derives the authorization declarations of a published service, its {@link AuthzResourceC3Decorator} and one
- * {@link AuthzCheckC3Decorator} per function, from its {@link AuthzResource} and {@link AuthzCheck} annotations
- * and the shape of its functions. Service registration validates with it, so a resource service whose
- * declarations do not resolve never starts, and the service directory publishes what it derives.
+ * Derives the authorization declarations of a service while its contract is created: the
+ * {@link AuthzResourceC3Decorator} of the service and one {@link AuthzCheckC3Decorator} per function, from the
+ * {@link AuthzResource} and {@link AuthzCheck} annotations and the function's converted parameters. A function
+ * that derives no check and declares none fails the conversion, so a resource service never serves an
+ * unchecked function.
  */
-public final class AuthzDecorators {
+final class AuthzDecorators {
 
     private static final Pattern LEADING_WORD = Pattern.compile("^[a-z]+");
     private static final Set<String> VIEW_VERBS = Set.of("find", "get", "count", "search", "list");
@@ -51,7 +46,7 @@ public final class AuthzDecorators {
      *
      * @throws IllegalStateException when the declared type or parent is not an identifier
      */
-    public static AuthzResourceC3Decorator resourceOf(Class<?> serviceInterface) {
+    static AuthzResourceC3Decorator resourceOf(Class<?> serviceInterface) {
         AuthzResource resource = AnnotationUtils.findAnnotation(serviceInterface, AuthzResource.class);
         AuthzResourceC3Decorator ret = null;
         if (resource != null) {
@@ -73,63 +68,27 @@ public final class AuthzDecorators {
     }
 
     /**
-     * The check of every function of a resource service, keyed by function name. A service that declares no
-     * {@link AuthzResource} has none.
+     * The check of one function of a resource service.
      *
-     * @param serviceInterface the {@code @Publish} interface
-     * @param implementation   the implementing class, whose overrides may carry the {@link AuthzCheck}
-     * @throws IllegalStateException when a function derives no check and declares none, or a declaration
+     * @param serviceInterface  the {@code @Publish} interface, named in errors
+     * @param resource          the service's resource decorator
+     * @param functionName      the function's name, whose leading verb derives the permission
+     * @param specificMethod    the implementation's most specific method, which carries the {@link AuthzCheck}
+     * @param parameters        the function's converted parameters, the ones a request carries
+     * @param conversionContext the context the parameters were converted in, which resolves their references
+     * @throws IllegalStateException when the function derives no check and declares none, or a declaration
      *                               references a parameter the function does not have
      */
-    public static Map<String, AuthzCheckC3Decorator> checksOf(Class<?> serviceInterface, Class<?> implementation) {
-        Map<String, AuthzCheckC3Decorator> ret = new LinkedHashMap<>();
-        AuthzResourceC3Decorator resource = resourceOf(serviceInterface);
-        if (resource != null) {
-            for (Map.Entry<String, Method> function : IdlUtil.serviceFunctions(serviceInterface).entrySet()) {
-                // the override decides annotations, as DefaultSchemaFactory reads @McpTool, so a check declared on
-                // an inherited CRUD function's override is honored
-                Method specificMethod = BridgeMethodResolver.findBridgedMethod(
-                        ClassUtils.getMostSpecificMethod(function.getValue(), implementation));
-                ret.put(function.getKey(), checkOf(serviceInterface, resource, function.getValue(), specificMethod));
-            }
-        }
-        return ret;
-    }
-
-    /**
-     * Attaches the derived decorators to the converted definition of a resource service, so the directory
-     * carries them; a service that declares no resource is left as it is.
-     */
-    public static void apply(Class<?> serviceInterface, Class<?> implementation, ServiceDefinition definition) {
-        AuthzResourceC3Decorator resource = resourceOf(serviceInterface);
-        if (resource != null) {
-            definition.setDecorators(withDecorator(definition.getDecorators(), resource));
-            Map<String, AuthzCheckC3Decorator> checks = checksOf(serviceInterface, implementation);
-            for (FunctionDefinition function : definition.getFunctions()) {
-                AuthzCheckC3Decorator check = checks.get(function.getName());
-                if (check != null) {
-                    function.setDecorators(withDecorator(function.getDecorators(), check));
-                }
-            }
-        }
-    }
-
-    private static List<C3Decorator> withDecorator(List<C3Decorator> decorators, C3Decorator decorator) {
-        List<C3Decorator> ret = decorators == null ? new ArrayList<>() : new ArrayList<>(decorators);
-        ret.add(decorator);
-        return ret;
-    }
-
-    private static AuthzCheckC3Decorator checkOf(Class<?> serviceInterface,
-                                                 AuthzResourceC3Decorator resource,
-                                                 Method interfaceMethod,
-                                                 Method specificMethod) {
+    static AuthzCheckC3Decorator checkOf(Class<?> serviceInterface,
+                                         AuthzResourceC3Decorator resource,
+                                         String functionName,
+                                         Method specificMethod,
+                                         List<ParameterDefinition> parameters,
+                                         ConversionContext conversionContext) {
         String type = resource.getResourceType();
         String parent = resource.getParent();
-        String functionName = interfaceMethod.getName();
         String where = functionName + " on " + serviceInterface.getName();
         AuthzCheck declared = AnnotationUtils.findAnnotation(specificMethod, AuthzCheck.class);
-        List<FunctionParameter> parameters = parametersOf(interfaceMethod, specificMethod);
 
         String permission = declared != null && !declared.permission().isEmpty()
                 ? declared.permission() : derivedPermission(functionName);
@@ -149,23 +108,24 @@ public final class AuthzDecorators {
         boolean explicitObjectId = declared != null && !declared.objectId().isEmpty();
         if (explicitResource || explicitObjectId) {
             checkedResource = explicitResource ? declared.resource() : type;
-            objectId = explicitObjectId ? declared.objectId() : objectIdOf(checkedResource, type, parent, parameters);
+            objectId = explicitObjectId ? declared.objectId()
+                    : objectIdOf(checkedResource, type, parent, parameters, conversionContext);
             // a check made on the parent is about this type within it, as a derived create or listing is;
             // any other explicit resource is a permission of that resource itself
             permissionResource = checkedResource.equals(parent) ? type : checkedResource;
         } else if (CREATE_VERB.equals(leadingWord(functionName))) {
             checkedResource = requireParent(parent, where, "a create");
-            objectId = parentId(parent, parameters);
+            objectId = parentId(parent, parameters, conversionContext);
             permissionResource = type;
         } else {
-            String resourceId = resourceId(type, parameters);
+            String resourceId = resourceId(type, parameters, conversionContext);
             if (resourceId != null) {
                 checkedResource = type;
                 objectId = resourceId;
             } else {
                 // no resource of this type is named, so the check is on the collection within the parent
                 checkedResource = requireParent(parent, where, "a function naming no resource id");
-                objectId = parentId(parent, parameters);
+                objectId = parentId(parent, parameters, conversionContext);
             }
             permissionResource = type;
         }
@@ -174,7 +134,6 @@ public final class AuthzDecorators {
                                                     + " declare one with @AuthzCheck(objectId = ...)");
         }
 
-        Map<String, Integer> bodyIndexes = new LinkedHashMap<>();
         for (String template : List.of(checkedResource, objectId)) {
             for (String reference : AuthzUtil.templateReferences(template)) {
                 String parameterName = AuthzUtil.referencedParameter(reference);
@@ -183,14 +142,10 @@ public final class AuthzDecorators {
                         throw new IllegalStateException("The template '" + template + "' of " + where
                                                                 + " references the unknown scope value '" + reference + "'");
                     }
-                } else {
-                    FunctionParameter parameter = bodyParameter(parameters, parameterName);
-                    if (parameter == null) {
-                        throw new IllegalStateException("The template '" + template + "' of " + where
-                                                                + " references '" + parameterName
-                                                                + "', which is not a parameter the request carries");
-                    }
-                    bodyIndexes.put(parameterName, parameter.bodyIndex());
+                } else if (parameter(parameters, parameterName) == null) {
+                    throw new IllegalStateException("The template '" + template + "' of " + where
+                                                            + " references '" + parameterName
+                                                            + "', which is not a parameter the request carries");
                 }
             }
         }
@@ -208,22 +163,25 @@ public final class AuthzDecorators {
                 .setObjectId(objectId)
                 .setPermissionResource(permissionResource)
                 .setPermission(permission)
-                .setImplies(implies)
-                .setParameterBodyIndexes(bodyIndexes);
+                .setImplies(implies);
     }
 
     /**
      * The derived id of an object of {@code resource}: the platform's fixed id, the parent's id when the resource
      * is the parent, else a resource of the service's own type among the parameters.
      */
-    private static String objectIdOf(String resource, String type, String parent, List<FunctionParameter> parameters) {
+    private static String objectIdOf(String resource,
+                                     String type,
+                                     String parent,
+                                     List<ParameterDefinition> parameters,
+                                     ConversionContext conversionContext) {
         String ret;
         if (AuthzUtil.PLATFORM_TYPE.equals(resource)) {
             ret = AuthzUtil.PLATFORM_OBJECT_ID;
         } else if (resource.equals(parent)) {
-            ret = parentId(parent, parameters);
+            ret = parentId(parent, parameters, conversionContext);
         } else {
-            ret = resourceId(type, parameters);
+            ret = resourceId(type, parameters, conversionContext);
         }
         return ret;
     }
@@ -257,50 +215,42 @@ public final class AuthzDecorators {
     }
 
     /**
-     * The template naming a resource of the service's own type among the parameters: the {@code id} or
-     * {@code <type>Id} parameter, else the id of the first {@link Identifiable} parameter; null when none does.
+     * The template naming a resource of the service's own type among the parameters: the string parameter named
+     * {@code id} or {@code <type>Id}, else the {@code id} property of the first object parameter that has one;
+     * null when none does.
      */
-    private static String resourceId(String type, List<FunctionParameter> parameters) {
+    private static String resourceId(String type, List<ParameterDefinition> parameters, ConversionContext conversionContext) {
         String ret = null;
         String idName = camelCase(type) + "Id";
-        for (FunctionParameter parameter : parameters) {
-            if (parameter.bodyIndex() >= 0 && parameter.type() == String.class
-                    && (parameter.name().equals("id") || parameter.name().equals(idName))) {
-                ret = "{" + parameter.name() + "}";
+        for (ParameterDefinition parameter : parameters) {
+            if (parameter.getType() instanceof StringC3Type
+                    && (parameter.getName().equals("id") || parameter.getName().equals(idName))) {
+                ret = "{" + parameter.getName() + "}";
                 break;
             }
         }
         if (ret == null) {
-            for (FunctionParameter parameter : parameters) {
-                if (parameter.bodyIndex() >= 0 && Identifiable.class.isAssignableFrom(parameter.type())) {
-                    ret = "{" + parameter.name() + ".id}";
-                    break;
-                }
-            }
+            ret = propertyReference(parameters, "id", conversionContext);
         }
         return ret;
     }
 
     /**
-     * The template naming the parent resource: the {@code <parent>Id} parameter, else that property of the
-     * first object parameter that has it, else the caller's own scope for a parent the scope carries.
+     * The template naming the parent resource: the string parameter named {@code <parent>Id}, else that property
+     * of the first object parameter that has it, else the caller's own scope for a parent the scope carries, else
+     * the platform's fixed id for a parent that is the platform.
      */
-    private static String parentId(String parent, List<FunctionParameter> parameters) {
+    private static String parentId(String parent, List<ParameterDefinition> parameters, ConversionContext conversionContext) {
         String idName = camelCase(parent) + "Id";
         String ret = null;
-        for (FunctionParameter parameter : parameters) {
-            if (parameter.bodyIndex() >= 0 && parameter.type() == String.class && parameter.name().equals(idName)) {
-                ret = "{" + parameter.name() + "}";
+        for (ParameterDefinition parameter : parameters) {
+            if (parameter.getType() instanceof StringC3Type && parameter.getName().equals(idName)) {
+                ret = "{" + parameter.getName() + "}";
                 break;
             }
         }
         if (ret == null) {
-            for (FunctionParameter parameter : parameters) {
-                if (parameter.bodyIndex() >= 0 && hasReadableProperty(parameter.type(), idName)) {
-                    ret = "{" + parameter.name() + "." + idName + "}";
-                    break;
-                }
-            }
+            ret = propertyReference(parameters, idName, conversionContext);
         }
         if (ret == null && SCOPED_PARENTS.contains(parent)) {
             ret = "{" + AuthzUtil.SCOPE_REFERENCE_PREFIX + idName + "}";
@@ -311,20 +261,17 @@ public final class AuthzDecorators {
         return ret;
     }
 
-    private static boolean hasReadableProperty(Class<?> type, String property) {
-        boolean ret = false;
-        if (!BeanUtils.isSimpleValueType(type)) {
-            PropertyDescriptor descriptor = BeanUtils.getPropertyDescriptor(type, property);
-            ret = descriptor != null && descriptor.getReadMethod() != null;
-        }
-        return ret;
-    }
-
-    private static FunctionParameter bodyParameter(List<FunctionParameter> parameters, String name) {
-        FunctionParameter ret = null;
-        for (FunctionParameter parameter : parameters) {
-            if (parameter.bodyIndex() >= 0 && parameter.name().equals(name)) {
-                ret = parameter;
+    /**
+     * The template reaching the named property of the first object parameter that has it, or null.
+     */
+    private static String propertyReference(List<ParameterDefinition> parameters,
+                                            String property,
+                                            ConversionContext conversionContext) {
+        String ret = null;
+        for (ParameterDefinition parameter : parameters) {
+            ObjectC3Type object = objectOf(parameter.getType(), conversionContext);
+            if (object != null && hasProperty(object, property)) {
+                ret = "{" + parameter.getName() + "." + property + "}";
                 break;
             }
         }
@@ -332,18 +279,45 @@ public final class AuthzDecorators {
     }
 
     /**
-     * The function's parameters with their request body positions: a {@link Participant} parameter is supplied
-     * by the platform rather than the request, so it has none, exactly as the argument resolvers bind them.
+     * The object type a parameter converted to, resolving the reference the conversion context minted for it;
+     * null for a parameter of any other kind.
      */
-    private static List<FunctionParameter> parametersOf(Method interfaceMethod, Method specificMethod) {
-        List<FunctionParameter> ret = new ArrayList<>();
-        int bodyIndex = 0;
-        for (int i = 0; i < interfaceMethod.getParameterCount(); i++) {
-            // names come from the interface method, as the schema and named-argument binding read them
-            String name = IdlUtil.parameterName(new MethodParameter(interfaceMethod, i));
-            Class<?> type = specificMethod.getParameterTypes()[i];
-            boolean fromRequest = !Participant.class.isAssignableFrom(type);
-            ret.add(new FunctionParameter(name, type, fromRequest ? bodyIndex++ : -1));
+    private static ObjectC3Type objectOf(C3Type type, ConversionContext conversionContext) {
+        ObjectC3Type ret = null;
+        if (type instanceof ObjectC3Type object) {
+            ret = object;
+        } else if (type instanceof ReferenceC3Type reference) {
+            for (ComplexC3Type complexType : conversionContext.getComplexC3Types()) {
+                if (complexType instanceof ObjectC3Type object
+                        && object.getQualifiedName().equals(reference.getQualifiedName())) {
+                    ret = object;
+                    break;
+                }
+            }
+        }
+        return ret;
+    }
+
+    private static boolean hasProperty(ObjectC3Type object, String name) {
+        boolean ret = false;
+        for (ObjectC3Type current = object; current != null && !ret; current = current.getParent()) {
+            for (PropertyDefinition property : current.getProperties()) {
+                if (property.getName().equals(name)) {
+                    ret = true;
+                    break;
+                }
+            }
+        }
+        return ret;
+    }
+
+    private static ParameterDefinition parameter(List<ParameterDefinition> parameters, String name) {
+        ParameterDefinition ret = null;
+        for (ParameterDefinition parameter : parameters) {
+            if (parameter.getName().equals(name)) {
+                ret = parameter;
+                break;
+            }
         }
         return ret;
     }

@@ -20,6 +20,7 @@ import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
+import org.kinotic.idl.api.annotations.AuthzResource;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
@@ -46,6 +47,7 @@ import java.lang.reflect.Method;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -54,10 +56,11 @@ import java.util.Set;
 
 /**
  * The {@link ServiceDirectory}: publishes the contracts of services that opt in with
- * {@code @Publish(advertise = true)} or expose an {@code @McpTool} function, keeps liveness verified against
- * cluster registrations, serves the directory queries, and deploys the {@link ServiceLivenessUpdater} as one HA
- * cluster singleton on startup. Storage is supplied by a {@link ServiceDirectoryStrategy}; the directory bean
- * exists only when a strategy bean does, so a deployment without one has no directory at all.
+ * {@code @Publish(advertise = true)}, expose an {@code @McpTool} function or declare an {@code @AuthzResource},
+ * keeps liveness verified against cluster registrations, serves the directory queries, and deploys the
+ * {@link ServiceLivenessUpdater} as one HA cluster singleton on startup. Storage is supplied by a
+ * {@link ServiceDirectoryStrategy}; the directory bean exists only when a strategy bean does, so a deployment
+ * without one has no directory at all.
  */
 @Slf4j
 @Component
@@ -75,9 +78,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     private final McpJsonSchemaGenerator schemaGenerator;
     private final Ignite ignite;
 
-    // Registrations arriving during startup are held here and published in ONE conversion session on
-    // ApplicationReadyEvent, so model types shared between services are converted once per node
-    private final Map<ServiceIdentifier, ServiceDeclaration> pendingRegistrations = new HashMap<>();
+    // Entries built during startup are held here and upserted together on ApplicationReadyEvent, so one
+    // liveness reconcile from a single cluster snapshot covers them all
+    private final Map<ServiceIdentifier, ServiceDirectoryEntry> pendingEntries = new HashMap<>();
     // Identifiers this node has published or queued, so unregister(ServiceIdentifier) knows whether
     // liveness needs a refresh without the caller re-supplying the registration classes
     private final Set<ServiceIdentifier> registered = new HashSet<>(); // guarded by registrationLock
@@ -110,23 +113,26 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     @Override
     public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation) {
         // the user class, so an AOP proxy never becomes the naming source
-        ServiceDeclaration registration = new ServiceDeclaration(serviceInterface, ClassUtils.getUserClass(serviceImplementation));
-        if (!shouldPublishToDirectory(registration)) {
+        ServiceDeclaration declaration = new ServiceDeclaration(serviceInterface, ClassUtils.getUserClass(serviceImplementation));
+        if (!shouldPublishToDirectory(declaration)) {
             return;
         }
+        // built before anything is recorded, so a service whose contract cannot be created fails here and
+        // leaves no trace in the directory
+        ServiceDirectoryEntry entry = buildEntry(serviceIdentifier, declaration);
         boolean queued;
         synchronized (registrationLock) {
             registered.add(serviceIdentifier);
             queued = !startupComplete;
             if (queued) {
-                pendingRegistrations.put(serviceIdentifier, registration);
+                pendingEntries.put(serviceIdentifier, entry);
             }
         }
         if (!queued) {
-            // a late registration (lazily created bean) cannot join a batch, publish it immediately.
+            // a late registration (lazily created bean) cannot join the startup batch, store it immediately.
             // The entry starts with online unset and its ACTIVE registration event may have fired before the
             // entry existed, so refresh from the verified cluster state after the upsert
-            publishAllToDirectory(Map.of(serviceIdentifier, registration))
+            strategy.upsertEntry(entry)
                     .compose(v -> refreshOnline(serviceIdentifier))
                     .onFailure(throwable -> log.error("Failed to register service {} in the directory", serviceIdentifier, throwable));
         }
@@ -137,7 +143,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         boolean published;
         synchronized (registrationLock) {
             // a registration still pending never reached the directory, removing it from the batch is enough
-            published = registered.remove(serviceIdentifier) && pendingRegistrations.remove(serviceIdentifier) == null;
+            published = registered.remove(serviceIdentifier) && pendingEntries.remove(serviceIdentifier) == null;
         }
         if (published) {
             // this node leaving says nothing about other instances of the service — verify, never
@@ -148,18 +154,18 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     private void drainStartupRegistrations() {
-        Map<ServiceIdentifier, ServiceDeclaration> batch;
+        Map<ServiceIdentifier, ServiceDirectoryEntry> batch;
         synchronized (registrationLock) {
             startupComplete = true;
-            batch = new HashMap<>(pendingRegistrations);
-            pendingRegistrations.clear();
+            batch = new HashMap<>(pendingEntries);
+            pendingEntries.clear();
         }
         if (!batch.isEmpty()) {
             try {
                 // one reconcile corrects the liveness of every entry from a single cluster snapshot,
                 // instead of one registration query per service
-                publishAllToDirectory(batch).compose(v -> reconcileLiveness())
-                                            .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
+                upsertAll(batch.values()).compose(v -> reconcileLiveness())
+                                         .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
             } catch (Exception e) {
                 log.error("Startup directory publish failed", e);
             }
@@ -172,40 +178,10 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         ignite.services().deployClusterSingleton(LIVENESS_SINGLETON_NAME, new ServiceLivenessUpdater());
     }
 
-    /**
-     * Converts and upserts entries for all given registrations in one conversion session, so model types shared
-     * between services are converted once.
-     */
-    private Future<Void> publishAllToDirectory(Map<ServiceIdentifier, ServiceDeclaration> registrations) {
-        NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values());
-        Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
-        Map<String, ServiceDefinition> definitionsByQualifiedName = new HashMap<>();
-        for (ServiceDefinition definition : namespace.getServices()) {
-            definitionsByQualifiedName.put(definition.getQualifiedName(), definition);
-        }
-
+    private Future<Void> upsertAll(Collection<ServiceDirectoryEntry> entries) {
         List<Future<Void>> writes = new ArrayList<>();
-        for (Map.Entry<ServiceIdentifier, ServiceDeclaration> registration : registrations.entrySet()) {
-            try {
-                // the definition's qualified name is package + '.' + simpleName per the SchemaFactory
-                // contract — never Class.getName(), which uses '$' for nested types
-                Class<?> serviceInterface = registration.getValue().serviceInterface();
-                ServiceDefinition definition = definitionsByQualifiedName.get(
-                        serviceInterface.getPackageName() + "." + serviceInterface.getSimpleName());
-                if (definition == null) {
-                    // conversion failed, SchemaFactory omitted the service and logged the cause
-                    continue;
-                }
-                // the entry carries the checks, which the gateway and the model generator read from the directory
-                AuthzDecorators.apply(serviceInterface, registration.getValue().serviceImplementation(), definition);
-                writes.add(strategy.upsertEntry(buildEntry(registration.getKey(),
-                                                           serviceInterface,
-                                                           definition,
-                                                           referenceResolver)));
-            } catch (Exception e) {
-                // one bad service (e.g. an invalid @McpTool name) must not block the rest of the directory
-                log.error("Failed to publish service {} to the directory", registration.getKey(), e);
-            }
+        for (ServiceDirectoryEntry entry : entries) {
+            writes.add(strategy.upsertEntry(entry));
         }
         return Future.all(writes).mapEmpty();
     }
@@ -266,10 +242,16 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                                                     Instant.now()));
     }
 
-    private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier,
-                                             Class<?> serviceInterface,
-                                             ServiceDefinition serviceDefinition,
-                                             Map<String, ObjectC3Type> referenceResolver) {
+    /**
+     * Converts the service and builds its entry, with every tool the contract exposes.
+     *
+     * @throws IllegalStateException when the contract cannot be created, or a function's tool declaration is
+     *                               one MCP cannot serve
+     */
+    private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier, ServiceDeclaration declaration) {
+        NamespaceDefinition namespace = schemaFactory.createForServices(List.of(declaration));
+        ServiceDefinition serviceDefinition = namespace.getServices().iterator().next();
+        Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
         List<McpToolDefinition> tools = new ArrayList<>();
         Set<String> toolNames = new HashSet<>();
 
@@ -326,7 +308,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 .setVersion(serviceIdentifier.version())
                 .setZone(serviceIdentifier.zone())
                 .setServiceDefinition(serviceDefinition)
-                .setAdvertised(isAdvertised(serviceInterface))
+                .setAdvertised(isAdvertised(declaration.serviceInterface()))
                 .setMcpExposed(!tools.isEmpty())
                 .setMcpTools(tools.isEmpty() ? null : tools);
     }
@@ -337,7 +319,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     private boolean shouldPublishToDirectory(ServiceDeclaration registration) {
         return isAdvertised(registration.serviceInterface())
                 || hasMcpToolFunction(registration)
-                || AuthzDecorators.resourceOf(registration.serviceInterface()) != null;
+                || AnnotationUtils.findAnnotation(registration.serviceInterface(), AuthzResource.class) != null;
     }
 
     private boolean isAdvertised(Class<?> serviceInterface) {

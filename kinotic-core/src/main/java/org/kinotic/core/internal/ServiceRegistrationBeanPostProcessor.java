@@ -11,7 +11,6 @@ import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
-import org.kinotic.core.internal.api.directory.AuthzDecorators;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +23,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.DestructionAwareBeanPostProcessor;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
-import org.springframework.util.ClassUtils;
 
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -83,14 +81,15 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                 beanFactory.registerDependentBean(registryBeanName, beanName);
             }
 
-            // The directory is a secondary concern; a bad @McpTool annotation must not crash service registration.
+            // The directory builds the service's contract now, and that contract is what the gateway authorizes
+            // against and what MCP clients call through, so a service it rejects must not start.
             // With no directory bean present, nothing at all happens here.
             ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
             if (serviceDirectory != null) {
                 try {
                     serviceDirectory.register(serviceIdentifier, clazz, bean.getClass());
                 } catch (Exception e) {
-                    log.error("Failed to register service {} in the ServiceDirectory", serviceIdentifier, e);
+                    throw new FatalBeanException("Failed to register service " + serviceIdentifier + " in the ServiceDirectory", e);
                 }
             }
         });
@@ -151,14 +150,6 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
 
                             if (!StringUtils.isNotBlank(version)) {
                                 throw new FatalBeanException("Version must be specified on the Published interface " + inter.getName() + " or in its package's package-info.java.");
-                            }
-
-                            // a resource service whose checks do not resolve must not come up serving unchecked
-                            // functions, so its declarations are derived here before anything is registered
-                            try {
-                                AuthzDecorators.checksOf(inter, ClassUtils.getUserClass(clazz));
-                            } catch (IllegalStateException e) {
-                                throw new FatalBeanException("Invalid authorization declaration on " + inter.getName(), e);
                             }
 
                             // A service is addressable in its declared zone; with no declaration

@@ -11,6 +11,7 @@ import org.kinotic.idl.api.schema.AsyncC3Type;
 import org.kinotic.idl.api.schema.ByteC3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
+import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StringC3Type;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,10 +50,20 @@ public class SchemaFactoryTests {
                                 findFunction("echoTokenBuffer").getParameters().getFirst().getType());
     }
 
+    @Test
+    public void participantParametersAreLeftOutOfTheContract() {
+        Assertions.assertEquals(List.of("prefix", "suffix"),
+                                findFunction("middleArgParticipant").getParameters()
+                                                                    .stream()
+                                                                    .map(ParameterDefinition::getName)
+                                                                    .toList());
+        Assertions.assertTrue(findFunction("narrowParticipant").getParameters().isEmpty());
+    }
+
     private FunctionDefinition findFunction(String name) {
         NamespaceDefinition namespace = schemaFactory.createForServices(List.of(new ServiceDeclaration(RpcTestService.class, RpcTestService.class)));
 
-        // every type the RPC layer supports must convert, or the whole service is omitted
+        // every type the RPC layer supports must convert, or the service is rejected
         ServiceDefinition service = namespace.getServices()
                                              .stream()
                                              .findFirst()

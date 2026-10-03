@@ -15,6 +15,8 @@ import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.kinotic.idl.internal.directory.DefaultResolvableTypeConverter;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.idl.api.directory.SkippedParameterTypes;
 import org.kinotic.idl.internal.directory.DefaultSchemaFactory;
 import org.kinotic.idl.internal.directory.JsonNodeToC3Type;
 import org.kinotic.idl.internal.directory.ReactiveToC3Type;
@@ -43,12 +45,13 @@ import org.springframework.core.ReactiveTypeDescriptor;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
  * Verifies every MCP-exposed management-api service converts to a ServiceDefinition with the same converter set
- * the server wires at startup — an unconvertible type anywhere in a signature silently drops the whole
- * service from the directory, and with it every tool it provides.
+ * the server wires at startup — an unconvertible type anywhere in a signature rejects the service's
+ * registration, and with it the server's startup.
  */
 public class McpServiceSchemaTest {
 
@@ -60,7 +63,6 @@ public class McpServiceSchemaTest {
                                                            new ServiceDeclaration(MicroserviceDeploymentService.class, DefaultMicroserviceDeploymentService.class),
                                                            new ServiceDeclaration(UiDeploymentService.class, DefaultUiDeploymentService.class)));
 
-        // createForServices omits any service that fails conversion, so a shrunken count is the failure signal
         Assertions.assertEquals(4, namespaceDefinition.getServices().size());
     }
 
@@ -175,7 +177,8 @@ public class McpServiceSchemaTest {
                                                            new TokenBufferToC3Type(),
                                                            new JsonNodeToC3Type(),
                                                            new ReactiveToC3Type(registryProvider()));
-        return new DefaultSchemaFactory(new DefaultResolvableTypeConverter(converters));
+        return new DefaultSchemaFactory(new DefaultResolvableTypeConverter(converters),
+                                        List.of(new SkippedParameterTypes(Set.of(Participant.class))));
     }
 
     // a registry carrying the Vert.x Future adapter DefaultKinotic registers at startup, so the

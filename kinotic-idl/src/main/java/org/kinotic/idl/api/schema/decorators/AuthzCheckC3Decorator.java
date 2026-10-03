@@ -6,7 +6,6 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * The authorization check a function requires, resolved from its declaration and parameters: which object
@@ -50,13 +49,6 @@ public final class AuthzCheckC3Decorator extends C3Decorator {
      * Short names of permissions on {@link #permissionResource} that this permission implies.
      */
     private List<String> implies = List.of();
-
-    /**
-     * For each function parameter a template references, its position among the parameters a request body
-     * carries. The body omits parameters the platform supplies, such as the calling participant, so this is not
-     * the parameter's index in the function's declaration.
-     */
-    private Map<String, Integer> parameterBodyIndexes = Map.of();
 
     public AuthzCheckC3Decorator() {
         this.targets = List.of(DecoratorTarget.FUNCTION);

@@ -64,9 +64,10 @@ public interface ServiceDirectory {
     Future<Void> reconcileLiveness();
 
     /**
-     * Registers a published service with the directory. What is stored, when the work happens (it may
-     * be batched), and whether any work happens at all is the implementation's decision; failures are handled and
-     * reported by the directory.
+     * Registers a published service with the directory, creating its contract now: a service whose contract
+     * cannot be created, because a type does not convert or a declaration on it does not resolve, is rejected
+     * with the cause. When the entry is stored (it may be batched), and whether the service is stored at all,
+     * is the implementation's decision; a storage failure is reported by the directory.
      * @param serviceIdentifier the identifier the service registered under
      * @param serviceInterface the {@code @Publish} interface being registered
      * @param serviceImplementation the class implementing the interface, an AOP proxy class is unwrapped;
