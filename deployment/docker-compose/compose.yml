@@ -2,6 +2,7 @@ include:
   - compose.elasticsearch.yml
   - compose.kibana.yml
   - compose-otel.yml
+  - compose.openfga.yml
   - compose.gen-schemas.yml
   - path: compose.kinotic-migration.yml
     env_file: evaluation.env

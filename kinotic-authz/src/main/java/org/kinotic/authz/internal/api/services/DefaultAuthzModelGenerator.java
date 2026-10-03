@@ -15,13 +15,9 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.JsonNodeFactory;
 import tools.jackson.databind.node.ObjectNode;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -100,7 +96,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                 catalog.put(type.name, new TreeSet<>(type.permissions.keySet()));
             }
         }
-        return new AuthzModel(definition, sha256(definition.toString()), catalog);
+        return new AuthzModel(definition, ModelHash.of(definition), catalog);
     }
 
     /**
@@ -282,7 +278,8 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                 if (type.parent != null) {
                     sources.add(tupleToUserset(type.parent, name));
                 }
-                relations.put(name, union(sources));
+                // OpenFGA rejects a union of one, so a permission with a single source is that source itself
+                relations.put(name, sources.size() == 1 ? sources.getFirst() : union(sources));
             }
         }
         return typeDefinition(type.name, relations);
@@ -358,14 +355,6 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         ArrayNode childNodes = ret.putObject(operator).putArray("child");
         children.forEach(childNodes::add);
         return ret;
-    }
-
-    private static String sha256(String text) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is unavailable", e);
-        }
     }
 
 }
