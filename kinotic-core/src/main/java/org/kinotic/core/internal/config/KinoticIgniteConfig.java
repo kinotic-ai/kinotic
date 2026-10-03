@@ -18,6 +18,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.kubernetes.TcpDiscoveryKuber
 import org.apache.ignite.spi.discovery.tcp.ipfinder.sharedfs.TcpDiscoverySharedFsIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.kinotic.core.api.KinoticNodeAttributes;
+import org.kinotic.core.api.NodeAttribute;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.config.IgniteClusterDiscoveryType;
 import org.kinotic.core.api.config.IgniteProperties;
@@ -54,6 +55,9 @@ public class KinoticIgniteConfig {
 
     @Autowired(required = false)
     private List<DataRegionConfiguration> dataRegions;
+
+    @Autowired(required = false)
+    private List<NodeAttribute> nodeAttributes;
 
     /**
      * Create the appropriate IP finder based on the configured discovery type
@@ -167,6 +171,9 @@ public class KinoticIgniteConfig {
             attributes.put(KinoticNodeAttributes.VERSION, version);
         }
         attributes.putAll(telemetryAttributes());
+        if (nodeAttributes != null) {
+            nodeAttributes.forEach(attribute -> attributes.put(attribute.name(), attribute.value()));
+        }
         cfg.setUserAttributes(attributes);
 
         cfg.setWorkDirectory(properties.getIgnite().getWorkDirectory());
