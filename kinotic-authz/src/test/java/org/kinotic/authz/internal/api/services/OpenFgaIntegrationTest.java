@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -44,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Exercises the store and relationship services against a real OpenFGA: the platform store, created ahead of
- * the servers, found by name at startup, a generated model written once and reused while it is
+ * the servers, found by name on first use, a generated model written once and reused while it is
  * unchanged, relationships written in batches, and checks answering from them. OpenFGA runs from the image the
  * dev stack declares when Docker is available, else at the URL in the {@code OPENFGA_URL} environment
  * variable, and the test is skipped when there is neither.
@@ -111,22 +112,29 @@ class OpenFgaIntegrationTest {
     }
 
     @Test
-    void platformStoreIsFoundByNameAtStartup() {
-        String storeId = storeService.platformStoreId();
+    void platformModelGoesToTheStoreOfThePlatformsName() throws Exception {
+        AuthzModel model = generator.platformModel(List.of(projectService()));
 
+        String modelId = await(storeService.ensurePlatformModel(model));
+
+        assertEquals(modelId, await(storeService.ensurePlatformModel(model)));
         // every node resolves the same store
-        DefaultAuthzStoreService laterNode = new DefaultAuthzStoreService(fga, properties);
-        laterNode.afterSingletonsInstantiated();
-        assertEquals(storeId, laterNode.platformStoreId());
+        assertEquals(modelId, await(new DefaultAuthzStoreService(fga, properties).ensurePlatformModel(model)));
+        String platformStoreId = await(fga.listStores(100, null, DefaultAuthzStoreService.PLATFORM_STORE_NAME))
+                .getStores().getFirst().getId();
+        assertEquals(modelId, await(fga.readAuthorizationModels(platformStoreId, 1, null))
+                .getAuthorizationModels().getFirst().getId());
     }
 
     @Test
-    void aNodeWhoseEngineIsUnreachableDoesNotStart() throws Exception {
+    void anUnreachableEngineFailsTheCallAndTheNodeKeepsRunning() {
         KinoticAuthzProperties unreachable = new KinoticAuthzProperties();
         unreachable.getAuthz().setApiUrl("http://127.0.0.1:1");
         DefaultAuthzStoreService node = new DefaultAuthzStoreService(new OpenFgaService(unreachable), unreachable);
+        AuthzModel model = generator.platformModel(List.of(projectService()));
 
-        assertThrows(IllegalStateException.class, node::afterSingletonsInstantiated);
+        assertThrows(ExecutionException.class, () -> await(node.ensurePlatformModel(model)));
+        assertThrows(ExecutionException.class, () -> await(node.ensurePlatformModel(model)));
     }
 
     @Test

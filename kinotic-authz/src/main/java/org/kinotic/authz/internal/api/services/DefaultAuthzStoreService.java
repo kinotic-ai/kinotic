@@ -3,7 +3,6 @@ package org.kinotic.authz.internal.api.services;
 import dev.openfga.sdk.api.model.AuthorizationModel;
 import dev.openfga.sdk.api.model.CreateStoreRequest;
 import dev.openfga.sdk.api.model.CreateStoreResponse;
-import dev.openfga.sdk.api.model.ListStoresResponse;
 import dev.openfga.sdk.api.model.Store;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelRequest;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelResponse;
@@ -13,52 +12,46 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzStoreService;
-import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DefaultAuthzStoreService implements AuthzStoreService, SmartInitializingSingleton {
+public class DefaultAuthzStoreService implements AuthzStoreService {
 
     static final String PLATFORM_STORE_NAME = "kinotic-platform";
     private static final int STORE_PAGE_SIZE = 100;
-    // how long a starting node waits for each page of the platform store lookup
-    private static final Duration STARTUP_TIMEOUT = Duration.ofSeconds(30);
     // the SDK's model classes bind by their own wire names, so the application's mapper customizations stay
     // out of the conversion in both directions
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
     private final OpenFgaService fga;
     private final KinoticAuthzProperties properties;
-    private String platformStoreId;
+    // kept once found; a failed lookup is replaced by the next caller's
+    private volatile Future<String> platformStore;
 
     @Override
-    public void afterSingletonsInstantiated() {
-        // resolved before the context finishes starting, so a node whose engine or store is unreachable never
-        // comes up serving requests it cannot authorize
-        try {
-            platformStoreId = findPlatformStore();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while resolving the platform authorization store", e);
-        } catch (Exception e) {
-            throw new IllegalStateException("The platform authorization store could not be resolved from "
-                                                    + properties.getAuthz().getApiUrl(), e);
-        }
-        log.info("Using platform authorization store {}", platformStoreId);
+    public Future<String> ensurePlatformModel(AuthzModel model) {
+        return platformStoreId().compose(storeId -> ensureModel(storeId, model));
     }
 
-    @Override
-    public String platformStoreId() {
-        return platformStoreId;
+    private Future<String> platformStoreId() {
+        Future<String> ret = platformStore;
+        if (ret == null || ret.failed()) {
+            synchronized (this) {
+                ret = platformStore;
+                if (ret == null || ret.failed()) {
+                    ret = findPlatformStore();
+                    platformStore = ret;
+                }
+            }
+        }
+        return ret;
     }
 
     @Override
@@ -89,29 +82,41 @@ public class DefaultAuthzStoreService implements AuthzStoreService, SmartInitial
      * The id of the one store named {@link #PLATFORM_STORE_NAME}, read page by page; fails when there is none
      * or several.
      */
-    private String findPlatformStore() throws Exception {
-        List<String> ids = new ArrayList<>();
-        String continuationToken = null;
-        do {
-            ListStoresResponse page = fga.listStores(STORE_PAGE_SIZE, continuationToken, PLATFORM_STORE_NAME)
-                                         .await(STARTUP_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+    private Future<String> findPlatformStore() {
+        return collectStoreIds(null, new ArrayList<>()).compose(ids -> {
+            Future<String> ret;
+            if (ids.size() == 1) {
+                ret = Future.succeededFuture(ids.getFirst());
+            } else if (ids.isEmpty()) {
+                ret = Future.failedFuture(new IllegalStateException("No store is named '" + PLATFORM_STORE_NAME
+                                                                            + "'; the platform store is created before the servers start"));
+            } else {
+                // names are not unique in OpenFGA, so a second store of the name is a deployment mistake to fix
+                ret = Future.failedFuture(new IllegalStateException(ids.size() + " stores are named '" + PLATFORM_STORE_NAME
+                                                                            + "'; exactly one is expected"));
+            }
+            return ret;
+        }).onSuccess(id -> log.info("Using platform authorization store {}", id))
+          .onFailure(e -> log.warn("The platform authorization store could not be resolved from {}: {}",
+                                   properties.getAuthz().getApiUrl(), e.getMessage()));
+    }
+
+    private Future<List<String>> collectStoreIds(String continuationToken, List<String> ids) {
+        return fga.listStores(STORE_PAGE_SIZE, continuationToken, PLATFORM_STORE_NAME).compose(page -> {
             for (Store store : page.getStores()) {
                 // an engine older than the name filter returns every store, so the name is matched here too
                 if (PLATFORM_STORE_NAME.equals(store.getName())) {
                     ids.add(store.getId());
                 }
             }
-            continuationToken = page.getContinuationToken();
-        } while (continuationToken != null && !continuationToken.isEmpty());
-        if (ids.isEmpty()) {
-            throw new IllegalStateException("No store is named '" + PLATFORM_STORE_NAME
-                                                    + "'; the platform store is created before the servers start");
-        }
-        if (ids.size() > 1) {
-            // names are not unique in OpenFGA, so a second store of the name is a deployment mistake to fix
-            throw new IllegalStateException(ids.size() + " stores are named '" + PLATFORM_STORE_NAME + "'; exactly one is expected");
-        }
-        return ids.getFirst();
+            Future<List<String>> ret;
+            if (page.getContinuationToken() != null && !page.getContinuationToken().isEmpty()) {
+                ret = collectStoreIds(page.getContinuationToken(), ids);
+            } else {
+                ret = Future.succeededFuture(ids);
+            }
+            return ret;
+        });
     }
 
     /**
