@@ -67,6 +67,7 @@ import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Skeleton from 'primevue/skeleton'
 import { ChevronRight, TriangleAlert, X } from '@lucide/vue'
+import '../styles/modal-mask.css'
 import type { DeleteImpactRow } from '../types/DeleteImpactRow'
 
 /**
@@ -102,7 +103,7 @@ const emit = defineEmits<{
 const DIALOG_PT = {
   root: { class: '!w-[min(560px,calc(100vw-2rem))] !rounded-2xl !border-surface-200 !p-0 overflow-hidden dark:!border-surface-800' },
   content: { class: '!p-0' },
-  mask: { class: '!bg-surface-950/20 dark:!bg-white/25 backdrop-blur-[3px]' }
+  mask: { class: 'modal-mask' }
 }
 
 function close(): void {
