@@ -1,0 +1,31 @@
+plugins {
+    id 'org.kinotic.java-library-conventions'
+}
+
+dependencies {
+    implementation project(':kinotic-core')
+
+    implementation 'io.vertx:vertx-core'
+
+    implementation('net.openhft:chronicle-queue') {
+        // chronicle-core reports usage statistics to Chronicle Software whenever this jar is on the classpath
+        exclude group: 'net.openhft', module: 'chronicle-analytics'
+    }
+    implementation 'net.openhft:zero-allocation-hashing'
+
+    implementation 'org.springframework.boot:spring-boot'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework:spring-context'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+test {
+    // Chronicle Queue maps its files through sun.nio.ch.FileChannelImpl, unmaps them through jdk.internal.ref
+    // and reflects into java.lang.reflect
+    jvmArgs(
+        '--add-exports=java.base/jdk.internal.ref=ALL-UNNAMED',
+        '--add-exports=java.base/sun.nio.ch=ALL-UNNAMED',
+        '--add-opens=java.base/java.lang.reflect=ALL-UNNAMED',
+    )
+}

@@ -338,6 +338,7 @@ The repository contains the major components required to build and operate Kinot
 | [`kinotic-persistence`](kinotic-persistence) | Declarative persistence: entity definitions, CRUD repositories, named queries over Elasticsearch |
 | [`kinotic-sql`](kinotic-sql) | The SQL grammar used for migrations and named queries, parsed and executed against the entity stores |
 | [`kinotic-grind`](kinotic-grind) | Job engine: job and task definitions, runs, progress reporting and events |
+| [`kinotic-stream`](kinotic-stream) | Durable streaming log: sharded Chronicle Queue storage, per-key ordering, and named consumers that resume from their committed offsets |
 | [`kinotic-api-gateway`](kinotic-api-gateway) | Client-facing gateway: STOMP over WebSocket, REST routes, and the MCP endpoint |
 | [`kinotic-management-api`](kinotic-management-api) | Management plane: applications, projects, artifacts, deployments, GitHub provisioning, logs and metrics |
 | [`kinotic-system-api`](kinotic-system-api) | System plane: workload and VM node orchestration, deployment operations, log and site storage |
