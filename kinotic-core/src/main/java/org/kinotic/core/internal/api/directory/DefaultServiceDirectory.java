@@ -25,10 +25,9 @@ import org.kinotic.idl.api.annotations.AuthzResource;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
-import org.kinotic.idl.api.directory.GenericTypeConverter;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.SchemaService;
-import org.kinotic.idl.internal.directory.DefaultSchemaService;
+import org.kinotic.idl.api.directory.SchemaServiceFactory;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.AsyncC3Type;
 import org.kinotic.idl.api.schema.C3Type;
@@ -103,14 +102,14 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
 
     public DefaultServiceDirectory(ServiceDirectoryStrategy strategy,
                                    EventBusService eventBusService,
-                                   GenericTypeConverter typeConverter,
+                                   SchemaServiceFactory schemaServiceFactory,
                                    IdlConverterFactory idlConverterFactory,
                                    Ignite ignite) {
         this.strategy = strategy;
         this.eventBusService = eventBusService;
         // a Participant is bound from the security context, never from the request, the rule
         // AbstractJacksonSupport and NamedJsonArgumentResolver bind by, so no contract advertises one
-        this.schemaService = new DefaultSchemaService(typeConverter, Set.of(Participant.class));
+        this.schemaService = schemaServiceFactory.create(Set.of(Participant.class));
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
         this.ignite = ignite;
     }
@@ -220,7 +219,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
         }
         Map<ServiceIdentifier, ServiceDirectoryEntry> ret = new HashMap<>();
         for (Map.Entry<ServiceIdentifier, ServiceDeclaration> registration : registrations.entrySet()) {
-            // the definition's qualified name is package + '.' + simpleName per the SchemaFactory contract,
+            // the definition's qualified name is package + '.' + simpleName per the SchemaService contract,
             // never Class.getName(), which uses '$' for nested types
             Class<?> serviceInterface = registration.getValue().serviceInterface();
             ServiceDefinition definition = definitionsByQualifiedName.get(
@@ -306,7 +305,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
         List<McpToolDefinition> tools = new ArrayList<>();
         Set<String> toolNames = new HashSet<>();
 
-        // tool-ness is carried by the C3 contract: SchemaFactory attached the decorator during conversion
+        // tool-ness is carried by the C3 contract: SchemaService attached the decorator during conversion
         for (FunctionDefinition function : serviceDefinition.getFunctions()) {
 
             McpToolC3Decorator decorator = function.findDecorator(McpToolC3Decorator.class);
@@ -384,7 +383,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
         if (!ret) {
             for (Method method : IdlUtil.serviceFunctions(registration.serviceInterface()).values()) {
                 // findAnnotation on the most specific method honors @McpTool declared on the interface method
-                // or only on the implementation's override, matching DefaultSchemaFactory's discovery
+                // or only on the implementation's override, matching DefaultSchemaService's discovery
                 Method specificMethod = ClassUtils.getMostSpecificMethod(method, registration.serviceImplementation());
                 if (AnnotationUtils.findAnnotation(specificMethod, McpTool.class) != null) {
                     ret = true;

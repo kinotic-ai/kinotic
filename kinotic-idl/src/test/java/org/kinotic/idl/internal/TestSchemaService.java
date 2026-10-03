@@ -59,7 +59,7 @@ public class TestSchemaService {
     private JsonMapper objectMapper;
 
     @Test
-    public void testSchemaFactory() throws Exception {
+    public void testSchemaService() throws Exception {
         NamespaceDefinition namespaceDefinition = schemaService.createForServices(List.of(new ServiceDeclaration(TestService.class, TestService.class),
                                                                                           new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
 

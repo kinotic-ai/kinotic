@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
  * Annotation processor that extracts method Javadoc at compile time into a resource under
  * {@link #DOCS_RESOURCE_DIRECTORY}, one {@code methodName=description} line per documented method.
  * The description is the Javadoc main description with inline tags resolved and HTML stripped.
- * {@code DefaultSchemaFactory} reads these resources to describe MCP tools whose {@link McpTool}
+ * {@code DefaultSchemaService} reads these resources to describe MCP tools whose {@link McpTool}
  * declares no description.
  * Created by Navíd Mitchell 🤪 on 7/27/26.
  */
