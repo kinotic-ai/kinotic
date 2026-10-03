@@ -24,7 +24,7 @@
                            filters.onlyErrors === option.onlyErrors
                              ? 'bg-surface-0 font-medium text-surface-950 shadow-sm ring-1 ring-surface-200 dark:bg-surface-900 dark:text-surface-0 dark:ring-surface-700'
                              : 'text-surface-600 hover:bg-surface-100 hover:text-surface-950 dark:text-surface-300 dark:hover:bg-surface-800 dark:hover:text-surface-0']"
-                  @click="filters.onlyErrors = option.onlyErrors">
+                  @click="searchStatus(option.onlyErrors)">
             <span v-if="option.onlyErrors" class="h-2 w-2 rounded-full bg-red-500" aria-hidden="true" />
             {{ option.label }}
           </button>
@@ -154,8 +154,8 @@ import { formatDuration } from './telemetryDisplay'
  * Searches the organization's traces — or one application's — over the given range, and opens
  * the one picked from the results in a drawer beside them, whose arrows and the arrow keys step
  * through the results in their current order; {@code traceRoute}, when given, links from there to
- * the trace's own page. searchErrors() narrows the search to the traces with a failed
- * span and runs it.
+ * the trace's own page. searchStatus(onlyErrors) narrows the search to the traces with a failed
+ * span, or widens it back to every trace, and runs it.
  */
 const props = defineProps<{
   organizationId: string | null
@@ -304,15 +304,15 @@ async function search() {
   }
 }
 
-function searchErrors() {
-  filters.onlyErrors = true
+function searchStatus(onlyErrors: boolean) {
+  filters.onlyErrors = onlyErrors
   return search()
 }
 
 // The panel replaces the range on every refresh and scope change, so it is the one trigger
 watch(() => props.range, search, { immediate: true })
 
-defineExpose({ searchErrors })
+defineExpose({ searchStatus })
 </script>
 
 <style>

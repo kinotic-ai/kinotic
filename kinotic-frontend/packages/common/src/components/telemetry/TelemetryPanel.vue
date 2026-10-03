@@ -115,7 +115,7 @@ async function showFailedTraces() {
   activeTab.value = 'traces'
   // the view mounts, or comes back from the keep-alive cache, on the next render
   await nextTick()
-  traceSearch.value?.searchErrors()
+  traceSearch.value?.searchStatus(true)
 }
 
 watch(presetMs, refresh)
