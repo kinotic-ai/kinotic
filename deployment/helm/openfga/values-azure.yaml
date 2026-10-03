@@ -1,6 +1,6 @@
-# Azure AKS: two engine replicas, and its Postgres as a StatefulSet on a zone-redundant premium disk,
-# the storage class the Elasticsearch nodes use. The `openfga-db` Secret the containers read their
-# credentials from is created by terraform (openfga.tf), with a generated password.
+# Azure AKS: two engine replicas on the managed Azure Database for PostgreSQL flexible server the
+# cluster root creates (openfga.tf), whose connection URI the `openfga-db` Secret carries; nothing
+# runs beside the engine here.
 
 replicaCount: 2
 
@@ -11,65 +11,3 @@ resources:
   limits:
     cpu: 2
     memory: 1Gi
-
-extraObjects:
-  - apiVersion: apps/v1
-    kind: StatefulSet
-    metadata:
-      name: openfga-db
-      labels:
-        app: openfga-db
-    spec:
-      serviceName: openfga-db
-      replicas: 1
-      selector:
-        matchLabels:
-          app: openfga-db
-      template:
-        metadata:
-          labels:
-            app: openfga-db
-        spec:
-          containers:
-            - name: postgres
-              image: postgres:18-alpine
-              envFrom:
-                - secretRef:
-                    name: openfga-db
-              ports:
-                - containerPort: 5432
-              readinessProbe:
-                exec:
-                  command: ["pg_isready", "-U", "openfga", "-d", "openfga"]
-                initialDelaySeconds: 5
-                periodSeconds: 5
-              volumeMounts:
-                # from Postgres 18 the image's data directory is under /var/lib/postgresql/<major>
-                - name: data
-                  mountPath: /var/lib/postgresql
-              resources:
-                requests:
-                  cpu: 250m
-                  memory: 512Mi
-                limits:
-                  cpu: 1
-                  memory: 1Gi
-      volumeClaimTemplates:
-        - metadata:
-            name: data
-          spec:
-            accessModes: ["ReadWriteOnce"]
-            storageClassName: es-premium-zrs
-            resources:
-              requests:
-                storage: 16Gi
-  - apiVersion: v1
-    kind: Service
-    metadata:
-      name: openfga-db
-    spec:
-      selector:
-        app: openfga-db
-      ports:
-        - port: 5432
-          targetPort: 5432

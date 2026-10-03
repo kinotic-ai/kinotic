@@ -1,6 +1,6 @@
 # KinD: one engine replica, and its Postgres as a Deployment on an emptyDir, so the relationships last as
-# long as the pod, the way the Keycloak database does here. The `openfga-db` Secret the containers read
-# their credentials from is created by terraform (openfga.tf).
+# long as the pod, the way the Keycloak database does here. The `openfga-db` Secret both read their
+# credentials from is created by terraform (openfga.tf).
 
 replicaCount: 1
 

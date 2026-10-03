@@ -30,7 +30,7 @@ helm/
 │   ├── values-azure.yaml
 │   └── values-azure-beta.yaml
 ├── kinotic/            # The org, system and app servers (a Deployment, Service and ConfigMap each), one Ignite cluster, the migration and store Jobs, RBAC
-├── openfga/            # Values for the upstream openfga chart: the authorization engine, with its Postgres per environment
+├── openfga/            # Values for the upstream openfga chart: the authorization engine; its Postgres is in the cluster in KinD, a managed server in Azure
 ├── es-secret-sync/     # ES credential copy (elastic → kinotic namespace)
 ├── mimir/              # Mimir in monolithic mode (-target=all) on a persistent volume
 ├── load-generator/     # Load testing Job
