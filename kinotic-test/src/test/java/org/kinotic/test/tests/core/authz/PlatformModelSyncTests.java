@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
-import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.ServiceDirectory;
@@ -35,15 +34,14 @@ import java.util.TreeSet;
 public class PlatformModelSyncTests extends KinoticTestBase {
 
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
+    // the one store the servers write the platform model to, created by the compose stack's openfga-init
+    private static final String PLATFORM_STORE_NAME = "kinotic-platform";
 
     @Autowired
     private ServiceDirectory serviceDirectory;
 
     @Autowired
     private AuthzModelGenerator modelGenerator;
-
-    @Autowired
-    private AuthzStoreService storeService;
 
     @Autowired
     private KinoticAuthzProperties authzProperties;
@@ -55,7 +53,7 @@ public class PlatformModelSyncTests extends KinoticTestBase {
                                                               .getContent();
         Assertions.assertFalse(entries.isEmpty(), "the directory holds the published contracts");
         AuthzModel expected = modelGenerator.platformModel(entries.stream().map(ServiceDirectoryEntry::getServiceDefinition).toList());
-        String storeId = storeService.platformStoreId().await();
+        String storeId = platformStoreId();
 
         // the model is written after the directory publishes on ApplicationReadyEvent, so poll for it
         Map<String, TreeSet<String>> written = Map.of();
@@ -73,17 +71,28 @@ public class PlatformModelSyncTests extends KinoticTestBase {
     }
 
     /**
+     * The id of the platform store, as the engine lists it by name.
+     */
+    private String platformStoreId() throws Exception {
+        JsonNode stores = engine("/stores?name=" + PLATFORM_STORE_NAME).path("stores");
+        Assertions.assertEquals(1, stores.size(), "one store is named " + PLATFORM_STORE_NAME);
+        Assertions.assertEquals(PLATFORM_STORE_NAME, stores.get(0).path("name").asString());
+        return stores.get(0).path("id").asString();
+    }
+
+    /**
      * The store's newest model version as the engine returns it, or null while it has none.
      */
     private JsonNode latestModel(String storeId) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder(URI.create(authzProperties.getAuthz().getApiUrl()
-                                                                        + "/stores/" + storeId + "/authorization-models?page_size=1"))
-                                         .GET()
-                                         .build();
+        JsonNode models = engine("/stores/" + storeId + "/authorization-models?page_size=1").path("authorization_models");
+        return models.isEmpty() ? null : models.get(0);
+    }
+
+    private JsonNode engine(String path) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(URI.create(authzProperties.getAuthz().getApiUrl() + path)).GET().build();
         HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
         Assertions.assertEquals(200, response.statusCode(), response.body());
-        JsonNode models = MAPPER.readTree(response.body()).path("authorization_models");
-        return models.isEmpty() ? null : models.get(0);
+        return MAPPER.readTree(response.body());
     }
 
     private static Map<String, TreeSet<String>> relationsByType(JsonNode definition) {
