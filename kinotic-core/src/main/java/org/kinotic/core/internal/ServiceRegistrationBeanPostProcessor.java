@@ -81,14 +81,16 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                 beanFactory.registerDependentBean(registryBeanName, beanName);
             }
 
-            // The directory is a secondary concern; a bad @McpTool annotation must not crash service registration.
+            // The directory's contract is what the gateway authorizes against and what MCP clients call through,
+            // so a service the directory rejects must not start: a late registration is converted here and
+            // fails this bean, one made while the context starts fails the refresh from the directory itself.
             // With no directory bean present, nothing at all happens here.
             ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
             if (serviceDirectory != null) {
                 try {
                     serviceDirectory.register(serviceIdentifier, clazz, bean.getClass());
                 } catch (Exception e) {
-                    log.error("Failed to register service {} in the ServiceDirectory", serviceIdentifier, e);
+                    throw new FatalBeanException("Failed to register service " + serviceIdentifier + " in the ServiceDirectory", e);
                 }
             }
         });
