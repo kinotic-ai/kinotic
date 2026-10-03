@@ -1,1 +1,0 @@
-{"id":"ad3498e75c838433dfb32fae4b2a4061.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.core.internal.EventFabricTests.consumerThrowingDoesNotAffectOtherConsumers","name":"consumerThrowingDoesNotAffectOtherConsumers()","status":"passed","testResultsByEnv":{"default":"627cd1721631cf59b4d58564ef2c5430"}}
