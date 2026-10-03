@@ -1,0 +1,17 @@
+plugins {
+    id 'org.kinotic.java-library-conventions'
+}
+
+dependencies {
+    implementation project(':kinotic-core')
+    implementation project(':kinotic-idl')
+
+    implementation 'org.springframework:spring-context'
+    implementation 'org.springframework:spring-core'
+    implementation 'org.springframework.boot:spring-boot'
+    implementation 'org.springframework.boot:spring-boot-autoconfigure'
+
+    implementation 'tools.jackson.core:jackson-databind'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}

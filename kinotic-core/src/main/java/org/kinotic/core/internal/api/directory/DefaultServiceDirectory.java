@@ -196,6 +196,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                     // conversion failed, SchemaFactory omitted the service and logged the cause
                     continue;
                 }
+                // the entry carries the checks, which the gateway and the model generator read from the directory
+                AuthzDecorators.apply(serviceInterface, registration.getValue().serviceImplementation(), definition);
                 writes.add(strategy.upsertEntry(buildEntry(registration.getKey(),
                                                            serviceInterface,
                                                            definition,
@@ -330,9 +332,12 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     // Directory inclusion is opt-in via @Publish(advertise = true); an @McpTool function is already
-    // explicit intent to expose the service, so it implies inclusion
+    // explicit intent to expose the service, so it implies inclusion, and an @AuthzResource service must be
+    // in the directory for the gateway to find its checks
     private boolean shouldPublishToDirectory(ServiceDeclaration registration) {
-        return isAdvertised(registration.serviceInterface()) || hasMcpToolFunction(registration);
+        return isAdvertised(registration.serviceInterface())
+                || hasMcpToolFunction(registration)
+                || AuthzDecorators.resourceOf(registration.serviceInterface()) != null;
     }
 
     private boolean isAdvertised(Class<?> serviceInterface) {
