@@ -9,12 +9,13 @@ import org.kinotic.authz.api.model.AuthzModel;
 public interface AuthzStoreService {
 
     /**
-     * The id of the platform store, resolved once per node: the configured id when the environment pins one,
-     * else the store named {@code kinotic-platform}, created on the first start when there is none.
+     * The id of the platform store: the one store named {@code kinotic-platform}, resolved when the node starts.
+     * The store is created ahead of the servers, never by one, and a node that finds no store of the name, or
+     * more than one, does not start.
      *
      * @return the store id
      */
-    Future<String> platformStoreId();
+    String platformStoreId();
 
     /**
      * Creates a store. Store names are not unique in OpenFGA, so the caller records the id it gets back.

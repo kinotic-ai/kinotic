@@ -28,10 +28,4 @@ public class AuthzProperties {
      */
     private String apiToken = null;
 
-    /**
-     * Id of the platform store, for an environment whose store was created ahead of time. Empty when the
-     * platform store is found by its name and created on the first start when there is none.
-     */
-    private String platformStoreId = null;
-
 }

@@ -1,9 +1,8 @@
 package org.kinotic.authz.internal.api.services;
 
 import dev.openfga.sdk.api.OpenFgaApi;
+import dev.openfga.sdk.api.model.CreateStoreRequest;
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
-import org.apache.ignite.Ignite;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -14,6 +13,7 @@ import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.internal.config.KinoticAuthzConfig;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
@@ -41,11 +41,12 @@ import java.util.regex.Pattern;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Exercises the store and relationship services against a real OpenFGA: the platform store created under the
- * cluster's permit and found by name afterwards, a generated model written once and reused while it is
+ * Exercises the store and relationship services against a real OpenFGA: the platform store, created ahead of
+ * the servers, found by name at startup, a generated model written once and reused while it is
  * unchanged, relationships written in batches, and checks answering from them. OpenFGA runs from the image the
  * dev stack declares when Docker is available, else at the URL in the {@code OPENFGA_URL} environment
  * variable, and the test is skipped when there is neither.
@@ -67,13 +68,9 @@ class OpenFgaIntegrationTest {
     private OpenFgaApi api;
     @Autowired
     private KinoticAuthzProperties properties;
-    @Autowired
-    private Vertx vertx;
-    @Autowired
-    private Ignite ignite;
 
     @BeforeAll
-    static void startEngine() {
+    static void startEngine() throws Exception {
         apiUrl = System.getenv("OPENFGA_URL");
         if (apiUrl == null) {
             Assumptions.assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
@@ -84,6 +81,22 @@ class OpenFgaIntegrationTest {
                     .waitingFor(Wait.forHttp("/healthz").forPort(8080).withStartupTimeout(Duration.ofMinutes(2)));
             openfga.start();
             apiUrl = "http://" + openfga.getHost() + ":" + openfga.getMappedPort(8080);
+        }
+        createPlatformStoreAheadOfTheServers();
+    }
+
+    /**
+     * The role terraform or the dev stack plays before a server starts: the one store of the platform's name.
+     */
+    private static void createPlatformStoreAheadOfTheServers() throws Exception {
+        KinoticAuthzProperties properties = new KinoticAuthzProperties();
+        properties.getAuthz().setApiUrl(apiUrl);
+        OpenFgaApi api = new KinoticAuthzConfig().openFgaApi(properties);
+        boolean exists = api.listStores(100, null, DefaultAuthzStoreService.PLATFORM_STORE_NAME).get(30, TimeUnit.SECONDS)
+                            .getData().getStores().stream()
+                            .anyMatch(store -> DefaultAuthzStoreService.PLATFORM_STORE_NAME.equals(store.getName()));
+        if (!exists) {
+            api.createStore(new CreateStoreRequest().name(DefaultAuthzStoreService.PLATFORM_STORE_NAME)).get(30, TimeUnit.SECONDS);
         }
     }
 
@@ -100,12 +113,22 @@ class OpenFgaIntegrationTest {
     }
 
     @Test
-    void platformStoreIsCreatedOnceAndFoundByNameAfterwards() throws Exception {
-        String storeId = await(storeService.platformStoreId());
+    void platformStoreIsFoundByNameAtStartup() {
+        String storeId = storeService.platformStoreId();
 
-        assertEquals(storeId, await(storeService.platformStoreId()));
-        // another node resolves the same store rather than creating a second one of the name
-        assertEquals(storeId, await(new DefaultAuthzStoreService(api, properties, vertx, ignite).platformStoreId()));
+        // every node resolves the same store
+        DefaultAuthzStoreService laterNode = new DefaultAuthzStoreService(api, properties);
+        laterNode.afterSingletonsInstantiated();
+        assertEquals(storeId, laterNode.platformStoreId());
+    }
+
+    @Test
+    void aNodeWhoseEngineIsUnreachableDoesNotStart() throws Exception {
+        KinoticAuthzProperties unreachable = new KinoticAuthzProperties();
+        unreachable.getAuthz().setApiUrl("http://127.0.0.1:1");
+        DefaultAuthzStoreService node = new DefaultAuthzStoreService(new KinoticAuthzConfig().openFgaApi(unreachable), unreachable);
+
+        assertThrows(IllegalStateException.class, node::afterSingletonsInstantiated);
     }
 
     @Test

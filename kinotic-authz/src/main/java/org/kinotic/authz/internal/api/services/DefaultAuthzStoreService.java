@@ -8,55 +8,60 @@ import dev.openfga.sdk.api.model.Store;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelRequest;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelResponse;
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.IgniteSemaphore;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzStoreService;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DefaultAuthzStoreService implements AuthzStoreService {
+public class DefaultAuthzStoreService implements AuthzStoreService, SmartInitializingSingleton {
 
     static final String PLATFORM_STORE_NAME = "kinotic-platform";
-    // the cluster-wide permit a node holds while it creates the platform store, so exactly one node creates it
-    private static final String PLATFORM_STORE_PERMIT = "kinotic-authz-platform-store";
     private static final int STORE_PAGE_SIZE = 100;
+    // how long a starting node waits for the engine to answer the platform store lookup
+    private static final Duration STARTUP_TIMEOUT = Duration.ofSeconds(30);
     // the SDK's model classes bind by their own wire names, so the application's mapper customizations stay
     // out of the conversion in both directions
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
     private final OpenFgaApi api;
     private final KinoticAuthzProperties properties;
-    private final Vertx vertx;
-    private final Ignite ignite;
-    // resolved once per node; a failed resolution is retried by the next caller
-    private volatile Future<String> platformStore;
+    private String platformStoreId;
 
     @Override
-    public Future<String> platformStoreId() {
-        Future<String> ret = platformStore;
-        if (ret == null || ret.failed()) {
-            synchronized (this) {
-                ret = platformStore;
-                if (ret == null || ret.failed()) {
-                    ret = resolvePlatformStore();
-                    platformStore = ret;
-                }
-            }
+    public void afterSingletonsInstantiated() {
+        // resolved before the context finishes starting, so a node whose engine or store is unreachable never
+        // comes up serving requests it cannot authorize
+        try {
+            platformStoreId = resolvePlatformStore().toCompletionStage()
+                                                    .toCompletableFuture()
+                                                    .get(STARTUP_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while resolving the platform authorization store", e);
+        } catch (ExecutionException | TimeoutException e) {
+            throw new IllegalStateException("The platform authorization store could not be resolved from "
+                                                    + properties.getAuthz().getApiUrl(), e);
         }
-        return ret;
+    }
+
+    @Override
+    public String platformStoreId() {
+        return platformStoreId;
     }
 
     @Override
@@ -84,72 +89,24 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
         });
     }
 
+    /**
+     * The id of the one store named {@link #PLATFORM_STORE_NAME}, failing when there is none or several.
+     */
     private Future<String> resolvePlatformStore() {
-        String configured = properties.getAuthz().getPlatformStoreId();
-        Future<String> ret;
-        if (StringUtils.hasText(configured)) {
-            ret = Future.succeededFuture(configured);
-        } else {
-            ret = findStore(PLATFORM_STORE_NAME).compose(found -> found != null
-                    ? Future.succeededFuture(found)
-                    : createPlatformStore());
-        }
-        return ret.onSuccess(id -> log.info("Using platform authorization store {}", id));
-    }
-
-    /**
-     * Creates the platform store on the one node that takes the cluster's permit; every other node waits for
-     * that node to release it and then finds the store it created.
-     */
-    private Future<String> createPlatformStore() {
-        // permit operations go to the cluster, so they run off the event loop
-        return vertx.executeBlocking(() -> permit().tryAcquire()).compose(acquired -> {
+        return collectStoreIds(PLATFORM_STORE_NAME, null, new ArrayList<>()).compose(ids -> {
             Future<String> ret;
-            if (acquired) {
-                // looked up again under the permit, since another node may have created the store between
-                // this node's lookup and its acquisition
-                ret = findStore(PLATFORM_STORE_NAME)
-                        .compose(found -> found != null ? Future.succeededFuture(found) : createStore(PLATFORM_STORE_NAME))
-                        .eventually(() -> vertx.executeBlocking(() -> {
-                            permit().release();
-                            return null;
-                        }));
+            if (ids.size() == 1) {
+                ret = Future.succeededFuture(ids.getFirst());
+            } else if (ids.isEmpty()) {
+                ret = Future.failedFuture(new IllegalStateException("No store is named '" + PLATFORM_STORE_NAME
+                                                                            + "'; the platform store is created before the servers start"));
             } else {
-                ret = vertx.executeBlocking(() -> {
-                            IgniteSemaphore permit = permit();
-                            permit.acquire();
-                            permit.release();
-                            return null;
-                        })
-                        // the creating node released the permit, so its store exists unless it failed, in which
-                        // case this node takes its turn at creating it
-                        .compose(v -> findStore(PLATFORM_STORE_NAME))
-                        .compose(found -> found != null ? Future.succeededFuture(found) : createPlatformStore());
+                // names are not unique in OpenFGA, so a second store of the name is a deployment mistake to fix
+                ret = Future.failedFuture(new IllegalStateException(ids.size() + " stores are named '" + PLATFORM_STORE_NAME
+                                                                            + "'; exactly one is expected"));
             }
             return ret;
-        });
-    }
-
-    private IgniteSemaphore permit() {
-        // failover safe, so a node that dies holding the permit does not block every other node for good
-        return ignite.semaphore(PLATFORM_STORE_PERMIT, 1, true, true);
-    }
-
-    /**
-     * The id of the store of the given name, or null when there is none.
-     */
-    private Future<String> findStore(String name) {
-        return collectStoreIds(name, null, new ArrayList<>()).compose(ids -> {
-            Future<String> ret;
-            if (ids.size() > 1) {
-                // names are not unique in OpenFGA; a store created outside this service has to be pinned
-                ret = Future.failedFuture(new IllegalStateException(ids.size() + " stores are named '" + name
-                                                                            + "'; pin one with kinotic.authz.platformStoreId"));
-            } else {
-                ret = Future.succeededFuture(ids.isEmpty() ? null : ids.getFirst());
-            }
-            return ret;
-        });
+        }).onSuccess(id -> log.info("Using platform authorization store {}", id));
     }
 
     private Future<List<String>> collectStoreIds(String name, String continuationToken, List<String> ids) {
@@ -161,7 +118,7 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
                 }
             }
             Future<List<String>> ret;
-            if (StringUtils.hasText(page.getContinuationToken())) {
+            if (page.getContinuationToken() != null && !page.getContinuationToken().isEmpty()) {
                 ret = collectStoreIds(name, page.getContinuationToken(), ids);
             } else {
                 ret = Future.succeededFuture(ids);
