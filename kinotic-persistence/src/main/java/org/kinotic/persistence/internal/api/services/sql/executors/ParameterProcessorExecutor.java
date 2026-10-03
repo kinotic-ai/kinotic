@@ -17,14 +17,12 @@ import org.kinotic.persistence.internal.api.services.sql.ListParameterHolder;
 import org.kinotic.persistence.internal.api.services.sql.MapParameterHolder;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.persistence.internal.api.services.sql.QueryMetadata;
-import org.kinotic.persistence.internal.utils.PersistenceUtil;
 
 import java.util.List;
 import java.util.Map;
 
 /**
- * A {@link QueryExecutor} that extracts special parameters from the {@link QueryContext} and validates the tenants
- * the context then acts on before delegating to another {@link QueryExecutor}
+ * A {@link QueryExecutor} that extracts special parameters from the {@link QueryContext} before delegating to another {@link QueryExecutor}
  *
  * Created By Navíd Mitchell 🤪on 2/24/25
  */
@@ -48,16 +46,13 @@ public class ParameterProcessorExecutor extends AbstractQueryExecutor {
     @Override
     public <T> Future<List<T>> execute(QueryContext context, Class<T> type) {
         processQueryContext(context);
-        // the tenant selection parameter is applied to the context above, so it is validated here, after it
-        return PersistenceUtil.validateEntityContext(entityDescriptor, context.getEntityContext())
-                              .compose(v -> delegate.execute(context, type));
+        return delegate.execute(context, type);
     }
 
     @Override
     public <T> Future<Page<T>> executePage(QueryContext context, Pageable pageable, Class<T> type) {
         processQueryContext(context);
-        return PersistenceUtil.validateEntityContext(entityDescriptor, context.getEntityContext())
-                              .compose(v -> delegate.executePage(context, pageable, type));
+        return delegate.executePage(context, pageable, type);
     }
 
     private void addToQueryMetadata(ParameterDefinition parameterDefinition,
