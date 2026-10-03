@@ -124,6 +124,7 @@ otel:
 # What every server shares — mirrors the Spring property structure:
 #   kinotic.domain.*       → email, Elasticsearch
 #   kinotic.managementApi.* → the stores LogService and TelemetryService query
+#   kinotic.authz.*        → the authorization engine
 #   kinotic.ignite.*       → the cluster (set in each server's application-kubernetes.yml)
 kinotic:
   domain:
@@ -154,6 +155,10 @@ kinotic:
     username: "elastic"
     secretName: "kinotic-es-es-elastic-user"
     secretKey: "elastic"
+  # kinotic.authz.* — the authorization engine every server checks against: the openfga release in the
+  # same namespace. The store Job creates the platform store in it before the servers start.
+  authz:
+    apiUrl: "http://openfga.kinotic.svc:8080"
   # kinotic.ignite.* — the ports the headless `kinotic` Service exposes
   cluster:
     discoveryPort: 47500

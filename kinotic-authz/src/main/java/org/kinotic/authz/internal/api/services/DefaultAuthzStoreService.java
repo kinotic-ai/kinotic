@@ -37,7 +37,8 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
         return platformStoreId().compose(storeId -> ensureModel(storeId, model));
     }
 
-    private Future<String> platformStoreId() {
+    @Override
+    public Future<String> platformStoreId() {
         Future<String> ret = platformStore;
         if (ret == null || ret.failed()) {
             synchronized (this) {

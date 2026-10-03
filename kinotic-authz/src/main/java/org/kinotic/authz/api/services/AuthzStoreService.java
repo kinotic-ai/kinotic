@@ -9,11 +9,19 @@ import org.kinotic.authz.api.model.AuthzModel;
 public interface AuthzStoreService {
 
     /**
-     * Makes the given model the platform store's current one, as {@link #ensureModel} does for a store named
-     * by id. The platform store is the one store named {@code kinotic-platform}, created ahead of the servers
-     * and never by one; it is looked up on first use and kept once found, and a lookup that fails, because the
+     * The id of the platform store, the one store holding the developer-side graph of every organization and
+     * the platform itself. It is the store named {@code kinotic-platform}, created ahead of the servers and
+     * never by one; it is looked up on first use and kept once found, and a lookup that fails, because the
      * engine is unreachable or there is no store of the name, fails the caller and is made again by the next
      * one.
+     *
+     * @return the platform store's id
+     */
+    Future<String> platformStoreId();
+
+    /**
+     * Makes the given model the platform store's current one, as {@link #ensureModel} does for a store named
+     * by id.
      *
      * @param model the model the platform store must run
      * @return the id of the version the platform store now runs

@@ -1,0 +1,37 @@
+# Values for the upstream openfga chart (https://openfga.github.io/helm-charts): OpenFGA, the authorization
+# engine every server checks against, on a Postgres the environment's overlay brings up as the `openfga-db`
+# Service. The engine runs the schema migration in an init container of its own pods, so the release is
+# ready when its pods are, which `helm --wait` can see. The check caches match the compose stack's: a check
+# answers from cached subproblems, invalidated by the cache controller on every write.
+
+image:
+  tag: v1.21.0
+  pullPolicy: IfNotPresent
+
+datastore:
+  engine: postgres
+  # The Secret terraform creates beside the database, with the connection URI under the key `uri`
+  uriSecret: openfga-db
+  applyMigrations: true
+  migrationType: initContainer
+
+http:
+  corsAllowedOrigins: []
+  corsAllowedHeaders: []
+
+playground:
+  enabled: false
+
+checkQueryCache:
+  enabled: true
+
+extraEnvVars:
+  - name: OPENFGA_CHECK_ITERATOR_CACHE_ENABLED
+    value: "true"
+  - name: OPENFGA_SHARED_ITERATOR_ENABLED
+    value: "true"
+  - name: OPENFGA_CACHE_CONTROLLER_ENABLED
+    value: "true"
+
+log:
+  format: json

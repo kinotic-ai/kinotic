@@ -169,8 +169,8 @@ jobs:
             docker push "$staged"
           done
 
-  # Elasticsearch + the migration image via compose.kinotic-test.yml. Compiles what it tests itself,
-  # so it needs only the migration image and runs alongside the build job.
+  # Elasticsearch, OpenFGA + the migration image via compose.kinotic-test.yml. Compiles what it tests
+  # itself, so it needs only the migration image and runs alongside the build job.
   kinotic_test:
     name: Kinotic Integration Tests
     needs: migration_image
@@ -211,6 +211,7 @@ jobs:
       - name: Run kinotic-test integration tests
         run: |
           docker compose -f deployment/docker-compose/compose.elasticsearch.yml pull --quiet &
+          docker compose -f deployment/docker-compose/compose.openfga.yml pull --quiet &
           ./gradlew :kinotic-test:test
 
       - name: Collect Allure results
@@ -353,7 +354,7 @@ jobs:
         with:
           name: js-workspace
 
-  # compose.kinotic-e2e-test.yml brings up Elasticsearch + migration + the server image. The
+  # compose.kinotic-e2e-test.yml brings up Elasticsearch + migration + OpenFGA + the server image. The
   # node-failure suite brings up its own two-node stack, so it runs on its own runner beside the rest.
   e2e_tests:
     name: E2E Tests (${{ matrix.suite.name }})
@@ -423,6 +424,7 @@ jobs:
         run: |
           cd kinotic-js/e2e-tests
           docker compose -f ../../deployment/docker-compose/compose.elasticsearch.yml pull --quiet &
+          docker compose -f ../../deployment/docker-compose/compose.openfga.yml pull --quiet &
           gradle pnpmInstall
           gradle ${{ matrix.suite.task }}
 

@@ -13,6 +13,7 @@ import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
+import org.kinotic.core.api.directory.ServiceDirectoryPublishedEvent;
 import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
 import io.vertx.core.Future;
 import org.kinotic.core.api.event.CRI;
@@ -41,6 +42,7 @@ import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.ClassUtils;
@@ -63,9 +65,10 @@ import java.util.Set;
  * keeps liveness verified against cluster registrations, serves the directory queries, and deploys the
  * {@link ServiceLivenessUpdater} as one HA cluster singleton on startup. Services registered while the
  * context starts are converted in one session once every singleton exists, so a service whose contract cannot
- * be created fails the refresh, and their entries are stored on {@link ApplicationReadyEvent}. Storage is
- * supplied by a {@link ServiceDirectoryStrategy}; the directory bean exists only when a strategy bean does, so
- * a deployment without one has no directory at all.
+ * be created fails the refresh, and their entries are stored on {@link ApplicationReadyEvent}. Once entries
+ * this node stored are visible, a {@link ServiceDirectoryPublishedEvent} says so. Storage is supplied by a
+ * {@link ServiceDirectoryStrategy}; the directory bean exists only when a strategy bean does, so a deployment
+ * without one has no directory at all.
  */
 @Slf4j
 @Component
@@ -82,6 +85,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     private final SchemaService schemaService;
     private final McpJsonSchemaGenerator schemaGenerator;
     private final Ignite ignite;
+    private final ApplicationEventPublisher eventPublisher;
 
     // Registrations arriving while singletons are created are held here and converted in ONE conversion
     // session once all of them exist, so model types shared between services are converted once per node
@@ -104,7 +108,8 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                                    EventBusService eventBusService,
                                    SchemaServiceFactory schemaServiceFactory,
                                    IdlConverterFactory idlConverterFactory,
-                                   Ignite ignite) {
+                                   Ignite ignite,
+                                   ApplicationEventPublisher eventPublisher) {
         this.strategy = strategy;
         this.eventBusService = eventBusService;
         // a Participant is bound from the security context, never from the request, the rule
@@ -112,6 +117,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
         this.schemaService = schemaServiceFactory.create(Set.of(Participant.class));
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
         this.ignite = ignite;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -158,6 +164,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
             }
             strategy.upsertEntry(entry)
                     .compose(v -> refreshOnline(serviceIdentifier))
+                    .onSuccess(v -> eventPublisher.publishEvent(new ServiceDirectoryPublishedEvent(this, List.of(entry))))
                     .onFailure(throwable -> log.error("Failed to register service {} in the directory", serviceIdentifier, throwable));
         }
     }
@@ -190,6 +197,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                 // one reconcile corrects the liveness of every entry from a single cluster snapshot,
                 // instead of one registration query per service
                 upsertAll(batch.values()).compose(v -> reconcileLiveness())
+                                         .onSuccess(v -> eventPublisher.publishEvent(new ServiceDirectoryPublishedEvent(this, batch.values())))
                                          .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
             } catch (Exception e) {
                 log.error("Startup directory publish failed", e);
