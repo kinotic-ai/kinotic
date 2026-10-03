@@ -12,7 +12,8 @@ import java.util.List;
 
 /**
  * Decides which queue nodes hold the copies of each shard. Every node computes the same placement for the same
- * cluster topology: the first node of a shard's copies owns it, the others follow it.
+ * cluster topology: the first node of a shard's copies owns it, the others follow it. Lookups may block while the
+ * cluster changes topology.
  */
 @Component
 public class ShardPlacement {
@@ -35,7 +36,13 @@ public class ShardPlacement {
         configuration.setCacheMode(CacheMode.PARTITIONED);
         configuration.setBackups(replicationFactor - 1);
         configuration.setNodeFilter(new AttributeNodeFilter(QUEUE_NODE_ATTRIBUTE, Boolean.TRUE));
-        ignite.getOrCreateCache(configuration);
+        int clusterBackups = ignite.getOrCreateCache(configuration).getConfiguration(CacheConfiguration.class).getBackups();
+        // The first queue node to start creates the cache, so its replication factor is the cluster's; a node that
+        // disagreed would count majorities differently from the others
+        if (clusterBackups != replicationFactor - 1) {
+            throw new IllegalStateException("kinotic.queue.replicationFactor is " + replicationFactor + " on this node but "
+                                                    + (clusterBackups + 1) + " on the queue nodes already running");
+        }
     }
 
     /**
@@ -65,6 +72,13 @@ public class ShardPlacement {
 
     public String localNodeId() {
         return ignite.cluster().localNode().id().toString();
+    }
+
+    /**
+     * @return the order in which this node joined the cluster, which no other node in the cluster shares
+     */
+    public long localNodeOrder() {
+        return ignite.cluster().localNode().order();
     }
 
     /**

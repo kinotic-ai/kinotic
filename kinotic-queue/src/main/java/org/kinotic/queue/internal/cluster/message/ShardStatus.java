@@ -1,34 +1,45 @@
 package org.kinotic.queue.internal.cluster.message;
 
 import io.vertx.core.buffer.Buffer;
+import org.kinotic.queue.internal.log.ShardLog;
+
+import java.util.Map;
 
 /**
  * How far a node's copy of a shard reaches.
  *
- * @param nextOffset    the offset after the copy's last entry; zero when the node holds no copy
- * @param lastEpoch     the epoch of the copy's last entry; -1 when it holds none
- * @param acceptedEpoch the newest owner epoch the copy has accepted; -1 when the node holds no copy
+ * @param nextOffset      the offset after the copy's last entry; zero when the node holds no copy
+ * @param lastEpoch       the epoch of the copy's last entry; -1 when the copy is empty
+ * @param acceptedEpoch   the newest epoch the node has promised for the shard; -1 when it has promised none
+ * @param consumerOffsets the next offset of every consumer that has committed on the shard, by consumer name
  */
-public record ShardStatus(long nextOffset, long lastEpoch, long acceptedEpoch) {
+public record ShardStatus(long nextOffset, long lastEpoch, long acceptedEpoch, Map<String, Long> consumerOffsets) {
+
+    public static ShardStatus of(ShardLog shardLog, Map<String, Long> consumerOffsets) {
+        return new ShardStatus(shardLog.nextOffset(), shardLog.lastEpoch(), shardLog.acceptedEpoch(), consumerOffsets);
+    }
 
     /**
      * The status of a node that holds no copy of the shard.
      */
-    public static final ShardStatus NONE = new ShardStatus(0, -1, -1);
+    public static ShardStatus none(long acceptedEpoch) {
+        return new ShardStatus(0, -1, acceptedEpoch, Map.of());
+    }
 
     public static ShardStatus fromBuffer(Buffer buffer) {
         Wire wire = new Wire(buffer);
-        return new ShardStatus(wire.readLong(), wire.readLong(), wire.readLong());
+        return new ShardStatus(wire.readLong(), wire.readLong(), wire.readLong(), wire.readOffsets());
     }
 
     /**
-     * @return whether this copy holds entries the other does not: a newer last epoch, or more entries in the same one
+     * @return whether this copy holds entries the other may lack: a newer last epoch, or more entries in the same one
      */
     public boolean isAheadOf(ShardStatus other) {
         return lastEpoch > other.lastEpoch || (lastEpoch == other.lastEpoch && nextOffset > other.nextOffset);
     }
 
     public Buffer toBuffer() {
-        return Buffer.buffer().appendLong(nextOffset).appendLong(lastEpoch).appendLong(acceptedEpoch);
+        return Wire.appendOffsets(Buffer.buffer().appendLong(nextOffset).appendLong(lastEpoch).appendLong(acceptedEpoch),
+                                  consumerOffsets);
     }
 }

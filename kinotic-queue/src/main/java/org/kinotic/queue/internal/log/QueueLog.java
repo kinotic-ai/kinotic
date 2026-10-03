@@ -8,6 +8,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.regex.Pattern;
 
 /**
  * The shards of a queue this node holds and the committed offsets of the queue's consumers, kept under one
@@ -16,6 +17,9 @@ import java.nio.file.StandardCopyOption;
 public final class QueueLog implements AutoCloseable {
 
     private static final String SHARD_COUNT_FILE = "shard-count";
+    // Queue and consumer names become directory and file names, so they can never contain a path separator or "..",
+    // which also rules out path traversal
+    private static final Pattern NAME_PATTERN = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,127}");
 
     private final Path directory;
     private final QueueDefinition definition;
@@ -30,11 +34,35 @@ public final class QueueLog implements AutoCloseable {
     }
 
     /**
+     * @return whether a queue or consumer may have this name: up to 128 letters, digits, {@code .}, {@code _} or {@code -},
+     * starting with a letter or digit
+     */
+    public static boolean isValidName(String name) {
+        return name != null && NAME_PATTERN.matcher(name).matches();
+    }
+
+    /**
+     * @throws IllegalArgumentException when the name is not {@link #isValidName valid}
+     */
+    public static void requireValidName(String name) {
+        if (!isValidName(name)) {
+            throw new IllegalArgumentException("Invalid name '" + name + "': use up to 128 letters, digits, '.', '_' or '-', starting with a letter or digit");
+        }
+    }
+
+    /**
      * Opens the queue stored in {@code directory}, storing {@code definition} there when the directory holds none.
+     *
+     * @throws IllegalStateException when the directory holds the queue with a different shard count
      */
     public static QueueLog openOrCreate(Path directory, QueueDefinition definition) {
         Path shardCountFile = directory.resolve(SHARD_COUNT_FILE);
-        if (!Files.exists(shardCountFile)) {
+        QueueDefinition stored = findDefinition(directory);
+        if (stored != null && stored.shardCount() != definition.shardCount()) {
+            throw new IllegalStateException(directory + " holds queue " + definition.name() + " with " + stored.shardCount()
+                                                    + " shards, but the cluster defines it with " + definition.shardCount());
+        }
+        if (stored == null) {
             try {
                 Files.createDirectories(directory);
                 // Written beside the target then moved, so a crash never leaves a partial shard count
@@ -56,7 +84,7 @@ public final class QueueLog implements AutoCloseable {
     public static QueueDefinition findDefinition(Path directory) {
         Path shardCountFile = directory.resolve(SHARD_COUNT_FILE);
         QueueDefinition ret = null;
-        if (Files.exists(shardCountFile)) {
+        if (isValidName(directory.getFileName().toString()) && Files.exists(shardCountFile)) {
             try {
                 ret = new QueueDefinition(directory.getFileName().toString(),
                                           Integer.parseInt(Files.readString(shardCountFile).trim()));
@@ -89,7 +117,7 @@ public final class QueueLog implements AutoCloseable {
      */
     public synchronized ShardLog findShard(int shard) {
         ShardLog ret = shards[shard];
-        if (ret == null && Files.isDirectory(shardDirectory(shard))) {
+        if (ret == null && ShardLog.exists(shardDirectory(shard))) {
             ret = shard(shard);
         }
         return ret;

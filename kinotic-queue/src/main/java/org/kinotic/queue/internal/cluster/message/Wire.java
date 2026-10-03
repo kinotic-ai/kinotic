@@ -5,7 +5,9 @@ import org.kinotic.queue.internal.log.ShardEntry;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The binary encoding queue nodes exchange. The static methods append values to a buffer; an instance reads them
@@ -31,10 +33,18 @@ public final class Wire {
     public static Buffer appendEntries(Buffer buffer, List<ShardEntry> entries) {
         buffer.appendInt(entries.size());
         for (ShardEntry entry : entries) {
-            buffer.appendLong(entry.offset()).appendLong(entry.epoch());
-            appendString(buffer, entry.key());
-            appendBytes(buffer, entry.payload());
+            buffer.appendLong(entry.offset()).appendLong(entry.epoch()).appendByte((byte) (entry.isMarker() ? 1 : 0));
+            if (!entry.isMarker()) {
+                appendString(buffer, entry.key());
+                appendBytes(buffer, entry.payload());
+            }
         }
+        return buffer;
+    }
+
+    public static Buffer appendOffsets(Buffer buffer, Map<String, Long> offsets) {
+        buffer.appendInt(offsets.size());
+        offsets.forEach((name, offset) -> appendString(buffer, name).appendLong(offset));
         return buffer;
     }
 
@@ -61,11 +71,28 @@ public final class Wire {
         return ret;
     }
 
+    public byte readByte() {
+        byte ret = buffer.getByte(position);
+        position += Byte.BYTES;
+        return ret;
+    }
+
     public List<ShardEntry> readEntries() {
         int count = readInt();
         List<ShardEntry> ret = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
-            ret.add(new ShardEntry(readLong(), readLong(), readString(), readBytes()));
+            long offset = readLong();
+            long epoch = readLong();
+            ret.add(readByte() == 1 ? ShardEntry.marker(offset, epoch) : new ShardEntry(offset, epoch, readString(), readBytes()));
+        }
+        return ret;
+    }
+
+    public Map<String, Long> readOffsets() {
+        int count = readInt();
+        Map<String, Long> ret = new HashMap<>(count);
+        for (int i = 0; i < count; i++) {
+            ret.put(readString(), readLong());
         }
         return ret;
     }

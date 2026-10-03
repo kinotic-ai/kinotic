@@ -14,7 +14,6 @@ import org.springframework.test.context.DynamicPropertySource;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.kinotic.queue.internal.QueueTestSupport.await;
 
@@ -43,7 +42,6 @@ public class QueueServiceWiringTests {
 
         QueuePosition position = await(queueService.append("wired", "key", new byte[]{1}));
 
-        assertEquals(0, position.offset());
         assertTrue(Files.isDirectory(dataDirectory.resolve("wired").resolve("shards").resolve(String.valueOf(position.shard()))));
     }
 }

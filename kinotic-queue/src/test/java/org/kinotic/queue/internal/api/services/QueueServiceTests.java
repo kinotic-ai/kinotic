@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.kinotic.queue.internal.QueueTestSupport.await;
 import static org.kinotic.queue.internal.QueueTestSupport.payload;
 import static org.kinotic.queue.internal.QueueTestSupport.value;
@@ -85,9 +86,11 @@ public class QueueServiceTests {
     @Test
     public void consumerResumesAfterItsLastCommitAcrossARestart() throws Exception {
         await(service.createQueueIfNotExist(new QueueDefinition("orders", 1)));
+        long lastOffset = -1;
         for (int i = 0; i < 10; i++) {
             QueuePosition position = await(service.append("orders", "key", payload(i)));
-            assertEquals(i, position.offset());
+            assertTrue(position.offset() > lastOffset);
+            lastOffset = position.offset();
         }
         TestSubscriber first = subscribe("billing", StartPosition.EARLIEST);
         QueueRecord committed = null;
@@ -103,7 +106,7 @@ public class QueueServiceTests {
         // The restarted node is a new cluster member that knows the queue only from its disk
         node.close();
         startNode();
-        assertEquals(10, await(service.append("orders", "key", payload(10))).offset());
+        assertTrue(await(service.append("orders", "key", payload(10))).offset() > lastOffset);
 
         TestSubscriber resumed = subscribe("billing", StartPosition.EARLIEST);
         for (int i = 4; i <= 10; i++) {
@@ -153,6 +156,16 @@ public class QueueServiceTests {
                                             "key", payload(1));
 
         ExecutionException e = assertThrows(ExecutionException.class, () -> await(subscriber.commit(ahead)));
+        assertInstanceOf(IllegalArgumentException.class, e.getCause());
+    }
+
+    @Test
+    public void appendOfARecordLargerThanTheMaximumEventPayloadFails() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 1)));
+
+        ExecutionException e = assertThrows(ExecutionException.class,
+                                             () -> await(service.append("orders", "key", new byte[2 * 1024 * 1024])));
+
         assertInstanceOf(IllegalArgumentException.class, e.getCause());
     }
 

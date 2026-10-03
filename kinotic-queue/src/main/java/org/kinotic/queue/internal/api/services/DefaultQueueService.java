@@ -5,6 +5,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.queue.api.config.KinoticQueueProperties;
 import org.kinotic.queue.api.model.QueueDefinition;
 import org.kinotic.queue.api.model.QueuePosition;
 import org.kinotic.queue.api.model.StartPosition;
@@ -13,19 +14,20 @@ import org.kinotic.queue.api.services.QueueSubscription;
 import org.kinotic.queue.internal.cluster.QueueClusterClient;
 import org.kinotic.queue.internal.cluster.QueueDefinitionRepository;
 import org.kinotic.queue.internal.cluster.QueueNode;
+import org.kinotic.queue.internal.log.QueueLog;
 import org.springframework.stereotype.Component;
 
-import java.util.regex.Pattern;
+import java.nio.charset.StandardCharsets;
 
 @Component
 @RequiredArgsConstructor
 public class DefaultQueueService implements QueueService {
 
-    // Queue and consumer names become directory and file names, so they can never contain a path separator or "..",
-    // which also rules out path traversal
-    private static final Pattern NAME_PATTERN = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,127}");
+    // Every shard is an open Chronicle Queue on each node holding it, and every node checks every shard's placement
+    private static final int MAX_SHARD_COUNT = 1_024;
 
     private final Vertx vertx;
+    private final KinoticQueueProperties properties;
     private final QueueDefinitionRepository definitions;
     private final QueueNode queueNode;
     private final QueueClusterClient client;
@@ -33,8 +35,9 @@ public class DefaultQueueService implements QueueService {
     @Override
     public Future<QueueDefinition> createQueueIfNotExist(QueueDefinition definition) {
         return vertx.executeBlocking(() -> {
-            requireValidName(definition.name());
-            Validate.isTrue(definition.shardCount() > 0, "shardCount must be at least one");
+            QueueLog.requireValidName(definition.name());
+            Validate.isTrue(definition.shardCount() > 0 && definition.shardCount() <= MAX_SHARD_COUNT,
+                            "shardCount must be between 1 and %d", MAX_SHARD_COUNT);
             QueueDefinition stored = definitions.saveIfAbsent(definition);
             // Keeps a copy on disk, so the queue is known again after every queue node restarts
             queueNode.localLog(stored);
@@ -47,12 +50,17 @@ public class DefaultQueueService implements QueueService {
         if (key == null || payload == null) {
             return Future.failedFuture(new IllegalArgumentException("key and payload must not be null"));
         }
+        long size = (long) key.getBytes(StandardCharsets.UTF_8).length + payload.length;
+        if (size > properties.getMaxEventPayloadSize()) {
+            return Future.failedFuture(new IllegalArgumentException("The record is " + size + " bytes, larger than kinotic.maxEventPayloadSize ("
+                                                                            + properties.getMaxEventPayloadSize() + ")"));
+        }
         return definition(queue).compose(definition -> client.append(definition, key, payload));
     }
 
     @Override
     public Future<QueueSubscription> subscribe(String queue, String consumerName, StartPosition startPosition) {
-        if (consumerName == null || !NAME_PATTERN.matcher(consumerName).matches() || startPosition == null) {
+        if (!QueueLog.isValidName(consumerName) || startPosition == null) {
             return Future.failedFuture(new IllegalArgumentException("Invalid consumer name '" + consumerName + "' or missing startPosition"));
         }
         Context context = vertx.getOrCreateContext();
@@ -66,18 +74,12 @@ public class DefaultQueueService implements QueueService {
             ret = Future.succeededFuture(known);
         } else {
             ret = vertx.executeBlocking(() -> {
-                requireValidName(queue);
+                QueueLog.requireValidName(queue);
                 QueueDefinition definition = definitions.find(queue);
                 Validate.isTrue(definition != null, "No queue named %s", queue);
                 return definition;
             }, false);
         }
         return ret;
-    }
-
-    private static void requireValidName(String name) {
-        Validate.isTrue(name != null && NAME_PATTERN.matcher(name).matches(),
-                        "Invalid name '%s': use up to 128 letters, digits, '.', '_' or '-', starting with a letter or digit",
-                        name);
     }
 }

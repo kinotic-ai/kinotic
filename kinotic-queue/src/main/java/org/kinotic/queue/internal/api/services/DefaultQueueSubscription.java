@@ -201,14 +201,16 @@ public class DefaultQueueSubscription implements QueueSubscription {
 
     private void onFetched(int shard, FetchResponse response) {
         if (!closed) {
+            if (fetchOffsets[shard] < 0) {
+                // A LATEST start learns its offset from the owner's first answer
+                deliveredNextOffsets[shard] = response.nextOffset() - response.entries().size();
+            }
             for (ShardEntry entry : response.entries()) {
-                pending.add(new QueueRecord(new QueuePosition(queue, shard, entry.offset()), entry.key(), entry.payload()));
+                if (!entry.isMarker()) {
+                    pending.add(new QueueRecord(new QueuePosition(queue, shard, entry.offset()), entry.key(), entry.payload()));
+                }
             }
             fetchOffsets[shard] = response.nextOffset();
-            if (deliveredNextOffsets[shard] == 0 && response.entries().isEmpty()) {
-                // A LATEST start learns its offset from the owner
-                deliveredNextOffsets[shard] = response.nextOffset();
-            }
             deliver();
         }
     }

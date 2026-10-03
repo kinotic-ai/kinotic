@@ -31,15 +31,16 @@ public final class ShardReader implements AutoCloseable {
     }
 
     /**
-     * Reads the entries written since the last read.
+     * Reads the entries written since the last read, stopping at {@code maxEntries} or once {@code maxBytes} is reached.
+     * Always returns the next entry when there is one, however large.
      *
-     * @param max the most entries to return
-     * @return up to {@code max} entries in offset order, empty when the reader has reached the end of the shard
+     * @return entries in offset order, empty when the reader has reached the end of the shard
      */
-    public List<ShardEntry> read(int max) {
+    public List<ShardEntry> read(int maxEntries, long maxBytes) {
         List<ShardEntry> ret = new ArrayList<>();
+        long bytesRead = 0;
         tailer.singleThreadedCheckReset();
-        while (ret.size() < max) {
+        while (ret.size() < maxEntries && bytesRead < maxBytes) {
             try (DocumentContext dc = tailer.readingDocument()) {
                 if (!dc.isPresent()) {
                     break;
@@ -51,10 +52,17 @@ public final class ShardReader implements AutoCloseable {
                     throw new IllegalStateException("Expected offset " + nextOffset + " in " + shardLog + " but read " + offset);
                 }
                 long epoch = bytes.readLong();
-                String key = bytes.readUtf8();
-                byte[] payload = new byte[bytes.readInt()];
-                bytes.read(payload);
-                ret.add(new ShardEntry(offset, epoch, key, payload));
+                ShardEntry entry;
+                if (bytes.readBoolean()) {
+                    entry = ShardEntry.marker(offset, epoch);
+                } else {
+                    String key = bytes.readUtf8();
+                    byte[] payload = new byte[bytes.readInt()];
+                    bytes.read(payload);
+                    entry = new ShardEntry(offset, epoch, key, payload);
+                }
+                ret.add(entry);
+                bytesRead += entry.size();
                 nextOffset = offset + 1;
             }
         }

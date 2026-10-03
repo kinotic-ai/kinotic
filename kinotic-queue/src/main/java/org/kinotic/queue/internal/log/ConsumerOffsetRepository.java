@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * Stores, for each consumer of one queue, the next offset to deliver on every shard. A stored offset only moves
@@ -18,12 +19,16 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
 
     private final Path directory;
     private final int shardCount;
+    // Counts the stored offsets that moved forward on each shard, so a change can be noticed without comparing offsets
+    private final long[] versions;
     private final Map<String, long[]> offsets = new HashMap<>();
     private final Map<String, FileChannel> channels = new HashMap<>();
+    private boolean allLoaded;
 
     ConsumerOffsetRepository(Path directory, int shardCount) {
         this.directory = directory;
         this.shardCount = shardCount;
+        this.versions = new long[shardCount];
     }
 
     /**
@@ -32,6 +37,27 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
      */
     public synchronized long findNextOffset(String consumerName, int shard) {
         return load(consumerName)[shard];
+    }
+
+    /**
+     * @return the next offset of every consumer that has committed on the shard, by consumer name
+     */
+    public synchronized Map<String, Long> findAll(int shard) {
+        loadAll();
+        Map<String, Long> ret = new HashMap<>();
+        offsets.forEach((consumerName, stored) -> {
+            if (stored[shard] > 0) {
+                ret.put(consumerName, stored[shard]);
+            }
+        });
+        return ret;
+    }
+
+    /**
+     * @return a number that grows whenever an offset stored for the shard moves forward
+     */
+    public synchronized long version(int shard) {
+        return versions[shard];
     }
 
     /**
@@ -50,7 +76,15 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
                 throw new UncheckedIOException(e);
             }
             stored[shard] = nextOffset;
+            versions[shard]++;
         }
+    }
+
+    /**
+     * {@link #save Saves} every consumer's next offset on one shard.
+     */
+    public synchronized void saveAll(int shard, Map<String, Long> nextOffsets) {
+        nextOffsets.forEach((consumerName, nextOffset) -> save(consumerName, shard, nextOffset));
     }
 
     @Override
@@ -61,6 +95,21 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
+        }
+    }
+
+    private void loadAll() {
+        if (!allLoaded) {
+            if (Files.isDirectory(directory)) {
+                try (Stream<Path> files = Files.list(directory)) {
+                    files.map(file -> file.getFileName().toString())
+                         .filter(QueueLog::isValidName)
+                         .forEach(this::load);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
+            allLoaded = true;
         }
     }
 

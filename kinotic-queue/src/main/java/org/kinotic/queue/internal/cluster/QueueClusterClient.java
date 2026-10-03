@@ -17,13 +17,14 @@ import org.kinotic.queue.internal.cluster.message.FetchResponse;
 import org.kinotic.queue.internal.cluster.message.OffsetCommit;
 import org.kinotic.queue.internal.cluster.message.OffsetQuery;
 import org.kinotic.queue.internal.cluster.message.ReplicateRequest;
-import org.kinotic.queue.internal.cluster.message.ShardRequest;
+import org.kinotic.queue.internal.cluster.message.PrepareRequest;
 import org.kinotic.queue.internal.cluster.message.ShardStatus;
 import org.kinotic.queue.internal.log.QueueLog;
 import org.kinotic.queue.internal.log.ReplicationResult;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -37,6 +38,8 @@ public class QueueClusterClient {
     private static final long REQUEST_TIMEOUT_MS = 5_000;
     // An owner holds a fetch up to ShardOwner.FETCH_WAIT_MS before answering, so its reply takes longer
     private static final long FETCH_TIMEOUT_MS = REQUEST_TIMEOUT_MS + ShardOwner.FETCH_WAIT_MS;
+    // Longer than the owner waits for a majority, so the owner's answer arrives before the request gives up
+    private static final long APPEND_TIMEOUT_MS = 2 * REQUEST_TIMEOUT_MS;
     // Long enough for a shard's next owner to be placed and recover after its owner leaves
     private static final long APPEND_DEADLINE_MS = 30_000;
     private static final long RETRY_DELAY_MS = 100;
@@ -71,13 +74,18 @@ public class QueueClusterClient {
      * @return completes once a majority of the replication factor has stored it
      */
     public Future<Void> commitOffset(String queue, String consumerName, int shard, long nextOffset) {
-        List<String> replicas = placement.replicas(queue, shard);
+        return replicas(queue, shard).compose(replicas -> commitOffset(replicas, new OffsetCommit(queue, consumerName, shard, nextOffset)));
+    }
+
+    private Future<Void> commitOffset(List<String> replicas, OffsetCommit commit) {
+        String queue = commit.queue();
+        int shard = commit.shard();
         int quorum = placement.quorum();
         if (replicas.size() < quorum) {
             return Future.failedFuture(QueueFailure.NO_QUORUM.exception("Only " + replicas.size() + " copies of shard " + shard
                                                                                 + " of queue " + queue + " are placed, " + quorum + " are needed"));
         }
-        Buffer body = new OffsetCommit(queue, consumerName, shard, nextOffset).toBuffer();
+        Buffer body = commit.toBuffer();
         Promise<Void> ret = Promise.promise();
         int[] succeeded = {0};
         int[] failed = {0};
@@ -99,9 +107,14 @@ public class QueueClusterClient {
      * @return the consumer's next offset on the shard, the newest any reachable copy stores; zero when none stores one
      */
     public Future<Long> findNextOffset(String queue, String consumerName, int shard) {
-        Buffer body = new OffsetQuery(queue, consumerName, shard).toBuffer();
-        List<Future<Long>> replies = placement.replicas(queue, shard)
-                                              .stream()
+        return replicas(queue, shard).compose(replicas -> findNextOffset(replicas, new OffsetQuery(queue, consumerName, shard)));
+    }
+
+    private Future<Long> findNextOffset(List<String> replicas, OffsetQuery query) {
+        String queue = query.queue();
+        int shard = query.shard();
+        Buffer body = query.toBuffer();
+        List<Future<Long>> replies = replicas.stream()
                                               .map(replica -> request(replica, QueueNode.FIND_OFFSET, body, REQUEST_TIMEOUT_MS)
                                                       .map(OffsetQuery::decodeReply))
                                               .toList();
@@ -132,12 +145,12 @@ public class QueueClusterClient {
         return request(node, QueueNode.READ, request.toBuffer(), REQUEST_TIMEOUT_MS).map(FetchResponse::fromBuffer);
     }
 
-    public Future<ShardStatus> status(String node, ShardRequest request) {
-        return request(node, QueueNode.STATUS, request.toBuffer(), REQUEST_TIMEOUT_MS).map(ShardStatus::fromBuffer);
+    public Future<ShardStatus> prepare(String node, PrepareRequest request) {
+        return request(node, QueueNode.PREPARE, request.toBuffer(), REQUEST_TIMEOUT_MS).map(ShardStatus::fromBuffer);
     }
 
     private Future<Long> append(AppendRequest request, long deadline) {
-        return requestOwner(request.queue(), request.shard(), QueueNode.APPEND, request.toBuffer(), REQUEST_TIMEOUT_MS)
+        return requestOwner(request.queue(), request.shard(), QueueNode.APPEND, request.toBuffer(), APPEND_TIMEOUT_MS)
                 .map(AppendRequest::decodeReply)
                 .recover(e -> isRetryable(e) && System.currentTimeMillis() < deadline
                         ? vertx.timer(RETRY_DELAY_MS, TimeUnit.MILLISECONDS).compose(v -> append(request, deadline))
@@ -156,13 +169,18 @@ public class QueueClusterClient {
     }
 
     private Future<Buffer> requestOwner(String queue, int shard, String action, Buffer body, long timeoutMs) {
-        Future<Buffer> ret;
+        return replicas(queue, shard).compose(replicas -> replicas.isEmpty()
+                ? Future.failedFuture(new ReplyException(ReplyFailure.NO_HANDLERS, "No queue node is placed"))
+                : request(replicas.getFirst(), action, body, timeoutMs));
+    }
+
+    // Placement can block while the cluster changes topology, so it is looked up off the event loop
+    private Future<List<String>> replicas(String queue, int shard) {
+        Future<List<String>> ret;
         try {
-            List<String> replicas = placement.replicas(queue, shard);
-            ret = replicas.isEmpty() ? Future.failedFuture(new ReplyException(ReplyFailure.NO_HANDLERS, "No queue node is placed"))
-                                     : request(replicas.getFirst(), action, body, timeoutMs);
-        } catch (RuntimeException e) {
-            // Placement fails while Ignite changes topology or stops
+            ret = vertx.executeBlocking(() -> placement.replicas(queue, shard), false);
+        } catch (RejectedExecutionException e) {
+            // Vert.x throws rather than failing the future once it has closed its worker pool
             ret = Future.failedFuture(e);
         }
         return ret;

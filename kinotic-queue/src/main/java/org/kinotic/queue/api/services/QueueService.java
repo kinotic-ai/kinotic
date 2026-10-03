@@ -14,7 +14,7 @@ public interface QueueService {
     /**
      * Creates a queue unless a queue with the same name already exists.
      *
-     * @param definition the name and shard count of the queue
+     * @param definition the name and shard count of the queue; at most 1024 shards
      * @return the stored definition, which keeps its original shard count when the queue already existed
      */
     Future<QueueDefinition> createQueueIfNotExist(QueueDefinition definition);
@@ -22,8 +22,9 @@ public interface QueueService {
     /**
      * Appends a record to the shard its key hashes to. Records appended with the same key are delivered in the
      * order they were appended. Completes once a majority of the shard's copies has the record, and fails when
-     * the queue does not exist or no majority of copies is reachable. A failed append may still have been
-     * written, so retrying it can deliver the record twice.
+     * the queue does not exist, the key and payload together exceed {@code kinotic.maxEventPayloadSize} bytes, or
+     * no majority of copies is reachable. A failed append may still have been written, so retrying it can deliver
+     * the record twice.
      *
      * @param queue   the queue name
      * @param key     decides the shard the record is written to

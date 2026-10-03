@@ -1,5 +1,6 @@
 package org.kinotic.queue.internal.cluster;
 
+import org.kinotic.queue.internal.log.ConsumerOffsetRepository;
 import org.kinotic.queue.internal.log.ShardLog;
 
 import java.util.List;
@@ -7,12 +8,13 @@ import java.util.List;
 /**
  * A shard placed on this node as its owner.
  *
- * @param queue     the queue name
- * @param shard     the shard
- * @param log       this node's copy of the shard
- * @param followers the ids of the nodes holding the shard's other copies
+ * @param queue           the queue name
+ * @param shard           the shard
+ * @param shardLog        this node's copy of the shard
+ * @param consumerOffsets the queue's consumer offsets on this node
+ * @param followers       the ids of the nodes holding the shard's other copies
  */
-record ShardAssignment(String queue, int shard, ShardLog log, List<String> followers) {
+record ShardAssignment(String queue, int shard, ShardLog shardLog, ConsumerOffsetRepository consumerOffsets, List<String> followers) {
 
     String key() {
         return queue + "/" + shard;

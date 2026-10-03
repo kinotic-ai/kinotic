@@ -5,16 +5,16 @@ package org.kinotic.queue.internal.log;
  */
 public enum ReplicationStatus {
     /**
-     * The shard holds every entry the owner sent and agrees with the owner up to them.
+     * The shard now holds the owner's entries up to the end of the batch.
      */
     ACCEPTED,
     /**
-     * The batch did not continue the shard; the owner resends from the offset in the result, which is zero when the
-     * shard held entries the owner does not have and was emptied.
+     * The entry before the batch differs from the owner's, or the shard does not reach it; the owner resends from the
+     * offset in the result. The shard is left unchanged.
      */
     MISMATCH,
     /**
-     * The shard has accepted entries from a newer owner, so the sender no longer owns it.
+     * The shard has promised a newer owner, so the sender no longer owns it.
      */
     STALE_EPOCH
 }

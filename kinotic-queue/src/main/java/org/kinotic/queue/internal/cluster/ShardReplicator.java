@@ -4,15 +4,18 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.queue.internal.cluster.message.ReplicateRequest;
+import org.kinotic.queue.internal.log.ConsumerOffsetRepository;
 import org.kinotic.queue.internal.log.ReplicationResult;
 import org.kinotic.queue.internal.log.ShardEntry;
 import org.kinotic.queue.internal.log.ShardLog;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Copies an owned shard to one follower, one batch at a time, reading the batches from the owner's copy. A follower
- * that is behind, or was emptied because it held entries the owner does not, is sent everything it is missing.
+ * that is behind, or holds entries the owner does not, is sent everything from the last entry the two agree on. The
+ * shard's consumer offsets travel with a batch whenever they changed since the follower last received them.
  * Runs on the owner's context.
  */
 @Slf4j
@@ -27,19 +30,21 @@ final class ShardReplicator {
     private final String queue;
     private final int shard;
     private final ShardLog shardLog;
+    private final ConsumerOffsetRepository consumerOffsets;
     private final long epoch;
     private final Runnable onMatched;
     private final Runnable onStaleEpoch;
 
     private long nextToSend;
     private long matchedOffset;
+    private long sentOffsetsVersion = -1;
     private boolean inFlight;
     private boolean stopped;
     private long retryTimer = -1;
 
     /**
      * @param onMatched    called when the follower holds more of the shard than before
-     * @param onStaleEpoch called when the follower has accepted a newer owner
+     * @param onStaleEpoch called when the follower has promised a newer owner
      */
     ShardReplicator(Vertx vertx,
                     QueueClusterClient client,
@@ -47,6 +52,7 @@ final class ShardReplicator {
                     String queue,
                     int shard,
                     ShardLog shardLog,
+                    ConsumerOffsetRepository consumerOffsets,
                     long epoch,
                     Runnable onMatched,
                     Runnable onStaleEpoch) {
@@ -56,6 +62,7 @@ final class ShardReplicator {
         this.queue = queue;
         this.shard = shard;
         this.shardLog = shardLog;
+        this.consumerOffsets = consumerOffsets;
         this.epoch = epoch;
         this.onMatched = onMatched;
         this.onStaleEpoch = onStaleEpoch;
@@ -67,7 +74,7 @@ final class ShardReplicator {
     }
 
     /**
-     * Sends the owner's new entries unless a batch is already on its way.
+     * Sends the owner's new entries unless a batch is already on its way or waiting to be retried.
      */
     void notifyAppended() {
         if (retryTimer < 0) {
@@ -92,16 +99,21 @@ final class ShardReplicator {
     private void send() {
         if (!stopped && !inFlight) {
             inFlight = true;
-            long from = nextToSend;
-            vertx.executeBlocking(() -> batch(from), false)
+            // A follower can report an offset past the owner's end when it holds entries the owner does not
+            long from = Math.min(nextToSend, shardLog.nextOffset());
+            long[] offsetsVersion = new long[1];
+            vertx.executeBlocking(() -> {
+                     offsetsVersion[0] = consumerOffsets.version(shard);
+                     return batch(from, offsetsVersion[0] > sentOffsetsVersion ? consumerOffsets.findAll(shard) : Map.of());
+                 }, false)
                  .compose(request -> client.replicate(follower, request))
-                 .onComplete(this::onReply);
+                 .onComplete(reply -> onReply(reply, offsetsVersion[0]));
         }
     }
 
-    private ReplicateRequest batch(long from) {
+    private ReplicateRequest batch(long from, Map<String, Long> offsets) {
         // Reads the entry before the batch too, whose epoch lets the follower check it continues the same history
-        List<ShardEntry> read = shardLog.read(Math.max(0, from - 1), BATCH_SIZE + 1);
+        List<ShardEntry> read = shardLog.read(Math.max(0, from - 1), BATCH_SIZE + 1, ShardOwner.MAX_BATCH_BYTES);
         long prevEpoch = -1;
         List<ShardEntry> entries = read;
         if (from > 0) {
@@ -110,10 +122,10 @@ final class ShardReplicator {
         }
         // Read after the entries, so the owner's end covers every entry in the batch
         long ownerNextOffset = shardLog.nextOffset();
-        return new ReplicateRequest(queue, shard, epoch, from - 1, prevEpoch, ownerNextOffset, List.copyOf(entries));
+        return new ReplicateRequest(queue, shard, epoch, from - 1, prevEpoch, ownerNextOffset, List.copyOf(entries), offsets);
     }
 
-    private void onReply(AsyncResult<ReplicationResult> reply) {
+    private void onReply(AsyncResult<ReplicationResult> reply, long offsetsVersion) {
         inFlight = false;
         if (stopped) {
             return;
@@ -128,6 +140,7 @@ final class ShardReplicator {
             ReplicationResult result = reply.result();
             switch (result.status()) {
                 case ACCEPTED -> {
+                    sentOffsetsVersion = offsetsVersion;
                     nextToSend = result.nextOffset();
                     if (result.nextOffset() > matchedOffset) {
                         matchedOffset = result.nextOffset();
@@ -138,8 +151,8 @@ final class ShardReplicator {
                     }
                 }
                 case MISMATCH -> {
+                    sentOffsetsVersion = offsetsVersion;
                     nextToSend = result.nextOffset();
-                    // An emptied follower no longer holds what it held before
                     matchedOffset = Math.min(matchedOffset, result.nextOffset());
                     send();
                 }
