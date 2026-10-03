@@ -1,1 +1,0 @@
-{"id":"c925157f8d1f4e23e98d7d7a2ee4e1a2","fullName":"org.kinotic.sql.parsers.SelectStatementParserTest.whenKeywordsAreLowercase_thenParsesTheSame","name":"whenKeywordsAreLowercase_thenParsesTheSame()","status":"passed","testResultsByEnv":{"default":"bb9ab08fa7227f6078de9a260f8d63e9"}}
