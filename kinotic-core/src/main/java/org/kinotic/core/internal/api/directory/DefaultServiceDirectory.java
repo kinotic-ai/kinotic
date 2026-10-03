@@ -2,13 +2,6 @@ package org.kinotic.core.internal.api.directory;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import io.vertx.core.Context;
-import io.vertx.core.Vertx;
-import jakarta.annotation.PostConstruct;
-import org.kinotic.core.api.annotations.Emitter;
-import org.kinotic.core.api.directory.ServiceDirectoryChange;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Sinks;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.annotations.Publish;
@@ -70,10 +63,9 @@ import java.util.Set;
  * keeps liveness verified against cluster registrations, serves the directory queries, and deploys the
  * {@link ServiceLivenessUpdater} as one HA cluster singleton on startup. Services registered while the
  * context starts are converted in one session once every singleton exists, so a service whose contract cannot
- * be created fails the refresh, and their entries are stored on {@link ApplicationReadyEvent}. Every entry this
- * node stores is emitted as a {@link ServiceDirectoryChange} on the event fabric once it is visible. Storage is
- * supplied by a {@link ServiceDirectoryStrategy}; the directory bean exists only when a strategy bean does, so a
- * deployment without one has no directory at all.
+ * be created fails the refresh, and their entries are stored on {@link ApplicationReadyEvent}. Storage is
+ * supplied by a {@link ServiceDirectoryStrategy}; the directory bean exists only when a strategy bean does, so
+ * a deployment without one has no directory at all.
  */
 @Slf4j
 @Component
@@ -90,13 +82,6 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     private final SchemaService schemaService;
     private final McpJsonSchemaGenerator schemaGenerator;
     private final Ignite ignite;
-    private final Vertx vertx;
-
-    // Hot source of the @Emitter stream; never terminates. Best effort: a change nobody consumes is dropped
-    private final Sinks.Many<ServiceDirectoryChange> changes = Sinks.many().multicast().directBestEffort();
-    // The startup batch and a late registration complete on different contexts; one context serializes
-    // emission, since a sink rejects concurrent emission
-    private Context deliveryContext;
 
     // Registrations arriving while singletons are created are held here and converted in ONE conversion
     // session once all of them exist, so model types shared between services are converted once per node
@@ -119,8 +104,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                                    EventBusService eventBusService,
                                    SchemaServiceFactory schemaServiceFactory,
                                    IdlConverterFactory idlConverterFactory,
-                                   Ignite ignite,
-                                   Vertx vertx) {
+                                   Ignite ignite) {
         this.strategy = strategy;
         this.eventBusService = eventBusService;
         // a Participant is bound from the security context, never from the request, the rule
@@ -128,17 +112,6 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
         this.schemaService = schemaServiceFactory.create(Set.of(Participant.class));
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
         this.ignite = ignite;
-        this.vertx = vertx;
-    }
-
-    @PostConstruct
-    void init() {
-        deliveryContext = vertx.getOrCreateContext();
-    }
-
-    @Emitter
-    Flux<ServiceDirectoryChange> entryChanges() {
-        return changes.asFlux();
     }
 
     @Override
@@ -185,7 +158,6 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
             }
             strategy.upsertEntry(entry)
                     .compose(v -> refreshOnline(serviceIdentifier))
-                    .onSuccess(v -> announce(entry))
                     .onFailure(throwable -> log.error("Failed to register service {} in the directory", serviceIdentifier, throwable));
         }
     }
@@ -218,17 +190,11 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                 // one reconcile corrects the liveness of every entry from a single cluster snapshot,
                 // instead of one registration query per service
                 upsertAll(batch.values()).compose(v -> reconcileLiveness())
-                                         .onSuccess(v -> batch.values().forEach(this::announce))
                                          .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
             } catch (Exception e) {
                 log.error("Startup directory publish failed", e);
             }
         }
-    }
-
-    private void announce(ServiceDirectoryEntry entry) {
-        ServiceDirectoryChange change = new ServiceDirectoryChange(entry.getId(), entry.getOrganizationId(), entry.getApplicationId());
-        deliveryContext.runOnContext(v -> changes.tryEmitNext(change));
     }
 
     // Every node requests the deployment; Ignite elects a single host for it cluster-wide
@@ -276,6 +242,11 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                                                                    String applicationId,
                                                                    Pageable pageable) {
         return strategy.findEntriesScopedTo(organizationId, applicationId, pageable);
+    }
+
+    @Override
+    public Future<Page<ServiceDirectoryEntry>> findSystemEntries(Pageable pageable) {
+        return strategy.findSystemEntries(pageable);
     }
 
     @Override

@@ -34,7 +34,7 @@ public class PlatformModelSyncTests extends KinoticTestBase {
 
     @Test
     public void platformStoreRunsTheModelGeneratedFromTheDirectory() throws Exception {
-        List<ServiceDirectoryEntry> entries = serviceDirectory.findEntriesScopedTo(null, null, Pageable.create(0, 500, Sort.by("id")))
+        List<ServiceDirectoryEntry> entries = serviceDirectory.findSystemEntries(Pageable.create(0, 500, Sort.by("id")))
                                                               .await()
                                                               .getContent();
         Assertions.assertFalse(entries.isEmpty(), "the directory holds the published contracts");

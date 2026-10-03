@@ -31,6 +31,14 @@ public interface ServiceDirectory {
                                                             Pageable pageable);
 
     /**
+     * Returns the entries of the platform's own services, the ones no organization owns, which the platform's
+     * authorization model is generated from.
+     * @param pageable the page settings to use
+     * @return a page of the system-scoped entries
+     */
+    Future<Page<ServiceDirectoryEntry>> findSystemEntries(Pageable pageable);
+
+    /**
      * Resolves the online MCP tool with the given name that the given scope may call, using the same visibility
      * rules as {@link #findMcpToolsCallableBy}. Tool names are unique system wide.
      * @param toolName the MCP tool name to resolve

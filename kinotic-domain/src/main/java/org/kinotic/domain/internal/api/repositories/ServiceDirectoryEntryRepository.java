@@ -142,6 +142,13 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     }
 
     /**
+     * Returns the entries of the platform's own services, the ones with no owning organization.
+     */
+    public Future<Page<ServiceDirectoryEntry>> findSystemEntries(Pageable pageable) {
+        return findAll(pageable, b -> b.query(q -> q.bool(bq -> bq.mustNot(n -> n.exists(e -> e.field("organizationId"))))));
+    }
+
+    /**
      * Returns the online MCP tools a caller in the given scope may call, flattened from the matching entries. The
      * search {@code _source}-filters to the {@code mcpTools} field so contracts never leave Elasticsearch.
      */
