@@ -22,7 +22,6 @@ import org.kinotic.persistence.api.model.*;
 import org.kinotic.domain.api.model.persistence.*;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.services.NamedQueriesService;
-import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
@@ -47,7 +46,6 @@ public class DefaultEntityService implements EntityService {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultEntityService.class);
 
-    private final AuthorizationService<EntityOperation> authService;
     private final CrudServiceTemplate crudServiceTemplate;
     private final DelegatingUpsertPreProcessor delegatingUpsertPreProcessor;
     private final ElasticsearchAsyncClient esAsyncClient;
@@ -62,7 +60,6 @@ public class DefaultEntityService implements EntityService {
     @Override
     public <T> Future<Void> bulkSave(T entities, EntityContext context) {
         return doPersistBulk(entities,
-                             EntityOperation.BULK_SAVE,
                              context,
                              entityHolder -> BulkOperation.of(b -> {
                                  // When optimistic locking is enabled and no version is present, we use create
@@ -100,7 +97,6 @@ public class DefaultEntityService implements EntityService {
     @Override
     public <T> Future<Void> bulkUpdate(T entities, EntityContext context) {
         return doPersistBulk(entities,
-                             EntityOperation.BULK_UPDATE,
                              context,
                              entityHolder -> BulkOperation.of(b -> b
                                      .update(u -> {
@@ -136,7 +132,6 @@ public class DefaultEntityService implements EntityService {
     @Override
     public Future<Long> count(EntityContext context) {
         return PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                .compose(un -> authService.authorize(EntityOperation.COUNT, context))
                 .compose(un -> crudServiceTemplate
                         .count(entityDescriptor.itemIndex(),
                                builder -> readPreProcessor.beforeCount(entityDescriptor, null, builder, context)));
@@ -146,7 +141,6 @@ public class DefaultEntityService implements EntityService {
     @Override
     public Future<Long> countByQuery(String query, EntityContext context) {
         return PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                .compose(un -> authService.authorize(EntityOperation.COUNT_BY_QUERY, context))
                 .compose(un -> crudServiceTemplate
                         .count(entityDescriptor.itemIndex(),
                                builder -> readPreProcessor.beforeCount(entityDescriptor, query, builder, context)));
@@ -156,7 +150,6 @@ public class DefaultEntityService implements EntityService {
     @Override
     public Future<Void> deleteById(String id, EntityContext context) {
         return PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                .compose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
                 .map(un -> composeId(id, context))
                 .compose(composedId -> crudServiceTemplate
                         .deleteById(entityDescriptor.itemIndex(),
@@ -172,7 +165,6 @@ public class DefaultEntityService implements EntityService {
         context.setTenantSelection(List.of(id.tenantId()));
 
         return PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                .compose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
                 .map(un -> composeId(id))
                 .compose(composedId -> crudServiceTemplate
                         .deleteById(entityDescriptor.itemIndex(),
@@ -185,7 +177,6 @@ public class DefaultEntityService implements EntityService {
     @Override
     public Future<Void> deleteByQuery(String query, EntityContext context) {
         return PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                .compose(un -> authService.authorize(EntityOperation.DELETE_BY_QUERY, context))
                 .compose(un -> crudServiceTemplate
                         .deleteByQuery(entityDescriptor.itemIndex(),
                                        builder -> readPreProcessor.beforeDeleteByQuery(entityDescriptor, query, builder, context))
@@ -196,7 +187,6 @@ public class DefaultEntityService implements EntityService {
     @Override
     public <T> Future<Page<T>> findAll(Pageable pageable, Class<T> type, EntityContext context) {
         return PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                .compose(un -> authService.authorize(EntityOperation.FIND_ALL, context))
                 .compose(un -> {
 
                     if(FastestType.class.isAssignableFrom(type)){
@@ -246,7 +236,6 @@ public class DefaultEntityService implements EntityService {
     @Override
     public <T> Future<T> findById(String id, Class<T> type, EntityContext context) {
         return PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                .compose(un -> authService.authorize(EntityOperation.FIND_BY_ID, context))
                 .map(un -> composeId(id, context))
                 .compose(composedId -> doFindById(composedId, type, context));
     }
@@ -258,7 +247,6 @@ public class DefaultEntityService implements EntityService {
         context.setTenantSelection(List.of(id.tenantId()));
 
         return PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                .compose(un -> authService.authorize(EntityOperation.FIND_BY_ID, context))
                 .map(un -> composeId(id))
                 .compose(composedId -> doFindById(composedId, type, context));
     }
@@ -267,7 +255,6 @@ public class DefaultEntityService implements EntityService {
     @Override
     public <T> Future<List<T>> findByIds(List<String> ids, Class<T> type, EntityContext context) {
         return PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                .compose(un -> authService.authorize(EntityOperation.FIND_BY_IDS, context))
                 .map(un -> composeIds(ids, context))
                 .compose(composedIds -> doFindByIds(composedIds, type, context));
     }
@@ -276,9 +263,7 @@ public class DefaultEntityService implements EntityService {
     @Override
     public <T> Future<List<T>> findByIdsWithTenant(List<TenantSpecificId> ids, Class<T> type, EntityContext context) {
         return  validate_ComposeIds_AddTenantsToContext(ids, context)
-                .compose(composedIds
-                                     -> authService.authorize(EntityOperation.FIND_BY_IDS, context)
-                                                   .compose(v -> doFindByIds(composedIds, type, context)));
+                .compose(composedIds -> doFindByIds(composedIds, type, context));
     }
 
     @WithSpan
@@ -315,7 +300,6 @@ public class DefaultEntityService implements EntityService {
     @Override
     public <T> Future<T> save(T entity, EntityContext context) {
         return doPersist(entity,
-                         EntityOperation.SAVE,
                          context,
                          entityHolder -> KinoticUtil.toFuture(esAsyncClient.index(i -> {
                              i.routing(entityHolder.tenantId())
@@ -352,7 +336,6 @@ public class DefaultEntityService implements EntityService {
     @Override
     public <T> Future<Page<T>> search(String searchText, Pageable pageable, Class<T> type, EntityContext context) {
         return PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                .compose(un -> authService.authorize(EntityOperation.SEARCH, context))
                 .compose(un -> {
 
                     if(FastestType.class.isAssignableFrom(type)){
@@ -413,15 +396,13 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public Future<Void> syncIndex(EntityContext context) {
-        return authService.authorize(EntityOperation.SYNC_INDEX, context)
-                          .compose(un -> crudServiceTemplate.syncIndex(entityDescriptor.itemIndex()));
+        return crudServiceTemplate.syncIndex(entityDescriptor.itemIndex());
     }
 
     @WithSpan
     @Override
     public <T> Future<T> update(T entity, EntityContext context) {
         return doPersist(entity,
-                         EntityOperation.UPDATE,
                          context,
                          entityHolder -> {
 
@@ -574,45 +555,37 @@ public class DefaultEntityService implements EntityService {
     }
 
     private <T> Future<T> doPersist(T entity,
-                                    EntityOperation operation,
                                     EntityContext context,
                                     Function<EntityHolder<?>, Future<T>> persistLogic){
-        // We do this since ideally processing data before auth is not ideal
-        // However, in the case of Multi-tenant access the data names the tenants, so they must be
-        // extracted before the context is validated and authorized
+        // with multi-tenant selection the data names the tenants, so it is processed before the context
+        // is validated
         if(entityDescriptor.isMultiTenantSelectionEnabled()){
 
             return delegatingUpsertPreProcessor.process(entity, context)
                     .compose(entityHolder ->
                                          PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                                                 .compose(un -> authService.authorize(operation, context))
                                                  .compose(un -> persistLogic.apply(entityHolder)));
         }else{
             return PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                    .compose(un -> authService.authorize(operation, context))
                     .compose(un -> delegatingUpsertPreProcessor.process(entity, context))
                     .compose(persistLogic);
         }
     }
 
     private <T> Future<Void> doPersistBulk(T entities,
-                                           EntityOperation operation,
                                            EntityContext context,
                                            Function<EntityHolder<?>, BulkOperation> persistLogic){
-        // We do this since ideally processing data before auth is not ideal
-        // However, in the case of Multi-tenant access the data names the tenants, so they must be
-        // extracted before the context is validated and authorized
+        // with multi-tenant selection the data names the tenants, so it is processed before the context
+        // is validated
         if(entityDescriptor.isMultiTenantSelectionEnabled()){
 
             return delegatingUpsertPreProcessor.processArray(entities, context)
                     .compose(entityList ->
                                          PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                                                 .compose(un -> authService.authorize(operation, context))
                                                  .compose(un -> doPersistBulkLogic(entityList, persistLogic)))
                     .mapEmpty();
         }else {
             return PersistenceUtil.validateEntityContext(entityDescriptor, context)
-                    .compose(un -> authService.authorize(operation, context))
                     .compose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
                     .compose(list -> doPersistBulkLogic(list, persistLogic))
                     .mapEmpty();

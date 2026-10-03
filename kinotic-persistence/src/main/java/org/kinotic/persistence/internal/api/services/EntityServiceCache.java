@@ -11,7 +11,6 @@ import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.persistence.api.services.NamedQueriesService;
-import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
 import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
 import org.kinotic.core.api.utils.KinoticUtil;
@@ -41,7 +40,6 @@ import java.util.concurrent.Executor;
 @Component
 public class EntityServiceCache {
 
-    private final AuthorizationServiceFactory authServiceFactory;
     private final CrudServiceTemplate crudServiceTemplate;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final NamedQueriesService namedQueriesService;
@@ -53,8 +51,7 @@ public class EntityServiceCache {
     private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
     private final AsyncLoadingCache<CacheKey, EntityService> cache;
 
-    public EntityServiceCache(AuthorizationServiceFactory authServiceFactory,
-                                    CrudServiceTemplate crudServiceTemplate,
+    public EntityServiceCache(CrudServiceTemplate crudServiceTemplate,
                                     ElasticsearchAsyncClient esAsyncClient,
                                     NamedQueriesService namedQueriesService,
                                     JsonMapper jsonMapper,
@@ -65,7 +62,6 @@ public class EntityServiceCache {
                                     DomainPersistenceProperties domainPersistenceProperties,
                                     List<UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors,
                                     DefaultCaffeineCacheFactory cacheFactory) {
-        this.authServiceFactory = authServiceFactory;
         this.crudServiceTemplate = crudServiceTemplate;
         this.esAsyncClient = esAsyncClient;
         this.namedQueriesService = namedQueriesService;
@@ -138,9 +134,7 @@ public class EntityServiceCache {
 
         EntityDescriptor entityDescriptor = entityDefinition.toDescriptor();
 
-        return authServiceFactory.createEntityDefinitionAuthorizationService(entityDefinition)
-                                 .map(authService -> new DefaultEntityService(
-                                         authService,
+        return Future.succeededFuture(new DefaultEntityService(
                                          crudServiceTemplate,
                                          new DelegatingUpsertPreProcessor(domainPersistenceProperties,
                                                                           jsonMapper,

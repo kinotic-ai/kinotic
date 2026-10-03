@@ -2,7 +2,6 @@ import {EntityType} from '@/api/idl/EntityType'
 import {EsIndexConfigurationData} from '@/api/idl/EsIndexConfigurationData'
 import {MultiTenancyType} from '@/api/idl/MultiTenancyType'
 import {PrecisionType} from '@/api/idl/PrecisionType'
-import type {EntityServiceDecoratorsConfig} from '@/api/idl/EntityServiceDecoratorsConfig'
 
 // These are TC39 stage-3 decorators with no runtime behavior: they are source-level
 // markers the Kinotic CLI reads from the TypeScript AST to build entity definitions.
@@ -44,15 +43,6 @@ export function Entity(_multiTenancyType: MultiTenancyType = MultiTenancyType.NO
 }
 
 /**
- * A class Decorator when applied to an Entity will configure Decorators to be applied to the EntityService
- * @param config the {@link EntityServiceDecoratorsConfig} to use
- */
-export function EntityServiceDecorators(_config: EntityServiceDecoratorsConfig) {
-    return function (_value: Function, _context: ClassDecoratorContext<any>): void {
-    }
-}
-
-/**
  * Provides configuration for the Elasticsearch index.
  * This can be used to override the default index settings and mappings used by Kinotic.
  */
@@ -82,12 +72,6 @@ export function NotIndexed(_value: undefined, _context: ClassFieldDecoratorConte
 export function NotNull(_value: undefined, _context: ClassFieldDecoratorContext): void {
 }
 
-export function Policy(_policies: string[][]) {
-    return function (_value: unknown,
-                     _context: ClassDecoratorContext<any> | ClassFieldDecoratorContext | ClassMethodDecoratorContext): void {
-    }
-}
-
 export function Precision(_precisionType: PrecisionType = PrecisionType.INT) {
     return function (_value: undefined, _context: ClassFieldDecoratorContext): void {
     }
@@ -95,12 +79,6 @@ export function Precision(_precisionType: PrecisionType = PrecisionType.INT) {
 
 export function Query(_statements: string) {
     return function (_value: Function, _context: ClassMethodDecoratorContext): void {
-    }
-}
-
-export function Role(_roles: string[]) {
-    return function (_value: unknown,
-                     _context: ClassDecoratorContext<any> | ClassFieldDecoratorContext | ClassMethodDecoratorContext): void {
     }
 }
 
