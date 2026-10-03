@@ -3,6 +3,7 @@ package org.kinotic.authz.internal.api.services;
 import dev.openfga.sdk.api.model.AuthorizationModel;
 import dev.openfga.sdk.api.model.CreateStoreRequest;
 import dev.openfga.sdk.api.model.CreateStoreResponse;
+import dev.openfga.sdk.api.model.Store;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelRequest;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelResponse;
 import io.vertx.core.Future;
@@ -80,11 +81,12 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
     private Future<String> findPlatformStore() {
         return fga.listStores(1, null, PLATFORM_STORE_NAME).compose(page -> {
             Future<String> ret;
-            if (page.getStores().isEmpty()) {
+            Store store = page.getStores().isEmpty() ? null : page.getStores().getFirst();
+            if (store != null && PLATFORM_STORE_NAME.equals(store.getName())) {
+                ret = Future.succeededFuture(store.getId());
+            } else {
                 ret = Future.failedFuture(new IllegalStateException("No store is named '" + PLATFORM_STORE_NAME
                                                                             + "'; the platform store is created before the servers start"));
-            } else {
-                ret = Future.succeededFuture(page.getStores().getFirst().getId());
             }
             return ret;
         }).onSuccess(id -> log.info("Using platform authorization store {}", id))
