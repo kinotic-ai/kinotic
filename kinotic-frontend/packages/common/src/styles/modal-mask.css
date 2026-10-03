@@ -1,0 +1,20 @@
+/* The dimmed, blurred backdrop behind a modal drawer or dialog. It fades out and passes clicks
+   through to the page as soon as the modal starts to close. */
+.modal-mask {
+  /* PrimeVue's mask fade animates the background to and from this variable, so the color is set
+     here; an !important background would win over the animation */
+  --px-mask-background: color-mix(in oklab, var(--p-surface-950) 20%, transparent);
+  backdrop-filter: blur(3px);
+  transition: backdrop-filter 0.15s;
+}
+
+.dark .modal-mask {
+  --px-mask-background: rgb(255 255 255 / 25%);
+}
+
+/* PrimeVue adds p-overlay-mask-leave-active when the modal starts to close */
+.modal-mask.p-overlay-mask-leave-active {
+  backdrop-filter: blur(0);
+  /* Overrides the pointer-events: auto PrimeVue sets inline on a modal mask */
+  pointer-events: none !important;
+}
