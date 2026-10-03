@@ -2,6 +2,8 @@ package org.kinotic.authz.internal.api.services;
 
 import dev.openfga.sdk.api.OpenFgaApi;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import org.apache.ignite.Ignite;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -9,11 +11,18 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.RelationshipTuple;
-import org.kinotic.authz.internal.config.KinoticAuthzConfig;
+import org.kinotic.authz.api.services.AuthzModelGenerator;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -35,23 +44,37 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Exercises the store and relationship services against a real OpenFGA: the platform store resolved by name,
- * a generated model written once and reused while it is unchanged, relationships written in batches, and
- * checks answering from them. OpenFGA runs from the image the dev stack declares when Docker is available,
- * else at the URL in the {@code OPENFGA_URL} environment variable, and the test is skipped when there is
- * neither.
+ * Exercises the store and relationship services against a real OpenFGA: the platform store created under the
+ * cluster's permit and found by name afterwards, a generated model written once and reused while it is
+ * unchanged, relationships written in batches, and checks answering from them. OpenFGA runs from the image the
+ * dev stack declares when Docker is available, else at the URL in the {@code OPENFGA_URL} environment
+ * variable, and the test is skipped when there is neither.
  */
+@SpringBootTest
+@ActiveProfiles("test")
 class OpenFgaIntegrationTest {
 
     private static GenericContainer<?> openfga;
-    private static OpenFgaApi api;
-    private static KinoticAuthzProperties properties;
-    private static DefaultAuthzStoreService storeService;
-    private static DefaultRelationshipService relationshipService;
+    private static String apiUrl;
+
+    @Autowired
+    private AuthzStoreService storeService;
+    @Autowired
+    private RelationshipService relationshipService;
+    @Autowired
+    private AuthzModelGenerator generator;
+    @Autowired
+    private OpenFgaApi api;
+    @Autowired
+    private KinoticAuthzProperties properties;
+    @Autowired
+    private Vertx vertx;
+    @Autowired
+    private Ignite ignite;
 
     @BeforeAll
-    static void setup() throws Exception {
-        String apiUrl = System.getenv("OPENFGA_URL");
+    static void startEngine() {
+        apiUrl = System.getenv("OPENFGA_URL");
         if (apiUrl == null) {
             Assumptions.assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
                                    "Docker or OPENFGA_URL is required for the OpenFGA integration test");
@@ -62,45 +85,45 @@ class OpenFgaIntegrationTest {
             openfga.start();
             apiUrl = "http://" + openfga.getHost() + ":" + openfga.getMappedPort(8080);
         }
-        properties = new KinoticAuthzProperties();
-        properties.getAuthz().setApiUrl(apiUrl);
-        api = new KinoticAuthzConfig().openFgaApi(properties);
-        storeService = new DefaultAuthzStoreService(api, properties);
-        relationshipService = new DefaultRelationshipService(api);
+    }
+
+    @DynamicPropertySource
+    static void engineUrl(DynamicPropertyRegistry registry) {
+        registry.add("kinotic.authz.apiUrl", () -> apiUrl);
     }
 
     @AfterAll
-    static void tearDown() {
+    static void stopEngine() {
         if (openfga != null) {
             openfga.stop();
         }
     }
 
     @Test
-    void platformStoreIsFoundByNameAfterItsFirstCreation() throws Exception {
+    void platformStoreIsCreatedOnceAndFoundByNameAfterwards() throws Exception {
         String storeId = await(storeService.platformStoreId());
 
         assertEquals(storeId, await(storeService.platformStoreId()));
-        // a second node resolves the same store rather than creating another of the name
-        assertEquals(storeId, await(new DefaultAuthzStoreService(api, properties).platformStoreId()));
+        // another node resolves the same store rather than creating a second one of the name
+        assertEquals(storeId, await(new DefaultAuthzStoreService(api, properties, vertx, ignite).platformStoreId()));
     }
 
     @Test
     void modelIsWrittenOnceAndReusedWhileUnchanged() throws Exception {
         String storeId = await(storeService.createStore("model-test"));
-        AuthzModel model = new DefaultAuthzModelGenerator().platformModel(List.of(projectService()));
+        AuthzModel model = generator.platformModel(List.of(projectService()));
 
         String modelId = await(storeService.ensureModel(storeId, model));
 
         assertEquals(modelId, await(storeService.ensureModel(storeId, model)));
-        AuthzModel grown = new DefaultAuthzModelGenerator().platformModel(List.of(projectService(), vmNodeService()));
+        AuthzModel grown = generator.platformModel(List.of(projectService(), vmNodeService()));
         assertNotEquals(modelId, await(storeService.ensureModel(storeId, grown)));
     }
 
     @Test
     void checksAnswerFromWrittenRelationships() throws Exception {
         String storeId = await(storeService.createStore("check-test"));
-        String modelId = await(storeService.ensureModel(storeId, new DefaultAuthzModelGenerator().platformModel(List.of(projectService()))));
+        String modelId = await(storeService.ensureModel(storeId, generator.platformModel(List.of(projectService()))));
         await(relationshipService.write(storeId, List.of(
                 new RelationshipTuple("user:sally", "member", "organization:acme"),
                 new RelationshipTuple("organization:acme", "organization", "application:crm"),
@@ -127,7 +150,7 @@ class OpenFgaIntegrationTest {
     @Test
     void writesBeyondOneRequestAreBatched() throws Exception {
         String storeId = await(storeService.createStore("batch-test"));
-        String modelId = await(storeService.ensureModel(storeId, new DefaultAuthzModelGenerator().platformModel(List.of(projectService()))));
+        String modelId = await(storeService.ensureModel(storeId, generator.platformModel(List.of(projectService()))));
         List<RelationshipTuple> members = new ArrayList<>();
         for (int i = 0; i < 250; i++) {
             members.add(new RelationshipTuple("user:member" + i, "member", "group:everyone"));

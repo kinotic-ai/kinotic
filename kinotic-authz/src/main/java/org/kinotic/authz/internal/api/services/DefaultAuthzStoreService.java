@@ -8,8 +8,11 @@ import dev.openfga.sdk.api.model.Store;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelRequest;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelResponse;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteSemaphore;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzStoreService;
@@ -27,6 +30,8 @@ import java.util.List;
 public class DefaultAuthzStoreService implements AuthzStoreService {
 
     static final String PLATFORM_STORE_NAME = "kinotic-platform";
+    // the cluster-wide permit a node holds while it creates the platform store, so exactly one node creates it
+    private static final String PLATFORM_STORE_PERMIT = "kinotic-authz-platform-store";
     private static final int STORE_PAGE_SIZE = 100;
     // the SDK's model classes bind by their own wire names, so the application's mapper customizations stay
     // out of the conversion in both directions
@@ -34,6 +39,8 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
 
     private final OpenFgaApi api;
     private final KinoticAuthzProperties properties;
+    private final Vertx vertx;
+    private final Ignite ignite;
     // resolved once per node; a failed resolution is retried by the next caller
     private volatile Future<String> platformStore;
 
@@ -85,34 +92,64 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
         } else {
             ret = findStore(PLATFORM_STORE_NAME).compose(found -> found != null
                     ? Future.succeededFuture(found)
-                    : createStoreOnce(PLATFORM_STORE_NAME));
+                    : createPlatformStore());
         }
         return ret.onSuccess(id -> log.info("Using platform authorization store {}", id));
     }
 
     /**
-     * Creates the named store unless another node created it first. Store names are not unique in OpenFGA and
-     * nodes start together, so after creating, the lowest id of that name is the one every node settles on,
-     * the earliest created since store ids are ULIDs, and a node whose store lost removes it again.
+     * Creates the platform store on the one node that takes the cluster's permit; every other node waits for
+     * that node to release it and then finds the store it created.
      */
-    private Future<String> createStoreOnce(String name) {
-        return createStore(name).compose(created -> findStore(name).compose(winner -> {
+    private Future<String> createPlatformStore() {
+        // permit operations go to the cluster, so they run off the event loop
+        return vertx.executeBlocking(() -> permit().tryAcquire()).compose(acquired -> {
             Future<String> ret;
-            if (created.equals(winner)) {
-                ret = Future.succeededFuture(created);
+            if (acquired) {
+                // looked up again under the permit, since another node may have created the store between
+                // this node's lookup and its acquisition
+                ret = findStore(PLATFORM_STORE_NAME)
+                        .compose(found -> found != null ? Future.succeededFuture(found) : createStore(PLATFORM_STORE_NAME))
+                        .eventually(() -> vertx.executeBlocking(() -> {
+                            permit().release();
+                            return null;
+                        }));
             } else {
-                ret = FgaCalls.data(() -> api.deleteStore(created)).map(winner);
+                ret = vertx.executeBlocking(() -> {
+                            IgniteSemaphore permit = permit();
+                            permit.acquire();
+                            permit.release();
+                            return null;
+                        })
+                        // the creating node released the permit, so its store exists unless it failed, in which
+                        // case this node takes its turn at creating it
+                        .compose(v -> findStore(PLATFORM_STORE_NAME))
+                        .compose(found -> found != null ? Future.succeededFuture(found) : createPlatformStore());
             }
             return ret;
-        }));
+        });
+    }
+
+    private IgniteSemaphore permit() {
+        // failover safe, so a node that dies holding the permit does not block every other node for good
+        return ignite.semaphore(PLATFORM_STORE_PERMIT, 1, true, true);
     }
 
     /**
-     * The lowest id among the stores of the given name, or null when there is none.
+     * The id of the store of the given name, or null when there is none.
      */
     private Future<String> findStore(String name) {
-        return collectStoreIds(name, null, new ArrayList<>())
-                .map(ids -> ids.stream().min(String::compareTo).orElse(null));
+        return collectStoreIds(name, null, new ArrayList<>()).compose(ids -> {
+            Future<String> ret;
+            if (ids.size() > 1) {
+                // names are not unique in OpenFGA; a store created outside this service has to be pinned
+                ret = Future.failedFuture(new IllegalStateException(ids.size() + " stores are named '" + name
+                                                                            + "'; pin one with kinotic.authz.platformStoreId"));
+            } else {
+                ret = Future.succeededFuture(ids.isEmpty() ? null : ids.getFirst());
+            }
+            return ret;
+        });
     }
 
     private Future<List<String>> collectStoreIds(String name, String continuationToken, List<String> ids) {
