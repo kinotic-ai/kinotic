@@ -25,7 +25,6 @@ import java.util.List;
 public class DefaultAuthzStoreService implements AuthzStoreService {
 
     static final String PLATFORM_STORE_NAME = "kinotic-platform";
-    private static final int STORE_PAGE_SIZE = 100;
     // the SDK's model classes bind by their own wire names, so the application's mapper customizations stay
     // out of the conversion in both directions
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
@@ -79,11 +78,18 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
     }
 
     /**
-     * The id of the one store named {@link #PLATFORM_STORE_NAME}, read page by page; fails when there is none
-     * or several.
+     * The id of the one store named {@link #PLATFORM_STORE_NAME}; fails when there is none or several.
      */
     private Future<String> findPlatformStore() {
-        return collectStoreIds(null, new ArrayList<>()).compose(ids -> {
+        // the engine filters by name, and two matches already say the name is ambiguous
+        return fga.listStores(2, null, PLATFORM_STORE_NAME).compose(page -> {
+            List<String> ids = new ArrayList<>();
+            for (Store store : page.getStores()) {
+                // an engine older than the name filter returns every store, so the name is matched here too
+                if (PLATFORM_STORE_NAME.equals(store.getName())) {
+                    ids.add(store.getId());
+                }
+            }
             Future<String> ret;
             if (ids.size() == 1) {
                 ret = Future.succeededFuture(ids.getFirst());
@@ -92,31 +98,13 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
                                                                             + "'; the platform store is created before the servers start"));
             } else {
                 // names are not unique in OpenFGA, so a second store of the name is a deployment mistake to fix
-                ret = Future.failedFuture(new IllegalStateException(ids.size() + " stores are named '" + PLATFORM_STORE_NAME
+                ret = Future.failedFuture(new IllegalStateException("More than one store is named '" + PLATFORM_STORE_NAME
                                                                             + "'; exactly one is expected"));
             }
             return ret;
         }).onSuccess(id -> log.info("Using platform authorization store {}", id))
           .onFailure(e -> log.warn("The platform authorization store could not be resolved from {}: {}",
                                    properties.getAuthz().getApiUrl(), e.getMessage()));
-    }
-
-    private Future<List<String>> collectStoreIds(String continuationToken, List<String> ids) {
-        return fga.listStores(STORE_PAGE_SIZE, continuationToken, PLATFORM_STORE_NAME).compose(page -> {
-            for (Store store : page.getStores()) {
-                // an engine older than the name filter returns every store, so the name is matched here too
-                if (PLATFORM_STORE_NAME.equals(store.getName())) {
-                    ids.add(store.getId());
-                }
-            }
-            Future<List<String>> ret;
-            if (page.getContinuationToken() != null && !page.getContinuationToken().isEmpty()) {
-                ret = collectStoreIds(page.getContinuationToken(), ids);
-            } else {
-                ret = Future.succeededFuture(ids);
-            }
-            return ret;
-        });
     }
 
     /**
