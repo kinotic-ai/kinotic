@@ -1,7 +1,7 @@
 import type { JobRun } from '@kinotic-ai/management-api'
 
-// ProjectDeployJobDefinitionFactory describes a deploy run as "Deploy project <id> at <sha>"
-const COMMIT_SUFFIX = / at ([0-9a-f]{7,40})$/i
+// ProjectDeployJobDefinitionFactory describes a deploy run as "Deploy project <id> at commit <sha>"
+const COMMIT_SUFFIX = / at commit ([0-9a-f]{7,40})$/i
 
 /** Whether the run deployed a project. */
 export function isDeployRun(run: JobRun): boolean {

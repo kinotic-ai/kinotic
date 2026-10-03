@@ -94,7 +94,7 @@ public class ProjectDeployJobDefinitionFactory {
      */
     public JobDefinition createJobDefinition(Project project, ProjectDeployment existing, String commitSha) {
         String projectId = project.getId();
-        return JobDefinition.create("Deploy project " + projectId + " at " + commitSha)
+        return JobDefinition.create("Deploy project " + projectId + " at commit " + commitSha)
                 .name("project-deploy-" + projectId)
                 .version("1.0.0")
                 // Store.state: the target is a decision later effects are bound to - the sync
