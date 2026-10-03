@@ -4,7 +4,7 @@
 
 | Environment | Directory | Purpose |
 |---|---|---|
-| **Docker Compose** | `docker-compose/` | Local development (Elasticsearch, the observability stack, Keycloak); the development server runs the same images and config files as containers |
+| **Docker Compose** | `docker-compose/` | Local development (Elasticsearch, OpenFGA, the observability stack, Keycloak); the development server runs the same images and config files as containers |
 | **KinD** | `kind/` | Local Kubernetes via Kubernetes in Docker, for rehearsing the Helm charts |
 | **Development server** | `terraform/proxmox/` + `terraform/azure/dev-server/` | One Proxmox host with a container per service, workload nodes on their own machines, Front Door and email kept in Azure ([design](https://kinotic.ai/platform/development-server)) |
 | **Developer's Azure side** | `terraform/azure/dev/` | Front Door, sites account, and email for the servers on a developer machine |
@@ -29,7 +29,8 @@ helm/
 │   ├── values-kind.yaml
 │   ├── values-azure.yaml
 │   └── values-azure-beta.yaml
-├── kinotic/            # The org, system and app servers (a Deployment, Service and ConfigMap each), one Ignite cluster, the migration Job, RBAC
+├── kinotic/            # The org, system and app servers (a Deployment, Service and ConfigMap each), one Ignite cluster, the migration and store Jobs, RBAC
+├── openfga/            # Values for the upstream openfga chart: the authorization engine; its Postgres is in the cluster in KinD, a managed server in Azure
 ├── es-secret-sync/     # ES credential copy (elastic → kinotic namespace)
 ├── mimir/              # Mimir in monolithic mode (-target=all) on a persistent volume
 ├── load-generator/     # Load testing Job
@@ -48,7 +49,7 @@ Both KinD and Azure use the same layout:
 |---|---|
 | `elastic-system` | ECK operator |
 | `elastic` | Elasticsearch cluster |
-| `kinotic` | The Kinotic servers, TLS certs, Keycloak (when enabled), load generator |
+| `kinotic` | The Kinotic servers, TLS certs, OpenFGA and its Postgres, Keycloak (when enabled), load generator |
 | `observability` | Loki, Tempo, Mimir, Alloy, Grafana |
 
 ## Network Policy

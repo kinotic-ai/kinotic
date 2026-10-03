@@ -7,6 +7,7 @@ dependencies {
 	implementation project(':kinotic-domain')
 	implementation project(':kinotic-persistence')
 	implementation project(':kinotic-api-gateway')
+	implementation project(':kinotic-authz')
 
 	implementation 'io.vertx:vertx-core'
 	implementation 'io.vertx:vertx-web'

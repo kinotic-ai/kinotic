@@ -9,9 +9,14 @@ import dev.openfga.sdk.api.model.WriteAuthorizationModelResponse;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.ignite.Ignite;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.core.api.directory.ServiceDirectory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -29,8 +34,19 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
 
     private final OpenFgaService fga;
     private final KinoticAuthzProperties properties;
+    private final Ignite ignite;
+    private final ObjectProvider<ServiceDirectory> directory;
     // kept once found; a failed lookup is replaced by the next caller's
     private volatile Future<String> platformStore;
+
+    // Every node requests the deployment; Ignite elects one host among all of them, since every server kind
+    // holds the beans the updater is injected with. A context without a directory has nothing to generate from.
+    @EventListener(ApplicationReadyEvent.class)
+    public void deployPlatformModelUpdater() {
+        if (directory.getIfAvailable() != null) {
+            ignite.services().deployClusterSingleton(PlatformModelUpdater.NAME, new PlatformModelUpdater());
+        }
+    }
 
     @Override
     public Future<String> ensurePlatformModel(AuthzModel model) {

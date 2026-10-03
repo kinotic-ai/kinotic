@@ -59,6 +59,7 @@ resource "helm_release" "kinotic" {
   depends_on = [
     helm_release.elasticsearch,
     helm_release.es_secret_sync,
+    helm_release.openfga,
     kubernetes_secret.kinotic_tls,
     kubernetes_secret.platform_secrets,
   ]

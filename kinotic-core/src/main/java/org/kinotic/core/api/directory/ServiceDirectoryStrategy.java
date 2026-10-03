@@ -29,6 +29,13 @@ public interface ServiceDirectoryStrategy {
                                                             Pageable pageable);
 
     /**
+     * Returns the entries of the platform's own services, the ones no organization owns.
+     * @param pageable the page settings to use
+     * @return a page of the system-scoped entries
+     */
+    Future<Page<ServiceDirectoryEntry>> findSystemEntries(Pageable pageable);
+
+    /**
      * Resolves the online MCP tool with the given name callable by the given scope.
      * @param toolName the MCP tool name to resolve
      * @param organizationId the calling scope's organization, or null for a system scope

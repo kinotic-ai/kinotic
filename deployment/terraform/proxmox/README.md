@@ -1,8 +1,8 @@
 # The development server on Proxmox
 
 One Proxmox host runs the platform's services: a container per service — the org, system and
-app servers, the one-shot migration, three Elasticsearch nodes on a physical disk each, Loki,
-Tempo, Mimir, Grafana — created from the same images the compose stack pulls, and the edge, an
+app servers, the one-shot migration, three Elasticsearch nodes on a physical disk each, OpenFGA
+with its Postgres, Loki, Tempo, Mimir, Grafana — created from the same images the compose stack pulls, and the edge, an
 HAProxy container that passes each TLS connection on the router's forwarded 443 to the server
 its SNI names. The portal and the system console are served by Front Door from the Azure root's
 sites account (`deployment/terraform/azure/dev-server/deploy-ui.sh`), so the host exposes the
@@ -142,10 +142,11 @@ terraform apply
 
 The apply creates the private network, pulls the images, creates every container stopped,
 uploads the manifests, and runs the applier over them in startup order: the three
-Elasticsearch nodes, then Loki, Tempo, Mimir and Grafana, then the migration, which waits for
-the cluster to be healthy, runs to completion, and is verified against the
-`migration_history` index, then the three servers, which form one Ignite cluster over their
-private addresses, then the edge.
+Elasticsearch nodes, then OpenFGA's Postgres, its one-shot schema migration, the engine and the
+one-shot creation of the platform store, verified by listing it, then Loki, Tempo, Mimir and
+Grafana, then the migration, which waits for the cluster to be healthy, runs to completion,
+and is verified against the `migration_history` index, then the three servers, which form one
+Ignite cluster over their private addresses, then the edge.
 
 The servers are on `https://dev-api.kinotic.ai` (org), `https://dev-system-api.kinotic.ai`
 (system) and `https://dev-apps-api.kinotic.ai` with every application's

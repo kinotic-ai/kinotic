@@ -1,0 +1,68 @@
+# KinD: one engine replica, and its Postgres as a Deployment on an emptyDir, so the relationships last as
+# long as the pod, the way the Keycloak database does here. The `openfga-db` Secret both read their
+# credentials from is created by terraform (openfga.tf).
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1
+    memory: 512Mi
+
+extraObjects:
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: openfga-db
+      labels:
+        app: openfga-db
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: openfga-db
+      template:
+        metadata:
+          labels:
+            app: openfga-db
+        spec:
+          containers:
+            - name: postgres
+              image: postgres:18-alpine
+              envFrom:
+                - secretRef:
+                    name: openfga-db
+              ports:
+                - containerPort: 5432
+              readinessProbe:
+                exec:
+                  command: ["pg_isready", "-U", "openfga", "-d", "openfga"]
+                initialDelaySeconds: 5
+                periodSeconds: 5
+              volumeMounts:
+                # from Postgres 18 the image's data directory is under /var/lib/postgresql/<major>
+                - name: data
+                  mountPath: /var/lib/postgresql
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+          volumes:
+            - name: data
+              emptyDir: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: openfga-db
+    spec:
+      selector:
+        app: openfga-db
+      ports:
+        - port: 5432
+          targetPort: 5432

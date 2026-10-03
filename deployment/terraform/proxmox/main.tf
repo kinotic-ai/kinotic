@@ -1,7 +1,7 @@
 # ── The development server on Proxmox ────────────────────────────────────────
 # One container per service, on one host. Every service the compose stack runs locally —
-# the org, system and app servers, the one-shot migration, three Elasticsearch nodes, Loki,
-# Tempo, Mimir, Grafana — is an unprivileged LXC container created from the image compose
+# the org, system and app servers, the one-shot migration, three Elasticsearch nodes, OpenFGA
+# with its Postgres, Loki, Tempo, Mimir, Grafana — is an unprivileged LXC container created from the image compose
 # pulls, with its state in a host directory: the Elasticsearch nodes on a physical disk each.
 # The servers live on the private network; the edge, an HAProxy container on the LAN, takes
 # the router's forwarded 443 and passes each TLS connection, unopened, to the server its SNI
@@ -34,12 +34,17 @@ locals {
   grafana_ip = split("/", var.grafana_ip)[0]
 
   # The private network: the host is its gateway, the edge takes .10, the ES nodes .11 to .13,
-  # the servers .20, .22 and .23, the migration .21
-  private_prefix       = split("/", var.private_cidr)[1]
-  private_gateway      = cidrhost(var.private_cidr, 1)
-  edge_private_ip      = cidrhost(var.private_cidr, 10)
-  es_ips               = [for i in range(3) : cidrhost(var.private_cidr, 11 + i)]
-  migration_private_ip = cidrhost(var.private_cidr, 21)
+  # OpenFGA's Postgres .14, OpenFGA .15 and its one-shot containers .16 and .17, the servers .20,
+  # .22 and .23, the migration .21
+  private_prefix             = split("/", var.private_cidr)[1]
+  private_gateway            = cidrhost(var.private_cidr, 1)
+  edge_private_ip            = cidrhost(var.private_cidr, 10)
+  es_ips                     = [for i in range(3) : cidrhost(var.private_cidr, 11 + i)]
+  openfga_db_private_ip      = cidrhost(var.private_cidr, 14)
+  openfga_private_ip         = cidrhost(var.private_cidr, 15)
+  openfga_migrate_private_ip = cidrhost(var.private_cidr, 16)
+  openfga_init_private_ip    = cidrhost(var.private_cidr, 17)
+  migration_private_ip       = cidrhost(var.private_cidr, 21)
 
   # The router forwards the public 443 to the same port on the edge, which serves every name there
   public_port = 443
@@ -91,6 +96,29 @@ locals {
         GF_PATHS_PROVISIONING = "/etc/grafana/provisioning"
       }
     }
+    postgres = {
+      entrypoint = "/usr/local/bin/docker-entrypoint.sh postgres"
+      env = {
+        PATH     = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        LANG     = "en_US.utf8"
+        PG_MAJOR = "18"
+        PGDATA   = "/var/lib/postgresql/18/docker"
+      }
+    }
+    openfga = {
+      entrypoint = "/openfga run"
+      env = {
+        PATH          = "/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin"
+        SSL_CERT_FILE = "/etc/ssl/certs/ca-certificates.crt"
+      }
+    }
+    curl = {
+      entrypoint = "/entrypoint.sh curl"
+      env = {
+        PATH           = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        CURL_CA_BUNDLE = "/cacert.pem"
+      }
+    }
     # The image's docker-entrypoint.sh runs a bare haproxy command with -W -db
     haproxy = {
       entrypoint = "/usr/local/bin/docker-entrypoint.sh haproxy -f /usr/local/etc/haproxy/haproxy.cfg"
@@ -112,6 +140,31 @@ locals {
   # The cluster is healthy once all three nodes have joined; the migration and the server
   # wait for it, and the host reaches the private network directly
   es_healthy = "curl -sf 'http://${local.es_ips[0]}:9200/_cluster/health?wait_for_nodes=3&wait_for_status=yellow&timeout=30s' >/dev/null"
+
+  # OpenFGA's Postgres, with trust authentication: the private network is the isolation, the
+  # decision Elasticsearch runs under, so there is no password to place
+  openfga_datastore_env = {
+    OPENFGA_DATASTORE_ENGINE = "postgres"
+    OPENFGA_DATASTORE_URI    = "postgres://openfga@${local.openfga_db_private_ip}:5432/openfga?sslmode=disable"
+  }
+  # Postgres listens on TCP only once its initialization is done, so a connection is readiness
+  openfga_db_listening = "timeout 2 bash -c 'exec 3<>/dev/tcp/${local.openfga_db_private_ip}/5432'"
+  openfga_url          = "http://${local.openfga_private_ip}:8080"
+  openfga_healthy      = "curl -sf ${local.openfga_url}/healthz >/dev/null"
+  # Creates the platform store, the one store named kinotic-platform that every server looks up by
+  # name and never creates, unless the engine has it. Store names are not unique, so the listing is
+  # checked first, and a listing that fails stops the script rather than creating a second store
+  openfga_init_script = <<-EOT
+    #!/bin/sh
+    set -e
+    stores=$(curl -sf '${local.openfga_url}/stores?name=kinotic-platform')
+    if echo "$stores" | grep -Eq '"name":[[:space:]]*"kinotic-platform"'; then
+      echo 'The platform store kinotic-platform exists'
+    else
+      curl -sf -X POST '${local.openfga_url}/stores' -H 'Content-Type: application/json' -d '{"name":"kinotic-platform"}'
+      echo; echo 'Created the platform store kinotic-platform'
+    fi
+  EOT
 
   # Loki, Tempo, Mimir and Grafana run the compose stack's config files, with the compose
   # service names replaced by the containers' addresses. Grafana's `$$` is compose escaping.
@@ -239,6 +292,9 @@ locals {
     KINOTIC_MAX_OFF_HEAP_MEMORY  = "419430400"
     KINOTIC_DOMAIN_EMAIL_ENABLED = "true"
 
+    # The authorization engine, whose platform store openfga-init created
+    KINOTIC_AUTHZ_APIURL = local.openfga_url
+
     # The servers find each other over their private addresses and form one Ignite cluster
     KINOTIC_IGNITE_DISCOVERYTYPE  = "LOCAL"
     KINOTIC_IGNITE_LOCALADDRESSES = join(",", [for server in local.servers : "${server.private_ip}:47500"])
@@ -296,6 +352,106 @@ locals {
   })
 
   containers = merge(local.es_containers, local.server_containers, {
+    openfga-db = {
+      vm_id            = 114
+      description      = "Postgres for OpenFGA: the relationships of every authorization store"
+      image            = proxmox_oci_image.postgres.id
+      cores            = 1
+      memory           = 512
+      order            = 12
+      start_on_boot    = true
+      run_once         = false
+      interfaces       = [{ bridge = var.private_network, address = "${local.openfga_db_private_ip}/${local.private_prefix}", gateway = local.private_gateway }]
+      mounts           = [{ volume = "${local.data_root}/openfga-db", path = "/var/lib/postgresql", read_only = false }]
+      entrypoint       = local.images.postgres.entrypoint
+      image_env        = local.images.postgres.env
+      env              = { POSTGRES_DB = "openfga", POSTGRES_USER = "openfga", POSTGRES_HOST_AUTH_METHOD = "trust" }
+      privileged_ports = false
+      secrets_env      = null
+      files            = {}
+      uid              = 70
+      gid              = 70
+      wait_for         = null
+      verify           = null
+      timeout          = 300
+    }
+    openfga-migrate = {
+      vm_id            = 115
+      description      = "The one-shot schema migration of OpenFGA's Postgres, once per image and configuration"
+      image            = proxmox_oci_image.openfga.id
+      cores            = 1
+      memory           = 256
+      order            = 14
+      start_on_boot    = false
+      run_once         = true
+      interfaces       = [{ bridge = var.private_network, address = "${local.openfga_migrate_private_ip}/${local.private_prefix}", gateway = local.private_gateway }]
+      mounts           = []
+      entrypoint       = "/openfga migrate"
+      image_env        = local.images.openfga.env
+      env              = local.openfga_datastore_env
+      privileged_ports = false
+      secrets_env      = null
+      files            = {}
+      uid              = 65532
+      gid              = 65532
+      wait_for         = local.openfga_db_listening
+      verify           = null
+      timeout          = 300
+    }
+    openfga = {
+      vm_id         = 116
+      description   = "OpenFGA on :8080, the authorization engine every server checks against"
+      image         = proxmox_oci_image.openfga.id
+      cores         = 2
+      memory        = 1024
+      order         = 16
+      start_on_boot = true
+      run_once      = false
+      interfaces    = [{ bridge = var.private_network, address = "${local.openfga_private_ip}/${local.private_prefix}", gateway = local.private_gateway }]
+      mounts        = []
+      entrypoint    = local.images.openfga.entrypoint
+      image_env     = local.images.openfga.env
+      # The caches the compose stack runs with: a check answers from cached subproblems,
+      # invalidated by the cache controller on every write
+      env = merge(local.openfga_datastore_env, {
+        OPENFGA_PLAYGROUND_ENABLED           = "false"
+        OPENFGA_CHECK_QUERY_CACHE_ENABLED    = "true"
+        OPENFGA_CHECK_ITERATOR_CACHE_ENABLED = "true"
+        OPENFGA_SHARED_ITERATOR_ENABLED      = "true"
+        OPENFGA_CACHE_CONTROLLER_ENABLED     = "true"
+      })
+      privileged_ports = false
+      secrets_env      = null
+      files            = {}
+      uid              = 65532
+      gid              = 65532
+      wait_for         = null
+      verify           = null
+      timeout          = 300
+    }
+    openfga-init = {
+      vm_id            = 117
+      description      = "The one-shot creation of the platform store, kinotic-platform, unless the engine has it"
+      image            = proxmox_oci_image.curl.id
+      cores            = 1
+      memory           = 128
+      order            = 18
+      start_on_boot    = false
+      run_once         = true
+      interfaces       = [{ bridge = var.private_network, address = "${local.openfga_init_private_ip}/${local.private_prefix}", gateway = local.private_gateway }]
+      mounts           = [{ volume = "${local.config_root}/openfga-init", path = "/etc/openfga-init", read_only = true }]
+      entrypoint       = "/bin/sh /etc/openfga-init/init.sh"
+      image_env        = local.images.curl.env
+      env              = {}
+      privileged_ports = false
+      secrets_env      = null
+      files            = { "init.sh" = local.openfga_init_script }
+      uid              = 100
+      gid              = 101
+      wait_for         = local.openfga_healthy
+      verify           = "curl -sf '${local.openfga_url}/stores?name=kinotic-platform' | grep -Eq '\"name\":[[:space:]]*\"kinotic-platform\"'"
+      timeout          = 300
+    }
     loki = {
       vm_id            = 110
       description      = "Loki: logs, multi-tenant; the node's Alloy and the servers push here"
@@ -467,8 +623,9 @@ locals {
     }
   })
 
-  # The startup order is the apply order too: Elasticsearch, the stores, the migration, the
-  # servers, and the edge, which opens them to the internet once they are up
+  # The startup order is the apply order too: Elasticsearch, the authorization engine with its
+  # Postgres, schema migration and store creation, the stores, the migration, the servers, and
+  # the edge, which opens them to the internet once they are up
   apply_order = [for entry in sort([for name, c in local.containers : format("%02d %s", c.order, name)]) : split(" ", entry)[1]]
 
   # Every config file, uploaded flat as a snippet and copied by the applier into the host
@@ -589,6 +746,24 @@ resource "proxmox_oci_image" "grafana" {
   node_name    = var.proxmox_node
   datastore_id = var.files_datastore_id
   reference    = "docker.io/grafana/grafana:${var.grafana_version}"
+}
+
+resource "proxmox_oci_image" "postgres" {
+  node_name    = var.proxmox_node
+  datastore_id = var.files_datastore_id
+  reference    = "docker.io/library/postgres:${var.postgres_version}"
+}
+
+resource "proxmox_oci_image" "openfga" {
+  node_name    = var.proxmox_node
+  datastore_id = var.files_datastore_id
+  reference    = "docker.io/openfga/openfga:${var.openfga_version}"
+}
+
+resource "proxmox_oci_image" "curl" {
+  node_name    = var.proxmox_node
+  datastore_id = var.files_datastore_id
+  reference    = "docker.io/curlimages/curl:${var.curl_version}"
 }
 
 resource "proxmox_oci_image" "haproxy" {

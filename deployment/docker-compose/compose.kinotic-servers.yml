@@ -12,6 +12,8 @@ x-kinotic-server: &kinotic-server
       condition: service_healthy
     kinotic-migration:
       condition: service_completed_successfully
+    openfga-init:
+      condition: service_completed_successfully
   healthcheck:
     test: ["CMD", "/workspace/health-check"]
     interval: 30s
@@ -43,6 +45,8 @@ x-kinotic-server-environment: &kinotic-server-environment
   KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_SCHEME: http
   KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_HOST: kinotic-elasticsearch
   KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_PORT: 9200
+  # The authorization engine, whose platform store openfga-init created
+  KINOTIC_AUTHZ_APIURL: http://openfga:8080
   KINOTIC_DOMAIN_EMAIL_ENABLED: "false"
   # The servers find each other over this static address list and form one Ignite cluster
   KINOTIC_IGNITE_DISCOVERYTYPE: LOCAL
