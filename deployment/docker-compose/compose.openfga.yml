@@ -4,13 +4,15 @@
 services:
   openfga-db:
     container_name: openfga-db
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_DB: openfga
       POSTGRES_USER: openfga
       POSTGRES_PASSWORD: openfga
     volumes:
-      - openfga-db-data:/var/lib/postgresql/data
+      # from Postgres 18 the image's data directory is /var/lib/postgresql/<major>/docker and its declared
+      # volume is /var/lib/postgresql; a mount at the older /var/lib/postgresql/data would persist nothing
+      - openfga-db-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U openfga -d openfga"]
       interval: 10s
