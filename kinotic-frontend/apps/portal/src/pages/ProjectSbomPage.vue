@@ -16,19 +16,19 @@
 
     <template v-else>
       <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard :icon="GitCommitHorizontal" :tint="TINTS.green" label="Commit" detail="the last synced commit">
+        <StatCard :icon="GitCommitHorizontal" :tint="TINTS.purple" label="Commit" detail="the last synced commit">
           <span class="font-mono text-2xl font-semibold tracking-tight text-surface-950 dark:text-surface-0"
                 v-tooltip.top="commitSha || undefined">{{ commitSha ? shortSha(commitSha) : '—' }}</span>
         </StatCard>
-        <StatCard :icon="Package" :tint="TINTS.blue" label="Packages" :value="rows.length"
+        <StatCard :icon="Package" :tint="TINTS.purple" label="Packages" :value="rows.length"
                   :detail="`${dependencies.direct.length} declared by the project`" />
-        <StatCard :icon="Server" :tint="TINTS.orange" label="Runtime" :value="countOf(PackageScope.RUNTIME)"
+        <StatCard :icon="Server" :tint="TINTS.purple" label="Runtime" :value="countOf(PackageScope.RUNTIME)"
                   detail="reached by production dependencies" />
         <StatCard :icon="Wrench" :tint="TINTS.purple" label="Development" :value="countOf(PackageScope.DEVELOPMENT)"
                   detail="only used to build and test" />
       </div>
 
-      <DashboardSection :icon="ListTree" :tint="TINTS.sky" title="Packages" :count="visibleRows.length"
+      <DashboardSection :icon="ListTree" :tint="TINTS.purple" title="Packages" :count="visibleRows.length"
                         description="Search by name, or filter by how the project reaches each package. Download saves the SBOM as a CycloneDX 1.6 document, the dependency graph included.">
         <div class="flex flex-wrap items-center gap-3 border-b border-surface-200 px-5 py-3 dark:border-surface-700">
           <IconField class="w-full sm:w-80">
