@@ -63,7 +63,7 @@ class OpenFgaIntegrationTest {
     @Autowired
     private AuthzModelGenerator generator;
     @Autowired
-    private OpenFgaTemplate fga;
+    private OpenFgaService fga;
     @Autowired
     private KinoticAuthzProperties properties;
 
@@ -89,7 +89,7 @@ class OpenFgaIntegrationTest {
     private static void createPlatformStoreAheadOfTheServers() throws Exception {
         KinoticAuthzProperties properties = new KinoticAuthzProperties();
         properties.getAuthz().setApiUrl(apiUrl);
-        OpenFgaTemplate fga = new OpenFgaTemplate(properties);
+        OpenFgaService fga = new OpenFgaService(properties);
         boolean exists = await(fga.listStores(100, null, DefaultAuthzStoreService.PLATFORM_STORE_NAME))
                 .getStores().stream()
                 .anyMatch(store -> DefaultAuthzStoreService.PLATFORM_STORE_NAME.equals(store.getName()));
@@ -124,7 +124,7 @@ class OpenFgaIntegrationTest {
     void aNodeWhoseEngineIsUnreachableDoesNotStart() throws Exception {
         KinoticAuthzProperties unreachable = new KinoticAuthzProperties();
         unreachable.getAuthz().setApiUrl("http://127.0.0.1:1");
-        DefaultAuthzStoreService node = new DefaultAuthzStoreService(new OpenFgaTemplate(unreachable), unreachable);
+        DefaultAuthzStoreService node = new DefaultAuthzStoreService(new OpenFgaService(unreachable), unreachable);
 
         assertThrows(IllegalStateException.class, node::afterSingletonsInstantiated);
     }

@@ -26,7 +26,7 @@ public class DefaultRelationshipService implements RelationshipService {
     // the most tuples one Write request may carry
     static final int WRITE_BATCH_SIZE = 100;
 
-    private final OpenFgaTemplate fga;
+    private final OpenFgaService fga;
 
     @Override
     public Future<Void> write(String storeId, List<RelationshipTuple> writes, List<RelationshipTuple> deletes) {

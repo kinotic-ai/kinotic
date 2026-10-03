@@ -30,11 +30,11 @@ import org.springframework.util.StringUtils;
  * send the request observed on the future like any other.
  */
 @Component
-public class OpenFgaTemplate {
+public class OpenFgaService {
 
     private final OpenFgaApi api;
 
-    public OpenFgaTemplate(KinoticAuthzProperties properties) {
+    public OpenFgaService(KinoticAuthzProperties properties) {
         AuthzProperties authz = properties.getAuthz();
         Configuration configuration = new Configuration().apiUrl(authz.getApiUrl());
         if (StringUtils.hasText(authz.getApiToken())) {

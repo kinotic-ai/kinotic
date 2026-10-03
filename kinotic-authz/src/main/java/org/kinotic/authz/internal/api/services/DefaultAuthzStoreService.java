@@ -36,7 +36,7 @@ public class DefaultAuthzStoreService implements AuthzStoreService, SmartInitial
     // out of the conversion in both directions
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
-    private final OpenFgaTemplate fga;
+    private final OpenFgaService fga;
     private final KinoticAuthzProperties properties;
     private String platformStoreId;
 
