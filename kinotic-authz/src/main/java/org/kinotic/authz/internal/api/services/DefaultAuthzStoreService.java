@@ -1,6 +1,5 @@
 package org.kinotic.authz.internal.api.services;
 
-import dev.openfga.sdk.api.OpenFgaApi;
 import dev.openfga.sdk.api.model.AuthorizationModel;
 import dev.openfga.sdk.api.model.CreateStoreRequest;
 import dev.openfga.sdk.api.model.CreateStoreResponse;
@@ -37,7 +36,7 @@ public class DefaultAuthzStoreService implements AuthzStoreService, SmartInitial
     // out of the conversion in both directions
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
-    private final OpenFgaApi api;
+    private final OpenFgaTemplate fga;
     private final KinoticAuthzProperties properties;
     private String platformStoreId;
 
@@ -64,8 +63,7 @@ public class DefaultAuthzStoreService implements AuthzStoreService, SmartInitial
 
     @Override
     public Future<String> createStore(String name) {
-        return FgaCalls.data(() -> api.createStore(new CreateStoreRequest().name(name)))
-                       .map(CreateStoreResponse::getId);
+        return fga.createStore(new CreateStoreRequest().name(name)).map(CreateStoreResponse::getId);
     }
 
     @Override
@@ -79,8 +77,8 @@ public class DefaultAuthzStoreService implements AuthzStoreService, SmartInitial
                 // are equal and the next comparison matches whichever is newest
                 WriteAuthorizationModelRequest request = MAPPER.treeToValue(model.definition(),
                                                                             WriteAuthorizationModelRequest.class);
-                ret = FgaCalls.data(() -> api.writeAuthorizationModel(storeId, request))
-                              .map(WriteAuthorizationModelResponse::getAuthorizationModelId)
+                ret = fga.writeAuthorizationModel(storeId, request)
+                         .map(WriteAuthorizationModelResponse::getAuthorizationModelId)
                               .onSuccess(id -> log.info("Wrote authorization model {} to store {}", id, storeId));
             }
             return ret;
@@ -95,9 +93,8 @@ public class DefaultAuthzStoreService implements AuthzStoreService, SmartInitial
         List<String> ids = new ArrayList<>();
         String continuationToken = null;
         do {
-            ListStoresResponse page = api.listStores(STORE_PAGE_SIZE, continuationToken, PLATFORM_STORE_NAME)
-                                         .get(STARTUP_TIMEOUT.toSeconds(), TimeUnit.SECONDS)
-                                         .getData();
+            ListStoresResponse page = fga.listStores(STORE_PAGE_SIZE, continuationToken, PLATFORM_STORE_NAME)
+                                         .await(STARTUP_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
             for (Store store : page.getStores()) {
                 // an engine older than the name filter returns every store, so the name is matched here too
                 if (PLATFORM_STORE_NAME.equals(store.getName())) {
@@ -122,8 +119,8 @@ public class DefaultAuthzStoreService implements AuthzStoreService, SmartInitial
      */
     private Future<AuthorizationModel> latestModel(String storeId) {
         // versions are listed newest first, so a page of one is the current version
-        return FgaCalls.data(() -> api.readAuthorizationModels(storeId, 1, null))
-                       .map(response -> response.getAuthorizationModels().isEmpty()
+        return fga.readAuthorizationModels(storeId, 1, null)
+                  .map(response -> response.getAuthorizationModels().isEmpty()
                                ? null : response.getAuthorizationModels().getFirst());
     }
 

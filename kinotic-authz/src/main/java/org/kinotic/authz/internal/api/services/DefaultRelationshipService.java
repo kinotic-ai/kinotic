@@ -1,6 +1,5 @@
 package org.kinotic.authz.internal.api.services;
 
-import dev.openfga.sdk.api.OpenFgaApi;
 import dev.openfga.sdk.api.model.CheckRequest;
 import dev.openfga.sdk.api.model.CheckRequestTupleKey;
 import dev.openfga.sdk.api.model.CheckResponse;
@@ -27,13 +26,13 @@ public class DefaultRelationshipService implements RelationshipService {
     // the most tuples one Write request may carry
     static final int WRITE_BATCH_SIZE = 100;
 
-    private final OpenFgaApi api;
+    private final OpenFgaTemplate fga;
 
     @Override
     public Future<Void> write(String storeId, List<RelationshipTuple> writes, List<RelationshipTuple> deletes) {
         Future<Void> ret = Future.succeededFuture();
         for (WriteRequest request : requests(writes, deletes)) {
-            ret = ret.compose(v -> FgaCalls.data(() -> api.write(storeId, request)).mapEmpty());
+            ret = ret.compose(v -> fga.write(storeId, request));
         }
         return ret;
     }
@@ -46,7 +45,7 @@ public class DefaultRelationshipService implements RelationshipService {
                                   .user(relationship.user())
                                   .relation(relationship.relation())
                                   ._object(relationship.object()));
-        return FgaCalls.data(() -> api.check(storeId, request)).map(CheckResponse::getAllowed);
+        return fga.check(storeId, request).map(CheckResponse::getAllowed);
     }
 
     @Override
@@ -56,7 +55,7 @@ public class DefaultRelationshipService implements RelationshipService {
                 .user(user)
                 .relation(relation)
                 .type(type);
-        return FgaCalls.data(() -> api.listObjects(storeId, request)).map(ListObjectsResponse::getObjects);
+        return fga.listObjects(storeId, request).map(ListObjectsResponse::getObjects);
     }
 
     /**

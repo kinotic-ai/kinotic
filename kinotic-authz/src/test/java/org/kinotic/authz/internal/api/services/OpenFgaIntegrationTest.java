@@ -1,6 +1,5 @@
 package org.kinotic.authz.internal.api.services;
 
-import dev.openfga.sdk.api.OpenFgaApi;
 import dev.openfga.sdk.api.model.CreateStoreRequest;
 import io.vertx.core.Future;
 import org.junit.jupiter.api.AfterAll;
@@ -13,7 +12,6 @@ import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
-import org.kinotic.authz.internal.config.KinoticAuthzConfig;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
@@ -65,7 +63,7 @@ class OpenFgaIntegrationTest {
     @Autowired
     private AuthzModelGenerator generator;
     @Autowired
-    private OpenFgaApi api;
+    private OpenFgaTemplate fga;
     @Autowired
     private KinoticAuthzProperties properties;
 
@@ -91,12 +89,12 @@ class OpenFgaIntegrationTest {
     private static void createPlatformStoreAheadOfTheServers() throws Exception {
         KinoticAuthzProperties properties = new KinoticAuthzProperties();
         properties.getAuthz().setApiUrl(apiUrl);
-        OpenFgaApi api = new KinoticAuthzConfig().openFgaApi(properties);
-        boolean exists = api.listStores(100, null, DefaultAuthzStoreService.PLATFORM_STORE_NAME).get(30, TimeUnit.SECONDS)
-                            .getData().getStores().stream()
-                            .anyMatch(store -> DefaultAuthzStoreService.PLATFORM_STORE_NAME.equals(store.getName()));
+        OpenFgaTemplate fga = new OpenFgaTemplate(properties);
+        boolean exists = await(fga.listStores(100, null, DefaultAuthzStoreService.PLATFORM_STORE_NAME))
+                .getStores().stream()
+                .anyMatch(store -> DefaultAuthzStoreService.PLATFORM_STORE_NAME.equals(store.getName()));
         if (!exists) {
-            api.createStore(new CreateStoreRequest().name(DefaultAuthzStoreService.PLATFORM_STORE_NAME)).get(30, TimeUnit.SECONDS);
+            await(fga.createStore(new CreateStoreRequest().name(DefaultAuthzStoreService.PLATFORM_STORE_NAME)));
         }
     }
 
@@ -117,7 +115,7 @@ class OpenFgaIntegrationTest {
         String storeId = storeService.platformStoreId();
 
         // every node resolves the same store
-        DefaultAuthzStoreService laterNode = new DefaultAuthzStoreService(api, properties);
+        DefaultAuthzStoreService laterNode = new DefaultAuthzStoreService(fga, properties);
         laterNode.afterSingletonsInstantiated();
         assertEquals(storeId, laterNode.platformStoreId());
     }
@@ -126,7 +124,7 @@ class OpenFgaIntegrationTest {
     void aNodeWhoseEngineIsUnreachableDoesNotStart() throws Exception {
         KinoticAuthzProperties unreachable = new KinoticAuthzProperties();
         unreachable.getAuthz().setApiUrl("http://127.0.0.1:1");
-        DefaultAuthzStoreService node = new DefaultAuthzStoreService(new KinoticAuthzConfig().openFgaApi(unreachable), unreachable);
+        DefaultAuthzStoreService node = new DefaultAuthzStoreService(new OpenFgaTemplate(unreachable), unreachable);
 
         assertThrows(IllegalStateException.class, node::afterSingletonsInstantiated);
     }
