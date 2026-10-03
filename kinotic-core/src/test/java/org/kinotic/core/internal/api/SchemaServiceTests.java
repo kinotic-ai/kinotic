@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.internal.api.support.RpcTestService;
 import org.kinotic.idl.api.directory.GenericTypeConverter;
-import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.directory.SchemaService;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.schema.AnyC3Type;
 import org.kinotic.idl.api.schema.ArrayC3Type;
@@ -16,7 +16,7 @@ import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StringC3Type;
-import org.kinotic.idl.internal.directory.DefaultSchemaFactory;
+import org.kinotic.idl.internal.directory.DefaultSchemaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -26,12 +26,12 @@ import java.util.Set;
 
 /**
  * Verifies contract conversion against the full kinotic context, where adapters registered at runtime
- * (the Vert.x Future adapter DefaultKinotic adds) must be visible to the {@link SchemaFactory}.
+ * (the Vert.x Future adapter DefaultKinotic adds) must be visible to the {@link SchemaService}.
  * Created by Navíd Mitchell 🤪 on 7/22/26.
  */
 @SpringBootTest
 @ActiveProfiles({"test"})
-public class SchemaFactoryTests {
+public class SchemaServiceTests {
 
     @Autowired
     private GenericTypeConverter typeConverter;
@@ -65,8 +65,8 @@ public class SchemaFactoryTests {
     }
 
     private FunctionDefinition findFunction(String name) {
-        SchemaFactory schemaFactory = new DefaultSchemaFactory(typeConverter, Set.of(Participant.class));
-        NamespaceDefinition namespace = schemaFactory.createForServices(List.of(new ServiceDeclaration(RpcTestService.class, RpcTestService.class)));
+        SchemaService schemaService = new DefaultSchemaService(typeConverter, Set.of(Participant.class));
+        NamespaceDefinition namespace = schemaService.createForServices(List.of(new ServiceDeclaration(RpcTestService.class, RpcTestService.class)));
 
         // every type the RPC layer supports must convert, or the service is rejected
         ServiceDefinition service = namespace.getServices()

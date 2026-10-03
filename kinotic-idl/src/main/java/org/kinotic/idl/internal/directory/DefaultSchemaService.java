@@ -9,13 +9,12 @@ import org.kinotic.idl.api.directory.GenericTypeConverter;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.annotations.McpToolInfo;
-import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.directory.SchemaService;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
-import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
@@ -52,7 +51,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Created by navid on 2019-06-13.
  */
 @Slf4j
-public class DefaultSchemaFactory implements SchemaFactory {
+public class DefaultSchemaService implements SchemaService {
 
     private final GenericTypeConverter typeConverter;
     private final Set<Class<?>> skippedParameterTypes;
@@ -64,7 +63,7 @@ public class DefaultSchemaFactory implements SchemaFactory {
      * @param skippedParameterTypes parameter types the platform supplies to a function rather than the request,
      *                              matched by assignability, which no function's contract advertises
      */
-    public DefaultSchemaFactory(GenericTypeConverter typeConverter, Set<Class<?>> skippedParameterTypes) {
+    public DefaultSchemaService(GenericTypeConverter typeConverter, Set<Class<?>> skippedParameterTypes) {
         this.typeConverter = typeConverter;
         this.skippedParameterTypes = skippedParameterTypes;
     }

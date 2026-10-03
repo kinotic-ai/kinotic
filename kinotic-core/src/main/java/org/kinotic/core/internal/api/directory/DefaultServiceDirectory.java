@@ -27,8 +27,8 @@ import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
 import org.kinotic.idl.api.directory.GenericTypeConverter;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
-import org.kinotic.idl.api.directory.SchemaFactory;
-import org.kinotic.idl.internal.directory.DefaultSchemaFactory;
+import org.kinotic.idl.api.directory.SchemaService;
+import org.kinotic.idl.internal.directory.DefaultSchemaService;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.AsyncC3Type;
 import org.kinotic.idl.api.schema.C3Type;
@@ -80,7 +80,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     // A strategy pattern is used, to favor composition over inheritance
     private final ServiceDirectoryStrategy strategy;
     private final EventBusService eventBusService;
-    private final SchemaFactory schemaFactory;
+    private final SchemaService schemaService;
     private final McpJsonSchemaGenerator schemaGenerator;
     private final Ignite ignite;
 
@@ -110,7 +110,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
         this.eventBusService = eventBusService;
         // a Participant is bound from the security context, never from the request, the rule
         // AbstractJacksonSupport and NamedJsonArgumentResolver bind by, so no contract advertises one
-        this.schemaFactory = new DefaultSchemaFactory(typeConverter, Set.of(Participant.class));
+        this.schemaService = new DefaultSchemaService(typeConverter, Set.of(Participant.class));
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
         this.ignite = ignite;
     }
@@ -212,7 +212,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
      *                               declaration is one MCP cannot serve
      */
     private Map<ServiceIdentifier, ServiceDirectoryEntry> buildEntries(Map<ServiceIdentifier, ServiceDeclaration> registrations) {
-        NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values());
+        NamespaceDefinition namespace = schemaService.createForServices(registrations.values());
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
         Map<String, ServiceDefinition> definitionsByQualifiedName = new HashMap<>();
         for (ServiceDefinition definition : namespace.getServices()) {

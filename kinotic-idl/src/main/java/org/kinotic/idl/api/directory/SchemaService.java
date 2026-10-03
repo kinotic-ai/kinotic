@@ -12,12 +12,12 @@ import java.util.Collection;
  * Provides the ability to create {@link C3Type}'s
  * Created by navid on 2019-06-13.
  */
-public interface SchemaFactory {
+public interface SchemaService {
 
     /**
      * Creates a {@link C3Type} for the given {@link Class}
      * This method treats the class as a standard POJO or basic type.
-     * If you need to convert classes that are "services" use {@link SchemaFactory#createForServices(Collection)}
+     * If you need to convert classes that are "services" use {@link SchemaService#createForServices(Collection)}
      *
      * @param clazz the class to create the schema for
      * @return the newly created {@link C3Type}

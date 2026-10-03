@@ -1,7 +1,7 @@
 package org.kinotic.idl.internal.directory;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.directory.SchemaService;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ParameterDefinition;
@@ -26,19 +26,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verifies the authorization declarations a {@link SchemaFactory} derives while converting a resource service:
+ * Verifies the authorization declarations a {@link SchemaService} derives while converting a resource service:
  * the resource decorator on the service, one check per function from its name, parameters and
  * {@code @AuthzCheck}, and the rejection of a function whose check does not resolve.
  */
 @SpringBootTest
 @ActiveProfiles("test")
-public class SchemaFactoryAuthzTest {
+public class SchemaServiceAuthzTest {
 
     @Autowired
-    private SchemaFactory schemaFactory;
+    private SchemaService schemaService;
 
     private ServiceDefinition convert(Class<?> serviceInterface) {
-        return schemaFactory.createForServices(List.of(new ServiceDeclaration(serviceInterface, serviceInterface)))
+        return schemaService.createForServices(List.of(new ServiceDeclaration(serviceInterface, serviceInterface)))
                             .getServices()
                             .iterator()
                             .next();
