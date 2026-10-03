@@ -13,9 +13,13 @@ import dev.openfga.sdk.api.model.ListObjectsRequest;
 import dev.openfga.sdk.api.model.ListObjectsResponse;
 import dev.openfga.sdk.api.model.ListStoresResponse;
 import dev.openfga.sdk.api.model.ReadAuthorizationModelsResponse;
+import dev.openfga.sdk.api.model.TupleKey;
+import dev.openfga.sdk.api.model.TupleKeyWithoutCondition;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelRequest;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelResponse;
 import dev.openfga.sdk.api.model.WriteRequest;
+import dev.openfga.sdk.api.model.WriteRequestDeletes;
+import dev.openfga.sdk.api.model.WriteRequestWrites;
 import dev.openfga.sdk.errors.FgaInvalidParameterException;
 import io.vertx.core.Future;
 import org.kinotic.authz.api.config.AuthzProperties;
@@ -24,6 +28,7 @@ import org.kinotic.core.api.utils.KinoticUtil;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
@@ -34,6 +39,9 @@ import java.util.concurrent.CompletableFuture;
  */
 @Component
 public class OpenFgaService {
+
+    // the most tuples one Write request may carry
+    static final int WRITE_BATCH_SIZE = 100;
 
     private final OpenFgaApi api;
 
@@ -66,8 +74,23 @@ public class OpenFgaService {
         return call(() -> api.writeAuthorizationModel(storeId, request));
     }
 
-    public Future<Void> write(String storeId, WriteRequest request) {
-        return call(() -> api.write(storeId, request)).mapEmpty();
+    /**
+     * Adds and removes relationships, in as many requests as the engine's limit per request takes, the writes
+     * before the deletes.
+     */
+    public Future<Void> write(String storeId, List<TupleKey> writes, List<TupleKeyWithoutCondition> deletes) {
+        Future<Void> ret = Future.succeededFuture();
+        for (int from = 0; from < writes.size(); from += WRITE_BATCH_SIZE) {
+            WriteRequest request = new WriteRequest().writes(new WriteRequestWrites()
+                                                                     .tupleKeys(writes.subList(from, Math.min(writes.size(), from + WRITE_BATCH_SIZE))));
+            ret = ret.compose(v -> call(() -> api.write(storeId, request)).mapEmpty());
+        }
+        for (int from = 0; from < deletes.size(); from += WRITE_BATCH_SIZE) {
+            WriteRequest request = new WriteRequest().deletes(new WriteRequestDeletes()
+                                                                      .tupleKeys(deletes.subList(from, Math.min(deletes.size(), from + WRITE_BATCH_SIZE))));
+            ret = ret.compose(v -> call(() -> api.write(storeId, request)).mapEmpty());
+        }
+        return ret;
     }
 
     public Future<CheckResponse> check(String storeId, CheckRequest request) {
