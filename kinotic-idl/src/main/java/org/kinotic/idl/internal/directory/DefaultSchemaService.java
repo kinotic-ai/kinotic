@@ -9,19 +9,20 @@ import org.kinotic.idl.api.directory.GenericTypeConverter;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.annotations.McpToolInfo;
-import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.directory.SchemaService;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
+import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.ClassUtils;
-import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
 import java.io.IOException;
@@ -35,6 +36,7 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,15 +51,21 @@ import java.util.concurrent.ConcurrentHashMap;
  * Created by navid on 2019-06-13.
  */
 @Slf4j
-@Component
-public class DefaultSchemaFactory implements SchemaFactory {
+public class DefaultSchemaService implements SchemaService {
 
     private final GenericTypeConverter typeConverter;
+    private final Set<Class<?>> skippedParameterTypes;
     // extracted Javadoc resources by type; a type without a resource caches an empty map
     private final Map<Class<?>, Map<String, String>> javadocCache = new ConcurrentHashMap<>();
 
-    public DefaultSchemaFactory(GenericTypeConverter typeConverter) {
+    /**
+     * @param typeConverter         converts the types a signature names
+     * @param skippedParameterTypes parameter types the platform supplies to a function rather than the request,
+     *                              matched by assignability, which no function's contract advertises
+     */
+    public DefaultSchemaService(GenericTypeConverter typeConverter, Set<Class<?>> skippedParameterTypes) {
         this.typeConverter = typeConverter;
+        this.skippedParameterTypes = skippedParameterTypes;
     }
 
     @Override
@@ -91,15 +99,9 @@ public class DefaultSchemaFactory implements SchemaFactory {
         NamespaceDefinition ret = new NamespaceDefinition();
         // record equality collapses duplicates, so a service declared twice converts once
         for (ServiceDeclaration declaration : new LinkedHashSet<>(services)) {
-            // a service with an unconvertible type is omitted so the rest of the batch still converts;
-            // ObjectC3Types are cached only after converting completely, so a failure leaves no partial types
-            try {
-                ret.addServiceDefinition(createForService(declaration.serviceInterface(),
-                                                          declaration.serviceImplementation(),
-                                                          conversionContext));
-            } catch (Exception e) {
-                log.error("Failed to create ServiceDefinition for {}", declaration.serviceInterface().getName(), e);
-            }
+            ret.addServiceDefinition(createForService(declaration.serviceInterface(),
+                                                      declaration.serviceImplementation(),
+                                                      conversionContext));
         }
         ret.setComplexC3Types(conversionContext.getComplexC3Types());
         return ret;
@@ -117,6 +119,10 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
         // a type-level @McpTool marks every function a tool, and supplies their shared title and description
         McpTool typeLevelMcpTool = AnnotationUtils.findAnnotation(serviceInterface, McpTool.class);
+        AuthzResourceC3Decorator authzResource = AuthzDecorators.resourceOf(serviceInterface);
+        if (authzResource != null) {
+            serviceDefinition.setDecorators(List.of(authzResource));
+        }
 
         // IdlUtil.serviceFunctions decides WHICH functions exist — the same walk ReflectiveServiceDescriptor
         // registers with the ServiceRegistry, so the schema carries exactly the functions the registry serves
@@ -132,6 +138,9 @@ public class DefaultSchemaFactory implements SchemaFactory {
                     ResolvableType.forMethodReturnType(specificMethod, implementation)));
 
             for (int i = 0; i < specificMethod.getParameterCount(); i++) {
+                if (isSkipped(specificMethod.getParameterTypes()[i])) {
+                    continue;
+                }
 
                 MethodParameter methodParameter = new MethodParameter(specificMethod, i).withContainingClass(implementation);
 
@@ -146,18 +155,41 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
             functionDefinition.setName(function.getKey());
 
+            List<C3Decorator> decorators = new ArrayList<>();
             McpToolC3Decorator mcpTool = createMcpToolDecorator(serviceInterface,
                                                                  function.getValue(),
                                                                  specificMethod,
                                                                  typeLevelMcpTool);
             if (mcpTool != null) {
-                functionDefinition.setDecorators(List.of(mcpTool));
+                decorators.add(mcpTool);
+            }
+            if (authzResource != null) {
+                decorators.add(AuthzDecorators.checkOf(serviceInterface,
+                                                       authzResource,
+                                                       function.getKey(),
+                                                       specificMethod,
+                                                       functionDefinition.getParameters(),
+                                                       conversionContext));
+            }
+            if (!decorators.isEmpty()) {
+                functionDefinition.setDecorators(decorators);
             }
 
             serviceDefinition.addFunction(functionDefinition);
         }
 
         return serviceDefinition;
+    }
+
+    private boolean isSkipped(Class<?> parameterType) {
+        boolean ret = false;
+        for (Class<?> skipped : skippedParameterTypes) {
+            if (skipped.isAssignableFrom(parameterType)) {
+                ret = true;
+                break;
+            }
+        }
+        return ret;
     }
 
     /**

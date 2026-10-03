@@ -3,7 +3,7 @@ package org.kinotic.idl.internal;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
-import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.directory.SchemaService;
 import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.AsyncC3Type;
 import org.kinotic.idl.api.schema.C3Type;
@@ -48,19 +48,19 @@ import java.util.List;
  */
 @SpringBootTest
 @ActiveProfiles("test")
-public class TestSchemaFactory {
+public class TestSchemaService {
 
-    private static final Logger log = LoggerFactory.getLogger(TestSchemaFactory.class);
+    private static final Logger log = LoggerFactory.getLogger(TestSchemaService.class);
 
     @Autowired
-    private SchemaFactory schemaFactory;
+    private SchemaService schemaService;
 
     @Autowired
     private JsonMapper objectMapper;
 
     @Test
-    public void testSchemaFactory() throws Exception {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new ServiceDeclaration(TestService.class, TestService.class),
+    public void testSchemaService() throws Exception {
+        NamespaceDefinition namespaceDefinition = schemaService.createForServices(List.of(new ServiceDeclaration(TestService.class, TestService.class),
                                                                                           new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
 
         Assertions.assertEquals(2, namespaceDefinition.getServices().size());
@@ -99,7 +99,7 @@ public class TestSchemaFactory {
 
     @Test
     public void testInheritedGenericSignaturesResolve() {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new ServiceDeclaration(TestObjectCrudService.class, TestObjectCrudService.class)));
+        NamespaceDefinition namespaceDefinition = schemaService.createForServices(List.of(new ServiceDeclaration(TestObjectCrudService.class, TestObjectCrudService.class)));
 
         ServiceDefinition crudService = findService(namespaceDefinition, TestObjectCrudService.class);
         // save is redeclared with T substituted and findById is purely inherited, and each publishes once
@@ -138,7 +138,7 @@ public class TestSchemaFactory {
     @Test
     public void testGenericInstantiationsMonomorphize() {
         NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestPagedService.class, TestPagedService.class)));
+                schemaService.createForServices(List.of(new ServiceDeclaration(TestPagedService.class, TestPagedService.class)));
 
         ServiceDefinition service = findService(namespaceDefinition, TestPagedService.class);
 
@@ -163,38 +163,37 @@ public class TestSchemaFactory {
     @Test
     public void testGenericArgumentNameCollisionRejected() {
         // both functions' returns monomorphize to "TestObjectTestPage" in the same namespace — one per
-        // argument package — with different content types, so conversion fails and the service is omitted
-        NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestCollidingPageService.class, TestCollidingPageService.class),
-                                                        new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
+        // argument package — with different content types, so the service cannot be described and the call fails
+        IllegalStateException e = Assertions.assertThrows(IllegalStateException.class,
+                                                         () -> schemaService.createForServices(List.of(new ServiceDeclaration(TestCollidingPageService.class, TestCollidingPageService.class),
+                                                                                                       new ServiceDeclaration(OtherTestService.class, OtherTestService.class))));
 
-        Assertions.assertEquals(1, namespaceDefinition.getServices().size());
-        findService(namespaceDefinition, OtherTestService.class);
+        Assertions.assertTrue(e.getMessage().contains("TestObjectTestPage"), e.getMessage());
     }
 
     @Test
     public void testRawGenericRejected() {
         // a raw TestPage leaves T unresolved, and an open signature cannot be described to a wire consumer
-        NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestRawPageService.class, TestRawPageService.class)));
+        IllegalStateException e = Assertions.assertThrows(IllegalStateException.class,
+                                                         () -> schemaService.createForServices(List.of(new ServiceDeclaration(TestRawPageService.class, TestRawPageService.class))));
 
-        Assertions.assertTrue(namespaceDefinition.getServices().isEmpty());
+        Assertions.assertTrue(e.getMessage().contains("'T'"), e.getMessage());
     }
 
     @Test
     public void testNestedGenericInstantiationRejected() {
-        // TestPage<List<TestObject>>'s name would need a segment naming no class, so conversion fails and
-        // the service is omitted; a nested instantiation must be published as a named DTO
-        NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestNestedPageService.class, TestNestedPageService.class)));
+        // TestPage<List<TestObject>>'s name would need a segment naming no class, so conversion fails;
+        // a nested instantiation must be published as a named DTO
+        IllegalStateException e = Assertions.assertThrows(IllegalStateException.class,
+                                                         () -> schemaService.createForServices(List.of(new ServiceDeclaration(TestNestedPageService.class, TestNestedPageService.class))));
 
-        Assertions.assertTrue(namespaceDefinition.getServices().isEmpty());
+        Assertions.assertTrue(e.getMessage().contains("List"), e.getMessage());
     }
 
     @Test
     public void testHintsDeriveFromEveryWordOfTheFunctionName() {
         NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestNamedHintService.class, TestNamedHintService.class)));
+                schemaService.createForServices(List.of(new ServiceDeclaration(TestNamedHintService.class, TestNamedHintService.class)));
 
         ServiceDefinition service = findService(namespaceDefinition, TestNamedHintService.class);
 
@@ -238,7 +237,7 @@ public class TestSchemaFactory {
     @Test
     public void testMcpToolInfoAloneExposesNothing() {
         NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(List.of(new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
+                schemaService.createForServices(List.of(new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
 
         // OtherTestService.findPerson carries only @McpToolInfo, which describes a tool without making one
         ServiceDefinition service = findService(namespaceDefinition, OtherTestService.class);
@@ -248,7 +247,7 @@ public class TestSchemaFactory {
     @Test
     public void testInterfaceDecidesNamesAndImplementationDecidesAnnotations() {
         NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestRenamedService.class, DefaultTestRenamedService.class)));
+                schemaService.createForServices(List.of(new ServiceDeclaration(TestRenamedService.class, DefaultTestRenamedService.class)));
 
         ServiceDefinition service = findService(namespaceDefinition, TestRenamedService.class);
         FunctionDefinition greet = findFunction(service, "greet");
@@ -266,7 +265,7 @@ public class TestSchemaFactory {
     @Test
     public void testTypeLevelMcpToolMarksEveryFunction() {
         NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestSweptService.class, TestSweptService.class)));
+                schemaService.createForServices(List.of(new ServiceDeclaration(TestSweptService.class, TestSweptService.class)));
 
         ServiceDefinition service = findService(namespaceDefinition, TestSweptService.class);
 
@@ -322,26 +321,24 @@ public class TestSchemaFactory {
         Assertions.assertTrue(e.getMessage().contains("find(java.lang.String)"), e.getMessage());
         Assertions.assertTrue(e.getMessage().contains("find(java.lang.String,int)"), e.getMessage());
 
-        // an overloaded service is unconvertible like any other, so it is omitted and the batch survives
-        NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestOverloadedService.class, TestOverloadedService.class),
-                                                        new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
+        // an overloaded service is unconvertible like any other, so it fails the call with the same cause
+        IllegalStateException conversion = Assertions.assertThrows(IllegalStateException.class,
+                                                                  () -> schemaService.createForServices(List.of(new ServiceDeclaration(TestOverloadedService.class, TestOverloadedService.class),
+                                                                                                                new ServiceDeclaration(OtherTestService.class, OtherTestService.class))));
 
-        Assertions.assertEquals(1, namespaceDefinition.getServices().size());
-        findService(namespaceDefinition, OtherTestService.class);
+        Assertions.assertTrue(conversion.getMessage().contains("overloads function find"), conversion.getMessage());
     }
 
     @Test
-    public void testUnconvertibleServiceOmitted() {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new ServiceDeclaration(TestService.class, TestService.class),
-                                                                                          new ServiceDeclaration(BrokenTestService.class, BrokenTestService.class),
-                                                                                          new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
+    public void testUnconvertibleServiceFailsTheCall() {
+        // BrokenTestService has a parameter no converter supports, which fails the whole call: a caller never
+        // publishes a contract that is missing a service
+        IllegalArgumentException e = Assertions.assertThrows(IllegalArgumentException.class,
+                                                            () -> schemaService.createForServices(List.of(new ServiceDeclaration(TestService.class, TestService.class),
+                                                                                                          new ServiceDeclaration(BrokenTestService.class, BrokenTestService.class),
+                                                                                                          new ServiceDeclaration(OtherTestService.class, OtherTestService.class))));
 
-        // BrokenTestService fails to convert and is omitted; the rest of the batch is unaffected
-        Assertions.assertEquals(2, namespaceDefinition.getServices().size());
-        findService(namespaceDefinition, TestService.class);
-        findService(namespaceDefinition, OtherTestService.class);
-        Assertions.assertEquals(2, namespaceDefinition.getComplexC3Types().size());
+        Assertions.assertTrue(e.getMessage().contains("java.lang.Thread"), e.getMessage());
     }
 
     private McpToolC3Decorator mcpTool(ServiceDefinition service, String functionName) {

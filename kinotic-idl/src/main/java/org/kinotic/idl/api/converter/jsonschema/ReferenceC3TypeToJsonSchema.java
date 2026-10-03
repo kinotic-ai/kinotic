@@ -10,7 +10,7 @@ import tools.jackson.databind.node.ObjectNode;
 /**
  * Converts a {@link ReferenceC3Type} to a JSON Schema {@code $ref}, registering the referenced type's schema in
  * {@code $defs} on first encounter.
- * {@code SchemaFactory} emits complex types as references (with the actual definitions collected separately), so this
+ * {@code SchemaService} emits complex types as references (with the actual definitions collected separately), so this
  * is where the {@code $ref}/{@code $defs} mechanism that makes cyclic types representable actually happens.
  */
 public class ReferenceC3TypeToJsonSchema implements C3TypeConverter<ObjectNode, ReferenceC3Type, JsonSchemaConversionState> {

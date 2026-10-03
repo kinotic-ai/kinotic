@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Composes all the {@link ResolvableTypeConverter}'s into a single component for use by the {@link DefaultSchemaFactory}
+ * Composes all the {@link ResolvableTypeConverter}'s into a single component for use by the {@link DefaultSchemaService}
  * Created by navid on 2019-06-13.
  */
 public class ResolvableTypeConverterComposite implements GenericTypeConverter {
