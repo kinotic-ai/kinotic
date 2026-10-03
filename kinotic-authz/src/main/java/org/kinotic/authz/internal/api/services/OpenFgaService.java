@@ -24,6 +24,9 @@ import org.kinotic.core.api.utils.KinoticUtil;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+
 /**
  * The OpenFGA client as the authorization services call it: the engine named by {@link AuthzProperties}, and
  * each call yielding its response's data as a Vert.x future on the caller's context, a failure to build or
@@ -75,10 +78,10 @@ public class OpenFgaService {
         return call(() -> api.listObjects(storeId, request));
     }
 
-    private static <T> Future<T> call(FgaCall<T> call) {
+    private static <T> Future<T> call(Callable<CompletableFuture<ApiResponse<T>>> call) {
         Future<T> ret;
         try {
-            ret = KinoticUtil.toFuture(call.start()).map(ApiResponse::getData);
+            ret = KinoticUtil.toFuture(call.call()).map(ApiResponse::getData);
         } catch (Exception e) {
             ret = Future.failedFuture(e);
         }
