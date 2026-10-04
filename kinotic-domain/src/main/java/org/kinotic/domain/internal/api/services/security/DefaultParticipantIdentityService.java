@@ -393,7 +393,8 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                     user.setTenantId(tenantId);
                     user.setOidcSubject(oidcSubject);
                     user.setOidcConfigId(configuration.getId());
-                    return createUser(user, null).compose(created -> {
+                    // refreshed at once, so a second sign-in moments later finds the user instead of refusing its email
+                    return createUser(user, null).compose(created -> syncIndex().map(created)).compose(created -> {
                         Future<UserParticipantIdentity> granted;
                         if (tenant.getSsoRoleId() == null) {
                             granted = Future.succeededFuture(created);
