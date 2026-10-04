@@ -2,6 +2,7 @@ package org.kinotic.queue.internal.cluster.message;
 
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.queue.internal.log.BatchSlot;
+import org.kinotic.queue.internal.log.ConsumerPosition;
 import org.kinotic.queue.internal.log.Membership;
 import org.kinotic.queue.internal.log.ShardEntry;
 
@@ -19,7 +20,7 @@ public final class Wire {
 
     // Raised whenever the layout of any message changes, so nodes running different layouts refuse each other's
     // messages instead of misreading them
-    private static final byte VERSION = 6;
+    private static final byte VERSION = 7;
     private static final byte RECORD = 0;
     private static final byte MARKER = 1;
     private static final byte MEMBERSHIP = 2;
@@ -87,9 +88,9 @@ public final class Wire {
         return buffer.appendLong(slot.producerId()).appendLong(slot.sequence()).appendInt(slot.index()).appendInt(slot.size());
     }
 
-    public static Buffer appendOffsets(Buffer buffer, Map<String, Long> offsets) {
-        buffer.appendInt(offsets.size());
-        offsets.forEach((name, offset) -> appendString(buffer, name).appendLong(offset));
+    public static Buffer appendPositions(Buffer buffer, Map<String, ConsumerPosition> positions) {
+        buffer.appendInt(positions.size());
+        positions.forEach((name, position) -> appendString(buffer, name).appendLong(position.nextOffset()).appendLong(position.lastUsedMillis()));
         return buffer;
     }
 
@@ -153,11 +154,11 @@ public final class Wire {
         return new BatchSlot(readLong(), readLong(), readInt(), readInt());
     }
 
-    public Map<String, Long> readOffsets() {
+    public Map<String, ConsumerPosition> readPositions() {
         int count = readInt();
-        Map<String, Long> ret = new HashMap<>(count);
+        Map<String, ConsumerPosition> ret = new HashMap<>(count);
         for (int i = 0; i < count; i++) {
-            ret.put(readString(), readLong());
+            ret.put(readString(), new ConsumerPosition(readLong(), readLong()));
         }
         return ret;
     }

@@ -47,7 +47,9 @@ public class QueueProperties {
      * How long records are kept. Records are deleted in whole segments: a segment closes at the first record appended
      * once it is half this old, a day old, or a quarter of {@link #retentionBytes} large, and is deleted once the
      * segment after it is this old, so a record lives at least this long. Consumers and worker groups that have not
-     * reached a deleted record continue at the oldest record kept. Must be the same on every queue node.
+     * reached a deleted record continue at the oldest record kept. A consumer's or worker group's position on a shard
+     * also expires once no subscription or worker of it used the position for this long. Must be the same on every
+     * queue node.
      */
     @NotNull
     @DurationMin(seconds = 1)

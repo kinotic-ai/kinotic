@@ -66,6 +66,8 @@ final class WorkDispatcher {
     private Future<Void> lastSave = Future.succeededFuture();
     private boolean stopped;
     private long lastRequest = System.currentTimeMillis();
+    // When the low watermark was last stored, which keeps the group's position from expiring
+    private long lastSaved;
     // Records on their way to the dead-letter queue, held in none of the maps above
     private int deadLettering;
 
@@ -131,6 +133,10 @@ final class WorkDispatcher {
      */
     Future<LeaseResponse> lease(String workerId, int max, long leaseMillis) {
         lastRequest = System.currentTimeMillis();
+        // A group whose workers wait on a shard with no new records makes no progress, so its position is used again
+        if (lowWatermark > 0 && lastRequest - lastSaved >= groupOffsets.refreshInterval().toMillis()) {
+            saveLowWatermark();
+        }
         Future<LeaseResponse> ret;
         if (hasLeasable()) {
             ret = leaseNow(workerId, max, leaseMillis);
@@ -199,12 +205,13 @@ final class WorkDispatcher {
     }
 
     /**
-     * @return whether the group has no record in flight on the shard, no worker waiting, and no request since
-     * {@code since}, in epoch milliseconds; its position is then stored up to every record it finished
+     * @return whether no worker of the group holds or waits for a record of the shard, no record is on its way to the
+     * dead-letter queue, and no request came since {@code since}, in epoch milliseconds. The group's position is then
+     * stored up to the first record it has not finished; the records it finished past that are leased again once the
+     * group's dispatcher is opened again.
      */
     boolean isIdleSince(long since) {
-        return lastRequest < since && leased.isEmpty() && released.isEmpty() && done.isEmpty() && pendingLeases.isEmpty()
-                && deadLettering == 0;
+        return lastRequest < since && leased.isEmpty() && pendingLeases.isEmpty() && deadLettering == 0;
     }
 
     void stop() {
@@ -379,6 +386,7 @@ final class WorkDispatcher {
 
     private Future<Void> saveLowWatermark() {
         long watermark = lowWatermark;
+        lastSaved = System.currentTimeMillis();
         lastSave = lastSave.transform(ignored -> vertx.<Void>executeBlocking(() -> {
             groupOffsets.save(groupName, shard, watermark);
             return null;

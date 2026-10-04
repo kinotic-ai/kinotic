@@ -1,6 +1,7 @@
 package org.kinotic.queue.internal.cluster.message;
 
 import io.vertx.core.buffer.Buffer;
+import org.kinotic.queue.internal.log.ConsumerPosition;
 import org.kinotic.queue.internal.log.ReplicationBatch;
 import org.kinotic.queue.internal.log.ReplicationResult;
 import org.kinotic.queue.internal.log.ReplicationStatus;
@@ -17,8 +18,8 @@ public record ReplicateRequest(String queue,
                                String incarnation,
                                int shard,
                                ReplicationBatch batch,
-                               Map<String, Long> consumerOffsets,
-                               Map<String, Long> groupOffsets) {
+                               Map<String, ConsumerPosition> consumerOffsets,
+                               Map<String, ConsumerPosition> groupOffsets) {
 
     public static ReplicateRequest fromBuffer(Buffer buffer) {
         Wire wire = new Wire(buffer);
@@ -31,8 +32,8 @@ public record ReplicateRequest(String queue,
                                                          wire.readLong(),
                                                          wire.readLong(),
                                                          wire.readEntries()),
-                                    wire.readOffsets(),
-                                    wire.readOffsets());
+                                    wire.readPositions(),
+                                    wire.readPositions());
     }
 
     public static Buffer encodeReply(ReplicationResult result) {
@@ -53,6 +54,6 @@ public record ReplicateRequest(String queue,
             .appendLong(batch.prevEpoch())
             .appendLong(batch.ownerStartOffset())
             .appendLong(batch.ownerNextOffset());
-        return Wire.appendOffsets(Wire.appendOffsets(Wire.appendEntries(ret, batch.entries()), consumerOffsets), groupOffsets);
+        return Wire.appendPositions(Wire.appendPositions(Wire.appendEntries(ret, batch.entries()), consumerOffsets), groupOffsets);
     }
 }

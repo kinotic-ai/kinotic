@@ -63,9 +63,11 @@ public interface QueueService {
      * record the consumer committed, or at {@code startPosition} when the consumer has never committed on that
      * shard. Delivery is at least once: every record after the last commit is delivered again to the next
      * subscription of the same consumer, on any queue node. Only records held by a majority of a shard's copies
-     * are delivered. One subscription per consumer may be open at a time. A handler that throws closes the
-     * subscription. Fails when the queue does not exist, or, starting at the latest record, when no majority of a
-     * shard's copies answers with the consumer's committed position.
+     * are delivered. One subscription per consumer may be open at a time. A consumer's committed position on a shard
+     * expires once no subscription of the consumer was open or committed there for the queue's retention period
+     * ({@code kinotic.queue.retentionPeriod}), and the consumer then starts there at {@code startPosition} again. A
+     * handler that throws closes the subscription. Fails when the queue does not exist, or, starting at the latest
+     * record, when no majority of a shard's copies answers with the consumer's committed position.
      *
      * @param queue         the queue name
      * @param consumerName  identifies the consumer whose committed positions are resumed and updated; same
@@ -81,7 +83,8 @@ public interface QueueService {
      * group's {@link #deadLetterQueue dead-letter queue} after a worker rejected it or it was leased five times without
      * being accepted, not counting leases a worker closed before handing to its handler. Delivery is at least once: a record is leased again when its lease expires, when its worker
      * releases it or closes, and when the shard's owner changes before the group's progress past it reached the
-     * shard's other copies. Fails when the queue does not exist, or when the queue and group names together are too
+     * shard's other copies. The group's position on a shard expires once no worker of the group asked for records there
+     * for the queue's retention period, and the group then starts there at its start position again. Fails when the queue does not exist, or when the queue and group names together are too
      * long to name the dead-letter queue.
      *
      * @param queue     the queue name

@@ -18,10 +18,12 @@ import org.kinotic.queue.internal.cluster.QueueDefinitionRepository;
 import org.kinotic.queue.internal.cluster.QueueNode;
 import org.kinotic.queue.internal.cluster.ShardStateRepository;
 import org.kinotic.queue.internal.cluster.StoredQueue;
+import org.kinotic.queue.internal.log.ConsumerOffsetRepository;
 import org.kinotic.queue.internal.log.QueueLog;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 @Component
 @RequiredArgsConstructor
@@ -82,7 +84,9 @@ public class DefaultQueueService implements QueueService {
             return Future.failedFuture(new IllegalArgumentException("Invalid consumer name '" + consumerName + "' or missing startPosition"));
         }
         Context context = vertx.getOrCreateContext();
-        return definition(queue).compose(stored -> DefaultQueueSubscription.open(context, client, stored, consumerName, startPosition));
+        Duration refreshInterval = ConsumerOffsetRepository.refreshInterval(properties.getQueue().getRetentionPeriod());
+        return definition(queue).compose(stored -> DefaultQueueSubscription.open(context, client, stored, consumerName, startPosition,
+                                                                                 refreshInterval));
     }
 
     @Override

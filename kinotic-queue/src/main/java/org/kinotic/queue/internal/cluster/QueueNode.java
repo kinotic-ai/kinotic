@@ -98,6 +98,7 @@ public class QueueNode {
     // The incarnations of deleted queues whose copies this node has deleted; written on worker threads
     private volatile Set<String> deletedQueues = Set.of();
     private volatile long localQueuesSyncedAt;
+    private volatile long expiredPositionsDeletedAt;
 
     /**
      * The event bus address a queue node receives one kind of request on.
@@ -322,6 +323,9 @@ public class QueueNode {
                          if (!stopped && localQueuesSyncDue()) {
                              syncLocalQueues();
                          }
+                         if (!stopped && System.currentTimeMillis() - expiredPositionsDeletedAt >= LOCAL_QUEUES_SYNC_INTERVAL_MS) {
+                             deleteExpiredPositions();
+                         }
                          return null;
                      }, false);
                  })
@@ -431,10 +435,12 @@ public class QueueNode {
                 if (queueLog != null) {
                     long committedOffset = committed.get(key);
                     owned.merge(owner.queue(), 1L, Long::sum);
-                    queueLog.consumerOffsets().findAll(owner.shard()).forEach((consumer, next) -> consumerLags
-                            .computeIfAbsent(owner.queue(), q -> new HashMap<>()).merge(consumer, Math.max(0, committedOffset - next), Long::sum));
-                    queueLog.groupOffsets().findAll(owner.shard()).forEach((group, watermark) -> groupLags
-                            .computeIfAbsent(owner.queue(), q -> new HashMap<>()).merge(group, Math.max(0, committedOffset - watermark), Long::sum));
+                    queueLog.consumerOffsets().findAll(owner.shard()).forEach((consumer, position) -> consumerLags
+                            .computeIfAbsent(owner.queue(), q -> new HashMap<>())
+                            .merge(consumer, Math.max(0, committedOffset - position.nextOffset()), Long::sum));
+                    queueLog.groupOffsets().findAll(owner.shard()).forEach((group, position) -> groupLags
+                            .computeIfAbsent(owner.queue(), q -> new HashMap<>())
+                            .merge(group, Math.max(0, committedOffset - position.nextOffset()), Long::sum));
                 }
             });
             Map<String, Long> sizes = new HashMap<>();
@@ -480,6 +486,19 @@ public class QueueNode {
         }
         deletedQueues = deleted.keySet();
         localQueuesSyncedAt = System.currentTimeMillis();
+    }
+
+    // Consumers and groups that stopped using a queue leave positions, which expire unused
+    private void deleteExpiredPositions() {
+        for (QueueLog queueLog : logs.values()) {
+            try {
+                queueLog.consumerOffsets().deleteExpired();
+                queueLog.groupOffsets().deleteExpired();
+            } catch (RuntimeException e) {
+                log.warn("Deleting the expired positions of queue {} failed", queueLog.definition().name(), e);
+            }
+        }
+        expiredPositionsDeletedAt = System.currentTimeMillis();
     }
 
     private void deleteLocalQueue(String queue, String incarnation) {

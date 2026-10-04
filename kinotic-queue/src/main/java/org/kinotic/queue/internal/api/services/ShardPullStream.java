@@ -127,6 +127,13 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
         pending.add(item);
     }
 
+    /**
+     * @return the context the stream runs on
+     */
+    protected final Context context() {
+        return context;
+    }
+
     protected final int pendingCount() {
         return pending.size();
     }

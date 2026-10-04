@@ -2,6 +2,7 @@ package org.kinotic.queue.internal.api.services;
 
 import io.vertx.core.Context;
 import io.vertx.core.Future;
+import lombok.extern.slf4j.Slf4j;
 import org.kinotic.queue.api.model.QueuePosition;
 import org.kinotic.queue.api.model.QueueRecord;
 import org.kinotic.queue.api.model.StartPosition;
@@ -11,6 +12,7 @@ import org.kinotic.queue.internal.cluster.StoredQueue;
 import org.kinotic.queue.internal.cluster.message.FetchResponse;
 import org.kinotic.queue.internal.log.ShardEntry;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -18,6 +20,7 @@ import java.util.stream.IntStream;
  * Delivers a queue's committed records to one consumer. Each shard is fetched from its owner, wherever the owner
  * runs, and the records are handed to the handler on the subscription's context as demand allows.
  */
+@Slf4j
 public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, FetchResponse> implements QueueSubscription {
 
     private static final int FETCH_SIZE = 256;
@@ -36,6 +39,7 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
     // The offset after the last record handed to the handler, per shard; a commit may not go past it
     private final long[] deliveredNextOffsets;
     private long pendingBytes;
+    private long refreshTimer = -1;
     // The byte budgets of the fetches on their way
     private long reservedBytes;
 
@@ -62,7 +66,8 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
                                           QueueClusterClient client,
                                           StoredQueue queue,
                                           String consumerName,
-                                          StartPosition startPosition) {
+                                          StartPosition startPosition,
+                                          Duration refreshInterval) {
         int shardCount = queue.definition().shardCount();
         List<Future<Long>> committed = IntStream.range(0, shardCount)
                                                 .mapToObj(shard -> client.findNextOffset(queue, consumerName, shard, startPosition))
@@ -76,7 +81,10 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
             long[] fetchOffsets = starts.stream().mapToLong(Future::result).toArray();
             DefaultQueueSubscription ret = new DefaultQueueSubscription(context, client, queue, consumerName,
                                                                         fetchOffsets, committedNextOffsets);
-            context.runOnContext(v -> ret.pullAll());
+            context.runOnContext(v -> {
+                ret.pullAll();
+                ret.refreshTimer = context.owner().setPeriodic(refreshInterval.toMillis(), t -> ret.refreshCommitted());
+            });
             return ret;
         });
     }
@@ -118,7 +126,23 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
     @Override
     public Future<Void> close() {
         end();
+        if (refreshTimer >= 0) {
+            context().owner().cancelTimer(refreshTimer);
+        }
         return Future.succeededFuture();
+    }
+
+    // Commits the committed positions again, so an open subscription that has nothing new to commit keeps them from
+    // expiring; a failed refresh is made again at the next one
+    private void refreshCommitted() {
+        for (int shard = 0; shard < committedNextOffsets.length; shard++) {
+            if (committedNextOffsets[shard] > 0) {
+                int refreshed = shard;
+                client.commitOffset(queue, consumerName, shard, committedNextOffsets[shard])
+                      .onFailure(e -> log.debug("Refreshing the position of consumer {} on shard {} of queue {} failed",
+                                                consumerName, refreshed, queue.name(), e));
+            }
+        }
     }
 
     @Override

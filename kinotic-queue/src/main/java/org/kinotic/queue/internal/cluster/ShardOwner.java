@@ -72,7 +72,8 @@ final class ShardOwner {
     // records and failing appends, and an owner its copies reach takes over
     private static final long MAJORITY_SILENCE_MS = 10_000;
     private static final long SWEEP_INTERVAL_MS = 250;
-    // A group's dispatcher with nothing in flight is dropped after this long without a request; its position is stored
+    // A group's dispatcher with nothing in flight is dropped after this long without a request, or half the retention
+    // period when that is shorter, so a group gone that long starts over once its stored position expires
     private static final long DISPATCHER_IDLE_MS = 5 * 60_000;
     // A producer's last batch is forgotten after this long without a request; the producer has given up on it by then
     private static final long PRODUCER_IDLE_MS = 10 * 60_000;
@@ -880,7 +881,8 @@ final class ShardOwner {
         producerBatches.values().removeIf(batch -> batch.written().isComplete() && batch.lastUsed() < now - PRODUCER_IDLE_MS);
         deleteRetained();
         dispatchers.values().removeIf(dispatcher -> {
-            boolean idle = dispatcher.succeeded() && dispatcher.result().isIdleSince(now - DISPATCHER_IDLE_MS);
+            long idleMillis = Math.min(DISPATCHER_IDLE_MS, 2 * groupOffsets.refreshInterval().toMillis());
+            boolean idle = dispatcher.succeeded() && dispatcher.result().isIdleSince(now - idleMillis);
             if (idle) {
                 dispatcher.result().stop();
             }

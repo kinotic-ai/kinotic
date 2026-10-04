@@ -5,6 +5,7 @@ import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.queue.internal.cluster.message.ReplicateRequest;
 import org.kinotic.queue.internal.log.ConsumerOffsetRepository;
+import org.kinotic.queue.internal.log.ConsumerPosition;
 import org.kinotic.queue.internal.log.LogStart;
 import org.kinotic.queue.internal.log.ReplicationBatch;
 import org.kinotic.queue.internal.log.ReplicationResult;
@@ -187,7 +188,7 @@ final class ShardReplicator {
         return ret;
     }
 
-    private ReplicateRequest batch(long from, Map<String, Long> consumers, Map<String, Long> groups) {
+    private ReplicateRequest batch(long from, Map<String, ConsumerPosition> consumers, Map<String, ConsumerPosition> groups) {
         // A follower that ends before this copy's start receives the entries from the start, and drops its own
         LogStart start = shardLog.start();
         long first = Math.max(from, start.offset());

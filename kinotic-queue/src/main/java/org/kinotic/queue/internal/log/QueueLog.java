@@ -47,8 +47,8 @@ public final class QueueLog implements AutoCloseable {
         this.incarnation = incarnation;
         this.properties = properties;
         this.shards = new ShardLog[definition.shardCount()];
-        this.consumerOffsets = new ConsumerOffsetRepository(directory.resolve("consumers"), definition.shardCount(), properties.isSyncWrites());
-        this.groupOffsets = new ConsumerOffsetRepository(directory.resolve("groups"), definition.shardCount(), properties.isSyncWrites());
+        this.consumerOffsets = new ConsumerOffsetRepository(directory.resolve("consumers"), definition.shardCount(), properties);
+        this.groupOffsets = new ConsumerOffsetRepository(directory.resolve("groups"), definition.shardCount(), properties);
     }
 
     /**

@@ -1,6 +1,7 @@
 package org.kinotic.queue.internal.cluster.message;
 
 import io.vertx.core.buffer.Buffer;
+import org.kinotic.queue.internal.log.ConsumerPosition;
 import org.kinotic.queue.internal.log.LogStart;
 import org.kinotic.queue.internal.log.ShardEntry;
 import org.kinotic.queue.internal.log.ShardLog;
@@ -16,22 +17,23 @@ import java.util.Map;
  * @param lastEpoch       the epoch of the copy's last entry; -1 when the copy is empty
  * @param acceptedEpoch   the newest epoch the node had promised for the shard before the prepare this status answers;
  *                        -1 when it had promised none
- * @param consumerOffsets the next offset of every consumer that has committed on the shard, by consumer name
- * @param groupOffsets    the low watermark of every worker group that has finished records on the shard, by group name
+ * @param consumerOffsets the position of every consumer whose position on the shard has not expired, by consumer name
+ * @param groupOffsets    the position, its low watermark, of every worker group whose position on the shard has not
+ *                        expired, by group name
  * @param membership      the last membership change the copy holds; null when it holds none
  */
 public record ShardStatus(LogStart start,
                           long nextOffset,
                           long lastEpoch,
                           long acceptedEpoch,
-                          Map<String, Long> consumerOffsets,
-                          Map<String, Long> groupOffsets,
+                          Map<String, ConsumerPosition> consumerOffsets,
+                          Map<String, ConsumerPosition> groupOffsets,
                           ShardEntry membership) {
 
     /**
      * @param acceptedEpoch the newest epoch the copy had promised before the prepare this status answers
      */
-    public static ShardStatus of(ShardLog shardLog, long acceptedEpoch, Map<String, Long> consumerOffsets, Map<String, Long> groupOffsets) {
+    public static ShardStatus of(ShardLog shardLog, long acceptedEpoch, Map<String, ConsumerPosition> consumerOffsets, Map<String, ConsumerPosition> groupOffsets) {
         return new ShardStatus(shardLog.start(), shardLog.nextOffset(), shardLog.lastEpoch(), acceptedEpoch, consumerOffsets, groupOffsets,
                                shardLog.latestMembership());
     }
@@ -46,7 +48,7 @@ public record ShardStatus(LogStart start,
     public static ShardStatus fromBuffer(Buffer buffer) {
         Wire wire = new Wire(buffer);
         return new ShardStatus(new LogStart(wire.readLong(), wire.readLong()), wire.readLong(), wire.readLong(), wire.readLong(),
-                               wire.readOffsets(), wire.readOffsets(), wire.readEntries().stream().findFirst().orElse(null));
+                               wire.readPositions(), wire.readPositions(), wire.readEntries().stream().findFirst().orElse(null));
     }
 
     /**
@@ -57,14 +59,14 @@ public record ShardStatus(LogStart start,
     }
 
     public Buffer toBuffer() {
-        Buffer ret = Wire.appendOffsets(Wire.buffer()
+        Buffer ret = Wire.appendPositions(Wire.buffer()
                                             .appendLong(start.offset())
                                             .appendLong(start.epochBefore())
                                             .appendLong(nextOffset)
                                             .appendLong(lastEpoch)
                                             .appendLong(acceptedEpoch),
                                         consumerOffsets);
-        Wire.appendOffsets(ret, groupOffsets);
+        Wire.appendPositions(ret, groupOffsets);
         return Wire.appendEntries(ret, membership != null ? List.of(membership) : List.of());
     }
 }
