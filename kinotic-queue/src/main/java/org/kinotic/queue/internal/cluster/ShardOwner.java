@@ -186,6 +186,11 @@ final class ShardOwner {
 
     // Writes the batch's records the shard does not hold yet, the ones at -1 in offsets
     private Future<List<Long>> writeMissing(AppendRequest request, List<Long> offsets) {
+        // A batch sent again after this owner stopped would be written twice when the first write succeeded after it
+        // stopped, and the shard's next owner recognizes the batch either way
+        if (stopped) {
+            return Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue + " changed owner"));
+        }
         List<ShardEntry> records = new ArrayList<>();
         List<Integer> indexes = new ArrayList<>();
         for (int i = 0; i < offsets.size(); i++) {
@@ -204,9 +209,8 @@ final class ShardOwner {
             ret = vertx.executeBlocking(() -> shardLog.append(appendEpoch, records), false).transform(ar -> {
                 Future<List<Long>> written;
                 if (ar.failed()) {
-                    if (ar.cause() instanceof StaleEpochException) {
-                        stop();
-                    }
+                    // A failed append fences this epoch on the shard, so this owner can append nothing more
+                    stop();
                     written = Future.failedFuture(ar.cause());
                 } else if (stopped) {
                     // The records may still be committed by the next owner, which then recognizes the batch
@@ -567,7 +571,7 @@ final class ShardOwner {
     private String unansweredMajority(Membership membership, List<String> answered) {
         String ret = null;
         for (List<String> copies : List.of(membership.voting(), membership.joining())) {
-            if (!copies.isEmpty() && copies.stream().filter(answered::contains).count() < placement.quorum()) {
+            if (!copies.isEmpty() && copies.stream().filter(answered::contains).count() < placement.quorum(copies.size())) {
                 ret = copies.toString();
             }
         }
@@ -605,7 +609,9 @@ final class ShardOwner {
     // Copies entries from the most advanced copy until this copy matches it up to its end. ShardLog.replicate does the
     // checks exactly as it does for a follower, replacing any entries of this copy that differ.
     private Future<Void> catchUp(String source, long from, long target, long proposed) {
-        return client.read(source, new FetchRequest(queue, shard, Math.max(0, from - 1), CATCH_UP_BATCH_SIZE + 1, MAX_BATCH_BYTES))
+        long first = Math.max(0, from - 1);
+        int max = (int) Math.min(CATCH_UP_BATCH_SIZE + 1, target - first);
+        return client.read(source, new FetchRequest(queue, shard, first, max, MAX_BATCH_BYTES))
                      .compose(response -> vertx.executeBlocking(() -> applyCatchUp(from, response.entries(), target, proposed), false))
                      .compose(result -> {
                          Future<Void> ret;
@@ -627,6 +633,10 @@ final class ShardOwner {
     }
 
     private ReplicationResult applyCatchUp(long from, List<ShardEntry> read, long target, long proposed) {
+        // Entries a newer owner wrote to the source since it was prepared would come before this owner's marker
+        if (read.stream().anyMatch(entry -> entry.epoch() > proposed)) {
+            throw new IllegalStateException("node holding the most advanced copy accepted an owner newer than epoch " + proposed);
+        }
         ReplicationResult ret;
         if (from > 0) {
             if (read.isEmpty()) {
@@ -732,7 +742,8 @@ final class ShardOwner {
         if (stepDownIfFenced()) {
             return;
         }
-        long ownOffset = shardLog.nextOffset();
+        // This copy's entries count toward a commit once forced to disk, as a follower's do once it acknowledges them
+        long ownOffset = shardLog.syncedOffset();
         long majorityOffset = membership.committable(copy -> progress(copy, ownOffset, ShardReplicator::matchedOffset));
         if (majorityOffset > epochStartOffset && majorityOffset > committedOffset) {
             committedOffset = majorityOffset;

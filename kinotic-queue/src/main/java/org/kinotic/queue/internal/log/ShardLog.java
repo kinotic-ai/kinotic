@@ -1,5 +1,6 @@
 package org.kinotic.queue.internal.log;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 
 import java.io.IOException;
@@ -7,6 +8,7 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -26,6 +28,7 @@ import java.util.stream.Stream;
  * increase by one per entry, and epochs that never decrease from one entry to the next. Writes are serialized; reads
  * may run concurrently with writes and with each other.
  */
+@Slf4j
 public final class ShardLog implements AutoCloseable {
 
     private static final String ACCEPTED_EPOCH_SUFFIX = ".accepted-epoch";
@@ -41,8 +44,12 @@ public final class ShardLog implements AutoCloseable {
     private volatile List<ShardSegment> segments;
     private final ConcurrentSkipListMap<Long, ShardEntry> memberships = new ConcurrentSkipListMap<>();
     private volatile long nextOffset;
+    private volatile long syncedOffset;
     private volatile long lastEpoch;
     private volatile long acceptedEpoch;
+    // The newest epoch an append failed in. Followers may hold the failed append's entries under that epoch, so its
+    // offsets are only written again by an owner of a newer epoch, whose entries replace them.
+    private long fencedEpoch = -1;
 
     /**
      * Opens the shard stored in {@code directory}, creating it empty when there is none.
@@ -85,7 +92,8 @@ public final class ShardLog implements AutoCloseable {
      * @param epoch   the owner's epoch
      * @param records the records, each with its key, payload and slot set; their offsets and epochs are ignored
      * @return the offset each record was written at, in the order of {@code records}
-     * @throws StaleEpochException when the shard has promised a newer owner
+     * @throws StaleEpochException when the shard has promised a newer owner, or an append of this epoch failed; a
+     *                             failing append fences its epoch the same way
      */
     public synchronized List<Long> append(long epoch, List<ShardEntry> records) {
         requireCurrent(epoch);
@@ -98,6 +106,7 @@ public final class ShardLog implements AutoCloseable {
             }
             sync();
         } catch (RuntimeException e) {
+            fencedEpoch = Math.max(fencedEpoch, epoch);
             if (nextOffset > start) {
                 truncate(start);
             }
@@ -193,11 +202,9 @@ public final class ShardLog implements AutoCloseable {
                 if (conflict >= 0) {
                     truncate(conflict);
                 }
-                boolean written = false;
                 for (ShardEntry entry : entries) {
                     if (entry.offset() == nextOffset) {
                         write(entry);
-                        written = true;
                     }
                 }
                 // Entries of the owner's epoch past the batch came from the owner after it read the batch, which a
@@ -205,9 +212,8 @@ public final class ShardLog implements AutoCloseable {
                 if (batchEnd == ownerNextOffset && nextOffset > ownerNextOffset && lastEpoch < epoch) {
                     truncate(ownerNextOffset);
                 }
-                if (written) {
-                    sync();
-                }
+                // Also forces entries skipped as already held whose earlier sync failed
+                sync();
                 ret = new ReplicationResult(ReplicationStatus.ACCEPTED, batchEnd);
             }
         }
@@ -247,6 +253,14 @@ public final class ShardLog implements AutoCloseable {
      */
     public long nextOffset() {
         return nextOffset;
+    }
+
+    /**
+     * @return the offset after the last entry of the last write that completed: forced to disk when the shard forces
+     * its writes. Entries from it to {@link #nextOffset()} belong to a write in progress or to one that failed.
+     */
+    public long syncedOffset() {
+        return syncedOffset;
     }
 
     /**
@@ -297,7 +311,7 @@ public final class ShardLog implements AutoCloseable {
     static void writeDurably(Path file, String content) {
         Path temp = file.resolveSibling(file.getFileName() + ".tmp");
         try {
-            Files.createDirectories(file.getParent());
+            createDirectories(file.getParent());
             try (FileChannel channel = FileChannel.open(temp, StandardOpenOption.CREATE, StandardOpenOption.WRITE,
                                                         StandardOpenOption.TRUNCATE_EXISTING)) {
                 ByteBuffer buffer = ByteBuffer.wrap(content.getBytes(StandardCharsets.UTF_8));
@@ -313,9 +327,29 @@ public final class ShardLog implements AutoCloseable {
         }
     }
 
+    /**
+     * Creates the directory and any missing parent, each of which survives a crash or power loss once this returns.
+     */
+    static void createDirectories(Path directory) {
+        if (!Files.isDirectory(directory)) {
+            createDirectories(directory.getParent());
+            try {
+                Files.createDirectory(directory);
+            } catch (FileAlreadyExistsException e) {
+                // Created concurrently; forcing the parent below still makes it durable
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            force(directory.getParent());
+        }
+    }
+
     private void requireCurrent(long epoch) {
         if (epoch < acceptedEpoch) {
-            throw new StaleEpochException(epoch, acceptedEpoch);
+            throw new StaleEpochException("Epoch " + epoch + " is older than the promised epoch " + acceptedEpoch);
+        }
+        if (epoch <= fencedEpoch) {
+            throw new StaleEpochException("An append of epoch " + epoch + " failed, so the shard takes appends of a newer epoch only");
         }
         promise(epoch);
     }
@@ -356,19 +390,31 @@ public final class ShardLog implements AutoCloseable {
     }
 
     private void write(ShardEntry entry) {
-        if (entry.isMembership()) {
-            memberships.put(entry.offset(), entry);
-            // Listed before it is written, so a crash in between leaves a listing past the shard's end, which open drops
-            writeMemberships();
+        try {
+            if (entry.isMembership()) {
+                memberships.put(entry.offset(), entry);
+                // Listed before it is written, so a crash in between leaves a listing of an entry the shard lacks,
+                // which open drops
+                writeMemberships();
+            }
+            openSegment().write(entry);
+        } catch (RuntimeException e) {
+            if (entry.isMembership()) {
+                memberships.remove(entry.offset());
+            }
+            throw e;
         }
-        openSegment().write(entry);
         lastEpoch = entry.epoch();
         nextOffset = entry.offset() + 1;
     }
 
     private void sync() {
-        if (syncWrites && !segments.isEmpty()) {
-            segments.getLast().sync();
+        if (syncedOffset < nextOffset) {
+            if (syncWrites) {
+                // Earlier segments hold unforced entries when a failed sync was followed by a truncation
+                segments.forEach(ShardSegment::sync);
+            }
+            syncedOffset = nextOffset;
         }
     }
 
@@ -408,13 +454,24 @@ public final class ShardLog implements AutoCloseable {
                 kept.getLast().seal(offset);
             }
             segments = kept;
-            deleted.forEach(ShardSegment::delete);
-            if (!memberships.tailMap(offset).isEmpty()) {
-                memberships.tailMap(offset).clear();
+            nextOffset = offset;
+            syncedOffset = Math.min(syncedOffset, offset);
+            lastEpoch = offset > 0 ? epochAt(offset - 1) : -1;
+            boolean membershipsRemoved = !memberships.tailMap(offset).isEmpty();
+            memberships.tailMap(offset).clear();
+            // The shard is truncated once the manifest is written: open deletes the directories it no longer lists and
+            // drops listed memberships the shard lacks
+            for (ShardSegment segment : deleted) {
+                try {
+                    segment.delete();
+                } catch (RuntimeException e) {
+                    log.warn("Deleting segment {} of shard {} failed; it is deleted when the shard is opened again",
+                             segment.name(), directory, e);
+                }
+            }
+            if (membershipsRemoved) {
                 writeMemberships();
             }
-            nextOffset = offset;
-            lastEpoch = offset > 0 ? epochAt(offset - 1) : -1;
         } finally {
             segmentsLock.writeLock().unlock();
         }
@@ -437,7 +494,7 @@ public final class ShardLog implements AutoCloseable {
         List<ShardSegment> opened = new ArrayList<>();
         Path manifest = directory.resolve(MANIFEST_FILE);
         try {
-            Files.createDirectories(directory);
+            createDirectories(directory);
             if (Files.exists(manifest)) {
                 for (String line : Files.readAllLines(manifest, StandardCharsets.UTF_8)) {
                     if (!line.isBlank()) {
@@ -459,9 +516,38 @@ public final class ShardLog implements AutoCloseable {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        segments = List.copyOf(opened);
-        nextOffset = opened.isEmpty() ? 0 : opened.getLast().end();
+        segments = List.copyOf(contiguous(opened));
+        nextOffset = segments.isEmpty() ? 0 : segments.getLast().end();
+        syncedOffset = nextOffset;
         lastEpoch = nextOffset > 0 ? epochAt(nextOffset - 1) : -1;
+    }
+
+    // The segments up to the first that starts past the end of the one before it, which happens when a crash lost
+    // entries that were never forced to disk. The manifest is rewritten when it differs.
+    private List<ShardSegment> contiguous(List<ShardSegment> opened) {
+        List<ShardSegment> ret = new ArrayList<>();
+        List<ShardSegment> dropped = new ArrayList<>();
+        for (ShardSegment segment : opened) {
+            if (dropped.isEmpty() && (ret.isEmpty() || segment.startOffset() == ret.getLast().end())) {
+                ret.add(segment);
+            } else {
+                dropped.add(segment);
+            }
+        }
+        if (!dropped.isEmpty()) {
+            log.warn("Shard {} lost the entries from offset {} on, which were not forced to disk before a crash",
+                     directory, ret.isEmpty() ? 0 : ret.getLast().end());
+        }
+        try {
+            List<String> lines = ret.stream().map(ShardLog::manifestLine).toList();
+            if (!lines.isEmpty() && !lines.equals(Files.readAllLines(directory.resolve(MANIFEST_FILE), StandardCharsets.UTF_8))) {
+                writeManifest(lines);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        dropped.forEach(ShardSegment::delete);
+        return ret;
     }
 
     private void writeMemberships() {
@@ -488,8 +574,12 @@ public final class ShardLog implements AutoCloseable {
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-            if (!memberships.tailMap(nextOffset).isEmpty()) {
-                memberships.tailMap(nextOffset).clear();
+            // Listings of entries the shard lacks: written past a crash, or for a write that failed
+            boolean dropped = memberships.values().removeIf(listed -> {
+                List<ShardEntry> held = listed.offset() < nextOffset ? read(listed.offset(), 1, Long.MAX_VALUE) : List.of();
+                return held.isEmpty() || !held.getFirst().isMembership() || held.getFirst().epoch() != listed.epoch();
+            });
+            if (dropped) {
                 writeMemberships();
             }
         }

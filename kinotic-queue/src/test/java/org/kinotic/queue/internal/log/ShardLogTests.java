@@ -1,5 +1,11 @@
 package org.kinotic.queue.internal.log;
 
+import net.openhft.chronicle.core.time.SetTimeProvider;
+import net.openhft.chronicle.queue.ExcerptAppender;
+import net.openhft.chronicle.queue.RollCycles;
+import net.openhft.chronicle.queue.impl.single.SingleChronicleQueue;
+import net.openhft.chronicle.queue.impl.single.SingleChronicleQueueBuilder;
+import net.openhft.chronicle.wire.DocumentContext;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -9,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -190,6 +197,97 @@ public class ShardLogTests {
         try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
             assertEquals(1, reopened.latestMembership().offset());
             assertEquals(2, reopened.nextOffset());
+        }
+    }
+
+    @Test
+    public void aMembershipListedForAnOffsetHoldingAnotherEntryIsDroppedOnOpen() throws Exception {
+        Path shardDirectory = directory.resolve("0");
+        try (ShardLog shard = new ShardLog(shardDirectory, true)) {
+            shard.appendMarker(1);
+            shard.appendMembership(1, new Membership(List.of("a"), List.of()));
+            appendAll(shard, 1, 2, 2);
+        }
+        // The listing a failed write of a change at offset 2 leaves, after a record took the offset
+        Files.writeString(shardDirectory.resolve("memberships"), "1 1 a -\n2 1 a,b -");
+
+        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+            assertEquals(1, reopened.latestMembership().offset());
+        }
+        try (ShardLog reopenedAgain = new ShardLog(shardDirectory, true)) {
+            assertEquals(1, reopenedAgain.latestMembership().offset());
+        }
+    }
+
+    @Test
+    public void aSegmentSealedPastTheEntriesACrashKeptEndsAtThemAndLaterSegmentsAreDropped() throws Exception {
+        Path shardDirectory = directory.resolve("0");
+        try (ShardLog shard = new ShardLog(shardDirectory, true)) {
+            appendAll(shard, 1, 0, 5);
+        }
+        String segment = Files.readString(shardDirectory.resolve("segments")).split(" ")[0];
+        // The manifest a crash leaves when entries 5-7 were sealed into the segment and 8 on written to another one,
+        // and none of them reached the disk
+        Files.writeString(shardDirectory.resolve("segments"), segment + " 0 8\n8-lost 8 -1");
+
+        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+            assertEquals(5, reopened.nextOffset());
+            assertEquals(1, reopened.lastEpoch());
+            appendAll(reopened, 2, 5, 2);
+            assertEquals(List.of(1L, 1L, 1L, 1L, 1L, 2L, 2L), epochs(reopened.read(0, 10, Long.MAX_VALUE)));
+        }
+        try (ShardLog reopenedAgain = new ShardLog(shardDirectory, true)) {
+            assertEquals(7, reopenedAgain.nextOffset());
+            assertEquals(List.of(1L, 1L, 1L, 1L, 1L, 2L, 2L), epochs(reopenedAgain.read(0, 10, Long.MAX_VALUE)));
+        }
+        assertFalse(Files.exists(shardDirectory.resolve("8-lost")));
+    }
+
+    @Test
+    public void aClockSetBackAcrossADayKeepsAppendingAfterTheNewestEntries() throws Exception {
+        Path shardDirectory = directory.resolve("0");
+        Path segmentDirectory = shardDirectory.resolve("0-ahead");
+        // A segment written while the clock was a day ahead, in the layout ShardSegment writes: offset, epoch, type
+        SetTimeProvider aDayAhead = new SetTimeProvider();
+        aDayAhead.currentTimeMillis(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1));
+        try (SingleChronicleQueue queue = SingleChronicleQueueBuilder.binary(segmentDirectory)
+                                                                     .rollCycle(RollCycles.FAST_DAILY)
+                                                                     .timeProvider(aDayAhead)
+                                                                     .build();
+             ExcerptAppender appender = queue.createAppender()) {
+            for (long offset = 0; offset < 3; offset++) {
+                try (DocumentContext dc = appender.writingDocument()) {
+                    dc.wire().bytes().writeLong(offset).writeLong(1).writeByte((byte) 1);
+                }
+            }
+        }
+        Files.writeString(shardDirectory.resolve("segments"), "0-ahead 0 -1");
+
+        try (ShardLog shard = new ShardLog(shardDirectory, true)) {
+            assertEquals(3, shard.nextOffset());
+            shard.appendMarker(2);
+            shard.appendMarker(2);
+            assertEquals(List.of(1L, 1L, 1L, 2L, 2L), epochs(shard.read(0, 10, Long.MAX_VALUE)));
+        }
+        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+            assertEquals(5, reopened.nextOffset());
+            assertEquals(List.of(1L, 1L, 1L, 2L, 2L), epochs(reopened.read(0, 10, Long.MAX_VALUE)));
+        }
+    }
+
+    @Test
+    public void aFailedAppendFencesItsEpochSoOnlyANewerOwnerWritesItsOffsetsAgain() {
+        try (ShardLog shard = new ShardLog(directory.resolve("0"), true)) {
+            appendAll(shard, 1, 0, 2);
+            // A record without a payload fails partway through the batch
+            List<ShardEntry> failing = List.of(ShardEntry.record(-1, 1, "key-2", new byte[]{1}, new BatchSlot(1, 1, 0, 2)),
+                                               ShardEntry.record(-1, 1, "key-3", null, new BatchSlot(1, 1, 1, 2)));
+            assertThrows(RuntimeException.class, () -> shard.append(1, failing));
+            assertEquals(2, shard.nextOffset());
+
+            assertThrows(StaleEpochException.class, () -> append(shard, 1, "key-2", new byte[]{1}));
+            assertEquals(2, append(shard, 2, "key-2", new byte[]{2}));
+            assertEquals(List.of(1L, 1L, 2L), epochs(shard.read(0, 10, Long.MAX_VALUE)));
         }
     }
 

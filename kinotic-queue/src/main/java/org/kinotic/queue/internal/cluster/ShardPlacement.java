@@ -126,4 +126,12 @@ public class ShardPlacement {
     public int quorum() {
         return replicationFactor / 2 + 1;
     }
+
+    /**
+     * @return how many copies of a set of {@code copies} copies make a majority of it; a set smaller than the
+     * replication factor counts as that large, its missing copies holding nothing
+     */
+    public int quorum(int copies) {
+        return Math.max(replicationFactor, copies) / 2 + 1;
+    }
 }

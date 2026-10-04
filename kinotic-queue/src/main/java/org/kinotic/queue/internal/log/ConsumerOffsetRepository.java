@@ -14,7 +14,7 @@ import java.util.stream.Stream;
 
 /**
  * Stores, for each consumer or worker group of one queue, the next offset to deliver on every shard. A stored offset
- * only moves forward.
+ * only moves forward, across power loss too when the repository forces its writes.
  */
 public final class ConsumerOffsetRepository implements AutoCloseable {
 
@@ -23,6 +23,7 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
 
     private final Path directory;
     private final int shardCount;
+    private final boolean syncWrites;
     // Counts the stored offsets that moved forward on each shard, so a change can be noticed without comparing offsets
     private final long[] versions;
     private final Map<String, long[]> offsets = new HashMap<>();
@@ -38,9 +39,13 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
     };
     private boolean allLoaded;
 
-    ConsumerOffsetRepository(Path directory, int shardCount) {
+    /**
+     * @param syncWrites whether each save is forced to disk before it returns
+     */
+    ConsumerOffsetRepository(Path directory, int shardCount, boolean syncWrites) {
         this.directory = directory;
         this.shardCount = shardCount;
+        this.syncWrites = syncWrites;
         this.versions = new long[shardCount];
     }
 
@@ -84,6 +89,10 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
                 FileChannel channel = channel(consumerName);
                 while (buffer.hasRemaining()) {
                     channel.write(buffer, (long) shard * Long.BYTES + buffer.position());
+                }
+                if (syncWrites) {
+                    // With metadata, since a commit on a higher shard grows the file
+                    channel.force(true);
                 }
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -153,12 +162,17 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
     private FileChannel channel(String consumerName) throws IOException {
         FileChannel ret = channels.get(consumerName);
         if (ret == null) {
-            Files.createDirectories(directory);
-            ret = FileChannel.open(directory.resolve(consumerName),
+            ShardLog.createDirectories(directory);
+            Path file = directory.resolve(consumerName);
+            boolean created = !Files.exists(file);
+            ret = FileChannel.open(file,
                                    StandardOpenOption.CREATE,
                                    StandardOpenOption.READ,
                                    StandardOpenOption.WRITE);
             channels.put(consumerName, ret);
+            if (created && syncWrites) {
+                ShardLog.force(directory);
+            }
         }
         return ret;
     }

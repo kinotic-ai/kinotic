@@ -16,9 +16,12 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 /**
@@ -38,11 +41,14 @@ final class ShardSegment implements AutoCloseable {
     // Chronicle sequence numbers are dense within a roll cycle and so are offsets, so an offset's queue index is
     // its cycle plus its distance from the first offset written in that cycle. Keyed by that first offset.
     private final ConcurrentSkipListMap<Long, Integer> cycleByFirstOffset = new ConcurrentSkipListMap<>();
+    // The queue's clock stays at or after the start of its newest cycle file, so a wall clock set back across a day
+    // keeps writing to that file: an entry written to an earlier cycle would sit past the end a tailer reads to
+    private final AtomicLong latestTime = new AtomicLong();
     private final SingleChronicleQueue queue;
     private final RollCycle rollCycle;
     private final ExcerptAppender appender;
-    // The cycle file the last write went to, forced to disk by sync()
-    private File writtenFile;
+    // The cycle files written since the last sync(), which forces them to disk
+    private final Set<File> unsyncedFiles = new LinkedHashSet<>();
     private boolean newCycleWritten;
     private volatile long nextOffset;
     private volatile long sealedEnd = -1;
@@ -52,23 +58,27 @@ final class ShardSegment implements AutoCloseable {
         this.startOffset = startOffset;
         this.queue = SingleChronicleQueueBuilder.binary(directory)
                                                 .rollCycle(RollCycles.FAST_DAILY)
+                                                .timeProvider(() -> latestTime.accumulateAndGet(System.currentTimeMillis(), Math::max))
                                                 .build();
         this.rollCycle = queue.rollCycle();
-        this.appender = queue.createAppender();
         this.nextOffset = startOffset;
         if (queue.lastIndex() >= 0) {
+            latestTime.set((long) queue.lastCycle() * rollCycle.lengthInMillis());
             loadCycleOffsets();
         }
+        this.appender = queue.createAppender();
     }
 
     /**
      * Opens the segment stored in {@code directory}, creating it empty when there is none.
      *
-     * @param sealedEnd the offset the segment was sealed at, or -1 when it is open for writes
+     * @param sealedEnd the offset the segment was sealed at, or -1 when it is open for writes; a sealed segment ends
+     *                  at the end of the entries on disk when they end before it
      */
     static ShardSegment open(Path directory, long startOffset, long sealedEnd) {
         ShardSegment ret = new ShardSegment(directory, startOffset);
-        ret.sealedEnd = sealedEnd;
+        // Entries a crash lost before reaching the disk may have been sealed in the manifest, which is always forced
+        ret.sealedEnd = sealedEnd >= 0 ? Math.min(sealedEnd, ret.nextOffset) : -1;
         return ret;
     }
 
@@ -135,7 +145,7 @@ final class ShardSegment implements AutoCloseable {
         if (cycleByFirstOffset.putIfAbsent(entry.offset() - rollCycle.toSequenceNumber(index), rollCycle.toCycle(index)) == null) {
             newCycleWritten = true;
         }
-        writtenFile = appender.currentFile();
+        unsyncedFiles.add(appender.currentFile());
         // Written after the cycle map so a reader that sees the new offset also finds its cycle
         nextOffset = entry.offset() + 1;
     }
@@ -144,18 +154,22 @@ final class ShardSegment implements AutoCloseable {
      * Forces every entry written so far to disk.
      */
     void sync() {
-        if (writtenFile != null) {
-            ShardLog.force(writtenFile.toPath());
-            if (newCycleWritten) {
-                // A new cycle adds a file to the directory and updates the queue's metadata files
-                try (Stream<Path> files = Files.list(directory)) {
-                    files.filter(file -> file.getFileName().toString().endsWith(".cq4t")).forEach(ShardLog::force);
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-                ShardLog.force(directory);
-                newCycleWritten = false;
+        // The entries written since the last sync span two files when the cycle rolled between them
+        for (File file : unsyncedFiles) {
+            ShardLog.force(file.toPath());
+        }
+        unsyncedFiles.clear();
+        if (newCycleWritten) {
+            // A new cycle adds a file to the directory and updates the queue's metadata files; the first one also
+            // follows the creation of the directory itself
+            try (Stream<Path> files = Files.list(directory)) {
+                files.filter(file -> file.getFileName().toString().endsWith(".cq4t")).forEach(ShardLog::force);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
             }
+            ShardLog.force(directory);
+            ShardLog.force(directory.getParent());
+            newCycleWritten = false;
         }
     }
 
@@ -267,7 +281,7 @@ final class ShardSegment implements AutoCloseable {
                     try (DocumentContext dc = tailer.readingDocument()) {
                         if (dc.isPresent()) {
                             long offset = dc.wire().bytes().readLong();
-                            cycleByFirstOffset.put(offset - rollCycle.toSequenceNumber(dc.index()), cycle.intValue());
+                            cycleByFirstOffset.put(offset - rollCycle.toSequenceNumber(dc.index()), rollCycle.toCycle(dc.index()));
                         }
                     }
                 }

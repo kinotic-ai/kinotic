@@ -103,15 +103,15 @@ final class ShardMembership {
         }
     }
 
-    // The progress a majority of the replication factor has reached among the copies, counting copies the set lacks
-    // as holding nothing
+    // The progress a majority of the copies has reached, counting a set smaller than the replication factor as that
+    // large, with the copies it lacks holding nothing
     private long majority(List<String> storageIds, ToLongFunction<String> progress) {
         long[] copies = new long[Math.max(placement.replicationFactor(), storageIds.size())];
         for (int i = 0; i < storageIds.size(); i++) {
             copies[i] = progress.applyAsLong(storageIds.get(i));
         }
         Arrays.sort(copies);
-        return copies[copies.length - placement.quorum()];
+        return copies[copies.length - placement.quorum(storageIds.size())];
     }
 
     // A placed copy whose node left before its storage id was read can never answer a later owner, so a set holding one
