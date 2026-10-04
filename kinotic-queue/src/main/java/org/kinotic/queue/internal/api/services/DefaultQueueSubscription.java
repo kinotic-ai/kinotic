@@ -2,8 +2,6 @@ package org.kinotic.queue.internal.api.services;
 
 import io.vertx.core.Context;
 import io.vertx.core.Future;
-import io.vertx.core.Handler;
-import lombok.extern.slf4j.Slf4j;
 import org.kinotic.queue.api.model.QueueDefinition;
 import org.kinotic.queue.api.model.QueuePosition;
 import org.kinotic.queue.api.model.QueueRecord;
@@ -13,41 +11,27 @@ import org.kinotic.queue.internal.cluster.QueueClusterClient;
 import org.kinotic.queue.internal.cluster.message.FetchResponse;
 import org.kinotic.queue.internal.log.ShardEntry;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 /**
  * Delivers a queue's committed records to one consumer. Each shard is fetched from its owner, wherever the owner
  * runs, and the records are handed to the handler on the subscription's context as demand allows.
  */
-@Slf4j
-public class DefaultQueueSubscription implements QueueSubscription {
+public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, FetchResponse> implements QueueSubscription {
 
     private static final int FETCH_SIZE = 256;
     // Fetching pauses while this many records wait for demand
     private static final int MAX_PENDING = 1_024;
-    private static final long RETRY_DELAY_MS = 200;
 
-    private final Context context;
     private final QueueClusterClient client;
     private final String queue;
     private final String consumerName;
     // The next offset to fetch per shard; -1 until the owner resolves a LATEST start
     private final long[] fetchOffsets;
-    private final boolean[] fetching;
     private final long[] committedNextOffsets;
     // The offset after the last record handed to the handler, per shard; a commit may not go past it
     private final long[] deliveredNextOffsets;
-    private final ArrayDeque<QueueRecord> pending = new ArrayDeque<>();
-
-    private Handler<QueueRecord> handler;
-    private Handler<Throwable> exceptionHandler;
-    private Handler<Void> endHandler;
-    private long demand = Long.MAX_VALUE;
-    private boolean closed;
 
     private DefaultQueueSubscription(Context context,
                                      QueueClusterClient client,
@@ -55,12 +39,11 @@ public class DefaultQueueSubscription implements QueueSubscription {
                                      String consumerName,
                                      long[] fetchOffsets,
                                      long[] committedNextOffsets) {
-        this.context = context;
+        super(context, fetchOffsets.length, "consumer " + consumerName + " of queue " + queue);
         this.client = client;
         this.queue = queue;
         this.consumerName = consumerName;
         this.fetchOffsets = fetchOffsets;
-        this.fetching = new boolean[fetchOffsets.length];
         this.committedNextOffsets = committedNextOffsets;
         this.deliveredNextOffsets = new long[fetchOffsets.length];
         for (int i = 0; i < fetchOffsets.length; i++) {
@@ -92,7 +75,7 @@ public class DefaultQueueSubscription implements QueueSubscription {
             }
             DefaultQueueSubscription ret = new DefaultQueueSubscription(context, client, definition.name(), consumerName,
                                                                         fetchOffsets, committedNextOffsets);
-            context.runOnContext(v -> ret.fetchAll());
+            context.runOnContext(v -> ret.pullAll());
             return ret;
         });
     }
@@ -120,126 +103,38 @@ public class DefaultQueueSubscription implements QueueSubscription {
 
     @Override
     public Future<Void> close() {
-        if (!closed) {
-            closed = true;
-            pending.clear();
-            if (endHandler != null) {
-                endHandler.handle(null);
-            }
-        }
+        end();
         return Future.succeededFuture();
     }
 
     @Override
-    public QueueSubscription exceptionHandler(Handler<Throwable> handler) {
-        this.exceptionHandler = handler;
-        return this;
+    protected boolean canPull(int shard) {
+        return pendingCount() < MAX_PENDING;
     }
 
     @Override
-    public QueueSubscription handler(Handler<QueueRecord> handler) {
-        this.handler = handler;
-        deliver();
-        return this;
+    protected Future<FetchResponse> pull(int shard) {
+        return client.fetch(queue, shard, fetchOffsets[shard], FETCH_SIZE);
     }
 
     @Override
-    public QueueSubscription pause() {
-        demand = 0;
-        return this;
-    }
-
-    @Override
-    public QueueSubscription resume() {
-        demand = Long.MAX_VALUE;
-        deliver();
-        return this;
-    }
-
-    @Override
-    public QueueSubscription fetch(long amount) {
-        demand += amount;
-        if (demand < 0) {
-            demand = Long.MAX_VALUE;
-        }
-        deliver();
-        return this;
-    }
-
-    @Override
-    public QueueSubscription endHandler(Handler<Void> endHandler) {
-        this.endHandler = endHandler;
-        return this;
-    }
-
-    private void fetchAll() {
-        for (int shard = 0; shard < fetchOffsets.length; shard++) {
-            fetchShard(shard);
-        }
-    }
-
-    private void fetchShard(int shard) {
-        if (!closed && !fetching[shard] && pending.size() < MAX_PENDING) {
-            fetching[shard] = true;
-            client.fetch(queue, shard, fetchOffsets[shard], FETCH_SIZE).onComplete(ar -> {
-                if (ar.succeeded()) {
-                    fetching[shard] = false;
-                    onFetched(shard, ar.result());
-                    fetchShard(shard);
-                } else {
-                    // The shard is between owners; the next fetch looks its owner up again
-                    log.debug("Fetching shard {} of queue {} failed, retrying", shard, queue, ar.cause());
-                    // The shard stays marked as fetching until the retry, so deliver() cannot start a second fetch loop
-                    context.owner().timer(RETRY_DELAY_MS, TimeUnit.MILLISECONDS).onComplete(t -> {
-                        fetching[shard] = false;
-                        fetchShard(shard);
-                    });
-                }
-            });
-        }
-    }
-
-    private void onFetched(int shard, FetchResponse response) {
-        if (!closed) {
+    protected void onPulled(int shard, FetchResponse response) {
+        if (!isEnded()) {
             if (fetchOffsets[shard] < 0) {
                 // A LATEST start learns its offset from the owner's first answer
                 deliveredNextOffsets[shard] = response.nextOffset() - response.entries().size();
             }
             for (ShardEntry entry : response.entries()) {
                 if (!entry.isMarker()) {
-                    pending.add(new QueueRecord(new QueuePosition(queue, shard, entry.offset()), entry.key(), entry.payload()));
+                    push(new QueueRecord(new QueuePosition(queue, shard, entry.offset()), entry.key(), entry.payload()));
                 }
             }
             fetchOffsets[shard] = response.nextOffset();
-            deliver();
         }
     }
 
-    private void deliver() {
-        while (!closed && handler != null && demand > 0 && !pending.isEmpty()) {
-            QueueRecord record = pending.poll();
-            if (demand != Long.MAX_VALUE) {
-                demand--;
-            }
-            QueuePosition position = record.position();
-            deliveredNextOffsets[position.shard()] = position.offset() + 1;
-            try {
-                handler.handle(record);
-            } catch (Throwable t) {
-                fail(t);
-            }
-        }
-        if (!closed && pending.size() < MAX_PENDING) {
-            fetchAll();
-        }
-    }
-
-    private void fail(Throwable t) {
-        if (exceptionHandler != null) {
-            exceptionHandler.handle(t);
-        } else {
-            log.error("Subscription of consumer {} to queue {} failed", consumerName, queue, t);
-        }
-        close();
+    @Override
+    protected void onDelivered(QueueRecord record) {
+        deliveredNextOffsets[record.position().shard()] = record.position().offset() + 1;
     }
 }

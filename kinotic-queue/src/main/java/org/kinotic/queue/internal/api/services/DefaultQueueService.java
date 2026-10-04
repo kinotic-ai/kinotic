@@ -9,8 +9,10 @@ import org.kinotic.queue.api.config.KinoticQueueProperties;
 import org.kinotic.queue.api.model.QueueDefinition;
 import org.kinotic.queue.api.model.QueuePosition;
 import org.kinotic.queue.api.model.StartPosition;
+import org.kinotic.queue.api.model.WorkerOptions;
 import org.kinotic.queue.api.services.QueueService;
 import org.kinotic.queue.api.services.QueueSubscription;
+import org.kinotic.queue.api.services.QueueWorker;
 import org.kinotic.queue.internal.cluster.QueueClusterClient;
 import org.kinotic.queue.internal.cluster.QueueDefinitionRepository;
 import org.kinotic.queue.internal.cluster.QueueNode;
@@ -65,6 +67,21 @@ public class DefaultQueueService implements QueueService {
         }
         Context context = vertx.getOrCreateContext();
         return definition(queue).compose(definition -> DefaultQueueSubscription.open(context, client, definition, consumerName, startPosition));
+    }
+
+    @Override
+    public Future<QueueWorker> work(String queue, String groupName, WorkerOptions options) {
+        if (!QueueLog.isValidName(groupName)
+                || options == null
+                || options.startPosition() == null
+                || options.prefetch() < 1
+                || options.leaseDuration() == null
+                || options.leaseDuration().toMillis() < 1) {
+            return Future.failedFuture(new IllegalArgumentException("Invalid group name '" + groupName + "' or options " + options));
+        }
+        Context context = vertx.getOrCreateContext();
+        return definition(queue).map(definition -> new DefaultQueueWorker(context, client, definition.name(),
+                                                                          definition.shardCount(), groupName, options));
     }
 
     private Future<QueueDefinition> definition(String queue) {

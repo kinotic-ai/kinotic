@@ -1,0 +1,200 @@
+package org.kinotic.queue.internal.api.services;
+
+import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.Handler;
+import io.vertx.core.streams.ReadStream;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * A {@link ReadStream} that pulls items from every shard of a queue, one request per shard at a time, and hands them
+ * to the handler as demand allows. A shard whose request fails is pulled again after a short delay, which also finds
+ * its new owner when it changed. Runs on the context it was created for.
+ *
+ * @param <T> the items the stream delivers
+ * @param <R> what one pull from a shard returns
+ */
+@Slf4j
+abstract class ShardPullStream<T, R> implements ReadStream<T> {
+
+    private static final long RETRY_DELAY_MS = 200;
+
+    private final Context context;
+    private final String description;
+    private final boolean[] pulling;
+    private final ArrayDeque<T> pending = new ArrayDeque<>();
+
+    private Handler<T> handler;
+    private Handler<Throwable> exceptionHandler;
+    private Handler<Void> endHandler;
+    private long demand = Long.MAX_VALUE;
+    private boolean closed;
+
+    /**
+     * @param description names the stream in log messages
+     */
+    ShardPullStream(Context context, int shardCount, String description) {
+        this.context = context;
+        this.description = description;
+        this.pulling = new boolean[shardCount];
+    }
+
+    /**
+     * @return whether the shard may be pulled now
+     */
+    protected abstract boolean canPull(int shard);
+
+    protected abstract Future<R> pull(int shard);
+
+    /**
+     * Handles a pull's result, {@link #push pushing} its items. Called after the stream ended too, for results that
+     * were on their way.
+     */
+    protected abstract void onPulled(int shard, R result);
+
+    /**
+     * Called just before an item is handed to the handler.
+     */
+    protected abstract void onDelivered(T item);
+
+    /**
+     * Stops the stream, also when its handler throws.
+     */
+    public abstract Future<Void> close();
+
+    @Override
+    public final ReadStream<T> exceptionHandler(Handler<Throwable> handler) {
+        this.exceptionHandler = handler;
+        return this;
+    }
+
+    @Override
+    public final ReadStream<T> handler(Handler<T> handler) {
+        this.handler = handler;
+        deliver();
+        return this;
+    }
+
+    @Override
+    public final ReadStream<T> pause() {
+        demand = 0;
+        return this;
+    }
+
+    @Override
+    public final ReadStream<T> resume() {
+        demand = Long.MAX_VALUE;
+        deliver();
+        return this;
+    }
+
+    @Override
+    public final ReadStream<T> fetch(long amount) {
+        demand += amount;
+        if (demand < 0) {
+            demand = Long.MAX_VALUE;
+        }
+        deliver();
+        return this;
+    }
+
+    @Override
+    public final ReadStream<T> endHandler(Handler<Void> endHandler) {
+        this.endHandler = endHandler;
+        return this;
+    }
+
+    protected final void push(T item) {
+        pending.add(item);
+    }
+
+    protected final int pendingCount() {
+        return pending.size();
+    }
+
+    protected final boolean isEnded() {
+        return closed;
+    }
+
+    /**
+     * Pulls every shard that is not being pulled and {@link #canPull may be}.
+     */
+    protected final void pullAll() {
+        for (int shard = 0; shard < pulling.length; shard++) {
+            pullShard(shard);
+        }
+    }
+
+    /**
+     * Hands pending items to the handler as demand allows, then pulls more.
+     */
+    protected final void deliver() {
+        while (!closed && handler != null && demand > 0 && !pending.isEmpty()) {
+            T item = pending.poll();
+            if (demand != Long.MAX_VALUE) {
+                demand--;
+            }
+            onDelivered(item);
+            try {
+                handler.handle(item);
+            } catch (Throwable t) {
+                fail(t);
+            }
+        }
+        if (!closed) {
+            pullAll();
+        }
+    }
+
+    /**
+     * Stops delivery and calls the end handler.
+     *
+     * @return the items pulled but never handed to the handler; empty when the stream had already ended
+     */
+    protected final List<T> end() {
+        List<T> ret = new ArrayList<>();
+        if (!closed) {
+            closed = true;
+            ret.addAll(pending);
+            pending.clear();
+            if (endHandler != null) {
+                endHandler.handle(null);
+            }
+        }
+        return ret;
+    }
+
+    private void pullShard(int shard) {
+        if (!closed && !pulling[shard] && canPull(shard)) {
+            pulling[shard] = true;
+            pull(shard).onComplete(ar -> {
+                if (ar.succeeded()) {
+                    pulling[shard] = false;
+                    onPulled(shard, ar.result());
+                    deliver();
+                } else {
+                    log.debug("Pulling shard {} for {} failed, retrying", shard, description, ar.cause());
+                    // The shard stays marked as pulling until the retry, so deliver() cannot start a second pull of it
+                    context.owner().timer(RETRY_DELAY_MS, TimeUnit.MILLISECONDS).onComplete(t -> {
+                        pulling[shard] = false;
+                        pullShard(shard);
+                    });
+                }
+            });
+        }
+    }
+
+    private void fail(Throwable t) {
+        if (exceptionHandler != null) {
+            exceptionHandler.handle(t);
+        } else {
+            log.error("The handler of {} failed", description, t);
+        }
+        close();
+    }
+}

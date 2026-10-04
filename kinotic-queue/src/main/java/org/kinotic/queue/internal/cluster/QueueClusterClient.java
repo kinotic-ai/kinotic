@@ -14,9 +14,12 @@ import org.kinotic.queue.api.model.QueuePosition;
 import org.kinotic.queue.internal.cluster.message.AppendRequest;
 import org.kinotic.queue.internal.cluster.message.FetchRequest;
 import org.kinotic.queue.internal.cluster.message.FetchResponse;
+import org.kinotic.queue.internal.cluster.message.LeaseRequest;
+import org.kinotic.queue.internal.cluster.message.LeaseResponse;
 import org.kinotic.queue.internal.cluster.message.OffsetCommit;
 import org.kinotic.queue.internal.cluster.message.OffsetQuery;
 import org.kinotic.queue.internal.cluster.message.ReplicateRequest;
+import org.kinotic.queue.internal.cluster.message.SettleRequest;
 import org.kinotic.queue.internal.cluster.message.PrepareRequest;
 import org.kinotic.queue.internal.cluster.message.ShardStatus;
 import org.kinotic.queue.internal.log.QueueLog;
@@ -66,6 +69,23 @@ public class QueueClusterClient {
     public Future<FetchResponse> fetch(String queue, int shard, long offset, int max) {
         return requestOwner(queue, shard, QueueNode.FETCH, new FetchRequest(queue, shard, offset, max).toBuffer(), FETCH_TIMEOUT_MS)
                 .map(FetchResponse::fromBuffer);
+    }
+
+    /**
+     * Asks the shard's owner to lease records to a worker, which it holds until there are records to lease or a
+     * short wait passes.
+     */
+    public Future<LeaseResponse> lease(LeaseRequest request) {
+        return requestOwner(request.queue(), request.shard(), QueueNode.LEASE, request.toBuffer(), FETCH_TIMEOUT_MS)
+                .map(LeaseResponse::fromBuffer);
+    }
+
+    /**
+     * Tells the shard's owner what a worker did with a record leased to it.
+     */
+    public Future<Void> settle(SettleRequest request) {
+        return requestOwner(request.queue(), request.shard(), QueueNode.SETTLE, request.toBuffer(), REQUEST_TIMEOUT_MS)
+                .mapEmpty();
     }
 
     /**

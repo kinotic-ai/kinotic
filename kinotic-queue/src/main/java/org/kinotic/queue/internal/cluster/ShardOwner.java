@@ -4,8 +4,12 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.queue.api.model.StartPosition;
 import org.kinotic.queue.internal.cluster.message.FetchRequest;
 import org.kinotic.queue.internal.cluster.message.FetchResponse;
+import org.kinotic.queue.internal.cluster.message.LeaseRequest;
+import org.kinotic.queue.internal.cluster.message.LeaseResponse;
+import org.kinotic.queue.internal.cluster.message.SettleRequest;
 import org.kinotic.queue.internal.cluster.message.PrepareRequest;
 import org.kinotic.queue.internal.cluster.message.ShardStatus;
 import org.kinotic.queue.internal.log.ConsumerOffsetRepository;
@@ -63,6 +67,7 @@ final class ShardOwner {
     private final Map<String, ShardReplicator> replicators = new HashMap<>();
     private final TreeMap<Long, Promise<Long>> pendingAppends = new TreeMap<>();
     private final List<PendingFetch> pendingFetches = new ArrayList<>();
+    private final Map<String, Future<WorkDispatcher>> dispatchers = new HashMap<>();
 
     private List<String> followers = List.of();
     private long newestSeenEpoch;
@@ -149,6 +154,10 @@ final class ShardOwner {
         if (!active) {
             return Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue + " is recovering"));
         }
+        if (offset < 0 && !epochCommitted()) {
+            return Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue
+                                                                                + " has no committed offset yet in this epoch"));
+        }
         long from = offset < 0 ? committedOffset : offset;
         Future<FetchResponse> ret;
         if (from < committedOffset) {
@@ -164,6 +173,41 @@ final class ShardOwner {
             ret = pending.promise().future();
         }
         return ret;
+    }
+
+    /**
+     * Leases committed records to a worker of a group, opening the group's dispatcher on the first request.
+     */
+    Future<LeaseResponse> lease(LeaseRequest request) {
+        if (!active) {
+            return Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue + " is recovering"));
+        }
+        Future<WorkDispatcher> dispatcher = dispatchers.get(request.groupName());
+        if (dispatcher == null) {
+            // A latest start is the committed offset, which is only known once this epoch's marker is committed
+            if (request.startPosition() == StartPosition.LATEST && !epochCommitted()) {
+                return Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue
+                                                                                    + " has no committed offset yet in this epoch"));
+            }
+            dispatcher = WorkDispatcher.open(vertx, queue, shard, request.groupName(), shardLog, consumerOffsets,
+                                             () -> committedOffset, request.startPosition());
+            dispatchers.put(request.groupName(), dispatcher);
+        }
+        return dispatcher.compose(opened -> stopped ? Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue "
+                                                                                                                   + queue + " changed owner"))
+                                                    : opened.lease(request.workerId(), request.max(), request.leaseMillis()));
+    }
+
+    /**
+     * Applies what a worker did with a record leased to it.
+     */
+    Future<Void> settle(SettleRequest request) {
+        Future<WorkDispatcher> dispatcher = dispatchers.get(request.groupName());
+        if (!active || dispatcher == null) {
+            return Future.failedFuture(QueueFailure.LEASE_EXPIRED.exception("Offset " + request.offset() + " of shard " + shard
+                                                                                    + " of queue " + queue + " is not leased to this worker"));
+        }
+        return dispatcher.compose(opened -> opened.settle(request.workerId(), request.settlement(), request.offset()));
     }
 
     void updateFollowers(List<String> followers) {
@@ -198,6 +242,8 @@ final class ShardOwner {
             pendingAppends.clear();
             pendingFetches.forEach(pending -> pending.promise().tryFail(notOwner));
             pendingFetches.clear();
+            dispatchers.values().forEach(dispatcher -> dispatcher.onSuccess(WorkDispatcher::stop));
+            dispatchers.clear();
         }
     }
 
@@ -371,7 +417,13 @@ final class ShardOwner {
                 }
             }
             scheduleStateSave();
+            dispatchers.values().forEach(dispatcher -> dispatcher.onSuccess(WorkDispatcher::onCommitted));
         }
+    }
+
+    // Until a majority holds this epoch's marker, the committed offset is not yet the shard's
+    private boolean epochCommitted() {
+        return committedOffset > epochStartOffset;
     }
 
     private void completeCommittedAppends() {

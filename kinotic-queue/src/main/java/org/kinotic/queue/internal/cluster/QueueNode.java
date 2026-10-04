@@ -16,6 +16,9 @@ import org.kinotic.queue.api.model.QueueDefinition;
 import org.kinotic.queue.internal.cluster.message.AppendRequest;
 import org.kinotic.queue.internal.cluster.message.FetchRequest;
 import org.kinotic.queue.internal.cluster.message.FetchResponse;
+import org.kinotic.queue.internal.cluster.message.LeaseRequest;
+import org.kinotic.queue.internal.cluster.message.LeaseResponse;
+import org.kinotic.queue.internal.cluster.message.SettleRequest;
 import org.kinotic.queue.internal.cluster.message.OffsetCommit;
 import org.kinotic.queue.internal.cluster.message.OffsetQuery;
 import org.kinotic.queue.internal.cluster.message.ReplicateRequest;
@@ -56,6 +59,8 @@ public class QueueNode {
     static final String PREPARE = "prepare";
     static final String COMMIT_OFFSET = "commitOffset";
     static final String FIND_OFFSET = "findOffset";
+    static final String LEASE = "lease";
+    static final String SETTLE = "settle";
 
     private static final long RECONCILE_INTERVAL_MS = 500;
     private static final long LIFECYCLE_TIMEOUT_SECONDS = 30;
@@ -98,6 +103,8 @@ public class QueueNode {
             register(self, PREPARE, this::onPrepare);
             register(self, COMMIT_OFFSET, this::onCommitOffset);
             register(self, FIND_OFFSET, this::onFindOffset);
+            register(self, LEASE, this::onLease);
+            register(self, SETTLE, this::onSettle);
             Future.all(consumers.stream().map(MessageConsumer::completion).toList()).onComplete(ar -> {
                 if (ar.succeeded()) {
                     reconcileTimer = vertx.setPeriodic(RECONCILE_INTERVAL_MS, t -> reconcile());
@@ -146,6 +153,21 @@ public class QueueNode {
         reply(message, owner(request.queue(), request.shard())
                 .compose(owner -> owner.fetch(request.offset(), request.max()))
                 .map(FetchResponse::toBuffer));
+    }
+
+    private void onLease(Message<Buffer> message) {
+        LeaseRequest request = LeaseRequest.fromBuffer(message.body());
+        reply(message, requireValidName(request.groupName())
+                .compose(v -> owner(request.queue(), request.shard()))
+                .compose(owner -> owner.lease(request))
+                .map(LeaseResponse::toBuffer));
+    }
+
+    private void onSettle(Message<Buffer> message) {
+        SettleRequest request = SettleRequest.fromBuffer(message.body());
+        reply(message, owner(request.queue(), request.shard())
+                .compose(owner -> owner.settle(request))
+                .map(v -> Buffer.buffer()));
     }
 
     private void onReplicate(Message<Buffer> message) {
@@ -213,6 +235,11 @@ public class QueueNode {
             long nextOffset = queueLog == null ? 0 : queueLog.consumerOffsets().findNextOffset(query.consumerName(), query.shard());
             return OffsetQuery.encodeReply(nextOffset);
         }, false));
+    }
+
+    private static Future<Void> requireValidName(String name) {
+        return QueueLog.isValidName(name) ? Future.succeededFuture()
+                                          : Future.failedFuture(new IllegalArgumentException("Invalid name '" + name + "'"));
     }
 
     private Future<ShardOwner> owner(String queue, int shard) {

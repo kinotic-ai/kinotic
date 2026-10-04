@@ -19,7 +19,11 @@ public enum QueueFailure {
     /**
      * The queue does not exist.
      */
-    NO_QUEUE;
+    NO_QUEUE,
+    /**
+     * The record is not leased to the worker settling it, because its lease expired or its shard changed owner.
+     */
+    LEASE_EXPIRED;
 
     /**
      * @return the event bus failure code; codes start at one so they never collide with an unclassified failure

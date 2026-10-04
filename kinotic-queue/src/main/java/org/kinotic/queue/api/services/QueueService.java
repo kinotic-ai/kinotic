@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import org.kinotic.queue.api.model.QueueDefinition;
 import org.kinotic.queue.api.model.QueuePosition;
 import org.kinotic.queue.api.model.StartPosition;
+import org.kinotic.queue.api.model.WorkerOptions;
 
 /**
  * Appends records to durable, sharded, replicated queues and delivers them to named consumers, which resume
@@ -48,5 +49,20 @@ public interface QueueService {
      * @return the subscription, which delivers on the calling Vert.x context
      */
     Future<QueueSubscription> subscribe(String queue, String consumerName, StartPosition startPosition);
+
+    /**
+     * Joins a group of workers that share a queue's records: each record is leased to one worker of the group at a
+     * time, with no ordering between records. A record counts as done once a worker accepts or rejects it. Delivery
+     * is at least once: a record is leased again when its lease expires, when its worker releases it or closes, and
+     * when the shard's owner changes before the group's progress past it reached the shard's other copies.
+     * Group names share their namespace with consumer names, so a name is used either for a group or a consumer.
+     * Fails when the queue does not exist.
+     *
+     * @param queue     the queue name
+     * @param groupName identifies the group; same character rules as a queue name
+     * @param options   where the group starts, how many records the worker holds and for how long
+     * @return the worker, which delivers on the calling Vert.x context
+     */
+    Future<QueueWorker> work(String queue, String groupName, WorkerOptions options);
 
 }

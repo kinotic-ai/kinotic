@@ -7,11 +7,16 @@ import org.junit.jupiter.api.io.TempDir;
 import org.kinotic.queue.api.model.QueueDefinition;
 import org.kinotic.queue.api.model.QueueRecord;
 import org.kinotic.queue.api.model.StartPosition;
+import org.kinotic.queue.api.model.WorkItem;
+import org.kinotic.queue.api.model.WorkerOptions;
+import org.kinotic.queue.api.services.QueueWorker;
 import org.kinotic.queue.internal.QueueTestNode;
 import org.kinotic.queue.internal.TestSubscriber;
+import org.kinotic.queue.internal.TestWorker;
 import org.kinotic.queue.internal.log.QueueLog;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -19,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -126,6 +132,27 @@ public class QueueClusterTests {
     }
 
     @Test
+    public void aWorkerGroupKeepsWorkingWhenAShardsOwnerLeaves() throws Exception {
+        QueueTestNode a = start("a");
+        QueueTestNode b = start("b");
+        QueueTestNode c = start("c");
+        await(a.queueService().createQueueIfNotExist(new QueueDefinition(QUEUE, SHARDS)));
+        TestWorker worker = TestWorker.start(b.vertx(), b.queueService(), QUEUE, "billing",
+                                             new WorkerOptions(StartPosition.EARLIEST, 20, Duration.ofSeconds(5)));
+        Set<Integer> accepted = new HashSet<>();
+        appendThrough(List.of(a, b, c), 0, 40);
+        acceptUntil(worker, accepted, 40);
+
+        stop(a);
+        appendThrough(List.of(b, c), 40, 80);
+
+        // Records in flight when their shard's owner left are leased again, so every record is accepted at least once
+        acceptUntil(worker, accepted, 80);
+        assertEquals(IntStream.range(0, 80).boxed().collect(Collectors.toSet()), accepted);
+        await(worker.close());
+    }
+
+    @Test
     public void appendFailsWithoutAMajorityOfCopies() throws Exception {
         QueueTestNode alone = start("alone");
         await(alone.queueService().createQueueIfNotExist(new QueueDefinition(QUEUE, 1)));
@@ -169,6 +196,17 @@ public class QueueClusterTests {
         }
         await(subscriber.close());
         assertEquals(expected, received);
+    }
+
+    private static void acceptUntil(TestWorker worker, Set<Integer> accepted, int count) throws Exception {
+        while (accepted.size() < count) {
+            WorkItem item = worker.next();
+            // An accept fails when the item's lease ended with its shard's owner; the item is then leased again
+            if (worker.settle(QueueWorker::accept, item).toCompletionStage().toCompletableFuture()
+                      .handle((v, e) -> e == null).get(30, TimeUnit.SECONDS)) {
+                accepted.add(TestWorker.value(item));
+            }
+        }
     }
 
     private static String keyOf(int shard) {
