@@ -15,11 +15,11 @@
 <script setup lang="ts">
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import { ArrowLeft, Lock } from '@lucide/vue'
-import { TINTS } from '@kinotic-ai/frontend-common'
+import { TINTS } from '../util/tints'
 
 /**
- * What a page shows in place of something the gateway refused: the signed-in member holds no grant that reaches
- * it. An administrator of the organization grants access from the thing's Access page.
+ * What a page shows in place of something the gateway refused: the signed-in member or operator holds no grant
+ * that reaches it. An administrator grants access from the thing's Access page.
  */
 withDefaults(defineProps<{
   title?: string
@@ -29,7 +29,7 @@ withDefaults(defineProps<{
   backLabel?: string
 }>(), {
   title: 'You don\'t have access',
-  description: 'No grant you hold reaches this. An administrator of your organization can grant you access from its Access page.',
+  description: 'No grant you hold reaches this. An administrator can grant you access from its Access page.',
   backLabel: 'Go back'
 })
 </script>

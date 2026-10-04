@@ -8,7 +8,8 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <div class="flex flex-col gap-4">
+    <NoAccessState v-if="refused" description="No grant you hold reaches the cluster. An administrator of the platform can grant you access from the Access page." />
+    <div v-else class="flex flex-col gap-4">
       <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatCard v-for="stat in stats" :key="stat.label" :icon="stat.icon" :tint="stat.tint" :label="stat.label"
                   :value="stat.tag ? undefined : stat.value" :detail="stat.detail"
@@ -162,7 +163,7 @@ import { Activity, Boxes, ChartGantt, ChartLine, Network, ScrollText, Server, Ta
 import { Kinotic } from '@kinotic-ai/core'
 import type { KinoticClusterInfo, KinoticNodeInfo } from '@kinotic-ai/system-api'
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
-import { DashboardSection, HeartbeatIcon, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState } from '@kinotic-ai/frontend-common'
+import { DashboardSection, HeartbeatIcon, NoAccessState, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, isAuthorizationError } from '@kinotic-ai/frontend-common'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
 import ServerLogsDialog from '@/components/ServerLogsDialog.vue'
@@ -174,6 +175,7 @@ const router = useRouter()
 const cluster = ref<KinoticClusterInfo | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
+const refused = ref(false)
 
 const logLevelNodeId = ref<string | null>(null)
 const logLevelVisible = ref(false)
@@ -316,8 +318,10 @@ async function load() {
                                           .catch(() => { platformWorkloads.value = null })
   try {
     cluster.value = await Kinotic.clusterInfo.getClusterInfo()
+    refused.value = false
   } catch (err) {
-    error.value = errorMessage(err, 'Failed to load cluster info')
+    refused.value = isAuthorizationError(err)
+    error.value = refused.value ? null : errorMessage(err, 'Failed to load cluster info')
   } finally {
     loading.value = false
   }

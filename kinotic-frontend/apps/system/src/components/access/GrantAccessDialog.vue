@@ -1,13 +1,14 @@
 <template>
-  <FormDialog :visible="visible" :icon="UserPlus" title="Grant access" :description="description"
+  <FormDialog :visible="visible" :icon="UserPlus" title="Grant access"
+              description="Give an operator or a machine a role on the platform, which reaches every organization and worker node on it."
               @update:visible="emit('update:visible', $event)" @submit="submit">
     <div class="flex flex-col gap-5">
       <div>
         <span class="mb-2 block text-sm font-medium">Who</span>
-        <SelectButton v-model="kind" :options="KINDS" option-label="label" option-value="value" :allow-empty="false" class="mb-3" />
-        <Select v-model="subjectId" :options="kind === SubjectKind.USER ? members : groups" option-label="label" option-value="subject.id"
-                filter :filter-fields="['label', 'detail']" :placeholder="kind === SubjectKind.USER ? 'Choose a member' : 'Choose a group'"
-                class="w-full" :empty-message="kind === SubjectKind.USER ? 'No members' : 'No groups yet'">
+        <SelectButton v-model="staff" :options="STAFF" :allow-empty="false" class="mb-3" />
+        <Select v-model="subjectId" :options="staff === 'Operator' ? operators : machines" option-label="label" option-value="subject.id"
+                filter :filter-fields="['label', 'detail']" :placeholder="staff === 'Operator' ? 'Choose an operator' : 'Choose a machine'"
+                class="w-full" :empty-message="staff === 'Operator' ? 'No operators' : 'No machines yet'">
           <template #option="{ option }">
             <div class="flex flex-col">
               <span class="text-sm">{{ option.label }}</span>
@@ -30,7 +31,7 @@
             </div>
           </template>
         </Select>
-        <p class="mt-1.5 text-[0.8125rem] text-muted-color">The role's permissions reach this {{ typeLabel(resource.type).toLowerCase() }} and everything inside it.</p>
+        <p class="mt-1.5 text-[0.8125rem] text-muted-color">The role's permissions reach the platform and everything on it: a registrar registers nodes, support reads everything, an administrator does everything.</p>
       </div>
     </div>
 
@@ -42,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import Button from 'primevue/button'
 import Select from 'primevue/select'
 import SelectButton from 'primevue/selectbutton'
@@ -50,21 +51,19 @@ import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
 import { UserPlus } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
-import { type Grant, type Resource, type RoleDefinition, SubjectKind } from '@kinotic-ai/management-api'
+import { type Grant, type RoleDefinition, SubjectKind } from '@kinotic-ai/management-api'
 import { FormDialog, permissionLabel, showErrorToast, splitPermission, typeLabel } from '@kinotic-ai/frontend-common'
 import type { SubjectOption } from './useSubjects'
 
 /**
- * Grants a role to a member or a group on the resource: the subject holds every permission the role bundles on
- * the resource and on everything inside it. Only the roles whose permissions reach the resource are offered.
+ * Grants a role to an operator or a machine on the platform: the subject holds every permission the role bundles
+ * on the platform and on everything on it.
  */
 const props = defineProps<{
   visible: boolean
-  resource: Resource
-  /** The roles that fit the resource. */
   roles: RoleDefinition[]
-  members: SubjectOption[]
-  groups: SubjectOption[]
+  operators: SubjectOption[]
+  machines: SubjectOption[]
 }>()
 
 const emit = defineEmits<{
@@ -72,29 +71,24 @@ const emit = defineEmits<{
   (e: 'granted', grant: Grant): void
 }>()
 
-const KINDS = [
-  { label: 'Member', value: SubjectKind.USER },
-  { label: 'Group', value: SubjectKind.GROUP }
-]
+const STAFF = ['Operator', 'Machine']
 
 const toast = useToast()
-const kind = ref<SubjectKind>(SubjectKind.USER)
+const staff = ref<'Operator' | 'Machine'>('Operator')
 const subjectId = ref<string | null>(null)
 const roleId = ref<string | null>(null)
 const granting = ref(false)
 
-const description = computed(() => `Give a member or a group a role on this ${typeLabel(props.resource.type).toLowerCase()}.`)
-
 watch(() => props.visible, visible => {
   if (visible) {
-    kind.value = SubjectKind.USER
+    staff.value = 'Operator'
     subjectId.value = null
     roleId.value = null
   }
 })
 
-// a picked member is not a group, so switching the kind clears the pick
-watch(kind, () => { subjectId.value = null })
+// a picked operator is not a machine, so switching the kind clears the pick
+watch(staff, () => { subjectId.value = null })
 
 function summarize(role: RoleDefinition): string {
   const labels = role.permissions.map(name => {
@@ -110,7 +104,7 @@ async function submit(): Promise<void> {
   }
   granting.value = true
   try {
-    const grant = await Kinotic.permissions.grant({ kind: kind.value, id: subjectId.value }, roleId.value, props.resource)
+    const grant = await Kinotic.systemAccess.grant({ kind: SubjectKind.USER, id: subjectId.value }, roleId.value)
     toast.add({ severity: 'success', summary: 'Access granted', life: 4000 })
     emit('granted', grant)
     emit('update:visible', false)

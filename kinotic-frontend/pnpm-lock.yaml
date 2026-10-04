@@ -19,8 +19,8 @@ catalogs:
       specifier: ^5.0.0-beta.10
       version: 5.0.0-beta.12
     '@kinotic-ai/system-api':
-      specifier: ^5.0.0-beta.23
-      version: 5.0.0-beta.23
+      specifier: ^5.0.0-beta.24
+      version: 5.0.0-beta.24
 
 importers:
 
@@ -175,7 +175,7 @@ importers:
         version: 5.0.0-beta.46(@kinotic-ai/core@5.0.0-beta.17)
       '@kinotic-ai/system-api':
         specifier: 'catalog:'
-        version: 5.0.0-beta.23(@kinotic-ai/core@5.0.0-beta.17)(@kinotic-ai/management-api@5.0.0-beta.46(@kinotic-ai/core@5.0.0-beta.17))
+        version: 5.0.0-beta.24(@kinotic-ai/core@5.0.0-beta.17)(@kinotic-ai/management-api@5.0.0-beta.46(@kinotic-ai/core@5.0.0-beta.17))
       '@lucide/vue':
         specifier: ^1.48.0
         version: 1.48.0(vue@3.5.41(typescript@5.8.3))
@@ -368,11 +368,11 @@ packages:
     peerDependencies:
       '@kinotic-ai/core': ^5.0.0-beta.17
 
-  '@kinotic-ai/system-api@5.0.0-beta.23':
-    resolution: {integrity: sha512-WZyw0mKD0qcQVi2h444yI4GwY6VqRSHIX2EIW2liXsmQLivV4gp5cc3TpnRw+byjJE3eTUI0AojNRfgiaQ1w1Q==}
+  '@kinotic-ai/system-api@5.0.0-beta.24':
+    resolution: {integrity: sha512-tDe2DgnvDvjB3dLBD0IHuSDTj5vlAyyEfXrwT356KUMsjgJ0JD96ANXFVOjN2VjfWP+FVGGI38rmo4MousJ4zg==}
     peerDependencies:
       '@kinotic-ai/core': ^5.0.0-beta.17
-      '@kinotic-ai/management-api': ^5.0.0-beta.45
+      '@kinotic-ai/management-api': ^5.0.0-beta.46
 
   '@lucide/vue@1.48.0':
     resolution: {integrity: sha512-3/Nwx/RsqQ4ZrrSML1GNsSWCSDyLnBgoF/eEr1q9G6iZymn3+WKtzIj7Dbc/Nxrt9WOPuGrJ58S+CBiamK+36w==}
@@ -1727,7 +1727,7 @@ snapshots:
       '@kinotic-ai/idl': 5.0.0-beta.1
       rxjs: 7.8.2
 
-  '@kinotic-ai/system-api@5.0.0-beta.23(@kinotic-ai/core@5.0.0-beta.17)(@kinotic-ai/management-api@5.0.0-beta.46(@kinotic-ai/core@5.0.0-beta.17))':
+  '@kinotic-ai/system-api@5.0.0-beta.24(@kinotic-ai/core@5.0.0-beta.17)(@kinotic-ai/management-api@5.0.0-beta.46(@kinotic-ai/core@5.0.0-beta.17))':
     dependencies:
       '@kinotic-ai/core': 5.0.0-beta.17
       '@kinotic-ai/management-api': 5.0.0-beta.46(@kinotic-ai/core@5.0.0-beta.17)

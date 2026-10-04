@@ -152,8 +152,11 @@ const props = withDefaults(defineProps<{
   machines: MachineOperations
   /** The icon tint of the scope the machines belong to, one of TINTS. */
   tint?: string
+  /** Actions a scope adds ahead of the lifecycle's in a machine's menu, such as managing its access. */
+  moreActions?: (machineId: string) => MenuItem[]
 }>(), {
-  tint: TINTS.ink
+  tint: TINTS.ink,
+  moreActions: () => []
 })
 
 /** How many machines the scope has, as the server counts them; null until the first page loads. */
@@ -241,6 +244,7 @@ async function create() {
 
 function rowActions(item: MachineRow): MenuItem[] {
   return [
+    ...props.moreActions(item.id),
     { label: 'Rotate secret', icon: 'pi pi-refresh', command: () => confirmRotate(item) },
     {
       label: item.enabled ? 'Disable machine' : 'Enable machine',

@@ -33,6 +33,8 @@ import type { DescriptiveIdentifiable } from "../types/DescriptiveIdentifiable";
 import { createDebug } from "../util/debug";
 import { isDark as darkMode } from '../composables/useTheme'
 import EmptyChartCharacter from './EmptyChartCharacter.vue'
+import NoAccessState from './NoAccessState.vue'
+import { isAuthorizationError } from '../util/access'
 
 const debug = createDebug('crud-table');
 
@@ -130,6 +132,8 @@ const items = ref<DescriptiveIdentifiable[]>([]);
 const totalItems = ref(0);
 const loading = ref(false);
 const initialSearchCompleted = ref(false);
+// A load the gateway refused: the signed-in user holds no grant that reaches the list
+const refused = ref(false);
 const searchDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 const activeView = ref<"burger" | "column">("burger");
 const searchText = ref<string | null>("");
@@ -364,12 +368,14 @@ function find() {
       totalItems.value = Math.max(0, (page.totalElements ?? 0) - stale.length);
       items.value = content.filter((row) => !stale.includes(row));
       initialSearchCompleted.value = true;
+      refused.value = false;
 
       emit("items-count", items.value.length);
     })
 
     .catch((error: unknown) => {
       debug('Error loading data: %O', error);
+      refused.value = isAuthorizationError(error);
       loading.value = false;
       initialSearchCompleted.value = true;
     });
@@ -484,7 +490,8 @@ defineExpose({ find, items, removeRow });
           v-else-if="!loading"
           :class="['flex flex-1 flex-col items-center justify-center py-20', isDark ? 'text-surface-400' : 'text-surface-500']"
         >
-          <EmptyChartCharacter :title="emptyTitle" :hint="emptyHint" />
+          <NoAccessState v-if="refused" class="w-full max-w-[640px]" />
+          <EmptyChartCharacter v-else :title="emptyTitle" :hint="emptyHint" />
         </div>
 
         <TablePaginator
@@ -587,7 +594,8 @@ defineExpose({ find, items, removeRow });
             v-if="!loading && items.length === 0"
             :class="['flex flex-1 items-center justify-center', isDark ? 'text-surface-400' : 'text-surface-500']"
           >
-            <EmptyChartCharacter class="py-16" :title="emptyTitle" :hint="emptyHint" />
+            <NoAccessState v-if="refused" class="my-16 w-full max-w-[640px]" />
+            <EmptyChartCharacter v-else class="py-16" :title="emptyTitle" :hint="emptyHint" />
           </div>
         </div>
 
