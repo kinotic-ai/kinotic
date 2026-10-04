@@ -49,8 +49,8 @@ import { useToast } from 'primevue/usetoast'
 import { ShieldCheck } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
 import type { RoleDefinition } from '@kinotic-ai/management-api'
-import { FormDialog, showErrorToast } from '@kinotic-ai/frontend-common'
-import { RESOURCE_TYPES, permissionLabel, splitPermission, typeLabel } from '@/util/access'
+import { FormDialog, permissionLabel, showErrorToast, splitPermission, typeLabel } from '@kinotic-ai/frontend-common'
+import { RESOURCE_TYPES } from '@/util/access'
 
 /**
  * Defines a custom role from the catalog, or reshapes one: its name, description and the permissions it

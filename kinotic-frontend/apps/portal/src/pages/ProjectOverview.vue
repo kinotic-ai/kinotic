@@ -131,9 +131,7 @@ import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
 import { type MicroserviceDeployment, type Project, type ProjectDeployment, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
-import { createDebug, DatetimeUtil, FactList, HeartbeatIcon, observedPhase, observedPhaseSeverity, PageHeader, StatCard, TINTS, EmptyChartCharacter, HEARTBEAT_TINTS, deploymentHeartbeat, shortSha } from '@kinotic-ai/frontend-common'
-import NoAccessState from '@/components/access/NoAccessState.vue'
-import { isAuthorizationError } from '@/util/access'
+import { createDebug, DatetimeUtil, FactList, HeartbeatIcon, NoAccessState, observedPhase, observedPhaseSeverity, PageHeader, StatCard, TINTS, EmptyChartCharacter, HEARTBEAT_TINTS, deploymentHeartbeat, isAuthorizationError, shortSha } from '@kinotic-ai/frontend-common'
 
 /**
  * The landing page of one project: its repository, its deployment state, how many entities

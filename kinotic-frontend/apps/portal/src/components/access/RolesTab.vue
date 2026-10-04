@@ -57,9 +57,8 @@ import { useToast } from 'primevue/usetoast'
 import { ShieldCheck } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
 import type { RoleDefinition } from '@kinotic-ai/management-api'
-import { DashboardSection, TINTS, TableChip, showErrorToast } from '@kinotic-ai/frontend-common'
+import { DashboardSection, TINTS, TableChip, permissionLabel, showErrorToast, splitPermission, typeLabel } from '@kinotic-ai/frontend-common'
 import { useAccess } from '@/composables/useAccess'
-import { permissionLabel, splitPermission, typeLabel } from '@/util/access'
 import RoleEditorDialog from './RoleEditorDialog.vue'
 
 /**

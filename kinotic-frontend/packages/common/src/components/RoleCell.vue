@@ -12,7 +12,7 @@
 import { computed } from 'vue'
 import Tag from 'primevue/tag'
 import type { RoleDefinition } from '@kinotic-ai/management-api'
-import { permissionLabel, splitPermission, typeLabel } from '@/util/access'
+import { permissionLabel, splitPermission, typeLabel } from '../util/access'
 
 /** A grant's role in a table row: its name, whether built-in, and its permissions on hover. */
 const props = defineProps<{

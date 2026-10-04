@@ -74,13 +74,11 @@ import Tabs from 'primevue/tabs'
 import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
 import type { EntityDefinition } from '@kinotic-ai/management-api'
-import { TINTS } from '@kinotic-ai/frontend-common'
+import { NoAccessState, TINTS, isAuthorizationError } from '@kinotic-ai/frontend-common'
 import AccessPanel from '@/components/access/AccessPanel.vue'
-import NoAccessState from '@/components/access/NoAccessState.vue'
 import EntityDefinitionDiagram from '@/components/entity-definitions/EntityDefinitionDiagram.vue'
 import EntityList from '@/pages/EntityList.vue'
 import { useQueryTab } from '@/composables/useQueryTab'
-import { isAuthorizationError } from '@/util/access'
 
 /**
  * One entity definition: the data stored under it, its schema and its access. It has its own route under
