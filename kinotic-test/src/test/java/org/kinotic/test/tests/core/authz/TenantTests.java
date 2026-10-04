@@ -26,6 +26,7 @@ import org.kinotic.domain.api.model.security.PendingInviteSummary;
 import org.kinotic.domain.api.model.security.PendingSignUp;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.services.OrganizationService;
@@ -123,34 +124,37 @@ public class TenantTests extends KinoticTestBase {
 
     @Test
     public void aCustomerSignsUpIntoATenantItThenAdministers() throws Exception {
-        // an invitation names its organization, which the stack tests' participant carries without a record of it
-        if (await(organizationService.findById(TEST_ORG_ID)) == null) {
-            await(organizationService.createSync(new Organization().setName(TEST_ORG_ID).setDescription("the stack tests' organization")));
-        }
+        // an invitation reads its organization back, so the application belongs to an organization that has a record
+        Organization organization = await(organizationService.createSync(new Organization().setName("Tenant Org " + suffix())
+                                                                                          .setDescription("the tenant tests' organization")));
+        String orgId = organization.getId();
+        Participant organizationUser = new DefaultOrganizationParticipant("org-user-" + suffix(), orgId,
+                                                                          Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER),
+                                                                          List.of("USER"));
         String appId = "tenant-app-" + suffix();
-        ApplicationKey key = new ApplicationKey(TEST_ORG_ID, appId);
-        Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(
+        ApplicationKey key = new ApplicationKey(orgId, appId);
+        Application application = await(runAs(organizationUser, () -> applicationService.createApplicationIfNotExist(
                 appId, "Tenant application", EnumSet.of(OnboardingMechanism.TENANT_SIGN_UP, OnboardingMechanism.TENANT_INVITE))));
         // the verification link leads into the application's primary UI, which a deployment publishes
-        await(applications.saveSync(application.setPrimaryUiUrl("https://" + appId + ".kinotic.test"), TEST_ORG_ID));
+        await(applications.saveSync(application.setPrimaryUiUrl("https://" + appId + ".kinotic.test"), orgId));
 
         // the customer signs up: a pending record first, then the tenant with the customer as its administrator
         String email = "owner-" + suffix() + "@acme.test";
         await(signUpService.initiateTenantSignUp(key, email, "Acme Owner"));
-        PendingSignUp pending = pendingSignUp(email, appId);
+        PendingSignUp pending = pendingSignUp(email, key);
         assertInstanceOf(IllegalArgumentException.class, failure(() -> signUpService.initiateTenantSignUp(key, email, "Acme Owner")));
         UserParticipantIdentity owner = await(signUpService.completeTenantSignUp(pending.getVerificationToken(), "Acme Corp", "Acme-Pass-1"));
         assertEquals("acme-corp", owner.getTenantId());
         assertEquals(appId, owner.getApplicationId());
-        Tenant tenant = await(tenants.findByTenantId(TEST_ORG_ID, appId, "acme-corp"));
+        Tenant tenant = await(tenants.findByTenantId(orgId, appId, "acme-corp"));
         assertNotNull(tenant, "the tenant was not created");
         assertEquals("Acme Corp", tenant.getName());
         assertEquals(owner.getId(), tenant.getCreatedBy());
-        assertTrue(awaitUntil(() -> await(pendingSignUps.findByEmailAndApplication(email, TEST_ORG_ID, appId)) == null),
+        assertTrue(awaitUntil(() -> await(pendingSignUps.findByEmailAndApplication(email, orgId, appId)) == null),
                    "the pending sign-up outlived its completion");
 
         // the administrator is admitted to the tenant services once the store answers for its grant
-        Participant admin = participant(appId, "acme-corp", owner.getId());
+        Participant admin = participant(orgId, appId, "acme-corp", owner.getId());
         assertTrue(awaitUntil(() -> admitted(MEMBER_SERVICE, "findMembers", admin, List.of(FIRST_PAGE))), "the administrator was never admitted");
         authorize(TENANT_SERVICE, "rename", admin, List.of("Acme Corporation"));
         assertEquals("Acme Corp", await(runAs(admin, tenantService::getTenant)).getName());
@@ -166,13 +170,13 @@ public class TenantTests extends KinoticTestBase {
         assertEquals(List.of(), pendingInviteIds(admin));
         assertInstanceOf(IllegalArgumentException.class, failure(admin, () -> tenantMembers.cancelInvite(invitation.getId())));
         await(runAs(admin, () -> tenantMembers.inviteMember(colleagueEmail, "Colleague")));
-        PendingInvite stored = await(pendingInvites.findByEmailAndScope(colleagueEmail, TEST_ORG_ID, appId));
+        PendingInvite stored = await(pendingInvites.findByEmailAndScope(colleagueEmail, orgId, appId));
         UserParticipantIdentity colleague = await(inviteService.acceptLocalInvite(stored.getVerificationToken(), "Colleague-1", null));
         assertEquals("acme-corp", colleague.getTenantId());
         assertEquals(Set.of(owner.getId(), colleague.getId()), memberIds(admin));
 
         // the colleague holds nothing on the tenant until granted; the administrator grants a role and revokes it
-        Participant member = participant(appId, "acme-corp", colleague.getId());
+        Participant member = participant(orgId, appId, "acme-corp", colleague.getId());
         assertRefused(MEMBER_SERVICE, "findMembers", member, List.of(FIRST_PAGE), "tenant_can_view_members on tenant:acme-corp");
         Subject subject = new Subject(SubjectKind.USER, colleague.getId());
         List<RoleDefinition> roles = await(runAs(admin, tenantMembers::findRoles));
@@ -194,7 +198,7 @@ public class TenantTests extends KinoticTestBase {
         assertInstanceOf(IllegalArgumentException.class, failure(admin, () -> tenantMembers.removeMember(owner.getId())));
         String otherEmail = "other-" + suffix() + "@acme.test";
         await(signUpService.initiateTenantSignUp(key, otherEmail, "Other Owner"));
-        String otherToken = pendingSignUp(otherEmail, appId).getVerificationToken();
+        String otherToken = pendingSignUp(otherEmail, key).getVerificationToken();
         assertInstanceOf(IllegalArgumentException.class, failure(() -> signUpService.completeTenantSignUp(otherToken, "Acme Corp", "Other-Pass-1")));
 
         // the colleague is removed
@@ -210,7 +214,7 @@ public class TenantTests extends KinoticTestBase {
         assertInstanceOf(IllegalArgumentException.class,
                          failure(() -> signUpService.initiateTenantSignUp(new ApplicationKey(TEST_ORG_ID, appId), "customer@acme.test", "Customer")));
         UserParticipantIdentity user = endUser(appId, "closed-tenant");
-        Participant caller = participant(appId, "closed-tenant", user.getId());
+        Participant caller = participant(TEST_ORG_ID, appId, "closed-tenant", user.getId());
         assertInstanceOf(IllegalStateException.class, failure(caller, () -> tenantMembers.inviteMember("colleague@acme.test", "Colleague")));
     }
 
@@ -232,10 +236,10 @@ public class TenantTests extends KinoticTestBase {
     }
 
     // The pending record a sign-up stores, once the index answers for it
-    private PendingSignUp pendingSignUp(String email, String applicationId) throws Exception {
-        assertTrue(awaitUntil(() -> await(pendingSignUps.findByEmailAndApplication(email, TEST_ORG_ID, applicationId)) != null),
+    private PendingSignUp pendingSignUp(String email, ApplicationKey key) throws Exception {
+        assertTrue(awaitUntil(() -> await(pendingSignUps.findByEmailAndApplication(email, key.organizationId(), key.applicationId())) != null),
                    "the sign-up of " + email + " was not recorded");
-        return await(pendingSignUps.findByEmailAndApplication(email, TEST_ORG_ID, applicationId));
+        return await(pendingSignUps.findByEmailAndApplication(email, key.organizationId(), key.applicationId()));
     }
 
     private Set<String> memberIds(Participant caller) throws Exception {
@@ -266,8 +270,8 @@ public class TenantTests extends KinoticTestBase {
         return await(identityService.createUser(user, "Isolated-1"));
     }
 
-    private static Participant participant(String applicationId, String tenantId, String id) {
-        return new DefaultApplicationParticipant(id, TEST_ORG_ID, applicationId, tenantId,
+    private static Participant participant(String organizationId, String applicationId, String tenantId, String id) {
+        return new DefaultApplicationParticipant(id, organizationId, applicationId, tenantId,
                                                  Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER),
                                                  List.of("USER"));
     }
