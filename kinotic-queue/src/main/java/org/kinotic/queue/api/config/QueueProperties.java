@@ -28,4 +28,11 @@ public class QueueProperties {
     @Min(1)
     private int replicationFactor = 3;
 
+    /**
+     * Whether every write is forced to disk before it counts toward a majority. With it, an acknowledged record
+     * survives every copy losing power at once; without it, a record survives as long as a majority of its copies
+     * keeps running or shuts down cleanly, and writes are faster.
+     */
+    private boolean syncWrites = true;
+
 }

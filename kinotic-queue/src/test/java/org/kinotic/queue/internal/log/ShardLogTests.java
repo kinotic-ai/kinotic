@@ -3,6 +3,7 @@ package org.kinotic.queue.internal.log;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.kinotic.queue.api.model.QueueDefinition;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -29,7 +30,7 @@ public class ShardLogTests {
     @Test
     public void entriesThatDifferFromTheOwnersAreReplacedAndEarlierOnesKept() {
         Path shardDirectory = directory.resolve("0");
-        try (ShardLog follower = new ShardLog(shardDirectory)) {
+        try (ShardLog follower = new ShardLog(shardDirectory, true)) {
             // Offsets 0-2 came from the owner of epoch 1, offsets 3-4 from an owner of epoch 2 that never committed them
             appendAll(follower, 1, 0, 3);
             appendAll(follower, 2, 3, 2);
@@ -45,7 +46,7 @@ public class ShardLogTests {
             assertEquals("key-3", entries.get(3).key());
         }
         // The replaced entries stay replaced after the shard is reopened
-        try (ShardLog reopened = new ShardLog(shardDirectory)) {
+        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
             assertEquals(6, reopened.nextOffset());
             assertEquals(3, reopened.lastEpoch());
         }
@@ -53,7 +54,7 @@ public class ShardLogTests {
 
     @Test
     public void aMismatchSendsTheOwnerBackToTheStartOfTheDifferingEpochAndChangesNothing() {
-        try (ShardLog follower = new ShardLog(directory.resolve("0"))) {
+        try (ShardLog follower = new ShardLog(directory.resolve("0"), true)) {
             appendAll(follower, 1, 0, 3);
             appendAll(follower, 2, 3, 4);
 
@@ -69,7 +70,7 @@ public class ShardLogTests {
 
     @Test
     public void entriesPastTheOwnersEndAreRemoved() {
-        try (ShardLog follower = new ShardLog(directory.resolve("0"))) {
+        try (ShardLog follower = new ShardLog(directory.resolve("0"), true)) {
             appendAll(follower, 1, 0, 5);
 
             // The owner holds only 0-2 of epoch 1
@@ -82,7 +83,7 @@ public class ShardLogTests {
 
     @Test
     public void aDelayedBatchArrivingAfterALaterOneKeepsTheOwnersNewerEntries() {
-        try (ShardLog follower = new ShardLog(directory.resolve("0"))) {
+        try (ShardLog follower = new ShardLog(directory.resolve("0"), true)) {
             // The owner of epoch 2 held 0-2 when it read the first batch and 0-4 when it read the second
             List<ShardEntry> firstBatch = List.of(entry(0, 2), entry(1, 2), entry(2, 2));
             List<ShardEntry> secondBatch = List.of(entry(0, 2), entry(1, 2), entry(2, 2), entry(3, 2), entry(4, 2));
@@ -98,13 +99,13 @@ public class ShardLogTests {
     @Test
     public void aBatchFromAnOwnerOlderThanThePromisedOneIsRefusedAfterARestart() {
         Path shardDirectory = directory.resolve("0");
-        try (ShardLog shard = new ShardLog(shardDirectory)) {
+        try (ShardLog shard = new ShardLog(shardDirectory, true)) {
             appendAll(shard, 1, 0, 2);
             // Each promise answers with the epoch promised before it
             assertEquals(1, shard.promise(5));
             assertEquals(5, shard.promise(4));
         }
-        try (ShardLog reopened = new ShardLog(shardDirectory)) {
+        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
             assertEquals(5, reopened.acceptedEpoch());
             assertEquals(ReplicationStatus.STALE_EPOCH, reopened.replicate(4, 1, 1, 3, List.of(entry(2, 4))).status());
             assertThrows(StaleEpochException.class, () -> reopened.append(4, "key", new byte[0]));
@@ -113,46 +114,64 @@ public class ShardLogTests {
     }
 
     @Test
-    public void aTruncationInterruptedAfterMovingTheShardAsideCompletesOnOpen() throws Exception {
+    public void truncationsStackSegmentsThatReadsSpanAndAReopenKeeps() {
         Path shardDirectory = directory.resolve("0");
-        Path copy = directory.resolve("0.truncating");
-        Path replaced = directory.resolve("0.replaced");
-        try (ShardLog shard = new ShardLog(shardDirectory)) {
-            appendAll(shard, 1, 0, 5);
-        }
-        try (ShardLog truncated = new ShardLog(copy)) {
-            appendAll(truncated, 1, 0, 3);
-        }
-        // The state a crash leaves between moving the shard aside and moving the copy into its place
-        Files.move(shardDirectory, replaced);
+        try (ShardLog follower = new ShardLog(shardDirectory, true)) {
+            appendAll(follower, 1, 0, 5);
+            // The owner of epoch 2 replaces 3-4 with its own 3-5
+            follower.replicate(2, 2, 1, 6, List.of(entry(3, 2), entry(4, 2), entry(5, 2)));
+            // The owner of epoch 3 keeps 3 of epoch 2 and replaces the rest with its own 4-6
+            follower.replicate(3, 3, 2, 7, List.of(entry(4, 3), entry(5, 3), entry(6, 3)));
 
-        assertTrue(ShardLog.exists(shardDirectory));
-        try (ShardLog reopened = new ShardLog(shardDirectory)) {
-            assertEquals(3, reopened.nextOffset());
+            assertEquals(List.of(1L, 1L, 1L, 2L, 3L, 3L, 3L), epochs(follower.read(0, 10, Long.MAX_VALUE)));
+            // A read crossing from one segment into the next
+            assertEquals(List.of(2L, 3L, 4L), follower.read(2, 3, Long.MAX_VALUE).stream().map(ShardEntry::offset).toList());
         }
-        assertFalse(Files.exists(copy));
-        assertFalse(Files.exists(replaced));
+        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+            assertEquals(7, reopened.nextOffset());
+            assertEquals(3, reopened.lastEpoch());
+            assertEquals(List.of(1L, 1L, 1L, 2L, 3L, 3L, 3L), epochs(reopened.read(0, 10, Long.MAX_VALUE)));
+            reopened.append(3, "key-7", new byte[]{3});
+            assertEquals(8, reopened.nextOffset());
+        }
     }
 
     @Test
-    public void aTruncationInterruptedBeforeTheShardWasMovedIsDiscardedOnOpen() throws Exception {
+    public void aSegmentDirectoryACrashLeftUnlistedIsDeletedOnOpen() throws Exception {
         Path shardDirectory = directory.resolve("0");
-        Path copy = directory.resolve("0.truncating");
-        try (ShardLog shard = new ShardLog(shardDirectory)) {
+        try (ShardLog shard = new ShardLog(shardDirectory, true)) {
             appendAll(shard, 1, 0, 5);
         }
-        // A partial copy, as a crash during the copy leaves it
-        FileUtils.writeStringToFile(copy.resolve("partial").toFile(), "partial", StandardCharsets.UTF_8);
+        // The directory of a segment created after a crash interrupted its listing, or deleted before it was removed
+        Path stray = shardDirectory.resolve("3-stray");
+        FileUtils.writeStringToFile(stray.resolve("partial").toFile(), "partial", StandardCharsets.UTF_8);
 
-        try (ShardLog reopened = new ShardLog(shardDirectory)) {
+        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
             assertEquals(5, reopened.nextOffset());
+            assertEquals(5, reopened.read(0, 10, Long.MAX_VALUE).size());
         }
-        assertFalse(Files.exists(copy));
+        assertFalse(Files.exists(stray));
+    }
+
+    @Test
+    public void aPromiseMadeWithoutACopyHoldsForTheCopyCreatedLaterAndAfterARestart() {
+        QueueDefinition definition = new QueueDefinition("orders", 2);
+        try (QueueLog queueLog = QueueLog.openOrCreate(directory.resolve("orders"), definition, true)) {
+            assertEquals(-1, queueLog.promise(1, 7));
+            assertEquals(7, queueLog.promise(1, 5));
+            assertNull(queueLog.findShard(1));
+        }
+        try (QueueLog reopened = QueueLog.openOrCreate(directory.resolve("orders"), definition, true)) {
+            ShardLog copy = reopened.shard(1);
+            assertEquals(7, copy.acceptedEpoch());
+            assertEquals(ReplicationStatus.STALE_EPOCH, copy.replicate(6, -1, -1, 1, List.of(entry(0, 6))).status());
+            assertEquals(0, copy.nextOffset());
+        }
     }
 
     @Test
     public void markersAreStoredWithoutAKeyAndReadsStopAtTheByteBudget() {
-        try (ShardLog shard = new ShardLog(directory.resolve("0"))) {
+        try (ShardLog shard = new ShardLog(directory.resolve("0"), true)) {
             assertEquals(0, shard.appendMarker(1));
             shard.append(1, "a", new byte[600]);
             shard.append(1, "b", new byte[600]);
@@ -173,6 +192,10 @@ public class ShardLogTests {
         for (int i = 0; i < count; i++) {
             assertEquals(firstOffset + i, shard.append(epoch, "key-" + (firstOffset + i), new byte[]{(byte) epoch}));
         }
+    }
+
+    private static List<Long> epochs(List<ShardEntry> entries) {
+        return entries.stream().map(ShardEntry::epoch).toList();
     }
 
     private static ShardEntry entry(long offset, long epoch) {

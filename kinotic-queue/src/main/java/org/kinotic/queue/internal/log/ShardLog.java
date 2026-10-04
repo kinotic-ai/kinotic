@@ -1,13 +1,5 @@
 package org.kinotic.queue.internal.log;
 
-import net.openhft.chronicle.bytes.Bytes;
-import net.openhft.chronicle.queue.ExcerptAppender;
-import net.openhft.chronicle.queue.ExcerptTailer;
-import net.openhft.chronicle.queue.RollCycle;
-import net.openhft.chronicle.queue.RollCycles;
-import net.openhft.chronicle.queue.impl.single.SingleChronicleQueue;
-import net.openhft.chronicle.queue.impl.single.SingleChronicleQueueBuilder;
-import net.openhft.chronicle.wire.DocumentContext;
 import org.apache.commons.io.FileUtils;
 
 import java.io.IOException;
@@ -19,45 +11,65 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Stream;
 
 /**
  * One shard of a queue on this node: an append-only log whose entries carry offsets that start at zero and
- * increase by one per entry, and epochs that never decrease from one entry to the next. Writes are serialized; any
- * number of {@link ShardReader}s may read concurrently.
+ * increase by one per entry, and epochs that never decrease from one entry to the next. Writes are serialized; reads
+ * may run concurrently with writes and with each other.
  */
 public final class ShardLog implements AutoCloseable {
 
-    private static final String TRUNCATING_SUFFIX = ".truncating";
-    private static final String REPLACED_SUFFIX = ".replaced";
     private static final String ACCEPTED_EPOCH_SUFFIX = ".accepted-epoch";
-    private static final int COPY_BATCH_SIZE = 4_096;
+    private static final String MANIFEST_FILE = "segments";
 
     private final Path directory;
-    // Chronicle sequence numbers are dense within a roll cycle and so are offsets, so an offset's queue index is
-    // its cycle plus its distance from the first offset written in that cycle. Keyed by that first offset.
-    private final ConcurrentSkipListMap<Long, Integer> cycleByFirstOffset = new ConcurrentSkipListMap<>();
-    private SingleChronicleQueue queue;
-    private RollCycle rollCycle;
-    private ExcerptAppender appender;
+    private final boolean syncWrites;
+    // Readers hold the read lock while they use segments, so a truncation never closes a segment under a reader
+    private final ReentrantReadWriteLock segmentsLock = new ReentrantReadWriteLock();
+    // Contiguous: each segment starts where the one before it ends. Replaced, never changed in place.
+    private volatile List<ShardSegment> segments;
     private volatile long nextOffset;
     private volatile long lastEpoch;
     private volatile long acceptedEpoch;
 
-    public ShardLog(Path directory) {
+    /**
+     * Opens the shard stored in {@code directory}, creating it empty when there is none.
+     *
+     * @param syncWrites whether each write is forced to disk before the method that wrote it returns
+     */
+    public ShardLog(Path directory, boolean syncWrites) {
         this.directory = directory;
-        completeInterruptedTruncation();
-        open();
-        acceptedEpoch = Math.max(readAcceptedEpoch(), lastEpoch);
+        this.syncWrites = syncWrites;
+        openSegments();
+        acceptedEpoch = Math.max(readAcceptedEpoch(directory), lastEpoch);
     }
 
     /**
      * @return whether a shard is stored in {@code directory}
      */
     public static boolean exists(Path directory) {
-        return Files.isDirectory(directory) || Files.isDirectory(sibling(directory, TRUNCATING_SUFFIX));
+        return Files.isDirectory(directory);
+    }
+
+    /**
+     * Promises, for a shard this node stores no copy of, not to accept entries from an owner older than
+     * {@code epoch}. A copy created in {@code directory} later keeps the promise. The promise survives restarts.
+     *
+     * @return the newest epoch promised for the shard before this call, or -1 when none was
+     */
+    static long promiseWithoutCopy(Path directory, long epoch) {
+        long ret = readAcceptedEpoch(directory);
+        if (epoch > ret) {
+            writeDurably(sibling(directory, ACCEPTED_EPOCH_SUFFIX), String.valueOf(epoch));
+        }
+        return ret;
     }
 
     /**
@@ -89,7 +101,7 @@ public final class ShardLog implements AutoCloseable {
     public synchronized long promise(long epoch) {
         long ret = acceptedEpoch;
         if (epoch > acceptedEpoch) {
-            writeAcceptedEpoch(epoch);
+            writeDurably(sibling(directory, ACCEPTED_EPOCH_SUFFIX), String.valueOf(epoch));
             acceptedEpoch = epoch;
         }
         return ret;
@@ -131,15 +143,20 @@ public final class ShardLog implements AutoCloseable {
                 if (conflict >= 0) {
                     truncate(conflict);
                 }
+                boolean written = false;
                 for (ShardEntry entry : entries) {
                     if (entry.offset() == nextOffset) {
                         write(entry);
+                        written = true;
                     }
                 }
                 // Entries of the owner's epoch past the batch came from the owner after it read the batch, which a
                 // delayed batch arriving after a later one finds; only entries of older epochs there are stale
                 if (batchEnd == ownerNextOffset && nextOffset > ownerNextOffset && lastEpoch < epoch) {
                     truncate(ownerNextOffset);
+                }
+                if (written) {
+                    sync();
                 }
                 ret = new ReplicationResult(ReplicationStatus.ACCEPTED, batchEnd);
             }
@@ -148,25 +165,31 @@ public final class ShardLog implements AutoCloseable {
     }
 
     /**
-     * Opens a reader whose first entry is the one at {@code offset}.
-     *
-     * @param offset at most {@link #nextOffset()}; a reader at {@link #nextOffset()} returns entries as they are written
-     */
-    public synchronized ShardReader newReader(long offset) {
-        if (offset < 0 || offset > nextOffset) {
-            throw new IllegalArgumentException("Offset " + offset + " is outside " + directory + ", which ends at " + nextOffset);
-        }
-        return new ShardReader(this, queue.createTailer(), offset);
-    }
-
-    /**
      * Reads entries starting at {@code offset}, stopping at {@code maxEntries} or once {@code maxBytes} is reached.
      * Always returns the entry at {@code offset} when there is one, however large.
+     *
+     * @param offset at most {@link #nextOffset()}; reading at {@link #nextOffset()} returns no entries
      */
     public List<ShardEntry> read(long offset, int maxEntries, long maxBytes) {
-        try (ShardReader reader = newReader(offset)) {
-            return reader.read(maxEntries, maxBytes);
+        List<ShardEntry> ret = new ArrayList<>();
+        segmentsLock.readLock().lock();
+        try {
+            if (offset < 0 || offset > nextOffset) {
+                throw new IllegalArgumentException("Offset " + offset + " is outside " + directory + ", which ends at " + nextOffset);
+            }
+            long bytesRead = 0;
+            for (ShardSegment segment : segments) {
+                long from = offset + ret.size();
+                if (ret.size() < maxEntries && bytesRead < maxBytes && from >= segment.startOffset() && from < segment.end()) {
+                    List<ShardEntry> read = segment.read(from, maxEntries - ret.size(), maxBytes - bytesRead);
+                    ret.addAll(read);
+                    bytesRead += read.stream().mapToLong(ShardEntry::size).sum();
+                }
+            }
+        } finally {
+            segmentsLock.readLock().unlock();
         }
+        return ret;
     }
 
     /**
@@ -192,9 +215,12 @@ public final class ShardLog implements AutoCloseable {
 
     @Override
     public synchronized void close() {
-        appender.singleThreadedCheckReset();
-        appender.close();
-        queue.close();
+        segmentsLock.writeLock().lock();
+        try {
+            segments.forEach(ShardSegment::close);
+        } finally {
+            segmentsLock.writeLock().unlock();
+        }
     }
 
     @Override
@@ -202,9 +228,39 @@ public final class ShardLog implements AutoCloseable {
         return directory.toString();
     }
 
-    long indexOf(long offset) {
-        Map.Entry<Long, Integer> cycle = cycleByFirstOffset.floorEntry(offset);
-        return rollCycle.toIndex(cycle.getValue(), offset - cycle.getKey());
+    /**
+     * Forces a file or directory to disk. On Linux a file's fsync also writes the pages changed through a memory
+     * mapping of it.
+     */
+    static void force(Path path) {
+        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
+            channel.force(true);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * Replaces the file's content so that, after a crash or power loss, the file holds either its old content or
+     * {@code content}, never part of it.
+     */
+    static void writeDurably(Path file, String content) {
+        Path temp = file.resolveSibling(file.getFileName() + ".tmp");
+        try {
+            Files.createDirectories(file.getParent());
+            try (FileChannel channel = FileChannel.open(temp, StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+                                                        StandardOpenOption.TRUNCATE_EXISTING)) {
+                ByteBuffer buffer = ByteBuffer.wrap(content.getBytes(StandardCharsets.UTF_8));
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer);
+                }
+                channel.force(true);
+            }
+            Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            force(file.getParent());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private long appendEntry(long epoch, String key, byte[] payload) {
@@ -214,6 +270,7 @@ public final class ShardLog implements AutoCloseable {
         promise(epoch);
         long ret = nextOffset;
         write(key == null ? ShardEntry.marker(ret, epoch) : new ShardEntry(ret, epoch, key, payload));
+        sync();
         return ret;
     }
 
@@ -253,121 +310,106 @@ public final class ShardLog implements AutoCloseable {
     }
 
     private void write(ShardEntry entry) {
-        writeExcerpt(appender, entry);
-        long index = appender.lastIndexAppended();
-        cycleByFirstOffset.putIfAbsent(entry.offset() - rollCycle.toSequenceNumber(index), rollCycle.toCycle(index));
+        openSegment().write(entry);
         lastEpoch = entry.epoch();
-        // Written after the cycle map so a reader that sees the new offset also finds its cycle
         nextOffset = entry.offset() + 1;
     }
 
-    private static void writeExcerpt(ExcerptAppender appender, ShardEntry entry) {
-        appender.singleThreadedCheckReset();
-        try (DocumentContext dc = appender.writingDocument()) {
-            try {
-                Bytes<?> bytes = dc.wire().bytes();
-                bytes.writeLong(entry.offset())
-                     .writeLong(entry.epoch())
-                     .writeBoolean(entry.isMarker());
-                if (!entry.isMarker()) {
-                    bytes.writeUtf8(entry.key())
-                         .writeInt(entry.payload().length)
-                         .write(entry.payload());
-                }
-            } catch (RuntimeException e) {
-                // A partly written excerpt would take a sequence number without an offset, breaking indexOf
-                dc.rollbackOnClose();
-                throw e;
-            }
+    private void sync() {
+        if (syncWrites && !segments.isEmpty()) {
+            segments.getLast().sync();
         }
     }
 
-    // Chronicle Queue cannot remove entries, so the entries before the offset are copied into a sibling directory
-    // that then replaces this one. A complete copy of the shard is on disk at every step, which
-    // completeInterruptedTruncation relies on after a crash.
+    // The segment writes go to, created at the shard's end when the last segment is sealed or there is none
+    private ShardSegment openSegment() {
+        ShardSegment ret = segments.isEmpty() ? null : segments.getLast();
+        if (ret == null || ret.isSealed()) {
+            // Named uniquely, so a new segment never opens the directory of one deleted at the same offset
+            String name = nextOffset + "-" + UUID.randomUUID();
+            List<String> lines = new ArrayList<>(segments.stream().map(ShardLog::manifestLine).toList());
+            lines.add(manifestLine(name, nextOffset, -1));
+            // Recorded before the segment's directory exists, so no directory outlives a crash without being listed
+            writeManifest(lines);
+            ret = ShardSegment.open(directory.resolve(name), nextOffset, -1);
+            List<ShardSegment> updated = new ArrayList<>(segments);
+            updated.add(ret);
+            segments = List.copyOf(updated);
+        }
+        return ret;
+    }
+
+    // Removes the entries from the offset on. Segments starting at or after it are deleted, and the segment holding it
+    // is sealed there, so nothing is copied.
     private void truncate(long offset) {
-        Path copy = sibling(directory, TRUNCATING_SUFFIX);
-        Path replaced = sibling(directory, REPLACED_SUFFIX);
+        segmentsLock.writeLock().lock();
         try {
-            FileUtils.deleteDirectory(copy.toFile());
-            try (SingleChronicleQueue target = build(copy);
-                 ExcerptAppender targetAppender = target.createAppender();
-                 ShardReader reader = newReader(0)) {
-                long copied = 0;
-                while (copied < offset) {
-                    List<ShardEntry> batch = reader.read((int) Math.min(COPY_BATCH_SIZE, offset - copied), Long.MAX_VALUE);
-                    if (batch.isEmpty()) {
-                        throw new IllegalStateException("Truncating " + directory + " to " + offset + " found only " + copied + " entries");
-                    }
-                    batch.forEach(entry -> writeExcerpt(targetAppender, entry));
-                    copied += batch.size();
-                }
+            List<ShardSegment> kept = segments.stream().filter(segment -> segment.startOffset() < offset).toList();
+            List<ShardSegment> deleted = segments.stream().filter(segment -> segment.startOffset() >= offset).toList();
+            List<String> lines = new ArrayList<>(kept.stream().map(ShardLog::manifestLine).toList());
+            if (!kept.isEmpty()) {
+                ShardSegment holding = kept.getLast();
+                lines.set(lines.size() - 1, manifestLine(holding.name(), holding.startOffset(), offset));
             }
-            close();
-            Files.move(directory, replaced, StandardCopyOption.ATOMIC_MOVE);
-            Files.move(copy, directory, StandardCopyOption.ATOMIC_MOVE);
-            FileUtils.deleteDirectory(replaced.toFile());
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            // Recorded before anything changes on disk, so a crash leaves either the old shard or the truncated one
+            writeManifest(lines);
+            if (!kept.isEmpty()) {
+                kept.getLast().seal(offset);
+            }
+            segments = kept;
+            deleted.forEach(ShardSegment::delete);
+            nextOffset = offset;
+            lastEpoch = offset > 0 ? epochAt(offset - 1) : -1;
+        } finally {
+            segmentsLock.writeLock().unlock();
         }
-        open();
     }
 
-    private void completeInterruptedTruncation() {
-        Path copy = sibling(directory, TRUNCATING_SUFFIX);
-        Path replaced = sibling(directory, REPLACED_SUFFIX);
+    // One line per segment, in offset order: its directory name, start offset, and the offset it was sealed at or -1
+    private void writeManifest(List<String> lines) {
+        writeDurably(directory.resolve(MANIFEST_FILE), String.join("\n", lines));
+    }
+
+    private static String manifestLine(ShardSegment segment) {
+        return manifestLine(segment.name(), segment.startOffset(), segment.isSealed() ? segment.end() : -1);
+    }
+
+    private static String manifestLine(String name, long startOffset, long sealedEnd) {
+        return name + " " + startOffset + " " + sealedEnd;
+    }
+
+    private void openSegments() {
+        List<ShardSegment> opened = new ArrayList<>();
+        Path manifest = directory.resolve(MANIFEST_FILE);
         try {
-            if (!Files.isDirectory(directory) && Files.isDirectory(copy)) {
-                // The copy was complete when the shard was moved aside, so it becomes the shard
-                Files.move(copy, directory, StandardCopyOption.ATOMIC_MOVE);
-            }
-            FileUtils.deleteDirectory(copy.toFile());
-            FileUtils.deleteDirectory(replaced.toFile());
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private void open() {
-        queue = build(directory);
-        rollCycle = queue.rollCycle();
-        appender = queue.createAppender();
-        cycleByFirstOffset.clear();
-        nextOffset = 0;
-        lastEpoch = -1;
-        if (queue.lastIndex() >= 0) {
-            loadCycleOffsets();
-        }
-    }
-
-    private static SingleChronicleQueue build(Path directory) {
-        return SingleChronicleQueueBuilder.binary(directory)
-                                          .rollCycle(RollCycles.FAST_DAILY)
-                                          .build();
-    }
-
-    // Fills the cycle map from the first entry of every cycle on disk, and reads the last entry
-    private void loadCycleOffsets() {
-        try (ExcerptTailer tailer = queue.createTailer()) {
-            for (Long cycle : queue.listCyclesBetween(queue.firstCycle(), queue.lastCycle())) {
-                if (tailer.moveToCycle(cycle.intValue())) {
-                    try (DocumentContext dc = tailer.readingDocument()) {
-                        if (dc.isPresent()) {
-                            long offset = dc.wire().bytes().readLong();
-                            cycleByFirstOffset.put(offset - rollCycle.toSequenceNumber(dc.index()), cycle.intValue());
-                        }
+            Files.createDirectories(directory);
+            if (Files.exists(manifest)) {
+                for (String line : Files.readAllLines(manifest, StandardCharsets.UTF_8)) {
+                    if (!line.isBlank()) {
+                        String[] fields = line.trim().split(" ");
+                        opened.add(ShardSegment.open(directory.resolve(fields[0]), Long.parseLong(fields[1]), Long.parseLong(fields[2])));
                     }
                 }
             }
-            tailer.moveToIndex(queue.lastIndex());
-            try (DocumentContext dc = tailer.readingDocument()) {
-                nextOffset = dc.wire().bytes().readLong() + 1;
-                lastEpoch = dc.wire().bytes().readLong();
+            // Directories of segments deleted or never listed before a crash
+            Set<String> listed = new HashSet<>(opened.stream().map(ShardSegment::name).toList());
+            try (Stream<Path> children = Files.list(directory)) {
+                for (Path child : children.toList()) {
+                    String name = child.getFileName().toString();
+                    if (Files.isDirectory(child) && !listed.contains(name)) {
+                        FileUtils.deleteDirectory(child.toFile());
+                    }
+                }
             }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
+        segments = List.copyOf(opened);
+        nextOffset = opened.isEmpty() ? 0 : opened.getLast().end();
+        lastEpoch = nextOffset > 0 ? epochAt(nextOffset - 1) : -1;
     }
 
-    private long readAcceptedEpoch() {
+    private static long readAcceptedEpoch(Path directory) {
         Path file = sibling(directory, ACCEPTED_EPOCH_SUFFIX);
         long ret = -1;
         if (Files.exists(file)) {
@@ -378,31 +420,6 @@ public final class ShardLog implements AutoCloseable {
             }
         }
         return ret;
-    }
-
-    // A promise must survive power loss, or a node could accept entries from an owner it promised to refuse, so the
-    // file and the rename that installs it are both forced to disk before the promise counts
-    private void writeAcceptedEpoch(long epoch) {
-        Path file = sibling(directory, ACCEPTED_EPOCH_SUFFIX);
-        Path temp = sibling(directory, ACCEPTED_EPOCH_SUFFIX + ".tmp");
-        try {
-            Files.createDirectories(directory.getParent());
-            // Written beside the target then moved, so a crash never leaves a partial epoch
-            try (FileChannel channel = FileChannel.open(temp, StandardOpenOption.CREATE, StandardOpenOption.WRITE,
-                                                        StandardOpenOption.TRUNCATE_EXISTING)) {
-                ByteBuffer content = ByteBuffer.wrap(String.valueOf(epoch).getBytes(StandardCharsets.UTF_8));
-                while (content.hasRemaining()) {
-                    channel.write(content);
-                }
-                channel.force(true);
-            }
-            Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            try (FileChannel parent = FileChannel.open(directory.getParent(), StandardOpenOption.READ)) {
-                parent.force(true);
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     private static Path sibling(Path directory, String suffix) {

@@ -72,8 +72,6 @@ public class QueueNode {
     private final QueueClusterClient client;
     private final ShardStateRepository shardStates;
     private final ConcurrentHashMap<String, QueueLog> logs = new ConcurrentHashMap<>();
-    // Epochs promised for shards this node holds no copy of, applied when the copy is created
-    private final ConcurrentHashMap<String, Long> promisedEpochs = new ConcurrentHashMap<>();
     // Touched only on context
     private final Map<String, ShardOwner> owners = new HashMap<>();
     private final List<MessageConsumer<Buffer>> consumers = new ArrayList<>();
@@ -138,7 +136,8 @@ public class QueueNode {
      * Opens this node's copy of a queue, creating its directory when the node has none. Blocks on disk access.
      */
     public QueueLog localLog(QueueDefinition definition) {
-        return logs.computeIfAbsent(definition.name(), name -> QueueLog.openOrCreate(queueDirectory(name), definition));
+        return logs.computeIfAbsent(definition.name(), name -> QueueLog.openOrCreate(queueDirectory(name), definition,
+                                                                                    properties.getQueue().isSyncWrites()));
     }
 
     private void onAppend(Message<Buffer> message) {
@@ -177,7 +176,7 @@ public class QueueNode {
         reply(message, vertx.executeBlocking(() -> {
             ReplicateRequest request = ReplicateRequest.fromBuffer(message.body());
             QueueLog queueLog = localLog(requireDefinition(request.queue()));
-            ReplicationResult result = openShard(queueLog, request.shard()).replicate(request.epoch(),
+            ReplicationResult result = queueLog.shard(request.shard()).replicate(request.epoch(),
                                                                                     request.prevOffset(),
                                                                                     request.prevEpoch(),
                                                                                     request.ownerNextOffset(),
@@ -208,22 +207,14 @@ public class QueueNode {
     private void onPrepare(Message<Buffer> message) {
         reply(message, vertx.executeBlocking(() -> {
             PrepareRequest request = PrepareRequest.fromBuffer(message.body());
-            QueueLog queueLog = findLocalLog(request.queue());
-            ShardLog shard = queueLog == null ? null : queueLog.findShard(request.shard());
-            ShardStatus status;
-            if (shard != null) {
-                status = ShardStatus.of(shard,
-                                        shard.promise(request.epoch()),
-                                        queueLog.consumerOffsets().findAll(request.shard()),
-                                        queueLog.groupOffsets().findAll(request.shard()));
-            } else {
-                long[] promisedBefore = {-1};
-                promisedEpochs.compute(request.queue() + "/" + request.shard(), (key, promised) -> {
-                    promisedBefore[0] = promised != null ? promised : -1;
-                    return Math.max(promisedBefore[0], request.epoch());
-                });
-                status = ShardStatus.none(promisedBefore[0]);
-            }
+            QueueLog queueLog = localLog(requireDefinition(request.queue()));
+            long promisedBefore = queueLog.promise(request.shard(), request.epoch());
+            ShardLog shard = queueLog.findShard(request.shard());
+            ShardStatus status = shard != null ? ShardStatus.of(shard,
+                                                                promisedBefore,
+                                                                queueLog.consumerOffsets().findAll(request.shard()),
+                                                                queueLog.groupOffsets().findAll(request.shard()))
+                                               : ShardStatus.none(promisedBefore);
             return status.toBuffer();
         }, false));
     }
@@ -286,7 +277,7 @@ public class QueueNode {
                     QueueLog queueLog = localLog(definition);
                     ShardAssignment assignment = new ShardAssignment(definition.name(),
                                                                      shard,
-                                                                     openShard(queueLog, shard),
+                                                                     queueLog.shard(shard),
                                                                      queueLog.consumerOffsets(),
                                                                      queueLog.groupOffsets(),
                                                                      replicas.subList(1, replicas.size()));
@@ -346,17 +337,6 @@ public class QueueNode {
             if (definition != null && Files.isDirectory(queueDirectory(definition.name()))) {
                 ret = localLog(definition);
             }
-        }
-        return ret;
-    }
-
-    // Opens the shard, creating it when this node holds no copy yet; a copy created after this node promised an epoch
-    // for the shard keeps the promise
-    private ShardLog openShard(QueueLog queueLog, int shard) {
-        ShardLog ret = queueLog.shard(shard);
-        Long promised = promisedEpochs.remove(queueLog.definition().name() + "/" + shard);
-        if (promised != null) {
-            ret.promise(promised);
         }
         return ret;
     }

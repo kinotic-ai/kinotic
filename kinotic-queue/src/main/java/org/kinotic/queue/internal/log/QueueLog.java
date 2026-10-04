@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.regex.Pattern;
 
 /**
@@ -23,13 +22,15 @@ public final class QueueLog implements AutoCloseable {
 
     private final Path directory;
     private final QueueDefinition definition;
+    private final boolean syncWrites;
     private final ShardLog[] shards;
     private final ConsumerOffsetRepository consumerOffsets;
     private final ConsumerOffsetRepository groupOffsets;
 
-    private QueueLog(Path directory, QueueDefinition definition) {
+    private QueueLog(Path directory, QueueDefinition definition, boolean syncWrites) {
         this.directory = directory;
         this.definition = definition;
+        this.syncWrites = syncWrites;
         this.shards = new ShardLog[definition.shardCount()];
         this.consumerOffsets = new ConsumerOffsetRepository(directory.resolve("consumers"), definition.shardCount());
         this.groupOffsets = new ConsumerOffsetRepository(directory.resolve("groups"), definition.shardCount());
@@ -55,27 +56,19 @@ public final class QueueLog implements AutoCloseable {
     /**
      * Opens the queue stored in {@code directory}, storing {@code definition} there when the directory holds none.
      *
+     * @param syncWrites whether the queue's shards force each write to disk before acknowledging it
      * @throws IllegalStateException when the directory holds the queue with a different shard count
      */
-    public static QueueLog openOrCreate(Path directory, QueueDefinition definition) {
-        Path shardCountFile = directory.resolve(SHARD_COUNT_FILE);
+    public static QueueLog openOrCreate(Path directory, QueueDefinition definition, boolean syncWrites) {
         QueueDefinition stored = findDefinition(directory);
         if (stored != null && stored.shardCount() != definition.shardCount()) {
             throw new IllegalStateException(directory + " holds queue " + definition.name() + " with " + stored.shardCount()
                                                     + " shards, but the cluster defines it with " + definition.shardCount());
         }
         if (stored == null) {
-            try {
-                Files.createDirectories(directory);
-                // Written beside the target then moved, so a crash never leaves a partial shard count
-                Path tempFile = directory.resolve(SHARD_COUNT_FILE + ".tmp");
-                Files.writeString(tempFile, String.valueOf(definition.shardCount()));
-                Files.move(tempFile, shardCountFile, StandardCopyOption.ATOMIC_MOVE);
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+            ShardLog.writeDurably(directory.resolve(SHARD_COUNT_FILE), String.valueOf(definition.shardCount()));
         }
-        return new QueueLog(directory, definition);
+        return new QueueLog(directory, definition, syncWrites);
     }
 
     /**
@@ -109,7 +102,7 @@ public final class QueueLog implements AutoCloseable {
      */
     public synchronized ShardLog shard(int shard) {
         if (shards[shard] == null) {
-            shards[shard] = new ShardLog(shardDirectory(shard));
+            shards[shard] = new ShardLog(shardDirectory(shard), syncWrites);
         }
         return shards[shard];
     }
@@ -123,6 +116,17 @@ public final class QueueLog implements AutoCloseable {
             ret = shard(shard);
         }
         return ret;
+    }
+
+    /**
+     * Promises not to accept entries of the shard from an owner older than {@code epoch}, whether or not this node
+     * holds a copy of the shard. The promise survives restarts and holds for a copy created later.
+     *
+     * @return the newest epoch promised for the shard before this call, or -1 when none was
+     */
+    public synchronized long promise(int shard, long epoch) {
+        ShardLog copy = findShard(shard);
+        return copy != null ? copy.promise(epoch) : ShardLog.promiseWithoutCopy(shardDirectory(shard), epoch);
     }
 
     public QueueDefinition definition() {
