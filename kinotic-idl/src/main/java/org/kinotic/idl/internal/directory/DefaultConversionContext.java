@@ -27,9 +27,11 @@ public class DefaultConversionContext implements ConversionContext {
 
     private final ResolvableTypeConverter resolvableTypeConverter;
 
-    private final Deque<ResolvableType> circularReferenceCheckStack = new ArrayDeque<>();
+    // each entry is an instantiation's string form, the identity the schemaCache keys by: ResolvableType
+    // equality also compares the owner a property resolved against, which differs at every depth of a path
+    private final Deque<String> circularReferenceCheckStack = new ArrayDeque<>();
 
-    private final Deque<ResolvableType> errorStack = new ArrayDeque<>();
+    private final Deque<String> errorStack = new ArrayDeque<>();
 
     private final Map<String, C3Type> schemaCache = new HashMap<>();
 
@@ -51,7 +53,8 @@ public class DefaultConversionContext implements ConversionContext {
 
     public C3Type convertInternal(ResolvableType resolvableType) {
 
-        if(circularReferenceCheckStack.contains(resolvableType)){
+        String key = resolvableType.toString();
+        if(circularReferenceCheckStack.contains(key)){
             IllegalStateException ise = new IllegalStateException("Circular reference detected for "+resolvableType);
             logException(ise);
             throw ise;
@@ -59,11 +62,10 @@ public class DefaultConversionContext implements ConversionContext {
         C3Type ret;
         try {
 
-            circularReferenceCheckStack.addFirst(resolvableType);
+            circularReferenceCheckStack.addFirst(key);
 
             // FIXME: verify this cache logic!
             // Since decorators and metadata could differ on the final C3Type we need to make sure they don't share a java reference when they shouldn't
-            String key = resolvableType.toString();
             if (schemaCache.containsKey(key)) {
                 ret = schemaCache.get(key);
             } else {
@@ -147,17 +149,17 @@ public class DefaultConversionContext implements ConversionContext {
             // This would occur at the furthest call depth so at this point the circularReferenceCheckStack has the complete stack
             if(errorStack.isEmpty()){
                 // We loop vs add all to keep stack intact
-                for(ResolvableType resolvableType: circularReferenceCheckStack){
-                    errorStack.addFirst(resolvableType);
+                for(String key: circularReferenceCheckStack){
+                    errorStack.addFirst(key);
                 }
             }
             if(circularReferenceCheckStack.size() == 1) { // we are at the top of the stack during recursion
                 StringBuilder sb = new StringBuilder("Error occurred during conversion.\n" + e.getMessage() + "\n");
                 int objectCount = 1;
-                for (ResolvableType resolvableType : errorStack) {
+                for (String key : errorStack) {
                     sb.append(StringUtils.leftPad("", objectCount, '\t'));
                     sb.append("- ");
-                    sb.append(resolvableType.toString());
+                    sb.append(key);
                     sb.append("\n");
                     objectCount++;
                 }

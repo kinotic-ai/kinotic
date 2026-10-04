@@ -7,6 +7,7 @@ import org.kinotic.idl.api.directory.ResolvableTypeConverter;
 import org.kinotic.management.api.services.deployment.MicroserviceDeploymentService;
 import org.kinotic.management.api.services.deployment.UiDeploymentService;
 import org.kinotic.management.internal.api.services.DefaultApplicationService;
+import org.kinotic.management.internal.api.services.DefaultEntityDefinitionService;
 import org.kinotic.management.internal.api.services.DefaultProjectService;
 import org.kinotic.management.internal.api.services.deployment.DefaultMicroserviceDeploymentService;
 import org.kinotic.management.internal.api.services.deployment.DefaultUiDeploymentService;
@@ -17,6 +18,7 @@ import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.kinotic.idl.internal.directory.DefaultResolvableTypeConverter;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.idl.internal.directory.DefaultSchemaService;
+import org.kinotic.idl.internal.directory.C3SchemaToC3Type;
 import org.kinotic.idl.internal.directory.JsonNodeToC3Type;
 import org.kinotic.idl.internal.directory.ReactiveToC3Type;
 import org.kinotic.idl.internal.directory.TokenBufferToC3Type;
@@ -48,21 +50,23 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * Verifies every MCP-exposed management-api service converts to a ServiceDefinition with the same converter set
+ * Verifies every management-api service the directory publishes, for its MCP tools or its authorization resource,
+ * converts to a ServiceDefinition with the same converter set
  * the server wires at startup — an unconvertible type anywhere in a signature rejects the service's
  * registration, and with it the server's startup.
  */
 public class McpServiceSchemaTest {
 
     @Test
-    public void mcpExposedServicesConvert() {
+    public void publishedServicesConvert() {
         NamespaceDefinition namespaceDefinition =
                 schemaFactory().createForServices(List.of(new ServiceDeclaration(ProjectService.class, DefaultProjectService.class),
                                                            new ServiceDeclaration(ApplicationService.class, DefaultApplicationService.class),
+                                                           new ServiceDeclaration(EntityDefinitionService.class, DefaultEntityDefinitionService.class),
                                                            new ServiceDeclaration(MicroserviceDeploymentService.class, DefaultMicroserviceDeploymentService.class),
                                                            new ServiceDeclaration(UiDeploymentService.class, DefaultUiDeploymentService.class)));
 
-        Assertions.assertEquals(4, namespaceDefinition.getServices().size());
+        Assertions.assertEquals(5, namespaceDefinition.getServices().size());
     }
 
     @Test
@@ -175,6 +179,7 @@ public class McpServiceSchemaTest {
                                                            new VoidToC3Type(),
                                                            new TokenBufferToC3Type(),
                                                            new JsonNodeToC3Type(),
+                                                           new C3SchemaToC3Type(),
                                                            new ReactiveToC3Type(registryProvider()));
         return new DefaultSchemaService(new DefaultResolvableTypeConverter(converters), Set.of(Participant.class));
     }

@@ -25,7 +25,7 @@ class DefaultApplicationServiceTest {
 
     private static final String CALLER_ORG = "acme";
 
-    private final DefaultApplicationService service = new DefaultApplicationService(null, null, null, null, callerContext());
+    private final DefaultApplicationService service = new DefaultApplicationService(null, null, null, null, callerContext(), null);
 
     private static SecurityContext callerContext() {
         OrganizationParticipant participant = mock(OrganizationParticipant.class);
