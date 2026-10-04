@@ -17,7 +17,9 @@ import org.kinotic.queue.internal.cluster.message.PrepareRequest;
 import org.kinotic.queue.internal.cluster.message.ShardStatus;
 import org.kinotic.queue.internal.log.BatchSlot;
 import org.kinotic.queue.internal.log.ConsumerOffsetRepository;
+import org.kinotic.queue.internal.log.LogStart;
 import org.kinotic.queue.internal.log.Membership;
+import org.kinotic.queue.internal.log.ReplicationBatch;
 import org.kinotic.queue.internal.log.ReplicationResult;
 import org.kinotic.queue.internal.log.ShardEntry;
 import org.kinotic.queue.internal.log.ShardLog;
@@ -64,6 +66,9 @@ final class ShardOwner {
     static final long COMMIT_TIMEOUT_MS = 5_000;
 
     private static final long RECOVERY_RETRY_MS = 1_000;
+    // An owner no majority of the shard's copies answered for this long steps down, so a cut-off owner stops leasing
+    // records and failing appends, and an owner its copies reach takes over
+    private static final long MAJORITY_SILENCE_MS = 10_000;
     private static final long SWEEP_INTERVAL_MS = 250;
     // A group's dispatcher with nothing in flight is dropped after this long without a request; its position is stored
     private static final long DISPATCHER_IDLE_MS = 5 * 60_000;
@@ -116,6 +121,7 @@ final class ShardOwner {
     private boolean active;
     private boolean stopped;
     private boolean stateSaveScheduled;
+    private boolean deleting;
     private long sweepTimer = -1;
     // Completes once the batches found at the shard's end are known, before which no batch is appended
     private Future<Void> producersRecovered = Future.succeededFuture();
@@ -252,9 +258,10 @@ final class ShardOwner {
         Map<Long, Long> sequences = new HashMap<>();
         Map<Long, List<Long>> offsets = new HashMap<>();
         long scannedBytes = 0;
+        long start = shardLog.start().offset();
         long to = shardLog.nextOffset();
-        while (to > 0 && scannedBytes < PRODUCER_SCAN_BYTES) {
-            long from = Math.max(0, to - PRODUCER_SCAN_CHUNK);
+        while (to > start && scannedBytes < PRODUCER_SCAN_BYTES) {
+            long from = Math.max(start, to - PRODUCER_SCAN_CHUNK);
             List<ShardEntry> chunk = shardLog.read(from, (int) (to - from), Long.MAX_VALUE);
             to = from;
             for (ShardEntry entry : chunk) {
@@ -599,7 +606,7 @@ final class ShardOwner {
                         } else if (source.equals(self)) {
                             caughtUp = Future.succeededFuture();
                         } else {
-                            caughtUp = catchUp(source, Math.min(shardLog.nextOffset(), target), target, proposed);
+                            caughtUp = catchUp(source, best.start(), Math.min(shardLog.nextOffset(), target), target, proposed);
                         }
                         return caughtUp;
                     })
@@ -607,24 +614,28 @@ final class ShardOwner {
     }
 
     // Copies entries from the most advanced copy until this copy matches it up to its end. ShardLog.replicate does the
-    // checks exactly as it does for a follower, replacing any entries of this copy that differ.
-    private Future<Void> catchUp(String source, long from, long target, long proposed) {
-        long first = Math.max(0, from - 1);
-        int max = (int) Math.min(CATCH_UP_BATCH_SIZE + 1, target - first);
-        return client.read(source, new FetchRequest(queue, shard, first, max, MAX_BATCH_BYTES))
-                     .compose(response -> vertx.executeBlocking(() -> applyCatchUp(from, response.entries(), target, proposed), false))
+    // checks exactly as it does for a follower, replacing any entries of this copy that differ, and starting this copy
+    // over at the source's start when it ends before it.
+    private Future<Void> catchUp(String source, LogStart sourceStart, long from, long target, long proposed) {
+        long first = Math.max(from, sourceStart.offset());
+        // The source's entry before the batch is read too, for its epoch, unless the batch begins at the source's start
+        long readFrom = first > sourceStart.offset() ? first - 1 : first;
+        int max = (int) Math.min(CATCH_UP_BATCH_SIZE + 1, target - readFrom);
+        return client.read(source, new FetchRequest(queue, shard, readFrom, max, MAX_BATCH_BYTES))
+                     .compose(response -> vertx.executeBlocking(() -> applyCatchUp(sourceStart, first, response.entries(), target, proposed),
+                                                                false))
                      .compose(result -> {
                          Future<Void> ret;
                          switch (result.status()) {
                              case STALE_EPOCH -> ret = Future.failedFuture("the shard promised an owner newer than epoch " + proposed);
-                             case MISMATCH -> ret = catchUp(source, result.nextOffset(), target, proposed);
+                             case MISMATCH -> ret = catchUp(source, sourceStart, result.nextOffset(), target, proposed);
                              default -> {
                                  if (result.nextOffset() >= target) {
                                      ret = Future.succeededFuture();
-                                 } else if (result.nextOffset() == from) {
-                                     ret = Future.failedFuture("node " + source + " returned no entries after offset " + from);
+                                 } else if (result.nextOffset() == first) {
+                                     ret = Future.failedFuture("node " + source + " returned no entries after offset " + first);
                                  } else {
-                                     ret = catchUp(source, result.nextOffset(), target, proposed);
+                                     ret = catchUp(source, sourceStart, result.nextOffset(), target, proposed);
                                  }
                              }
                          }
@@ -632,21 +643,24 @@ final class ShardOwner {
                      });
     }
 
-    private ReplicationResult applyCatchUp(long from, List<ShardEntry> read, long target, long proposed) {
+    private ReplicationResult applyCatchUp(LogStart sourceStart, long first, List<ShardEntry> read, long target, long proposed) {
         // Entries a newer owner wrote to the source since it was prepared would come before this owner's marker
         if (read.stream().anyMatch(entry -> entry.epoch() > proposed)) {
             throw new IllegalStateException("node holding the most advanced copy accepted an owner newer than epoch " + proposed);
         }
-        ReplicationResult ret;
-        if (from > 0) {
-            if (read.isEmpty()) {
-                throw new IllegalStateException("The source copy holds no entry at offset " + (from - 1));
-            }
-            ret = shardLog.replicate(proposed, from - 1, read.getFirst().epoch(), target, read.subList(1, read.size()));
+        long prevEpoch;
+        List<ShardEntry> entries;
+        if (first == sourceStart.offset()) {
+            prevEpoch = sourceStart.epochBefore();
+            entries = read;
         } else {
-            ret = shardLog.replicate(proposed, -1, -1, target, read);
+            if (read.isEmpty()) {
+                throw new IllegalStateException("The source copy holds no entry at offset " + (first - 1));
+            }
+            prevEpoch = read.getFirst().epoch();
+            entries = read.subList(1, read.size());
         }
-        return ret;
+        return shardLog.replicate(new ReplicationBatch(proposed, first - 1, prevEpoch, sourceStart.offset(), target, entries));
     }
 
     // Appends a membership change as this owner and replicates it like a record
@@ -786,6 +800,12 @@ final class ShardOwner {
         // A copy counting toward a commit may come back on a node that joined after the last change of followers
         updateTargets();
         long now = System.currentTimeMillis();
+        if (membership.committable(copy -> progress(copy, now, ShardReplicator::lastAnsweredMillis)) < now - MAJORITY_SILENCE_MS) {
+            log.warn("No majority of the copies of shard {} of queue {} answered for {} ms, stepping down", shard, queue, MAJORITY_SILENCE_MS);
+            stop();
+            return;
+        }
+        replicators.values().forEach(ShardReplicator::heartbeat);
         pendingAppends.entrySet().removeIf(entry -> {
             boolean expired = entry.getValue().deadline() <= now;
             if (expired) {
@@ -803,6 +823,7 @@ final class ShardOwner {
             return expired;
         });
         producerBatches.values().removeIf(batch -> batch.written().isComplete() && batch.lastUsed() < now - PRODUCER_IDLE_MS);
+        deleteRetained();
         dispatchers.values().removeIf(dispatcher -> {
             boolean idle = dispatcher.succeeded() && dispatcher.result().isIdleSince(now - DISPATCHER_IDLE_MS);
             if (idle) {
@@ -810,6 +831,21 @@ final class ShardOwner {
             }
             return idle;
         });
+    }
+
+    // Deletes the committed entries the retention lets go; the followers delete theirs once a batch carries the new start
+    private void deleteRetained() {
+        long retainedFrom = Math.min(shardLog.retainedFrom(), committedOffset);
+        if (!deleting && retainedFrom > shardLog.start().offset()) {
+            membership.rewriteBefore(retainedFrom);
+            deleting = true;
+            vertx.executeBlocking(() -> shardLog.deleteBefore(retainedFrom), false).onComplete(ar -> {
+                deleting = false;
+                if (ar.failed()) {
+                    log.warn("Deleting the entries of shard {} of queue {} before offset {} failed", shard, queue, retainedFrom, ar.cause());
+                }
+            });
+        }
     }
 
     private void completeReplicatedOffsets() {
@@ -831,7 +867,9 @@ final class ShardOwner {
         }
     }
 
-    private Future<FetchResponse> readCommitted(long from, int max, long maxBytes) {
+    // A fetch from before the shard's start continues at the start, past the entries the retention deleted
+    private Future<FetchResponse> readCommitted(long offset, int max, long maxBytes) {
+        long from = Math.max(offset, shardLog.start().offset());
         int count = (int) Math.min(max, committedOffset - from);
         return vertx.executeBlocking(() -> shardLog.read(from, count, Math.min(maxBytes, MAX_BATCH_BYTES)), false)
                     .map(entries -> new FetchResponse(entries, from + entries.size()));

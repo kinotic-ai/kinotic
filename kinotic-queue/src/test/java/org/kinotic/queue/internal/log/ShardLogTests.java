@@ -9,11 +9,14 @@ import net.openhft.chronicle.wire.DocumentContext;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.util.unit.DataSize;
+import org.kinotic.queue.api.config.QueueProperties;
 import org.kinotic.queue.api.model.QueueDefinition;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -31,19 +34,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class ShardLogTests {
 
+    private static final QueueProperties PROPERTIES = new QueueProperties();
+
     @TempDir
     private Path directory;
 
     @Test
     public void entriesThatDifferFromTheOwnersAreReplacedAndEarlierOnesKept() {
         Path shardDirectory = directory.resolve("0");
-        try (ShardLog follower = new ShardLog(shardDirectory, true)) {
+        try (ShardLog follower = new ShardLog(shardDirectory, PROPERTIES)) {
             // Offsets 0-2 came from the owner of epoch 1, offsets 3-4 from an owner of epoch 2 that never committed them
             appendAll(follower, 1, 0, 3);
             appendAll(follower, 2, 3, 2);
 
             // The owner of epoch 3 holds 0-2 from epoch 1 and wrote 3-5 itself
-            ReplicationResult result = follower.replicate(3, 2, 1, 6, List.of(entry(3, 3), entry(4, 3), entry(5, 3)));
+            ReplicationResult result = follower.replicate(new ReplicationBatch(3, 2, 1, 0, 6, List.of(entry(3, 3), entry(4, 3), entry(5, 3))));
 
             assertEquals(ReplicationStatus.ACCEPTED, result.status());
             assertEquals(6, result.nextOffset());
@@ -53,7 +58,7 @@ public class ShardLogTests {
             assertEquals("key-3", entries.get(3).key());
         }
         // The replaced entries stay replaced after the shard is reopened
-        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+        try (ShardLog reopened = new ShardLog(shardDirectory, PROPERTIES)) {
             assertEquals(6, reopened.nextOffset());
             assertEquals(3, reopened.lastEpoch());
         }
@@ -61,12 +66,12 @@ public class ShardLogTests {
 
     @Test
     public void aMismatchSendsTheOwnerBackToTheStartOfTheDifferingEpochAndChangesNothing() {
-        try (ShardLog follower = new ShardLog(directory.resolve("0"), true)) {
+        try (ShardLog follower = new ShardLog(directory.resolve("0"), PROPERTIES)) {
             appendAll(follower, 1, 0, 3);
             appendAll(follower, 2, 3, 4);
 
             // The owner's entry 6 is from epoch 5, so the follower's whole epoch 2 run starting at 3 is suspect
-            ReplicationResult result = follower.replicate(6, 6, 5, 9, List.of(entry(7, 6), entry(8, 6)));
+            ReplicationResult result = follower.replicate(new ReplicationBatch(6, 6, 5, 0, 9, List.of(entry(7, 6), entry(8, 6))));
 
             assertEquals(ReplicationStatus.MISMATCH, result.status());
             assertEquals(3, result.nextOffset());
@@ -77,11 +82,11 @@ public class ShardLogTests {
 
     @Test
     public void entriesPastTheOwnersEndAreRemoved() {
-        try (ShardLog follower = new ShardLog(directory.resolve("0"), true)) {
+        try (ShardLog follower = new ShardLog(directory.resolve("0"), PROPERTIES)) {
             appendAll(follower, 1, 0, 5);
 
             // The owner holds only 0-2 of epoch 1
-            ReplicationResult result = follower.replicate(4, 2, 1, 3, List.of());
+            ReplicationResult result = follower.replicate(new ReplicationBatch(4, 2, 1, 0, 3, List.of()));
 
             assertEquals(ReplicationStatus.ACCEPTED, result.status());
             assertEquals(3, follower.nextOffset());
@@ -90,13 +95,13 @@ public class ShardLogTests {
 
     @Test
     public void aDelayedBatchArrivingAfterALaterOneKeepsTheOwnersNewerEntries() {
-        try (ShardLog follower = new ShardLog(directory.resolve("0"), true)) {
+        try (ShardLog follower = new ShardLog(directory.resolve("0"), PROPERTIES)) {
             // The owner of epoch 2 held 0-2 when it read the first batch and 0-4 when it read the second
             List<ShardEntry> firstBatch = List.of(entry(0, 2), entry(1, 2), entry(2, 2));
             List<ShardEntry> secondBatch = List.of(entry(0, 2), entry(1, 2), entry(2, 2), entry(3, 2), entry(4, 2));
-            follower.replicate(2, -1, -1, 5, secondBatch);
+            follower.replicate(new ReplicationBatch(2, -1, -1, 0, 5, secondBatch));
 
-            ReplicationResult result = follower.replicate(2, -1, -1, 3, firstBatch);
+            ReplicationResult result = follower.replicate(new ReplicationBatch(2, -1, -1, 0, 3, firstBatch));
 
             assertEquals(ReplicationStatus.ACCEPTED, result.status());
             assertEquals(5, follower.nextOffset());
@@ -106,15 +111,15 @@ public class ShardLogTests {
     @Test
     public void aBatchFromAnOwnerOlderThanThePromisedOneIsRefusedAfterARestart() {
         Path shardDirectory = directory.resolve("0");
-        try (ShardLog shard = new ShardLog(shardDirectory, true)) {
+        try (ShardLog shard = new ShardLog(shardDirectory, PROPERTIES)) {
             appendAll(shard, 1, 0, 2);
             // Each promise answers with the epoch promised before it
             assertEquals(1, shard.promise(5));
             assertEquals(5, shard.promise(4));
         }
-        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+        try (ShardLog reopened = new ShardLog(shardDirectory, PROPERTIES)) {
             assertEquals(5, reopened.acceptedEpoch());
-            assertEquals(ReplicationStatus.STALE_EPOCH, reopened.replicate(4, 1, 1, 3, List.of(entry(2, 4))).status());
+            assertEquals(ReplicationStatus.STALE_EPOCH, reopened.replicate(new ReplicationBatch(4, 1, 1, 0, 3, List.of(entry(2, 4)))).status());
             assertThrows(StaleEpochException.class, () -> append(reopened, 4, "key", new byte[0]));
             assertEquals(2, reopened.nextOffset());
         }
@@ -123,18 +128,18 @@ public class ShardLogTests {
     @Test
     public void truncationsStackSegmentsThatReadsSpanAndAReopenKeeps() {
         Path shardDirectory = directory.resolve("0");
-        try (ShardLog follower = new ShardLog(shardDirectory, true)) {
+        try (ShardLog follower = new ShardLog(shardDirectory, PROPERTIES)) {
             appendAll(follower, 1, 0, 5);
             // The owner of epoch 2 replaces 3-4 with its own 3-5
-            follower.replicate(2, 2, 1, 6, List.of(entry(3, 2), entry(4, 2), entry(5, 2)));
+            follower.replicate(new ReplicationBatch(2, 2, 1, 0, 6, List.of(entry(3, 2), entry(4, 2), entry(5, 2))));
             // The owner of epoch 3 keeps 3 of epoch 2 and replaces the rest with its own 4-6
-            follower.replicate(3, 3, 2, 7, List.of(entry(4, 3), entry(5, 3), entry(6, 3)));
+            follower.replicate(new ReplicationBatch(3, 3, 2, 0, 7, List.of(entry(4, 3), entry(5, 3), entry(6, 3))));
 
             assertEquals(List.of(1L, 1L, 1L, 2L, 3L, 3L, 3L), epochs(follower.read(0, 10, Long.MAX_VALUE)));
             // A read crossing from one segment into the next
             assertEquals(List.of(2L, 3L, 4L), follower.read(2, 3, Long.MAX_VALUE).stream().map(ShardEntry::offset).toList());
         }
-        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+        try (ShardLog reopened = new ShardLog(shardDirectory, PROPERTIES)) {
             assertEquals(7, reopened.nextOffset());
             assertEquals(3, reopened.lastEpoch());
             assertEquals(List.of(1L, 1L, 1L, 2L, 3L, 3L, 3L), epochs(reopened.read(0, 10, Long.MAX_VALUE)));
@@ -148,12 +153,12 @@ public class ShardLogTests {
         Path shardDirectory = directory.resolve("0");
         List<ShardEntry> batch = List.of(ShardEntry.record(-1, 1, "a", new byte[]{1}, new BatchSlot(7, 3, 0, 2)),
                                          ShardEntry.record(-1, 1, "b", new byte[]{2}, new BatchSlot(7, 3, 1, 2)));
-        try (ShardLog shard = new ShardLog(shardDirectory, true)) {
+        try (ShardLog shard = new ShardLog(shardDirectory, PROPERTIES)) {
             assertEquals(0, shard.appendMarker(1));
 
             assertEquals(List.of(1L, 2L), shard.append(1, batch));
         }
-        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+        try (ShardLog reopened = new ShardLog(shardDirectory, PROPERTIES)) {
             List<ShardEntry> entries = reopened.read(1, 10, Long.MAX_VALUE);
             assertEquals(List.of("a", "b"), entries.stream().map(ShardEntry::key).toList());
             assertEquals(List.of(new BatchSlot(7, 3, 0, 2), new BatchSlot(7, 3, 1, 2)), entries.stream().map(ShardEntry::slot).toList());
@@ -166,19 +171,19 @@ public class ShardLogTests {
         Path shardDirectory = directory.resolve("0");
         Membership first = new Membership(List.of("a", "b", "c"), List.of());
         Membership joint = new Membership(List.of("a", "b", "c"), List.of("a", "b", "d"));
-        try (ShardLog follower = new ShardLog(shardDirectory, true)) {
+        try (ShardLog follower = new ShardLog(shardDirectory, PROPERTIES)) {
             assertNull(follower.latestMembership());
-            follower.replicate(1, -1, -1, 3, List.of(ShardEntry.marker(0, 1), ShardEntry.membership(1, 1, first), entry(2, 1)));
+            follower.replicate(new ReplicationBatch(1, -1, -1, 0, 3, List.of(ShardEntry.marker(0, 1), ShardEntry.membership(1, 1, first), entry(2, 1))));
             assertEquals(first, follower.latestMembership().membership());
             // The owner of epoch 2 holds 0-2 and adds a joint change at 3, which epoch 3 later replaces
-            follower.replicate(2, 2, 1, 4, List.of(ShardEntry.membership(3, 2, joint)));
+            follower.replicate(new ReplicationBatch(2, 2, 1, 0, 4, List.of(ShardEntry.membership(3, 2, joint))));
             assertEquals(joint, follower.latestMembership().membership());
-            follower.replicate(3, 2, 1, 4, List.of(ShardEntry.marker(3, 3)));
+            follower.replicate(new ReplicationBatch(3, 2, 1, 0, 4, List.of(ShardEntry.marker(3, 3))));
 
             assertEquals(1, follower.latestMembership().offset());
             assertEquals(first, follower.latestMembership().membership());
         }
-        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+        try (ShardLog reopened = new ShardLog(shardDirectory, PROPERTIES)) {
             assertEquals(first, reopened.latestMembership().membership());
             assertEquals(first, reopened.read(1, 1, Long.MAX_VALUE).getFirst().membership());
         }
@@ -187,14 +192,14 @@ public class ShardLogTests {
     @Test
     public void aMembershipListedPastTheShardsEndByACrashIsDroppedOnOpen() throws Exception {
         Path shardDirectory = directory.resolve("0");
-        try (ShardLog shard = new ShardLog(shardDirectory, true)) {
+        try (ShardLog shard = new ShardLog(shardDirectory, PROPERTIES)) {
             shard.appendMarker(1);
             shard.appendMembership(1, new Membership(List.of("a"), List.of()));
         }
         // The listing a crash leaves after listing a change at offset 2 and before writing it
         Files.writeString(shardDirectory.resolve("memberships"), "1 1 a -\n2 1 a,b -");
 
-        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+        try (ShardLog reopened = new ShardLog(shardDirectory, PROPERTIES)) {
             assertEquals(1, reopened.latestMembership().offset());
             assertEquals(2, reopened.nextOffset());
         }
@@ -203,7 +208,7 @@ public class ShardLogTests {
     @Test
     public void aMembershipListedForAnOffsetHoldingAnotherEntryIsDroppedOnOpen() throws Exception {
         Path shardDirectory = directory.resolve("0");
-        try (ShardLog shard = new ShardLog(shardDirectory, true)) {
+        try (ShardLog shard = new ShardLog(shardDirectory, PROPERTIES)) {
             shard.appendMarker(1);
             shard.appendMembership(1, new Membership(List.of("a"), List.of()));
             appendAll(shard, 1, 2, 2);
@@ -211,10 +216,10 @@ public class ShardLogTests {
         // The listing a failed write of a change at offset 2 leaves, after a record took the offset
         Files.writeString(shardDirectory.resolve("memberships"), "1 1 a -\n2 1 a,b -");
 
-        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+        try (ShardLog reopened = new ShardLog(shardDirectory, PROPERTIES)) {
             assertEquals(1, reopened.latestMembership().offset());
         }
-        try (ShardLog reopenedAgain = new ShardLog(shardDirectory, true)) {
+        try (ShardLog reopenedAgain = new ShardLog(shardDirectory, PROPERTIES)) {
             assertEquals(1, reopenedAgain.latestMembership().offset());
         }
     }
@@ -222,21 +227,22 @@ public class ShardLogTests {
     @Test
     public void aSegmentSealedPastTheEntriesACrashKeptEndsAtThemAndLaterSegmentsAreDropped() throws Exception {
         Path shardDirectory = directory.resolve("0");
-        try (ShardLog shard = new ShardLog(shardDirectory, true)) {
+        try (ShardLog shard = new ShardLog(shardDirectory, PROPERTIES)) {
             appendAll(shard, 1, 0, 5);
         }
-        String segment = Files.readString(shardDirectory.resolve("segments")).split(" ")[0];
+        String segment = Files.readAllLines(shardDirectory.resolve("segments")).get(1).split(" ")[0];
         // The manifest a crash leaves when entries 5-7 were sealed into the segment and 8 on written to another one,
         // and none of them reached the disk
-        Files.writeString(shardDirectory.resolve("segments"), segment + " 0 8\n8-lost 8 -1");
+        long created = System.currentTimeMillis();
+        Files.writeString(shardDirectory.resolve("segments"), "start 0 -1\n" + segment + " 0 8 " + created + " 0\n8-lost 8 -1 " + created + " 0");
 
-        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+        try (ShardLog reopened = new ShardLog(shardDirectory, PROPERTIES)) {
             assertEquals(5, reopened.nextOffset());
             assertEquals(1, reopened.lastEpoch());
             appendAll(reopened, 2, 5, 2);
             assertEquals(List.of(1L, 1L, 1L, 1L, 1L, 2L, 2L), epochs(reopened.read(0, 10, Long.MAX_VALUE)));
         }
-        try (ShardLog reopenedAgain = new ShardLog(shardDirectory, true)) {
+        try (ShardLog reopenedAgain = new ShardLog(shardDirectory, PROPERTIES)) {
             assertEquals(7, reopenedAgain.nextOffset());
             assertEquals(List.of(1L, 1L, 1L, 1L, 1L, 2L, 2L), epochs(reopenedAgain.read(0, 10, Long.MAX_VALUE)));
         }
@@ -261,15 +267,15 @@ public class ShardLogTests {
                 }
             }
         }
-        Files.writeString(shardDirectory.resolve("segments"), "0-ahead 0 -1");
+        Files.writeString(shardDirectory.resolve("segments"), "start 0 -1\n0-ahead 0 -1 " + System.currentTimeMillis() + " 0");
 
-        try (ShardLog shard = new ShardLog(shardDirectory, true)) {
+        try (ShardLog shard = new ShardLog(shardDirectory, PROPERTIES)) {
             assertEquals(3, shard.nextOffset());
             shard.appendMarker(2);
             shard.appendMarker(2);
             assertEquals(List.of(1L, 1L, 1L, 2L, 2L), epochs(shard.read(0, 10, Long.MAX_VALUE)));
         }
-        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+        try (ShardLog reopened = new ShardLog(shardDirectory, PROPERTIES)) {
             assertEquals(5, reopened.nextOffset());
             assertEquals(List.of(1L, 1L, 1L, 2L, 2L), epochs(reopened.read(0, 10, Long.MAX_VALUE)));
         }
@@ -277,7 +283,7 @@ public class ShardLogTests {
 
     @Test
     public void aFailedAppendFencesItsEpochSoOnlyANewerOwnerWritesItsOffsetsAgain() {
-        try (ShardLog shard = new ShardLog(directory.resolve("0"), true)) {
+        try (ShardLog shard = new ShardLog(directory.resolve("0"), PROPERTIES)) {
             appendAll(shard, 1, 0, 2);
             // A record without a payload fails partway through the batch
             List<ShardEntry> failing = List.of(ShardEntry.record(-1, 1, "key-2", new byte[]{1}, new BatchSlot(1, 1, 0, 2)),
@@ -294,14 +300,14 @@ public class ShardLogTests {
     @Test
     public void aSegmentDirectoryACrashLeftUnlistedIsDeletedOnOpen() throws Exception {
         Path shardDirectory = directory.resolve("0");
-        try (ShardLog shard = new ShardLog(shardDirectory, true)) {
+        try (ShardLog shard = new ShardLog(shardDirectory, PROPERTIES)) {
             appendAll(shard, 1, 0, 5);
         }
         // The directory of a segment created after a crash interrupted its listing, or deleted before it was removed
         Path stray = shardDirectory.resolve("3-stray");
         FileUtils.writeStringToFile(stray.resolve("partial").toFile(), "partial", StandardCharsets.UTF_8);
 
-        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+        try (ShardLog reopened = new ShardLog(shardDirectory, PROPERTIES)) {
             assertEquals(5, reopened.nextOffset());
             assertEquals(5, reopened.read(0, 10, Long.MAX_VALUE).size());
         }
@@ -311,22 +317,22 @@ public class ShardLogTests {
     @Test
     public void aPromiseMadeWithoutACopyHoldsForTheCopyCreatedLaterAndAfterARestart() {
         QueueDefinition definition = new QueueDefinition("orders", 2);
-        try (QueueLog queueLog = QueueLog.openOrCreate(directory.resolve("orders"), definition, true)) {
+        try (QueueLog queueLog = QueueLog.openOrCreate(directory.resolve("orders"), definition, PROPERTIES)) {
             assertEquals(-1, queueLog.promise(1, 7));
             assertEquals(7, queueLog.promise(1, 5));
             assertNull(queueLog.findShard(1));
         }
-        try (QueueLog reopened = QueueLog.openOrCreate(directory.resolve("orders"), definition, true)) {
+        try (QueueLog reopened = QueueLog.openOrCreate(directory.resolve("orders"), definition, PROPERTIES)) {
             ShardLog copy = reopened.shard(1);
             assertEquals(7, copy.acceptedEpoch());
-            assertEquals(ReplicationStatus.STALE_EPOCH, copy.replicate(6, -1, -1, 1, List.of(entry(0, 6))).status());
+            assertEquals(ReplicationStatus.STALE_EPOCH, copy.replicate(new ReplicationBatch(6, -1, -1, 0, 1, List.of(entry(0, 6)))).status());
             assertEquals(0, copy.nextOffset());
         }
     }
 
     @Test
     public void markersAreStoredWithoutAKeyAndReadsStopAtTheByteBudget() {
-        try (ShardLog shard = new ShardLog(directory.resolve("0"), true)) {
+        try (ShardLog shard = new ShardLog(directory.resolve("0"), PROPERTIES)) {
             assertEquals(0, shard.appendMarker(1));
             append(shard, 1, "a", new byte[600]);
             append(shard, 1, "b", new byte[600]);
@@ -340,6 +346,120 @@ public class ShardLogTests {
             assertArrayEquals(new byte[600], entries.get(1).payload());
             // The first entry is returned however large it is
             assertEquals(1, shard.read(1, 10, 1).size());
+        }
+    }
+
+    @Test
+    public void segmentsCloseWithAgeAndWholeSegmentsOlderThanTheRetentionPeriodAreDeleted() throws Exception {
+        Path shardDirectory = directory.resolve("0");
+        QueueProperties twoSeconds = new QueueProperties().setRetentionPeriod(Duration.ofSeconds(2));
+        try (ShardLog shard = new ShardLog(shardDirectory, twoSeconds)) {
+            appendAll(shard, 1, 0, 3);
+            // Segments close at the first write once half the retention period old
+            Thread.sleep(1_100);
+            appendAll(shard, 1, 3, 3);
+            assertEquals(0, shard.retainedFrom());
+            Thread.sleep(2_100);
+            appendAll(shard, 2, 6, 1);
+
+            // The first segment's entries are all older than the period; the second's are not yet
+            assertEquals(3, shard.retainedFrom());
+            assertEquals(new LogStart(3, 1), shard.deleteBefore(shard.retainedFrom()));
+            assertThrows(IllegalArgumentException.class, () -> shard.read(2, 10, Long.MAX_VALUE));
+            assertEquals(List.of(1L, 1L, 1L, 2L), epochs(shard.read(3, 10, Long.MAX_VALUE)));
+        }
+        try (ShardLog reopened = new ShardLog(shardDirectory, twoSeconds)) {
+            assertEquals(new LogStart(3, 1), reopened.start());
+            assertEquals(7, reopened.nextOffset());
+            assertEquals(List.of(1L, 1L, 1L, 2L), epochs(reopened.read(3, 10, Long.MAX_VALUE)));
+        }
+    }
+
+    @Test
+    public void theOldestSegmentsBeyondTheRetentionSizeAreDeleted() {
+        // Segments close at a quarter of the size, so each 1000-byte record gets its own
+        QueueProperties fourKilobytes = new QueueProperties().setRetentionBytes(DataSize.ofBytes(4_000));
+        try (ShardLog shard = new ShardLog(directory.resolve("0"), fourKilobytes)) {
+            for (int i = 0; i < 10; i++) {
+                shard.append(1, List.of(ShardEntry.record(-1, 1, "", new byte[1_000], new BatchSlot(1, i, 0, 1))));
+            }
+
+            // Deleting another segment would leave less than 4000 bytes
+            assertEquals(6, shard.retainedFrom());
+            shard.deleteBefore(6);
+            assertEquals(4, shard.read(6, 10, Long.MAX_VALUE).size());
+        }
+    }
+
+    @Test
+    public void deletingNeverDeletesTheLatestMembershipChange() throws Exception {
+        QueueProperties twoSeconds = new QueueProperties().setRetentionPeriod(Duration.ofSeconds(2));
+        try (ShardLog shard = new ShardLog(directory.resolve("0"), twoSeconds)) {
+            shard.appendMarker(1);
+            shard.appendMembership(1, new Membership(List.of("a"), List.of()));
+            Thread.sleep(1_100);
+            appendAll(shard, 1, 2, 2);
+            Thread.sleep(2_100);
+            appendAll(shard, 1, 4, 1);
+            assertEquals(2, shard.retainedFrom());
+
+            assertEquals(0, shard.deleteBefore(2).offset());
+            // Written again, the change no longer holds the old segments back
+            shard.appendMembership(1, new Membership(List.of("a"), List.of()));
+            assertEquals(2, shard.deleteBefore(2).offset());
+            assertEquals(5, shard.latestMembership().offset());
+        }
+    }
+
+    @Test
+    public void aCopyEndingBeforeTheOwnersStartStartsOverThereAndKeepsItAfterAReopen() {
+        Path shardDirectory = directory.resolve("0");
+        try (ShardLog copy = new ShardLog(shardDirectory, PROPERTIES)) {
+            appendAll(copy, 1, 0, 3);
+
+            // The owner deleted everything before offset 100, the last deleted entry being of epoch 4
+            ReplicationResult result = copy.replicate(new ReplicationBatch(5, 99, 4, 100, 102, List.of(entry(100, 5), entry(101, 5))));
+
+            assertEquals(ReplicationStatus.ACCEPTED, result.status());
+            assertEquals(new LogStart(100, 4), copy.start());
+            assertEquals(List.of(5L, 5L), epochs(copy.read(100, 10, Long.MAX_VALUE)));
+        }
+        try (ShardLog reopened = new ShardLog(shardDirectory, PROPERTIES)) {
+            assertEquals(new LogStart(100, 4), reopened.start());
+            assertEquals(102, reopened.nextOffset());
+            // A batch continuing from the deleted entry before the start is checked against its epoch
+            assertEquals(ReplicationStatus.ACCEPTED,
+                         reopened.replicate(new ReplicationBatch(5, 101, 5, 100, 103, List.of(entry(102, 5)))).status());
+        }
+    }
+
+    @Test
+    public void aCopyThatDiffersFromTheOwnerAtItsStartStartsOverThere() {
+        try (ShardLog copy = new ShardLog(directory.resolve("0"), PROPERTIES)) {
+            appendAll(copy, 1, 0, 3);
+            appendAll(copy, 2, 3, 3);
+
+            // The owner's entries from offset 4 on are of epoch 3, and its entry at 3 was of epoch 1
+            ReplicationResult result = copy.replicate(new ReplicationBatch(3, 3, 1, 4, 5, List.of(entry(4, 3))));
+
+            assertEquals(ReplicationStatus.ACCEPTED, result.status());
+            assertEquals(new LogStart(4, 1), copy.start());
+            assertEquals(5, copy.nextOffset());
+        }
+    }
+
+    @Test
+    public void aFollowerDeletesItsSegmentsThatEndByTheOwnersStart() throws Exception {
+        QueueProperties twoSeconds = new QueueProperties().setRetentionPeriod(Duration.ofSeconds(2));
+        try (ShardLog follower = new ShardLog(directory.resolve("0"), twoSeconds)) {
+            follower.replicate(new ReplicationBatch(1, -1, -1, 0, 3, List.of(entry(0, 1), entry(1, 1), entry(2, 1))));
+            Thread.sleep(1_100);
+            follower.replicate(new ReplicationBatch(1, 2, 1, 0, 6, List.of(entry(3, 1), entry(4, 1), entry(5, 1))));
+
+            // The owner deleted its entries before offset 4, which ends no segment of the follower past offset 3
+            follower.replicate(new ReplicationBatch(1, 5, 1, 4, 7, List.of(entry(6, 1))));
+
+            assertEquals(new LogStart(3, 1), follower.start());
         }
     }
 

@@ -38,6 +38,7 @@ final class ShardSegment implements AutoCloseable {
 
     private final Path directory;
     private final long startOffset;
+    private final long createdMillis;
     // Chronicle sequence numbers are dense within a roll cycle and so are offsets, so an offset's queue index is
     // its cycle plus its distance from the first offset written in that cycle. Keyed by that first offset.
     private final ConcurrentSkipListMap<Long, Integer> cycleByFirstOffset = new ConcurrentSkipListMap<>();
@@ -52,10 +53,13 @@ final class ShardSegment implements AutoCloseable {
     private boolean newCycleWritten;
     private volatile long nextOffset;
     private volatile long sealedEnd = -1;
+    private volatile long bytes;
 
-    private ShardSegment(Path directory, long startOffset) {
+    private ShardSegment(Path directory, long startOffset, long createdMillis, long bytes) {
         this.directory = directory;
         this.startOffset = startOffset;
+        this.createdMillis = createdMillis;
+        this.bytes = bytes;
         this.queue = SingleChronicleQueueBuilder.binary(directory)
                                                 .rollCycle(RollCycles.FAST_DAILY)
                                                 .timeProvider(() -> latestTime.accumulateAndGet(System.currentTimeMillis(), Math::max))
@@ -72,11 +76,13 @@ final class ShardSegment implements AutoCloseable {
     /**
      * Opens the segment stored in {@code directory}, creating it empty when there is none.
      *
-     * @param sealedEnd the offset the segment was sealed at, or -1 when it is open for writes; a sealed segment ends
-     *                  at the end of the entries on disk when they end before it
+     * @param sealedEnd     the offset the segment was sealed at, or -1 when it is open for writes; a sealed segment
+     *                      ends at the end of the entries on disk when they end before it
+     * @param createdMillis when the segment was created, in epoch milliseconds
+     * @param bytes         the size of the entries written to the segment so far, as last recorded
      */
-    static ShardSegment open(Path directory, long startOffset, long sealedEnd) {
-        ShardSegment ret = new ShardSegment(directory, startOffset);
+    static ShardSegment open(Path directory, long startOffset, long sealedEnd, long createdMillis, long bytes) {
+        ShardSegment ret = new ShardSegment(directory, startOffset, createdMillis, bytes);
         // Entries a crash lost before reaching the disk may have been sealed in the manifest, which is always forced
         ret.sealedEnd = sealedEnd >= 0 ? Math.min(sealedEnd, ret.nextOffset) : -1;
         return ret;
@@ -103,6 +109,22 @@ final class ShardSegment implements AutoCloseable {
 
     boolean isSealed() {
         return sealedEnd >= 0;
+    }
+
+    /**
+     * @return when the segment was created, in epoch milliseconds; every entry of the segment before it was written
+     * after this
+     */
+    long createdMillis() {
+        return createdMillis;
+    }
+
+    /**
+     * @return about how many bytes the segment's entries take: the {@link ShardEntry#size sizes} of the entries written
+     * to it, counting ones past its sealed end
+     */
+    long bytes() {
+        return bytes;
     }
 
     /**
@@ -146,6 +168,7 @@ final class ShardSegment implements AutoCloseable {
             newCycleWritten = true;
         }
         unsyncedFiles.add(appender.currentFile());
+        this.bytes += entry.size();
         // Written after the cycle map so a reader that sees the new offset also finds its cycle
         nextOffset = entry.offset() + 1;
     }

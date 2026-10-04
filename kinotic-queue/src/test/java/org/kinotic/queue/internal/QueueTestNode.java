@@ -26,6 +26,7 @@ import org.springframework.core.env.MapPropertySource;
 
 import java.lang.reflect.Constructor;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -56,6 +57,13 @@ public final class QueueTestNode implements AutoCloseable {
     }
 
     public static QueueTestNode start(String name, Path dataDirectory, int replicationFactor) throws Exception {
+        return start(name, dataDirectory, replicationFactor, Map.of());
+    }
+
+    /**
+     * @param properties further {@code kinotic.queue} settings, by property name
+     */
+    public static QueueTestNode start(String name, Path dataDirectory, int replicationFactor, Map<String, Object> properties) throws Exception {
         IgniteConfiguration configuration = new IgniteConfiguration()
                 .setIgniteInstanceName(name)
                 // Placement follows the consistent id, so a node restarted under the same name holds the same shards
@@ -87,10 +95,10 @@ public final class QueueTestNode implements AutoCloseable {
         NetworkFaults networkFaults = new NetworkFaults();
         networkFaults.install(vertx);
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
-        context.getEnvironment()
-               .getPropertySources()
-               .addFirst(new MapPropertySource("queue", Map.of("kinotic.queue.dataDirectory", dataDirectory.toString(),
-                                                               "kinotic.queue.replicationFactor", replicationFactor)));
+        Map<String, Object> settings = new HashMap<>(properties);
+        settings.put("kinotic.queue.dataDirectory", dataDirectory.toString());
+        settings.put("kinotic.queue.replicationFactor", replicationFactor);
+        context.getEnvironment().getPropertySources().addFirst(new MapPropertySource("queue", settings));
         context.registerBean(Ignite.class, () -> ignite);
         context.registerBean(Vertx.class, () -> vertx);
         context.register(KinoticQueueLibrary.class);

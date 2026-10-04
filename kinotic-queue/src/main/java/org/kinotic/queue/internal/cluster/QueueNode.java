@@ -149,7 +149,7 @@ public class QueueNode {
      */
     public QueueLog localLog(QueueDefinition definition) {
         return logs.computeIfAbsent(definition.name(), name -> QueueLog.openOrCreate(queueDirectory(name), definition,
-                                                                                    properties.getQueue().isSyncWrites()));
+                                                                                    properties.getQueue()));
     }
 
     private void onAppend(Message<Buffer> message) {
@@ -205,11 +205,7 @@ public class QueueNode {
         reply(message, vertx.executeBlocking(() -> {
             ReplicateRequest request = ReplicateRequest.fromBuffer(message.body());
             QueueLog queueLog = localLog(requireDefinition(request.queue()));
-            ReplicationResult result = queueLog.shard(request.shard()).replicate(request.epoch(),
-                                                                                    request.prevOffset(),
-                                                                                    request.prevEpoch(),
-                                                                                    request.ownerNextOffset(),
-                                                                                    request.entries());
+            ReplicationResult result = queueLog.shard(request.shard()).replicate(request.batch());
             if (result.status() != ReplicationStatus.STALE_EPOCH) {
                 queueLog.consumerOffsets().saveAll(request.shard(), request.consumerOffsets());
                 queueLog.groupOffsets().saveAll(request.shard(), request.groupOffsets());

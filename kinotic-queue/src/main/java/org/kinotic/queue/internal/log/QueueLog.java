@@ -1,6 +1,7 @@
 package org.kinotic.queue.internal.log;
 
 import net.openhft.hashing.LongHashFunction;
+import org.kinotic.queue.api.config.QueueProperties;
 import org.kinotic.queue.api.model.QueueDefinition;
 
 import java.io.IOException;
@@ -25,18 +26,18 @@ public final class QueueLog implements AutoCloseable {
 
     private final Path directory;
     private final QueueDefinition definition;
-    private final boolean syncWrites;
+    private final QueueProperties properties;
     private final ShardLog[] shards;
     private final ConsumerOffsetRepository consumerOffsets;
     private final ConsumerOffsetRepository groupOffsets;
 
-    private QueueLog(Path directory, QueueDefinition definition, boolean syncWrites) {
+    private QueueLog(Path directory, QueueDefinition definition, QueueProperties properties) {
         this.directory = directory;
         this.definition = definition;
-        this.syncWrites = syncWrites;
+        this.properties = properties;
         this.shards = new ShardLog[definition.shardCount()];
-        this.consumerOffsets = new ConsumerOffsetRepository(directory.resolve("consumers"), definition.shardCount(), syncWrites);
-        this.groupOffsets = new ConsumerOffsetRepository(directory.resolve("groups"), definition.shardCount(), syncWrites);
+        this.consumerOffsets = new ConsumerOffsetRepository(directory.resolve("consumers"), definition.shardCount(), properties.isSyncWrites());
+        this.groupOffsets = new ConsumerOffsetRepository(directory.resolve("groups"), definition.shardCount(), properties.isSyncWrites());
     }
 
     /**
@@ -59,10 +60,10 @@ public final class QueueLog implements AutoCloseable {
     /**
      * Opens the queue stored in {@code directory}, storing {@code definition} there when the directory holds none.
      *
-     * @param syncWrites whether the queue's shards force each write to disk before acknowledging it
+     * @param properties the queue storage settings the shards follow
      * @throws IllegalStateException when the directory holds the queue with a different shard count
      */
-    public static QueueLog openOrCreate(Path directory, QueueDefinition definition, boolean syncWrites) {
+    public static QueueLog openOrCreate(Path directory, QueueDefinition definition, QueueProperties properties) {
         QueueDefinition stored = findDefinition(directory);
         if (stored != null && stored.shardCount() != definition.shardCount()) {
             throw new IllegalStateException(directory + " holds queue " + definition.name() + " with " + stored.shardCount()
@@ -71,7 +72,7 @@ public final class QueueLog implements AutoCloseable {
         if (stored == null) {
             ShardLog.writeDurably(directory.resolve(SHARD_COUNT_FILE), String.valueOf(definition.shardCount()));
         }
-        return new QueueLog(directory, definition, syncWrites);
+        return new QueueLog(directory, definition, properties);
     }
 
     /**
@@ -126,7 +127,7 @@ public final class QueueLog implements AutoCloseable {
      */
     public synchronized ShardLog shard(int shard) {
         if (shards[shard] == null) {
-            shards[shard] = new ShardLog(shardDirectory(shard), syncWrites);
+            shards[shard] = new ShardLog(shardDirectory(shard), properties);
         }
         return shards[shard];
     }

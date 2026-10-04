@@ -5,6 +5,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.kinotic.queue.api.config.QueueProperties;
 import org.kinotic.queue.internal.QueueTestNode;
 import org.kinotic.queue.internal.log.Membership;
 import org.kinotic.queue.internal.log.ShardLog;
@@ -73,7 +74,7 @@ public class ShardMembershipTests {
     }
 
     private ShardLog shardLogCounting(Membership voting) {
-        ShardLog ret = new ShardLog(directory.resolve("0"), true);
+        ShardLog ret = new ShardLog(directory.resolve("0"), new QueueProperties());
         ret.appendMembership(1, voting);
         return ret;
     }

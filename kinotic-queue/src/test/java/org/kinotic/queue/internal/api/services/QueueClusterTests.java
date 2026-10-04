@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -120,6 +121,32 @@ public class QueueClusterTests {
             }
             await(subscriber.close());
         }
+    }
+
+    @Test
+    public void anOwnerCutOffFromItsCopiesStepsDownAndServesAgainOnceReachable() throws Exception {
+        QueueTestNode a = start("a");
+        QueueTestNode b = start("b");
+        QueueTestNode c = start("c");
+        await(a.queueService().createQueueIfNotExist(new QueueDefinition(QUEUE, 1)));
+        appendThrough(List.of(a), 0, 10);
+        String ownerId = a.placement().replicas(QUEUE, 0).getFirst();
+        QueueTestNode owner = Stream.of(a, b, c).filter(node -> node.placement().localNodeId().equals(ownerId)).findFirst().orElseThrow();
+        TestSubscriber subscriber = TestSubscriber.subscribe(owner.vertx(), owner.queueService(), QUEUE, "billing", StartPosition.EARLIEST);
+        for (int i = 0; i < 10; i++) {
+            subscriber.next();
+        }
+
+        // The owner still reaches itself, so only stepping down stops it serving its shard's committed records
+        owner.networkFaults().cutOffFrom(Stream.of(a, b, c).filter(node -> node != owner).map(node -> node.placement().localNodeId())
+                                               .collect(Collectors.toSet()));
+        Throwable failure = subscriber.pollFailure(90_000);
+        assertNotNull(failure, "the cut-off owner kept serving its shard");
+
+        owner.networkFaults().heal();
+        await(owner.queueService().append(QUEUE, "customer-0", payload(10)));
+        assertEquals(10, value(subscriber.next()));
+        await(subscriber.close());
     }
 
     @Test

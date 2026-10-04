@@ -3,6 +3,7 @@ package org.kinotic.queue.internal;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.DeliveryContext;
 
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -13,6 +14,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class NetworkFaults {
 
     private volatile boolean isolated;
+    private volatile Set<String> unreachable = Set.of();
     private volatile double dropRate;
     private volatile long maxDelayMillis;
 
@@ -21,6 +23,14 @@ public final class NetworkFaults {
      */
     public void isolate() {
         isolated = true;
+    }
+
+    /**
+     * Drops every queue request the node sends to the queue nodes with the ids, while its other messages, its own
+     * requests to itself among them, still flow.
+     */
+    public void cutOffFrom(Set<String> nodeIds) {
+        unreachable = Set.copyOf(nodeIds);
     }
 
     /**
@@ -36,13 +46,16 @@ public final class NetworkFaults {
      */
     public void heal() {
         isolated = false;
+        unreachable = Set.of();
         dropRate = 0;
         maxDelayMillis = 0;
     }
 
     void install(Vertx vertx) {
         vertx.eventBus().addOutboundInterceptor(delivery -> {
-            if (!isolated) {
+            String address = delivery.message().address();
+            // Queue nodes receive requests on addresses named after their node id
+            if (!isolated && unreachable.stream().noneMatch(nodeId -> address.startsWith("kinotic.queue." + nodeId + "."))) {
                 delivery.next();
             }
         });

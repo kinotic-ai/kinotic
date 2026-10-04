@@ -89,18 +89,33 @@ final class ShardMembership {
                 next = new Membership(latest.membership().voting(), placed);
             }
             if (next != null) {
-                appending = true;
-                Membership change = next;
-                append.apply(change).onComplete(ar -> {
-                    appending = false;
-                    if (ar.succeeded()) {
-                        log.info("Shard {} counts copies {} at offset {}", shardLog, change, ar.result());
-                    } else {
-                        log.warn("Appending membership {} to shard {} failed", change, shardLog, ar.cause());
-                    }
-                });
+                appendChange(next);
             }
         }
+    }
+
+    /**
+     * Appends the latest membership change again when it sits among the entries before {@code retainedFrom}, so the
+     * shard can delete them: deleting never deletes the latest change.
+     */
+    void rewriteBefore(long retainedFrom) {
+        ShardEntry latest = shardLog.latestMembership();
+        if (!appending && latest != null && latest.offset() < retainedFrom) {
+            appendChange(latest.membership());
+        }
+    }
+
+    // One change at a time, so a change written again never lands after a newer one
+    private void appendChange(Membership change) {
+        appending = true;
+        append.apply(change).onComplete(ar -> {
+            appending = false;
+            if (ar.succeeded()) {
+                log.info("Shard {} counts copies {} at offset {}", shardLog, change, ar.result());
+            } else {
+                log.warn("Appending membership {} to shard {} failed", change, shardLog, ar.cause());
+            }
+        });
     }
 
     // The progress a majority of the copies has reached, counting a set smaller than the replication factor as that

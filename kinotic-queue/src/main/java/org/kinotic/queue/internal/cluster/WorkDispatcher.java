@@ -26,7 +26,8 @@ import java.util.function.Supplier;
  * Shares one shard's committed records between the workers of one group, on the shard's owner. Each record is leased
  * to one worker at a time; a record whose lease expires or is released goes back to the group, and a record rejected,
  * or leased {@link #MAX_DELIVERIES} times without being accepted, is done once it is in the group's dead-letter queue.
- * A lease a closing worker returns unseen does not count.
+ * A lease a closing worker returns unseen does not count. Records the retention deletes before the group finishes them
+ * are skipped.
  * The group's low watermark, the offset before which
  * every record is done, is stored in the queue's group offsets and copied to a majority of the shard's copies, so the
  * shard's next owner resumes the group from it. A lease can be renewed while its worker still processes the record.
@@ -130,6 +131,7 @@ final class WorkDispatcher {
      */
     Future<LeaseResponse> lease(String workerId, int max, long leaseMillis) {
         lastRequest = System.currentTimeMillis();
+        skipDeleted();
         Future<LeaseResponse> ret;
         if (hasLeasable()) {
             ret = leaseNow(workerId, max, leaseMillis);
@@ -212,6 +214,25 @@ final class WorkDispatcher {
         QueueFailureException notOwner = QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue + " changed owner");
         pendingLeases.forEach(pending -> pending.promise().tryFail(notOwner));
         pendingLeases.clear();
+    }
+
+    // Records the retention deleted are gone for the group too, so its position moves up to the shard's start
+    private void skipDeleted() {
+        long start = shardLog.start().offset();
+        if (lowWatermark < start) {
+            leased.headMap(start).values().forEach(lease -> vertx.cancelTimer(lease.timerId()));
+            leased.headMap(start).clear();
+            released.headMap(start).clear();
+            done.headSet(start).clear();
+            log.warn("Group {} had not finished offsets {} to {} of shard {} of queue {}, which the retention deleted",
+                     groupName, lowWatermark, start, shard, queue);
+            lowWatermark = start;
+            while (done.remove(lowWatermark)) {
+                lowWatermark++;
+            }
+            nextToLease = Math.max(nextToLease, lowWatermark);
+            saveLowWatermark();
+        }
     }
 
     private boolean hasLeasable() {
