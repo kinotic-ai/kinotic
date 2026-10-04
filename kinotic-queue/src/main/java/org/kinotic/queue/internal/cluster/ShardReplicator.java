@@ -33,18 +33,19 @@ final class ShardReplicator {
     private final ConsumerOffsetRepository consumerOffsets;
     private final ConsumerOffsetRepository groupOffsets;
     private final long epoch;
-    private final Runnable onMatched;
+    private final Runnable onProgress;
     private final Runnable onStaleEpoch;
 
     private long nextToSend;
     private long matchedOffset;
-    private long sentOffsetsVersion = -1;
+    private long replicatedOffsetsVersion = -1;
     private boolean inFlight;
+    private boolean changedWhileInFlight;
     private boolean stopped;
     private long retryTimer = -1;
 
     /**
-     * @param onMatched    called when the follower holds more of the shard than before
+     * @param onProgress   called when the follower holds more of the shard, or newer offsets, than before
      * @param onStaleEpoch called when the follower has promised a newer owner
      */
     ShardReplicator(Vertx vertx,
@@ -56,7 +57,7 @@ final class ShardReplicator {
                     ConsumerOffsetRepository consumerOffsets,
                     ConsumerOffsetRepository groupOffsets,
                     long epoch,
-                    Runnable onMatched,
+                    Runnable onProgress,
                     Runnable onStaleEpoch) {
         this.vertx = vertx;
         this.client = client;
@@ -67,7 +68,7 @@ final class ShardReplicator {
         this.consumerOffsets = consumerOffsets;
         this.groupOffsets = groupOffsets;
         this.epoch = epoch;
-        this.onMatched = onMatched;
+        this.onProgress = onProgress;
         this.onStaleEpoch = onStaleEpoch;
         this.nextToSend = shardLog.nextOffset();
     }
@@ -77,10 +78,21 @@ final class ShardReplicator {
     }
 
     /**
-     * Sends the owner's new entries unless a batch is already on its way or waiting to be retried.
+     * The version of the owner's consumer and group offsets for the shard, which grows whenever either changes.
      */
-    void notifyAppended() {
-        if (retryTimer < 0) {
+    static long offsetsVersion(ConsumerOffsetRepository consumerOffsets, ConsumerOffsetRepository groupOffsets, int shard) {
+        // Both versions only grow, so their sum grows whenever either repository changes
+        return consumerOffsets.version(shard) + groupOffsets.version(shard);
+    }
+
+    /**
+     * Sends the owner's new entries and offsets, once the batch on its way is answered or right away when none is,
+     * unless a batch is waiting to be retried.
+     */
+    void notifyChanged() {
+        if (inFlight) {
+            changedWhileInFlight = true;
+        } else if (retryTimer < 0) {
             send();
         }
     }
@@ -90,6 +102,13 @@ final class ShardReplicator {
      */
     long matchedOffset() {
         return matchedOffset;
+    }
+
+    /**
+     * @return the {@link #offsetsVersion} of the owner's offsets the follower holds
+     */
+    long replicatedOffsetsVersion() {
+        return replicatedOffsetsVersion;
     }
 
     void stop() {
@@ -106,9 +125,8 @@ final class ShardReplicator {
             long from = Math.min(nextToSend, shardLog.nextOffset());
             long[] offsetsVersion = new long[1];
             vertx.executeBlocking(() -> {
-                     // Both versions only grow, so their sum grows whenever either repository changes
-                     offsetsVersion[0] = consumerOffsets.version(shard) + groupOffsets.version(shard);
-                     boolean changed = offsetsVersion[0] > sentOffsetsVersion;
+                     offsetsVersion[0] = offsetsVersion(consumerOffsets, groupOffsets, shard);
+                     boolean changed = offsetsVersion[0] > replicatedOffsetsVersion;
                      return batch(from,
                                   changed ? consumerOffsets.findAll(shard) : Map.of(),
                                   changed ? groupOffsets.findAll(shard) : Map.of());
@@ -134,6 +152,8 @@ final class ShardReplicator {
 
     private void onReply(AsyncResult<ReplicationResult> reply, long offsetsVersion) {
         inFlight = false;
+        boolean changed = changedWhileInFlight;
+        changedWhileInFlight = false;
         if (stopped) {
             return;
         }
@@ -147,20 +167,25 @@ final class ShardReplicator {
             ReplicationResult result = reply.result();
             switch (result.status()) {
                 case ACCEPTED -> {
-                    sentOffsetsVersion = offsetsVersion;
+                    boolean progressed = offsetsVersion > replicatedOffsetsVersion || result.nextOffset() > matchedOffset;
+                    replicatedOffsetsVersion = offsetsVersion;
                     nextToSend = result.nextOffset();
-                    if (result.nextOffset() > matchedOffset) {
-                        matchedOffset = result.nextOffset();
-                        onMatched.run();
+                    matchedOffset = Math.max(matchedOffset, result.nextOffset());
+                    if (progressed) {
+                        onProgress.run();
                     }
-                    if (nextToSend < shardLog.nextOffset()) {
+                    if (changed || nextToSend < shardLog.nextOffset()) {
                         send();
                     }
                 }
                 case MISMATCH -> {
-                    sentOffsetsVersion = offsetsVersion;
+                    boolean progressed = offsetsVersion > replicatedOffsetsVersion;
+                    replicatedOffsetsVersion = offsetsVersion;
                     nextToSend = result.nextOffset();
                     matchedOffset = Math.min(matchedOffset, result.nextOffset());
+                    if (progressed) {
+                        onProgress.run();
+                    }
                     send();
                 }
                 case STALE_EPOCH -> onStaleEpoch.run();

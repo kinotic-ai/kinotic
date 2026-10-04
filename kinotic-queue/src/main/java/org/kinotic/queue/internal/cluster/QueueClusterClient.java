@@ -42,7 +42,9 @@ public class QueueClusterClient {
     // An owner holds a fetch up to ShardOwner.FETCH_WAIT_MS before answering, so its reply takes longer
     private static final long FETCH_TIMEOUT_MS = REQUEST_TIMEOUT_MS + ShardOwner.FETCH_WAIT_MS;
     // Longer than the owner waits for a majority, so the owner's answer arrives before the request gives up
-    private static final long APPEND_TIMEOUT_MS = 2 * REQUEST_TIMEOUT_MS;
+    private static final long APPEND_TIMEOUT_MS = 2 * ShardOwner.COMMIT_TIMEOUT_MS;
+    // Well inside the owner's commit timeout, so a lost batch is resent before the appends waiting on it give up
+    private static final long REPLICATE_TIMEOUT_MS = ShardOwner.COMMIT_TIMEOUT_MS / 3;
     // Long enough for a shard's next owner to be placed and recover after its owner leaves
     private static final long APPEND_DEADLINE_MS = 30_000;
     private static final long RETRY_DELAY_MS = 100;
@@ -155,7 +157,7 @@ public class QueueClusterClient {
     }
 
     public Future<ReplicationResult> replicate(String node, ReplicateRequest request) {
-        return request(node, QueueNode.REPLICATE, request.toBuffer(), REQUEST_TIMEOUT_MS).map(ReplicateRequest::decodeReply);
+        return request(node, QueueNode.REPLICATE, request.toBuffer(), REPLICATE_TIMEOUT_MS).map(ReplicateRequest::decodeReply);
     }
 
     /**

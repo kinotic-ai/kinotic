@@ -19,13 +19,15 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 
 /**
  * Shares one shard's committed records between the workers of one group, on the shard's owner. Each record is leased
  * to one worker at a time; a record whose lease expires or is released goes back to the group, and a record leased
  * {@link #MAX_DELIVERIES} times without being accepted is dropped. The group's low watermark, the offset before which
- * every record is done, is stored in the queue's group offsets, which travel with the shard. A lease can be renewed
- * while its worker still processes the record. Runs on the owner's context.
+ * every record is done, is stored in the queue's group offsets and copied to a majority of the shard's copies, so the
+ * shard's next owner resumes the group from it. A lease can be renewed while its worker still processes the record.
+ * Runs on the owner's context.
  */
 @Slf4j
 final class WorkDispatcher {
@@ -45,6 +47,7 @@ final class WorkDispatcher {
     private final ShardLog shardLog;
     private final ConsumerOffsetRepository groupOffsets;
     private final LongSupplier committedOffset;
+    private final Supplier<Future<Void>> replicateOffsets;
     private final TreeMap<Long, Lease> leased = new TreeMap<>();
     // Records waiting to be leased again, with how many times they have been leased
     private final TreeMap<Long, Integer> released = new TreeMap<>();
@@ -65,6 +68,7 @@ final class WorkDispatcher {
                            ShardLog shardLog,
                            ConsumerOffsetRepository groupOffsets,
                            LongSupplier committedOffset,
+                           Supplier<Future<Void>> replicateOffsets,
                            long lowWatermark) {
         this.vertx = vertx;
         this.queue = queue;
@@ -73,13 +77,17 @@ final class WorkDispatcher {
         this.shardLog = shardLog;
         this.groupOffsets = groupOffsets;
         this.committedOffset = committedOffset;
+        this.replicateOffsets = replicateOffsets;
         this.lowWatermark = lowWatermark;
         this.nextToLease = lowWatermark;
     }
 
     /**
      * Opens the group's dispatcher at the group's stored position, or at {@code startPosition} when it has none. A
-     * resolved latest position is stored at once, so a later owner starts the group from the same offset.
+     * resolved latest position is stored and replicated before the dispatcher opens, so a later owner starts the group
+     * from the same offset.
+     *
+     * @param replicateOffsets copies the shard's offsets to a majority of its copies
      */
     static Future<WorkDispatcher> open(Vertx vertx,
                                        String queue,
@@ -88,17 +96,20 @@ final class WorkDispatcher {
                                        ShardLog shardLog,
                                        ConsumerOffsetRepository groupOffsets,
                                        LongSupplier committedOffset,
+                                       Supplier<Future<Void>> replicateOffsets,
                                        StartPosition startPosition) {
         long latest = committedOffset.getAsLong();
         return vertx.executeBlocking(() -> {
-            long stored = groupOffsets.findNextOffset(groupName, shard);
-            long ret = stored;
-            if (stored == 0 && startPosition == StartPosition.LATEST) {
-                ret = latest;
-                groupOffsets.save(groupName, shard, latest);
-            }
-            return new WorkDispatcher(vertx, queue, shard, groupName, shardLog, groupOffsets, committedOffset, ret);
-        }, false);
+                        long stored = groupOffsets.findNextOffset(groupName, shard);
+                        long ret = stored;
+                        if (stored == 0 && startPosition == StartPosition.LATEST) {
+                            ret = latest;
+                            groupOffsets.save(groupName, shard, latest);
+                        }
+                        return ret;
+                    }, false)
+                    .compose(position -> replicateOffsets.get().map(new WorkDispatcher(vertx, queue, shard, groupName, shardLog, groupOffsets,
+                                                                                       committedOffset, replicateOffsets, position)));
     }
 
     /**
@@ -125,8 +136,8 @@ final class WorkDispatcher {
     /**
      * Applies what the worker did with a record leased to it.
      *
-     * @return completes once the group's position on this node covers every record done up to it; fails with
-     * {@link QueueFailure#LEASE_EXPIRED} when the record is not leased to the worker
+     * @return completes once the group's position on a majority of the shard's copies covers every record done up to
+     * it; fails with {@link QueueFailure#LEASE_EXPIRED} when the record is not leased to the worker
      */
     Future<Void> settle(String workerId, Settlement settlement, long offset) {
         Lease lease = leased.get(offset);
@@ -266,7 +277,7 @@ final class WorkDispatcher {
         }
     }
 
-    // Returns the save of the advanced watermark, or a completed future when the record is past a record not yet done
+    // Returns the replication of the advanced watermark, or a completed future when the record is past a record not yet done
     private Future<Void> markDone(long offset) {
         done.add(offset);
         long before = lowWatermark;
@@ -288,6 +299,6 @@ final class WorkDispatcher {
             return null;
         }, false));
         lastSave.onFailure(e -> log.warn("Saving the position of group {} on shard {} of queue {} failed", groupName, shard, queue, e));
-        return lastSave;
+        return lastSave.compose(v -> replicateOffsets.get());
     }
 }

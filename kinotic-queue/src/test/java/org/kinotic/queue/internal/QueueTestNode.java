@@ -37,13 +37,21 @@ import java.util.concurrent.TimeUnit;
 public final class QueueTestNode implements AutoCloseable {
 
     private final String name;
+    private final Path dataDirectory;
     private final Vertx vertx;
     private final AnnotationConfigApplicationContext context;
+    private final NetworkFaults networkFaults;
 
-    private QueueTestNode(String name, Vertx vertx, AnnotationConfigApplicationContext context) {
+    private QueueTestNode(String name,
+                          Path dataDirectory,
+                          Vertx vertx,
+                          AnnotationConfigApplicationContext context,
+                          NetworkFaults networkFaults) {
         this.name = name;
+        this.dataDirectory = dataDirectory;
         this.vertx = vertx;
         this.context = context;
+        this.networkFaults = networkFaults;
     }
 
     public static QueueTestNode start(String name, Path dataDirectory, int replicationFactor) throws Exception {
@@ -72,6 +80,8 @@ public final class QueueTestNode implements AutoCloseable {
                            .withClusterManager(new IgniteClusterManager(ignite))
                            .buildClustered()
                            .toCompletionStage().toCompletableFuture().get(2, TimeUnit.MINUTES);
+        NetworkFaults networkFaults = new NetworkFaults();
+        networkFaults.install(vertx);
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
         context.getEnvironment()
                .getPropertySources()
@@ -81,7 +91,7 @@ public final class QueueTestNode implements AutoCloseable {
         context.registerBean(Vertx.class, () -> vertx);
         context.register(KinoticQueueLibrary.class);
         context.refresh();
-        return new QueueTestNode(name, vertx, context);
+        return new QueueTestNode(name, dataDirectory, vertx, context, networkFaults);
     }
 
     /**
@@ -108,10 +118,36 @@ public final class QueueTestNode implements AutoCloseable {
         return vertx;
     }
 
+    public String name() {
+        return name;
+    }
+
+    public Path dataDirectory() {
+        return dataDirectory;
+    }
+
+    public NetworkFaults networkFaults() {
+        return networkFaults;
+    }
+
+    /**
+     * Stops the node gracefully: it stops owning its shards and leaves the cluster.
+     */
     @Override
     public void close() throws Exception {
         context.close();
         vertx.close().toCompletionStage().toCompletableFuture().get(1, TimeUnit.MINUTES);
         Ignition.stop(name, true);
+    }
+
+    /**
+     * Stops the node as a dying process does: it goes silent at once, and the cluster sees it vanish without it
+     * handing anything over. Files stay as they were on disk; the node's queue files are left open, as a process that
+     * died leaves nothing to close them.
+     */
+    public void crash() throws Exception {
+        networkFaults.isolate();
+        Ignition.stop(name, true);
+        vertx.close().otherwiseEmpty().toCompletionStage().toCompletableFuture().get(1, TimeUnit.MINUTES);
     }
 }

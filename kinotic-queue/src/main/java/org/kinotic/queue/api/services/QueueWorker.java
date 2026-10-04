@@ -15,9 +15,9 @@ public interface QueueWorker extends ReadStream<WorkItem> {
     /**
      * Marks the item as done, so the group never receives it again.
      *
-     * @return completes once the shard's owner has stored the group's progress past the item, or has noted the item
-     * as done while an earlier record is still out; fails when the item's lease has expired, since the item may then
-     * be leased to another worker
+     * @return completes once a majority of the shard's copies has stored the group's progress past the item, or the
+     * shard's owner has noted the item as done while an earlier record is still out; fails when the item's lease has
+     * expired, since the item may then be leased to another worker
      */
     Future<Void> accept(WorkItem item);
 
