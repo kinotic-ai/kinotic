@@ -9,6 +9,7 @@ import dev.openfga.sdk.api.model.CheckRequest;
 import dev.openfga.sdk.api.model.CheckResponse;
 import dev.openfga.sdk.api.model.CreateStoreRequest;
 import dev.openfga.sdk.api.model.CreateStoreResponse;
+import dev.openfga.sdk.api.model.GetStoreResponse;
 import dev.openfga.sdk.api.model.ListObjectsRequest;
 import dev.openfga.sdk.api.model.ListObjectsResponse;
 import dev.openfga.sdk.api.model.ListStoresResponse;
@@ -70,6 +71,18 @@ public class OpenFgaService {
 
     public Future<ListStoresResponse> listStores(int pageSize, String continuationToken, String name) {
         return call(() -> api.listStores(pageSize, continuationToken, name));
+    }
+
+    public Future<Void> deleteStore(String storeId) {
+        return call(() -> api.deleteStore(storeId)).mapEmpty();
+    }
+
+    /**
+     * The store of the id, failing with the engine's not-found error for one deleted: the one call the engine
+     * refuses for a deleted store, whose tuples and models it keeps answering for.
+     */
+    public Future<GetStoreResponse> getStore(String storeId) {
+        return call(() -> api.getStore(storeId));
     }
 
     public Future<ReadAuthorizationModelsResponse> readAuthorizationModels(String storeId, int pageSize, String continuationToken) {

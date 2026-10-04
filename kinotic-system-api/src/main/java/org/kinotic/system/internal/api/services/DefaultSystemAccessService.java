@@ -88,10 +88,10 @@ public class DefaultSystemAccessService implements SystemAccessService {
         RelationshipTuple holds = new RelationshipTuple(userOf(subject), name, PLATFORM_OBJECT);
         return requireStaff(subject)
                 .compose(v -> findGrants())
-                .compose(grants -> stores.platformModelId().compose(modelId -> {
+                .compose(grants -> stores.modelId(PLATFORM).compose(modelId -> {
                     // an administrator asks after changing access, so the answer must not predate the change
                     Future<Boolean> allowed = relationships.check(PLATFORM, modelId, holds, Consistency.HIGHER_CONSISTENCY);
-                    List<Future<Boolean>> explains = grants.stream().map(grant -> explains(grant, subject, name)).toList();
+                    List<Future<Boolean>> explains = grants.stream().map(grant -> relationships.explains(PLATFORM, modelId, grant, subject, name)).toList();
                     return Future.all(explains).compose(results -> allowed.map(held -> {
                         List<Grant> through = new ArrayList<>();
                         for (int i = 0; i < grants.size(); i++) {
@@ -102,18 +102,6 @@ public class DefaultSystemAccessService implements SystemAccessService {
                         return new AccessExplanation(held, through);
                     }));
                 }));
-    }
-
-    // A grant explains the subject's permission when it was made to the subject and its role bundles the permission
-    private Future<Boolean> explains(Grant grant, Subject subject, String permission) {
-        Future<Boolean> ret;
-        if (grant.subject().equals(subject)) {
-            ret = relationships.holds(PLATFORM, new RelationshipTuple(AuthzUtil.EVERYONE, permission,
-                                                                      AuthzUtil.object(AuthzUtil.ROLE_TYPE, grant.roleId())));
-        } else {
-            ret = Future.succeededFuture(false);
-        }
-        return ret;
     }
 
     private Future<AuthzModel> model() {

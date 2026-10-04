@@ -67,8 +67,8 @@ public class PlatformModelSyncTests extends KinoticTestBase {
         AuthzModel expected = modelFromDirectory();
         assertTrue(awaitUntil(() -> reconciledTo(expected.hash())), "the platform store never reconciled to the directory's model");
 
-        String version = await(storeService.ensurePlatformModel(expected));
-        assertEquals(version, await(storeService.ensurePlatformModel(expected)),
+        String version = await(storeService.ensureModel(AuthzStoreService.PLATFORM, expected));
+        assertEquals(version, await(storeService.ensureModel(AuthzStoreService.PLATFORM, expected)),
                      "the engine runs the generated model, so ensuring it writes no new version");
     }
 

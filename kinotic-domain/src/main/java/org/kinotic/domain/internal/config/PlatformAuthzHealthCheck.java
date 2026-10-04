@@ -40,7 +40,7 @@ public class PlatformAuthzHealthCheck {
 
     // The model appears once the reconciler has written it, which may be after this server started; the poll ends there
     private void poll() {
-        stores.platformModelId()
+        stores.modelId(AuthzStoreService.PLATFORM)
               .onSuccess(modelId -> {
                   log.info("The platform store runs model {}; requests are authorized against it", modelId);
                   ready = true;

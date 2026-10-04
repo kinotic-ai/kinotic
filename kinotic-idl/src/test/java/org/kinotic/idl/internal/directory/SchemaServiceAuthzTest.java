@@ -16,6 +16,7 @@ import org.kinotic.idl.internal.support.authz.TestMemberService;
 import org.kinotic.idl.internal.support.authz.TestMisnamedRoleService;
 import org.kinotic.idl.internal.support.authz.TestMisreferencingService;
 import org.kinotic.idl.internal.support.authz.TestProjectService;
+import org.kinotic.idl.internal.support.authz.TestRowsService;
 import org.kinotic.idl.internal.support.authz.TestUnderivableService;
 import org.kinotic.idl.internal.support.authz.TestVmNodeService;
 import org.kinotic.idl.internal.support.authz.TestWorkloadService;
@@ -149,6 +150,19 @@ public class SchemaServiceAuthzTest {
         assertEquals("{id}", findById.getObjectId());
         assertEquals("{entityDefinitionId}", findById.getPermissionResource());
         assertEquals("can_view", findById.getPermission());
+    }
+
+    @Test
+    public void aServiceWhoseTypeEachRequestNamesIsCheckedOnTheCallersTenant() {
+        ServiceDefinition service = convert(TestRowsService.class);
+
+        assertEquals("{entityDefinitionId}", service.findDecorator(AuthzResourceC3Decorator.class).getResourceType());
+        AuthzCheckC3Decorator findById = check(service, "findById");
+        assertEquals("tenant", findById.getResource());
+        assertEquals("{@tenantId}", findById.getObjectId());
+        assertEquals("{entityDefinitionId}", findById.getPermissionResource());
+        assertEquals("can_read", findById.getPermission());
+        assertEquals("can_search", check(service, "count").getPermission());
     }
 
     @Test

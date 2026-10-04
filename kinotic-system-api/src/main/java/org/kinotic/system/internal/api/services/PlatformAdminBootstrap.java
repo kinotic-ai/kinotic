@@ -47,7 +47,7 @@ public class PlatformAdminBootstrap {
     }
 
     private void run() {
-        stores.platformModelId()
+        stores.modelId(PLATFORM)
               .compose(modelId -> administered())
               .compose(administered -> administered ? Future.succeededFuture(0) : bindStaff())
               .onSuccess(bound -> {

@@ -47,17 +47,23 @@ final class AuthzDecorators {
     /**
      * The resource decorator of a service, or null when the service declares no {@link AuthzResource}.
      *
-     * @throws IllegalStateException when the declared type, parent or permission is not an identifier, or a
-     *                               declared role is not named after the type or bundles nothing
+     * @throws IllegalStateException when the declared type is neither an identifier nor a template, the parent
+     *                               or permission is not an identifier, or a declared role is not named after
+     *                               the type, bundles nothing, or is declared for a type a request names
      */
     static AuthzResourceC3Decorator resourceOf(Class<?> serviceInterface) {
         AuthzResource resource = AnnotationUtils.findAnnotation(serviceInterface, AuthzResource.class);
         AuthzResourceC3Decorator ret = null;
         if (resource != null) {
-            if (!AuthzUtil.isIdentifier(resource.value())) {
+            if (!AuthzUtil.isIdentifier(resource.value()) && !AuthzUtil.isTemplate(resource.value())) {
                 throw new IllegalStateException("@AuthzResource on " + serviceInterface.getName()
                                                         + " names the type '" + resource.value()
-                                                        + "', which is not a lowercase identifier");
+                                                        + "', which is neither a lowercase identifier nor a template");
+            }
+            if (AuthzUtil.isTemplate(resource.value()) && resource.roles().length > 0) {
+                throw new IllegalStateException("@AuthzResource on " + serviceInterface.getName()
+                                                        + " declares roles of '" + resource.value()
+                                                        + "', a type each request names, which has none to declare");
             }
             if (!resource.parent().isEmpty() && !AuthzUtil.isIdentifier(resource.parent())) {
                 throw new IllegalStateException("@AuthzResource on " + serviceInterface.getName()

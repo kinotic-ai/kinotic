@@ -70,6 +70,13 @@ public abstract class AbstractReconcilableRepository<T extends Reconcilable<S>, 
     }
 
     /**
+     * @see ReconcileStateRepository#renewDesired(WatchedDocument, String)
+     */
+    public Future<Void> renewDesired(String id, String source) {
+        return reconcileStateRepository.renewDesired(document(id), source).mapEmpty();
+    }
+
+    /**
      * @see ReconcileStateRepository#requestDeletion(WatchedDocument, String)
      */
     public Future<Void> requestDeletion(String id, String source) {

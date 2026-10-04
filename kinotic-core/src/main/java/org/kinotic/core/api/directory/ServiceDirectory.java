@@ -41,6 +41,16 @@ public interface ServiceDirectory {
     Future<List<ServiceDefinition>> findSystemContracts();
 
     /**
+     * The converted contracts of one application's services, the ones registered in its scope, which the
+     * application's authorization model is generated from, as the directory holds them now. An entry registered
+     * without a contract, as a service published from outside the platform is, contributes nothing.
+     * @param organizationId the application's organization
+     * @param applicationId the application
+     * @return every contract of the application's entries
+     */
+    Future<List<ServiceDefinition>> findApplicationContracts(String organizationId, String applicationId);
+
+    /**
      * The entry of one service, by the id a registration gives it: the service's qualified name with its zone,
      * {@code <zone>~<namespace>.<Name>}.
      * @param entryId the entry's id

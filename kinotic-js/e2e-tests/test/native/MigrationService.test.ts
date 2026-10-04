@@ -125,7 +125,7 @@ describe('Kinotic JS', () => {
             expect(result.success).toBe(true)
 
             // The application's own user of that tenant finds the row the way it finds one it saved itself
-            const appKinotic = await initKinoticAppClient(APP_ID, APP_TENANT)
+            const appKinotic = await initKinoticAppClient(APP_ID, APP_TENANT, person.name)
             try {
                 const people: IEntityRepository<Person> = new EntityRepository(TEST_ORG_ID, APP_ID, person.name, new EntitiesRepository(appKinotic))
                 const grace = await people.findById('p-1')
@@ -202,7 +202,7 @@ describe('Kinotic JS', () => {
             expect(result.errorMessage).toBeFalsy()
             expect(result.success).toBe(true)
 
-            const appKinotic = await initKinoticAppClient(APP_ID, APP_TENANT)
+            const appKinotic = await initKinoticAppClient(APP_ID, APP_TENANT, person.name)
             try {
                 const people: IEntityRepository<Person> = new EntityRepository(TEST_ORG_ID, APP_ID, person.name, new EntitiesRepository(appKinotic))
                 const grace = await people.findById('p-1')

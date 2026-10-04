@@ -30,6 +30,9 @@ public final class AuthzUtil {
     public static final String ROLE_TYPE = "role";
     public static final String ROLE_BINDING_TYPE = "role_binding";
 
+    /** The type an entity definition is in the platform store, under its application. */
+    public static final String ENTITY_DEFINITION_TYPE = "entity_definition";
+
     /** The kernel types of the identity scopes, each contained in the one before it. */
     public static final String ORGANIZATION_TYPE = "organization";
     public static final String APPLICATION_TYPE = "application";

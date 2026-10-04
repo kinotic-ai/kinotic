@@ -10,6 +10,7 @@ import dev.openfga.sdk.api.model.ReadRequestTupleKey;
 import dev.openfga.sdk.api.model.Tuple;
 import dev.openfga.sdk.api.model.TupleKey;
 import dev.openfga.sdk.api.model.TupleKeyWithoutCondition;
+import dev.openfga.sdk.errors.FgaApiValidationError;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.authz.api.model.Consistency;
@@ -189,14 +190,46 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     @Override
+    public Future<Boolean> explains(String store, String modelId, Grant grant, Subject subject, String permission) {
+        Future<Boolean> bundled = holds(store, new RelationshipTuple(AuthzUtil.EVERYONE, permission,
+                                                                     AuthzUtil.object(AuthzUtil.ROLE_TYPE, grant.roleId())));
+        Future<Boolean> member;
+        if (grant.subject().equals(subject)) {
+            member = Future.succeededFuture(true);
+        } else if (grant.subject().kind() == SubjectKind.GROUP && subject.kind() == SubjectKind.USER) {
+            RelationshipTuple membership = new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, subject.id()),
+                                                                 AuthzUtil.MEMBER_RELATION,
+                                                                 AuthzUtil.object(AuthzUtil.GROUP_TYPE, grant.subject().id()));
+            // an admin asks after changing a group, so the answer must not predate the change
+            member = check(store, modelId, membership, Consistency.HIGHER_CONSISTENCY);
+        } else {
+            member = Future.succeededFuture(false);
+        }
+        return Future.all(bundled, member).map(both -> both.<Boolean>resultAt(0) && both.<Boolean>resultAt(1));
+    }
+
+    @Override
     public Future<Boolean> check(String store, String modelId, RelationshipTuple relationship, Consistency consistency) {
-        CheckRequest request = new CheckRequest()
-                .authorizationModelId(modelId)
-                .consistency(preference(consistency))
-                .tupleKey(new CheckRequestTupleKey()
-                                  .user(relationship.user())
-                                  .relation(relationship.relation())
-                                  ._object(relationship.object()));
+        CheckRequestTupleKey key = new CheckRequestTupleKey().user(relationship.user())
+                                                             .relation(relationship.relation())
+                                                             ._object(relationship.object());
+        return check(store, modelId, key, consistency).recover(e -> {
+            // the engine refuses a check for what it names: a version of the store deleted and re-created under its
+            // name since the caller read it, or a relation the version lacked when it was read and the newest has;
+            // the newest version is read and answers once, and refusing too, fails as itself
+            Future<Boolean> ret;
+            if (e instanceof FgaApiValidationError) {
+                ret = stores.refreshModelId(store)
+                            .compose(newest -> newest.equals(modelId) ? Future.failedFuture(e) : check(store, newest, key, consistency));
+            } else {
+                ret = Future.failedFuture(e);
+            }
+            return ret;
+        });
+    }
+
+    private Future<Boolean> check(String store, String modelId, CheckRequestTupleKey key, Consistency consistency) {
+        CheckRequest request = new CheckRequest().authorizationModelId(modelId).consistency(preference(consistency)).tupleKey(key);
         return stores.storeIdOf(store).compose(id -> fga.check(id, request)).map(CheckResponse::getAllowed);
     }
 

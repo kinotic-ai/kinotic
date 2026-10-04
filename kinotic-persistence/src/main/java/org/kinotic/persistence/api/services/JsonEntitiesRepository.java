@@ -9,6 +9,9 @@ import org.kinotic.persistence.api.model.QueryParameter;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
@@ -19,9 +22,15 @@ import java.util.List;
 /**
  * Provides access to entities for a given EntityDefinition.
  * Created by Nic Padilla 🤪on 6/18/23.
+ *
+ * Every function is checked on the caller's tenant, or on the application for a caller with none, for the
+ * permission of the definition's rows it needs: reading one needs {@code can_read}, listing, counting, querying
+ * and searching {@code can_search}, saving {@code can_create}, updating {@code can_edit} and deleting
+ * {@code can_delete}, each named for the definition, as {@code invoice_can_read} is.
  */
 @Publish
 @Zone(DomainUtil.APP_API_ZONE)
+@AuthzResource(value = "{entityDefinitionId}", parent = AuthzUtil.TENANT_TYPE)
 public interface JsonEntitiesRepository {
 
     /**
@@ -32,6 +41,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} that will complete when all entities have been saved
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_create")
     Future<Void> bulkSave(String entityDefinitionId, TokenBuffer entities, ScopedParticipant participant);
 
     /**
@@ -42,6 +52,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} that will complete when all entities have been saved
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_edit")
     Future<Void> bulkUpdate(String entityDefinitionId, TokenBuffer entities, ScopedParticipant participant);
 
     /**
@@ -51,6 +62,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the number of entities.
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_search")
     Future<Long> count(String entityDefinitionId, ScopedParticipant participant);
 
     /**
@@ -61,6 +73,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the number of entities.
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_search")
     Future<Long> countByQuery(String entityDefinitionId, String query, ScopedParticipant participant);
 
     /**
@@ -71,6 +84,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting when delete is complete
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_delete")
     Future<Void> deleteById(String entityDefinitionId, String id, ScopedParticipant participant);
 
     /**
@@ -81,6 +95,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting when delete is complete
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_delete")
     Future<Void> deleteByQuery(String entityDefinitionId, String query, ScopedParticipant participant);
 
     /**
@@ -91,6 +106,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a page of entities
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_search")
     Future<Page<FastestType>> findAll(String entityDefinitionId, Pageable pageable, ScopedParticipant participant);
 
     /**
@@ -101,6 +117,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} with the entity with the given id or {@link Future} emitting null if none found
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_read")
     Future<FastestType> findById(String entityDefinitionId, String id, ScopedParticipant participant);
 
     /**
@@ -111,6 +128,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} with the list of matched entities with the given ids or {@link Future} emitting an empty list if none found
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_read")
     Future<List<FastestType>> findByIds(String entityDefinitionId, List<String> ids, ScopedParticipant participant);
 
     /**
@@ -122,6 +140,7 @@ public interface JsonEntitiesRepository {
      * @param participant     the participant of the logged-in user
      * @return {@link Future} with the result of the query
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_search")
     Future<List<RawJson>> namedQuery(String entityDefinitionId,
                                      String queryName,
                                      List<QueryParameter> queryParameters,
@@ -137,6 +156,7 @@ public interface JsonEntitiesRepository {
      * @param participant     the participant of the logged-in user
      * @return {@link Future} with the result of the query
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_search")
     Future<Page<RawJson>> namedQueryPage(String entityDefinitionId,
                                          String queryName,
                                          List<QueryParameter> queryParameters,
@@ -152,6 +172,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the saved entity
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_create")
     Future<TokenBuffer> save(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant);
 
     /**
@@ -165,6 +186,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a {@link Future} of a page of entities
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_search")
     Future<Page<FastestType>> search(String entityDefinitionId, String searchText, Pageable pageable, ScopedParticipant participant);
 
     /**
@@ -173,6 +195,7 @@ public interface JsonEntitiesRepository {
      * @param participant     the participant of the logged-in user
      * @return a {@link Future} that will complete when the operation is complete
      */
+    @AuthzCheck(resource = AuthzUtil.APPLICATION_TYPE, objectId = "{@applicationId}", permission = "can_edit")
     Future<Void> syncIndex(String entityDefinitionId, ScopedParticipant participant);
 
     /**
@@ -185,6 +208,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the saved entity
      */
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_edit")
     Future<TokenBuffer> update(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant);
 
 }

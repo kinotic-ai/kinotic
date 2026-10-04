@@ -6,6 +6,7 @@ import dev.openfga.sdk.api.model.CreateStoreResponse;
 import dev.openfga.sdk.api.model.Store;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelRequest;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelResponse;
+import dev.openfga.sdk.errors.FgaError;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,8 +18,9 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
@@ -26,84 +28,85 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultAuthzStoreService implements AuthzStoreService {
 
     static final String PLATFORM_STORE_NAME = "kinotic-platform";
+    static final String APPLICATION_STORE_PREFIX = "kinotic-app-";
     // the SDK's model classes bind by their own wire names, so the application's mapper customizations stay
     // out of the conversion in both directions
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
+    // how long a store's engine id and newest model version are kept before the engine is asked again
+    static final long RETENTION_MILLIS = 30_000;
 
     private final OpenFgaService fga;
     private final KinoticAuthzProperties properties;
-    // kept once found, as a stage with no context of its own; a failed lookup is replaced by the next caller's
-    private volatile CompletableFuture<String> platformStore;
-    private static final long MODEL_VERSION_RETENTION_MILLIS = 30_000;
-    private volatile PlatformModelVersion platformModelVersion;
+    // each store's engine id, kept once found, as a stage with no context of its own; a failed lookup is
+    // replaced by the next caller's, and a kept id is confirmed with the engine once the retention has passed
+    private final Map<String, CompletableFuture<ResolvedStore>> storeIds = new ConcurrentHashMap<>();
+    // the newest model version of each engine store, by the engine's id so a store re-created under a name
+    // never answers with its predecessor's version
+    private final Map<String, ModelVersion> modelVersions = new ConcurrentHashMap<>();
 
     @Override
-    public Future<String> ensurePlatformModel(AuthzModel model) {
-        return platformStoreId().compose(storeId -> ensureModel(storeId, model));
+    public Future<String> ensureStore(String store) {
+        Future<String> ret;
+        if (PLATFORM.equals(store)) {
+            ret = storeIdOf(store);
+        } else {
+            // asked by name every time, so a store deleted and re-created under its name since this node last
+            // resolved it is created again rather than answered with the id the engine no longer knows
+            String name = storeNameOf(store);
+            ret = findStore(name)
+                    .compose(found -> found != null
+                            ? Future.succeededFuture(found)
+                            : fga.createStore(new CreateStoreRequest().name(name))
+                                 .map(CreateStoreResponse::getId)
+                                 .onSuccess(id -> log.info("Created authorization store {} for '{}'", id, store)))
+                    .onSuccess(id -> storeIds.put(store, CompletableFuture.completedFuture(new ResolvedStore(id, System.currentTimeMillis()))));
+        }
+        return ret;
     }
 
     @Override
-    public Future<String> platformModelId() {
-        PlatformModelVersion kept = platformModelVersion;
+    public Future<Void> deleteStore(String store) {
+        return findStore(storeNameOf(store))
+                .compose(id -> id == null ? Future.succeededFuture() : fga.deleteStore(id).onSuccess(v -> forget(store, id)))
+                .onSuccess(v -> log.info("Deleted the authorization store of '{}'", store));
+    }
+
+    @Override
+    public Future<String> modelId(String store) {
+        return storeIdOf(store).compose(storeId -> version(store, storeId, false));
+    }
+
+    /**
+     * The store's newest model version read from the engine now, replacing the one kept, for a caller the kept
+     * one answered with a validation error: the version of the store deleted and re-created under its name
+     * since, or one without a relation the newest has.
+     */
+    Future<String> refreshModelId(String store) {
+        return storeIdOf(store).compose(storeId -> version(store, storeId, true));
+    }
+
+    private Future<String> version(String store, String storeId, boolean refresh) {
+        ModelVersion kept = refresh ? null : modelVersions.get(storeId);
         Future<String> ret;
-        if (kept != null && kept.readAt() + MODEL_VERSION_RETENTION_MILLIS > System.currentTimeMillis()) {
+        if (kept != null && kept.readAt() + RETENTION_MILLIS > System.currentTimeMillis()) {
             ret = Future.succeededFuture(kept.id());
         } else {
             // every request's check names the version, so it is read once and kept; the reconciler's write of a
-            // new version reaches a node within the retention, and the version it ran meanwhile still exists
-            ret = platformStoreId().compose(this::latestModel).map(model -> {
+            // new version reaches a node within the retention, or at once where a check it refuses asks again
+            ret = latestModel(storeId).map(model -> {
                 if (model == null) {
-                    throw new IllegalStateException("The platform store runs no model yet");
+                    throw new IllegalStateException("The store of '" + store + "' runs no model yet");
                 }
-                platformModelVersion = new PlatformModelVersion(model.getId(), System.currentTimeMillis());
+                modelVersions.put(storeId, new ModelVersion(model.getId(), System.currentTimeMillis()));
                 return model.getId();
             });
         }
         return ret;
     }
 
-    /**
-     * The engine's id of the store named as its record is: the platform's through {@link #platformStoreId()};
-     * any other name fails the caller.
-     */
-    Future<String> storeIdOf(String store) {
-        Future<String> ret;
-        if (PLATFORM.equals(store)) {
-            ret = platformStoreId();
-        } else {
-            ret = Future.failedFuture(new IllegalArgumentException("No authorization store is named '" + store + "'"));
-        }
-        return ret;
-    }
-
-    /**
-     * The id of the platform store, resolved once and kept; a failed lookup is made again by the next caller.
-     */
-    Future<String> platformStoreId() {
-        CompletableFuture<String> stage = platformStore;
-        if (stage == null || stage.isCompletedExceptionally()) {
-            synchronized (this) {
-                stage = platformStore;
-                if (stage == null || stage.isCompletedExceptionally()) {
-                    stage = findPlatformStore().toCompletionStage().toCompletableFuture();
-                    platformStore = stage;
-                }
-            }
-        }
-        // a Vert.x future dispatches its listeners onto the context it was created on, so the one future handed
-        // to every caller would run each caller's continuation on the first caller's context; each caller bridges
-        // the stage onto its own instead
-        return KinoticUtil.toFuture(stage);
-    }
-
     @Override
-    public Future<String> createStore(String name) {
-        return fga.createStore(new CreateStoreRequest().name(name)).map(CreateStoreResponse::getId);
-    }
-
-    @Override
-    public Future<String> ensureModel(String storeId, AuthzModel model) {
-        return latestModel(storeId).compose(latest -> {
+    public Future<String> ensureModel(String store, AuthzModel model) {
+        return storeIdOf(store).compose(storeId -> latestModel(storeId).compose(latest -> {
             Future<String> ret;
             if (latest != null && ModelHash.of(definitionOf(latest)).equals(model.hash())) {
                 ret = Future.succeededFuture(latest.getId());
@@ -114,29 +117,97 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
                                                                             WriteAuthorizationModelRequest.class);
                 ret = fga.writeAuthorizationModel(storeId, request)
                          .map(WriteAuthorizationModelResponse::getAuthorizationModelId)
-                              .onSuccess(id -> log.info("Wrote authorization model {} to store {}", id, storeId));
+                         .onSuccess(id -> log.info("Wrote authorization model {} to store {}", id, storeId));
             }
             return ret;
-        });
+        }));
     }
 
     /**
-     * The id of the store named {@link #PLATFORM_STORE_NAME}; fails when there is none.
+     * The engine's id of the store named as its record is, resolved once and kept. The engine keeps answering
+     * for a deleted store's tuples and models, so a kept id is confirmed with it once the retention has passed,
+     * and one of a store deleted since, as an application's is when the application is deleted and created
+     * again under its id, is resolved again by name. A failed lookup is made again by the next caller.
      */
-    private Future<String> findPlatformStore() {
-        return fga.listStores(1, null, PLATFORM_STORE_NAME).compose(page -> {
-            Future<String> ret;
-            Store store = page.getStores().isEmpty() ? null : page.getStores().getFirst();
-            if (store != null && PLATFORM_STORE_NAME.equals(store.getName())) {
-                ret = Future.succeededFuture(store.getId());
-            } else {
-                ret = Future.failedFuture(new IllegalStateException("No store is named '" + PLATFORM_STORE_NAME
-                                                                            + "'; the platform store is created before the servers start"));
+    Future<String> storeIdOf(String store) {
+        CompletableFuture<ResolvedStore> stage = storeIds.get(store);
+        if (stale(stage)) {
+            synchronized (this) {
+                stage = storeIds.get(store);
+                if (stale(stage)) {
+                    ResolvedStore kept = stage != null && stage.isDone() && !stage.isCompletedExceptionally() ? stage.join() : null;
+                    stage = resolve(store, kept).toCompletionStage().toCompletableFuture();
+                    storeIds.put(store, stage);
+                }
             }
-            return ret;
-        }).onSuccess(id -> log.info("Using platform authorization store {}", id))
-          .onFailure(e -> log.warn("The platform authorization store could not be resolved from {}: {}",
-                                   properties.getAuthz().getApiUrl(), e.getMessage()));
+        }
+        // a Vert.x future dispatches its listeners onto the context it was created on, so the one future handed
+        // to every caller would run each caller's continuation on the first caller's context; each caller bridges
+        // the stage onto its own instead
+        return KinoticUtil.toFuture(stage).map(ResolvedStore::id);
+    }
+
+    private static boolean stale(CompletableFuture<ResolvedStore> stage) {
+        return stage == null
+                || stage.isCompletedExceptionally()
+                || (stage.isDone() && stage.join().resolvedAt() + RETENTION_MILLIS < System.currentTimeMillis());
+    }
+
+    // A kept id the engine still has is kept; one it reports gone is forgotten, with the version read from it,
+    // and the name resolved again
+    private Future<ResolvedStore> resolve(String store, ResolvedStore kept) {
+        Future<String> ret;
+        if (kept == null) {
+            ret = requireStore(store);
+        } else {
+            ret = fga.getStore(kept.id())
+                     .map(found -> kept.id())
+                     .recover(e -> {
+                         Future<String> again;
+                         if (e instanceof FgaError error && error.isNotFoundError()) {
+                             forget(store, kept.id());
+                             again = requireStore(store);
+                         } else {
+                             again = Future.failedFuture(e);
+                         }
+                         return again;
+                     });
+        }
+        return ret.map(id -> new ResolvedStore(id, System.currentTimeMillis()));
+    }
+
+    private void forget(String store, String storeId) {
+        storeIds.remove(store);
+        modelVersions.remove(storeId);
+    }
+
+    // The engine's name of a store: the platform's fixed one, or an application's prefixed by what it is
+    private static String storeNameOf(String store) {
+        return PLATFORM.equals(store) ? PLATFORM_STORE_NAME : APPLICATION_STORE_PREFIX + store;
+    }
+
+    private Future<String> requireStore(String store) {
+        String name = storeNameOf(store);
+        return findStore(name).map(id -> {
+            if (id == null) {
+                throw new IllegalStateException(PLATFORM.equals(store)
+                        ? "No store is named '" + name + "'; the platform store is created before the servers start"
+                        : "No store is named '" + name + "'; the application's store is created when its record is reconciled");
+            }
+            return id;
+        }).onSuccess(id -> log.info("Using authorization store {} for '{}'", id, store))
+          .onFailure(e -> log.warn("The authorization store of '{}' could not be resolved from {}: {}",
+                                   store, properties.getAuthz().getApiUrl(), e.getMessage()));
+    }
+
+    /**
+     * The id of the store of the given name, or null when the engine has none.
+     */
+    private Future<String> findStore(String name) {
+        return fga.listStores(1, null, name).map(page -> {
+            Store store = page.getStores().isEmpty() ? null : page.getStores().getFirst();
+            return store != null && name.equals(store.getName()) ? store.getId() : null;
+        });
     }
 
     /**

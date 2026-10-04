@@ -281,6 +281,25 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     }
 
     @Override
+    public Future<List<ServiceDefinition>> findApplicationContracts(String organizationId, String applicationId) {
+        return applicationContracts(organizationId, applicationId, 0, new ArrayList<>());
+    }
+
+    private Future<List<ServiceDefinition>> applicationContracts(String organizationId, String applicationId, int pageNumber, List<ServiceDefinition> collected) {
+        return strategy.findEntriesScopedTo(organizationId, applicationId, Pageable.create(pageNumber, SYSTEM_CONTRACTS_PAGE_SIZE, Sort.by("id")))
+                       .compose(page -> {
+                           for (ServiceDirectoryEntry entry : page.getContent()) {
+                               if (entry.getServiceDefinition() != null) {
+                                   collected.add(entry.getServiceDefinition());
+                               }
+                           }
+                           return page.getContent().size() < SYSTEM_CONTRACTS_PAGE_SIZE
+                                   ? Future.succeededFuture(collected)
+                                   : applicationContracts(organizationId, applicationId, pageNumber + 1, collected);
+                       });
+    }
+
+    @Override
     public Future<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
                                                                 String applicationId,
                                                                 CursorPageable pageable) {

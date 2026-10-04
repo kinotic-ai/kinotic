@@ -44,7 +44,7 @@ public class OrganizationAdminBootstrap {
     }
 
     private void run() {
-        stores.platformModelId()
+        stores.modelId(PLATFORM)
               .compose(modelId -> page(null, 0))
               .onSuccess(bound -> {
                   if (bound > 0) {
