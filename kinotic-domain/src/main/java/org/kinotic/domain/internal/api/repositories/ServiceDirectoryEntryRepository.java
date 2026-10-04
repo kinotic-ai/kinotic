@@ -340,7 +340,7 @@ public class ServiceDirectoryEntryRepository extends AbstractWatchedRepository<S
                                      DomainUtil.APP_ZONE_PREFIX + "." + organizationId);
             } else {
                 ZoneUtil.validateLabel(applicationId);
-                callerZones = Set.of(DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId,
+                callerZones = Set.of(DomainUtil.applicationZone(organizationId, applicationId),
                                      DomainUtil.APP_API_ZONE);
             }
             zones = Optional.of(callerZones.stream().filter(zonePartitioningService::reachesZone).collect(Collectors.toSet()));

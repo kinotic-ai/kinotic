@@ -62,6 +62,18 @@ public class DomainUtil {
     public static final String APP_ZONE_PREFIX = "app";
 
     /**
+     * The zone an application's own services are addressed in, {@code app.<organizationId>.<applicationId>},
+     * which the application's runtimes and users reach and nothing outside the application does.
+     *
+     * @param organizationId the application's organization
+     * @param applicationId  the application
+     * @return the zone
+     */
+    public static String applicationZone(String organizationId, String applicationId) {
+        return APP_ZONE_PREFIX + "." + organizationId + "." + applicationId;
+    }
+
+    /**
      * The prefix of the Elasticsearch indices the platform creates, including the index that holds
      * the items of each published EntityDefinition
      */

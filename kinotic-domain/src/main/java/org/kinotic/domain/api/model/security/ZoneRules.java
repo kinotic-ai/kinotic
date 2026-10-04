@@ -134,6 +134,6 @@ public class ZoneRules {
         // produce the same zone as a different pair plus a sub zone
         ZoneUtil.validateLabel(applicationKey.organizationId());
         ZoneUtil.validateLabel(applicationKey.applicationId());
-        return DomainUtil.APP_ZONE_PREFIX + "." + applicationKey.organizationId() + "." + applicationKey.applicationId();
+        return DomainUtil.applicationZone(applicationKey.organizationId(), applicationKey.applicationId());
     }
 }

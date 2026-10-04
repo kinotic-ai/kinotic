@@ -9,10 +9,10 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
+import org.kinotic.domain.api.services.ServiceContractService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
-import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
@@ -113,20 +113,30 @@ public class ProjectDeployIdentityService {
     /**
      * Records the new machine's id before returning it, so a run that fails after this point
      * leaves an identity the next deployment reuses instead of orphaning it, and binds the machine
-     * as an editor of its project.
+     * as an editor of its project, and a runtime as a runtime of its application.
      */
     private Future<MachineProvisionResult> createAndRecord(MachineParticipantIdentity unsaved,
                                                            Project project,
                                                            Function<String, Future<Void>> recordIdentity) {
         return identityService.createMachine(unsaved)
-                .compose(provisioned -> recordIdentity.apply(provisioned.machine().getId())
-                                                      // the sync workload records artifacts and runs migrations, and the
-                                                      // runtime publishes services, all of which the project's editor may do
-                                                      .compose(v -> relationships.bind(AuthzStoreService.PLATFORM,
-                                                                                       AuthzUtil.roleId(ProjectService.RESOURCE_TYPE, AuthzUtil.EDITOR),
-                                                                                       AuthzUtil.object(AuthzUtil.USER_TYPE, provisioned.machine().getId()),
-                                                                                       AuthzUtil.object(ProjectService.RESOURCE_TYPE, project.getId())))
-                                                      .map(provisioned));
+                .compose(provisioned -> {
+                    String machine = AuthzUtil.object(AuthzUtil.USER_TYPE, provisioned.machine().getId());
+                    return recordIdentity.apply(provisioned.machine().getId())
+                                         // the sync workload records artifacts and runs migrations, and the runtime
+                                         // publishes services, all of which the project's editor may do
+                                         .compose(v -> relationships.bind(AuthzStoreService.PLATFORM,
+                                                                          AuthzUtil.roleId(ProjectService.RESOURCE_TYPE, AuthzUtil.EDITOR),
+                                                                          machine,
+                                                                          AuthzUtil.object(ProjectService.RESOURCE_TYPE, project.getId())))
+                                         // the runtime also publishes the contracts of the application's services
+                                         .compose(v -> unsaved.getMachineKind() == MachineKind.APP_RUNTIME
+                                                 ? relationships.bind(AuthzStoreService.PLATFORM,
+                                                                      ServiceContractService.RUNTIME_ROLE,
+                                                                      machine,
+                                                                      AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, project.getApplicationId()))
+                                                 : Future.succeededFuture())
+                                         .map(provisioned);
+                });
     }
 
     /**

@@ -47,4 +47,18 @@ public interface SchemaService {
      */
     NamespaceDefinition createForServices(Collection<ServiceDeclaration> services);
 
+    /**
+     * Creates the {@link ServiceDefinition} of a contract a runtime declares, as a TypeScript service's runtime
+     * does: one function per declared function, its parameters named as declared and typed as anything, since
+     * the runtime declares no types, the service's resource decorator, and each function's check derived from
+     * its name, its parameters and what it declares, exactly as a {@code @Publish} interface's is.
+     *
+     * @param contract the declared contract
+     * @return the definition the directory stores for the service
+     * @throws IllegalStateException    when the contract declares no resource, declares a function twice, or an
+     *                                  authorization declaration does not resolve
+     * @throws IllegalArgumentException when the contract names no namespace or no name
+     */
+    ServiceDefinition createForContract(ServiceContract contract);
+
 }

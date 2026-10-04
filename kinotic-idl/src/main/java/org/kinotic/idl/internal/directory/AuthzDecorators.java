@@ -3,7 +3,10 @@ package org.kinotic.idl.internal.directory;
 import org.kinotic.idl.api.annotations.AuthzCheck;
 import org.kinotic.idl.api.annotations.AuthzResource;
 import org.kinotic.idl.api.annotations.AuthzRole;
+import org.kinotic.idl.api.directory.AuthzCheckDeclaration;
+import org.kinotic.idl.api.directory.AuthzResourceDeclaration;
 import org.kinotic.idl.api.directory.ConversionContext;
+import org.kinotic.idl.api.schema.AnyC3Type;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.ComplexC3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;
@@ -26,10 +29,11 @@ import java.util.regex.Pattern;
 
 /**
  * Derives the authorization declarations of a service while its contract is created: the
- * {@link AuthzResourceC3Decorator} of the service and one {@link AuthzCheckC3Decorator} per function, from the
- * {@link AuthzResource} and {@link AuthzCheck} annotations and the function's converted parameters. A function
- * that derives no check and declares none fails the conversion, so a resource service never serves an
- * unchecked function.
+ * {@link AuthzResourceC3Decorator} of the service and one {@link AuthzCheckC3Decorator} per function, from
+ * what the service declares, the {@link AuthzResource} and {@link AuthzCheck} annotations of a {@code @Publish}
+ * interface or the declarations a runtime's contract carries, and the function's parameters. A function that
+ * derives no check and declares none fails the conversion, so a resource service never serves an unchecked
+ * function.
  */
 final class AuthzDecorators {
 
@@ -47,65 +51,88 @@ final class AuthzDecorators {
     /**
      * The resource decorator of a service, or null when the service declares no {@link AuthzResource}.
      *
+     * @throws IllegalStateException as {@link #resourceOf(String, AuthzResourceDeclaration)} does
+     */
+    static AuthzResourceC3Decorator resourceOf(Class<?> serviceInterface) {
+        AuthzResource resource = AnnotationUtils.findAnnotation(serviceInterface, AuthzResource.class);
+        return resource == null ? null : resourceOf(serviceInterface.getName(), declarationOf(resource));
+    }
+
+    /**
+     * The resource decorator a service's declaration resolves to.
+     *
+     * @param declarer the service, named in errors
+     * @param resource what it declares
      * @throws IllegalStateException when the declared type is neither an identifier nor a template, the parent
      *                               or permission is not an identifier, or a declared role is not named after
      *                               the type, bundles nothing, or is declared for a type a request names
      */
-    static AuthzResourceC3Decorator resourceOf(Class<?> serviceInterface) {
-        AuthzResource resource = AnnotationUtils.findAnnotation(serviceInterface, AuthzResource.class);
-        AuthzResourceC3Decorator ret = null;
-        if (resource != null) {
-            if (!AuthzUtil.isIdentifier(resource.value()) && !AuthzUtil.isTemplate(resource.value())) {
-                throw new IllegalStateException("@AuthzResource on " + serviceInterface.getName()
-                                                        + " names the type '" + resource.value()
-                                                        + "', which is neither a lowercase identifier nor a template");
-            }
-            if (AuthzUtil.isTemplate(resource.value()) && resource.roles().length > 0) {
-                throw new IllegalStateException("@AuthzResource on " + serviceInterface.getName()
-                                                        + " declares roles of '" + resource.value()
-                                                        + "', a type each request names, which has none to declare");
-            }
-            if (!resource.parent().isEmpty() && !AuthzUtil.isIdentifier(resource.parent())) {
-                throw new IllegalStateException("@AuthzResource on " + serviceInterface.getName()
-                                                        + " names the parent '" + resource.parent()
-                                                        + "', which is not a lowercase identifier");
-            }
-            if (!resource.permission().isEmpty() && !AuthzUtil.isIdentifier(resource.permission())) {
-                throw new IllegalStateException("@AuthzResource on " + serviceInterface.getName()
-                                                        + " names the permission '" + resource.permission()
-                                                        + "', which is not a lowercase identifier");
-            }
-            List<AuthzRoleDeclaration> roles = new ArrayList<>();
-            for (AuthzRole role : resource.roles()) {
-                roles.add(roleOf(serviceInterface, resource.value(), role));
-            }
-            ret = new AuthzResourceC3Decorator()
-                    .setResourceType(resource.value())
-                    .setParent(resource.parent().isEmpty() ? null : resource.parent())
-                    .setObjectId(resource.objectId().isEmpty() ? null : resource.objectId())
-                    .setPermission(resource.permission().isEmpty() ? null : resource.permission())
-                    .setRoles(List.copyOf(roles));
+    static AuthzResourceC3Decorator resourceOf(String declarer, AuthzResourceDeclaration resource) {
+        String where = "@AuthzResource on " + declarer;
+        String type = resource.value();
+        if (!AuthzUtil.isIdentifier(type) && !AuthzUtil.isTemplate(type)) {
+            throw new IllegalStateException(where + " names the type '" + type
+                                                    + "', which is neither a lowercase identifier nor a template");
         }
-        return ret;
+        if (AuthzUtil.isTemplate(type) && !resource.roles().isEmpty()) {
+            throw new IllegalStateException(where + " declares roles of '" + type
+                                                    + "', a type each request names, which has none to declare");
+        }
+        String parent = present(resource.parent());
+        if (parent != null && !AuthzUtil.isIdentifier(parent)) {
+            throw new IllegalStateException(where + " names the parent '" + parent + "', which is not a lowercase identifier");
+        }
+        String permission = present(resource.permission());
+        if (permission != null && !AuthzUtil.isIdentifier(permission)) {
+            throw new IllegalStateException(where + " names the permission '" + permission + "', which is not a lowercase identifier");
+        }
+        List<AuthzRoleDeclaration> roles = new ArrayList<>();
+        for (AuthzRoleDeclaration role : resource.roles()) {
+            roles.add(roleOf(declarer, type, role));
+        }
+        return new AuthzResourceC3Decorator()
+                .setResourceType(type)
+                .setParent(parent)
+                .setObjectId(present(resource.objectId()))
+                .setPermission(permission)
+                .setRoles(List.copyOf(roles));
+    }
+
+    private static AuthzResourceDeclaration declarationOf(AuthzResource resource) {
+        List<AuthzRoleDeclaration> roles = new ArrayList<>();
+        for (AuthzRole role : resource.roles()) {
+            roles.add(new AuthzRoleDeclaration().setId(role.id()).setPermissions(List.of(role.permissions())));
+        }
+        return new AuthzResourceDeclaration(resource.value(), resource.parent(), resource.objectId(), resource.permission(), roles);
+    }
+
+    private static AuthzCheckDeclaration declarationOf(AuthzCheck check) {
+        return new AuthzCheckDeclaration(check.permission(), check.resource(), check.objectId(), List.of(check.implies()),
+                                         check.zoneOnly(), check.consistent());
+    }
+
+    // A declared value: null for one left out, which a declaration from an annotation leaves empty
+    private static String present(String value) {
+        return value == null || value.isEmpty() ? null : value;
     }
 
     // A declared role is named <type>.<level> as a built-in role is, and bundles at least one permission; whether
     // the permissions exist on the type is known only once every service's checks are, so the generator decides it
-    private static AuthzRoleDeclaration roleOf(Class<?> serviceInterface, String type, AuthzRole role) {
-        String where = "@AuthzRole '" + role.id() + "' on " + serviceInterface.getName();
+    private static AuthzRoleDeclaration roleOf(String declarer, String type, AuthzRoleDeclaration role) {
+        String where = "@AuthzRole '" + role.getId() + "' on " + declarer;
         String prefix = type + ".";
-        if (!role.id().startsWith(prefix) || !AuthzUtil.isIdentifier(role.id().substring(prefix.length()))) {
+        if (role.getId() == null || !role.getId().startsWith(prefix) || !AuthzUtil.isIdentifier(role.getId().substring(prefix.length()))) {
             throw new IllegalStateException(where + " is not named '" + prefix + "<level>' with a lowercase identifier as the level");
         }
-        if (role.permissions().length == 0) {
+        if (role.getPermissions().isEmpty()) {
             throw new IllegalStateException(where + " bundles no permission");
         }
-        for (String permission : role.permissions()) {
+        for (String permission : role.getPermissions()) {
             if (!AuthzUtil.isIdentifier(permission)) {
                 throw new IllegalStateException(where + " bundles '" + permission + "', which is not a lowercase identifier");
             }
         }
-        return new AuthzRoleDeclaration().setId(role.id()).setPermissions(List.of(role.permissions()));
+        return new AuthzRoleDeclaration().setId(role.getId()).setPermissions(List.copyOf(role.getPermissions()));
     }
 
     /**
@@ -118,8 +145,7 @@ final class AuthzDecorators {
      *                          {@link AuthzCheck}, its own or one inherited from a super interface
      * @param parameters        the function's converted parameters, the ones a request carries
      * @param conversionContext the context the parameters were converted in, which resolves their references
-     * @throws IllegalStateException when the function derives no check and declares none, or a declaration
-     *                               references a parameter the function does not have
+     * @throws IllegalStateException as {@link #checkOf(String, AuthzResourceC3Decorator, String, AuthzCheckDeclaration, List, ConversionContext)} does
      */
     static AuthzCheckC3Decorator checkOf(Class<?> serviceInterface,
                                          AuthzResourceC3Decorator resource,
@@ -127,15 +153,41 @@ final class AuthzDecorators {
                                          Method interfaceMethod,
                                          List<ParameterDefinition> parameters,
                                          ConversionContext conversionContext) {
-        String type = resource.getResourceType();
-        String parent = resource.getParent();
-        String where = functionName + " on " + serviceInterface.getName();
         // the check is the contract's: the interface's redeclaration of an inherited function carries it, which
         // the implementation's method, inherited from a base class outside that interface, would not reach
         AuthzCheck declared = AnnotationUtils.findAnnotation(interfaceMethod, AuthzCheck.class);
+        return checkOf(serviceInterface.getName(), resource, functionName, declared == null ? null : declarationOf(declared),
+                       parameters, conversionContext);
+    }
+
+    /**
+     * The check of one function of a resource service, or null for a function declared zone-only.
+     *
+     * @param declarer          the service, named in errors
+     * @param resource          the service's resource decorator
+     * @param functionName      the function's name, whose leading verb derives the permission
+     * @param declared          what the function declares about its check, or null for nothing
+     * @param parameters        the function's parameters, the ones a request carries
+     * @param conversionContext the context the parameters were converted in, which resolves their references
+     * @throws IllegalStateException when the function derives no check and declares none, or a declaration
+     *                               references a parameter the function does not have
+     */
+    static AuthzCheckC3Decorator checkOf(String declarer,
+                                         AuthzResourceC3Decorator resource,
+                                         String functionName,
+                                         AuthzCheckDeclaration declared,
+                                         List<ParameterDefinition> parameters,
+                                         ConversionContext conversionContext) {
+        String type = resource.getResourceType();
+        String parent = resource.getParent();
+        String where = functionName + " on " + declarer;
+        String declaredPermission = declared == null ? null : present(declared.permission());
+        String declaredResource = declared == null ? null : present(declared.resource());
+        String declaredObjectId = declared == null ? null : present(declared.objectId());
+        List<String> implies = declared == null ? List.of() : declared.implies();
         if (declared != null && declared.zoneOnly()) {
-            if (!declared.permission().isEmpty() || !declared.resource().isEmpty() || !declared.objectId().isEmpty()
-                    || declared.implies().length > 0 || declared.consistent()) {
+            if (declaredPermission != null || declaredResource != null || declaredObjectId != null
+                    || !implies.isEmpty() || declared.consistent()) {
                 throw new IllegalStateException("The function " + where + " is declared zone-only beside a check;"
                                                         + " a zone-only function has none");
             }
@@ -144,8 +196,8 @@ final class AuthzDecorators {
 
         // the function's own permission, else the one its service requires of every function, else its verb's
         String permission;
-        if (declared != null && !declared.permission().isEmpty()) {
-            permission = declared.permission();
+        if (declaredPermission != null) {
+            permission = declaredPermission;
         } else if (resource.getPermission() != null) {
             permission = resource.getPermission();
         } else {
@@ -163,11 +215,9 @@ final class AuthzDecorators {
         String checkedResource;
         String objectId;
         String permissionResource;
-        boolean explicitResource = declared != null && !declared.resource().isEmpty();
-        boolean explicitObjectId = declared != null && !declared.objectId().isEmpty();
-        if (explicitResource || explicitObjectId) {
-            checkedResource = explicitResource ? declared.resource() : type;
-            objectId = explicitObjectId ? declared.objectId()
+        if (declaredResource != null || declaredObjectId != null) {
+            checkedResource = declaredResource != null ? declaredResource : type;
+            objectId = declaredObjectId != null ? declaredObjectId
                     : objectIdOf(checkedResource, type, parent, parameters, conversionContext);
             // a check made on the parent is about this type within it, as a derived create or listing is;
             // any other explicit resource is a permission of that resource itself
@@ -215,7 +265,6 @@ final class AuthzDecorators {
             }
         }
 
-        List<String> implies = declared != null ? List.of(declared.implies()) : List.of();
         for (String implied : implies) {
             if (!AuthzUtil.isIdentifier(implied)) {
                 throw new IllegalStateException("The implied permission '" + implied + "' of " + where
@@ -281,7 +330,7 @@ final class AuthzDecorators {
     }
 
     /**
-     * The template naming a resource of the service's own type among the parameters: the string parameter named
+     * The template naming a resource of the service's own type among the parameters: the id parameter named
      * {@code id} or {@code <type>Id}, else the {@code id} property of the first object parameter that has one;
      * null when none does.
      */
@@ -289,8 +338,7 @@ final class AuthzDecorators {
         String ret = null;
         String idName = camelCase(type) + "Id";
         for (ParameterDefinition parameter : parameters) {
-            if (parameter.getType() instanceof StringC3Type
-                    && (parameter.getName().equals("id") || parameter.getName().equals(idName))) {
+            if (isId(parameter) && (parameter.getName().equals("id") || parameter.getName().equals(idName))) {
                 ret = "{" + parameter.getName() + "}";
                 break;
             }
@@ -302,7 +350,7 @@ final class AuthzDecorators {
     }
 
     /**
-     * The template naming the parent resource: the string parameter named {@code <parent>Id}, else that property
+     * The template naming the parent resource: the id parameter named {@code <parent>Id}, else that property
      * of the first object parameter that has it, else the caller's own scope for a parent the scope carries, else
      * the platform's fixed id for a parent that is the platform.
      */
@@ -310,7 +358,7 @@ final class AuthzDecorators {
         String idName = camelCase(parent) + "Id";
         String ret = null;
         for (ParameterDefinition parameter : parameters) {
-            if (parameter.getType() instanceof StringC3Type && parameter.getName().equals(idName)) {
+            if (isId(parameter) && parameter.getName().equals(idName)) {
                 ret = "{" + parameter.getName() + "}";
                 break;
             }
@@ -325,6 +373,11 @@ final class AuthzDecorators {
             ret = AuthzUtil.PLATFORM_OBJECT_ID;
         }
         return ret;
+    }
+
+    // A parameter an id can be: a string, or one a runtime's contract declares without a type
+    private static boolean isId(ParameterDefinition parameter) {
+        return parameter.getType() instanceof StringC3Type || parameter.getType() instanceof AnyC3Type;
     }
 
     /**
