@@ -84,8 +84,20 @@ public class CrudServiceTemplate {
      * on {@code if_seq_no}/{@code if_primary_term} that found the document changed.
      */
     public static boolean isVersionConflict(Throwable throwable) {
+        return isStatus(throwable, 409);
+    }
+
+    /**
+     * True when {@code throwable} or one of its causes is an Elasticsearch 404 — i.e. an update or a
+     * conditional delete that found no document under the id.
+     */
+    public static boolean isDocumentMissing(Throwable throwable) {
+        return isStatus(throwable, 404);
+    }
+
+    private static boolean isStatus(Throwable throwable, int status) {
         for (Throwable cause = throwable; cause != null; cause = cause.getCause()) {
-            if (cause instanceof ElasticsearchException esException && esException.status() == 409) {
+            if (cause instanceof ElasticsearchException esException && esException.status() == status) {
                 return true;
             }
         }
