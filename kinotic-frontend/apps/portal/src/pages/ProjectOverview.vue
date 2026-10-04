@@ -8,7 +8,8 @@
       </template>
     </PageHeader>
 
-    <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
+    <NoAccessState v-if="error && isAuthorizationError(error)" :back-to="`/application/${encodeURIComponent(applicationId)}/projects`" back-label="Back to projects" />
+    <Message v-else-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
     <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard :tint="HEARTBEAT_TINTS[heartbeat]" label="Deployment" :loading="loading" :to="`${basePath}/deployment`"
@@ -131,6 +132,8 @@ import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
 import { type MicroserviceDeployment, type Project, type ProjectDeployment, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
 import { createDebug, DatetimeUtil, FactList, HeartbeatIcon, observedPhase, observedPhaseSeverity, PageHeader, StatCard, TINTS, EmptyChartCharacter, HEARTBEAT_TINTS, deploymentHeartbeat, shortSha } from '@kinotic-ai/frontend-common'
+import NoAccessState from '@/components/access/NoAccessState.vue'
+import { isAuthorizationError } from '@/util/access'
 
 /**
  * The landing page of one project: its repository, its deployment state, how many entities
