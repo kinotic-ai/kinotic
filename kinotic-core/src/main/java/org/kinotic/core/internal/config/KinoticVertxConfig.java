@@ -6,11 +6,14 @@ import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.EventBusOptions;
 import io.vertx.core.file.FileSystem;
+import io.vertx.core.http.ClientAuth;
+import io.vertx.core.net.PfxOptions;
 import io.vertx.core.shareddata.SharedData;
 import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.micrometer.MicrometerMetricsFactory;
 import io.vertx.micrometer.MicrometerMetricsOptions;
 import org.apache.ignite.Ignite;
+import org.kinotic.core.api.config.ClusterTlsProperties;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.ZonePartitioningService;
@@ -83,6 +86,14 @@ public class KinoticVertxConfig {
         }
         if(properties.getEventBusClusterPublicHost() != null) {
             eventBusOptions.setClusterPublicHost(properties.getEventBusClusterPublicHost());
+        }
+        ClusterTlsProperties tls = properties.getClusterTls();
+        if (tls.isEnabled()) {
+            tls.requireStores();
+            eventBusOptions.setSsl(true)
+                           .setKeyCertOptions(new PfxOptions().setPath(tls.getKeyStorePath()).setPassword(tls.getKeyStorePassword()))
+                           .setTrustOptions(new PfxOptions().setPath(tls.getTrustStorePath()).setPassword(tls.getTrustStorePassword()))
+                           .setClientAuth(ClientAuth.REQUIRED);
         }
 
         Vertx vertx = Vertx.builder()
