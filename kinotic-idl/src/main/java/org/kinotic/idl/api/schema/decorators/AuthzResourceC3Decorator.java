@@ -37,6 +37,12 @@ public final class AuthzResourceC3Decorator extends C3Decorator {
     private String objectId;
 
     /**
+     * The permission every function of the service requires unless it declares its own; null when each
+     * function's permission is derived from its name.
+     */
+    private String permission;
+
+    /**
      * The roles the service declares for its type beside the built-in ones; empty when it declares none.
      */
     private List<AuthzRoleDeclaration> roles = List.of();

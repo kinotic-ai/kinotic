@@ -47,8 +47,8 @@ final class AuthzDecorators {
     /**
      * The resource decorator of a service, or null when the service declares no {@link AuthzResource}.
      *
-     * @throws IllegalStateException when the declared type or parent is not an identifier, or a declared role
-     *                               is not named after the type or bundles nothing
+     * @throws IllegalStateException when the declared type, parent or permission is not an identifier, or a
+     *                               declared role is not named after the type or bundles nothing
      */
     static AuthzResourceC3Decorator resourceOf(Class<?> serviceInterface) {
         AuthzResource resource = AnnotationUtils.findAnnotation(serviceInterface, AuthzResource.class);
@@ -64,6 +64,11 @@ final class AuthzDecorators {
                                                         + " names the parent '" + resource.parent()
                                                         + "', which is not a lowercase identifier");
             }
+            if (!resource.permission().isEmpty() && !AuthzUtil.isIdentifier(resource.permission())) {
+                throw new IllegalStateException("@AuthzResource on " + serviceInterface.getName()
+                                                        + " names the permission '" + resource.permission()
+                                                        + "', which is not a lowercase identifier");
+            }
             List<AuthzRoleDeclaration> roles = new ArrayList<>();
             for (AuthzRole role : resource.roles()) {
                 roles.add(roleOf(serviceInterface, resource.value(), role));
@@ -72,6 +77,7 @@ final class AuthzDecorators {
                     .setResourceType(resource.value())
                     .setParent(resource.parent().isEmpty() ? null : resource.parent())
                     .setObjectId(resource.objectId().isEmpty() ? null : resource.objectId())
+                    .setPermission(resource.permission().isEmpty() ? null : resource.permission())
                     .setRoles(List.copyOf(roles));
         }
         return ret;
@@ -130,8 +136,15 @@ final class AuthzDecorators {
             return null;
         }
 
-        String permission = declared != null && !declared.permission().isEmpty()
-                ? declared.permission() : derivedPermission(functionName);
+        // the function's own permission, else the one its service requires of every function, else its verb's
+        String permission;
+        if (declared != null && !declared.permission().isEmpty()) {
+            permission = declared.permission();
+        } else if (resource.getPermission() != null) {
+            permission = resource.getPermission();
+        } else {
+            permission = derivedPermission(functionName);
+        }
         if (permission == null) {
             throw new IllegalStateException("The function " + where + " derives no permission from its name;"
                                                     + " declare one with @AuthzCheck(permission = ...)");

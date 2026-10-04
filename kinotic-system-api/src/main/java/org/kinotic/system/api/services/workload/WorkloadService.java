@@ -18,24 +18,8 @@ import org.kinotic.management.api.model.workload.Workload;
  * writing one {@code can_manage_workloads}.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, objectId = AuthzUtil.PLATFORM_OBJECT_ID)
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, objectId = AuthzUtil.PLATFORM_OBJECT_ID, permission = "can_manage_workloads")
 public interface WorkloadService extends IdentifiableCrudService<Workload, String> {
-
-    @Override
-    @AuthzCheck(permission = "can_manage_workloads")
-    Future<Workload> create(Workload entity);
-
-    @Override
-    @AuthzCheck(permission = "can_manage_workloads")
-    Future<Workload> createSync(Workload entity);
-
-    @Override
-    @AuthzCheck(permission = "can_manage_workloads")
-    Future<Workload> save(Workload entity);
-
-    @Override
-    @AuthzCheck(permission = "can_manage_workloads")
-    Future<Workload> saveSync(Workload entity);
 
     @Override
     @AuthzCheck(permission = "can_view_workloads")
@@ -46,14 +30,6 @@ public interface WorkloadService extends IdentifiableCrudService<Workload, Strin
     Future<Long> count();
 
     @Override
-    @AuthzCheck(permission = "can_manage_workloads")
-    Future<Void> deleteById(String id);
-
-    @Override
-    @AuthzCheck(permission = "can_manage_workloads")
-    Future<Void> deleteByIdSync(String id);
-
-    @Override
     @AuthzCheck(permission = "can_view_workloads")
     Future<Page<Workload>> findAll(Pageable pageable);
 
@@ -61,6 +37,7 @@ public interface WorkloadService extends IdentifiableCrudService<Workload, Strin
     @AuthzCheck(permission = "can_view_workloads")
     Future<Page<Workload>> search(String searchText, Pageable pageable);
 
+    // CrudService declares syncIndex an edit, which only a redeclaration overrides
     @Override
     @AuthzCheck(permission = "can_manage_workloads")
     Future<Void> syncIndex();

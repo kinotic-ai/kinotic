@@ -18,6 +18,7 @@ import org.kinotic.idl.internal.support.authz.TestMisreferencingService;
 import org.kinotic.idl.internal.support.authz.TestProjectService;
 import org.kinotic.idl.internal.support.authz.TestUnderivableService;
 import org.kinotic.idl.internal.support.authz.TestVmNodeService;
+import org.kinotic.idl.internal.support.authz.TestWorkloadService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -224,6 +225,18 @@ public class SchemaServiceAuthzTest {
         IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestUnderivableService.class));
 
         assertTrue(e.getMessage().contains("frobnicate"));
+    }
+
+    @Test
+    public void aServicesPermissionIsEveryFunctionsUnlessItDeclaresItsOwn() {
+        ServiceDefinition service = convert(TestWorkloadService.class);
+
+        assertEquals("can_manage_workloads", service.findDecorator(AuthzResourceC3Decorator.class).getPermission());
+        // a verb deriving nothing, and one deriving a permission, both take the service's
+        assertEquals("can_manage_workloads", check(service, "deployWorkload").getPermission());
+        assertEquals("can_manage_workloads", check(service, "deleteWorkload").getPermission());
+        assertEquals("platform:kinotic", check(service, "deployWorkload").getResource() + ":" + check(service, "deployWorkload").getObjectId());
+        assertEquals("can_view_workloads", check(service, "findWorkload").getPermission());
     }
 
     @Test

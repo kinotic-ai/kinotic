@@ -124,6 +124,7 @@ public class SystemServiceSchemaTest {
         NamespaceDefinition namespaceDefinition =
                 schemaFactory().createForServices(List.of(new ServiceDeclaration(SystemMemberService.class, DefaultSystemMemberService.class),
                                                            new ServiceDeclaration(WorkloadService.class, DefaultWorkloadService.class),
+                                                           new ServiceDeclaration(WorkloadOrchestrationService.class, DefaultWorkloadOrchestrationService.class),
                                                            new ServiceDeclaration(SystemOrganizationService.class, DefaultSystemOrganizationService.class)));
 
         ServiceDefinition members = service(namespaceDefinition, "SystemMemberService");
@@ -131,11 +132,17 @@ public class SystemServiceSchemaTest {
         Assertions.assertEquals("can_manage_machines", check(members, "createMachine").getPermission());
         Assertions.assertTrue(check(members, "rotateSecret").isConsistent());
 
-        // the record functions a workload service inherits are checked on the platform with the permissions it declares
+        // the record functions a workload service inherits are checked on the platform: the reads with the permission
+        // their redeclaration names, the writes with the service's
         ServiceDefinition workloads = service(namespaceDefinition, "WorkloadService");
         Assertions.assertEquals("platform_can_view_workloads", check(workloads, "findById").getPermissionResource() + "_" + check(workloads, "findById").getPermission());
         Assertions.assertEquals("can_manage_workloads", check(workloads, "deleteById").getPermission());
+        Assertions.assertEquals("can_manage_workloads", check(workloads, "save").getPermission());
         Assertions.assertEquals("can_manage_workloads", check(workloads, "syncIndex").getPermission());
+        // every function of the orchestration manages workloads, whatever its verb
+        ServiceDefinition orchestration = service(namespaceDefinition, "WorkloadOrchestrationService");
+        Assertions.assertEquals("can_manage_workloads", check(orchestration, "deployWorkload").getPermission());
+        Assertions.assertEquals("can_manage_workloads", check(orchestration, "deleteWorkloads").getPermission());
 
         // a read of one organization is checked on it, a read across them on the platform
         ServiceDefinition organizations = service(namespaceDefinition, "SystemOrganizationService");

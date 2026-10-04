@@ -2,7 +2,6 @@ package org.kinotic.system.api.services.deployment;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.idl.api.annotations.AuthzCheck;
 import org.kinotic.idl.api.annotations.AuthzResource;
 import org.kinotic.idl.api.utils.AuthzUtil;
 
@@ -13,7 +12,7 @@ import org.kinotic.idl.api.utils.AuthzUtil;
  * request before it reaches this service, which checks nothing about the caller.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, objectId = AuthzUtil.PLATFORM_OBJECT_ID)
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, objectId = AuthzUtil.PLATFORM_OBJECT_ID, permission = "can_manage_workloads")
 public interface DeploymentOperationsService {
 
     /**
@@ -24,7 +23,6 @@ public interface DeploymentOperationsService {
      * @param deploymentId the microservice deployment
      * @return a future completing once the restart is asked for
      */
-    @AuthzCheck(permission = "can_manage_workloads")
     Future<Void> restartMicroservice(String deploymentId);
 
     /**
@@ -34,7 +32,6 @@ public interface DeploymentOperationsService {
      * @param deploymentId the microservice deployment
      * @return a future completing when the removal is asked for
      */
-    @AuthzCheck(permission = "can_manage_workloads")
     Future<Void> removeMicroservice(String deploymentId);
 
     /**
@@ -44,7 +41,6 @@ public interface DeploymentOperationsService {
      * @param deploymentId the UI deployment
      * @return a future completing when the removal is asked for
      */
-    @AuthzCheck(permission = "can_manage_workloads")
     Future<Void> removeUiSite(String deploymentId);
 
 }
