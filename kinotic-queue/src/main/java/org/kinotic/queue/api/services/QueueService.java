@@ -55,7 +55,6 @@ public interface QueueService {
      * time, with no ordering between records. A record counts as done once a worker accepts or rejects it. Delivery
      * is at least once: a record is leased again when its lease expires, when its worker releases it or closes, and
      * when the shard's owner changes before the group's progress past it reached the shard's other copies.
-     * Group names share their namespace with consumer names, so a name is used either for a group or a consumer.
      * Fails when the queue does not exist.
      *
      * @param queue     the queue name

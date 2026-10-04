@@ -10,8 +10,8 @@ import java.util.Map;
 
 /**
  * Carries a batch of entries from a shard's owner to a follower; the arguments of
- * {@link org.kinotic.queue.internal.log.ShardLog#replicate}, and the consumer offsets the owner stores for the shard
- * when they changed since the follower last received them. The reply is a {@link ReplicationResult}.
+ * {@link org.kinotic.queue.internal.log.ShardLog#replicate}, and the consumer and group offsets the owner stores for
+ * the shard when they changed since the follower last received them. The reply is a {@link ReplicationResult}.
  */
 public record ReplicateRequest(String queue,
                                int shard,
@@ -20,7 +20,8 @@ public record ReplicateRequest(String queue,
                                long prevEpoch,
                                long ownerNextOffset,
                                List<ShardEntry> entries,
-                               Map<String, Long> consumerOffsets) {
+                               Map<String, Long> consumerOffsets,
+                               Map<String, Long> groupOffsets) {
 
     public static ReplicateRequest fromBuffer(Buffer buffer) {
         Wire wire = new Wire(buffer);
@@ -31,6 +32,7 @@ public record ReplicateRequest(String queue,
                                     wire.readLong(),
                                     wire.readLong(),
                                     wire.readEntries(),
+                                    wire.readOffsets(),
                                     wire.readOffsets());
     }
 
@@ -51,6 +53,6 @@ public record ReplicateRequest(String queue,
             .appendLong(prevOffset)
             .appendLong(prevEpoch)
             .appendLong(ownerNextOffset);
-        return Wire.appendOffsets(Wire.appendEntries(ret, entries), consumerOffsets);
+        return Wire.appendOffsets(Wire.appendOffsets(Wire.appendEntries(ret, entries), consumerOffsets), groupOffsets);
     }
 }

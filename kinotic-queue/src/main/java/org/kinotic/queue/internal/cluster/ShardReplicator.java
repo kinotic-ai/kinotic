@@ -15,7 +15,7 @@ import java.util.Map;
 /**
  * Copies an owned shard to one follower, one batch at a time, reading the batches from the owner's copy. A follower
  * that is behind, or holds entries the owner does not, is sent everything from the last entry the two agree on. The
- * shard's consumer offsets travel with a batch whenever they changed since the follower last received them.
+ * shard's consumer and group offsets travel with a batch whenever they changed since the follower last received them.
  * Runs on the owner's context.
  */
 @Slf4j
@@ -31,6 +31,7 @@ final class ShardReplicator {
     private final int shard;
     private final ShardLog shardLog;
     private final ConsumerOffsetRepository consumerOffsets;
+    private final ConsumerOffsetRepository groupOffsets;
     private final long epoch;
     private final Runnable onMatched;
     private final Runnable onStaleEpoch;
@@ -53,6 +54,7 @@ final class ShardReplicator {
                     int shard,
                     ShardLog shardLog,
                     ConsumerOffsetRepository consumerOffsets,
+                    ConsumerOffsetRepository groupOffsets,
                     long epoch,
                     Runnable onMatched,
                     Runnable onStaleEpoch) {
@@ -63,6 +65,7 @@ final class ShardReplicator {
         this.shard = shard;
         this.shardLog = shardLog;
         this.consumerOffsets = consumerOffsets;
+        this.groupOffsets = groupOffsets;
         this.epoch = epoch;
         this.onMatched = onMatched;
         this.onStaleEpoch = onStaleEpoch;
@@ -103,15 +106,19 @@ final class ShardReplicator {
             long from = Math.min(nextToSend, shardLog.nextOffset());
             long[] offsetsVersion = new long[1];
             vertx.executeBlocking(() -> {
-                     offsetsVersion[0] = consumerOffsets.version(shard);
-                     return batch(from, offsetsVersion[0] > sentOffsetsVersion ? consumerOffsets.findAll(shard) : Map.of());
+                     // Both versions only grow, so their sum grows whenever either repository changes
+                     offsetsVersion[0] = consumerOffsets.version(shard) + groupOffsets.version(shard);
+                     boolean changed = offsetsVersion[0] > sentOffsetsVersion;
+                     return batch(from,
+                                  changed ? consumerOffsets.findAll(shard) : Map.of(),
+                                  changed ? groupOffsets.findAll(shard) : Map.of());
                  }, false)
                  .compose(request -> client.replicate(follower, request))
                  .onComplete(reply -> onReply(reply, offsetsVersion[0]));
         }
     }
 
-    private ReplicateRequest batch(long from, Map<String, Long> offsets) {
+    private ReplicateRequest batch(long from, Map<String, Long> consumers, Map<String, Long> groups) {
         // Reads the entry before the batch too, whose epoch lets the follower check it continues the same history
         List<ShardEntry> read = shardLog.read(Math.max(0, from - 1), BATCH_SIZE + 1, ShardOwner.MAX_BATCH_BYTES);
         long prevEpoch = -1;
@@ -122,7 +129,7 @@ final class ShardReplicator {
         }
         // Read after the entries, so the owner's end covers every entry in the batch
         long ownerNextOffset = shardLog.nextOffset();
-        return new ReplicateRequest(queue, shard, epoch, from - 1, prevEpoch, ownerNextOffset, List.copyOf(entries), offsets);
+        return new ReplicateRequest(queue, shard, epoch, from - 1, prevEpoch, ownerNextOffset, List.copyOf(entries), consumers, groups);
     }
 
     private void onReply(AsyncResult<ReplicationResult> reply, long offsetsVersion) {

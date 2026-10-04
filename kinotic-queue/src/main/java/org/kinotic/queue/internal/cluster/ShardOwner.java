@@ -64,6 +64,7 @@ final class ShardOwner {
     private final int shard;
     private final ShardLog shardLog;
     private final ConsumerOffsetRepository consumerOffsets;
+    private final ConsumerOffsetRepository groupOffsets;
     private final Map<String, ShardReplicator> replicators = new HashMap<>();
     private final TreeMap<Long, Promise<Long>> pendingAppends = new TreeMap<>();
     private final List<PendingFetch> pendingFetches = new ArrayList<>();
@@ -92,6 +93,7 @@ final class ShardOwner {
         this.shard = assignment.shard();
         this.shardLog = assignment.shardLog();
         this.consumerOffsets = assignment.consumerOffsets();
+        this.groupOffsets = assignment.groupOffsets();
         this.newestSeenEpoch = Math.max(shardLog.lastEpoch(), shardLog.acceptedEpoch());
     }
 
@@ -189,7 +191,7 @@ final class ShardOwner {
                 return Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue
                                                                                     + " has no committed offset yet in this epoch"));
             }
-            dispatcher = WorkDispatcher.open(vertx, queue, shard, request.groupName(), shardLog, consumerOffsets,
+            dispatcher = WorkDispatcher.open(vertx, queue, shard, request.groupName(), shardLog, groupOffsets,
                                              () -> committedOffset, request.startPosition());
             dispatchers.put(request.groupName(), dispatcher);
         }
@@ -289,7 +291,7 @@ final class ShardOwner {
             replies.put(node, node.equals(self)
                     ? vertx.executeBlocking(() -> {
                           shardLog.promise(proposed);
-                          return ShardStatus.of(shardLog, consumerOffsets.findAll(shard));
+                          return ShardStatus.of(shardLog, consumerOffsets.findAll(shard), groupOffsets.findAll(shard));
                       }, false)
                     : client.prepare(node, new PrepareRequest(queue, shard, proposed)));
         }
@@ -328,7 +330,10 @@ final class ShardOwner {
         String source = bestNode;
         long target = best.nextOffset();
         return vertx.executeBlocking(() -> {
-                        statuses.values().forEach(status -> consumerOffsets.saveAll(shard, status.consumerOffsets()));
+                        statuses.values().forEach(status -> {
+                            consumerOffsets.saveAll(shard, status.consumerOffsets());
+                            groupOffsets.saveAll(shard, status.groupOffsets());
+                        });
                         return shardStates.findCommittedOffset(queue, shard);
                     }, false)
                     .compose(knownCommitted -> {
@@ -385,7 +390,7 @@ final class ShardOwner {
 
     private void startReplicator(String follower) {
         replicators.computeIfAbsent(follower, node -> {
-            ShardReplicator replicator = new ShardReplicator(vertx, client, node, queue, shard, shardLog, consumerOffsets,
+            ShardReplicator replicator = new ShardReplicator(vertx, client, node, queue, shard, shardLog, consumerOffsets, groupOffsets,
                                                              epoch, this::updateCommittedOffset, this::stop);
             replicator.start();
             return replicator;

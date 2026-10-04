@@ -181,6 +181,7 @@ public class QueueNode {
                                                                                     request.entries());
             if (result.status() != ReplicationStatus.STALE_EPOCH) {
                 queueLog.consumerOffsets().saveAll(request.shard(), request.consumerOffsets());
+                queueLog.groupOffsets().saveAll(request.shard(), request.groupOffsets());
             }
             return ReplicateRequest.encodeReply(result);
         }, false));
@@ -209,7 +210,9 @@ public class QueueNode {
             ShardStatus status;
             if (shard != null) {
                 shard.promise(request.epoch());
-                status = ShardStatus.of(shard, queueLog.consumerOffsets().findAll(request.shard()));
+                status = ShardStatus.of(shard,
+                                        queueLog.consumerOffsets().findAll(request.shard()),
+                                        queueLog.groupOffsets().findAll(request.shard()));
             } else {
                 status = ShardStatus.none(promisedEpochs.merge(request.queue() + "/" + request.shard(), request.epoch(), Math::max));
             }
@@ -277,6 +280,7 @@ public class QueueNode {
                                                                      shard,
                                                                      openShard(queueLog, shard),
                                                                      queueLog.consumerOffsets(),
+                                                                     queueLog.groupOffsets(),
                                                                      replicas.subList(1, replicas.size()));
                     ret.put(assignment.key(), assignment);
                 }

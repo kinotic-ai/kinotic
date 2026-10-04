@@ -12,8 +12,8 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 /**
- * Stores, for each consumer of one queue, the next offset to deliver on every shard. A stored offset only moves
- * forward.
+ * Stores, for each consumer or worker group of one queue, the next offset to deliver on every shard. A stored offset
+ * only moves forward.
  */
 public final class ConsumerOffsetRepository implements AutoCloseable {
 

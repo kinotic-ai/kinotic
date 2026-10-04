@@ -12,23 +12,28 @@ import java.util.Map;
  * @param lastEpoch       the epoch of the copy's last entry; -1 when the copy is empty
  * @param acceptedEpoch   the newest epoch the node has promised for the shard; -1 when it has promised none
  * @param consumerOffsets the next offset of every consumer that has committed on the shard, by consumer name
+ * @param groupOffsets    the low watermark of every worker group that has finished records on the shard, by group name
  */
-public record ShardStatus(long nextOffset, long lastEpoch, long acceptedEpoch, Map<String, Long> consumerOffsets) {
+public record ShardStatus(long nextOffset,
+                          long lastEpoch,
+                          long acceptedEpoch,
+                          Map<String, Long> consumerOffsets,
+                          Map<String, Long> groupOffsets) {
 
-    public static ShardStatus of(ShardLog shardLog, Map<String, Long> consumerOffsets) {
-        return new ShardStatus(shardLog.nextOffset(), shardLog.lastEpoch(), shardLog.acceptedEpoch(), consumerOffsets);
+    public static ShardStatus of(ShardLog shardLog, Map<String, Long> consumerOffsets, Map<String, Long> groupOffsets) {
+        return new ShardStatus(shardLog.nextOffset(), shardLog.lastEpoch(), shardLog.acceptedEpoch(), consumerOffsets, groupOffsets);
     }
 
     /**
      * The status of a node that holds no copy of the shard.
      */
     public static ShardStatus none(long acceptedEpoch) {
-        return new ShardStatus(0, -1, acceptedEpoch, Map.of());
+        return new ShardStatus(0, -1, acceptedEpoch, Map.of(), Map.of());
     }
 
     public static ShardStatus fromBuffer(Buffer buffer) {
         Wire wire = new Wire(buffer);
-        return new ShardStatus(wire.readLong(), wire.readLong(), wire.readLong(), wire.readOffsets());
+        return new ShardStatus(wire.readLong(), wire.readLong(), wire.readLong(), wire.readOffsets(), wire.readOffsets());
     }
 
     /**
@@ -39,7 +44,8 @@ public record ShardStatus(long nextOffset, long lastEpoch, long acceptedEpoch, M
     }
 
     public Buffer toBuffer() {
-        return Wire.appendOffsets(Buffer.buffer().appendLong(nextOffset).appendLong(lastEpoch).appendLong(acceptedEpoch),
-                                  consumerOffsets);
+        Buffer ret = Wire.appendOffsets(Buffer.buffer().appendLong(nextOffset).appendLong(lastEpoch).appendLong(acceptedEpoch),
+                                        consumerOffsets);
+        return Wire.appendOffsets(ret, groupOffsets);
     }
 }

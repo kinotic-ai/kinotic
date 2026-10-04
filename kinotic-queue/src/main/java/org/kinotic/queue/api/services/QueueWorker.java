@@ -6,8 +6,8 @@ import org.kinotic.queue.api.model.WorkItem;
 
 /**
  * One worker of a group sharing a queue's records: each record is leased to one worker of the group at a time. A
- * record the worker does not settle within its lease, or still holds when it closes, is leased to another worker,
- * and a record leased five times without being accepted is dropped. Methods must be called on the Vert.x context the
+ * record the worker neither settles nor {@link #renew renews} within its lease, or still holds when it closes, is
+ * leased to another worker, and a record leased five times without being accepted is dropped. Methods must be called on the Vert.x context the
  * worker delivers on.
  */
 public interface QueueWorker extends ReadStream<WorkItem> {
@@ -34,6 +34,14 @@ public interface QueueWorker extends ReadStream<WorkItem> {
      * @return completes as {@link #accept} does; fails when the item's lease has expired
      */
     Future<Void> reject(WorkItem item);
+
+    /**
+     * Starts the item's lease over, so a worker still processing the item keeps it for another lease duration with the
+     * same delivery count.
+     *
+     * @return fails when the item's lease has expired
+     */
+    Future<Void> renew(WorkItem item);
 
     /**
      * Stops delivery and hands back every item the worker holds.

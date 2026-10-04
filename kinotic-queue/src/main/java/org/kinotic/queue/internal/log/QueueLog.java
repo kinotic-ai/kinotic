@@ -25,12 +25,14 @@ public final class QueueLog implements AutoCloseable {
     private final QueueDefinition definition;
     private final ShardLog[] shards;
     private final ConsumerOffsetRepository consumerOffsets;
+    private final ConsumerOffsetRepository groupOffsets;
 
     private QueueLog(Path directory, QueueDefinition definition) {
         this.directory = directory;
         this.definition = definition;
         this.shards = new ShardLog[definition.shardCount()];
         this.consumerOffsets = new ConsumerOffsetRepository(directory.resolve("consumers"), definition.shardCount());
+        this.groupOffsets = new ConsumerOffsetRepository(directory.resolve("groups"), definition.shardCount());
     }
 
     /**
@@ -127,13 +129,24 @@ public final class QueueLog implements AutoCloseable {
         return definition;
     }
 
+    /**
+     * @return the committed offsets of the queue's subscribed consumers
+     */
     public ConsumerOffsetRepository consumerOffsets() {
         return consumerOffsets;
+    }
+
+    /**
+     * @return the low watermarks of the queue's worker groups, kept apart from consumers so the two never share a name
+     */
+    public ConsumerOffsetRepository groupOffsets() {
+        return groupOffsets;
     }
 
     @Override
     public synchronized void close() {
         consumerOffsets.close();
+        groupOffsets.close();
         for (ShardLog shard : shards) {
             if (shard != null) {
                 shard.close();

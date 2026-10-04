@@ -24,8 +24,8 @@ import java.util.function.LongSupplier;
  * Shares one shard's committed records between the workers of one group, on the shard's owner. Each record is leased
  * to one worker at a time; a record whose lease expires or is released goes back to the group, and a record leased
  * {@link #MAX_DELIVERIES} times without being accepted is dropped. The group's low watermark, the offset before which
- * every record is done, is stored as the group's position in the queue's consumer offsets, which travel with the
- * shard. Runs on the owner's context.
+ * every record is done, is stored in the queue's group offsets, which travel with the shard. A lease can be renewed
+ * while its worker still processes the record. Runs on the owner's context.
  */
 @Slf4j
 final class WorkDispatcher {
@@ -43,7 +43,7 @@ final class WorkDispatcher {
     private final int shard;
     private final String groupName;
     private final ShardLog shardLog;
-    private final ConsumerOffsetRepository consumerOffsets;
+    private final ConsumerOffsetRepository groupOffsets;
     private final LongSupplier committedOffset;
     private final TreeMap<Long, Lease> leased = new TreeMap<>();
     // Records waiting to be leased again, with how many times they have been leased
@@ -63,7 +63,7 @@ final class WorkDispatcher {
                            int shard,
                            String groupName,
                            ShardLog shardLog,
-                           ConsumerOffsetRepository consumerOffsets,
+                           ConsumerOffsetRepository groupOffsets,
                            LongSupplier committedOffset,
                            long lowWatermark) {
         this.vertx = vertx;
@@ -71,7 +71,7 @@ final class WorkDispatcher {
         this.shard = shard;
         this.groupName = groupName;
         this.shardLog = shardLog;
-        this.consumerOffsets = consumerOffsets;
+        this.groupOffsets = groupOffsets;
         this.committedOffset = committedOffset;
         this.lowWatermark = lowWatermark;
         this.nextToLease = lowWatermark;
@@ -86,18 +86,18 @@ final class WorkDispatcher {
                                        int shard,
                                        String groupName,
                                        ShardLog shardLog,
-                                       ConsumerOffsetRepository consumerOffsets,
+                                       ConsumerOffsetRepository groupOffsets,
                                        LongSupplier committedOffset,
                                        StartPosition startPosition) {
         long latest = committedOffset.getAsLong();
         return vertx.executeBlocking(() -> {
-            long stored = consumerOffsets.findNextOffset(groupName, shard);
+            long stored = groupOffsets.findNextOffset(groupName, shard);
             long ret = stored;
             if (stored == 0 && startPosition == StartPosition.LATEST) {
                 ret = latest;
-                consumerOffsets.save(groupName, shard, latest);
+                groupOffsets.save(groupName, shard, latest);
             }
-            return new WorkDispatcher(vertx, queue, shard, groupName, shardLog, consumerOffsets, committedOffset, ret);
+            return new WorkDispatcher(vertx, queue, shard, groupName, shardLog, groupOffsets, committedOffset, ret);
         }, false);
     }
 
@@ -134,15 +134,20 @@ final class WorkDispatcher {
             return Future.failedFuture(QueueFailure.LEASE_EXPIRED.exception("Offset " + offset + " of shard " + shard + " of queue "
                                                                                     + queue + " is not leased to this worker"));
         }
-        leased.remove(offset);
         vertx.cancelTimer(lease.timerId());
-        Future<Void> ret;
-        if (settlement == Settlement.RELEASE) {
-            released.put(offset, lease.deliveryCount());
-            servePendingLeases();
-            ret = Future.succeededFuture();
-        } else {
-            ret = markDone(offset);
+        Future<Void> ret = Future.succeededFuture();
+        switch (settlement) {
+            case RENEW -> leased.put(offset, new Lease(workerId, lease.deliveryCount(), lease.leaseMillis(),
+                                                       vertx.setTimer(lease.leaseMillis(), t -> expire(offset, workerId))));
+            case RELEASE -> {
+                leased.remove(offset);
+                released.put(offset, lease.deliveryCount());
+                servePendingLeases();
+            }
+            case ACCEPT, REJECT -> {
+                leased.remove(offset);
+                ret = markDone(offset);
+            }
         }
         return ret;
     }
@@ -234,7 +239,7 @@ final class WorkDispatcher {
                 int deliveryCount = taken.getOrDefault(entry.offset(), 0) + 1;
                 long offset = entry.offset();
                 long timerId = vertx.setTimer(leaseMillis, t -> expire(offset, workerId));
-                leased.put(offset, new Lease(workerId, deliveryCount, timerId));
+                leased.put(offset, new Lease(workerId, deliveryCount, leaseMillis, timerId));
                 ret.add(new LeasedEntry(entry, deliveryCount));
             }
         }
@@ -279,7 +284,7 @@ final class WorkDispatcher {
     private Future<Void> saveLowWatermark() {
         long watermark = lowWatermark;
         lastSave = lastSave.transform(ignored -> vertx.<Void>executeBlocking(() -> {
-            consumerOffsets.save(groupName, shard, watermark);
+            groupOffsets.save(groupName, shard, watermark);
             return null;
         }, false));
         lastSave.onFailure(e -> log.warn("Saving the position of group {} on shard {} of queue {} failed", groupName, shard, queue, e));

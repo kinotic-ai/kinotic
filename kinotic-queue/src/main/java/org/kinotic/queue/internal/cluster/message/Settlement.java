@@ -15,5 +15,9 @@ public enum Settlement {
     /**
      * The record can never be processed, so it is done.
      */
-    REJECT
+    REJECT,
+    /**
+     * The worker still processes the record, so its lease starts over.
+     */
+    RENEW
 }

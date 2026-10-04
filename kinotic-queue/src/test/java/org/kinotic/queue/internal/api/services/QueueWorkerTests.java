@@ -6,12 +6,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.kinotic.queue.api.model.QueueDefinition;
+import org.kinotic.queue.api.model.QueueRecord;
 import org.kinotic.queue.api.model.StartPosition;
 import org.kinotic.queue.api.model.WorkItem;
 import org.kinotic.queue.api.model.WorkerOptions;
 import org.kinotic.queue.api.services.QueueService;
 import org.kinotic.queue.api.services.QueueWorker;
 import org.kinotic.queue.internal.QueueTestNode;
+import org.kinotic.queue.internal.TestSubscriber;
 import org.kinotic.queue.internal.TestWorker;
 
 import java.nio.file.Path;
@@ -136,6 +138,42 @@ public class QueueWorkerTests {
         TestWorker resumed = work("billing", StartPosition.EARLIEST, 10, LONG_LEASE);
 
         assertEquals(range(6, 10), resumed.takeUntilQuiet());
+    }
+
+    @Test
+    public void aRenewedLeaseOutlivesItsDurationWithoutAnotherDelivery() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition(QUEUE, 1)));
+        appendValues(0, 1);
+        TestWorker busy = work("billing", StartPosition.EARLIEST, 1, Duration.ofMillis(400));
+        WorkItem item = busy.next();
+        TestWorker idle = work("billing", StartPosition.EARLIEST, 1, LONG_LEASE);
+
+        // Renewed for three times the lease duration while the other worker waits
+        for (int i = 0; i < 6; i++) {
+            Thread.sleep(200);
+            await(busy.settle(QueueWorker::renew, item));
+        }
+
+        assertNull(idle.poll(100));
+        await(busy.settle(QueueWorker::accept, item));
+        assertNull(idle.poll(1_000));
+    }
+
+    @Test
+    public void aConsumerAndAGroupWithTheSameNameKeepSeparatePositions() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition(QUEUE, 1)));
+        appendValues(0, 5);
+        TestSubscriber subscriber = TestSubscriber.subscribe(node.vertx(), service, QUEUE, "billing", StartPosition.EARLIEST);
+        QueueRecord last = null;
+        for (int i = 0; i < 5; i++) {
+            last = subscriber.next();
+        }
+        await(subscriber.commit(last));
+        await(subscriber.close());
+
+        TestWorker worker = work("billing", StartPosition.EARLIEST, 10, LONG_LEASE);
+
+        assertEquals(range(0, 5), worker.takeUntilQuiet());
     }
 
     @Test

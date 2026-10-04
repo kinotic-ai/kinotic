@@ -62,6 +62,11 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
     }
 
     @Override
+    public Future<Void> renew(WorkItem item) {
+        return settle(item, Settlement.RENEW);
+    }
+
+    @Override
     public Future<Void> close() {
         end();
         List<Future<Void>> released = List.copyOf(held).stream()
@@ -118,10 +123,12 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
     private Future<Void> settle(QueuePosition position, Settlement settlement) {
         return client.settle(new SettleRequest(queue, position.shard(), groupName, workerId, settlement, position.offset()))
                      .onComplete(ar -> {
-                         // Settled, or no longer leased to this worker
-                         held.remove(position);
-                         if (!isEnded()) {
-                             pullAll();
+                         // A renewed item stays held; any other settlement, or a failure, means it is no longer leased here
+                         if (settlement != Settlement.RENEW || ar.failed()) {
+                             held.remove(position);
+                             if (!isEnded()) {
+                                 pullAll();
+                             }
                          }
                      });
     }
