@@ -37,7 +37,24 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
         return platformStoreId().compose(storeId -> ensureModel(storeId, model));
     }
 
-    private Future<String> platformStoreId() {
+    /**
+     * The engine's id of the store named as its record is: the platform's through {@link #platformStoreId()};
+     * any other name fails the caller.
+     */
+    Future<String> storeIdOf(String store) {
+        Future<String> ret;
+        if (PLATFORM.equals(store)) {
+            ret = platformStoreId();
+        } else {
+            ret = Future.failedFuture(new IllegalArgumentException("No authorization store is named '" + store + "'"));
+        }
+        return ret;
+    }
+
+    /**
+     * The id of the platform store, resolved once and kept; a failed lookup is made again by the next caller.
+     */
+    Future<String> platformStoreId() {
         Future<String> ret = platformStore;
         if (ret == null || ret.failed()) {
             synchronized (this) {

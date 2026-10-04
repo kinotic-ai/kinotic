@@ -6,6 +6,7 @@ import org.kinotic.authz.api.model.EntityResource;
 import org.kinotic.authz.api.model.EntityScope;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
 import tools.jackson.databind.JsonNode;
@@ -186,6 +187,23 @@ public class AuthzModelGeneratorTest {
         assertEquals(Map.of("project", Set.of("can_delete", "can_deploy", "can_edit", "can_view"),
                             "vm_node", Set.of("can_register_node")),
                      model.permissions());
+    }
+
+    @Test
+    public void builtInRolesFollowTheTypesAndTheTree() {
+        AuthzModel model = generator.platformModel(platformServices());
+
+        assertEquals(Set.of("project_can_view"), model.roles().get("project.viewer"));
+        assertEquals(Set.of("project_can_view", "project_can_edit", "project_can_deploy"), model.roles().get("project.editor"));
+        assertEquals(Set.of("project_can_view", "project_can_edit", "project_can_deploy", "project_can_delete"), model.roles().get("project.admin"));
+        // the admin of a container holds everything inside it, the developer everything but the container's own
+        assertEquals(model.roles().get("project.admin"), model.roles().get(AuthzUtil.ORGANIZATION_ADMIN_ROLE));
+        assertEquals(model.roles().get("project.admin"), model.roles().get("application.admin"));
+        assertEquals(model.roles().get("project.admin"), model.roles().get(AuthzUtil.APPLICATION_DEVELOPER_ROLE));
+        // a type with no reading permission has no viewer, and a role bundling nothing is not a role
+        assertEquals(Set.of("vm_node_can_register_node"), model.roles().get("vm_node.editor"));
+        assertFalse(model.roles().containsKey("vm_node.viewer"));
+        assertFalse(model.roles().containsKey("tenant.admin"));
     }
 
     @Test

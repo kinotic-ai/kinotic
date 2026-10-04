@@ -1,5 +1,9 @@
 package org.kinotic.management.internal.api.services;
 
+import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
@@ -30,16 +34,19 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     private final ProjectService projectService;
     private final OidcConfigurationService oidcConfigurationService;
     private final UiDeploymentRepository uiDeploymentRepository;
+    private final RelationshipService relationships;
 
     public DefaultApplicationService(ApplicationRepository repository,
                                      ProjectService projectService,
                                      OidcConfigurationService oidcConfigurationService,
                                      UiDeploymentRepository uiDeploymentRepository,
-                                     SecurityContext securityContext) {
+                                     SecurityContext securityContext,
+                                     RelationshipService relationships) {
         super(repository, securityContext);
         this.projectService = projectService;
         this.oidcConfigurationService = oidcConfigurationService;
         this.uiDeploymentRepository = uiDeploymentRepository;
+        this.relationships = relationships;
     }
 
     @Override
@@ -60,7 +67,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                         // a caller with no tenancy opinion, such as the CLI ensuring the app row exists,
                         // omits the argument and gets the shared default
                         newApplication.setTenantPerUser(Boolean.TRUE.equals(tenantPerUser));
-                        ret = save(newApplication);
+                        ret = save(newApplication).compose(this::contained);
                     }
                     return ret;
                 });
@@ -70,13 +77,35 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     public Future<Application> create(Application entity) {
         // Force the id to derive from the name; beforeSave mints it from the slug.
         entity.setId(null);
-        return failOnDuplicateName(super.create(entity), entity);
+        return failOnDuplicateName(super.create(entity), entity).compose(this::contained);
     }
 
     @Override
     public Future<Application> createSync(Application entity) {
         entity.setId(null);
-        return failOnDuplicateName(super.createSync(entity), entity);
+        return failOnDuplicateName(super.createSync(entity), entity).compose(this::contained);
+    }
+
+    @Override
+    public Future<Void> deleteById(String id) {
+        return super.deleteById(id).compose(v -> relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(id))));
+    }
+
+    @Override
+    public Future<Void> deleteByIdSync(String id) {
+        return super.deleteByIdSync(id).compose(v -> relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(id))));
+    }
+
+    // The application's place in the graph, written once the record is, so a write that fails leaves an
+    // application nobody can reach rather than one nobody stores
+    private Future<Application> contained(Application application) {
+        return relationships.ensure(AuthzStoreService.PLATFORM, List.of(containment(application.getId()))).map(application);
+    }
+
+    private RelationshipTuple containment(String applicationId) {
+        return new RelationshipTuple(AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, requireOrganizationId()),
+                                     AuthzUtil.ORGANIZATION_TYPE,
+                                     AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, applicationId));
     }
 
     // The caller supplied a name, not the derived id an AlreadyExistsException would reference

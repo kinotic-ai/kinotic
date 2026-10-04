@@ -9,6 +9,12 @@ import org.kinotic.authz.api.model.AuthzModel;
 public interface AuthzStoreService {
 
     /**
+     * The name of the platform's store, the id of its record. An application's store is named by the
+     * application's id.
+     */
+    String PLATFORM = "platform";
+
+    /**
      * Makes the given model the platform store's current one, as {@link #ensureModel} does for a store named
      * by id. The platform store is the one store named {@code kinotic-platform}, created ahead of the servers
      * and never by one; it is looked up on first use and kept once found, and a lookup that fails, because the

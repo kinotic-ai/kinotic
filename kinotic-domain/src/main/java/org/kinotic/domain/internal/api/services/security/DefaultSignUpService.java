@@ -2,6 +2,9 @@ package org.kinotic.domain.internal.api.services.security;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.Organization;
@@ -29,6 +32,7 @@ public class DefaultSignUpService implements SignUpService {
     private final PendingSignUpRepository pendingSignUpRepository;
     private final ParticipantIdentityService identityService;
     private final OrganizationService organizationService;
+    private final RelationshipService relationships;
     private final EmailService emailService;
 
     @Override
@@ -114,7 +118,14 @@ public class DefaultSignUpService implements SignUpService {
                     return identityService.createUser(admin, password)
                             .compose(savedAdmin -> {
                                 savedOrg.setCreatedBy(savedAdmin.getId());
-                                return organizationService.save(savedOrg).map(savedAdmin);
+                                // the creator administers the organization: a binding of the organization admin
+                                // role on the organization, which reaches everything inside it
+                                return organizationService.save(savedOrg)
+                                        .compose(v -> relationships.bind(AuthzStoreService.PLATFORM,
+                                                                         AuthzUtil.ORGANIZATION_ADMIN_ROLE,
+                                                                         AuthzUtil.object(AuthzUtil.USER_TYPE, savedAdmin.getId()),
+                                                                         AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, savedOrg.getId())))
+                                        .map(savedAdmin);
                             });
                 });
     }

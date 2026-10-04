@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.authz.api.services.AuthzStoreService;
 
 /**
  * The authorization store of one scope: the platform's, which every platform service's contract belongs to, or
@@ -20,7 +21,7 @@ public class AuthzStore implements Reconcilable<AuthzModelRevision> {
     /**
      * The id of the platform's store record.
      */
-    public static final String PLATFORM = "platform";
+    public static final String PLATFORM = AuthzStoreService.PLATFORM;
 
     /**
      * {@link #PLATFORM} for the platform's store, or the application's id.

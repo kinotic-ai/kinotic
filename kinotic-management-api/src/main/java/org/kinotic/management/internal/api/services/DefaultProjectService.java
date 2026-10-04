@@ -1,5 +1,9 @@
 package org.kinotic.management.internal.api.services;
 
+import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import com.github.slugify.Slugify;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
@@ -35,17 +39,20 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectDependenciesRepository projectDependenciesRepository;
     private final ProjectRepoProvisioner repoProvisioner;
+    private final RelationshipService relationships;
 
     public DefaultProjectService(ProjectRepository repository,
                                  SecurityContext securityContext,
                                  ProjectDeploymentRepository projectDeploymentRepository,
                                  ProjectDependenciesRepository projectDependenciesRepository,
-                                 ProjectRepoProvisioner repoProvisioner) {
+                                 ProjectRepoProvisioner repoProvisioner,
+                                 RelationshipService relationships) {
         super(repository, securityContext);
         this.projectRepository = repository;
         this.projectDeploymentRepository = projectDeploymentRepository;
         this.projectDependenciesRepository = projectDependenciesRepository;
         this.repoProvisioner = repoProvisioner;
+        this.relationships = relationships;
     }
 
     @Override
@@ -66,8 +73,34 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                     if (existing != null) {
                         return Future.succeededFuture(existing);
                     }
-                    return repoProvisioner.provision(project).compose(this::save);
+                    return repoProvisioner.provision(project).compose(this::save).compose(this::contained);
                 });
+    }
+
+    @Override
+    public Future<Void> deleteById(String id) {
+        return findById(id).compose(project -> super.deleteById(id).compose(v -> uncontained(project)));
+    }
+
+    @Override
+    public Future<Void> deleteByIdSync(String id) {
+        return findById(id).compose(project -> super.deleteByIdSync(id).compose(v -> uncontained(project)));
+    }
+
+    // The project's place in the graph, written once the record is, so a write that fails leaves a project
+    // nobody can reach rather than one nobody stores
+    private Future<Project> contained(Project project) {
+        return relationships.ensure(AuthzStoreService.PLATFORM, List.of(containment(project))).map(project);
+    }
+
+    private Future<Void> uncontained(Project project) {
+        return project == null ? Future.succeededFuture() : relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(project)));
+    }
+
+    private static RelationshipTuple containment(Project project) {
+        return new RelationshipTuple(AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, project.getApplicationId()),
+                                     AuthzUtil.APPLICATION_TYPE,
+                                     AuthzUtil.object(ProjectService.RESOURCE_TYPE, project.getId()));
     }
 
     @Override
@@ -163,7 +196,8 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                                 "Project for id " + project.getId() + " already exists"));
                     }
                     return repoProvisioner.provision(project)
-                                          .compose(write);
+                                          .compose(write)
+                                          .compose(this::contained);
                 })
                 .recover(ex -> AlreadyExistsException.isCause(ex)
                         ? Future.failedFuture(new IllegalArgumentException(

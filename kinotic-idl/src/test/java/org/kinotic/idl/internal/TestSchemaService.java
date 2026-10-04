@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.SchemaService;
+import org.kinotic.idl.api.schema.AnyC3Type;
 import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.AsyncC3Type;
 import org.kinotic.idl.api.schema.C3Type;
@@ -22,6 +23,7 @@ import org.kinotic.idl.internal.support.DefaultTestRenamedService;
 import org.kinotic.idl.internal.support.TestRenamedService;
 import org.kinotic.idl.internal.support.OtherTestService;
 import org.kinotic.idl.internal.support.TestAddress;
+import org.kinotic.idl.internal.support.TestC3SchemaService;
 import org.kinotic.idl.internal.support.TestCollidingPageService;
 import org.kinotic.idl.internal.support.TestObject;
 import org.kinotic.idl.internal.support.TestNamedHintService;
@@ -34,6 +36,8 @@ import org.kinotic.idl.internal.support.TestRawPageService;
 import org.kinotic.idl.internal.support.TestService;
 import org.kinotic.idl.internal.support.TestStatus;
 import org.kinotic.idl.internal.support.TestSweptService;
+import org.kinotic.idl.internal.support.TestTreeNode;
+import org.kinotic.idl.internal.support.TestTreeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -327,6 +331,26 @@ public class TestSchemaService {
                                                                                                                 new ServiceDeclaration(OtherTestService.class, OtherTestService.class))));
 
         Assertions.assertTrue(conversion.getMessage().contains("overloads function find"), conversion.getMessage());
+    }
+
+    @Test
+    public void testC3SchemaTypesPublishAsAny() {
+        NamespaceDefinition namespaceDefinition = schemaService.createForServices(List.of(new ServiceDeclaration(TestC3SchemaService.class, TestC3SchemaService.class)));
+        ServiceDefinition service = findService(namespaceDefinition, TestC3SchemaService.class);
+
+        // a schema or a decorator serializes as JSON naming its own type, so the contract describes no shape for it
+        Assertions.assertInstanceOf(AnyC3Type.class, findFunction(service, "findSchema").getReturnType());
+        C3Type decorators = findFunction(service, "decorate").getParameters().getLast().getType();
+        Assertions.assertInstanceOf(AnyC3Type.class, ((ArrayC3Type) decorators).getContains());
+        Assertions.assertTrue(namespaceDefinition.getComplexC3Types().isEmpty());
+    }
+
+    @Test
+    public void testSelfReferencingTypeRejected() {
+        IllegalStateException e = Assertions.assertThrows(IllegalStateException.class,
+                () -> schemaService.createForServices(List.of(new ServiceDeclaration(TestTreeService.class, TestTreeService.class))));
+
+        Assertions.assertEquals("Circular reference detected for " + TestTreeNode.class.getName(), e.getMessage());
     }
 
     @Test

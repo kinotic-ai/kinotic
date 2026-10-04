@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services;
 
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
@@ -20,7 +23,11 @@ import java.util.List;
  */
 @Publish
 @McpTool
+@AuthzResource(value = ProjectService.RESOURCE_TYPE, parent = AuthzUtil.APPLICATION_TYPE)
 public interface ProjectService extends ApplicationScopedCrudService<Project, String> {
+
+    /** The resource type a project is in the authorization model. */
+    String RESOURCE_TYPE = "project";
 
     /**
      * Creates a new project if it does not already exist. If a project with the same id
@@ -97,6 +104,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @throws IllegalStateException when the project is not awaiting an initialization retry
      */
     @McpTool(openWorldHint = true)
+    @AuthzCheck(permission = AuthzUtil.CAN_EDIT)
     Future<Project> retryRepoInitialization(String projectId);
 
 }

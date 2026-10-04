@@ -3,6 +3,7 @@ plugins {
 }
 
 dependencies {
+    implementation project(':kinotic-authz')
     implementation project(':kinotic-core')
     implementation project(':kinotic-idl')
     implementation project(':kinotic-sql')

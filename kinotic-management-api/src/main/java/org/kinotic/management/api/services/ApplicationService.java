@@ -1,5 +1,7 @@
 package org.kinotic.management.api.services;
 
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
@@ -16,6 +18,7 @@ import java.util.List;
 // FIXME: add an OrganizationScopedServiceInterface
 @Publish
 @McpTool
+@AuthzResource(value = AuthzUtil.APPLICATION_TYPE, parent = AuthzUtil.ORGANIZATION_TYPE)
 public interface ApplicationService extends IdentifiableCrudService<Application, String> {
 
     /**
