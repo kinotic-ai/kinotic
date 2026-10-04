@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -50,6 +51,7 @@ public class ChaosTests {
     // Enough acknowledged appends for every shard to receive some, since the workload spreads 16 keys over the shards
     private static final int PROGRESS = 40;
     private static final long LOSSY_PHASE_MILLIS = 30_000;
+    private static final Duration LEASE = Duration.ofSeconds(3);
 
     @TempDir
     private Path directory;
@@ -231,9 +233,10 @@ public class ChaosTests {
         startCluster();
         QueueTestNode workerNode = node("c");
         TestWorker worker = TestWorker.start(workerNode.vertx(), workerNode.queueService(), QUEUE, "jobs",
-                                             new WorkerOptions(StartPosition.EARLIEST, 20, Duration.ofSeconds(3)));
-        Set<Integer> accepted = ConcurrentHashMap.newKeySet();
-        Thread working = Thread.ofPlatform().start(() -> acceptWhileRunning(worker, accepted));
+                                             new WorkerOptions(StartPosition.EARLIEST, 20, LEASE));
+        Set<Integer> received = ConcurrentHashMap.newKeySet();
+        AtomicLong lastReceived = new AtomicLong(System.currentTimeMillis());
+        Thread working = Thread.ofPlatform().start(() -> acceptWhileRunning(worker, received, lastReceived));
 
         for (String name : List.of("a", "b")) {
             QueueTestNode node = node(name);
@@ -246,14 +249,24 @@ public class ChaosTests {
         workload.close();
 
         long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(120);
-        while (!accepted.containsAll(workload.acknowledged()) && System.currentTimeMillis() < deadline) {
+        while (!received.containsAll(workload.acknowledged()) && System.currentTimeMillis() < deadline) {
+            Thread.sleep(100);
+        }
+        // A record whose accept did not take effect comes back once its lease expires, so a worker quiet for longer
+        // than a lease has finished every record
+        while (System.currentTimeMillis() - lastReceived.get() < 2 * LEASE.toMillis()) {
             Thread.sleep(100);
         }
         working.interrupt();
         working.join();
+        await(worker.close());
         Set<Integer> missing = new HashSet<>(workload.acknowledged());
-        missing.removeAll(accepted);
-        assertTrue(missing.isEmpty(), "acknowledged records no worker accepted: " + missing);
+        missing.removeAll(received);
+        assertTrue(missing.isEmpty(), "acknowledged records no worker received: " + missing);
+        TestWorker checker = TestWorker.start(node("a").vertx(), node("a").queueService(), QUEUE, "jobs",
+                                              new WorkerOptions(StartPosition.EARLIEST, 20, Duration.ofMinutes(1)));
+        assertNull(checker.poll(3_000), "the group still had records to work after its worker finished");
+        await(checker.close());
     }
 
     @Test
@@ -324,14 +337,16 @@ public class ChaosTests {
         workload.changeNodes(() -> live.add(node));
     }
 
-    private static void acceptWhileRunning(TestWorker worker, Set<Integer> accepted) {
+    private static void acceptWhileRunning(TestWorker worker, Set<Integer> received, AtomicLong lastReceived) {
         try {
             while (!Thread.currentThread().isInterrupted()) {
                 WorkItem item = worker.poll(500);
-                // An accept fails when the item's lease ended with its shard's owner; the item is then leased again
-                if (item != null && worker.settle(QueueWorker::accept, item).toCompletionStage().toCompletableFuture()
-                                          .handle((v, e) -> e == null).get(30, TimeUnit.SECONDS)) {
-                    accepted.add(TestWorker.value(item));
+                if (item != null) {
+                    received.add(TestWorker.value(item));
+                    lastReceived.set(System.currentTimeMillis());
+                    // A failed accept leaves it unknown whether the item is done; one that is not comes back later
+                    worker.settle(QueueWorker::accept, item).toCompletionStage().toCompletableFuture()
+                          .handle((v, e) -> e == null).get(30, TimeUnit.SECONDS);
                 }
             }
         } catch (InterruptedException e) {
