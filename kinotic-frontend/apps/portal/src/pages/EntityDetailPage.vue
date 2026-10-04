@@ -24,7 +24,8 @@
       <Button icon="pi pi-times" severity="secondary" text rounded aria-label="Close" @click="closeCallback" />
     </template>
 
-    <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
+    <NoAccessState v-if="error && isAuthorizationError(error)" class="m-6" :back-to="entitiesPath" back-label="Back to entities" />
+    <Message v-else-if="error" severity="error" :closable="false">{{ error }}</Message>
     <div v-else-if="loading" class="p-6 text-sm text-muted-color">Loading entity…</div>
 
     <Tabs v-else-if="entity" lazy :value="activeTab" class="flex min-h-0 flex-1 flex-col" @update:value="selectTab">
@@ -34,6 +35,9 @@
         </Tab>
         <Tab value="schema">
           <span class="flex items-center gap-2"><Braces :size="18" :stroke-width="1.75" aria-hidden="true" />Schema</span>
+        </Tab>
+        <Tab value="access">
+          <span class="flex items-center gap-2"><KeyRound :size="18" :stroke-width="1.75" aria-hidden="true" />Access</span>
         </Tab>
       </TabList>
       <TabPanels class="flex min-h-0 flex-1 flex-col">
@@ -46,13 +50,17 @@
         <TabPanel value="schema" class="flex min-h-0 flex-1 flex-col">
           <EntityDefinitionDiagram :key="entity.id ?? ''" :entity="entity" />
         </TabPanel>
+        <TabPanel value="access" class="min-h-0 flex-1 overflow-y-auto pt-4">
+          <AccessPanel :key="entity.id ?? ''" :resource="{ type: 'entity_definition', id: entity.id ?? '' }" :tint="TINTS.purple"
+                       :application-id="entity.applicationId" :project-id="entity.projectId" />
+        </TabPanel>
       </TabPanels>
     </Tabs>
   </Dialog>
 </template>
 
 <script setup lang="ts">
-import { Braces, Table } from '@lucide/vue'
+import { Braces, KeyRound, Table } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
@@ -66,12 +74,16 @@ import Tabs from 'primevue/tabs'
 import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
 import type { EntityDefinition } from '@kinotic-ai/management-api'
+import { TINTS } from '@kinotic-ai/frontend-common'
+import AccessPanel from '@/components/access/AccessPanel.vue'
+import NoAccessState from '@/components/access/NoAccessState.vue'
 import EntityDefinitionDiagram from '@/components/entity-definitions/EntityDefinitionDiagram.vue'
 import EntityList from '@/pages/EntityList.vue'
 import { useQueryTab } from '@/composables/useQueryTab'
+import { isAuthorizationError } from '@/util/access'
 
 /**
- * One entity definition: the data stored under it and its schema. It has its own route under
+ * One entity definition: the data stored under it, its schema and its access. It has its own route under
  * the Entities list it was opened from, and fills the viewport as a dialog over that list,
  * since both the data table and the schema diagram need the room; the header is one row so
  * they get as much of it as possible, and closing it returns to the list. Publishing stays on
@@ -84,7 +96,7 @@ const props = defineProps<{
   entityDefinitionId: string
 }>()
 
-const TABS = ['data', 'schema'] as const
+const TABS = ['data', 'schema', 'access'] as const
 
 const router = useRouter()
 
@@ -116,7 +128,7 @@ async function load(): Promise<void> {
 }
 
 function selectTab(value: string | number): void {
-  activeTab.value = value === 'schema' ? 'schema' : 'data'
+  activeTab.value = TABS.find(tab => tab === value) ?? 'data'
 }
 
 function close(): void {
