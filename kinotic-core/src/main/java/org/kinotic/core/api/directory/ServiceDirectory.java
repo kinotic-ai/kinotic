@@ -34,19 +34,19 @@ public interface ServiceDirectory {
                                                             Pageable pageable);
 
     /**
-     * Returns the entries of the platform's own services, the ones no organization owns, which the platform's
-     * authorization model is generated from.
-     * @param pageable the page settings to use
-     * @return a page of the system-scoped entries
-     */
-    Future<Page<ServiceDirectoryEntry>> findSystemEntries(Pageable pageable);
-
-    /**
-     * The converted contracts of every platform service, the input the platform's authorization model is
-     * generated from, as the directory holds them now.
+     * The converted contracts of the platform's own services, the ones no organization owns, which the platform's
+     * authorization model is generated from, as the directory holds them now.
      * @return every system-scoped entry's contract
      */
     Future<List<ServiceDefinition>> findSystemContracts();
+
+    /**
+     * The entry of one service, by the id a registration gives it: the service's qualified name with its zone,
+     * {@code <zone>~<namespace>.<Name>}.
+     * @param entryId the entry's id
+     * @return the entry, or null when no service of that id has registered
+     */
+    Future<ServiceDirectoryEntry> findEntry(String entryId);
 
     /**
      * Resolves the online MCP tool with the given name that the given scope may call, using the same visibility

@@ -58,4 +58,17 @@ public @interface AuthzCheck {
      */
     String[] implies() default {};
 
+    /**
+     * True for a function any caller the zone admits may call, such as a listing of the caller's own access:
+     * the function is published with no check, as a function of a service without {@link AuthzResource} is.
+     * Nothing else may be declared beside it.
+     */
+    boolean zoneOnly() default false;
+
+    /**
+     * True for a function whose check must not answer from the engine's caches, because a stale allow would
+     * be a security event: removing or disabling a member, rotating a machine's secret.
+     */
+    boolean consistent() default false;
+
 }

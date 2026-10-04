@@ -62,13 +62,14 @@ final class AuthzDecorators {
             }
             ret = new AuthzResourceC3Decorator()
                     .setResourceType(resource.value())
-                    .setParent(resource.parent().isEmpty() ? null : resource.parent());
+                    .setParent(resource.parent().isEmpty() ? null : resource.parent())
+                    .setObjectId(resource.objectId().isEmpty() ? null : resource.objectId());
         }
         return ret;
     }
 
     /**
-     * The check of one function of a resource service.
+     * The check of one function of a resource service, or null for a function declared zone-only.
      *
      * @param serviceInterface  the {@code @Publish} interface, named in errors
      * @param resource          the service's resource decorator
@@ -89,6 +90,14 @@ final class AuthzDecorators {
         String parent = resource.getParent();
         String where = functionName + " on " + serviceInterface.getName();
         AuthzCheck declared = AnnotationUtils.findAnnotation(specificMethod, AuthzCheck.class);
+        if (declared != null && declared.zoneOnly()) {
+            if (!declared.permission().isEmpty() || !declared.resource().isEmpty() || !declared.objectId().isEmpty()
+                    || declared.implies().length > 0 || declared.consistent()) {
+                throw new IllegalStateException("The function " + where + " is declared zone-only beside a check;"
+                                                        + " a zone-only function has none");
+            }
+            return null;
+        }
 
         String permission = declared != null && !declared.permission().isEmpty()
                 ? declared.permission() : derivedPermission(functionName);
@@ -113,6 +122,12 @@ final class AuthzDecorators {
             // a check made on the parent is about this type within it, as a derived create or listing is;
             // any other explicit resource is a permission of that resource itself
             permissionResource = checkedResource.equals(parent) ? type : checkedResource;
+        } else if (resource.getObjectId() != null) {
+            // the service names the object its functions act on; what a function's arguments carry, a role, a
+            // member, a machine, is what it acts with, not a resource of the service's type
+            checkedResource = type;
+            objectId = resource.getObjectId();
+            permissionResource = type;
         } else if (CREATE_VERB.equals(leadingWord(functionName))) {
             checkedResource = requireParent(parent, where, "a create");
             objectId = parentId(parent, parameters, conversionContext);
@@ -163,7 +178,8 @@ final class AuthzDecorators {
                 .setObjectId(objectId)
                 .setPermissionResource(permissionResource)
                 .setPermission(permission)
-                .setImplies(implies);
+                .setImplies(implies)
+                .setConsistent(declared != null && declared.consistent());
     }
 
     /**

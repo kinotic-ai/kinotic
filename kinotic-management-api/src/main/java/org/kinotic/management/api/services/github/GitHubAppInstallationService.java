@@ -2,6 +2,9 @@ package org.kinotic.management.api.services.github;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.github.GitHubAppInstallation;
 import org.kinotic.management.api.model.github.GitHubInstallCompletion;
 
@@ -26,6 +29,7 @@ import org.kinotic.management.api.model.github.GitHubInstallCompletion;
  * organization without completing the round-trip below.
  */
 @Publish
+@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, objectId = "{@organizationId}")
 public interface GitHubAppInstallationService {
 
     /**
@@ -41,6 +45,7 @@ public interface GitHubAppInstallationService {
      *                 May carry query params (e.g. {@code /projects?openNewProject=1})
      *                 to signal "what to do on arrival" to the destination page. May be null.
      */
+    @AuthzCheck(permission = "can_manage_integrations")
     Future<String> startInstall(String returnTo);
 
     /**
@@ -64,6 +69,7 @@ public interface GitHubAppInstallationService {
      *         doesn't match the caller's org, or when the authorizing GitHub user cannot
      *         access the claimed installation
      */
+    @AuthzCheck(permission = "can_manage_integrations")
     Future<GitHubInstallCompletion> completeInstall(long installationId, String state, String code);
 
     /**
@@ -71,6 +77,7 @@ public interface GitHubAppInstallationService {
      * GitHub is not yet linked. Drives the "linked / not linked" indicator in the
      * org-settings UI.
      */
+    @AuthzCheck(permission = "can_view_integrations")
     Future<GitHubAppInstallation> findForCurrentOrg();
 
     /**
@@ -78,5 +85,6 @@ public interface GitHubAppInstallationService {
      * to {@link #findForCurrentOrg()} before completing. No-op when nothing is linked. The
      * organization can link again through {@link #startInstall(String)}.
      */
+    @AuthzCheck(permission = "can_manage_integrations")
     Future<Void> unlink();
 }

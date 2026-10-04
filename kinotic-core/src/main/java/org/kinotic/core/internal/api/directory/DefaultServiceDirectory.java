@@ -259,8 +259,8 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     }
 
     @Override
-    public Future<Page<ServiceDirectoryEntry>> findSystemEntries(Pageable pageable) {
-        return strategy.findSystemEntries(pageable);
+    public Future<ServiceDirectoryEntry> findEntry(String entryId) {
+        return strategy.findEntry(entryId);
     }
 
     @Override

@@ -3,6 +3,9 @@ package org.kinotic.system.internal.api.services.deployment;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
@@ -10,6 +13,7 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
+import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.springframework.stereotype.Component;
@@ -36,6 +40,7 @@ public class ProjectDeployIdentityService {
     private final ParticipantIdentityService identityService;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
+    private final RelationshipService relationships;
 
     /**
      * Issues credentials for the project's sync workload. The returned secret is disclosed only
@@ -53,7 +58,7 @@ public class ProjectDeployIdentityService {
                         ret = Future.failedFuture(new IllegalStateException(
                                 "No deployment record for project " + project.getId()));
                     } else {
-                        ret = issue(newMachine(project, MachineKind.PROJECT_SYNC, "deploy sync"), deployment.getSyncMachineIdentityId(),
+                        ret = issue(newMachine(project, MachineKind.PROJECT_SYNC, "deploy sync"), project, deployment.getSyncMachineIdentityId(),
                                     identityId -> projectDeploymentRepository.recordSyncMachine(project.getId(), project.getOrganizationId(), identityId));
                     }
                     return ret;
@@ -73,18 +78,19 @@ public class ProjectDeployIdentityService {
     public Future<MachineProvisionResult> issueRuntimeCredentials(Project project, MicroserviceDeployment deployment) {
         Validate.notNull(project, "project is required");
         Validate.notNull(deployment, "deployment is required");
-        return issue(newMachine(project, MachineKind.APP_RUNTIME, "runtime " + deployment.getName()), deployment.getMachineIdentityId(), identityId -> {
+        return issue(newMachine(project, MachineKind.APP_RUNTIME, "runtime " + deployment.getName()), project, deployment.getMachineIdentityId(), identityId -> {
             deployment.setMachineIdentityId(identityId);
             return microserviceDeploymentRepository.recordMachine(deployment.getId(), identityId);
         });
     }
 
     private Future<MachineProvisionResult> issue(MachineParticipantIdentity unsaved,
+                                                 Project project,
                                                  String identityId,
                                                  Function<String, Future<Void>> recordIdentity) {
         Future<MachineProvisionResult> ret;
         if (identityId == null) {
-            ret = createAndRecord(unsaved, recordIdentity);
+            ret = createAndRecord(unsaved, project, recordIdentity);
         } else {
             ret = identityService.findById(identityId)
                     .compose(identity -> {
@@ -96,7 +102,7 @@ public class ProjectDeployIdentityService {
                             // an org member may remove a project's machine from the console; the
                             // recorded id then points at nothing and the deployment provisions
                             // a replacement rather than failing
-                            issued = createAndRecord(unsaved, recordIdentity);
+                            issued = createAndRecord(unsaved, project, recordIdentity);
                         }
                         return issued;
                     });
@@ -106,12 +112,20 @@ public class ProjectDeployIdentityService {
 
     /**
      * Records the new machine's id before returning it, so a run that fails after this point
-     * leaves an identity the next deployment reuses instead of orphaning it.
+     * leaves an identity the next deployment reuses instead of orphaning it, and binds the machine
+     * as an editor of its project.
      */
     private Future<MachineProvisionResult> createAndRecord(MachineParticipantIdentity unsaved,
+                                                           Project project,
                                                            Function<String, Future<Void>> recordIdentity) {
         return identityService.createMachine(unsaved)
                 .compose(provisioned -> recordIdentity.apply(provisioned.machine().getId())
+                                                      // the sync workload records artifacts and runs migrations, and the
+                                                      // runtime publishes services, all of which the project's editor may do
+                                                      .compose(v -> relationships.bind(AuthzStoreService.PLATFORM,
+                                                                                       AuthzUtil.roleId(ProjectService.RESOURCE_TYPE, AuthzUtil.EDITOR),
+                                                                                       AuthzUtil.object(AuthzUtil.USER_TYPE, provisioned.machine().getId()),
+                                                                                       AuthzUtil.object(ProjectService.RESOURCE_TYPE, project.getId())))
                                                       .map(provisioned));
     }
 

@@ -37,4 +37,11 @@ public @interface AuthzResource {
      */
     String parent() default "";
 
+    /**
+     * The object every function of the service is checked on, as a template such as {@code {@organizationId}}:
+     * for a service whose functions act on the caller's own organization with what their arguments carry, a
+     * member, a machine, a role. A function declaring its own object with {@link AuthzCheck} is unaffected.
+     */
+    String objectId() default "";
+
 }

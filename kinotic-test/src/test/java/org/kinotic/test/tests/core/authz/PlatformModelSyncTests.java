@@ -6,7 +6,6 @@ import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
@@ -94,8 +93,7 @@ public class PlatformModelSyncTests extends KinoticTestBase {
     }
 
     private AuthzModel modelFromDirectory() throws Exception {
-        List<ServiceDirectoryEntry> entries = await(serviceDirectory.findSystemEntries(Pageable.create(0, 500, Sort.by("id")))).getContent();
-        return modelGenerator.platformModel(entries.stream().map(ServiceDirectoryEntry::getServiceDefinition).toList());
+        return modelGenerator.platformModel(await(serviceDirectory.findSystemContracts()));
     }
 
     private boolean reconciledTo(String hash) throws Exception {

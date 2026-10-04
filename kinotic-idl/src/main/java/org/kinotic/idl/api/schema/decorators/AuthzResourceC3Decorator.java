@@ -29,6 +29,12 @@ public final class AuthzResourceC3Decorator extends C3Decorator {
      */
     private String parent;
 
+    /**
+     * The object every function of the service is checked on, as a template over the caller's scope, unless the
+     * function declares its own; null when each function's object is derived from what it names.
+     */
+    private String objectId;
+
     public AuthzResourceC3Decorator() {
         this.targets = List.of(DecoratorTarget.TYPE);
     }

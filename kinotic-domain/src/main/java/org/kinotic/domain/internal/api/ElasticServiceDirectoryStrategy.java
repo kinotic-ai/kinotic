@@ -57,6 +57,11 @@ public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy
     }
 
     @Override
+    public Future<ServiceDirectoryEntry> findEntry(String entryId) {
+        return repository.findById(entryId).map(ServiceDirectoryEntry.class::cast);
+    }
+
+    @Override
     public Future<McpToolDefinition> findMcpToolByName(String toolName,
                                                        String organizationId,
                                                        String applicationId) {
