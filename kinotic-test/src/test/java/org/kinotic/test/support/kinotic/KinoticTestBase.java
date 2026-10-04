@@ -4,8 +4,13 @@ import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import org.junit.jupiter.api.BeforeEach;
+import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
@@ -19,7 +24,10 @@ import org.springframework.test.context.ContextConfiguration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test base for tests that need the Kinotic stack (Elasticsearch + kinotic-migration + OpenFGA)
@@ -56,11 +64,49 @@ public abstract class KinoticTestBase {
                                                       ParticipantConstants.PARTICIPANT_TYPE_USER),
                                                List.of("ADMIN"));
 
+    // The binding that makes the test participant the test organization's administrator, as the member who
+    // signed up for it would be; the store outlives the test contexts, so it is written once per run
+    private static final String TEST_PARTICIPANT_ADMIN_BINDING = "test-user-administers-" + TEST_ORG_ID;
+    private static boolean testParticipantAdministers;
+
     @Autowired
     protected Vertx vertx;
 
     @Autowired
     protected SecurityContext securityContext;
+
+    @Autowired
+    private RelationshipService relationshipService;
+
+    /**
+     * Makes {@link #TEST_ORGANIZATION_PARTICIPANT} the administrator of {@link #TEST_ORG_ID} in the platform
+     * store, so the listings that filter to what the caller may see show it everything, as they do an
+     * organization's administrator.
+     */
+    @BeforeEach
+    public void bindTestParticipantAsAdministrator() throws Exception {
+        if (!testParticipantAdministers) {
+            String binding = AuthzUtil.object(AuthzUtil.ROLE_BINDING_TYPE, TEST_PARTICIPANT_ADMIN_BINDING);
+            List<RelationshipTuple> tuples = List.of(
+                    new RelationshipTuple(AuthzUtil.object(AuthzUtil.ROLE_TYPE, AuthzUtil.ORGANIZATION_ADMIN_ROLE), AuthzUtil.ROLE_RELATION, binding),
+                    new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, TEST_ORGANIZATION_PARTICIPANT.getId()), AuthzUtil.MEMBER_RELATION, binding),
+                    new RelationshipTuple(binding, AuthzUtil.ROLE_BINDING_RELATION, AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID)));
+            // the store accepts the binding once the reconciler has written the platform model
+            assertTrue(awaitUntil(() -> written(tuples)), "the platform store never accepted the test participant's administrator binding");
+            testParticipantAdministers = true;
+        }
+    }
+
+    private boolean written(List<RelationshipTuple> tuples) {
+        boolean ret;
+        try {
+            relationshipService.ensure(AuthzStoreService.PLATFORM, tuples).toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+            ret = true;
+        } catch (Exception e) {
+            ret = false;
+        }
+        return ret;
+    }
 
     /**
      * Builds an {@link ApplicationParticipant} for use as an {@code EntityContext} participant,

@@ -6,6 +6,8 @@ import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.ApplicationKey;
@@ -13,17 +15,24 @@ import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
+import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.ApplicationService;
+import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.ProjectService;
+import org.kinotic.management.api.services.security.PermissionService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Component
 public class DefaultApplicationService extends AbstractOrganizationScopedService<Application> implements ApplicationService {
@@ -31,22 +40,66 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     // every site label, <org>--<app>--<ui>, must leave room for at least this long a UI name
     private static final int MIN_UI_NAME_LENGTH = 1;
 
-    private final ProjectService projectService;
+    private final ProjectRepository projectRepository;
+    private final EntityDefinitionRepository entityDefinitionRepository;
+    private final PermissionService permissions;
     private final OidcConfigurationService oidcConfigurationService;
     private final UiDeploymentRepository uiDeploymentRepository;
     private final RelationshipService relationships;
 
     public DefaultApplicationService(ApplicationRepository repository,
-                                     ProjectService projectService,
+                                     ProjectRepository projectRepository,
+                                     EntityDefinitionRepository entityDefinitionRepository,
+                                     PermissionService permissions,
                                      OidcConfigurationService oidcConfigurationService,
                                      UiDeploymentRepository uiDeploymentRepository,
                                      SecurityContext securityContext,
                                      RelationshipService relationships) {
         super(repository, securityContext);
-        this.projectService = projectService;
+        this.projectRepository = projectRepository;
+        this.entityDefinitionRepository = entityDefinitionRepository;
+        this.permissions = permissions;
         this.oidcConfigurationService = oidcConfigurationService;
         this.uiDeploymentRepository = uiDeploymentRepository;
         this.relationships = relationships;
+    }
+
+    @Override
+    public Future<Application> findById(String id) {
+        return visibleIds().compose(ids -> ids.contains(id) ? super.findById(id) : Future.succeededFuture(null));
+    }
+
+    @Override
+    public Future<Long> count() {
+        return visibleIds().compose(ids -> scopedRepository.count(requireOrganizationId(), ids));
+    }
+
+    @Override
+    public Future<Page<Application>> findAll(Pageable pageable) {
+        return visibleIds().compose(ids -> scopedRepository.findAll(requireOrganizationId(), ids, pageable));
+    }
+
+    @Override
+    public Future<Page<Application>> search(String searchText, Pageable pageable) {
+        return visibleIds().compose(ids -> scopedRepository.search(searchText, requireOrganizationId(), ids, pageable));
+    }
+
+    // What the caller may see: the applications it views, and those containing a project or an entity
+    // definition it views, so a grant anywhere inside an application makes the application reachable
+    private Future<Set<String>> visibleIds() {
+        String organizationId = requireOrganizationId();
+        return Future.all(permissions.listAccessible(AuthzUtil.APPLICATION_TYPE, AuthzUtil.CAN_VIEW),
+                          permissions.listAccessible(ProjectService.RESOURCE_TYPE, AuthzUtil.CAN_VIEW)
+                                     .compose(ids -> projectRepository.findApplicationIdsOf(ids, organizationId)),
+                          permissions.listAccessible(EntityDefinitionService.RESOURCE_TYPE, AuthzUtil.CAN_VIEW)
+                                     .compose(ids -> entityDefinitionRepository.findApplicationIdsOf(ids, organizationId)))
+                     .map(visible -> {
+                         Set<String> ret = new HashSet<>();
+                         for (int i = 0; i < visible.size(); i++) {
+                             ret.addAll(visible.<Collection<String>>resultAt(i));
+                         }
+                         return ret;
+                     });
     }
 
     @Override
@@ -119,7 +172,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
 
     @Override
     protected Future<Void> beforeDelete(String id) {
-        return projectService.countForApplication(id).compose(count -> {
+        return projectRepository.countForApplication(id, requireOrganizationId()).compose(count -> {
             if(count > 0){
                 throw new IllegalStateException("Cannot delete an application with projects in it.");
             }

@@ -30,6 +30,62 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
     String RESOURCE_TYPE = "project";
 
     /**
+     * Returns the number of projects the caller may see: those the caller may view, and those containing an
+     * entity definition the caller may view.
+     *
+     * @return {@link Future} emitting the number of projects
+     */
+    @Override
+    @AuthzCheck(zoneOnly = true)
+    Future<Long> count();
+
+    /**
+     * Returns a {@link Page} of the projects the caller may see: those the caller may view, and those containing
+     * an entity definition the caller may view.
+     *
+     * @param pageable the page settings to be used
+     * @return a page of projects
+     */
+    @Override
+    @AuthzCheck(zoneOnly = true)
+    Future<Page<Project>> findAll(Pageable pageable);
+
+    /**
+     * Returns a {@link Page} of the projects matching the search text among those the caller may see, as
+     * {@link #findAll(Pageable)} lists them.
+     *
+     * @param searchText the text to search for projects for
+     * @param pageable   the page settings to be used
+     * @return a page of projects
+     */
+    @Override
+    @AuthzCheck(zoneOnly = true)
+    Future<Page<Project>> search(String searchText, Pageable pageable);
+
+    /**
+     * Returns the number of the application's projects the caller may see, as {@link #findAll(Pageable)} lists
+     * them.
+     *
+     * @param applicationId the application's id
+     * @return {@link Future} emitting the number of projects
+     */
+    @Override
+    @AuthzCheck(zoneOnly = true)
+    Future<Long> countForApplication(String applicationId);
+
+    /**
+     * Returns a {@link Page} of the application's projects the caller may see, as {@link #findAll(Pageable)}
+     * lists them.
+     *
+     * @param applicationId the application's id
+     * @param pageable      the page settings to be used
+     * @return a page of projects
+     */
+    @Override
+    @AuthzCheck(zoneOnly = true)
+    Future<Page<Project>> findAllForApplication(String applicationId, Pageable pageable);
+
+    /**
      * Creates a new project if it does not already exist. If a project with the same id
      * is already present, returns the existing project without modification.
      *
