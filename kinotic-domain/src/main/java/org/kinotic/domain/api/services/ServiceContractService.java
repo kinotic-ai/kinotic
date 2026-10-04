@@ -2,6 +2,7 @@ package org.kinotic.domain.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.annotations.Version;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.annotations.AuthzCheck;
@@ -18,6 +19,7 @@ import org.kinotic.idl.api.utils.AuthzUtil;
  * derived or a template naming a parameter the function lacks, is refused.
  */
 @Publish
+@Version("1.0.0")
 @Zone(DomainUtil.APP_API_ZONE)
 @AuthzResource(value = AuthzUtil.APPLICATION_TYPE,
                parent = AuthzUtil.ORGANIZATION_TYPE,
