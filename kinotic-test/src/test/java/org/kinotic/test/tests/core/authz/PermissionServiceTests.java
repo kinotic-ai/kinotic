@@ -146,9 +146,12 @@ public class PermissionServiceTests extends KinoticTestBase {
         Grant grant = await(runAsOrganization(() -> permissions.grant(subject, "project.editor", onApplication)));
         assertTrue(held(member, "project_can_edit", onProject), "an editor of the application's projects edits one inside it");
 
-        // the grant reaches the project from the application, which is where the listing says it was made
+        // the grant reaches the project from the application, which is where the listing says it was made; the
+        // organization's administrator binding reaches it from the organization
         List<Grant> reaching = await(runAsOrganization(() -> permissions.findGrants(onProject)));
-        assertEquals(List.of(grant), reaching);
+        assertTrue(reaching.contains(grant), reaching.toString());
+        assertTrue(reaching.stream().allMatch(listed -> listed.equals(grant) || AuthzUtil.ORGANIZATION_TYPE.equals(listed.resource().type())),
+                   reaching.toString());
         AccessExplanation edits = await(runAsOrganization(() -> permissions.explain(subject, AuthzUtil.CAN_EDIT, onProject)));
         assertTrue(edits.allowed());
         assertEquals(List.of(grant), edits.through());
@@ -163,7 +166,7 @@ public class PermissionServiceTests extends KinoticTestBase {
 
         await(runAsOrganization(() -> permissions.revoke(onApplication, grant.id())));
         assertFalse(held(member, "project_can_edit", onProject));
-        assertTrue(await(runAsOrganization(() -> permissions.findGrants(onProject))).isEmpty());
+        assertFalse(await(runAsOrganization(() -> permissions.findGrants(onProject))).contains(grant));
     }
 
     @Test
@@ -207,7 +210,10 @@ public class PermissionServiceTests extends KinoticTestBase {
                                                                                    Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
                                                                                           ParticipantConstants.PARTICIPANT_TYPE_USER),
                                                                                    List.of());
-        assertEquals(List.of(granted.getId()), await(runAs(caller, () -> permissions.listAccessible(ProjectService.RESOURCE_TYPE, AuthzUtil.CAN_VIEW))));
+        // the listing accepts the engine's cache window, so a grant just made may take a moment to show
+        assertTrue(awaitUntil(() -> List.of(granted.getId()).equals(
+                           await(runAs(caller, () -> permissions.listAccessible(ProjectService.RESOURCE_TYPE, AuthzUtil.CAN_VIEW))))),
+                   "the caller never listed the project it was granted");
     }
 
     private boolean held(UserParticipantIdentity member, String permission, Resource resource) throws Exception {

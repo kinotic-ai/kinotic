@@ -20,14 +20,20 @@ import org.kinotic.management.api.model.RepositoryConnectionStatus;
 import org.kinotic.management.api.repositories.ProjectDependenciesRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
+import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.ProjectRepoProvisioner;
 import org.kinotic.management.api.services.ProjectService;
+import org.kinotic.management.api.services.security.PermissionService;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 
 @Component
@@ -36,12 +42,16 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     final Slugify slg = Slugify.builder().build();
 
     private final ProjectRepository projectRepository;
+    private final EntityDefinitionRepository entityDefinitionRepository;
+    private final PermissionService permissions;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectDependenciesRepository projectDependenciesRepository;
     private final ProjectRepoProvisioner repoProvisioner;
     private final RelationshipService relationships;
 
     public DefaultProjectService(ProjectRepository repository,
+                                 EntityDefinitionRepository entityDefinitionRepository,
+                                 PermissionService permissions,
                                  SecurityContext securityContext,
                                  ProjectDeploymentRepository projectDeploymentRepository,
                                  ProjectDependenciesRepository projectDependenciesRepository,
@@ -49,10 +59,51 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                                  RelationshipService relationships) {
         super(repository, securityContext);
         this.projectRepository = repository;
+        this.entityDefinitionRepository = entityDefinitionRepository;
+        this.permissions = permissions;
         this.projectDeploymentRepository = projectDeploymentRepository;
         this.projectDependenciesRepository = projectDependenciesRepository;
         this.repoProvisioner = repoProvisioner;
         this.relationships = relationships;
+    }
+
+    @Override
+    public Future<Long> count() {
+        return visibleIds().compose(ids -> projectRepository.count(requireOrganizationId(), ids));
+    }
+
+    @Override
+    public Future<Page<Project>> findAll(Pageable pageable) {
+        return visibleIds().compose(ids -> projectRepository.findAll(requireOrganizationId(), ids, pageable));
+    }
+
+    @Override
+    public Future<Page<Project>> search(String searchText, Pageable pageable) {
+        return visibleIds().compose(ids -> projectRepository.search(searchText, requireOrganizationId(), ids, pageable));
+    }
+
+    @Override
+    public Future<Long> countForApplication(String applicationId) {
+        return visibleIds().compose(ids -> projectRepository.countForApplication(applicationId, requireOrganizationId(), ids));
+    }
+
+    @Override
+    public Future<Page<Project>> findAllForApplication(String applicationId, Pageable pageable) {
+        return visibleIds().compose(ids -> projectRepository.findAllForApplication(applicationId, requireOrganizationId(), ids, pageable));
+    }
+
+    // What the caller may see: the projects it views, and those containing an entity definition it views, so a
+    // grant on an entity definition makes its project reachable
+    private Future<Set<String>> visibleIds() {
+        String organizationId = requireOrganizationId();
+        return Future.all(permissions.listAccessible(ProjectService.RESOURCE_TYPE, AuthzUtil.CAN_VIEW),
+                          permissions.listAccessible(EntityDefinitionService.RESOURCE_TYPE, AuthzUtil.CAN_VIEW)
+                                     .compose(ids -> entityDefinitionRepository.findProjectIdsOf(ids, organizationId)))
+                     .map(visible -> {
+                         Set<String> ret = new HashSet<>(visible.<Collection<String>>resultAt(0));
+                         ret.addAll(visible.<Collection<String>>resultAt(1));
+                         return ret;
+                     });
     }
 
     @Override

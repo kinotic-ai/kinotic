@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.CountRequest;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
@@ -13,6 +14,8 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -36,6 +39,7 @@ import java.util.function.Consumer;
 public abstract class AbstractOrganizationScopedRepository<T extends OrganizationScoped<String>> {
 
     static final String ORGANIZATION_ID_FIELD = "organizationId";
+    private static final String ID_FIELD = "id";
     // DomainUtil.validateOrganizationId forbids "--" in an organization id, so the first "--" of a
     // document id always ends the organization id, whatever the entity id holds
     private static final String DOCUMENT_ID_SEPARATOR = "--";
@@ -51,8 +55,16 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     }
 
     public Future<Long> count(String orgId) {
+        return count(orgId, null);
+    }
+
+    /**
+     * Counts the documents of {@code orgId} among the given ids; every document when {@code ids} is null, none
+     * when it is empty.
+     */
+    public Future<Long> count(String orgId, Collection<String> ids) {
         Validate.notBlank(orgId, "orgId cannot be blank");
-        return crudServiceTemplate.count(indexName, b -> b.routing(orgId).query(composeOrgFilter(orgId)));
+        return crudServiceTemplate.count(indexName, b -> b.routing(orgId).query(composeOrgFilter(orgId, idsFilter(ids))));
     }
 
     /**
@@ -93,9 +105,17 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     }
 
     public Future<Page<T>> findAll(String orgId, Pageable pageable) {
+        return findAll(orgId, null, pageable);
+    }
+
+    /**
+     * The page of documents of {@code orgId} among the given ids; every document when {@code ids} is null, none
+     * when it is empty.
+     */
+    public Future<Page<T>> findAll(String orgId, Collection<String> ids, Pageable pageable) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         return crudServiceTemplate.search(indexName, pageable, type,
-                                          b -> b.routing(orgId).query(composeOrgFilter(orgId)));
+                                          b -> b.routing(orgId).query(composeOrgFilter(orgId, idsFilter(ids))));
     }
 
     /**
@@ -152,15 +172,29 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     }
 
     public Future<Page<T>> search(String searchText, String orgId, Pageable pageable) {
+        return search(searchText, orgId, null, pageable);
+    }
+
+    /**
+     * The page of documents of {@code orgId} matching the search text, among the given ids; every matching
+     * document when {@code ids} is null, none when it is empty.
+     */
+    public Future<Page<T>> search(String searchText, String orgId, Collection<String> ids, Pageable pageable) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         boolean hasText = searchText != null && !searchText.isEmpty();
         if (!hasText) {
-            return findAll(orgId, pageable);
+            return findAll(orgId, ids, pageable);
         }
         return crudServiceTemplate.search(indexName, pageable, type,
-                                          b -> b.routing(orgId).query(Query.of(q -> q.bool(bq -> bq
-                                                  .must(m -> m.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
-                                                  .filter(termFilter(ORGANIZATION_ID_FIELD, orgId))))));
+                                          b -> b.routing(orgId).query(Query.of(q -> q.bool(bq -> {
+                                              bq.must(m -> m.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
+                                                .filter(termFilter(ORGANIZATION_ID_FIELD, orgId));
+                                              Query idsFilter = idsFilter(ids);
+                                              if (idsFilter != null) {
+                                                  bq.filter(idsFilter);
+                                              }
+                                              return bq;
+                                          }))));
     }
 
     public Future<Void> syncIndex() {
@@ -185,6 +219,19 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
 
     protected Query termFilter(String field, String value) {
         return crudServiceTemplate.termFilter(field, value);
+    }
+
+    /**
+     * A filter keeping the documents whose entity id is among the given ones: null for no filter when
+     * {@code ids} is null, a filter matching nothing when it is empty.
+     */
+    protected Query idsFilter(Collection<String> ids) {
+        return ids == null ? null : termsFilter(ID_FIELD, ids);
+    }
+
+    protected Query termsFilter(String field, Collection<String> values) {
+        List<FieldValue> fieldValues = values.stream().map(FieldValue::of).toList();
+        return Query.of(q -> q.terms(t -> t.field(field).terms(v -> v.value(fieldValues))));
     }
 
     protected Query termFilter(String field, boolean value) {

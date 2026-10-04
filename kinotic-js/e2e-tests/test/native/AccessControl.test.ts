@@ -1,7 +1,7 @@
 import {Client} from '@modelcontextprotocol/sdk/client/index.js'
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import {BasicCredentialsResolver, Kinotic, KinoticSingleton, type IServiceProxy} from '@kinotic-ai/core'
-import {ManagementApiPlugin, Project} from '@kinotic-ai/management-api'
+import {BasicCredentialsResolver, Kinotic, KinoticSingleton, Pageable} from '@kinotic-ai/core'
+import {ManagementApiPlugin, Project, SubjectKind} from '@kinotic-ai/management-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {E2E_FIXTURE_PASSWORD,
@@ -16,7 +16,6 @@ import {E2E_FIXTURE_PASSWORD,
 const SALLY_ID = '00000000-0000-0000-0000-000000000004'
 const SALLY_EMAIL = 'sally@kinotic.local'
 
-const PERMISSION_SERVICE = 'management-api~org.kinotic.management.api.services.security.PermissionService'
 const SAVE_PROJECT = 'Project Service Save'
 
 async function connectMcpClient(authHeaders: Record<string, string>): Promise<Client> {
@@ -34,7 +33,6 @@ async function connectMcpClient(authHeaders: Record<string, string>): Promise<Cl
  */
 describe('Kinotic JS', () => {
 
-    let permissions: IServiceProxy
     let sallyKinotic: KinoticSingleton
     let application: {id: string}
     let projectA: Project
@@ -46,11 +44,10 @@ describe('Kinotic JS', () => {
         await allure.subSuite('AccessControl')
         // the organization's administrator (kinotic@kinotic.local) creates the fixtures and makes the grant
         await initKinoticClient()
-        permissions = Kinotic.serviceProxy(PERMISSION_SERVICE)
         application = await Kinotic.applications.createApplicationIfNotExist('e2e-access-control', 'e2e fixture application for the access control test')
         projectA = await Kinotic.projects.createProjectIfNotExist(new Project(null, application.id, 'access-control-a', 'Project A'))
         projectB = await Kinotic.projects.createProjectIfNotExist(new Project(null, application.id, 'access-control-b', 'Project B'))
-        const grant = await permissions.invoke('grant', [{kind: 'USER', id: SALLY_ID}, 'project.editor', {type: 'project', id: projectA.id}])
+        const grant = await Kinotic.permissions.grant({kind: SubjectKind.USER, id: SALLY_ID}, 'project.editor', {type: 'project', id: projectA.id!})
         grantId = grant.id
 
         sallyKinotic = new KinoticSingleton()
@@ -61,7 +58,7 @@ describe('Kinotic JS', () => {
     afterAll(async () => {
         await sallyKinotic?.disconnect()
         if (grantId !== undefined) {
-            await permissions.invoke('revoke', [{type: 'project', id: projectA.id}, grantId]).catch(() => undefined)
+            await Kinotic.permissions.revoke({type: 'project', id: projectA.id!}, grantId).catch(() => undefined)
         }
         for (const project of [projectA, projectB]) {
             if (project?.id) {
@@ -74,6 +71,17 @@ describe('Kinotic JS', () => {
         }
         await shutdownKinoticClient()
     }, 120000)
+
+    it('shows an editor of one project its application and that project alone', async () => {
+        // the application is visible for what it contains, the projects inside it only as far as the grant reaches
+        const applications = await sallyKinotic.applications.findAll(Pageable.create(0, 100))
+        expect(applications.content?.map(a => a.id)).toContain(application.id)
+        const visible = await sallyKinotic.applications.findById(application.id)
+        expect(visible.id).toBe(application.id)
+        const projects = await sallyKinotic.projects.findAllForApplication(application.id, Pageable.create(0, 100))
+        expect(projects.content?.map(p => p.id)).toEqual([projectA.id])
+        expect(await sallyKinotic.projects.countForApplication(application.id)).toBe(1)
+    })
 
     it('lets an editor of one project edit it and refuses the other, through the gateway', async () => {
         const found = await sallyKinotic.projects.findById(projectA.id!)
@@ -106,7 +114,7 @@ describe('Kinotic JS', () => {
     })
 
     it('stops the access the moment the grant is revoked', async () => {
-        await permissions.invoke('revoke', [{type: 'project', id: projectA.id}, grantId])
+        await Kinotic.permissions.revoke({type: 'project', id: projectA.id!}, grantId!)
         grantId = undefined
 
         await expect(sallyKinotic.projects.save({...projectA, description: 'edited after revocation'})).rejects.toThrow(/Not authorized/)
