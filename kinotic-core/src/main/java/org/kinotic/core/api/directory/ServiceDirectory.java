@@ -4,8 +4,11 @@ import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.service.ServiceIdentifier;
+import org.kinotic.idl.api.schema.ServiceDefinition;
 
 import io.vertx.core.Future;
+
+import java.util.List;
 
 /**
  * Keeps track of registered service contracts and the MCP tools they expose. Every returned {@link Future} is
@@ -37,6 +40,13 @@ public interface ServiceDirectory {
      * @return a page of the system-scoped entries
      */
     Future<Page<ServiceDirectoryEntry>> findSystemEntries(Pageable pageable);
+
+    /**
+     * The converted contracts of every platform service, the input the platform's authorization model is
+     * generated from, as the directory holds them now.
+     * @return every system-scoped entry's contract
+     */
+    Future<List<ServiceDefinition>> findSystemContracts();
 
     /**
      * Resolves the online MCP tool with the given name that the given scope may call, using the same visibility

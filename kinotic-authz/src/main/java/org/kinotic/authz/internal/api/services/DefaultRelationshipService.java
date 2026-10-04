@@ -3,6 +3,7 @@ package org.kinotic.authz.internal.api.services;
 import dev.openfga.sdk.api.model.CheckRequest;
 import dev.openfga.sdk.api.model.CheckRequestTupleKey;
 import dev.openfga.sdk.api.model.CheckResponse;
+import dev.openfga.sdk.api.model.ConsistencyPreference;
 import dev.openfga.sdk.api.model.ListObjectsRequest;
 import dev.openfga.sdk.api.model.ListObjectsResponse;
 import dev.openfga.sdk.api.model.ReadRequestTupleKey;
@@ -11,6 +12,7 @@ import dev.openfga.sdk.api.model.TupleKey;
 import dev.openfga.sdk.api.model.TupleKeyWithoutCondition;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.idl.api.utils.AuthzUtil;
@@ -48,6 +50,12 @@ public class DefaultRelationshipService implements RelationshipService {
     @Override
     public Future<List<RelationshipTuple>> read(String store, String object) {
         return read(store, new ReadRequestTupleKey()._object(object));
+    }
+
+    @Override
+    public Future<List<RelationshipTuple>> readByUser(String store, String user, String objectType) {
+        // the engine reads by user within one object type, named by the type alone
+        return read(store, new ReadRequestTupleKey().user(user)._object(objectType + ":"));
     }
 
     @Override
@@ -119,9 +127,20 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     @Override
-    public Future<Boolean> check(String store, String modelId, RelationshipTuple relationship) {
+    public Future<Void> unbind(String store, String bindingId, String object) {
+        String binding = AuthzUtil.object(AuthzUtil.ROLE_BINDING_TYPE, bindingId);
+        return read(store, binding).compose(held -> {
+            List<RelationshipTuple> tuples = new ArrayList<>(held);
+            tuples.add(new RelationshipTuple(binding, AuthzUtil.ROLE_BINDING_RELATION, object));
+            return remove(store, tuples);
+        });
+    }
+
+    @Override
+    public Future<Boolean> check(String store, String modelId, RelationshipTuple relationship, Consistency consistency) {
         CheckRequest request = new CheckRequest()
                 .authorizationModelId(modelId)
+                .consistency(preference(consistency))
                 .tupleKey(new CheckRequestTupleKey()
                                   .user(relationship.user())
                                   .relation(relationship.relation())
@@ -130,13 +149,20 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     @Override
-    public Future<List<String>> listObjects(String store, String modelId, String user, String relation, String type) {
+    public Future<List<String>> listObjects(String store, String modelId, String user, String relation, String type, Consistency consistency) {
         ListObjectsRequest request = new ListObjectsRequest()
                 .authorizationModelId(modelId)
+                .consistency(preference(consistency))
                 .user(user)
                 .relation(relation)
                 .type(type);
         return stores.storeIdOf(store).compose(id -> fga.listObjects(id, request)).map(ListObjectsResponse::getObjects);
+    }
+
+    private static ConsistencyPreference preference(Consistency consistency) {
+        return consistency == Consistency.HIGHER_CONSISTENCY
+                ? ConsistencyPreference.HIGHER_CONSISTENCY
+                : ConsistencyPreference.MINIMIZE_LATENCY;
     }
 
     private Future<List<RelationshipTuple>> read(String store, ReadRequestTupleKey key) {

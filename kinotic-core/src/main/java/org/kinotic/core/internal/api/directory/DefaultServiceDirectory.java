@@ -8,6 +8,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.McpToolAnnotations;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.McpToolDefinitionList;
@@ -75,6 +76,8 @@ import java.util.Set;
 public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializingSingleton {
 
     private static final String LIVENESS_SINGLETON_NAME = "kinotic-service-liveness-updater";
+    // the platform publishes a few dozen services, so its contracts are read in a page or two
+    private static final int SYSTEM_CONTRACTS_PAGE_SIZE = 200;
 
     // A strategy pattern is used, to favor composition over inheritance
     private final ServiceDirectoryStrategy strategy;
@@ -258,6 +261,23 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     @Override
     public Future<Page<ServiceDirectoryEntry>> findSystemEntries(Pageable pageable) {
         return strategy.findSystemEntries(pageable);
+    }
+
+    @Override
+    public Future<List<ServiceDefinition>> findSystemContracts() {
+        return systemContracts(0, new ArrayList<>());
+    }
+
+    private Future<List<ServiceDefinition>> systemContracts(int pageNumber, List<ServiceDefinition> collected) {
+        return strategy.findSystemEntries(Pageable.create(pageNumber, SYSTEM_CONTRACTS_PAGE_SIZE, Sort.by("id")))
+                       .compose(page -> {
+                           for (ServiceDirectoryEntry entry : page.getContent()) {
+                               collected.add(entry.getServiceDefinition());
+                           }
+                           return page.getContent().size() < SYSTEM_CONTRACTS_PAGE_SIZE
+                                   ? Future.succeededFuture(collected)
+                                   : systemContracts(pageNumber + 1, collected);
+                       });
     }
 
     @Override

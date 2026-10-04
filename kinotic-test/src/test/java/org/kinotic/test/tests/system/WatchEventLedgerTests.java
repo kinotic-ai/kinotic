@@ -147,17 +147,6 @@ public class WatchEventLedgerTests extends KinoticTestBase {
     }
 
     // The ledger is visible to search after its next refresh, and the master ticks every two seconds
-    private static boolean awaitUntil(Check condition) throws Exception {
-        long deadline = System.currentTimeMillis() + 30_000;
-        while (!condition.holds() && System.currentTimeMillis() < deadline) {
-            Thread.sleep(250);
-        }
-        return condition.holds();
-    }
-
-    private interface Check {
-        boolean holds() throws Exception;
-    }
 
     private static <T> T await(Future<T> future) throws Exception {
         return future.toCompletionStage().toCompletableFuture().get(30, TimeUnit.SECONDS);
