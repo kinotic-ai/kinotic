@@ -172,7 +172,8 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
         await(runAsOrganization(() -> access.revoke(TEST_APP_ID, tenant, grant.id())));
         assertTrue(awaitUntil(() -> !admitted("findById", caller, readRow)), "the revoked editor was still admitted");
-        assertTrue(await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, tenant))).isEmpty());
+        // the grant made on the application still reaches the tenant, and is all that does
+        assertEquals(List.of(everywhere), await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, tenant))));
         await(runAsOrganization(() -> access.revoke(TEST_APP_ID, new Resource(AuthzUtil.APPLICATION_TYPE, TEST_APP_ID), everywhere.id())));
     }
 
