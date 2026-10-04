@@ -316,7 +316,7 @@ public class AuthzModelGeneratorTest {
 
     @Test
     public void applicationModelRootsAtTheApplicationAndAddsEntityTypes() {
-        AuthzModel model = generator.applicationModel(List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT),
+        AuthzModel model = generator.applicationModel(List.of(), List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT),
                                                                          new EntityResource("catalog", EntityScope.APPLICATION)));
 
         assertEquals(Set.of("user", "group", "role", "role_binding", "application", "catalog", "invoice", "tenant"),
@@ -340,10 +340,27 @@ public class AuthzModelGeneratorTest {
     }
 
     @Test
+    public void anApplicationModelCarriesThePlatformServicesDeclaredOnTheTenant() {
+        List<ServiceDefinition> platform = List.of(service("TenantMemberService", "tenant", "application",
+                                                           function("findMembers", "tenant", "tenant", "can_view_members")),
+                                                   service("ApplicationService", "application", "organization",
+                                                           function("findById", "application", "application", "can_view")),
+                                                   service("ProjectService", "project", "application",
+                                                           function("findById", "project", "project", "can_view")));
+        AuthzModel model = generator.applicationModel(platform, List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT)));
+
+        assertEquals(Set.of("user", "group", "role", "role_binding", "application", "invoice", "tenant"), typeNames(model));
+        assertEquals(Set.of("can_view_members"), model.permissions().get("tenant"));
+        assertFalse(model.permissions().containsKey("application"));
+        assertEquals(Set.of("tenant_can_view_members"), model.roles().get("tenant.viewer"));
+        assertTrue(model.roles().get("tenant.admin").containsAll(Set.of("tenant_can_view_members", "invoice_can_delete")));
+    }
+
+    @Test
     public void aServiceWhoseTypeEachRequestNamesDeclaresNoType() {
         ServiceDefinition entities = service("JsonEntitiesRepository", "{entityDefinitionId}", "tenant",
                                              function("findById", "tenant", "{entityDefinitionId}", "can_read"));
-        AuthzModel model = generator.applicationModel(List.of(entities), List.of(new EntityResource("invoice", EntityScope.TENANT)));
+        AuthzModel model = generator.applicationModel(List.of(), List.of(entities), List.of(new EntityResource("invoice", EntityScope.TENANT)));
 
         assertEquals(Set.of("user", "group", "role", "role_binding", "application", "invoice", "tenant"), typeNames(model));
     }
@@ -383,7 +400,7 @@ public class AuthzModelGeneratorTest {
         List<ServiceDefinition> services = List.of(service("ProjectService", "project", "application"));
 
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-                                                  () -> generator.applicationModel(services, List.of(new EntityResource("project", EntityScope.APPLICATION))));
+                                                  () -> generator.applicationModel(List.of(), services, List.of(new EntityResource("project", EntityScope.APPLICATION))));
 
         assertTrue(e.getMessage().contains("project"));
     }

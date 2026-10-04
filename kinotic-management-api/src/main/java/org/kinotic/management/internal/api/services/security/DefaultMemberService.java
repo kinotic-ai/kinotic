@@ -14,7 +14,7 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
-import org.kinotic.management.api.model.PendingInviteSummary;
+import org.kinotic.domain.api.model.security.PendingInviteSummary;
 import org.kinotic.management.api.services.security.MemberService;
 import org.springframework.stereotype.Component;
 
@@ -44,7 +44,7 @@ public class DefaultMemberService implements MemberService {
     }
 
     @Override
-    public Future<PendingInviteSummary> inviteMember(String email, String displayName, String applicationId) {
+    public Future<PendingInviteSummary> inviteMember(String email, String displayName, String applicationId, String tenantId) {
         Validate.notBlank(email, "email is required");
         OrganizationParticipant participant = requireOrgParticipant();
         return requireOwnedApplication(applicationId, participant.getOrganizationId())
@@ -54,8 +54,9 @@ public class DefaultMemberService implements MemberService {
                             .setDisplayName(displayName)
                             .setOrganizationId(participant.getOrganizationId())
                             .setApplicationId(applicationId)
+                            .setTenantId(tenantId)
                             .setInvitedById(participant.getId())
-                            .setInvitedByName(participantDisplayName(participant));
+                            .setInvitedByName(DomainUtil.displayNameOf(participant));
                     return inviteService.createInvite(invite);
                 })
                 .map(PendingInviteSummary::from);
@@ -133,19 +134,5 @@ public class DefaultMemberService implements MemberService {
                 .map(identity -> DomainUtil.requireOwned(identity, UserParticipantIdentity.class,
                         user -> participant.getOrganizationId().equals(user.getOrganizationId()),
                         "Member not found."));
-    }
-
-    private static String participantDisplayName(OrganizationParticipant participant) {
-        if (participant.getMetadata() != null) {
-            String name = participant.getMetadata().get("displayName");
-            if (name != null && !name.isBlank()) {
-                return name;
-            }
-            String email = participant.getMetadata().get("email");
-            if (email != null && !email.isBlank()) {
-                return email;
-            }
-        }
-        return participant.getId();
     }
 }

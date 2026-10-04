@@ -7,6 +7,7 @@ import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
@@ -16,10 +17,10 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Gives an application its authorization store: the store in the engine, running the kernel model with its
- * roles so the application's users and tenants can be placed in it and granted on at once, and the store's
- * record, which the reconciler keeps in step with the application's entity definitions and contracts from then
- * on. Provisioning an application that has its store is a no-op.
+ * Gives an application its authorization store: the store in the engine, running the kernel model, the
+ * platform's tenant services included, with its roles so the application's users and tenants can be placed in
+ * it and granted on at once, and the store's record, which the reconciler keeps in step with the application's
+ * entity definitions and contracts from then on. Provisioning an application that has its store is a no-op.
  */
 @Slf4j
 @Component
@@ -30,10 +31,16 @@ public class ApplicationStoreProvisioner {
     private final AuthzModelGenerator generator;
     private final RelationshipService relationships;
     private final AuthzStoreRepository records;
+    private final ServiceDirectory directory;
 
     public Future<Void> provision(Application application) {
+        return directory.findSystemContracts()
+                     .map(platform -> generator.applicationModel(platform, List.of(), List.of()))
+                     .compose(kernel -> provision(application, kernel));
+    }
+
+    private Future<Void> provision(Application application, AuthzModel kernel) {
         String store = application.getId();
-        AuthzModel kernel = generator.applicationModel(List.of(), List.of());
         return stores.ensureStore(store)
                      // the kernel model and its roles admit the membership tuples written at user creation and the
                      // grants made before the first definition is published; a store already running a model keeps

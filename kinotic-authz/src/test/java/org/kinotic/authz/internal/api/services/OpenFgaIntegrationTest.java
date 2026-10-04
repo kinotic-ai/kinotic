@@ -166,7 +166,7 @@ class OpenFgaIntegrationTest {
     @Test
     void anApplicationsStoreIsCreatedOnceFoundByNameAndDeletedWithEverythingInIt() throws Exception {
         String store = "lifecycle-" + System.nanoTime();
-        AuthzModel model = generator.applicationModel(List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT)));
+        AuthzModel model = generator.applicationModel(List.of(), List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT)));
 
         String storeId = await(storeService.ensureStore(store));
 
@@ -189,7 +189,7 @@ class OpenFgaIntegrationTest {
     @Test
     void aStoreCreatedAgainUnderItsNameIsResolvedAgainByEveryNodeWithinTheRetention() throws Exception {
         String store = "recreated-" + System.nanoTime();
-        AuthzModel model = generator.applicationModel(List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT)));
+        AuthzModel model = generator.applicationModel(List.of(), List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT)));
         RelationshipTuple bob = new RelationshipTuple("user:bob", "end_user", "application:" + store);
         DefaultAuthzStoreService elsewhere = new DefaultAuthzStoreService(fga, properties);
         DefaultRelationshipService relationshipsElsewhere = new DefaultRelationshipService(fga, elsewhere);
@@ -202,7 +202,7 @@ class OpenFgaIntegrationTest {
         await(storeService.deleteStore(store));
 
         String recreated = await(storeService.ensureStore(store));
-        AuthzModel grown = generator.applicationModel(List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT),
+        AuthzModel grown = generator.applicationModel(List.of(), List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT),
                                                                          new EntityResource("receipt", EntityScope.TENANT)));
         String grownModelId = await(storeService.ensureModel(store, grown));
         await(relationshipService.ensureRoles(store, grown.roles()));

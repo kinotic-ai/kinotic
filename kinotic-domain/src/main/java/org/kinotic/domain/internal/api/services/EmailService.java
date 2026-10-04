@@ -80,7 +80,20 @@ public class EmailService {
     public Future<Void> sendVerificationEmail(String email,
                                               String displayName,
                                               String verificationToken) {
-        String verificationUrl = linkBaseUrl() + VERIFICATION_PATH + verificationToken;
+        return sendVerificationEmail(email, displayName, verificationToken, linkBaseUrl());
+    }
+
+    /**
+     * As {@link #sendVerificationEmail(String, String, String)}, with the link built on the given base instead
+     * of the platform's, for a sign-up completed on an application's own pages.
+     *
+     * @param linkBase the URL the verification path is appended to, such as the application's primary UI
+     */
+    public Future<Void> sendVerificationEmail(String email,
+                                              String displayName,
+                                              String verificationToken,
+                                              String linkBase) {
+        String verificationUrl = linkBase + VERIFICATION_PATH + verificationToken;
 
         if (!properties.getDomain().getEmail().isEnabled()) {
             log.warn("Email sending is disabled; verification URL for {} <{}>: {}",

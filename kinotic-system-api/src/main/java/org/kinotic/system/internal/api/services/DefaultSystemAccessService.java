@@ -69,15 +69,7 @@ public class DefaultSystemAccessService implements SystemAccessService {
     @Override
     public Future<Void> revoke(String grantId) {
         Validate.notBlank(grantId, "grantId cannot be blank");
-        String binding = AuthzUtil.object(AuthzUtil.ROLE_BINDING_TYPE, grantId);
-        return relationships.holds(PLATFORM, new RelationshipTuple(binding, AuthzUtil.ROLE_BINDING_RELATION, PLATFORM_OBJECT))
-                            .compose(made -> {
-                                // a grant is revoked where it was made, so an id guessed from elsewhere unbinds nothing
-                                if (!made) {
-                                    throw new IllegalArgumentException("No grant " + grantId + " was made on the platform");
-                                }
-                                return relationships.unbind(PLATFORM, grantId, PLATFORM_OBJECT);
-                            });
+        return relationships.revoke(PLATFORM, grantId, PLATFORM_OBJECT);
     }
 
     @Override

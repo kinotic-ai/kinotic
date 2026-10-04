@@ -224,17 +224,8 @@ public class DefaultPermissionService implements PermissionService {
         validate(resource);
         Validate.notBlank(grantId, "grantId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
-        String object = objectOf(resource);
-        String binding = AuthzUtil.object(AuthzUtil.ROLE_BINDING_TYPE, grantId);
         return requireInOrganization(resource, organizationId)
-                .compose(lineage -> relationships.holds(PLATFORM, new RelationshipTuple(binding, AuthzUtil.ROLE_BINDING_RELATION, object)))
-                .compose(made -> {
-                    // a grant is revoked where it was made, so an id guessed from elsewhere unbinds nothing
-                    if (!made) {
-                        throw new IllegalArgumentException("No grant " + grantId + " was made on " + object);
-                    }
-                    return relationships.unbind(PLATFORM, grantId, object);
-                });
+                .compose(lineage -> relationships.revoke(PLATFORM, grantId, objectOf(resource)));
     }
 
     @Override

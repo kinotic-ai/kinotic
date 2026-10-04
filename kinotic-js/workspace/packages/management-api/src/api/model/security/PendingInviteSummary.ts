@@ -16,6 +16,9 @@ export class PendingInviteSummary implements Identifiable<string> {
     /** The application the invitee would join; null for an organization-member invite. */
     public applicationId: string | null = null
 
+    /** The tenant of the application the invitee would join; null for an invite into no tenant. */
+    public tenantId: string | null = null
+
     /** Display name of the member who sent the invitation. */
     public invitedByName: string | null = null
 

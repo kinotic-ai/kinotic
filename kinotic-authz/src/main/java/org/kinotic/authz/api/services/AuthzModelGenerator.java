@@ -30,14 +30,20 @@ public interface AuthzModelGenerator {
     AuthzModel platformModel(Collection<ServiceDefinition> services);
 
     /**
-     * The model of one application's store, from the services serving its data and its own entity definitions.
+     * The model of one application's store, from the platform's services its users call, the services serving
+     * its data and its own entity definitions. Of the platform's services only those declared on the tenant
+     * take part, the ones serving a tenant's users in every application, whose permissions the tenant then
+     * carries; a platform service declared on any other type stays out of the application's model.
      *
-     * @param services the converted contracts of the services the application's users call
-     * @param entities the application's entity definitions
+     * @param platformServices the converted contracts of the platform's own services
+     * @param services         the converted contracts of the application's own services
+     * @param entities         the application's entity definitions
      * @return the model
      * @throws IllegalArgumentException as for {@link #platformModel}, or when an entity's type collides with a
      *                                  service's
      */
-    AuthzModel applicationModel(Collection<ServiceDefinition> services, Collection<EntityResource> entities);
+    AuthzModel applicationModel(Collection<ServiceDefinition> platformServices,
+                                Collection<ServiceDefinition> services,
+                                Collection<EntityResource> entities);
 
 }

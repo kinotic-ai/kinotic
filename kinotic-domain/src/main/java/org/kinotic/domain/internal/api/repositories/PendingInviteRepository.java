@@ -38,6 +38,19 @@ public class PendingInviteRepository extends AbstractTokenVerificationRepository
     }
 
     /**
+     * Lists the live (unexpired) invitations into one tenant of an application.
+     */
+    public Future<Page<PendingInvite>> findByTenant(String organizationId,
+                                                    String applicationId,
+                                                    String tenantId,
+                                                    Pageable pageable) {
+        return findAll(pageable, b -> b.query(composeFilter(
+                scopeFilter(organizationId, applicationId),
+                termFilter("tenantId", tenantId),
+                notExpiredFilter())));
+    }
+
+    /**
      * Structural scope filter: {@code organizationId} is always set on an invite;
      * {@code applicationId} null means an org-member invite, set means an app-member invite.
      */

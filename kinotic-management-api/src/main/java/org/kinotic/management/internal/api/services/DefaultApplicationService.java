@@ -13,6 +13,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.Application;
+import org.kinotic.domain.api.model.OnboardingMechanism;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
@@ -113,23 +114,23 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     }
 
     @Override
-    public Future<Application> createApplicationIfNotExist(String name, String description, Boolean tenantPerUser) {
+    public Future<Application> createApplicationIfNotExist(String name, String description, Set<OnboardingMechanism> onboarding) {
         String applicationId = DomainUtil.slugifyId(name);
         String organizationId = requireOrganizationId();
         return findById(applicationId)
                 .compose(application -> {
                     Future<Application> ret;
                     if(application != null){
-                        // an existing application keeps its tenant policy: flipping it here would
-                        // split its users into tenanted and untenanted halves, since only users
-                        // created while it is enabled receive a tenant
+                        // an existing application keeps its onboarding: flipping per-user tenancy here would
+                        // split its users into tenanted and untenanted halves, since only users created
+                        // while it is enabled receive a tenant
                         ret = Future.succeededFuture(application);
                     }else{
                         Application newApplication = new Application(name, description);
                         newApplication.setOrganizationId(organizationId);
                         // a caller with no tenancy opinion, such as the CLI ensuring the app row exists,
                         // omits the argument and gets the shared default
-                        newApplication.setTenantPerUser(Boolean.TRUE.equals(tenantPerUser));
+                        newApplication.setOnboarding(onboarding == null ? new HashSet<>() : new HashSet<>(onboarding));
                         ret = save(newApplication).compose(this::contained);
                     }
                     return ret;
@@ -205,6 +206,11 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     @Override
     protected Future<Void> beforeSave(Application entity) {
         Validate.notNull(entity.getName(), "Application name cannot be null");
+        if (entity.getOnboarding() == null) {
+            entity.setOnboarding(new HashSet<>());
+        }
+        Validate.isTrue(!entity.getOnboarding().contains(OnboardingMechanism.TENANT_PER_USER) || entity.getOnboarding().size() == 1,
+                        "An application isolating each user in a tenant of its own offers no other way into a tenant");
 
         if (entity.getId() == null) {
             entity.setId(DomainUtil.slugifyId(entity.getName()));

@@ -3,6 +3,7 @@ package org.kinotic.authz.api.services;
 import io.vertx.core.Future;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
+import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Subject;
 
@@ -87,6 +88,15 @@ public interface RelationshipService {
     Future<Void> ensureRoles(String store, Map<String, Set<String>> roles);
 
     /**
+     * The built-in roles the store's model defines, as the store's worker wrote them for the model the store
+     * runs: each one with the model names of the permissions it bundles.
+     *
+     * @param store the store, named as its record is
+     * @return the roles, in the order of their ids
+     */
+    Future<List<RoleDefinition>> findRoles(String store);
+
+    /**
      * Grants a role to a member on a resource: one binding, attached to the resource, holding the role and the
      * member, through which the member holds every permission the role bundles on the resource and on
      * everything inside it.
@@ -123,6 +133,18 @@ public interface RelationshipService {
      * @return completes when nothing of the binding is held
      */
     Future<Void> unbind(String store, String bindingId, String object);
+
+    /**
+     * Revokes a grant where it was made: the binding is removed as {@link #unbind} removes it, once the store
+     * confirms it is attached to the object, so a grant's id guessed from elsewhere unbinds nothing.
+     *
+     * @param store     the store, named as its record is
+     * @param bindingId the grant's id, the one {@link #bind} returned
+     * @param object    the resource the grant was made on, in {@code type:id} form
+     * @return completes when nothing of the binding is held; fails with {@link IllegalArgumentException} when
+     *         no grant of the id was made on the object
+     */
+    Future<Void> revoke(String store, String bindingId, String object);
 
     /**
      * The grants made on a resource: one per binding attached to it, naming the binding's role and the user

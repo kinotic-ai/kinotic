@@ -67,6 +67,17 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
                 .map(page -> page.map(UserParticipantIdentity.class::cast));
     }
 
+    public Future<Page<UserParticipantIdentity>> findUsersByTenant(String organizationId,
+                                                                   String applicationId,
+                                                                   String tenantId,
+                                                                   Pageable pageable) {
+        return findAll(pageable, b -> b.query(composeFilter(
+                termFilter("type", ParticipantIdentityType.USER.name()),
+                scopeFilter(organizationId, applicationId),
+                termFilter("tenantId", tenantId))))
+                .map(page -> page.map(UserParticipantIdentity.class::cast));
+    }
+
     public Future<Page<MachineParticipantIdentity>> findMachinesByScope(String organizationId, String applicationId, Pageable pageable) {
         return findAll(pageable, b -> b.query(composeFilter(
                 termFilter("type", ParticipantIdentityType.MACHINE.name()),

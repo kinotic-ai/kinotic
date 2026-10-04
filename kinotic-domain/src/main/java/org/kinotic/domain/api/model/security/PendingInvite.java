@@ -45,6 +45,12 @@ public class PendingInvite implements PendingVerification {
     /** The Application the invitee joins; {@code null} for an organization-member invite. */
     private String applicationId;
 
+    /**
+     * The tenant of the application the invitee joins; null for an organization invite, or an application
+     * invite into no tenant.
+     */
+    private String tenantId;
+
     /** Id of the member who sent the invitation. */
     private String invitedById;
 

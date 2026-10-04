@@ -1,6 +1,7 @@
 package org.kinotic.domain.api.services.security;
 
 import io.vertx.core.Future;
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.PendingSignUp;
 
@@ -39,4 +40,25 @@ public interface SignUpService {
      * is taken), making the verified identity its admin, then deleting the pending record.
      */
     Future<UserParticipantIdentity> completeOidcWithNewOrg(String token, String orgName, String orgDescription);
+
+    /**
+     * Starts an email/password sign-up of a new customer of an application that offers
+     * {@link org.kinotic.domain.api.model.OnboardingMechanism#TENANT_SIGN_UP}: validates and stores a pending
+     * record and emails a verification link into the application's primary UI. The tenant's name and the
+     * password are collected later, at completion.
+     *
+     * @param applicationKey the application signed up to
+     * @param email          the customer's email, which no user of the application has yet
+     * @param displayName    the customer's name
+     */
+    Future<Void> initiateTenantSignUp(ApplicationKey applicationKey, String email, String displayName);
+
+    /**
+     * Completes a tenant sign-up: validates the token, creates the tenant with the given name (failing if an
+     * application tenant of that name exists), the customer as its first user with the password, and makes
+     * the customer the tenant's administrator in the application's store, then deletes the pending record.
+     *
+     * @return the tenant's first user
+     */
+    Future<UserParticipantIdentity> completeTenantSignUp(String token, String tenantName, String password);
 }

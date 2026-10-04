@@ -31,6 +31,7 @@ export * from '@/api/model/reconcile/WatchedState'
 export * from '@/api/model/reconcile/WatchedType'
 
 export * from '@/api/model/Application'
+export * from '@/api/model/OnboardingMechanism'
 export * from '@/api/model/deployment/DeploymentStatus'
 export * from '@/api/model/deployment/DeploymentStatusType'
 export * from '@/api/model/Organization'

@@ -8,7 +8,7 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
-import org.kinotic.management.api.model.PendingInviteSummary;
+import org.kinotic.domain.api.model.security.PendingInviteSummary;
 
 /**
  * Member management for the caller's organization and its applications, used by the web app. Every
@@ -40,9 +40,11 @@ public interface MemberService {
      * @param email       where to send the invitation
      * @param displayName optional display name for the invitee
      * @param applicationId the application to invite into, or null for an org-member invite
+     * @param tenantId      the tenant of the application the invitee joins, which must exist, or null for an
+     *                      org-member invite or an application invite into no tenant
      */
     @AuthzCheck(permission = "can_manage_members")
-    Future<PendingInviteSummary> inviteMember(String email, String displayName, String applicationId);
+    Future<PendingInviteSummary> inviteMember(String email, String displayName, String applicationId, String tenantId);
 
     /**
      * Enables or disables a member of the caller's organization. Disabling gates future

@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS kinotic_application (
     name KEYWORD,
     description TEXT,
     oidcConfigurationIds KEYWORD,
-    tenantPerUser BOOLEAN,
+    onboarding KEYWORD,
     primaryUiId KEYWORD,
     primaryUiUrl KEYWORD,
     updated DATE
@@ -333,7 +333,9 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_signup (
     displayName KEYWORD,
     authType KEYWORD,
     oidcSubject KEYWORD,
-    oidcConfigId KEYWORD
+    oidcConfigId KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD
 );
 
 -- Pending member invitations (PendingInvite) awaiting acceptance: the invitee's identity, the
@@ -349,8 +351,23 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_invite (
     displayName KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
+    tenantId KEYWORD,
     invitedById KEYWORD,
     invitedByName KEYWORD
+);
+
+-- A tenant of an application (Tenant): the slice of the application's shared rows a group of its users share,
+-- which kinotic_participant_identity.tenantId points into. The id is <organizationId>.<applicationId>.<tenantId>,
+-- routed and keyed by organization like every organization-scoped row.
+CREATE TABLE IF NOT EXISTS kinotic_tenant (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    tenantId KEYWORD,
+    name KEYWORD,
+    createdBy KEYWORD,
+    created DATE,
+    updated DATE
 );
 
 -- An application's customized invitation email (InviteEmailTemplate): Handlebars sources

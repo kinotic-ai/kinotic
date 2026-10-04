@@ -1,4 +1,5 @@
 import type {ServerInfo} from "@kinotic-ai/core";
+import {OnboardingMechanism} from "@kinotic-ai/management-api";
 import type {ToastServiceMethods} from "primevue/toastservice";
 
 /**
@@ -104,4 +105,21 @@ const EXCEPTION_PREFIX = /^(?:[a-z_$][\w$]*\.)+[A-Z][\w$]*(?:Exception|Error): /
 /** A server error message without the Java exception class it starts with. */
 export function withoutExceptionPrefix(message: string): string {
     return message.replace(EXCEPTION_PREFIX, '')
+}
+
+/**
+ * How an application's users come to belong to tenants, in words: "Shared tenant" for an application enabling
+ * nothing, "Tenant per user" for one isolating each user, else the mechanisms it enables.
+ */
+export function onboardingLabel(onboarding: OnboardingMechanism[] | null | undefined): string {
+    let ret: string
+    if (!onboarding || onboarding.length === 0) {
+        ret = 'Shared tenant'
+    } else if (onboarding.includes(OnboardingMechanism.TENANT_PER_USER)) {
+        ret = 'Tenant per user'
+    } else {
+        ret = onboarding.map(mechanism => mechanism === OnboardingMechanism.TENANT_SIGN_UP ? 'Tenant sign-up' : 'Tenant invitations')
+                        .join(', ')
+    }
+    return ret
 }

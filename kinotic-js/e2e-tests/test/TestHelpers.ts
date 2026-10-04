@@ -1,3 +1,4 @@
+import {AppApiPlugin} from '@kinotic-ai/app-api'
 import {faker} from '@faker-js/faker/locale/en'
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
@@ -150,8 +151,9 @@ export async function shutdownKinoticClient(): Promise<void> {
  * convention app-<applicationId>-<tenantId>@test.local, password kinotic), granted the tenant admin role
  * on its tenant first, so it reads and writes every definition's rows there, and connected once the
  * application's store answers for each entity named. The caller is responsible for disconnecting it
- * when done. The instance has {@code ManagementApiPlugin} and {@code PersistencePlugin} installed so it
- * can back an {@code EntityRepository} that acts on the SHARED entity data of its own tenant.
+ * when done. The instance has {@code ManagementApiPlugin}, {@code PersistencePlugin} and {@code AppApiPlugin}
+ * installed so it can back an {@code EntityRepository} that acts on the SHARED entity data of its own tenant
+ * and call the tenant services for it.
  *
  * @param entityNames the names of the entity definitions the client will act on, each published already
  */
@@ -166,7 +168,7 @@ export async function initKinoticAppClient(applicationId: string, tenantId: stri
  */
 export async function connectAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
     const appKinotic = new KinoticSingleton()
-    appKinotic.use(ManagementApiPlugin).use(PersistencePlugin)
+    appKinotic.use(ManagementApiPlugin).use(PersistencePlugin).use(AppApiPlugin)
 
     await appKinotic.connect(buildConnectOptions(
         new BasicCredentialsResolver(appFixtureEmail(applicationId, tenantId),
