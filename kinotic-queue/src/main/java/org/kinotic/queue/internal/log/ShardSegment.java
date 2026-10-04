@@ -128,7 +128,8 @@ final class ShardSegment implements AutoCloseable {
     }
 
     /**
-     * Ends the segment at {@code offset}, which is at least its start and at most its end.
+     * Ends the segment at {@code offset}, which is at least its start and at most its end, or with -1 opens it to
+     * writes again.
      */
     void seal(long offset) {
         sealedEnd = offset;

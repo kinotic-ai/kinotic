@@ -377,14 +377,14 @@ public class ShardLogTests {
 
     @Test
     public void theOldestSegmentsBeyondTheRetentionSizeAreDeleted() {
-        // Segments close at a quarter of the size, so each 1000-byte record gets its own
-        QueueProperties fourKilobytes = new QueueProperties().setRetentionBytes(DataSize.ofBytes(4_000));
-        try (ShardLog shard = new ShardLog(directory.resolve("0"), fourKilobytes)) {
+        // Segments close at a quarter of the size, so each 100,000-byte record gets its own
+        QueueProperties fourHundredKilobytes = new QueueProperties().setRetentionBytes(DataSize.ofBytes(400_000));
+        try (ShardLog shard = new ShardLog(directory.resolve("0"), fourHundredKilobytes)) {
             for (int i = 0; i < 10; i++) {
-                shard.append(1, List.of(ShardEntry.record(-1, 1, "", new byte[1_000], new BatchSlot(1, i, 0, 1))));
+                shard.append(1, List.of(ShardEntry.record(-1, 1, "", new byte[100_000], new BatchSlot(1, i, 0, 1))));
             }
 
-            // Deleting another segment would leave less than 4000 bytes
+            // Deleting another segment would leave less than 400,000 bytes
             assertEquals(6, shard.retainedFrom());
             shard.deleteBefore(6);
             assertEquals(4, shard.read(6, 10, Long.MAX_VALUE).size());
@@ -460,6 +460,32 @@ public class ShardLogTests {
             follower.replicate(new ReplicationBatch(1, 5, 1, 4, 7, List.of(entry(6, 1))));
 
             assertEquals(new LogStart(3, 1), follower.start());
+        }
+    }
+
+    @Test
+    public void aCopyHoldingAnOldOwnersTailFromBeforeItsStartIsResentFromTheOwnersLastEntryOfThatEpoch() {
+        try (ShardLog owner = new ShardLog(directory.resolve("owner"), PROPERTIES);
+             ShardLog copy = new ShardLog(directory.resolve("copy"), PROPERTIES)) {
+            // The owner of epoch 2 wrote 0-9, of which 0-5 were committed; the owner of epoch 3 holds 0-5 and wrote 6-8
+            appendAll(owner, 2, 0, 6);
+            appendAll(owner, 3, 6, 3);
+            // The copy deleted 0-2 and holds 3-9 of epoch 2
+            copy.replicate(new ReplicationBatch(2, 2, 2, 3, 10, List.of(entry(3, 2), entry(4, 2), entry(5, 2), entry(6, 2), entry(7, 2),
+                                                                         entry(8, 2), entry(9, 2))));
+            assertEquals(new LogStart(3, 2), copy.start());
+
+            // A batch from before the copy's start is resent from its start
+            assertEquals(new ReplicationResult(ReplicationStatus.MISMATCH, 3), copy.replicate(new ReplicationBatch(3, 0, 2, 0, 9, List.of())));
+            // The copy's epoch 2 began before its start, which it reports with the epoch
+            ReplicationResult mismatch = copy.replicate(new ReplicationBatch(3, 7, 3, 0, 9, List.of(entry(8, 3))));
+            assertEquals(new ReplicationResult(ReplicationStatus.MISMATCH, 3, 2), mismatch);
+            // The owner's entries of epoch 2 end at 6, which the copy holds the same up to
+            assertEquals(6, owner.endOfEpoch(mismatch.conflictEpoch()));
+            ReplicationResult resent = copy.replicate(new ReplicationBatch(3, 5, 2, 0, 9, owner.read(6, 10, Long.MAX_VALUE)));
+
+            assertEquals(new ReplicationResult(ReplicationStatus.ACCEPTED, 9), resent);
+            assertEquals(List.of(2L, 2L, 2L, 3L, 3L, 3L), epochs(copy.read(3, 10, Long.MAX_VALUE)));
         }
     }
 

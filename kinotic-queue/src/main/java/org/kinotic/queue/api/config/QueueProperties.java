@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.hibernate.validator.constraints.time.DurationMin;
 import org.springframework.util.unit.DataSize;
 
 import java.time.Duration;
@@ -49,12 +50,14 @@ public class QueueProperties {
      * reached a deleted record continue at the oldest record kept. Must be the same on every queue node.
      */
     @NotNull
+    @DurationMin(seconds = 1)
     private Duration retentionPeriod = Duration.ofDays(7);
 
     /**
      * The size each shard is kept under, or null to limit shards by {@link #retentionPeriod} only. The oldest segments
      * of a larger shard are deleted, so a shard's records take about this much space on each copy, plus the segment
-     * still taking records: up to a quarter of this, and at most 1 GB. Must be the same on every queue node.
+     * still taking records: up to a quarter of this, but at least 64 KB and at most 1 GB. Must be the same on every
+     * queue node.
      */
     private DataSize retentionBytes;
 

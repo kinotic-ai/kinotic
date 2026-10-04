@@ -131,7 +131,6 @@ final class WorkDispatcher {
      */
     Future<LeaseResponse> lease(String workerId, int max, long leaseMillis) {
         lastRequest = System.currentTimeMillis();
-        skipDeleted();
         Future<LeaseResponse> ret;
         if (hasLeasable()) {
             ret = leaseNow(workerId, max, leaseMillis);
@@ -236,6 +235,7 @@ final class WorkDispatcher {
     }
 
     private boolean hasLeasable() {
+        skipDeleted();
         return !released.isEmpty() || (nextToLease < committedOffset.getAsLong() && nextToLease - lowWatermark < MAX_IN_FLIGHT);
     }
 
@@ -343,6 +343,9 @@ final class WorkDispatcher {
                         Future<Void> ret;
                         if (stopped) {
                             ret = Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue + " changed owner"));
+                        } else if (offset < lowWatermark) {
+                            // The retention deleted the record meanwhile, and the group moved past it
+                            ret = Future.succeededFuture();
                         } else if (ar.failed()) {
                             log.warn("Appending offset {} of shard {} of queue {} to the dead-letter queue of group {} failed, retrying",
                                      offset, shard, queue, groupName, ar.cause());
@@ -358,7 +361,10 @@ final class WorkDispatcher {
 
     // Returns the replication of the advanced watermark, or a completed future when the record is past a record not yet done
     private Future<Void> markDone(long offset) {
-        done.add(offset);
+        // A record before the low watermark was deleted by the retention and skipped
+        if (offset >= lowWatermark) {
+            done.add(offset);
+        }
         long before = lowWatermark;
         while (done.remove(lowWatermark)) {
             lowWatermark++;

@@ -42,6 +42,7 @@ public final class ShardLog implements AutoCloseable {
     // A segment is closed to writes once it is this large or old, or half the retention period old, so whole segments
     // can be deleted as the retention allows
     private static final long MAX_SEGMENT_BYTES = 1024L * 1024 * 1024;
+    private static final long MIN_SEGMENT_BYTES = 64 * 1024;
     private static final Duration MAX_SEGMENT_AGE = Duration.ofDays(1);
 
     private final Path directory;
@@ -209,14 +210,13 @@ public final class ShardLog implements AutoCloseable {
             if (prevOffset >= nextOffset) {
                 ret = new ReplicationResult(ReplicationStatus.MISMATCH, nextOffset);
             } else if (!prevHeld) {
-                // The owner sent entries this copy deleted, which every copy holds the same, so it resends from this
-                // copy's end
-                ret = new ReplicationResult(ReplicationStatus.MISMATCH, nextOffset);
+                // The owner sent entries this copy deleted. Copies only delete committed entries, which every copy holds
+                // the same, so the owner resends from this copy's start.
+                ret = new ReplicationResult(ReplicationStatus.MISMATCH, start.offset());
             } else if (prevDiffers) {
-                // Every entry of the differing epoch is suspect, so the owner resends from that epoch's first entry; a
-                // difference reaching this copy's start sends the owner back to its own start
-                long epochStart = firstOffsetOfEpoch(epochAt(prevOffset), prevOffset);
-                ret = new ReplicationResult(ReplicationStatus.MISMATCH, epochStart > start.offset() ? epochStart : 0);
+                // Every entry of the differing epoch is suspect from that epoch's first entry here, or this copy's start
+                long heldEpoch = epochAt(prevOffset);
+                ret = new ReplicationResult(ReplicationStatus.MISMATCH, firstOffsetOfEpoch(heldEpoch, prevOffset), heldEpoch);
             } else {
                 ret = new ReplicationResult(ReplicationStatus.ACCEPTED, applyContinuing(batch));
             }
@@ -267,6 +267,14 @@ public final class ShardLog implements AutoCloseable {
             ret = read(offset, 1, Long.MAX_VALUE).getFirst().epoch();
         }
         return ret;
+    }
+
+    /**
+     * @return the offset after the shard's last entry of an epoch no newer than {@code epoch}, or the start's offset
+     * when it holds none
+     */
+    public long endOfEpoch(long epoch) {
+        return firstOffsetOfEpoch(epoch + 1, nextOffset);
     }
 
     /**
@@ -365,6 +373,12 @@ public final class ShardLog implements AutoCloseable {
     public synchronized void close() {
         segmentsLock.writeLock().lock();
         try {
+            // Records how large the segment taking writes has grown, which the manifest otherwise records when it closes
+            try {
+                writeManifest(start, segments);
+            } catch (RuntimeException e) {
+                log.warn("Recording the segments of shard {} failed", directory, e);
+            }
             segments.forEach(ShardSegment::close);
         } finally {
             segmentsLock.writeLock().unlock();
@@ -528,7 +542,8 @@ public final class ShardLog implements AutoCloseable {
     // when there is none
     private ShardSegment openSegment() {
         ShardSegment ret = segments.isEmpty() ? null : segments.getLast();
-        if (ret != null && !ret.isSealed() && ret.end() > ret.startOffset() && isFull(ret)) {
+        boolean rolled = ret != null && !ret.isSealed() && ret.end() > ret.startOffset() && isFull(ret);
+        if (rolled) {
             // Recorded in the manifest with the segment that follows it
             ret.seal(nextOffset);
         }
@@ -544,6 +559,9 @@ public final class ShardLog implements AutoCloseable {
                 writeManifest(start, updated);
             } catch (RuntimeException e) {
                 created.delete();
+                if (rolled) {
+                    ret.seal(-1);
+                }
                 throw e;
             }
             segments = List.copyOf(updated);
@@ -554,7 +572,7 @@ public final class ShardLog implements AutoCloseable {
 
     private boolean isFull(ShardSegment segment) {
         long maxAge = Math.min(MAX_SEGMENT_AGE.toMillis(), retentionPeriod.toMillis() / 2);
-        long maxBytes = retentionBytes >= 0 ? Math.min(MAX_SEGMENT_BYTES, retentionBytes / 4) : MAX_SEGMENT_BYTES;
+        long maxBytes = retentionBytes >= 0 ? Math.clamp(retentionBytes / 4, MIN_SEGMENT_BYTES, MAX_SEGMENT_BYTES) : MAX_SEGMENT_BYTES;
         return segment.bytes() >= maxBytes || segment.createdMillis() <= System.currentTimeMillis() - maxAge;
     }
 
@@ -565,11 +583,20 @@ public final class ShardLog implements AutoCloseable {
         try {
             List<ShardSegment> kept = segments.stream().filter(segment -> segment.startOffset() < offset).toList();
             List<ShardSegment> deleted = segments.stream().filter(segment -> segment.startOffset() >= offset).toList();
-            if (!kept.isEmpty()) {
-                kept.getLast().seal(offset);
+            ShardSegment holding = kept.isEmpty() ? null : kept.getLast();
+            long sealedBefore = holding != null && holding.isSealed() ? holding.end() : -1;
+            if (holding != null) {
+                holding.seal(offset);
             }
             // Recorded before anything changes on disk, so a crash leaves either the old shard or the truncated one
-            writeManifest(start, kept);
+            try {
+                writeManifest(start, kept);
+            } catch (RuntimeException e) {
+                if (holding != null) {
+                    holding.seal(sealedBefore);
+                }
+                throw e;
+            }
             segments = kept;
             nextOffset = offset;
             syncedOffset = Math.min(syncedOffset, offset);

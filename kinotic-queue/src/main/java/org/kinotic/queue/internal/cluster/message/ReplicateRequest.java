@@ -32,12 +32,12 @@ public record ReplicateRequest(String queue,
     }
 
     public static Buffer encodeReply(ReplicationResult result) {
-        return Wire.buffer().appendInt(result.status().ordinal()).appendLong(result.nextOffset());
+        return Wire.buffer().appendInt(result.status().ordinal()).appendLong(result.nextOffset()).appendLong(result.conflictEpoch());
     }
 
     public static ReplicationResult decodeReply(Buffer buffer) {
         Wire wire = new Wire(buffer);
-        return new ReplicationResult(ReplicationStatus.values()[wire.readInt()], wire.readLong());
+        return new ReplicationResult(ReplicationStatus.values()[wire.readInt()], wire.readLong(), wire.readLong());
     }
 
     public Buffer toBuffer() {

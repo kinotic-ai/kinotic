@@ -833,10 +833,16 @@ final class ShardOwner {
         });
     }
 
-    // Deletes the committed entries the retention lets go; the followers delete theirs once a batch carries the new start
+    // Deletes the committed entries the retention lets go; the followers delete theirs once a batch carries the new start.
+    // Waits for the latest membership change to be committed, since the shard keeps only that change once older ones are
+    // deleted, and for the scan of the producers' batches, which reads the entries deleted.
     private void deleteRetained() {
         long retainedFrom = Math.min(shardLog.retainedFrom(), committedOffset);
-        if (!deleting && retainedFrom > shardLog.start().offset()) {
+        ShardEntry latest = shardLog.latestMembership();
+        if (!deleting
+                && producersRecovered.isComplete()
+                && (latest == null || latest.offset() < committedOffset)
+                && retainedFrom > shardLog.start().offset()) {
             membership.rewriteBefore(retainedFrom);
             deleting = true;
             vertx.executeBlocking(() -> shardLog.deleteBefore(retainedFrom), false).onComplete(ar -> {
@@ -869,10 +875,12 @@ final class ShardOwner {
 
     // A fetch from before the shard's start continues at the start, past the entries the retention deleted
     private Future<FetchResponse> readCommitted(long offset, int max, long maxBytes) {
-        long from = Math.max(offset, shardLog.start().offset());
-        int count = (int) Math.min(max, committedOffset - from);
-        return vertx.executeBlocking(() -> shardLog.read(from, count, Math.min(maxBytes, MAX_BATCH_BYTES)), false)
-                    .map(entries -> new FetchResponse(entries, from + entries.size()));
+        long committed = committedOffset;
+        return vertx.executeBlocking(() -> {
+            long from = Math.max(offset, shardLog.start().offset());
+            List<ShardEntry> entries = shardLog.read(from, (int) Math.min(max, committed - from), Math.min(maxBytes, MAX_BATCH_BYTES));
+            return new FetchResponse(entries, from + entries.size());
+        }, false);
     }
 
     // Records the committed offset for the shard's next owner at most once per interval

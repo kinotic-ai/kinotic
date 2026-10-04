@@ -45,6 +45,8 @@ final class ShardReplicator {
     private final Runnable onStaleEpoch;
 
     private long nextToSend;
+    // The epoch of the follower's entry that differed from this copy's, reported with the last mismatch; -1 when none
+    private long conflictEpoch = -1;
     private long matchedOffset;
     private long replicatedOffsetsVersion = -1;
     private boolean inFlight;
@@ -151,19 +153,35 @@ final class ShardReplicator {
             long sentMillis = System.currentTimeMillis();
             lastSentMillis = sentMillis;
             // A follower can report an offset past the owner's end when it holds entries the owner does not
-            long from = Math.min(nextToSend, shardLog.nextOffset());
+            long hint = Math.min(nextToSend, shardLog.nextOffset());
+            long conflict = conflictEpoch;
+            conflictEpoch = -1;
             long knownVersion = replicatedOffsetsVersion;
             long[] offsetsVersion = new long[1];
             vertx.executeBlocking(() -> {
                      offsetsVersion[0] = offsetsVersion(consumerOffsets, groupOffsets, shard);
                      boolean changed = offsetsVersion[0] > knownVersion;
-                     return batch(from,
+                     return batch(resumeAfterConflict(hint, conflict),
                                   changed ? consumerOffsets.findAll(shard) : Map.of(),
                                   changed ? groupOffsets.findAll(shard) : Map.of());
                  }, false)
                  .compose(request -> client.replicate(follower, request))
                  .onComplete(reply -> onReply(reply, offsetsVersion[0], sentMillis));
         }
+    }
+
+    // Where a follower whose entry of the conflicting epoch differed from this copy's continues: after this copy's last
+    // entry of that epoch when it holds any, since the follower holds the same entries of it up to there, otherwise at
+    // the follower's first entry of it. Each mismatch then steps back by a whole epoch, not one entry.
+    private long resumeAfterConflict(long followerFirstOfEpoch, long conflict) {
+        long ret = followerFirstOfEpoch;
+        if (conflict >= 0) {
+            long end = shardLog.endOfEpoch(conflict);
+            if (shardLog.epochAt(end - 1) == conflict) {
+                ret = end;
+            }
+        }
+        return ret;
     }
 
     private ReplicateRequest batch(long from, Map<String, Long> consumers, Map<String, Long> groups) {
@@ -212,6 +230,7 @@ final class ShardReplicator {
                     boolean progressed = offsetsVersion > replicatedOffsetsVersion;
                     replicatedOffsetsVersion = offsetsVersion;
                     nextToSend = result.nextOffset();
+                    conflictEpoch = result.conflictEpoch();
                     matchedOffset = Math.min(matchedOffset, result.nextOffset());
                     if (progressed) {
                         onProgress.run();

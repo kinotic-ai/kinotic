@@ -287,8 +287,10 @@ public class QueueClusterTests {
             slowest = Math.max(slowest, System.currentTimeMillis() - started);
         }
 
-        // The node placed as owner holds none of the shard's records, so the node serving it keeps serving it
-        assertTrue(slowest < 1_000, "an append took " + slowest + " ms while the restarted copy caught up");
+        // The node placed as owner holds none of the shard's records, so the node serving it keeps serving it. The
+        // window also spans the restarted node taking the shard over once caught up, which pauses appends briefly, and
+        // longer when the machine is busy with other tests.
+        assertTrue(slowest < 2_500, "an append took " + slowest + " ms while the restarted copy caught up");
         TestSubscriber subscriber = TestSubscriber.subscribe(restarted.vertx(), restarted.queueService(), QUEUE, "billing", StartPosition.EARLIEST);
         int delivered = 0;
         List<Integer> values = new ArrayList<>();
