@@ -57,8 +57,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Verifies a request is authorized as the gateway and the MCP endpoint authorize it, against the contracts the
  * directory holds and the platform store: Sally, an editor of project A, edits A and is refused on B, with the
  * positional body a STOMP request carries and the named one a tool call carries; a delegate of hers acts as
- * her; a member with no grant is refused the organization's members and its administrator is not; a function
- * with no check passes on its zone; and the organization a migration seeds is administered by its creator.
+ * her; a member with no grant is refused the organization's members and its viewer is not; a check naming an
+ * application the member's scope lacks is made on the organization; a function with no check passes on its
+ * zone; and the organization a migration seeds is administered by its creator.
  */
 @SpringBootTest
 public class RequestAuthorizationTests extends KinoticTestBase {
@@ -138,9 +139,8 @@ public class RequestAuthorizationTests extends KinoticTestBase {
         Project nameless = new Project();
         nameless.setName("nameless");
         assertRefused(PROJECT_SERVICE, "save", caller, EventConstants.CONTENT_TYPE_JSON, List.of(nameless), "entity.id");
-        // a listing across the organization is checked on the organization, which an editor of one project does not hold
-        assertRefused(PROJECT_SERVICE, "findAll", caller, EventConstants.CONTENT_TYPE_JSON, List.of(Map.of("pageNumber", 0, "pageSize", 10)),
-                      "project_can_view on organization:" + TEST_ORG_ID);
+        // a listing across the organization is admitted by the zone alone and filtered to what the caller may see
+        authorize(PROJECT_SERVICE, "findAll", caller, EventConstants.CONTENT_TYPE_JSON, List.of(Map.of("pageNumber", 0, "pageSize", 10)));
     }
 
     @Test
@@ -172,16 +172,13 @@ public class RequestAuthorizationTests extends KinoticTestBase {
         assertTrue(awaitUntil(() -> admitted(MEMBER_SERVICE, "findMembers", caller, listing)), "the viewer never saw the members");
         assertRefused(MEMBER_SERVICE, "removeMember", caller, EventConstants.CONTENT_TYPE_JSON, List.of(member.getId()), "organization_can_manage_members");
 
-        // a listing across the organization is checked on the organization, because the member's scope names
-        // no application; the organization's viewer holds only the organization's own reading permissions, a
-        // viewer of projects granted on the organization holds every project's
-        assertRefused(PROJECT_SERVICE, "findAll", caller, EventConstants.CONTENT_TYPE_JSON, List.of(Map.of("pageNumber", 0, "pageSize", 10)),
-                      "project_can_view on organization:" + TEST_ORG_ID);
-        await(runAsOrganization(() -> permissions.grant(new Subject(SubjectKind.USER, member.getId()), "project.viewer",
-                                                        new Resource(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID))));
-        assertTrue(awaitUntil(() -> admitted(PROJECT_SERVICE, "findAll", caller, List.of(Map.of("pageNumber", 0, "pageSize", 10)))),
-                   "the viewer of projects never listed them");
+        // re-syncing the projects' index names no application, so the check is made on the organization, which
+        // the organization's viewer holds no project permission on; an editor of projects granted on the
+        // organization holds every project's
         assertRefused(PROJECT_SERVICE, "syncIndex", caller, EventConstants.CONTENT_TYPE_JSON, List.of(), "project_can_edit on organization:" + TEST_ORG_ID);
+        await(runAsOrganization(() -> permissions.grant(new Subject(SubjectKind.USER, member.getId()), "project.editor",
+                                                        new Resource(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID))));
+        assertTrue(awaitUntil(() -> admitted(PROJECT_SERVICE, "syncIndex", caller, List.of())), "the editor of projects never re-synced them");
     }
 
     @Test
