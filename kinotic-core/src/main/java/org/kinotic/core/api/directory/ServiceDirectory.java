@@ -34,16 +34,8 @@ public interface ServiceDirectory {
                                                             Pageable pageable);
 
     /**
-     * Returns the entries of the platform's own services, the ones no organization owns, which the platform's
-     * authorization model is generated from.
-     * @param pageable the page settings to use
-     * @return a page of the system-scoped entries
-     */
-    Future<Page<ServiceDirectoryEntry>> findSystemEntries(Pageable pageable);
-
-    /**
-     * The converted contracts of every platform service, the input the platform's authorization model is
-     * generated from, as the directory holds them now.
+     * The converted contracts of the platform's own services, the ones no organization owns, which the platform's
+     * authorization model is generated from, as the directory holds them now.
      * @return every system-scoped entry's contract
      */
     Future<List<ServiceDefinition>> findSystemContracts();
