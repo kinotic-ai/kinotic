@@ -37,7 +37,10 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
         return platformStoreId().compose(storeId -> ensureModel(storeId, model));
     }
 
-    private Future<String> platformStoreId() {
+    /**
+     * The id of the platform store, resolved once and kept; a failed lookup is made again by the next caller.
+     */
+    Future<String> platformStoreId() {
         Future<String> ret = platformStore;
         if (ret == null || ret.failed()) {
             synchronized (this) {

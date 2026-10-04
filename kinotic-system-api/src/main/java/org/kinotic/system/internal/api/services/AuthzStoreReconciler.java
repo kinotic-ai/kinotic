@@ -7,6 +7,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.ServiceDirectory;
@@ -25,7 +26,7 @@ import java.util.List;
 
 /**
  * The worker of the authorization stores: keeps the model a store runs equal to the one generated from the
- * directory entries that belong to it. The reconcile master calls it when a contract of the store is published,
+ * directory entries that belong to it, and the store's built-in roles bundling what that model has. The reconcile master calls it when a contract of the store is published,
  * when the store is found out of its desired state, and once when the master starts, so a model write the engine
  * refused is made again and a master lost mid-write is caught up. The model is written as a new version only
  * when it differs from the one the engine runs.
@@ -40,6 +41,7 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
     private final ServiceDirectory directory;
     private final AuthzModelGenerator generator;
     private final AuthzStoreService storeService;
+    private final RelationshipService relationships;
     private final AuthzStoreRepository stores;
 
     @Override
@@ -57,12 +59,14 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
     }
 
     // The directory's word is the record's intent, written here because only a read of the directory says
-    // what it is; the engine's version follows, so the record is reconciled exactly when the engine runs the
-    // model the directory implies, and either write failing leaves it for the master to retry
+    // what it is; the engine's version follows, with the built-in roles the model implies brought in step
+    // behind it, so the record is reconciled exactly when the engine runs the model the directory implies
+    // and its roles bundle what that model has, and any of the writes failing leaves it for the master to retry
     private Future<Void> run(AuthzStore current, AuthzModel model) {
         AuthzModelRevision revision = new AuthzModelRevision(model.hash());
         return stores.updateDesired(current.getId(), revision, null, "service directory")
                      .compose(intended -> storeService.ensurePlatformModel(model)
+                             .compose(version -> relationships.platform().ensureRoles(model.roles()).map(version))
                              .compose(version -> stores.reportObserved(current.getId(), revision,
                                                                        intended.getState().getGeneration(),
                                                                        "engine version " + version)))

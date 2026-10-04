@@ -1,5 +1,8 @@
 package org.kinotic.management.internal.api.services;
 
+import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch.indices.DataStreamVisibility;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
@@ -26,6 +29,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -40,6 +44,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final EntityDefinitionProperties entityDefinitionProperties;
     private final DomainPersistenceProperties domainPersistenceProperties;
+    private final RelationshipService relationships;
 
     public DefaultEntityDefinitionService(ApplicationEventPublisher eventPublisher,
                                           CrudServiceTemplate crudServiceTemplate,
@@ -47,8 +52,10 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                           EntityDefinitionRepository entityDefinitionRepository,
                                           ManagementApiProperties managementApiProperties,
                                           DomainPersistenceProperties domainPersistenceProperties,
-                                          SecurityContext securityContext) {
+                                          SecurityContext securityContext,
+                                          RelationshipService relationships) {
         super(entityDefinitionRepository, securityContext);
+        this.relationships = relationships;
         this.eventPublisher = eventPublisher;
         this.crudServiceTemplate = crudServiceTemplate;
         this.entityDefinitionConversionService = entityDefinitionConversionService;
@@ -116,7 +123,20 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                        .recover(ex -> AlreadyExistsException.isCause(ex)
                                ? Future.failedFuture(new IllegalArgumentException(
                                "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
-                               : Future.failedFuture(ex));
+                               : Future.failedFuture(ex))
+                       .compose(this::contained);
+    }
+
+    // The definition's place in the graph, written once the record is, so a write that fails leaves a
+    // definition nobody can reach rather than one nobody stores
+    private Future<EntityDefinition> contained(EntityDefinition entityDefinition) {
+        return relationships.platform().ensure(List.of(containment(entityDefinition))).map(entityDefinition);
+    }
+
+    private static RelationshipTuple containment(EntityDefinition entityDefinition) {
+        return new RelationshipTuple(AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, entityDefinition.getApplicationId()),
+                                     AuthzUtil.APPLICATION_TYPE,
+                                     AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinition.getId()));
     }
 
     @WithSpan
@@ -151,7 +171,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     return super.deleteByIdSync(entityDefinitionId)
                                 .compose(v -> {
                                     this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.applicationKey(), entityDefinition.getId()));
-                                    return Future.succeededFuture();
+                                    return relationships.platform().remove(List.of(containment(entityDefinition)));
                                 });
                 });
     }

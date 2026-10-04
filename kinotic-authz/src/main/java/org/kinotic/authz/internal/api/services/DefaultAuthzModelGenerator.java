@@ -29,16 +29,18 @@ import java.util.TreeSet;
 @Component
 public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
 
-    static final String USER = "user";
-    static final String GROUP = "group";
-    static final String ROLE = "role";
-    static final String ROLE_BINDING = "role_binding";
-    static final String ORGANIZATION = "organization";
-    static final String APPLICATION = "application";
-    static final String TENANT = "tenant";
-    static final String MEMBER = "member";
-    static final String END_USER = "end_user";
-    static final String GRANT = "grant";
+    static final String USER = AuthzUtil.USER_TYPE;
+    static final String GROUP = AuthzUtil.GROUP_TYPE;
+    static final String ROLE = AuthzUtil.ROLE_TYPE;
+    static final String ROLE_BINDING = AuthzUtil.ROLE_BINDING_TYPE;
+    static final String ORGANIZATION = AuthzUtil.ORGANIZATION_TYPE;
+    static final String APPLICATION = AuthzUtil.APPLICATION_TYPE;
+    static final String TENANT = AuthzUtil.TENANT_TYPE;
+    static final String MEMBER = AuthzUtil.MEMBER_RELATION;
+    static final String END_USER = AuthzUtil.END_USER_RELATION;
+    static final String GRANT = AuthzUtil.GRANT_RELATION;
+    // the permissions a viewer holds: the ones that only read
+    private static final Set<String> VIEWING = Set.of(AuthzUtil.CAN_VIEW, "can_read", "can_search");
 
     private static final String SCHEMA_VERSION = "1.1";
     private static final String CAN_READ = "can_read";
@@ -96,7 +98,62 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                 catalog.put(type.name, new TreeSet<>(type.permissions.keySet()));
             }
         }
-        return new AuthzModel(definition, ModelHash.of(definition), catalog);
+        return new AuthzModel(definition, ModelHash.of(definition), catalog, builtInRoles(kind, types, carried));
+    }
+
+    /**
+     * The built-in roles: per type a viewer of its reading permissions, an editor of all but deleting, and an
+     * admin of everything on it and inside it; and for a platform store the application developer, everything
+     * inside an application but the application's own. A role that would bundle nothing is not a role.
+     */
+    private static Map<String, Set<String>> builtInRoles(AuthzStoreKind kind,
+                                                         Map<String, ResourceType> types,
+                                                         Map<String, Set<String>> carried) {
+        Map<String, Set<String>> ret = new TreeMap<>();
+        for (ResourceType type : types.values()) {
+            Set<String> own = modelNames(type, type.permissions.keySet());
+            Set<String> viewing = new TreeSet<>();
+            for (String permission : type.permissions.keySet()) {
+                if (VIEWING.contains(permission)) {
+                    viewing.add(AuthzUtil.permissionName(type.name, permission));
+                }
+            }
+            Set<String> editing = new TreeSet<>(own);
+            editing.remove(AuthzUtil.permissionName(type.name, AuthzUtil.CAN_DELETE));
+            role(ret, AuthzUtil.roleId(type.name, AuthzUtil.VIEWER), viewing);
+            role(ret, AuthzUtil.roleId(type.name, AuthzUtil.EDITOR), editing);
+            role(ret, AuthzUtil.roleId(type.name, AuthzUtil.ADMIN), inside(type, types, carried, true));
+        }
+        if (kind == AuthzStoreKind.PLATFORM) {
+            role(ret, AuthzUtil.APPLICATION_DEVELOPER_ROLE, inside(types.get(APPLICATION), types, carried, false));
+        }
+        return ret;
+    }
+
+    // Every permission of the types inside the given one, with or without the type's own
+    private static Set<String> inside(ResourceType type, Map<String, ResourceType> types, Map<String, Set<String>> carried, boolean own) {
+        Set<String> ret = new TreeSet<>();
+        for (String name : carried.getOrDefault(type.name, Set.of())) {
+            if (own || !name.equals(type.name)) {
+                ResourceType inside = types.get(name);
+                ret.addAll(modelNames(inside, inside.permissions.keySet()));
+            }
+        }
+        return ret;
+    }
+
+    private static Set<String> modelNames(ResourceType type, Collection<String> permissions) {
+        Set<String> ret = new TreeSet<>();
+        for (String permission : permissions) {
+            ret.add(AuthzUtil.permissionName(type.name, permission));
+        }
+        return ret;
+    }
+
+    private static void role(Map<String, Set<String>> roles, String id, Set<String> permissions) {
+        if (!permissions.isEmpty()) {
+            roles.put(id, permissions);
+        }
     }
 
     /**

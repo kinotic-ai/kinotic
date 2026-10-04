@@ -18,7 +18,10 @@ import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.IdentityCredentialRepository;
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
+import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -34,14 +37,17 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     private final ParticipantIdentityRepository identityRepository;
     private final IdentityCredentialRepository credentialRepository;
     private final ApplicationRepository applicationRepository;
+    private final RelationshipService relationships;
 
     public DefaultParticipantIdentityService(ParticipantIdentityRepository repository,
                                  IdentityCredentialRepository credentialRepository,
-                                 ApplicationRepository applicationRepository) {
+                                 ApplicationRepository applicationRepository,
+                                 RelationshipService relationships) {
         super(repository);
         this.identityRepository = repository;
         this.credentialRepository = credentialRepository;
         this.applicationRepository = applicationRepository;
+        this.relationships = relationships;
     }
 
     @Override
@@ -220,7 +226,27 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                         return saveCredential(savedUser.getId(), password).map(savedUser);
                     }
                     return Future.succeededFuture(savedUser);
-                });
+                })
+                .compose(this::member);
+    }
+
+    // The user's membership in the graph, written once the record is: an organization user is a member of its
+    // organization, an application user an end user of its application, and a system user belongs to nothing
+    // until the platform's own resource grants it
+    private Future<UserParticipantIdentity> member(UserParticipantIdentity user) {
+        Future<Void> written;
+        if (user.getApplicationId() != null) {
+            written = relationships.platform().ensure(List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId()),
+                                                                                    AuthzUtil.END_USER_RELATION,
+                                                                                    AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, user.getApplicationId()))));
+        } else if (user.getOrganizationId() != null) {
+            written = relationships.platform().ensure(List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId()),
+                                                                                    AuthzUtil.MEMBER_RELATION,
+                                                                                    AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, user.getOrganizationId()))));
+        } else {
+            written = Future.succeededFuture();
+        }
+        return written.map(user);
     }
 
     /**
