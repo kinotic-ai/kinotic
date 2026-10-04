@@ -1,6 +1,7 @@
 package org.kinotic.queue.internal.cluster.message;
 
 import io.vertx.core.buffer.Buffer;
+import org.kinotic.queue.internal.log.BatchSlot;
 import org.kinotic.queue.internal.log.ShardEntry;
 
 import java.nio.charset.StandardCharsets;
@@ -17,7 +18,7 @@ public final class Wire {
 
     // Raised whenever the layout of any message changes, so nodes running different layouts refuse each other's
     // messages instead of misreading them
-    private static final byte VERSION = 1;
+    private static final byte VERSION = 2;
 
     private final Buffer buffer;
     private int position;
@@ -59,9 +60,14 @@ public final class Wire {
             if (!entry.isMarker()) {
                 appendString(buffer, entry.key());
                 appendBytes(buffer, entry.payload());
+                appendSlot(buffer, entry.slot());
             }
         }
         return buffer;
+    }
+
+    public static Buffer appendSlot(Buffer buffer, BatchSlot slot) {
+        return buffer.appendLong(slot.producerId()).appendLong(slot.sequence()).appendInt(slot.index()).appendInt(slot.size());
     }
 
     public static Buffer appendOffsets(Buffer buffer, Map<String, Long> offsets) {
@@ -105,9 +111,13 @@ public final class Wire {
         for (int i = 0; i < count; i++) {
             long offset = readLong();
             long epoch = readLong();
-            ret.add(readByte() == 1 ? ShardEntry.marker(offset, epoch) : new ShardEntry(offset, epoch, readString(), readBytes()));
+            ret.add(readByte() == 1 ? ShardEntry.marker(offset, epoch) : new ShardEntry(offset, epoch, readString(), readBytes(), readSlot()));
         }
         return ret;
+    }
+
+    public BatchSlot readSlot() {
+        return new BatchSlot(readLong(), readLong(), readInt(), readInt());
     }
 
     public Map<String, Long> readOffsets() {

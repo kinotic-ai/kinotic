@@ -29,13 +29,13 @@ public interface QueueService {
     Future<QueueDefinition> createQueueIfNotExist(QueueDefinition definition);
 
     /**
-     * Appends a record to the shard its key hashes to. A record whose append completed before the append of another
-     * record with the same key began is delivered before that record; appends that overlap may be written in either
-     * order. Completes once a majority of the shard's copies has the record, and fails when
-     * the queue does not exist, the key and payload together exceed {@code kinotic.maxEventPayloadSize} bytes, or
-     * no majority of copies is reachable. A failed append may still have been written, so retrying it can deliver
-     * the record twice; an append whose shard changes owner while it runs is retried internally and may be written
-     * twice even when it succeeds.
+     * Appends a record to the shard its key hashes to. Records appended through the same queue node to the same
+     * shard, which records with the same key are, are written in the order their appends were called; an append the
+     * queue retries after a lost reply or a change of the shard's owner is written once, as long as fewer than 64 MB
+     * of other records were written to the shard after it. Completes once a majority of the shard's copies has the
+     * record, and fails when the queue does not exist, the key and payload together exceed
+     * {@code kinotic.maxEventPayloadSize} bytes, or no majority of copies is reachable. A failed append may still
+     * have been written, so retrying it can deliver the record twice.
      *
      * @param queue   the queue name
      * @param key     decides the shard the record is written to

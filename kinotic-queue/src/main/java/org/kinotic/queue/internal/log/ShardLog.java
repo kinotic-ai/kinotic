@@ -73,14 +73,31 @@ public final class ShardLog implements AutoCloseable {
     }
 
     /**
-     * Appends a record as the shard's owner.
+     * Appends records as the shard's owner, one after another, and forces them to disk. Either every record is
+     * appended or, when the method throws, none is.
      *
-     * @param epoch the owner's epoch
-     * @return the offset the record was written at
+     * @param epoch   the owner's epoch
+     * @param records the records, each with its key, payload and slot set; their offsets and epochs are ignored
+     * @return the offset each record was written at, in the order of {@code records}
      * @throws StaleEpochException when the shard has promised a newer owner
      */
-    public synchronized long append(long epoch, String key, byte[] payload) {
-        return appendEntry(epoch, key, payload);
+    public synchronized List<Long> append(long epoch, List<ShardEntry> records) {
+        requireCurrent(epoch);
+        long start = nextOffset;
+        List<Long> ret = new ArrayList<>(records.size());
+        try {
+            for (ShardEntry record : records) {
+                ret.add(nextOffset);
+                write(new ShardEntry(nextOffset, epoch, record.key(), record.payload(), record.slot()));
+            }
+            sync();
+        } catch (RuntimeException e) {
+            if (nextOffset > start) {
+                truncate(start);
+            }
+            throw e;
+        }
+        return ret;
     }
 
     /**
@@ -90,7 +107,11 @@ public final class ShardLog implements AutoCloseable {
      * @throws StaleEpochException when the shard has promised a newer owner
      */
     public synchronized long appendMarker(long epoch) {
-        return appendEntry(epoch, null, null);
+        requireCurrent(epoch);
+        long ret = nextOffset;
+        write(ShardEntry.marker(ret, epoch));
+        sync();
+        return ret;
     }
 
     /**
@@ -263,15 +284,11 @@ public final class ShardLog implements AutoCloseable {
         }
     }
 
-    private long appendEntry(long epoch, String key, byte[] payload) {
+    private void requireCurrent(long epoch) {
         if (epoch < acceptedEpoch) {
             throw new StaleEpochException(epoch, acceptedEpoch);
         }
         promise(epoch);
-        long ret = nextOffset;
-        write(key == null ? ShardEntry.marker(ret, epoch) : new ShardEntry(ret, epoch, key, payload));
-        sync();
-        return ret;
     }
 
     // The offset of the first held entry in the batch whose epoch differs from the owner's, or -1 when none does

@@ -5,6 +5,8 @@ import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.queue.api.model.StartPosition;
+import org.kinotic.queue.internal.cluster.message.AppendRecord;
+import org.kinotic.queue.internal.cluster.message.AppendRequest;
 import org.kinotic.queue.internal.cluster.message.FetchRequest;
 import org.kinotic.queue.internal.cluster.message.FetchResponse;
 import org.kinotic.queue.internal.cluster.message.LeaseRequest;
@@ -12,6 +14,7 @@ import org.kinotic.queue.internal.cluster.message.LeaseResponse;
 import org.kinotic.queue.internal.cluster.message.SettleRequest;
 import org.kinotic.queue.internal.cluster.message.PrepareRequest;
 import org.kinotic.queue.internal.cluster.message.ShardStatus;
+import org.kinotic.queue.internal.log.BatchSlot;
 import org.kinotic.queue.internal.log.ConsumerOffsetRepository;
 import org.kinotic.queue.internal.log.ReplicationResult;
 import org.kinotic.queue.internal.log.ShardEntry;
@@ -20,6 +23,7 @@ import org.kinotic.queue.internal.log.StaleEpochException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -58,6 +62,11 @@ final class ShardOwner {
     private static final long SWEEP_INTERVAL_MS = 250;
     // A group's dispatcher with nothing in flight is dropped after this long without a request; its position is stored
     private static final long DISPATCHER_IDLE_MS = 5 * 60_000;
+    // A producer's last batch is forgotten after this long without a request; the producer has given up on it by then
+    private static final long PRODUCER_IDLE_MS = 10 * 60_000;
+    // How much of the shard's end a new owner reads to learn the batches producers may still be sending again
+    private static final long PRODUCER_SCAN_BYTES = 64 * 1024 * 1024;
+    private static final int PRODUCER_SCAN_CHUNK = 1_024;
     private static final long STATE_SAVE_INTERVAL_MS = 1_000;
     private static final int CATCH_UP_BATCH_SIZE = 1_024;
     // An epoch is a generation in its high bits and the owner's node order in its low bits, so no two owners ever
@@ -80,6 +89,7 @@ final class ShardOwner {
     private final TreeMap<Long, PendingMajority<Void>> pendingOffsetReplications = new TreeMap<>();
     private final List<PendingFetch> pendingFetches = new ArrayList<>();
     private final Map<String, Future<WorkDispatcher>> dispatchers = new HashMap<>();
+    private final Map<Long, ProducerBatch> producerBatches = new HashMap<>();
     // Appends a record to a group's dead-letter queue, by group name
     private final BiFunction<String, ShardEntry, Future<Void>> deadLetters;
 
@@ -93,6 +103,8 @@ final class ShardOwner {
     private boolean stopped;
     private boolean stateSaveScheduled;
     private long sweepTimer = -1;
+    // Completes once the batches found at the shard's end are known, before which no batch is appended
+    private Future<Void> producersRecovered = Future.succeededFuture();
 
     ShardOwner(Vertx vertx,
                ShardPlacement placement,
@@ -119,11 +131,12 @@ final class ShardOwner {
     }
 
     /**
-     * Appends a record.
+     * Appends a batch of records. A batch its producer already sent is not written again: the records of it the shard
+     * holds keep their offsets, and only the ones it lacks are written.
      *
-     * @return the record's offset, once the record is committed
+     * @return the offset of each record, once every record of the batch is committed
      */
-    Future<Long> append(String key, byte[] payload) {
+    Future<List<Long>> append(AppendRequest request) {
         if (followers.size() + 1 < placement.quorum()) {
             return Future.failedFuture(QueueFailure.NO_QUORUM.exception("Only " + (followers.size() + 1) + " copies of shard " + shard
                                                                                 + " of queue " + queue + " are placed, " + placement.quorum() + " are needed"));
@@ -132,26 +145,115 @@ final class ShardOwner {
             return Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue
                                                                                 + " is recovering: " + recoveryFailure));
         }
-        Promise<Long> ret = Promise.promise();
-        long appendEpoch = epoch;
-        vertx.executeBlocking(() -> shardLog.append(appendEpoch, key, payload), false).onComplete(ar -> {
-            if (ar.failed()) {
-                if (ar.cause() instanceof StaleEpochException) {
-                    stop();
-                }
-                ret.fail(ar.cause());
-            } else if (stopped) {
-                // The record may still be committed by the next owner
-                ret.fail(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue + " changed owner"));
+        return producersRecovered.compose(v -> stopped ? Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue "
+                                                                                                                + queue + " changed owner"))
+                                                       : appendBatch(request));
+    }
+
+    private Future<List<Long>> appendBatch(AppendRequest request) {
+        ProducerBatch last = producerBatches.get(request.producerId());
+        Future<List<Long>> written;
+        if (last != null && request.sequence() < last.sequence()) {
+            written = Future.failedFuture(new IllegalArgumentException("Batch " + request.sequence() + " was followed by batch "
+                                                                               + last.sequence() + " from the same producer"));
+        } else {
+            if (last != null && request.sequence() == last.sequence()) {
+                // A failed write of the batch appended none of its records
+                written = last.written().transform(ar -> ar.succeeded() ? writeMissing(request, ar.result())
+                                                                        : writeMissing(request, missing(request.records().size())));
             } else {
-                pendingAppends.put(ar.result(), new PendingMajority<>(ret, System.currentTimeMillis() + COMMIT_TIMEOUT_MS));
-                replicators.values().forEach(ShardReplicator::notifyChanged);
-                updateCommittedOffset();
-                // Replication of a later append can commit this offset before this callback runs
-                completeCommittedAppends();
+                written = writeMissing(request, missing(request.records().size()));
             }
-        });
-        return ret.future();
+            producerBatches.put(request.producerId(), new ProducerBatch(request.sequence(), written, System.currentTimeMillis()));
+        }
+        return written.compose(this::awaitCommitted);
+    }
+
+    // Writes the batch's records the shard does not hold yet, the ones at -1 in offsets
+    private Future<List<Long>> writeMissing(AppendRequest request, List<Long> offsets) {
+        List<ShardEntry> records = new ArrayList<>();
+        List<Integer> indexes = new ArrayList<>();
+        for (int i = 0; i < offsets.size(); i++) {
+            if (offsets.get(i) < 0) {
+                AppendRecord record = request.records().get(i);
+                BatchSlot slot = new BatchSlot(request.producerId(), request.sequence(), i, offsets.size());
+                records.add(new ShardEntry(-1, epoch, record.key(), record.payload(), slot));
+                indexes.add(i);
+            }
+        }
+        Future<List<Long>> ret;
+        if (records.isEmpty()) {
+            ret = Future.succeededFuture(offsets);
+        } else {
+            long appendEpoch = epoch;
+            ret = vertx.executeBlocking(() -> shardLog.append(appendEpoch, records), false).transform(ar -> {
+                Future<List<Long>> written;
+                if (ar.failed()) {
+                    if (ar.cause() instanceof StaleEpochException) {
+                        stop();
+                    }
+                    written = Future.failedFuture(ar.cause());
+                } else if (stopped) {
+                    // The records may still be committed by the next owner, which then recognizes the batch
+                    written = Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue + " changed owner"));
+                } else {
+                    List<Long> merged = new ArrayList<>(offsets);
+                    for (int i = 0; i < indexes.size(); i++) {
+                        merged.set(indexes.get(i), ar.result().get(i));
+                    }
+                    replicators.values().forEach(ShardReplicator::notifyChanged);
+                    updateCommittedOffset();
+                    written = Future.succeededFuture(merged);
+                }
+                return written;
+            });
+        }
+        return ret;
+    }
+
+    private Future<List<Long>> awaitCommitted(List<Long> offsets) {
+        long last = offsets.stream().mapToLong(Long::longValue).max().orElseThrow();
+        Future<List<Long>> ret;
+        if (last < committedOffset) {
+            ret = Future.succeededFuture(offsets);
+        } else {
+            ret = pendingAppends.computeIfAbsent(last, offset -> new PendingMajority<>(Promise.promise(),
+                                                                                       System.currentTimeMillis() + COMMIT_TIMEOUT_MS))
+                                .promise().future().map(offsets);
+        }
+        return ret;
+    }
+
+    private static List<Long> missing(int count) {
+        return new ArrayList<>(Collections.nCopies(count, -1L));
+    }
+
+    // The last batch of each producer among the entries at the shard's end
+    private Map<Long, ProducerBatch> scanProducerBatches() {
+        Map<Long, Long> sequences = new HashMap<>();
+        Map<Long, List<Long>> offsets = new HashMap<>();
+        long scannedBytes = 0;
+        long to = shardLog.nextOffset();
+        while (to > 0 && scannedBytes < PRODUCER_SCAN_BYTES) {
+            long from = Math.max(0, to - PRODUCER_SCAN_CHUNK);
+            List<ShardEntry> chunk = shardLog.read(from, (int) (to - from), Long.MAX_VALUE);
+            to = from;
+            for (ShardEntry entry : chunk) {
+                scannedBytes += entry.size();
+                BatchSlot slot = entry.slot();
+                if (slot != null && slot.sequence() >= sequences.getOrDefault(slot.producerId(), -1L)) {
+                    if (slot.sequence() > sequences.getOrDefault(slot.producerId(), -1L)) {
+                        sequences.put(slot.producerId(), slot.sequence());
+                        offsets.put(slot.producerId(), missing(slot.size()));
+                    }
+                    offsets.get(slot.producerId()).set(slot.index(), entry.offset());
+                }
+            }
+        }
+        long now = System.currentTimeMillis();
+        Map<Long, ProducerBatch> ret = new HashMap<>();
+        sequences.forEach((producerId, sequence) -> ret.put(producerId, new ProducerBatch(sequence, Future.succeededFuture(offsets.get(producerId)), now)));
+        return ret;
     }
 
     /**
@@ -317,6 +419,15 @@ final class ShardOwner {
                          epochStartOffset = ar.result();
                          active = true;
                          sweepTimer = vertx.setPeriodic(SWEEP_INTERVAL_MS, t -> sweep());
+                         producersRecovered = vertx.executeBlocking(this::scanProducerBatches, false)
+                                                   .recover(e -> {
+                                                       log.warn("Reading the producers' last batches of shard {} of queue {} failed;"
+                                                                        + " a batch sent again before the owner changed may be written twice",
+                                                                shard, queue, e);
+                                                       return Future.succeededFuture(Map.of());
+                                                   })
+                                                   .onSuccess(producerBatches::putAll)
+                                                   .mapEmpty();
                          followers.forEach(this::startReplicator);
                          updateCommittedOffset();
                          log.info("Owning shard {} of queue {} at epoch {} from offset {}", shard, queue, epoch, epochStartOffset);
@@ -524,6 +635,7 @@ final class ShardOwner {
             }
             return expired;
         });
+        producerBatches.values().removeIf(batch -> batch.written().isComplete() && batch.lastUsed() < now - PRODUCER_IDLE_MS);
         dispatchers.values().removeIf(dispatcher -> {
             boolean idle = dispatcher.succeeded() && dispatcher.result().isIdleSince(now - DISPATCHER_IDLE_MS);
             if (idle) {

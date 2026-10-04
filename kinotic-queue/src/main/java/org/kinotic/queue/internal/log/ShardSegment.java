@@ -112,7 +112,11 @@ final class ShardSegment implements AutoCloseable {
                 if (!entry.isMarker()) {
                     bytes.writeUtf8(entry.key())
                          .writeInt(entry.payload().length)
-                         .write(entry.payload());
+                         .write(entry.payload())
+                         .writeLong(entry.slot().producerId())
+                         .writeLong(entry.slot().sequence())
+                         .writeInt(entry.slot().index())
+                         .writeInt(entry.slot().size());
                 }
             } catch (RuntimeException e) {
                 // A partly written excerpt would take a sequence number without an offset, breaking indexOf
@@ -214,7 +218,8 @@ final class ShardSegment implements AutoCloseable {
                 String key = bytes.readUtf8();
                 byte[] payload = new byte[bytes.readInt()];
                 bytes.read(payload);
-                ret = new ShardEntry(offset, epoch, key, payload);
+                BatchSlot slot = new BatchSlot(bytes.readLong(), bytes.readLong(), bytes.readInt(), bytes.readInt());
+                ret = new ShardEntry(offset, epoch, key, payload, slot);
             }
             return ret;
         }

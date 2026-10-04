@@ -108,7 +108,7 @@ public class ShardLogTests {
         try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
             assertEquals(5, reopened.acceptedEpoch());
             assertEquals(ReplicationStatus.STALE_EPOCH, reopened.replicate(4, 1, 1, 3, List.of(entry(2, 4))).status());
-            assertThrows(StaleEpochException.class, () -> reopened.append(4, "key", new byte[0]));
+            assertThrows(StaleEpochException.class, () -> append(reopened, 4, "key", new byte[0]));
             assertEquals(2, reopened.nextOffset());
         }
     }
@@ -131,8 +131,26 @@ public class ShardLogTests {
             assertEquals(7, reopened.nextOffset());
             assertEquals(3, reopened.lastEpoch());
             assertEquals(List.of(1L, 1L, 1L, 2L, 3L, 3L, 3L), epochs(reopened.read(0, 10, Long.MAX_VALUE)));
-            reopened.append(3, "key-7", new byte[]{3});
+            append(reopened, 3, "key-7", new byte[]{3});
             assertEquals(8, reopened.nextOffset());
+        }
+    }
+
+    @Test
+    public void aBatchIsAppendedInOrderAndKeepsItsSlotsAfterAReopen() {
+        Path shardDirectory = directory.resolve("0");
+        List<ShardEntry> batch = List.of(new ShardEntry(-1, 1, "a", new byte[]{1}, new BatchSlot(7, 3, 0, 2)),
+                                         new ShardEntry(-1, 1, "b", new byte[]{2}, new BatchSlot(7, 3, 1, 2)));
+        try (ShardLog shard = new ShardLog(shardDirectory, true)) {
+            assertEquals(0, shard.appendMarker(1));
+
+            assertEquals(List.of(1L, 2L), shard.append(1, batch));
+        }
+        try (ShardLog reopened = new ShardLog(shardDirectory, true)) {
+            List<ShardEntry> entries = reopened.read(1, 10, Long.MAX_VALUE);
+            assertEquals(List.of("a", "b"), entries.stream().map(ShardEntry::key).toList());
+            assertEquals(List.of(new BatchSlot(7, 3, 0, 2), new BatchSlot(7, 3, 1, 2)), entries.stream().map(ShardEntry::slot).toList());
+            assertNull(reopened.read(0, 1, Long.MAX_VALUE).getFirst().slot());
         }
     }
 
@@ -173,9 +191,9 @@ public class ShardLogTests {
     public void markersAreStoredWithoutAKeyAndReadsStopAtTheByteBudget() {
         try (ShardLog shard = new ShardLog(directory.resolve("0"), true)) {
             assertEquals(0, shard.appendMarker(1));
-            shard.append(1, "a", new byte[600]);
-            shard.append(1, "b", new byte[600]);
-            shard.append(1, "c", new byte[600]);
+            append(shard, 1, "a", new byte[600]);
+            append(shard, 1, "b", new byte[600]);
+            append(shard, 1, "c", new byte[600]);
 
             List<ShardEntry> entries = shard.read(0, 10, 1_000);
 
@@ -190,7 +208,7 @@ public class ShardLogTests {
 
     private static void appendAll(ShardLog shard, long epoch, long firstOffset, int count) {
         for (int i = 0; i < count; i++) {
-            assertEquals(firstOffset + i, shard.append(epoch, "key-" + (firstOffset + i), new byte[]{(byte) epoch}));
+            assertEquals(firstOffset + i, append(shard, epoch, "key-" + (firstOffset + i), new byte[]{(byte) epoch}));
         }
     }
 
@@ -198,7 +216,11 @@ public class ShardLogTests {
         return entries.stream().map(ShardEntry::epoch).toList();
     }
 
+    private static long append(ShardLog shard, long epoch, String key, byte[] payload) {
+        return shard.append(epoch, List.of(new ShardEntry(-1, epoch, key, payload, new BatchSlot(1, 0, 0, 1)))).getFirst();
+    }
+
     private static ShardEntry entry(long offset, long epoch) {
-        return new ShardEntry(offset, epoch, "key-" + offset, new byte[]{(byte) epoch});
+        return new ShardEntry(offset, epoch, "key-" + offset, new byte[]{(byte) epoch}, new BatchSlot(1, offset, 0, 1));
     }
 }

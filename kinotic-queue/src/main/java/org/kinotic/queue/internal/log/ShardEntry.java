@@ -7,8 +7,9 @@ package org.kinotic.queue.internal.log;
  * @param epoch   the epoch of the owner that first wrote the entry
  * @param key     the key the record was appended with; null for a marker
  * @param payload the record content; empty for a marker
+ * @param slot    where the record sat in the batch it was appended in; null for a marker
  */
-public record ShardEntry(long offset, long epoch, String key, byte[] payload) {
+public record ShardEntry(long offset, long epoch, String key, byte[] payload, BatchSlot slot) {
 
     private static final byte[] NO_PAYLOAD = new byte[0];
 
@@ -17,7 +18,7 @@ public record ShardEntry(long offset, long epoch, String key, byte[] payload) {
      * committed only once a majority holds this marker after it.
      */
     public static ShardEntry marker(long offset, long epoch) {
-        return new ShardEntry(offset, epoch, null, NO_PAYLOAD);
+        return new ShardEntry(offset, epoch, null, NO_PAYLOAD, null);
     }
 
     public boolean isMarker() {

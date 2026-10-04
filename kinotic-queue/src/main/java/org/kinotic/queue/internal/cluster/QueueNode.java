@@ -145,7 +145,7 @@ public class QueueNode {
     private void onAppend(Message<Buffer> message) {
         AppendRequest request = AppendRequest.fromBuffer(message.body());
         reply(message, owner(request.queue(), request.shard())
-                .compose(owner -> owner.append(request.key(), request.payload()))
+                .compose(owner -> owner.append(request))
                 .map(AppendRequest::encodeReply));
     }
 

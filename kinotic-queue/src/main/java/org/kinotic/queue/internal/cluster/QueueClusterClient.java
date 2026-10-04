@@ -8,6 +8,7 @@ import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.queue.api.model.QueueDefinition;
 import org.kinotic.queue.api.model.QueuePosition;
@@ -55,18 +56,23 @@ public class QueueClusterClient {
 
     private final Vertx vertx;
     private final ShardPlacement placement;
+    private AppendBatcher batcher;
+
+    @PostConstruct
+    public void start() {
+        batcher = new AppendBatcher(vertx, this::sendBatch);
+    }
 
     /**
-     * Appends a record through the owner of the shard its key hashes to, retrying while the shard has no active owner.
+     * Appends a record through the owner of the shard its key hashes to, in a batch with the other appends this client
+     * makes to the shard, retrying while the shard has no active owner.
      *
      * @return the position the record was written at
      */
     public Future<QueuePosition> append(QueueDefinition definition, String key, byte[] payload) {
         int shard = QueueLog.shardOf(key, definition.shardCount());
-        Buffer request = new AppendRequest(definition.name(), shard, key, payload).toBuffer();
-        return retryWhileOwnerless(() -> requestOwner(definition.name(), shard, QueueNode.APPEND, request, MAJORITY_TIMEOUT_MS),
-                                   System.currentTimeMillis() + OWNER_DEADLINE_MS)
-                .map(reply -> new QueuePosition(definition.name(), shard, AppendRequest.decodeReply(reply)));
+        return batcher.append(definition.name(), shard, key, payload)
+                      .map(offset -> new QueuePosition(definition.name(), shard, offset));
     }
 
     /**
@@ -196,6 +202,13 @@ public class QueueClusterClient {
 
     public Future<ShardStatus> prepare(String node, PrepareRequest request) {
         return request(node, QueueNode.PREPARE, request.toBuffer(), REQUEST_TIMEOUT_MS).map(ShardStatus::fromBuffer);
+    }
+
+    private Future<List<Long>> sendBatch(AppendRequest request) {
+        Buffer body = request.toBuffer();
+        return retryWhileOwnerless(() -> requestOwner(request.queue(), request.shard(), QueueNode.APPEND, body, MAJORITY_TIMEOUT_MS),
+                                   System.currentTimeMillis() + OWNER_DEADLINE_MS)
+                .map(AppendRequest::decodeReply);
     }
 
     private Future<Buffer> retryWhileOwnerless(Supplier<Future<Buffer>> request, long deadline) {

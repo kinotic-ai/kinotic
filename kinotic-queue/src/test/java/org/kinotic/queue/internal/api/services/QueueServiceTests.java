@@ -1,5 +1,6 @@
 package org.kinotic.queue.internal.api.services;
 
+import io.vertx.core.Future;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -81,6 +82,24 @@ public class QueueServiceTests {
                 assertEquals(customer + i * 5, values.get(i), "out of order for " + key);
             }
         });
+    }
+
+    @Test
+    public void appendsMadeWithoutWaitingAreWrittenInTheOrderTheyWereCalled() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 4)));
+        List<Future<QueuePosition>> appends = new ArrayList<>();
+        for (int i = 0; i < 200; i++) {
+            appends.add(service.append("orders", "same-key", payload(i)));
+        }
+        for (Future<QueuePosition> append : appends) {
+            await(append);
+        }
+
+        TestSubscriber subscriber = subscribe("billing", StartPosition.EARLIEST);
+        for (int i = 0; i < 200; i++) {
+            assertEquals(i, value(subscriber.next()));
+        }
+        assertNull(subscriber.poll(500));
     }
 
     @Test

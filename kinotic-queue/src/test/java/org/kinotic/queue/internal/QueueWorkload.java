@@ -93,9 +93,9 @@ public final class QueueWorkload implements AutoCloseable {
 
     /**
      * Reads the whole queue with a new consumer on the node and checks that every acknowledged record is delivered, that
-     * every delivered record was appended, and that each key's acknowledged records arrive in the order they were
-     * appended. Records may be delivered more than once. An append that failed may or may not be delivered, and may land
-     * after records appended later, since the failure leaves it unknown when or whether it was written.
+     * every delivered record was appended and is in the queue once, and that each key's acknowledged records arrive in
+     * the order they were appended. An append that failed may or may not be delivered, and may land after records
+     * appended later, since the failure leaves it unknown when or whether it was written.
      */
     public void verifyDelivered(QueueTestNode node, String consumerName) throws Exception {
         TestSubscriber subscriber = TestSubscriber.subscribe(node.vertx(), node.queueService(), queue, consumerName, StartPosition.EARLIEST);
@@ -106,7 +106,8 @@ public final class QueueWorkload implements AutoCloseable {
             QueueRecord record = subscriber.next();
             int value = value(record);
             assertTrue(attempted.contains(value), "delivered " + value + ", which was never appended");
-            if (delivered.add(value) && acknowledged.contains(value)) {
+            assertTrue(delivered.add(value), "the queue holds " + value + " twice");
+            if (acknowledged.contains(value)) {
                 Integer last = lastFirstDeliveryByKey.put(record.key(), value);
                 assertTrue(last == null || last < value, "key " + record.key() + " delivered " + value + " after " + last);
             }
