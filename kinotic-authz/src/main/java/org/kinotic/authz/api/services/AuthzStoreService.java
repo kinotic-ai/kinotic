@@ -27,6 +27,14 @@ public interface AuthzStoreService {
     Future<String> ensurePlatformModel(AuthzModel model);
 
     /**
+     * The id of the version the platform store runs, read from the engine: the version every check against the
+     * platform store names.
+     *
+     * @return the version's id; fails when the platform store runs no model yet
+     */
+    Future<String> platformModelId();
+
+    /**
      * Creates a store. Store names are not unique in OpenFGA, so the caller records the id it gets back.
      *
      * @param name the store's name

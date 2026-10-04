@@ -1,6 +1,7 @@
 package org.kinotic.authz.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 
 import java.util.List;
@@ -34,6 +35,16 @@ public interface RelationshipService {
      * @return the relationships, empty for an object nothing is held on
      */
     Future<List<RelationshipTuple>> read(String store, String object);
+
+    /**
+     * Every relationship a user holds on objects of a type, as written.
+     *
+     * @param store      the store, named as its record is
+     * @param user       the user, in {@code type:id} form, or a userset such as {@code group:id#member}
+     * @param objectType the type of object
+     * @return the relationships, empty for a user holding none on the type
+     */
+    Future<List<RelationshipTuple>> readByUser(String store, String user, String objectType);
 
     /**
      * Whether the store holds exactly this relationship, as written, without the model's rules.
@@ -87,24 +98,37 @@ public interface RelationshipService {
     Future<String> bind(String store, String roleId, String member, String object);
 
     /**
+     * Revokes a binding: its role, its members and its attachment to the object are removed, leaving nothing of
+     * it. A binding already gone leaves nothing to remove.
+     *
+     * @param store     the store, named as its record is
+     * @param bindingId the id {@link #bind} returned
+     * @param object    the resource the binding was made on, in {@code type:id} form
+     * @return completes when nothing of the binding is held
+     */
+    Future<Void> unbind(String store, String bindingId, String object);
+
+    /**
      * Whether the user holds the relation on the object, directly or through the model's rules.
      *
      * @param store        the store, named as its record is
      * @param modelId      the model version to evaluate against
      * @param relationship the user, relation and object to check
+     * @param consistency  how current the answer must be
      * @return true when the relation is held
      */
-    Future<Boolean> check(String store, String modelId, RelationshipTuple relationship);
+    Future<Boolean> check(String store, String modelId, RelationshipTuple relationship, Consistency consistency);
 
     /**
      * The objects of a type on which the user holds the relation.
      *
-     * @param store    the store, named as its record is
-     * @param modelId  the model version to evaluate against
-     * @param user     who holds the relation
-     * @param relation the relation held
-     * @param type     the type of object to list
+     * @param store       the store, named as its record is
+     * @param modelId     the model version to evaluate against
+     * @param user        who holds the relation
+     * @param relation    the relation held
+     * @param type        the type of object to list
+     * @param consistency how current the answer must be
      * @return the objects, in {@code type:id} form
      */
-    Future<List<String>> listObjects(String store, String modelId, String user, String relation, String type);
+    Future<List<String>> listObjects(String store, String modelId, String user, String relation, String type, Consistency consistency);
 }

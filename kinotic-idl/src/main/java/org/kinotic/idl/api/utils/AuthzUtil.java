@@ -80,6 +80,25 @@ public final class AuthzUtil {
     }
 
     /**
+     * The type of an object or a userset in {@code type:id} or {@code type:id#relation} form.
+     * @param object the object
+     * @return its type
+     */
+    public static String typeOf(String object) {
+        return object.substring(0, object.indexOf(':'));
+    }
+
+    /**
+     * The id of an object or a userset in {@code type:id} or {@code type:id#relation} form.
+     * @param object the object
+     * @return its id
+     */
+    public static String idOf(String object) {
+        int relation = object.indexOf('#');
+        return object.substring(object.indexOf(':') + 1, relation < 0 ? object.length() : relation);
+    }
+
+    /**
      * The id of a built-in role of a type: {@code project.editor} for the editor of projects.
      */
     public static String roleId(String type, String level) {

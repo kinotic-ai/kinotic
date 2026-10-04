@@ -132,17 +132,6 @@ public class PlatformModelSyncTests extends KinoticTestBase {
     }
 
     // The master ticks every two seconds, then generates the model and writes it to the engine
-    private static boolean awaitUntil(Check condition) throws Exception {
-        long deadline = System.currentTimeMillis() + 30_000;
-        while (!condition.holds() && System.currentTimeMillis() < deadline) {
-            Thread.sleep(250);
-        }
-        return condition.holds();
-    }
-
-    private interface Check {
-        boolean holds() throws Exception;
-    }
 
     private static <T> T await(Future<T> future) throws Exception {
         return future.toCompletionStage().toCompletableFuture().get(30, TimeUnit.SECONDS);

@@ -3,14 +3,12 @@ package org.kinotic.test.tests.core.authz;
 import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
-import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.ServiceDirectory;
-import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.AuthzModelRevision;
@@ -194,19 +192,19 @@ public class GraphSyncTests extends KinoticTestBase {
         assertTrue(holds(new RelationshipTuple(user, AuthzUtil.MEMBER_RELATION, organization)), "the creator is a member");
 
         // the binding of the organization admin role reaches the organization and everything created inside it
-        assertTrue(await(relationships.check(AuthzStoreService.PLATFORM, modelId, new RelationshipTuple(user, "application_can_edit", organization))));
+        assertTrue(await(relationships.check(AuthzStoreService.PLATFORM, modelId, new RelationshipTuple(user, "application_can_edit", organization), Consistency.HIGHER_CONSISTENCY)));
         DefaultOrganizationParticipant creator = new DefaultOrganizationParticipant(admin.getId(), organizationId,
                                                                                     Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
                                                                                            ParticipantConstants.PARTICIPANT_TYPE_USER),
                                                                                     List.of("ADMIN"));
         Application application = await(runAs(creator, () -> applicationService.createApplicationIfNotExist("Graph Admin App", "graph sync", null)));
         String applicationObject = AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, application.getId());
-        assertTrue(await(relationships.check(AuthzStoreService.PLATFORM, modelId, new RelationshipTuple(user, "application_can_edit", applicationObject))));
-        assertTrue(await(relationships.check(AuthzStoreService.PLATFORM, modelId, new RelationshipTuple(user, "project_can_delete", applicationObject))));
+        assertTrue(await(relationships.check(AuthzStoreService.PLATFORM, modelId, new RelationshipTuple(user, "application_can_edit", applicationObject), Consistency.HIGHER_CONSISTENCY)));
+        assertTrue(await(relationships.check(AuthzStoreService.PLATFORM, modelId, new RelationshipTuple(user, "project_can_delete", applicationObject), Consistency.HIGHER_CONSISTENCY)));
         // and nothing outside the organization
         assertFalse(await(relationships.check(AuthzStoreService.PLATFORM, modelId,
                                               new RelationshipTuple(user, "application_can_edit",
-                                                                    AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID)))));
+                                                                    AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID)), Consistency.HIGHER_CONSISTENCY)));
     }
 
     private boolean holds(RelationshipTuple relationship) throws Exception {
@@ -214,8 +212,7 @@ public class GraphSyncTests extends KinoticTestBase {
     }
 
     private AuthzModel modelFromDirectory() throws Exception {
-        List<ServiceDirectoryEntry> entries = await(serviceDirectory.findSystemEntries(Pageable.create(0, 500, Sort.by("id")))).getContent();
-        return modelGenerator.platformModel(entries.stream().map(ServiceDirectoryEntry::getServiceDefinition).toList());
+        return modelGenerator.platformModel(await(serviceDirectory.findSystemContracts()));
     }
 
     private boolean reconciledTo(String hash) throws Exception {
@@ -252,17 +249,6 @@ public class GraphSyncTests extends KinoticTestBase {
     }
 
     // The master ticks every two seconds, then generates the model, writes it and brings the roles in step
-    private static boolean awaitUntil(Check condition) throws Exception {
-        long deadline = System.currentTimeMillis() + 30_000;
-        while (!condition.holds() && System.currentTimeMillis() < deadline) {
-            Thread.sleep(250);
-        }
-        return condition.holds();
-    }
-
-    private interface Check {
-        boolean holds() throws Exception;
-    }
 
     private static <T> T await(Future<T> future) throws Exception {
         return future.toCompletionStage().toCompletableFuture().get(30, TimeUnit.SECONDS);

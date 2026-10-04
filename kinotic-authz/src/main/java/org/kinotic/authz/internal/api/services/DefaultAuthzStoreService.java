@@ -37,6 +37,16 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
         return platformStoreId().compose(storeId -> ensureModel(storeId, model));
     }
 
+    @Override
+    public Future<String> platformModelId() {
+        return platformStoreId().compose(this::latestModel).map(model -> {
+            if (model == null) {
+                throw new IllegalStateException("The platform store runs no model yet");
+            }
+            return model.getId();
+        });
+    }
+
     /**
      * The engine's id of the store named as its record is: the platform's through {@link #platformStoreId()};
      * any other name fails the caller.

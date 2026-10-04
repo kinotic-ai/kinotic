@@ -18,6 +18,7 @@ import org.springframework.test.context.ContextConfiguration;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 /**
@@ -114,5 +115,18 @@ public abstract class KinoticTestBase {
             }
         });
         return promise.future();
+    }
+
+    /**
+     * Polls the condition every quarter second for up to thirty seconds.
+     *
+     * @return whether the condition held before the time ran out
+     */
+    protected static boolean awaitUntil(Callable<Boolean> condition) throws Exception {
+        long deadline = System.currentTimeMillis() + 30_000;
+        while (!condition.call() && System.currentTimeMillis() < deadline) {
+            Thread.sleep(250);
+        }
+        return condition.call();
     }
 }

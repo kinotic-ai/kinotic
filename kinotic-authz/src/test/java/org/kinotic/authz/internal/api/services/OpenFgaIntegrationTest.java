@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
@@ -168,17 +169,17 @@ class OpenFgaIntegrationTest {
                 new RelationshipTuple("role_binding:sally_edits_billing_checks", "role_binding", "project:billing-checks"));
         await(relationshipService.write(PLATFORM, written, List.of()));
 
-        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_edit", "project:billing-checks"))));
+        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_edit", "project:billing-checks"), Consistency.HIGHER_CONSISTENCY)));
         // editing implies viewing
-        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_view", "project:billing-checks"))));
-        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_delete", "project:billing-checks"))));
-        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_view", "project:shipping-checks"))));
+        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_view", "project:billing-checks"), Consistency.HIGHER_CONSISTENCY)));
+        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_delete", "project:billing-checks"), Consistency.HIGHER_CONSISTENCY)));
+        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_view", "project:shipping-checks"), Consistency.HIGHER_CONSISTENCY)));
         assertEquals(List.of("project:billing-checks"),
-                     await(relationshipService.listObjects(PLATFORM, modelId, "user:sally-checks", "project_can_view", "project")));
+                     await(relationshipService.listObjects(PLATFORM, modelId, "user:sally-checks", "project_can_view", "project", Consistency.HIGHER_CONSISTENCY)));
 
         await(relationshipService.write(PLATFORM, List.of(), List.of(
                 new RelationshipTuple("user:sally-checks", "member", "role_binding:sally_edits_billing_checks"))));
-        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_edit", "project:billing-checks"))));
+        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_edit", "project:billing-checks"), Consistency.HIGHER_CONSISTENCY)));
         // the store is shared with the other tests and with a run against a persistent engine, so nothing written here stays
         await(relationshipService.remove(PLATFORM, written));
     }
@@ -203,12 +204,12 @@ class OpenFgaIntegrationTest {
         await(relationshipService.ensure(PLATFORM, List.of(new RelationshipTuple("application:crm-roles", "application", "project:billing-roles"))));
         String bindingId = await(relationshipService.bind(PLATFORM, "project.editor", "user:sally-roles", "project:billing-roles"));
         assertTrue(await(relationshipService.holds(PLATFORM, new RelationshipTuple("role_binding:" + bindingId, "role_binding", "project:billing-roles"))));
-        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-roles", "project_can_edit", "project:billing-roles"))));
-        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-roles", "project_can_delete", "project:billing-roles"))));
+        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-roles", "project_can_edit", "project:billing-roles"), Consistency.HIGHER_CONSISTENCY)));
+        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-roles", "project_can_delete", "project:billing-roles"), Consistency.HIGHER_CONSISTENCY)));
         // a binding of the organization admin on the organization reaches the project inside it
         await(relationshipService.ensure(PLATFORM, List.of(new RelationshipTuple("organization:acme-roles", "organization", "application:crm-roles"))));
         await(relationshipService.bind(PLATFORM, AuthzUtil.ORGANIZATION_ADMIN_ROLE, "user:marcus-roles", "organization:acme-roles"));
-        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:marcus-roles", "project_can_delete", "project:billing-roles"))));
+        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:marcus-roles", "project_can_delete", "project:billing-roles"), Consistency.HIGHER_CONSISTENCY)));
     }
 
     @Test
@@ -237,9 +238,38 @@ class OpenFgaIntegrationTest {
 
         await(relationshipService.write(PLATFORM, members, List.of()));
 
-        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:member249", "member", "group:everyone-batch"))));
+        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:member249", "member", "group:everyone-batch"), Consistency.HIGHER_CONSISTENCY)));
         await(relationshipService.write(PLATFORM, List.of(), members));
-        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:member249", "member", "group:everyone-batch"))));
+        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:member249", "member", "group:everyone-batch"), Consistency.HIGHER_CONSISTENCY)));
+    }
+
+    @Test
+    void platformModelIdIsTheVersionTheStoreRuns() throws Exception {
+        String modelId = await(storeService.ensurePlatformModel(generator.platformModel(List.of(projectService()))));
+
+        assertEquals(modelId, await(storeService.platformModelId()));
+    }
+
+    @Test
+    void unbindLeavesNothingOfABindingAndReadsByUserFindItsHolders() throws Exception {
+        AuthzModel model = generator.platformModel(List.of(projectService()));
+        String modelId = await(storeService.ensurePlatformModel(model));
+        await(relationshipService.ensureRoles(PLATFORM, model.roles()));
+        await(relationshipService.ensure(PLATFORM, List.of(new RelationshipTuple("application:crm-unbind", "application", "project:billing-unbind"))));
+        String bindingId = await(relationshipService.bind(PLATFORM, "project.editor", "user:sally-unbind", "project:billing-unbind"));
+        String binding = "role_binding:" + bindingId;
+        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-unbind", "project_can_edit", "project:billing-unbind"), Consistency.HIGHER_CONSISTENCY)));
+        assertTrue(await(relationshipService.readByUser(PLATFORM, "role:project.editor", "role_binding")).stream()
+                        .anyMatch(tuple -> tuple.object().equals(binding)));
+
+        await(relationshipService.unbind(PLATFORM, bindingId, "project:billing-unbind"));
+
+        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-unbind", "project_can_edit", "project:billing-unbind"), Consistency.HIGHER_CONSISTENCY)));
+        assertTrue(await(relationshipService.read(PLATFORM, binding)).isEmpty());
+        assertFalse(await(relationshipService.holds(PLATFORM, new RelationshipTuple(binding, "role_binding", "project:billing-unbind"))));
+        // a binding already gone leaves nothing to remove
+        await(relationshipService.unbind(PLATFORM, bindingId, "project:billing-unbind"));
+        await(relationshipService.remove(PLATFORM, List.of(new RelationshipTuple("application:crm-unbind", "application", "project:billing-unbind"))));
     }
 
     @Test

@@ -8,21 +8,14 @@ import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
-import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.ServiceDirectory;
-import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.model.Requeue;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.Reconciler;
-import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.springframework.stereotype.Component;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * The worker of the authorization stores: keeps the model a store runs equal to the one generated from the
@@ -35,8 +28,6 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
-
-    private static final int PAGE_SIZE = 500;
 
     private final ServiceDirectory directory;
     private final AuthzModelGenerator generator;
@@ -52,7 +43,7 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
     @Override
     public Future<Requeue> reconcile(AuthzStore current) {
         Validate.isTrue(current.getApplicationId() == null, "The platform's store is the only one reconciled, not %s", current.getId());
-        return platformContracts(0, new ArrayList<>())
+        return directory.findSystemContracts()
                 .map(generator::platformModel)
                 .compose(model -> run(current, model))
                 .map(Requeue.NONE);
@@ -71,17 +62,5 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
                                                                        intended.getState().getGeneration(),
                                                                        "engine version " + version)))
                      .onSuccess(v -> log.debug("Platform store reconciled to model {}", revision.hash()));
-    }
-
-    private Future<List<ServiceDefinition>> platformContracts(int pageNumber, List<ServiceDefinition> collected) {
-        return directory.findSystemEntries(Pageable.create(pageNumber, PAGE_SIZE, Sort.by("id")))
-                        .compose(page -> {
-                            for (ServiceDirectoryEntry entry : page.getContent()) {
-                                collected.add(entry.getServiceDefinition());
-                            }
-                            return page.getContent().size() < PAGE_SIZE
-                                    ? Future.succeededFuture(collected)
-                                    : platformContracts(pageNumber + 1, collected);
-                        });
     }
 }
