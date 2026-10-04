@@ -158,7 +158,7 @@ public class GraphSyncTests extends KinoticTestBase {
         assertTrue(model.roles().get(AuthzUtil.ORGANIZATION_ADMIN_ROLE).containsAll(
                 Set.of("project_can_delete", "entity_definition_can_delete", "application_can_edit")));
         for (Map.Entry<String, Set<String>> role : model.roles().entrySet()) {
-            Set<String> bundled = await(relationships.platform().read(AuthzUtil.object(AuthzUtil.ROLE_TYPE, role.getKey())))
+            Set<String> bundled = await(relationships.read(AuthzStoreService.PLATFORM, AuthzUtil.object(AuthzUtil.ROLE_TYPE, role.getKey())))
                     .stream()
                     .filter(tuple -> AuthzUtil.EVERYONE.equals(tuple.user()))
                     .map(RelationshipTuple::relation)
@@ -194,22 +194,23 @@ public class GraphSyncTests extends KinoticTestBase {
         assertTrue(holds(new RelationshipTuple(user, AuthzUtil.MEMBER_RELATION, organization)), "the creator is a member");
 
         // the binding of the organization admin role reaches the organization and everything created inside it
-        assertTrue(await(relationships.platform().check(modelId, new RelationshipTuple(user, "application_can_edit", organization))));
+        assertTrue(await(relationships.check(AuthzStoreService.PLATFORM, modelId, new RelationshipTuple(user, "application_can_edit", organization))));
         DefaultOrganizationParticipant creator = new DefaultOrganizationParticipant(admin.getId(), organizationId,
                                                                                     Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
                                                                                            ParticipantConstants.PARTICIPANT_TYPE_USER),
                                                                                     List.of("ADMIN"));
         Application application = await(runAs(creator, () -> applicationService.createApplicationIfNotExist("Graph Admin App", "graph sync", null)));
         String applicationObject = AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, application.getId());
-        assertTrue(await(relationships.platform().check(modelId, new RelationshipTuple(user, "application_can_edit", applicationObject))));
-        assertTrue(await(relationships.platform().check(modelId, new RelationshipTuple(user, "project_can_delete", applicationObject))));
+        assertTrue(await(relationships.check(AuthzStoreService.PLATFORM, modelId, new RelationshipTuple(user, "application_can_edit", applicationObject))));
+        assertTrue(await(relationships.check(AuthzStoreService.PLATFORM, modelId, new RelationshipTuple(user, "project_can_delete", applicationObject))));
         // and nothing outside the organization
-        assertFalse(await(relationships.platform().check(modelId, new RelationshipTuple(user, "application_can_edit",
-                                                                                         AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID)))));
+        assertFalse(await(relationships.check(AuthzStoreService.PLATFORM, modelId,
+                                              new RelationshipTuple(user, "application_can_edit",
+                                                                    AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID)))));
     }
 
     private boolean holds(RelationshipTuple relationship) throws Exception {
-        return await(relationships.platform().holds(relationship));
+        return await(relationships.holds(AuthzStoreService.PLATFORM, relationship));
     }
 
     private AuthzModel modelFromDirectory() throws Exception {

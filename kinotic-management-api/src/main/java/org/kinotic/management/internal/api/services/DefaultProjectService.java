@@ -1,6 +1,7 @@
 package org.kinotic.management.internal.api.services;
 
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import com.github.slugify.Slugify;
@@ -89,11 +90,11 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     // The project's place in the graph, written once the record is, so a write that fails leaves a project
     // nobody can reach rather than one nobody stores
     private Future<Project> contained(Project project) {
-        return relationships.platform().ensure(List.of(containment(project))).map(project);
+        return relationships.ensure(AuthzStoreService.PLATFORM, List.of(containment(project))).map(project);
     }
 
     private Future<Void> uncontained(Project project) {
-        return project == null ? Future.succeededFuture() : relationships.platform().remove(List.of(containment(project)));
+        return project == null ? Future.succeededFuture() : relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(project)));
     }
 
     private static RelationshipTuple containment(Project project) {

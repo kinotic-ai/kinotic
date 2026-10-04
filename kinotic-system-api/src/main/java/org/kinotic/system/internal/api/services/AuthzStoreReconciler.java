@@ -66,7 +66,7 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
         AuthzModelRevision revision = new AuthzModelRevision(model.hash());
         return stores.updateDesired(current.getId(), revision, null, "service directory")
                      .compose(intended -> storeService.ensurePlatformModel(model)
-                             .compose(version -> relationships.platform().ensureRoles(model.roles()).map(version))
+                             .compose(version -> relationships.ensureRoles(AuthzStoreService.PLATFORM, model.roles()).map(version))
                              .compose(version -> stores.reportObserved(current.getId(), revision,
                                                                        intended.getState().getGeneration(),
                                                                        "engine version " + version)))

@@ -19,6 +19,7 @@ import org.kinotic.domain.internal.api.repositories.IdentityCredentialRepository
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzUtil;
@@ -236,13 +237,15 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     private Future<UserParticipantIdentity> member(UserParticipantIdentity user) {
         Future<Void> written;
         if (user.getApplicationId() != null) {
-            written = relationships.platform().ensure(List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId()),
-                                                                                    AuthzUtil.END_USER_RELATION,
-                                                                                    AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, user.getApplicationId()))));
+            written = relationships.ensure(AuthzStoreService.PLATFORM,
+                                           List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId()),
+                                                                         AuthzUtil.END_USER_RELATION,
+                                                                         AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, user.getApplicationId()))));
         } else if (user.getOrganizationId() != null) {
-            written = relationships.platform().ensure(List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId()),
-                                                                                    AuthzUtil.MEMBER_RELATION,
-                                                                                    AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, user.getOrganizationId()))));
+            written = relationships.ensure(AuthzStoreService.PLATFORM,
+                                           List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId()),
+                                                                         AuthzUtil.MEMBER_RELATION,
+                                                                         AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, user.getOrganizationId()))));
         } else {
             written = Future.succeededFuture();
         }

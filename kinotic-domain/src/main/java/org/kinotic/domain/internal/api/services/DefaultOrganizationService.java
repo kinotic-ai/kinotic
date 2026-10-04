@@ -3,6 +3,7 @@ package org.kinotic.domain.internal.api.services;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.domain.api.model.Organization;
@@ -68,8 +69,8 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
     // The organization's place in the graph, written once the record is, so a write that fails leaves an
     // organization nobody can reach rather than one nobody stores
     private Future<Organization> contained(Organization organization) {
-        return relationships.platform()
-                            .ensure(List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.PLATFORM_TYPE, AuthzUtil.PLATFORM_OBJECT_ID),
+        return relationships.ensure(AuthzStoreService.PLATFORM,
+                                    List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.PLATFORM_TYPE, AuthzUtil.PLATFORM_OBJECT_ID),
                                                                   AuthzUtil.PLATFORM_TYPE,
                                                                   AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, organization.getId()))))
                             .map(organization);

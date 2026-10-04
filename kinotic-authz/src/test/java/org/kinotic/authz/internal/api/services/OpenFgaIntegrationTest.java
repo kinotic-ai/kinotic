@@ -12,7 +12,6 @@ import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
-import org.kinotic.authz.api.services.StoreRelationships;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
@@ -47,6 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.kinotic.authz.api.services.AuthzStoreService.PLATFORM;
 
 /**
  * Exercises the store and relationship services against a real OpenFGA: the platform store, created ahead of
@@ -156,95 +156,96 @@ class OpenFgaIntegrationTest {
 
     @Test
     void checksAnswerFromWrittenRelationships() throws Exception {
-        String storeId = await(storeService.createStore("check-test"));
-        String modelId = await(storeService.ensureModel(storeId, generator.platformModel(List.of(projectService()))));
-        StoreRelationships store = relationshipService.store(storeId);
-        await(store.write(List.of(
-                new RelationshipTuple("user:sally", "member", "organization:acme"),
-                new RelationshipTuple("organization:acme", "organization", "application:crm"),
-                new RelationshipTuple("application:crm", "application", "project:billing"),
-                new RelationshipTuple("application:crm", "application", "project:shipping"),
-                new RelationshipTuple("user:*", "project_can_edit", "role:project_editor"),
-                new RelationshipTuple("role:project_editor", "role", "role_binding:sally_edits_billing"),
-                new RelationshipTuple("user:sally", "member", "role_binding:sally_edits_billing"),
-                new RelationshipTuple("role_binding:sally_edits_billing", "role_binding", "project:billing")), List.of()));
+        String modelId = await(storeService.ensurePlatformModel(generator.platformModel(List.of(projectService()))));
+        List<RelationshipTuple> written = List.of(
+                new RelationshipTuple("user:sally-checks", "member", "organization:acme-checks"),
+                new RelationshipTuple("organization:acme-checks", "organization", "application:crm-checks"),
+                new RelationshipTuple("application:crm-checks", "application", "project:billing-checks"),
+                new RelationshipTuple("application:crm-checks", "application", "project:shipping-checks"),
+                new RelationshipTuple("user:*", "project_can_edit", "role:project_editor_checks"),
+                new RelationshipTuple("role:project_editor_checks", "role", "role_binding:sally_edits_billing_checks"),
+                new RelationshipTuple("user:sally-checks", "member", "role_binding:sally_edits_billing_checks"),
+                new RelationshipTuple("role_binding:sally_edits_billing_checks", "role_binding", "project:billing-checks"));
+        await(relationshipService.write(PLATFORM, written, List.of()));
 
-        assertTrue(await(store.check(modelId, new RelationshipTuple("user:sally", "project_can_edit", "project:billing"))));
+        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_edit", "project:billing-checks"))));
         // editing implies viewing
-        assertTrue(await(store.check(modelId, new RelationshipTuple("user:sally", "project_can_view", "project:billing"))));
-        assertFalse(await(store.check(modelId, new RelationshipTuple("user:sally", "project_can_delete", "project:billing"))));
-        assertFalse(await(store.check(modelId, new RelationshipTuple("user:sally", "project_can_view", "project:shipping"))));
-        assertEquals(List.of("project:billing"),
-                     await(store.listObjects(modelId, "user:sally", "project_can_view", "project")));
+        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_view", "project:billing-checks"))));
+        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_delete", "project:billing-checks"))));
+        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_view", "project:shipping-checks"))));
+        assertEquals(List.of("project:billing-checks"),
+                     await(relationshipService.listObjects(PLATFORM, modelId, "user:sally-checks", "project_can_view", "project")));
 
-        await(store.write(List.of(), List.of(
-                new RelationshipTuple("user:sally", "member", "role_binding:sally_edits_billing"))));
-        assertFalse(await(store.check(modelId, new RelationshipTuple("user:sally", "project_can_edit", "project:billing"))));
+        await(relationshipService.write(PLATFORM, List.of(), List.of(
+                new RelationshipTuple("user:sally-checks", "member", "role_binding:sally_edits_billing_checks"))));
+        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-checks", "project_can_edit", "project:billing-checks"))));
+        // the store is shared with the other tests and with a run against a persistent engine, so nothing written here stays
+        await(relationshipService.remove(PLATFORM, written));
     }
 
     @Test
     void builtInRolesAreSeededByDifferenceAndBindingsGrantThem() throws Exception {
-        String storeId = await(storeService.createStore("roles-test"));
         AuthzModel model = generator.platformModel(List.of(projectService()));
-        String modelId = await(storeService.ensureModel(storeId, model));
-        StoreRelationships store = relationshipService.store(storeId);
+        String modelId = await(storeService.ensurePlatformModel(model));
 
-        await(store.ensureRoles(model.roles()));
-        List<RelationshipTuple> editor = await(store.read("role:project.editor"));
+        await(relationshipService.ensureRoles(PLATFORM, model.roles()));
+        List<RelationshipTuple> editor = await(relationshipService.read(PLATFORM, "role:project.editor"));
         assertEquals(Set.of("project_can_edit", "project_can_view"),
                      editor.stream().map(RelationshipTuple::relation).collect(Collectors.toSet()));
         // in step already: nothing is written, and nothing fails on a tuple held already
-        await(store.ensureRoles(model.roles()));
+        await(relationshipService.ensureRoles(PLATFORM, model.roles()));
         // a permission the role no longer bundles is removed, one it lacks is added
-        await(store.ensureRoles(Map.of("project.editor", Set.of("project_can_view", "project_can_delete"))));
+        await(relationshipService.ensureRoles(PLATFORM, Map.of("project.editor", Set.of("project_can_view", "project_can_delete"))));
         assertEquals(Set.of("project_can_delete", "project_can_view"),
-                     await(store.read("role:project.editor")).stream().map(RelationshipTuple::relation).collect(Collectors.toSet()));
-        await(store.ensureRoles(model.roles()));
+                     await(relationshipService.read(PLATFORM, "role:project.editor")).stream().map(RelationshipTuple::relation).collect(Collectors.toSet()));
+        await(relationshipService.ensureRoles(PLATFORM, model.roles()));
 
-        await(store.write(List.of(new RelationshipTuple("application:crm", "application", "project:billing")), List.of()));
-        String bindingId = await(store.bind("project.editor", "user:sally", "project:billing"));
-        assertTrue(await(store.holds(new RelationshipTuple("role_binding:" + bindingId, "role_binding", "project:billing"))));
-        assertTrue(await(store.check(modelId, new RelationshipTuple("user:sally", "project_can_edit", "project:billing"))));
-        assertFalse(await(store.check(modelId, new RelationshipTuple("user:sally", "project_can_delete", "project:billing"))));
-        // a binding of the organization admin on the application reaches the project inside it
-        await(store.write(List.of(new RelationshipTuple("organization:acme", "organization", "application:crm")), List.of()));
-        await(store.bind(AuthzUtil.ORGANIZATION_ADMIN_ROLE, "user:marcus", "organization:acme"));
-        assertTrue(await(store.check(modelId, new RelationshipTuple("user:marcus", "project_can_delete", "project:billing"))));
+        await(relationshipService.ensure(PLATFORM, List.of(new RelationshipTuple("application:crm-roles", "application", "project:billing-roles"))));
+        String bindingId = await(relationshipService.bind(PLATFORM, "project.editor", "user:sally-roles", "project:billing-roles"));
+        assertTrue(await(relationshipService.holds(PLATFORM, new RelationshipTuple("role_binding:" + bindingId, "role_binding", "project:billing-roles"))));
+        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-roles", "project_can_edit", "project:billing-roles"))));
+        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:sally-roles", "project_can_delete", "project:billing-roles"))));
+        // a binding of the organization admin on the organization reaches the project inside it
+        await(relationshipService.ensure(PLATFORM, List.of(new RelationshipTuple("organization:acme-roles", "organization", "application:crm-roles"))));
+        await(relationshipService.bind(PLATFORM, AuthzUtil.ORGANIZATION_ADMIN_ROLE, "user:marcus-roles", "organization:acme-roles"));
+        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:marcus-roles", "project_can_delete", "project:billing-roles"))));
     }
 
     @Test
     void ensureAndRemoveAreIdempotent() throws Exception {
-        String storeId = await(storeService.createStore("ensure-test"));
-        await(storeService.ensureModel(storeId, generator.platformModel(List.of(projectService()))));
-        StoreRelationships store = relationshipService.store(storeId);
-        RelationshipTuple contained = new RelationshipTuple("application:crm", "application", "project:billing");
-        RelationshipTuple member = new RelationshipTuple("user:sally", "member", "organization:acme");
+        await(storeService.ensurePlatformModel(generator.platformModel(List.of(projectService()))));
+        RelationshipTuple contained = new RelationshipTuple("application:crm-ensure", "application", "project:billing-ensure");
+        RelationshipTuple member = new RelationshipTuple("user:sally-ensure", "member", "organization:acme-ensure");
 
-        await(store.ensure(List.of(contained, member)));
-        await(store.ensure(List.of(contained, member)));
-        assertTrue(await(store.holds(contained)));
-        assertTrue(await(store.holds(member)));
-        await(store.remove(List.of(contained)));
-        await(store.remove(List.of(contained, member)));
-        assertFalse(await(store.holds(contained)));
-        assertFalse(await(store.holds(member)));
+        await(relationshipService.ensure(PLATFORM, List.of(contained, member)));
+        await(relationshipService.ensure(PLATFORM, List.of(contained, member)));
+        assertTrue(await(relationshipService.holds(PLATFORM, contained)));
+        assertTrue(await(relationshipService.holds(PLATFORM, member)));
+        await(relationshipService.remove(PLATFORM, List.of(contained)));
+        await(relationshipService.remove(PLATFORM, List.of(contained, member)));
+        assertFalse(await(relationshipService.holds(PLATFORM, contained)));
+        assertFalse(await(relationshipService.holds(PLATFORM, member)));
     }
 
     @Test
     void writesBeyondOneRequestAreBatched() throws Exception {
-        String storeId = await(storeService.createStore("batch-test"));
-        String modelId = await(storeService.ensureModel(storeId, generator.platformModel(List.of(projectService()))));
+        String modelId = await(storeService.ensurePlatformModel(generator.platformModel(List.of(projectService()))));
         List<RelationshipTuple> members = new ArrayList<>();
         for (int i = 0; i < 250; i++) {
-            members.add(new RelationshipTuple("user:member" + i, "member", "group:everyone"));
+            members.add(new RelationshipTuple("user:member" + i, "member", "group:everyone-batch"));
         }
 
-        StoreRelationships store = relationshipService.store(storeId);
-        await(store.write(members, List.of()));
+        await(relationshipService.write(PLATFORM, members, List.of()));
 
-        assertTrue(await(store.check(modelId, new RelationshipTuple("user:member249", "member", "group:everyone"))));
-        await(store.write(List.of(), members));
-        assertFalse(await(store.check(modelId, new RelationshipTuple("user:member249", "member", "group:everyone"))));
+        assertTrue(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:member249", "member", "group:everyone-batch"))));
+        await(relationshipService.write(PLATFORM, List.of(), members));
+        assertFalse(await(relationshipService.check(PLATFORM, modelId, new RelationshipTuple("user:member249", "member", "group:everyone-batch"))));
+    }
+
+    @Test
+    void anUnknownStoreNameFailsTheCall() {
+        assertThrows(ExecutionException.class,
+                     () -> await(relationshipService.holds("nowhere", new RelationshipTuple("user:sally", "member", "organization:acme"))));
     }
 
     private static <T> T await(Future<T> future) throws Exception {

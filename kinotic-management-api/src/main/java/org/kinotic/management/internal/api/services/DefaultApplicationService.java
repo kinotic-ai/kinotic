@@ -1,6 +1,7 @@
 package org.kinotic.management.internal.api.services;
 
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import io.vertx.core.Future;
@@ -87,18 +88,18 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
 
     @Override
     public Future<Void> deleteById(String id) {
-        return super.deleteById(id).compose(v -> relationships.platform().remove(List.of(containment(id))));
+        return super.deleteById(id).compose(v -> relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(id))));
     }
 
     @Override
     public Future<Void> deleteByIdSync(String id) {
-        return super.deleteByIdSync(id).compose(v -> relationships.platform().remove(List.of(containment(id))));
+        return super.deleteByIdSync(id).compose(v -> relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(id))));
     }
 
     // The application's place in the graph, written once the record is, so a write that fails leaves an
     // application nobody can reach rather than one nobody stores
     private Future<Application> contained(Application application) {
-        return relationships.platform().ensure(List.of(containment(application.getId()))).map(application);
+        return relationships.ensure(AuthzStoreService.PLATFORM, List.of(containment(application.getId()))).map(application);
     }
 
     private RelationshipTuple containment(String applicationId) {

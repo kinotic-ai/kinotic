@@ -1,6 +1,7 @@
 package org.kinotic.management.internal.api.services;
 
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
@@ -130,7 +131,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     // The definition's place in the graph, written once the record is, so a write that fails leaves a
     // definition nobody can reach rather than one nobody stores
     private Future<EntityDefinition> contained(EntityDefinition entityDefinition) {
-        return relationships.platform().ensure(List.of(containment(entityDefinition))).map(entityDefinition);
+        return relationships.ensure(AuthzStoreService.PLATFORM, List.of(containment(entityDefinition))).map(entityDefinition);
     }
 
     private static RelationshipTuple containment(EntityDefinition entityDefinition) {
@@ -171,7 +172,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     return super.deleteByIdSync(entityDefinitionId)
                                 .compose(v -> {
                                     this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.applicationKey(), entityDefinition.getId()));
-                                    return relationships.platform().remove(List.of(containment(entityDefinition)));
+                                    return relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(entityDefinition)));
                                 });
                 });
     }
