@@ -54,10 +54,19 @@ public final class AuthzUtil {
     public static final String ADMIN = "admin";
     /** The level of the built-in role over everything inside an application but the application itself. */
     public static final String DEVELOPER = "developer";
+    /** The levels of the platform's staff roles: running the platform, and reading it. */
+    public static final String OPERATOR = "operator";
+    public static final String SUPPORT = "support";
     /** The built-in role holding every permission of an organization and of everything inside it. */
     public static final String ORGANIZATION_ADMIN_ROLE = ORGANIZATION_TYPE + "." + ADMIN;
     /** The built-in role holding every permission of everything inside an application, and none of its own. */
     public static final String APPLICATION_DEVELOPER_ROLE = APPLICATION_TYPE + "." + DEVELOPER;
+    /** The built-in role holding every permission of the platform and of everything on it. */
+    public static final String PLATFORM_ADMIN_ROLE = PLATFORM_TYPE + "." + ADMIN;
+    /** The built-in role holding the platform's own permissions and the viewing permissions of everything on it. */
+    public static final String PLATFORM_OPERATOR_ROLE = PLATFORM_TYPE + "." + OPERATOR;
+    /** The built-in role holding the viewing permissions of the platform and of everything on it. */
+    public static final String PLATFORM_SUPPORT_ROLE = PLATFORM_TYPE + "." + SUPPORT;
 
     public static final String CAN_VIEW = "can_view";
     public static final String CAN_EDIT = "can_edit";
@@ -103,6 +112,18 @@ public final class AuthzUtil {
      */
     public static String roleId(String type, String level) {
         return type + "." + level;
+    }
+
+    /**
+     * The display name of a built-in role, from its type and level: {@code project.editor} is
+     * {@code Project Editor}, {@code vm_node.registrar} is {@code Vm Node Registrar}.
+     */
+    public static String builtInRoleName(String roleId) {
+        List<String> words = new ArrayList<>();
+        for (String word : roleId.split("[._]")) {
+            words.add(Character.toUpperCase(word.charAt(0)) + word.substring(1));
+        }
+        return String.join(" ", words);
     }
 
     /**

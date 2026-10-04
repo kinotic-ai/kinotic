@@ -20,7 +20,6 @@ import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
-import org.kinotic.domain.api.model.security.participant.SystemParticipant;
 import org.kinotic.domain.api.services.security.RequestAuthorizer;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.FunctionSpec;
@@ -45,7 +44,9 @@ import static org.kinotic.authz.api.services.AuthzStoreService.PLATFORM;
 /**
  * The {@link RequestAuthorizer} over the platform store: a function's check is read from its contract in the
  * service directory and kept, the object it names is read from the request with a parse that stops at it,
- * and the engine answers for the caller, or for the owner a delegate acts for.
+ * and the engine answers for the caller, or for the owner a delegate acts for. A platform operator or one of
+ * the platform's machines, whose scope names no organization, is checked on the platform itself wherever a
+ * check names the caller's scope.
  */
 @Slf4j
 @Component
@@ -58,10 +59,11 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
     private static final int CONTRACT_CAPACITY = 10_000;
 
     // the scope levels a check can be made on, each named by the template of its id, innermost first: a caller
-    // missing one is checked on the next
+    // missing one is checked on the next, and one missing them all on the platform
     private static final List<Resource> SCOPE_LEVELS = List.of(new Resource(AuthzUtil.TENANT_TYPE, "{@tenantId}"),
                                                                new Resource(AuthzUtil.APPLICATION_TYPE, "{@applicationId}"),
                                                                new Resource(AuthzUtil.ORGANIZATION_TYPE, "{@organizationId}"));
+    private static final Resource PLATFORM_LEVEL = new Resource(AuthzUtil.PLATFORM_TYPE, AuthzUtil.PLATFORM_OBJECT_ID);
 
     private final ObjectProvider<ServiceDirectory> directoryProvider;
     private final AuthzStoreService stores;
@@ -77,9 +79,8 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         Validate.notNull(cri, "cri cannot be null");
         Validate.notNull(participant, "participant cannot be null");
         Future<Void> ret;
-        if (participant instanceof ApplicationParticipant || participant instanceof SystemParticipant) {
-            // an application's store arrives with its contracts, and a platform operator's authority over
-            // organizations with the platform's own resources; until then their zones alone admit them
+        if (participant instanceof ApplicationParticipant) {
+            // an application's store arrives with its contracts; until then its zone alone admits its users
             ret = Future.succeededFuture();
         } else if (participant instanceof ScopedParticipant scoped) {
             ret = spec(cri).compose(spec -> spec.check() == null
@@ -132,7 +133,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
             String resource = resolve(checked.type(), spec, participant, contentType, body);
             String objectId = resolve(checked.id(), spec, participant, contentType, body);
             String permissionResource = resolve(check.getPermissionResource(), spec, participant, contentType, body);
-            RelationshipTuple relationship = new RelationshipTuple(subjectOf(participant),
+            RelationshipTuple relationship = new RelationshipTuple(DomainUtil.authzUser(participant),
                                                                    AuthzUtil.permissionName(permissionResource, check.getPermission()),
                                                                    AuthzUtil.object(resource, objectId));
             Consistency consistency = check.isConsistent() ? Consistency.HIGHER_CONSISTENCY : Consistency.MINIMIZE_LATENCY;
@@ -151,27 +152,21 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
     /**
      * The object a check on the caller's scope is made on: the level the check names, or, for a caller whose
      * scope stops above it, the caller's own level, as an organization member asked for an application's
-     * projects is checked on the organization. Every ancestor carries the permissions of the levels below it,
-     * so the check keeps its meaning there. A check on anything but a scope level is kept as declared.
+     * projects is checked on the organization, and a platform operator asked for either on the platform.
+     * Every ancestor carries the permissions of the levels below it, so the check keeps its meaning there. A
+     * check on anything but a scope level is kept as declared.
      */
     private static Resource scopeLevelOf(AuthzCheckC3Decorator check, ParticipantScope scope) {
         Resource ret = new Resource(check.getResource(), check.getObjectId());
         int level = SCOPE_LEVELS.indexOf(ret);
         if (level >= 0) {
-            while (level < SCOPE_LEVELS.size() - 1
+            while (level < SCOPE_LEVELS.size()
                     && scopeValue(AuthzUtil.templateReferences(SCOPE_LEVELS.get(level).id()).getFirst(), scope) == null) {
                 level++;
             }
-            ret = SCOPE_LEVELS.get(level);
+            ret = level < SCOPE_LEVELS.size() ? SCOPE_LEVELS.get(level) : PLATFORM_LEVEL;
         }
         return ret;
-    }
-
-    // A delegate acts with its owner's authority; everyone else with its own
-    private static String subjectOf(Participant participant) {
-        Map<String, String> metadata = participant.getMetadata();
-        String owner = metadata != null ? metadata.get(DomainUtil.ON_BEHALF_OF_METADATA_KEY) : null;
-        return AuthzUtil.object(AuthzUtil.USER_TYPE, owner != null ? owner : participant.getId());
     }
 
     private String resolve(String template, FunctionSpec spec, ScopedParticipant participant, String contentType, byte[] body) {

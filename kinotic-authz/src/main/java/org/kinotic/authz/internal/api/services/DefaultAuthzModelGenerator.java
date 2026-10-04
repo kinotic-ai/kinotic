@@ -9,6 +9,7 @@ import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
+import org.kinotic.idl.api.schema.decorators.AuthzRoleDeclaration;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.node.ArrayNode;
@@ -103,9 +104,12 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     }
 
     /**
-     * The built-in roles: per type a viewer of its reading permissions, an editor of all but deleting, and an
-     * admin of everything on it and inside it; and for a platform store the application developer, everything
-     * inside an application but the application's own. A role that would bundle nothing is not a role.
+     * The built-in roles: per type a viewer of its reading permissions, an editor of all but deleting, an admin
+     * of everything on it and inside it, and the roles its services declare; and for a platform store the
+     * application developer, everything inside an application but the application's own, the platform operator,
+     * the platform's own permissions and the reading ones of everything on it, and the platform support, the
+     * reading permissions of the platform and of everything on it. A role that would bundle nothing is not a
+     * role.
      */
     private static Map<String, Set<String>> builtInRoles(AuthzStoreKind kind,
                                                          Map<String, ResourceType> types,
@@ -113,31 +117,55 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         Map<String, Set<String>> ret = new TreeMap<>();
         for (ResourceType type : types.values()) {
             Set<String> own = modelNames(type, type.permissions.keySet());
-            Set<String> viewing = new TreeSet<>();
-            for (String permission : type.permissions.keySet()) {
-                if (VIEWING.contains(permission) || permission.startsWith(VIEWING_PREFIX)) {
-                    viewing.add(AuthzUtil.permissionName(type.name, permission));
-                }
-            }
             Set<String> editing = new TreeSet<>(own);
             editing.remove(AuthzUtil.permissionName(type.name, AuthzUtil.CAN_DELETE));
-            role(ret, AuthzUtil.roleId(type.name, AuthzUtil.VIEWER), viewing);
+            role(ret, AuthzUtil.roleId(type.name, AuthzUtil.VIEWER), viewing(type));
             role(ret, AuthzUtil.roleId(type.name, AuthzUtil.EDITOR), editing);
-            role(ret, AuthzUtil.roleId(type.name, AuthzUtil.ADMIN), inside(type, types, carried, true));
+            role(ret, AuthzUtil.roleId(type.name, AuthzUtil.ADMIN), inside(type, types, carried, true, false));
         }
         if (kind == AuthzStoreKind.PLATFORM) {
-            role(ret, AuthzUtil.APPLICATION_DEVELOPER_ROLE, inside(types.get(APPLICATION), types, carried, false));
+            ResourceType platform = types.get(AuthzUtil.PLATFORM_TYPE);
+            Set<String> operating = modelNames(platform, platform.permissions.keySet());
+            operating.addAll(inside(platform, types, carried, false, true));
+            role(ret, AuthzUtil.APPLICATION_DEVELOPER_ROLE, inside(types.get(APPLICATION), types, carried, false, false));
+            role(ret, AuthzUtil.PLATFORM_OPERATOR_ROLE, operating);
+            role(ret, AuthzUtil.PLATFORM_SUPPORT_ROLE, inside(platform, types, carried, true, true));
+        }
+        for (ResourceType type : types.values()) {
+            for (Map.Entry<String, Set<String>> declared : type.declaredRoles.entrySet()) {
+                if (ret.containsKey(declared.getKey())) {
+                    throw new IllegalArgumentException("Role '" + declared.getKey() + "' is declared by a service of '"
+                                                               + type.name + "', but the model already defines it");
+                }
+                ret.put(declared.getKey(), modelNames(type, declared.getValue()));
+            }
         }
         return ret;
     }
 
-    // Every permission of the types inside the given one, with or without the type's own
-    private static Set<String> inside(ResourceType type, Map<String, ResourceType> types, Map<String, Set<String>> carried, boolean own) {
+    // Every permission of the types inside the given one, with or without the type's own, and either all of
+    // them or only the reading ones
+    private static Set<String> inside(ResourceType type,
+                                      Map<String, ResourceType> types,
+                                      Map<String, Set<String>> carried,
+                                      boolean own,
+                                      boolean viewingOnly) {
         Set<String> ret = new TreeSet<>();
         for (String name : carried.getOrDefault(type.name, Set.of())) {
             if (own || !name.equals(type.name)) {
                 ResourceType inside = types.get(name);
-                ret.addAll(modelNames(inside, inside.permissions.keySet()));
+                ret.addAll(viewingOnly ? viewing(inside) : modelNames(inside, inside.permissions.keySet()));
+            }
+        }
+        return ret;
+    }
+
+    // The model names of a type's reading permissions: the ones that only read, among them every can_view_<something>
+    private static Set<String> viewing(ResourceType type) {
+        Set<String> ret = new TreeSet<>();
+        for (String permission : type.permissions.keySet()) {
+            if (VIEWING.contains(permission) || permission.startsWith(VIEWING_PREFIX)) {
+                ret.add(AuthzUtil.permissionName(type.name, permission));
             }
         }
         return ret;
@@ -187,12 +215,23 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             if (resource != null) {
                 ResourceType type = types.get(resource.getResourceType());
                 if (type == null) {
-                    types.put(resource.getResourceType(), new ResourceType(resource.getResourceType(), resource.getParent()));
+                    type = new ResourceType(resource.getResourceType(), resource.getParent());
+                    types.put(type.name, type);
                 } else if (resource.getParent() != null && !resource.getParent().equals(type.parent)) {
                     // the kernel's parent, or another service's, is the one in the tree; a second parent would fork it
                     throw new IllegalArgumentException("Service " + service.getQualifiedName() + " declares the parent of '"
                                                                + type.name + "' as '" + resource.getParent()
                                                                + "', but it is '" + type.parent + "'");
+                }
+                for (AuthzRoleDeclaration role : resource.getRoles()) {
+                    Set<String> permissions = new LinkedHashSet<>(role.getPermissions());
+                    Set<String> declared = type.declaredRoles.putIfAbsent(role.getId(), permissions);
+                    // two services of one type may declare the same role, as long as they agree on it
+                    if (declared != null && !declared.equals(permissions)) {
+                        throw new IllegalArgumentException("Service " + service.getQualifiedName() + " declares the role '"
+                                                                   + role.getId() + "' bundling " + permissions
+                                                                   + ", but another service declares it bundling " + declared);
+                    }
                 }
             }
         }
@@ -274,6 +313,14 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                     if (!type.permissions.containsKey(implied)) {
                         throw new IllegalArgumentException("Permission '" + name + "' implies '" + implied
                                                                    + "', which '" + type.name + "' does not have");
+                    }
+                }
+            }
+            for (Map.Entry<String, Set<String>> role : type.declaredRoles.entrySet()) {
+                for (String permission : role.getValue()) {
+                    if (!type.permissions.containsKey(permission)) {
+                        throw new IllegalArgumentException("Role '" + role.getKey() + "' bundles '" + permission
+                                                                   + "', which no function of '" + type.name + "' requires");
                     }
                 }
             }

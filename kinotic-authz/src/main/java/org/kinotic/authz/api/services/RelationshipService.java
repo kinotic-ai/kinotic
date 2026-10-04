@@ -2,6 +2,7 @@ package org.kinotic.authz.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.authz.api.model.Consistency;
+import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 
 import java.util.List;
@@ -98,6 +99,20 @@ public interface RelationshipService {
     Future<String> bind(String store, String roleId, String member, String object);
 
     /**
+     * Makes the binding {@link #bind} would make held under an id the caller chooses, adding whatever of it the
+     * store does not hold yet: a grant made again after a failure, or by another server at the same time, adds
+     * nothing twice.
+     *
+     * @param store     the store, named as its record is
+     * @param bindingId the binding's id, which {@link #unbind} revokes it by
+     * @param roleId    the role granted
+     * @param member    who holds it, in {@code type:id} form, or a userset such as {@code group:id#member}
+     * @param object    the resource the grant is made on, in {@code type:id} form
+     * @return completes when the binding is held
+     */
+    Future<Void> ensureBound(String store, String bindingId, String roleId, String member, String object);
+
+    /**
      * Revokes a binding: its role, its members and its attachment to the object are removed, leaving nothing of
      * it. A binding already gone leaves nothing to remove.
      *
@@ -107,6 +122,16 @@ public interface RelationshipService {
      * @return completes when nothing of the binding is held
      */
     Future<Void> unbind(String store, String bindingId, String object);
+
+    /**
+     * The grants made on a resource: one per binding attached to it, naming the binding's role and the user
+     * or group it was made to. A binding made to any other userset is not a grant and is left out.
+     *
+     * @param store  the store, named as its record is
+     * @param object the resource, in {@code type:id} form
+     * @return the grants, empty for a resource nothing is bound on
+     */
+    Future<List<Grant>> findGrants(String store, String object);
 
     /**
      * Whether the user holds the relation on the object, directly or through the model's rules.

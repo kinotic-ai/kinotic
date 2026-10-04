@@ -44,4 +44,20 @@ public @interface AuthzResource {
      */
     String objectId() default "";
 
+    /**
+     * The permission every function of the service requires, as a short name such as {@code can_manage_workloads},
+     * for a service whose functions all need the one permission, whatever their verbs: deploying, stopping and
+     * destroying a workload are all managing workloads. A function declaring a permission of its own with
+     * {@link AuthzCheck}, on this interface or on one it extends, is unaffected. Choose the service's strictest
+     * permission: a function added later takes it until it declares a weaker one.
+     */
+    String permission() default "";
+
+    /**
+     * Roles of this type beside the built-in viewer, editor and admin, each bundling permissions the type's
+     * functions require. A role is defined by the model wherever the type is, so a service declaring a type
+     * another service also declares declares its roles once.
+     */
+    AuthzRole[] roles() default {};
+
 }

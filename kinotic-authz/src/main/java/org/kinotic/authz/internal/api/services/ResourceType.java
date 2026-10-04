@@ -7,7 +7,7 @@ import java.util.Set;
 
 /**
  * A resource type while a model is being generated: its place in the containment tree, the structural
- * relations the kernel gives it, and its permissions with what each implies.
+ * relations the kernel gives it, its permissions with what each implies, and the roles its services declare.
  */
 final class ResourceType {
 
@@ -17,6 +17,8 @@ final class ResourceType {
     final Map<String, Set<String>> memberships = new LinkedHashMap<>();
     /** Short permission names to the short names each implies on this same type. */
     final Map<String, Set<String>> permissions = new LinkedHashMap<>();
+    /** The roles the type's services declare, each id to the short names of the permissions it bundles. */
+    final Map<String, Set<String>> declaredRoles = new LinkedHashMap<>();
 
     ResourceType(String name, String parent) {
         this.name = name;

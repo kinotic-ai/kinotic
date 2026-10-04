@@ -4,7 +4,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.CursorPage;
@@ -95,17 +94,7 @@ public class OrganizationAdminBootstrap {
     }
 
     private Future<Boolean> administered(String object) {
-        String adminRole = AuthzUtil.object(AuthzUtil.ROLE_TYPE, AuthzUtil.ORGANIZATION_ADMIN_ROLE);
-        return relationships.read(PLATFORM, object).compose(tuples -> {
-            Future<Boolean> ret = Future.succeededFuture(false);
-            for (RelationshipTuple tuple : tuples) {
-                if (AuthzUtil.ROLE_BINDING_RELATION.equals(tuple.relation())) {
-                    ret = ret.compose(found -> found
-                            ? Future.succeededFuture(true)
-                            : relationships.holds(PLATFORM, new RelationshipTuple(adminRole, AuthzUtil.ROLE_RELATION, tuple.user())));
-                }
-            }
-            return ret;
-        });
+        return relationships.findGrants(PLATFORM, object)
+                            .map(grants -> grants.stream().anyMatch(grant -> AuthzUtil.ORGANIZATION_ADMIN_ROLE.equals(grant.roleId())));
     }
 }

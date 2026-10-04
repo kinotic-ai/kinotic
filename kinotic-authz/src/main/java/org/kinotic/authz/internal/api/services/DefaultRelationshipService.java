@@ -13,7 +13,11 @@ import dev.openfga.sdk.api.model.TupleKeyWithoutCondition;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.authz.api.model.Consistency;
+import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.model.Resource;
+import org.kinotic.authz.api.model.Subject;
+import org.kinotic.authz.api.model.SubjectKind;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
@@ -117,13 +121,20 @@ public class DefaultRelationshipService implements RelationshipService {
     @Override
     public Future<String> bind(String store, String roleId, String member, String object) {
         String bindingId = UUID.randomUUID().toString();
+        return write(store, binding(bindingId, roleId, member, object), List.of()).map(bindingId);
+    }
+
+    @Override
+    public Future<Void> ensureBound(String store, String bindingId, String roleId, String member, String object) {
+        return ensure(store, binding(bindingId, roleId, member, object));
+    }
+
+    // A binding is three relationships: its role, its member, and its attachment to the object
+    private static List<RelationshipTuple> binding(String bindingId, String roleId, String member, String object) {
         String binding = AuthzUtil.object(AuthzUtil.ROLE_BINDING_TYPE, bindingId);
-        return write(store,
-                     List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.ROLE_TYPE, roleId), AuthzUtil.ROLE_RELATION, binding),
-                             new RelationshipTuple(member, AuthzUtil.MEMBER_RELATION, binding),
-                             new RelationshipTuple(binding, AuthzUtil.ROLE_BINDING_RELATION, object)),
-                     List.of())
-                .map(bindingId);
+        return List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.ROLE_TYPE, roleId), AuthzUtil.ROLE_RELATION, binding),
+                       new RelationshipTuple(member, AuthzUtil.MEMBER_RELATION, binding),
+                       new RelationshipTuple(binding, AuthzUtil.ROLE_BINDING_RELATION, object));
     }
 
     @Override
@@ -134,6 +145,47 @@ public class DefaultRelationshipService implements RelationshipService {
             tuples.add(new RelationshipTuple(binding, AuthzUtil.ROLE_BINDING_RELATION, object));
             return remove(store, tuples);
         });
+    }
+
+    @Override
+    public Future<List<Grant>> findGrants(String store, String object) {
+        Resource resource = new Resource(AuthzUtil.typeOf(object), AuthzUtil.idOf(object));
+        return read(store, object).compose(held -> {
+            List<Future<Grant>> bindings = new ArrayList<>();
+            for (RelationshipTuple tuple : held) {
+                if (AuthzUtil.ROLE_BINDING_RELATION.equals(tuple.relation())) {
+                    bindings.add(grantOf(store, tuple.user(), resource));
+                }
+            }
+            return Future.all(bindings).map(all -> all.<Grant>list().stream().filter(grant -> grant != null).toList());
+        });
+    }
+
+    // The binding's role and member; null for a binding made to a userset no grant names
+    private Future<Grant> grantOf(String store, String binding, Resource resource) {
+        return read(store, binding).map(held -> {
+            String roleId = null;
+            Subject subject = null;
+            for (RelationshipTuple tuple : held) {
+                if (AuthzUtil.ROLE_RELATION.equals(tuple.relation())) {
+                    roleId = AuthzUtil.idOf(tuple.user());
+                } else if (AuthzUtil.MEMBER_RELATION.equals(tuple.relation())) {
+                    subject = subjectOf(tuple.user());
+                }
+            }
+            return roleId == null || subject == null ? null : new Grant(AuthzUtil.idOf(binding), roleId, subject, resource);
+        });
+    }
+
+    private static Subject subjectOf(String user) {
+        Subject ret = null;
+        String type = AuthzUtil.typeOf(user);
+        if (AuthzUtil.USER_TYPE.equals(type)) {
+            ret = new Subject(SubjectKind.USER, AuthzUtil.idOf(user));
+        } else if (AuthzUtil.GROUP_TYPE.equals(type) && user.endsWith("#" + AuthzUtil.MEMBER_RELATION)) {
+            ret = new Subject(SubjectKind.GROUP, AuthzUtil.idOf(user));
+        }
+        return ret;
     }
 
     @Override

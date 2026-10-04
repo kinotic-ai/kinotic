@@ -5,9 +5,9 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import org.junit.jupiter.api.BeforeEach;
-import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.idl.api.utils.AuthzUtil;
@@ -86,21 +86,21 @@ public abstract class KinoticTestBase {
     @BeforeEach
     public void bindTestParticipantAsAdministrator() throws Exception {
         if (!testParticipantAdministers) {
-            String binding = AuthzUtil.object(AuthzUtil.ROLE_BINDING_TYPE, TEST_PARTICIPANT_ADMIN_BINDING);
-            List<RelationshipTuple> tuples = List.of(
-                    new RelationshipTuple(AuthzUtil.object(AuthzUtil.ROLE_TYPE, AuthzUtil.ORGANIZATION_ADMIN_ROLE), AuthzUtil.ROLE_RELATION, binding),
-                    new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, TEST_ORGANIZATION_PARTICIPANT.getId()), AuthzUtil.MEMBER_RELATION, binding),
-                    new RelationshipTuple(binding, AuthzUtil.ROLE_BINDING_RELATION, AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID)));
             // the store accepts the binding once the reconciler has written the platform model
-            assertTrue(awaitUntil(() -> written(tuples)), "the platform store never accepted the test participant's administrator binding");
+            assertTrue(awaitUntil(this::bound), "the platform store never accepted the test participant's administrator binding");
             testParticipantAdministers = true;
         }
     }
 
-    private boolean written(List<RelationshipTuple> tuples) {
+    private boolean bound() {
         boolean ret;
         try {
-            relationshipService.ensure(AuthzStoreService.PLATFORM, tuples).toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+            relationshipService.ensureBound(AuthzStoreService.PLATFORM,
+                                            TEST_PARTICIPANT_ADMIN_BINDING,
+                                            AuthzUtil.ORGANIZATION_ADMIN_ROLE,
+                                            AuthzUtil.object(AuthzUtil.USER_TYPE, TEST_ORGANIZATION_PARTICIPANT.getId()),
+                                            AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID))
+                               .toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
             ret = true;
         } catch (Exception e) {
             ret = false;
@@ -148,7 +148,7 @@ public abstract class KinoticTestBase {
      * Runs the supplied async operation on a Vert.x context with the given participant bound, as
      * {@link #runAsOrganization(Supplier)} does with {@link #TEST_ORGANIZATION_PARTICIPANT}.
      */
-    protected <T> Future<T> runAs(OrganizationParticipant participant, Supplier<Future<T>> supplier) {
+    protected <T> Future<T> runAs(Participant participant, Supplier<Future<T>> supplier) {
         Promise<T> promise = Promise.promise();
         Context context = vertx.getOrCreateContext();
         context.runOnContext(v -> {

@@ -9,7 +9,8 @@ import java.lang.annotation.Target;
 /**
  * States the authorization check of one function of an {@link AuthzResource} service where derivation from the
  * function's name and parameters comes out wrong or comes out empty. Every value left empty keeps the derived
- * one, so a function usually states only the part derivation cannot know.
+ * one, or the one the service declares for every function, so a function usually states only the part
+ * derivation cannot know.
  *
  * Derivation: a name starting with {@code find}, {@code get}, {@code count}, {@code search} or {@code list}
  * requires {@code can_view}; {@code save}, {@code update} or {@code set} requires {@code can_edit};

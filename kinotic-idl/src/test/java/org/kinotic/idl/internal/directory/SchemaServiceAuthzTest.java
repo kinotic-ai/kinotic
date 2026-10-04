@@ -8,14 +8,17 @@ import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
+import org.kinotic.idl.api.schema.decorators.AuthzRoleDeclaration;
 import org.kinotic.idl.internal.support.TestService;
 import org.kinotic.idl.internal.support.authz.TestContradictoryService;
 import org.kinotic.idl.internal.support.authz.TestEntityService;
 import org.kinotic.idl.internal.support.authz.TestMemberService;
+import org.kinotic.idl.internal.support.authz.TestMisnamedRoleService;
 import org.kinotic.idl.internal.support.authz.TestMisreferencingService;
 import org.kinotic.idl.internal.support.authz.TestProjectService;
 import org.kinotic.idl.internal.support.authz.TestUnderivableService;
 import org.kinotic.idl.internal.support.authz.TestVmNodeService;
+import org.kinotic.idl.internal.support.authz.TestWorkloadService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -222,6 +225,36 @@ public class SchemaServiceAuthzTest {
         IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestUnderivableService.class));
 
         assertTrue(e.getMessage().contains("frobnicate"));
+    }
+
+    @Test
+    public void aServicesPermissionIsEveryFunctionsUnlessItDeclaresItsOwn() {
+        ServiceDefinition service = convert(TestWorkloadService.class);
+
+        assertEquals("can_manage_workloads", service.findDecorator(AuthzResourceC3Decorator.class).getPermission());
+        // a verb deriving nothing, and one deriving a permission, both take the service's
+        assertEquals("can_manage_workloads", check(service, "deployWorkload").getPermission());
+        assertEquals("can_manage_workloads", check(service, "deleteWorkload").getPermission());
+        assertEquals("platform:kinotic", check(service, "deployWorkload").getResource() + ":" + check(service, "deployWorkload").getObjectId());
+        assertEquals("can_view_workloads", check(service, "findWorkload").getPermission());
+    }
+
+    @Test
+    public void aDeclaredRoleIsCarriedByTheResource() {
+        ServiceDefinition service = convert(TestVmNodeService.class);
+
+        List<AuthzRoleDeclaration> roles = service.findDecorator(AuthzResourceC3Decorator.class).getRoles();
+        assertEquals(1, roles.size());
+        assertEquals("vm_node.registrar", roles.getFirst().getId());
+        assertEquals(List.of("can_register_node"), roles.getFirst().getPermissions());
+    }
+
+    @Test
+    public void aRoleNotNamedAfterItsTypeRejectsTheService() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestMisnamedRoleService.class));
+
+        assertTrue(e.getMessage().contains("gadget.keeper"), e.getMessage());
+        assertTrue(e.getMessage().contains("widget."), e.getMessage());
     }
 
     @Test

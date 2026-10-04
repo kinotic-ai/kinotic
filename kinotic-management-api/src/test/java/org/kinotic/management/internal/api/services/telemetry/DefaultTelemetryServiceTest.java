@@ -56,6 +56,14 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
     }
 
     @Test
+    void platformParticipantWithoutTheGrantIsRefused() {
+        assertInstanceOf(AuthorizationException.class,
+                         failureOf(PLATFORM_NEWCOMER, () -> service.findTrace("globex", "abc123")));
+        assertInstanceOf(AuthorizationException.class,
+                         failureOf(PLATFORM_NEWCOMER, () -> service.queryMetrics(metricQuery(null))));
+    }
+
+    @Test
     void systemParticipantReadsThePlatformTenantWhenNamingNone() throws Throwable {
         callAs(PLATFORM_OPERATOR, () -> service.queryMetrics(metricQuery(null)));
 
