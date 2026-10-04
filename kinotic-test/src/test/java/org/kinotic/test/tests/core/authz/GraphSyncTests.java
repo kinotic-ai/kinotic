@@ -140,10 +140,12 @@ public class GraphSyncTests extends KinoticTestBase {
                                                AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID))),
                    "an organization user is a member of its organization");
 
-        UserParticipantIdentity endUser = await(identityService.createUser(user(TEST_ORG_ID, TEST_APP_ID), "Graph-sync-1"));
+        // an application user takes its application's tenant policy, so the application must exist
+        Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Sync Users " + suffix(), "graph sync", null)));
+        UserParticipantIdentity endUser = await(identityService.createUser(user(TEST_ORG_ID, application.getId()), "Graph-sync-1"));
         assertTrue(holds(new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, endUser.getId()),
                                                AuthzUtil.END_USER_RELATION,
-                                               AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, TEST_APP_ID))),
+                                               AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, application.getId()))),
                    "an application user is an end user of its application");
     }
 
