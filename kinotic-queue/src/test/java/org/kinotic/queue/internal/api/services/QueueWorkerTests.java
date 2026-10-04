@@ -181,11 +181,11 @@ public class QueueWorkerTests {
         await(service.createQueueIfNotExist(new QueueDefinition(QUEUE, 1)));
         appendValues(0, 5);
         TestWorker worker = work("audit", StartPosition.LATEST, 10, LONG_LEASE);
-        assertNull(worker.poll(1_500));
-
+        // Appended as soon as the worker opened, before any lease request of it can have reached the owner
         appendValues(5, 6);
 
         assertEquals(5, value(worker.next()));
+        assertNull(worker.poll(500));
     }
 
     private void startNode() throws Exception {

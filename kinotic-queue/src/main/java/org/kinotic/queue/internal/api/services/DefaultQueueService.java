@@ -80,8 +80,7 @@ public class DefaultQueueService implements QueueService {
             return Future.failedFuture(new IllegalArgumentException("Invalid group name '" + groupName + "' or options " + options));
         }
         Context context = vertx.getOrCreateContext();
-        return definition(queue).map(definition -> new DefaultQueueWorker(context, client, definition.name(),
-                                                                          definition.shardCount(), groupName, options));
+        return definition(queue).compose(definition -> DefaultQueueWorker.open(context, client, definition, groupName, options));
     }
 
     private Future<QueueDefinition> definition(String queue) {

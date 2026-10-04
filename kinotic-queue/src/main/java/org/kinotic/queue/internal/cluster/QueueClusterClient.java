@@ -11,6 +11,7 @@ import io.vertx.core.eventbus.ReplyFailure;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.queue.api.model.QueueDefinition;
 import org.kinotic.queue.api.model.QueuePosition;
+import org.kinotic.queue.api.model.StartPosition;
 import org.kinotic.queue.internal.cluster.message.AppendRequest;
 import org.kinotic.queue.internal.cluster.message.FetchRequest;
 import org.kinotic.queue.internal.cluster.message.FetchResponse;
@@ -29,6 +30,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /**
  * Sends requests to the queue nodes holding a shard's copies, resolving them through {@link ShardPlacement}.
@@ -45,8 +47,10 @@ public class QueueClusterClient {
     private static final long MAJORITY_TIMEOUT_MS = 2 * ShardOwner.COMMIT_TIMEOUT_MS;
     // Well inside the owner's commit timeout, so a lost batch is resent before the appends waiting on it give up
     private static final long REPLICATE_TIMEOUT_MS = ShardOwner.COMMIT_TIMEOUT_MS / 3;
+    // A group's first lease on an owner waits for a majority to store the group's position before the owner holds it
+    private static final long LEASE_TIMEOUT_MS = MAJORITY_TIMEOUT_MS + ShardOwner.FETCH_WAIT_MS;
     // Long enough for a shard's next owner to be placed and recover after its owner leaves
-    private static final long APPEND_DEADLINE_MS = 30_000;
+    private static final long OWNER_DEADLINE_MS = 30_000;
     private static final long RETRY_DELAY_MS = 100;
 
     private final Vertx vertx;
@@ -59,9 +63,32 @@ public class QueueClusterClient {
      */
     public Future<QueuePosition> append(QueueDefinition definition, String key, byte[] payload) {
         int shard = QueueLog.shardOf(key, definition.shardCount());
-        AppendRequest request = new AppendRequest(definition.name(), shard, key, payload);
-        return append(request, System.currentTimeMillis() + APPEND_DEADLINE_MS)
-                .map(offset -> new QueuePosition(definition.name(), shard, offset));
+        Buffer request = new AppendRequest(definition.name(), shard, key, payload).toBuffer();
+        return retryWhileOwnerless(() -> requestOwner(definition.name(), shard, QueueNode.APPEND, request, MAJORITY_TIMEOUT_MS),
+                                   System.currentTimeMillis() + OWNER_DEADLINE_MS)
+                .map(reply -> new QueuePosition(definition.name(), shard, AppendRequest.decodeReply(reply)));
+    }
+
+    /**
+     * Finds the offset the shard's next record will be committed at, retrying while the shard has no active owner.
+     */
+    public Future<Long> findCommittedOffset(String queue, int shard) {
+        Buffer request = new FetchRequest(queue, shard, -1, 0).toBuffer();
+        return retryWhileOwnerless(() -> requestOwner(queue, shard, QueueNode.FETCH, request, REQUEST_TIMEOUT_MS),
+                                   System.currentTimeMillis() + OWNER_DEADLINE_MS)
+                .map(reply -> FetchResponse.fromBuffer(reply).nextOffset());
+    }
+
+    /**
+     * Has the shard's owner store the group's position on the shard, starting it at {@code startPosition} when it has
+     * none, retrying while the shard has no active owner.
+     */
+    public Future<Void> joinGroup(String queue, int shard, String groupName, StartPosition startPosition) {
+        // A lease of no records only opens the group on the owner
+        Buffer request = new LeaseRequest(queue, shard, groupName, "", 0, 1, startPosition).toBuffer();
+        return retryWhileOwnerless(() -> requestOwner(queue, shard, QueueNode.LEASE, request, LEASE_TIMEOUT_MS),
+                                   System.currentTimeMillis() + OWNER_DEADLINE_MS)
+                .mapEmpty();
     }
 
     /**
@@ -78,7 +105,7 @@ public class QueueClusterClient {
      * short wait passes.
      */
     public Future<LeaseResponse> lease(LeaseRequest request) {
-        return requestOwner(request.queue(), request.shard(), QueueNode.LEASE, request.toBuffer(), FETCH_TIMEOUT_MS)
+        return requestOwner(request.queue(), request.shard(), QueueNode.LEASE, request.toBuffer(), LEASE_TIMEOUT_MS)
                 .map(LeaseResponse::fromBuffer);
     }
 
@@ -171,12 +198,11 @@ public class QueueClusterClient {
         return request(node, QueueNode.PREPARE, request.toBuffer(), REQUEST_TIMEOUT_MS).map(ShardStatus::fromBuffer);
     }
 
-    private Future<Long> append(AppendRequest request, long deadline) {
-        return requestOwner(request.queue(), request.shard(), QueueNode.APPEND, request.toBuffer(), MAJORITY_TIMEOUT_MS)
-                .map(AppendRequest::decodeReply)
-                .recover(e -> isRetryable(e) && System.currentTimeMillis() < deadline
-                        ? vertx.timer(RETRY_DELAY_MS, TimeUnit.MILLISECONDS).compose(v -> append(request, deadline))
-                        : Future.failedFuture(e));
+    private Future<Buffer> retryWhileOwnerless(Supplier<Future<Buffer>> request, long deadline) {
+        return request.get()
+                      .recover(e -> isRetryable(e) && System.currentTimeMillis() < deadline
+                              ? vertx.timer(RETRY_DELAY_MS, TimeUnit.MILLISECONDS).compose(v -> retryWhileOwnerless(request, deadline))
+                              : Future.failedFuture(e));
     }
 
     // A shard between owners or an owner that left answers with NOT_OWNER, no handler or no reply at all

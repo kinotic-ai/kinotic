@@ -26,7 +26,8 @@ public interface QueueService {
      * order. Completes once a majority of the shard's copies has the record, and fails when
      * the queue does not exist, the key and payload together exceed {@code kinotic.maxEventPayloadSize} bytes, or
      * no majority of copies is reachable. A failed append may still have been written, so retrying it can deliver
-     * the record twice.
+     * the record twice; an append whose shard changes owner while it runs is retried internally and may be written
+     * twice even when it succeeds.
      *
      * @param queue   the queue name
      * @param key     decides the shard the record is written to

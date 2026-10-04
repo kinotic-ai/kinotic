@@ -157,7 +157,7 @@ final class ShardOwner {
      * Returns committed entries starting at {@code offset}, holding the request up to {@link #FETCH_WAIT_MS} while
      * none is committed there yet.
      *
-     * @param offset the first offset to return, or -1 for the committed offset
+     * @param offset the first offset to return, or -1 to return no entries and the committed offset at once
      */
     Future<FetchResponse> fetch(long offset, int max) {
         if (!active) {
@@ -167,16 +167,17 @@ final class ShardOwner {
             return Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue
                                                                                 + " has no committed offset yet in this epoch"));
         }
-        long from = offset < 0 ? committedOffset : offset;
         Future<FetchResponse> ret;
-        if (from < committedOffset) {
-            ret = readCommitted(from, max);
+        if (offset < 0) {
+            ret = Future.succeededFuture(new FetchResponse(List.of(), committedOffset));
+        } else if (offset < committedOffset) {
+            ret = readCommitted(offset, max);
         } else {
-            PendingFetch pending = new PendingFetch(from, max, Promise.promise());
+            PendingFetch pending = new PendingFetch(offset, max, Promise.promise());
             pendingFetches.add(pending);
             vertx.setTimer(FETCH_WAIT_MS, t -> {
                 if (pendingFetches.remove(pending)) {
-                    pending.promise().complete(new FetchResponse(List.of(), from));
+                    pending.promise().complete(new FetchResponse(List.of(), offset));
                 }
             });
             ret = pending.promise().future();
@@ -185,7 +186,8 @@ final class ShardOwner {
     }
 
     /**
-     * Leases committed records to a worker of a group, opening the group's dispatcher on the first request.
+     * Leases committed records to a worker of a group, opening the group's dispatcher on the first request. A request
+     * for no records is answered once the dispatcher is open.
      */
     Future<LeaseResponse> lease(LeaseRequest request) {
         if (!active) {
@@ -205,9 +207,19 @@ final class ShardOwner {
             Future<WorkDispatcher> opening = dispatcher;
             opening.onFailure(e -> dispatchers.remove(request.groupName(), opening));
         }
-        return dispatcher.compose(opened -> stopped ? Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue "
-                                                                                                                   + queue + " changed owner"))
-                                                    : opened.lease(request.workerId(), request.max(), request.leaseMillis()));
+        return dispatcher.compose(opened -> leaseFrom(opened, request));
+    }
+
+    private Future<LeaseResponse> leaseFrom(WorkDispatcher dispatcher, LeaseRequest request) {
+        Future<LeaseResponse> ret;
+        if (stopped) {
+            ret = Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue + " changed owner"));
+        } else if (request.max() == 0) {
+            ret = Future.succeededFuture(new LeaseResponse(List.of()));
+        } else {
+            ret = dispatcher.lease(request.workerId(), request.max(), request.leaseMillis());
+        }
+        return ret;
     }
 
     /**
@@ -287,6 +299,8 @@ final class ShardOwner {
 
     private void recover() {
         long proposed = nextEpoch();
+        // A retry proposes a newer epoch, since copies that promised this one would refuse it
+        newestSeenEpoch = Math.max(newestSeenEpoch, proposed);
         vertx.executeBlocking(() -> placement.replicas(queue, shard), false)
              .compose(replicas -> prepare(proposed, replicas))
              .compose(statuses -> takeOwnership(proposed, statuses))
@@ -325,10 +339,8 @@ final class ShardOwner {
         Map<String, Future<ShardStatus>> replies = new LinkedHashMap<>();
         for (String node : placement.queueNodes()) {
             replies.put(node, node.equals(self)
-                    ? vertx.executeBlocking(() -> {
-                          shardLog.promise(proposed);
-                          return ShardStatus.of(shardLog, consumerOffsets.findAll(shard), groupOffsets.findAll(shard));
-                      }, false)
+                    ? vertx.executeBlocking(() -> ShardStatus.of(shardLog, shardLog.promise(proposed),
+                                                                 consumerOffsets.findAll(shard), groupOffsets.findAll(shard)), false)
                     : client.prepare(node, new PrepareRequest(queue, shard, proposed)));
         }
         return Future.join(new ArrayList<>(replies.values())).transform(ignored -> {
@@ -341,8 +353,10 @@ final class ShardOwner {
             });
             long prepared = replicas.stream().filter(statuses::containsKey).count();
             Future<Map<String, ShardStatus>> ret;
-            if (statuses.values().stream().anyMatch(status -> status.acceptedEpoch() > proposed)) {
-                ret = Future.failedFuture("a copy has promised an owner newer than epoch " + proposed);
+            // A copy that had already promised the proposed epoch promised it to another owner: after every queue node
+            // restarts, node orders repeat, so two owners can propose the same epoch
+            if (statuses.values().stream().anyMatch(status -> status.acceptedEpoch() >= proposed)) {
+                ret = Future.failedFuture("a copy had already promised epoch " + proposed + " or a newer one");
             } else if (prepared < placement.quorum() || !statuses.containsKey(self)) {
                 ret = Future.failedFuture("only " + prepared + " of the shard's copies answered, " + placement.quorum() + " are needed");
             } else {
@@ -455,6 +469,12 @@ final class ShardOwner {
     // The committed offset only moves once a majority holds this epoch's marker: until then a record of an earlier epoch
     // held by a majority could still be replaced by an owner that never saw it.
     private void updateCommittedOffset() {
+        // A newer owner reached this copy, so the copies this owner counts may already hold that owner's entries
+        if (shardLog.acceptedEpoch() > epoch) {
+            log.info("Shard {} of queue {} promised an owner newer than epoch {}, stepping down", shard, queue, epoch);
+            stop();
+            return;
+        }
         long majorityOffset = majorityProgress(shardLog.nextOffset(), ShardReplicator::matchedOffset);
         if (majorityOffset > epochStartOffset && majorityOffset > committedOffset) {
             committedOffset = majorityOffset;

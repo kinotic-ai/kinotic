@@ -81,11 +81,27 @@ public class ShardLogTests {
     }
 
     @Test
+    public void aDelayedBatchArrivingAfterALaterOneKeepsTheOwnersNewerEntries() {
+        try (ShardLog follower = new ShardLog(directory.resolve("0"))) {
+            // The owner of epoch 2 held 0-2 when it read the first batch and 0-4 when it read the second
+            List<ShardEntry> firstBatch = List.of(entry(0, 2), entry(1, 2), entry(2, 2));
+            List<ShardEntry> secondBatch = List.of(entry(0, 2), entry(1, 2), entry(2, 2), entry(3, 2), entry(4, 2));
+            follower.replicate(2, -1, -1, 5, secondBatch);
+
+            ReplicationResult result = follower.replicate(2, -1, -1, 3, firstBatch);
+
+            assertEquals(ReplicationStatus.ACCEPTED, result.status());
+            assertEquals(5, follower.nextOffset());
+        }
+    }
+
+    @Test
     public void aBatchFromAnOwnerOlderThanThePromisedOneIsRefusedAfterARestart() {
         Path shardDirectory = directory.resolve("0");
         try (ShardLog shard = new ShardLog(shardDirectory)) {
             appendAll(shard, 1, 0, 2);
-            assertEquals(5, shard.promise(5));
+            // Each promise answers with the epoch promised before it
+            assertEquals(1, shard.promise(5));
             assertEquals(5, shard.promise(4));
         }
         try (ShardLog reopened = new ShardLog(shardDirectory)) {

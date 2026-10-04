@@ -2,8 +2,10 @@ package org.kinotic.queue.internal.api.services;
 
 import io.vertx.core.Context;
 import io.vertx.core.Future;
+import org.kinotic.queue.api.model.QueueDefinition;
 import org.kinotic.queue.api.model.QueuePosition;
 import org.kinotic.queue.api.model.QueueRecord;
+import org.kinotic.queue.api.model.StartPosition;
 import org.kinotic.queue.api.model.WorkItem;
 import org.kinotic.queue.api.model.WorkerOptions;
 import org.kinotic.queue.api.services.QueueWorker;
@@ -18,6 +20,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 /**
  * One worker of a group. Each shard's owner leases records to it, and the worker settles each record with the owner
@@ -36,7 +39,7 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
     // Records asked for by lease requests still on their way
     private int requested;
 
-    DefaultQueueWorker(Context context, QueueClusterClient client, String queue, int shardCount, String groupName, WorkerOptions options) {
+    private DefaultQueueWorker(Context context, QueueClusterClient client, String queue, int shardCount, String groupName, WorkerOptions options) {
         super(context, shardCount, "worker of group " + groupName + " of queue " + queue);
         this.client = client;
         this.queue = queue;
@@ -44,6 +47,22 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
         this.options = options;
         this.shardCount = shardCount;
         context.runOnContext(v -> pullAll());
+    }
+
+    /**
+     * Opens a worker of the group. A group starting at the latest record has its position stored on every shard
+     * before the worker opens, so it receives every record appended after it opened.
+     */
+    static Future<QueueWorker> open(Context context, QueueClusterClient client, QueueDefinition definition, String groupName,
+                                    WorkerOptions options) {
+        Future<Void> joined = Future.succeededFuture();
+        if (options.startPosition() == StartPosition.LATEST) {
+            joined = Future.all(IntStream.range(0, definition.shardCount())
+                                         .mapToObj(shard -> client.joinGroup(definition.name(), shard, groupName, StartPosition.LATEST))
+                                         .toList())
+                           .mapEmpty();
+        }
+        return joined.map(v -> new DefaultQueueWorker(context, client, definition.name(), definition.shardCount(), groupName, options));
     }
 
     @Override

@@ -9,7 +9,7 @@ public enum StartPosition {
      */
     EARLIEST,
     /**
-     * Start at the next record written to the shard after the subscription opens.
+     * Start at the next record written to the shard after the subscription or worker opens.
      */
     LATEST
 }

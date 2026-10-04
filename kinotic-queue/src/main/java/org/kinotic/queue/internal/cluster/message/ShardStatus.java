@@ -10,7 +10,8 @@ import java.util.Map;
  *
  * @param nextOffset      the offset after the copy's last entry; zero when the node holds no copy
  * @param lastEpoch       the epoch of the copy's last entry; -1 when the copy is empty
- * @param acceptedEpoch   the newest epoch the node has promised for the shard; -1 when it has promised none
+ * @param acceptedEpoch   the newest epoch the node had promised for the shard before the prepare this status answers;
+ *                        -1 when it had promised none
  * @param consumerOffsets the next offset of every consumer that has committed on the shard, by consumer name
  * @param groupOffsets    the low watermark of every worker group that has finished records on the shard, by group name
  */
@@ -20,8 +21,11 @@ public record ShardStatus(long nextOffset,
                           Map<String, Long> consumerOffsets,
                           Map<String, Long> groupOffsets) {
 
-    public static ShardStatus of(ShardLog shardLog, Map<String, Long> consumerOffsets, Map<String, Long> groupOffsets) {
-        return new ShardStatus(shardLog.nextOffset(), shardLog.lastEpoch(), shardLog.acceptedEpoch(), consumerOffsets, groupOffsets);
+    /**
+     * @param acceptedEpoch the newest epoch the copy had promised before the prepare this status answers
+     */
+    public static ShardStatus of(ShardLog shardLog, long acceptedEpoch, Map<String, Long> consumerOffsets, Map<String, Long> groupOffsets) {
+        return new ShardStatus(shardLog.nextOffset(), shardLog.lastEpoch(), acceptedEpoch, consumerOffsets, groupOffsets);
     }
 
     /**

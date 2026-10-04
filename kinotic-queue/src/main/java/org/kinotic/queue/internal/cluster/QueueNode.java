@@ -158,7 +158,10 @@ public class QueueNode {
     private void onLease(Message<Buffer> message) {
         LeaseRequest request = LeaseRequest.fromBuffer(message.body());
         reply(message, requireValidName(request.groupName())
-                .compose(v -> owner(request.queue(), request.shard()))
+                .compose(v -> request.max() >= 0 && request.leaseMillis() >= 1
+                        ? owner(request.queue(), request.shard())
+                        : Future.failedFuture(new IllegalArgumentException("Invalid lease of " + request.max() + " records for "
+                                                                                   + request.leaseMillis() + " ms")))
                 .compose(owner -> owner.lease(request))
                 .map(LeaseResponse::toBuffer));
     }
@@ -209,12 +212,17 @@ public class QueueNode {
             ShardLog shard = queueLog == null ? null : queueLog.findShard(request.shard());
             ShardStatus status;
             if (shard != null) {
-                shard.promise(request.epoch());
                 status = ShardStatus.of(shard,
+                                        shard.promise(request.epoch()),
                                         queueLog.consumerOffsets().findAll(request.shard()),
                                         queueLog.groupOffsets().findAll(request.shard()));
             } else {
-                status = ShardStatus.none(promisedEpochs.merge(request.queue() + "/" + request.shard(), request.epoch(), Math::max));
+                long[] promisedBefore = {-1};
+                promisedEpochs.compute(request.queue() + "/" + request.shard(), (key, promised) -> {
+                    promisedBefore[0] = promised != null ? promised : -1;
+                    return Math.max(promisedBefore[0], request.epoch());
+                });
+                status = ShardStatus.none(promisedBefore[0]);
             }
             return status.toBuffer();
         }, false));

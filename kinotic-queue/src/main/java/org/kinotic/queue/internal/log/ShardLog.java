@@ -84,22 +84,23 @@ public final class ShardLog implements AutoCloseable {
     /**
      * Promises not to accept entries from an owner older than {@code epoch}. The promise survives restarts.
      *
-     * @return the newest epoch the shard has promised, which is newer than {@code epoch} when another owner got there first
+     * @return the newest epoch the shard had promised before this call, or -1 when it had promised none
      */
     public synchronized long promise(long epoch) {
+        long ret = acceptedEpoch;
         if (epoch > acceptedEpoch) {
             writeAcceptedEpoch(epoch);
             acceptedEpoch = epoch;
         }
-        return acceptedEpoch;
+        return ret;
     }
 
     /**
      * Applies a batch of entries from the shard's owner. The batch continues the shard when the shard holds the entry
      * before it with the epoch the owner has there; entries with the same offset and epoch are the same entry, so the
      * shard then matches the owner up to that entry. Entries the shard already holds are skipped. From the first entry
-     * that differs from the owner's, the shard's entries are replaced by the owner's; entries the shard holds past
-     * the owner's end are removed.
+     * that differs from the owner's, the shard's entries are replaced by the owner's; entries of older epochs the shard
+     * holds past the owner's end are removed.
      *
      * @param epoch           the owner's epoch
      * @param prevOffset      the offset before the batch's first entry, or -1 when the batch starts the shard
@@ -135,7 +136,9 @@ public final class ShardLog implements AutoCloseable {
                         write(entry);
                     }
                 }
-                if (batchEnd == ownerNextOffset && nextOffset > ownerNextOffset) {
+                // Entries of the owner's epoch past the batch came from the owner after it read the batch, which a
+                // delayed batch arriving after a later one finds; only entries of older epochs there are stale
+                if (batchEnd == ownerNextOffset && nextOffset > ownerNextOffset && lastEpoch < epoch) {
                     truncate(ownerNextOffset);
                 }
                 ret = new ReplicationResult(ReplicationStatus.ACCEPTED, batchEnd);

@@ -27,7 +27,7 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
     private final QueueClusterClient client;
     private final String queue;
     private final String consumerName;
-    // The next offset to fetch per shard; -1 until the owner resolves a LATEST start
+    // The next offset to fetch per shard
     private final long[] fetchOffsets;
     private final long[] committedNextOffsets;
     // The offset after the last record handed to the handler, per shard; a commit may not go past it
@@ -45,14 +45,12 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
         this.consumerName = consumerName;
         this.fetchOffsets = fetchOffsets;
         this.committedNextOffsets = committedNextOffsets;
-        this.deliveredNextOffsets = new long[fetchOffsets.length];
-        for (int i = 0; i < fetchOffsets.length; i++) {
-            deliveredNextOffsets[i] = Math.max(0, fetchOffsets[i]);
-        }
+        this.deliveredNextOffsets = fetchOffsets.clone();
     }
 
     /**
-     * Opens a subscription positioned after the consumer's committed offsets.
+     * Opens a subscription positioned after the consumer's committed offsets. A latest start is resolved before the
+     * subscription opens, so it delivers every record appended after it opened.
      */
     static Future<QueueSubscription> open(Context context,
                                           QueueClusterClient client,
@@ -62,22 +60,30 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
         List<Future<Long>> committed = IntStream.range(0, definition.shardCount())
                                                 .mapToObj(shard -> client.findNextOffset(definition.name(), consumerName, shard))
                                                 .toList();
-        return Future.all(committed).map(ignored -> {
-            long[] committedNextOffsets = new long[committed.size()];
-            long[] fetchOffsets = new long[committed.size()];
-            for (int i = 0; i < committed.size(); i++) {
-                committedNextOffsets[i] = committed.get(i).result();
-                if (committedNextOffsets[i] > 0) {
-                    fetchOffsets[i] = committedNextOffsets[i];
-                } else {
-                    fetchOffsets[i] = startPosition == StartPosition.EARLIEST ? 0 : -1;
-                }
-            }
+        List<Future<Long>> starts = IntStream.range(0, definition.shardCount())
+                                             .mapToObj(shard -> committed.get(shard).compose(next -> startOffset(client, definition.name(), shard,
+                                                                                                                  next, startPosition)))
+                                             .toList();
+        return Future.all(starts).map(ignored -> {
+            long[] committedNextOffsets = committed.stream().mapToLong(Future::result).toArray();
+            long[] fetchOffsets = starts.stream().mapToLong(Future::result).toArray();
             DefaultQueueSubscription ret = new DefaultQueueSubscription(context, client, definition.name(), consumerName,
                                                                         fetchOffsets, committedNextOffsets);
             context.runOnContext(v -> ret.pullAll());
             return ret;
         });
+    }
+
+    // A committed next offset is at least one, so zero means the consumer never committed on the shard
+    private static Future<Long> startOffset(QueueClusterClient client, String queue, int shard, long committedNextOffset,
+                                            StartPosition startPosition) {
+        Future<Long> ret;
+        if (committedNextOffset > 0 || startPosition == StartPosition.EARLIEST) {
+            ret = Future.succeededFuture(committedNextOffset);
+        } else {
+            ret = client.findCommittedOffset(queue, shard);
+        }
+        return ret;
     }
 
     @Override
@@ -121,10 +127,6 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
     @Override
     protected void onPulled(int shard, FetchResponse response) {
         if (!isEnded()) {
-            if (fetchOffsets[shard] < 0) {
-                // A LATEST start learns its offset from the owner's first answer
-                deliveredNextOffsets[shard] = response.nextOffset() - response.entries().size();
-            }
             for (ShardEntry entry : response.entries()) {
                 if (!entry.isMarker()) {
                     push(new QueueRecord(new QueuePosition(queue, shard, entry.offset()), entry.key(), entry.payload()));

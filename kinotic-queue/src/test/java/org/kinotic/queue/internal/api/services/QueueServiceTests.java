@@ -123,10 +123,11 @@ public class QueueServiceTests {
         }
 
         TestSubscriber subscriber = subscribe("audit", StartPosition.LATEST);
-        assertNull(subscriber.poll(1_500));
+        // Appended as soon as the subscription opened, before any fetch of it can have reached the owner
         await(service.append("orders", "key-5", payload(5)));
 
         assertEquals(5, value(subscriber.next()));
+        assertNull(subscriber.poll(500));
     }
 
     @Test
