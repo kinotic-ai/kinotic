@@ -172,10 +172,15 @@ public class RequestAuthorizationTests extends KinoticTestBase {
         assertTrue(awaitUntil(() -> admitted(MEMBER_SERVICE, "findMembers", caller, listing)), "the viewer never saw the members");
         assertRefused(MEMBER_SERVICE, "removeMember", caller, EventConstants.CONTENT_TYPE_JSON, List.of(member.getId()), "organization_can_manage_members");
 
-        // the organization's viewer views every application's projects, a check made on the organization
-        // because the member's scope names no application
+        // a listing across the organization is checked on the organization, because the member's scope names
+        // no application; the organization's viewer holds only the organization's own reading permissions, a
+        // viewer of projects granted on the organization holds every project's
+        assertRefused(PROJECT_SERVICE, "findAll", caller, EventConstants.CONTENT_TYPE_JSON, List.of(Map.of("pageNumber", 0, "pageSize", 10)),
+                      "project_can_view on organization:" + TEST_ORG_ID);
+        await(runAsOrganization(() -> permissions.grant(new Subject(SubjectKind.USER, member.getId()), "project.viewer",
+                                                        new Resource(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID))));
         assertTrue(awaitUntil(() -> admitted(PROJECT_SERVICE, "findAll", caller, List.of(Map.of("pageNumber", 0, "pageSize", 10)))),
-                   "the viewer never listed the projects");
+                   "the viewer of projects never listed them");
         assertRefused(PROJECT_SERVICE, "syncIndex", caller, EventConstants.CONTENT_TYPE_JSON, List.of(), "project_can_edit on organization:" + TEST_ORG_ID);
     }
 
