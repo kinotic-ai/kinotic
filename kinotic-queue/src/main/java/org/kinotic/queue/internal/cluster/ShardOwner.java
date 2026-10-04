@@ -54,6 +54,9 @@ final class ShardOwner {
     static final long COMMIT_TIMEOUT_MS = 5_000;
 
     private static final long RECOVERY_RETRY_MS = 1_000;
+    private static final long SWEEP_INTERVAL_MS = 250;
+    // A group's dispatcher with nothing in flight is dropped after this long without a request; its position is stored
+    private static final long DISPATCHER_IDLE_MS = 5 * 60_000;
     private static final long STATE_SAVE_INTERVAL_MS = 1_000;
     private static final int CATCH_UP_BATCH_SIZE = 1_024;
     // An epoch is a generation in its high bits and the owner's node order in its low bits, so no two owners ever
@@ -71,9 +74,9 @@ final class ShardOwner {
     private final ConsumerOffsetRepository consumerOffsets;
     private final ConsumerOffsetRepository groupOffsets;
     private final Map<String, ShardReplicator> replicators = new HashMap<>();
-    private final TreeMap<Long, Promise<Long>> pendingAppends = new TreeMap<>();
+    private final TreeMap<Long, PendingMajority<Long>> pendingAppends = new TreeMap<>();
     // Keyed by the ShardReplicator.offsetsVersion a majority of copies must hold
-    private final TreeMap<Long, Promise<Void>> pendingOffsetReplications = new TreeMap<>();
+    private final TreeMap<Long, PendingMajority<Void>> pendingOffsetReplications = new TreeMap<>();
     private final List<PendingFetch> pendingFetches = new ArrayList<>();
     private final Map<String, Future<WorkDispatcher>> dispatchers = new HashMap<>();
 
@@ -86,6 +89,7 @@ final class ShardOwner {
     private boolean active;
     private boolean stopped;
     private boolean stateSaveScheduled;
+    private long sweepTimer = -1;
 
     ShardOwner(Vertx vertx,
                ShardPlacement placement,
@@ -135,15 +139,7 @@ final class ShardOwner {
                 // The record may still be committed by the next owner
                 ret.fail(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue + " changed owner"));
             } else {
-                long offset = ar.result();
-                pendingAppends.put(offset, ret);
-                vertx.setTimer(COMMIT_TIMEOUT_MS, t -> {
-                    Promise<Long> pending = pendingAppends.remove(offset);
-                    if (pending != null) {
-                        pending.fail(QueueFailure.COMMIT_TIMEOUT.exception("Offset " + offset + " of shard " + shard + " of queue "
-                                                                                   + queue + " was not confirmed by a majority of copies"));
-                    }
-                });
+                pendingAppends.put(ar.result(), new PendingMajority<>(ret, System.currentTimeMillis() + COMMIT_TIMEOUT_MS));
                 replicators.values().forEach(ShardReplicator::notifyChanged);
                 updateCommittedOffset();
                 // Replication of a later append can commit this offset before this callback runs
@@ -286,9 +282,12 @@ final class ShardOwner {
             replicators.values().forEach(ShardReplicator::stop);
             replicators.clear();
             QueueFailureException notOwner = QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue + " changed owner");
-            pendingAppends.values().forEach(pending -> pending.tryFail(notOwner));
+            if (sweepTimer >= 0) {
+                vertx.cancelTimer(sweepTimer);
+            }
+            pendingAppends.values().forEach(pending -> pending.promise().tryFail(notOwner));
             pendingAppends.clear();
-            pendingOffsetReplications.values().forEach(pending -> pending.tryFail(notOwner));
+            pendingOffsetReplications.values().forEach(pending -> pending.promise().tryFail(notOwner));
             pendingOffsetReplications.clear();
             pendingFetches.forEach(pending -> pending.promise().tryFail(notOwner));
             pendingFetches.clear();
@@ -310,6 +309,7 @@ final class ShardOwner {
                          epoch = proposed;
                          epochStartOffset = ar.result();
                          active = true;
+                         sweepTimer = vertx.setPeriodic(SWEEP_INTERVAL_MS, t -> sweep());
                          followers.forEach(this::startReplicator);
                          updateCommittedOffset();
                          log.info("Owning shard {} of queue {} at epoch {} from offset {}", shard, queue, epoch, epochStartOffset);
@@ -493,25 +493,43 @@ final class ShardOwner {
     }
 
     private Promise<Void> pendingOffsetReplication(long version) {
-        Promise<Void> ret = pendingOffsetReplications.get(version);
-        if (ret == null) {
-            Promise<Void> created = Promise.promise();
-            pendingOffsetReplications.put(version, created);
-            vertx.setTimer(COMMIT_TIMEOUT_MS, t -> {
-                if (pendingOffsetReplications.remove(version, created)) {
-                    created.fail(QueueFailure.COMMIT_TIMEOUT.exception("The offsets of shard " + shard + " of queue " + queue
-                                                                               + " were not confirmed by a majority of copies"));
-                }
-            });
-            ret = created;
-        }
-        return ret;
+        return pendingOffsetReplications.computeIfAbsent(version, v -> new PendingMajority<>(Promise.promise(),
+                                                                                             System.currentTimeMillis() + COMMIT_TIMEOUT_MS))
+                                        .promise();
+    }
+
+    // Fails the requests whose majority did not confirm them in time, and drops dispatchers of groups gone quiet
+    private void sweep() {
+        long now = System.currentTimeMillis();
+        pendingAppends.entrySet().removeIf(entry -> {
+            boolean expired = entry.getValue().deadline() <= now;
+            if (expired) {
+                entry.getValue().promise().fail(QueueFailure.COMMIT_TIMEOUT.exception("Offset " + entry.getKey() + " of shard " + shard + " of queue "
+                                                                                              + queue + " was not confirmed by a majority of copies"));
+            }
+            return expired;
+        });
+        pendingOffsetReplications.values().removeIf(pending -> {
+            boolean expired = pending.deadline() <= now;
+            if (expired) {
+                pending.promise().fail(QueueFailure.COMMIT_TIMEOUT.exception("The offsets of shard " + shard + " of queue " + queue
+                                                                                     + " were not confirmed by a majority of copies"));
+            }
+            return expired;
+        });
+        dispatchers.values().removeIf(dispatcher -> {
+            boolean idle = dispatcher.succeeded() && dispatcher.result().isIdleSince(now - DISPATCHER_IDLE_MS);
+            if (idle) {
+                dispatcher.result().stop();
+            }
+            return idle;
+        });
     }
 
     private void completeReplicatedOffsets() {
         long majorityVersion = majorityProgress(Long.MAX_VALUE, ShardReplicator::replicatedOffsetsVersion);
         while (!pendingOffsetReplications.isEmpty() && pendingOffsetReplications.firstKey() <= majorityVersion) {
-            pendingOffsetReplications.pollFirstEntry().getValue().complete();
+            pendingOffsetReplications.pollFirstEntry().getValue().promise().complete();
         }
     }
 
@@ -522,8 +540,8 @@ final class ShardOwner {
 
     private void completeCommittedAppends() {
         while (!pendingAppends.isEmpty() && pendingAppends.firstKey() < committedOffset) {
-            Map.Entry<Long, Promise<Long>> committed = pendingAppends.pollFirstEntry();
-            committed.getValue().complete(committed.getKey());
+            Map.Entry<Long, PendingMajority<Long>> committed = pendingAppends.pollFirstEntry();
+            committed.getValue().promise().complete(committed.getKey());
         }
     }
 

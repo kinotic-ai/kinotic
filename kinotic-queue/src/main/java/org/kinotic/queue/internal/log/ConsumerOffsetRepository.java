@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -17,12 +18,24 @@ import java.util.stream.Stream;
  */
 public final class ConsumerOffsetRepository implements AutoCloseable {
 
+    // Consumer and group names come from clients, so only the most recently written files stay open
+    private static final int MAX_OPEN_FILES = 64;
+
     private final Path directory;
     private final int shardCount;
     // Counts the stored offsets that moved forward on each shard, so a change can be noticed without comparing offsets
     private final long[] versions;
     private final Map<String, long[]> offsets = new HashMap<>();
-    private final Map<String, FileChannel> channels = new HashMap<>();
+    private final Map<String, FileChannel> channels = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, FileChannel> eldest) {
+            boolean ret = size() > MAX_OPEN_FILES;
+            if (ret) {
+                closeQuietly(eldest.getValue());
+            }
+            return ret;
+        }
+    };
     private boolean allLoaded;
 
     ConsumerOffsetRepository(Path directory, int shardCount) {
@@ -89,12 +102,16 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
 
     @Override
     public synchronized void close() {
-        for (FileChannel channel : channels.values()) {
-            try {
-                channel.close();
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+        channels.values().forEach(ConsumerOffsetRepository::closeQuietly);
+        channels.clear();
+    }
+
+    // A failed close loses nothing: every offset was written before it, and the file is opened again when needed
+    private static void closeQuietly(FileChannel channel) {
+        try {
+            channel.close();
+        } catch (IOException ignored) {
+            // The channel is released either way
         }
     }
 

@@ -60,6 +60,7 @@ final class WorkDispatcher {
     // Saves run one after another, so a later watermark is never overwritten by an earlier one
     private Future<Void> lastSave = Future.succeededFuture();
     private boolean stopped;
+    private long lastRequest = System.currentTimeMillis();
 
     private WorkDispatcher(Vertx vertx,
                            String queue,
@@ -117,6 +118,7 @@ final class WorkDispatcher {
      * there is none to lease.
      */
     Future<LeaseResponse> lease(String workerId, int max, long leaseMillis) {
+        lastRequest = System.currentTimeMillis();
         Future<LeaseResponse> ret;
         if (hasLeasable()) {
             ret = leaseNow(workerId, max, leaseMillis);
@@ -140,6 +142,7 @@ final class WorkDispatcher {
      * it; fails with {@link QueueFailure#LEASE_EXPIRED} when the record is not leased to the worker
      */
     Future<Void> settle(String workerId, Settlement settlement, long offset) {
+        lastRequest = System.currentTimeMillis();
         Lease lease = leased.get(offset);
         if (lease == null || !lease.workerId().equals(workerId)) {
             return Future.failedFuture(QueueFailure.LEASE_EXPIRED.exception("Offset " + offset + " of shard " + shard + " of queue "
@@ -168,6 +171,14 @@ final class WorkDispatcher {
      */
     void onCommitted() {
         servePendingLeases();
+    }
+
+    /**
+     * @return whether the group has no record in flight on the shard, no worker waiting, and no request since
+     * {@code since}, in epoch milliseconds; its position is then stored up to every record it finished
+     */
+    boolean isIdleSince(long since) {
+        return lastRequest < since && leased.isEmpty() && released.isEmpty() && done.isEmpty() && pendingLeases.isEmpty();
     }
 
     void stop() {
