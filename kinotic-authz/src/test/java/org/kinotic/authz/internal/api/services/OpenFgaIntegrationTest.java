@@ -1,7 +1,10 @@
 package org.kinotic.authz.internal.api.services;
 
 import dev.openfga.sdk.api.model.CreateStoreRequest;
+import io.vertx.core.Context;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -37,8 +40,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -73,6 +77,8 @@ class OpenFgaIntegrationTest {
     private OpenFgaService fga;
     @Autowired
     private KinoticAuthzProperties properties;
+    @Autowired
+    private Vertx vertx;
 
     @BeforeAll
     static void startEngine() throws Exception {
@@ -270,6 +276,23 @@ class OpenFgaIntegrationTest {
         // a binding already gone leaves nothing to remove
         await(relationshipService.unbind(PLATFORM, bindingId, "project:billing-unbind"));
         await(relationshipService.remove(PLATFORM, List.of(new RelationshipTuple("application:crm-unbind", "application", "project:billing-unbind"))));
+    }
+
+    @Test
+    void theStoreResolvedOnOneContextKeepsLaterCallersOnTheirOwn() throws Exception {
+        // the store is resolved once and kept, so every caller after the first composes on a kept result
+        DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, properties);
+        await(onContext(vertx.getOrCreateContext(), node::platformModelId));
+        Context later = vertx.getOrCreateContext();
+
+        boolean stayed = await(onContext(later, () -> node.platformModelId().map(id -> Vertx.currentContext() == later)));
+        assertTrue(stayed, "a continuation composed on the kept result left the caller's context");
+    }
+
+    private static <T> Future<T> onContext(Context context, Supplier<Future<T>> call) {
+        Promise<T> promise = Promise.promise();
+        context.runOnContext(v -> call.get().onComplete(promise));
+        return promise.future();
     }
 
     @Test

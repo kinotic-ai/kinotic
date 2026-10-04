@@ -12,9 +12,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
+
+import java.util.concurrent.CompletableFuture;
 
 
 @Slf4j
@@ -29,8 +32,8 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
 
     private final OpenFgaService fga;
     private final KinoticAuthzProperties properties;
-    // kept once found; a failed lookup is replaced by the next caller's
-    private volatile Future<String> platformStore;
+    // kept once found, as a stage with no context of its own; a failed lookup is replaced by the next caller's
+    private volatile CompletableFuture<String> platformStore;
 
     @Override
     public Future<String> ensurePlatformModel(AuthzModel model) {
@@ -65,17 +68,20 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
      * The id of the platform store, resolved once and kept; a failed lookup is made again by the next caller.
      */
     Future<String> platformStoreId() {
-        Future<String> ret = platformStore;
-        if (ret == null || ret.failed()) {
+        CompletableFuture<String> stage = platformStore;
+        if (stage == null || stage.isCompletedExceptionally()) {
             synchronized (this) {
-                ret = platformStore;
-                if (ret == null || ret.failed()) {
-                    ret = findPlatformStore();
-                    platformStore = ret;
+                stage = platformStore;
+                if (stage == null || stage.isCompletedExceptionally()) {
+                    stage = findPlatformStore().toCompletionStage().toCompletableFuture();
+                    platformStore = stage;
                 }
             }
         }
-        return ret;
+        // a Vert.x future dispatches its listeners onto the context it was created on, so the one future handed
+        // to every caller would run each caller's continuation on the first caller's context; each caller bridges
+        // the stage onto its own instead
+        return KinoticUtil.toFuture(stage);
     }
 
     @Override
