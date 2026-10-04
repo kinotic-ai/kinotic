@@ -8,10 +8,12 @@ import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
+import org.kinotic.idl.api.schema.decorators.AuthzRoleDeclaration;
 import org.kinotic.idl.internal.support.TestService;
 import org.kinotic.idl.internal.support.authz.TestContradictoryService;
 import org.kinotic.idl.internal.support.authz.TestEntityService;
 import org.kinotic.idl.internal.support.authz.TestMemberService;
+import org.kinotic.idl.internal.support.authz.TestMisnamedRoleService;
 import org.kinotic.idl.internal.support.authz.TestMisreferencingService;
 import org.kinotic.idl.internal.support.authz.TestProjectService;
 import org.kinotic.idl.internal.support.authz.TestUnderivableService;
@@ -222,6 +224,24 @@ public class SchemaServiceAuthzTest {
         IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestUnderivableService.class));
 
         assertTrue(e.getMessage().contains("frobnicate"));
+    }
+
+    @Test
+    public void aDeclaredRoleIsCarriedByTheResource() {
+        ServiceDefinition service = convert(TestVmNodeService.class);
+
+        List<AuthzRoleDeclaration> roles = service.findDecorator(AuthzResourceC3Decorator.class).getRoles();
+        assertEquals(1, roles.size());
+        assertEquals("vm_node.registrar", roles.getFirst().getId());
+        assertEquals(List.of("can_register_node"), roles.getFirst().getPermissions());
+    }
+
+    @Test
+    public void aRoleNotNamedAfterItsTypeRejectsTheService() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestMisnamedRoleService.class));
+
+        assertTrue(e.getMessage().contains("gadget.keeper"), e.getMessage());
+        assertTrue(e.getMessage().contains("widget."), e.getMessage());
     }
 
     @Test

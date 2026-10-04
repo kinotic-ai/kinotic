@@ -9,6 +9,7 @@ import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
+import org.kinotic.idl.api.schema.decorators.AuthzRoleDeclaration;
 import tools.jackson.databind.JsonNode;
 
 import java.util.ArrayList;
@@ -33,14 +34,26 @@ public class AuthzModelGeneratorTest {
     private final DefaultAuthzModelGenerator generator = new DefaultAuthzModelGenerator();
 
     private static ServiceDefinition service(String name, String type, String parent, FunctionDefinition... functions) {
+        return service(name, type, parent, List.of(), functions);
+    }
+
+    private static ServiceDefinition service(String name,
+                                             String type,
+                                             String parent,
+                                             List<AuthzRoleDeclaration> roles,
+                                             FunctionDefinition... functions) {
         ServiceDefinition ret = new ServiceDefinition()
                 .setNamespace("org.kinotic.test")
                 .setName(name);
-        ret.setDecorators(List.of(new AuthzResourceC3Decorator().setResourceType(type).setParent(parent)));
+        ret.setDecorators(List.of(new AuthzResourceC3Decorator().setResourceType(type).setParent(parent).setRoles(roles)));
         for (FunctionDefinition function : functions) {
             ret.addFunction(function);
         }
         return ret;
+    }
+
+    private static AuthzRoleDeclaration role(String id, String... permissions) {
+        return new AuthzRoleDeclaration().setId(id).setPermissions(List.of(permissions));
     }
 
     private static FunctionDefinition function(String name,
@@ -66,10 +79,16 @@ public class AuthzModelGeneratorTest {
                                function("deploy", "project", "project", "can_deploy", "can_view"),
                                function("count", "application", "project", "can_view")),
                        service("VmNodeService", "vm_node", "platform",
-                               function("register", "platform", "vm_node", "can_register_node")),
+                               List.of(role("vm_node.registrar", "can_register_node"), role("vm_node.agent", "can_report", "can_view")),
+                               function("register", "platform", "vm_node", "can_register_node"),
+                               function("heartbeat", "vm_node", "vm_node", "can_report"),
+                               function("findById", "vm_node", "vm_node", "can_view")),
                        service("MemberService", "organization", null,
                                function("findMembers", "organization", "organization", "can_view_members"),
-                               function("removeMember", "organization", "organization", "can_manage_members")));
+                               function("removeMember", "organization", "organization", "can_manage_members")),
+                       service("ClusterService", "platform", null,
+                               function("getClusterInfo", "platform", "platform", "can_view_cluster"),
+                               function("createMachine", "platform", "platform", "can_manage_machines")));
     }
 
     private static JsonNode type(AuthzModel model, String name) {
@@ -175,6 +194,7 @@ public class AuthzModelGeneratorTest {
         assertEquals(List.of("user:*"), directTypes(type(model, "role"), "grant"));
         assertEquals(List.of("user:*"), directTypes(type(model, "role"), "project_can_deploy"));
         assertEquals(List.of("user:*"), directTypes(type(model, "role"), "vm_node_can_register_node"));
+        assertEquals(List.of("user:*"), directTypes(type(model, "role"), "platform_can_view_cluster"));
         assertEquals(List.of("role"), directTypes(type(model, "role_binding"), "role"));
         assertEquals(List.of("user", "group#member", "organization#member", "application#end_user", "tenant#member"),
                      directTypes(type(model, "role_binding"), "member"));
@@ -188,8 +208,9 @@ public class AuthzModelGeneratorTest {
         AuthzModel model = generator.platformModel(platformServices());
 
         assertEquals(Map.of("project", Set.of("can_delete", "can_deploy", "can_edit", "can_view"),
-                            "vm_node", Set.of("can_register_node"),
-                            "organization", Set.of("can_view_members", "can_manage_members")),
+                            "vm_node", Set.of("can_register_node", "can_report", "can_view"),
+                            "organization", Set.of("can_view_members", "can_manage_members"),
+                            "platform", Set.of("can_view_cluster", "can_manage_machines")),
                      model.permissions());
     }
 
@@ -210,9 +231,76 @@ public class AuthzModelGeneratorTest {
         assertEquals(Set.of("organization_can_view_members"), model.roles().get("organization.viewer"));
         assertEquals(Set.of("organization_can_view_members", "organization_can_manage_members"), model.roles().get("organization.editor"));
         // a type with no reading permission has no viewer, and a role bundling nothing is not a role
-        assertEquals(Set.of("vm_node_can_register_node"), model.roles().get("vm_node.editor"));
-        assertFalse(model.roles().containsKey("vm_node.viewer"));
+        assertEquals(Set.of("platform_can_view_cluster", "platform_can_manage_machines"), model.roles().get("platform.editor"));
+        assertFalse(model.roles().containsKey("tenant.viewer"));
         assertFalse(model.roles().containsKey("tenant.admin"));
+    }
+
+    @Test
+    public void declaredRolesBundleTheirTypesPermissions() {
+        AuthzModel model = generator.platformModel(platformServices());
+
+        assertEquals(Set.of("vm_node_can_register_node"), model.roles().get("vm_node.registrar"));
+        assertEquals(Set.of("vm_node_can_report", "vm_node_can_view"), model.roles().get("vm_node.agent"));
+        // the built-in roles of the type stand beside the declared ones
+        assertEquals(Set.of("vm_node_can_view"), model.roles().get("vm_node.viewer"));
+    }
+
+    @Test
+    public void thePlatformsStaffRolesSpanEverythingOnIt() {
+        AuthzModel model = generator.platformModel(platformServices());
+
+        // the administrator holds everything in the model
+        Set<String> everything = new java.util.TreeSet<>();
+        model.permissions().forEach((type, permissions) -> permissions.forEach(permission -> everything.add(AuthzUtil.permissionName(type, permission))));
+        assertEquals(everything, model.roles().get(AuthzUtil.PLATFORM_ADMIN_ROLE));
+        // the operator holds the platform's own permissions and reads everything on it
+        assertEquals(Set.of("platform_can_view_cluster", "platform_can_manage_machines",
+                            "organization_can_view_members", "project_can_view", "vm_node_can_view"),
+                     model.roles().get(AuthzUtil.PLATFORM_OPERATOR_ROLE));
+        // support reads the platform and everything on it
+        assertEquals(Set.of("platform_can_view_cluster", "organization_can_view_members", "project_can_view", "vm_node_can_view"),
+                     model.roles().get(AuthzUtil.PLATFORM_SUPPORT_ROLE));
+        assertFalse(model.roles().containsKey("application.operator"));
+    }
+
+    @Test
+    public void aDeclaredRoleBundlingAPermissionNoFunctionRequiresFails() {
+        List<ServiceDefinition> services = List.of(service("VmNodeService", "vm_node", "platform",
+                                                           List.of(role("vm_node.registrar", "can_fly")),
+                                                           function("register", "platform", "vm_node", "can_register_node")));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.platformModel(services));
+
+        assertTrue(e.getMessage().contains("can_fly"), e.getMessage());
+    }
+
+    @Test
+    public void aDeclaredRoleTheModelAlreadyDefinesFails() {
+        List<ServiceDefinition> services = List.of(service("VmNodeService", "vm_node", "platform",
+                                                           List.of(role("vm_node.editor", "can_register_node")),
+                                                           function("register", "platform", "vm_node", "can_register_node")));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.platformModel(services));
+
+        assertTrue(e.getMessage().contains("vm_node.editor"), e.getMessage());
+    }
+
+    @Test
+    public void twoServicesDeclaringOneRoleMustAgreeOnIt() {
+        List<ServiceDefinition> agreeing = List.of(service("VmNodeService", "vm_node", "platform",
+                                                           List.of(role("vm_node.registrar", "can_register_node")),
+                                                           function("register", "platform", "vm_node", "can_register_node")),
+                                                   service("VmNodeAdminService", "vm_node", "platform",
+                                                           List.of(role("vm_node.registrar", "can_register_node"))));
+        List<ServiceDefinition> disagreeing = List.of(agreeing.getFirst(),
+                                                      service("VmNodeAdminService", "vm_node", "platform",
+                                                              List.of(role("vm_node.registrar", "can_register_node", "can_view")),
+                                                              function("findById", "vm_node", "vm_node", "can_view")));
+
+        assertEquals(Set.of("vm_node_can_register_node"), generator.platformModel(agreeing).roles().get("vm_node.registrar"));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.platformModel(disagreeing));
+        assertTrue(e.getMessage().contains("VmNodeAdminService"), e.getMessage());
     }
 
     @Test

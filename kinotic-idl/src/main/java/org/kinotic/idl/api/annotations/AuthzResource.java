@@ -44,4 +44,11 @@ public @interface AuthzResource {
      */
     String objectId() default "";
 
+    /**
+     * Roles of this type beside the built-in viewer, editor and admin, each bundling permissions the type's
+     * functions require. A role is defined by the model wherever the type is, so a service declaring a type
+     * another service also declares declares its roles once.
+     */
+    AuthzRole[] roles() default {};
+
 }

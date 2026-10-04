@@ -2,6 +2,7 @@ package org.kinotic.idl.internal.directory;
 
 import org.kinotic.idl.api.annotations.AuthzCheck;
 import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.annotations.AuthzRole;
 import org.kinotic.idl.api.directory.ConversionContext;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.ComplexC3Type;
@@ -12,10 +13,12 @@ import org.kinotic.idl.api.schema.ReferenceC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
+import org.kinotic.idl.api.schema.decorators.AuthzRoleDeclaration;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.core.annotation.AnnotationUtils;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -44,7 +47,8 @@ final class AuthzDecorators {
     /**
      * The resource decorator of a service, or null when the service declares no {@link AuthzResource}.
      *
-     * @throws IllegalStateException when the declared type or parent is not an identifier
+     * @throws IllegalStateException when the declared type or parent is not an identifier, or a declared role
+     *                               is not named after the type or bundles nothing
      */
     static AuthzResourceC3Decorator resourceOf(Class<?> serviceInterface) {
         AuthzResource resource = AnnotationUtils.findAnnotation(serviceInterface, AuthzResource.class);
@@ -60,12 +64,36 @@ final class AuthzDecorators {
                                                         + " names the parent '" + resource.parent()
                                                         + "', which is not a lowercase identifier");
             }
+            List<AuthzRoleDeclaration> roles = new ArrayList<>();
+            for (AuthzRole role : resource.roles()) {
+                roles.add(roleOf(serviceInterface, resource.value(), role));
+            }
             ret = new AuthzResourceC3Decorator()
                     .setResourceType(resource.value())
                     .setParent(resource.parent().isEmpty() ? null : resource.parent())
-                    .setObjectId(resource.objectId().isEmpty() ? null : resource.objectId());
+                    .setObjectId(resource.objectId().isEmpty() ? null : resource.objectId())
+                    .setRoles(List.copyOf(roles));
         }
         return ret;
+    }
+
+    // A declared role is named <type>.<level> as a built-in role is, and bundles at least one permission; whether
+    // the permissions exist on the type is known only once every service's checks are, so the generator decides it
+    private static AuthzRoleDeclaration roleOf(Class<?> serviceInterface, String type, AuthzRole role) {
+        String where = "@AuthzRole '" + role.id() + "' on " + serviceInterface.getName();
+        String prefix = type + ".";
+        if (!role.id().startsWith(prefix) || !AuthzUtil.isIdentifier(role.id().substring(prefix.length()))) {
+            throw new IllegalStateException(where + " is not named '" + prefix + "<level>' with a lowercase identifier as the level");
+        }
+        if (role.permissions().length == 0) {
+            throw new IllegalStateException(where + " bundles no permission");
+        }
+        for (String permission : role.permissions()) {
+            if (!AuthzUtil.isIdentifier(permission)) {
+                throw new IllegalStateException(where + " bundles '" + permission + "', which is not a lowercase identifier");
+            }
+        }
+        return new AuthzRoleDeclaration().setId(role.id()).setPermissions(List.of(role.permissions()));
     }
 
     /**
@@ -74,7 +102,8 @@ final class AuthzDecorators {
      * @param serviceInterface  the {@code @Publish} interface, named in errors
      * @param resource          the service's resource decorator
      * @param functionName      the function's name, whose leading verb derives the permission
-     * @param specificMethod    the implementation's most specific method, which carries the {@link AuthzCheck}
+     * @param interfaceMethod   the interface's most specific declaration of the function, which carries the
+     *                          {@link AuthzCheck}, its own or one inherited from a super interface
      * @param parameters        the function's converted parameters, the ones a request carries
      * @param conversionContext the context the parameters were converted in, which resolves their references
      * @throws IllegalStateException when the function derives no check and declares none, or a declaration
@@ -83,13 +112,15 @@ final class AuthzDecorators {
     static AuthzCheckC3Decorator checkOf(Class<?> serviceInterface,
                                          AuthzResourceC3Decorator resource,
                                          String functionName,
-                                         Method specificMethod,
+                                         Method interfaceMethod,
                                          List<ParameterDefinition> parameters,
                                          ConversionContext conversionContext) {
         String type = resource.getResourceType();
         String parent = resource.getParent();
         String where = functionName + " on " + serviceInterface.getName();
-        AuthzCheck declared = AnnotationUtils.findAnnotation(specificMethod, AuthzCheck.class);
+        // the check is the contract's: the interface's redeclaration of an inherited function carries it, which
+        // the implementation's method, inherited from a base class outside that interface, would not reach
+        AuthzCheck declared = AnnotationUtils.findAnnotation(interfaceMethod, AuthzCheck.class);
         if (declared != null && declared.zoneOnly()) {
             if (!declared.permission().isEmpty() || !declared.resource().isEmpty() || !declared.objectId().isEmpty()
                     || declared.implies().length > 0 || declared.consistent()) {

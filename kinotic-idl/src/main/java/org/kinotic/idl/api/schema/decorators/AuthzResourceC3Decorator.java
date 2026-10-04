@@ -9,7 +9,8 @@ import java.util.List;
 
 /**
  * Marks a service as acting on one authorization resource type: the service's functions are checked against
- * that type, and the type, with its containment parent, is part of the generated authorization model.
+ * that type, and the type, with its containment parent and the roles it declares, is part of the generated
+ * authorization model.
  */
 @Getter
 @Setter
@@ -34,6 +35,11 @@ public final class AuthzResourceC3Decorator extends C3Decorator {
      * function declares its own; null when each function's object is derived from what it names.
      */
     private String objectId;
+
+    /**
+     * The roles the service declares for its type beside the built-in ones; empty when it declares none.
+     */
+    private List<AuthzRoleDeclaration> roles = List.of();
 
     public AuthzResourceC3Decorator() {
         this.targets = List.of(DecoratorTarget.TYPE);

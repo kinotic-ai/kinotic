@@ -168,7 +168,7 @@ public class DefaultSchemaService implements SchemaService {
                 AuthzCheckC3Decorator check = AuthzDecorators.checkOf(serviceInterface,
                                                                       authzResource,
                                                                       function.getKey(),
-                                                                      specificMethod,
+                                                                      function.getValue(),
                                                                       functionDefinition.getParameters(),
                                                                       conversionContext);
                 if (check != null) {

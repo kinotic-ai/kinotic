@@ -2,7 +2,6 @@ package org.kinotic.management.internal.api.services.security;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.AuthzModel;
@@ -34,7 +33,6 @@ import org.kinotic.management.api.services.security.PermissionService;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -83,7 +81,7 @@ public class DefaultPermissionService implements PermissionService {
         String organizationId = requireOrgParticipant().getOrganizationId();
         return model().compose(model -> {
             List<RoleDefinition> ret = new ArrayList<>();
-            model.roles().forEach((id, permissions) -> ret.add(new RoleDefinition(id, builtInName(id), null, true, permissions)));
+            model.roles().forEach((id, permissions) -> ret.add(new RoleDefinition(id, AuthzUtil.builtInRoleName(id), null, true, permissions)));
             return roles.findAll(organizationId, Pageable.create(0, ROLE_PAGE_SIZE, Sort.by("name")))
                         .compose(page -> Future.all(page.getContent().stream().map(this::defined).toList()))
                         .map(defined -> {
@@ -305,43 +303,13 @@ public class DefaultPermissionService implements PermissionService {
 
     // The grants made on each resource of a lineage, the resource's own first
     private Future<List<Grant>> grantsOn(List<String> lineage) {
-        List<Future<List<Grant>>> perResource = lineage.stream().map(this::grantsMadeOn).toList();
+        List<Future<List<Grant>>> perResource = lineage.stream().map(object -> relationships.findGrants(PLATFORM, object)).toList();
         return Future.all(perResource).map(all -> {
             List<Grant> ret = new ArrayList<>();
             for (int i = 0; i < lineage.size(); i++) {
                 ret.addAll(all.<List<Grant>>resultAt(i));
             }
             return ret;
-        });
-    }
-
-    private Future<List<Grant>> grantsMadeOn(String object) {
-        Resource resource = new Resource(AuthzUtil.typeOf(object), AuthzUtil.idOf(object));
-        return relationships.read(PLATFORM, object).compose(held -> {
-            List<Future<Grant>> bindings = new ArrayList<>();
-            for (RelationshipTuple tuple : held) {
-                if (AuthzUtil.ROLE_BINDING_RELATION.equals(tuple.relation())) {
-                    bindings.add(grantOf(tuple.user(), resource));
-                }
-            }
-            return Future.all(bindings).map(all -> all.<Grant>list().stream().filter(grant -> grant != null).toList());
-        });
-    }
-
-    // The binding's role and member; null for a binding made to a userset the console does not grant to,
-    // which another tier may make
-    private Future<Grant> grantOf(String binding, Resource resource) {
-        return relationships.read(PLATFORM, binding).map(held -> {
-            String roleId = null;
-            Subject subject = null;
-            for (RelationshipTuple tuple : held) {
-                if (AuthzUtil.ROLE_RELATION.equals(tuple.relation())) {
-                    roleId = AuthzUtil.idOf(tuple.user());
-                } else if (AuthzUtil.MEMBER_RELATION.equals(tuple.relation())) {
-                    subject = subjectOf(tuple.user());
-                }
-            }
-            return roleId == null || subject == null ? null : new Grant(AuthzUtil.idOf(binding), roleId, subject, resource);
         });
     }
 
@@ -474,17 +442,6 @@ public class DefaultPermissionService implements PermissionService {
                 : membersOf(AuthzUtil.object(AuthzUtil.GROUP_TYPE, subject.id()));
     }
 
-    private static Subject subjectOf(String user) {
-        Subject ret = null;
-        String type = AuthzUtil.typeOf(user);
-        if (AuthzUtil.USER_TYPE.equals(type)) {
-            ret = new Subject(SubjectKind.USER, AuthzUtil.idOf(user));
-        } else if (AuthzUtil.GROUP_TYPE.equals(type) && user.endsWith("#" + AuthzUtil.MEMBER_RELATION)) {
-            ret = new Subject(SubjectKind.GROUP, AuthzUtil.idOf(user));
-        }
-        return ret;
-    }
-
     private static String membersOf(String group) {
         return group + "#" + AuthzUtil.MEMBER_RELATION;
     }
@@ -493,14 +450,5 @@ public class DefaultPermissionService implements PermissionService {
         return new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, userId),
                                      AuthzUtil.MEMBER_RELATION,
                                      AuthzUtil.object(AuthzUtil.GROUP_TYPE, groupId));
-    }
-
-    // A built-in role is named after its type and level: project.editor is Project Editor
-    private static String builtInName(String roleId) {
-        List<String> words = new ArrayList<>();
-        for (String word : roleId.split("[._]")) {
-            words.add(StringUtils.capitalize(word));
-        }
-        return String.join(" ", words);
     }
 }

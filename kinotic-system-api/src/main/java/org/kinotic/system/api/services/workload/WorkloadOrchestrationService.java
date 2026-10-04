@@ -2,6 +2,9 @@ package org.kinotic.system.api.services.workload;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 
@@ -17,6 +20,7 @@ import java.util.List;
  * For querying workloads (findById, findAll, search) use {@link WorkloadService} directly.
  */
 @Publish
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, objectId = AuthzUtil.PLATFORM_OBJECT_ID)
 public interface WorkloadOrchestrationService {
 
     /**
@@ -45,6 +49,7 @@ public interface WorkloadOrchestrationService {
      * @param workload the workload configuration to deploy
      * @return a future that will complete with the deployed workload (including assigned nodeId and id)
      */
+    @AuthzCheck(permission = "can_manage_workloads")
     Future<Workload> deployWorkload(Workload workload);
 
     /**
@@ -58,6 +63,7 @@ public interface WorkloadOrchestrationService {
      * @param workloadId the id of the workload to stop
      * @return a future that will complete when the workload has been stopped
      */
+    @AuthzCheck(permission = "can_manage_workloads")
     Future<Void> stopWorkload(String workloadId);
 
     /**
@@ -68,6 +74,7 @@ public interface WorkloadOrchestrationService {
      * @param workloadId the id of the workload to destroy
      * @return a future that will complete when the VM has been destroyed
      */
+    @AuthzCheck(permission = "can_manage_workloads")
     Future<Void> destroyWorkload(String workloadId);
 
     /**
@@ -79,6 +86,7 @@ public interface WorkloadOrchestrationService {
      * @return a future that will complete when the record and its logs are gone, or fail if the run is
      *         still open
      */
+    @AuthzCheck(permission = "can_manage_workloads")
     Future<Void> deleteWorkload(String workloadId);
 
     /**
@@ -92,6 +100,7 @@ public interface WorkloadOrchestrationService {
      * @return a future that will complete when the records and their logs are gone, or fail if any run
      *         is still open
      */
+    @AuthzCheck(permission = "can_manage_workloads")
     Future<Void> deleteWorkloads(List<String> workloadIds);
 
 }

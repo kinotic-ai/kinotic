@@ -47,10 +47,10 @@ import static org.mockito.Mockito.when;
 /**
  * Pins how a request is resolved against its function's contract: the object read from a positional or a
  * named body, at the parameter's position or by its name and down a property path; the caller's scope for a
- * scope reference, at the caller's own level when the check names one below it; a delegate checked as its
- * owner; a zone-only function, a service with no entry, an
- * application and a system participant passing without the engine; and the refusals: a denied check, a
- * request naming no object, a body no id can be read from.
+ * scope reference, at the caller's own level when the check names one below it, and on the platform for a
+ * system participant; a delegate checked as its owner; a zone-only function, a service with no entry and an
+ * application participant passing without the engine; and the refusals: a denied check, a request naming no
+ * object, a body no id can be read from.
  */
 class DefaultRequestAuthorizerTest {
 
@@ -181,16 +181,28 @@ class DefaultRequestAuthorizerTest {
     }
 
     @Test
-    void applicationAndSystemParticipantsPassOnTheirZones() throws Exception {
+    void anApplicationParticipantPassesOnItsZone() throws Exception {
         Participant appUser = DefaultApplicationParticipant.builder().id("bob").organizationId("acme").applicationId("crm")
                                                            .tenantId("t1").metadata(Map.of()).roles(List.of()).build();
-        Participant operator = DefaultSystemParticipant.builder().id("ops").metadata(Map.of()).roles(List.of()).build();
 
         authorize("save", appUser, EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-b\"}]");
-        authorize("save", operator, EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-b\"}]");
 
         verify(relationships, never()).check(any(), any(), any(), any());
         verify(directory, never()).findEntry(any());
+    }
+
+    @Test
+    void aSystemParticipantIsCheckedAndItsScopeIsThePlatform() throws Exception {
+        Participant operator = DefaultSystemParticipant.builder().id("ops").metadata(Map.of()).roles(List.of()).build();
+
+        authorize("save", operator, EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-b\"}]");
+        assertEquals(new RelationshipTuple("user:ops", "project_can_edit", "project:proj-b"), checked(Consistency.MINIMIZE_LATENCY));
+
+        // a check on the caller's organization, which an operator has none of, is made on the platform
+        authorize("findMembers", operator, EventConstants.CONTENT_TYPE_JSON, "[]");
+        ArgumentCaptor<RelationshipTuple> tuples = ArgumentCaptor.forClass(RelationshipTuple.class);
+        verify(relationships, times(2)).check(eq(PLATFORM), eq(MODEL_ID), tuples.capture(), eq(Consistency.MINIMIZE_LATENCY));
+        assertEquals(new RelationshipTuple("user:ops", "organization_can_view_members", "platform:kinotic"), tuples.getValue());
     }
 
     @Test

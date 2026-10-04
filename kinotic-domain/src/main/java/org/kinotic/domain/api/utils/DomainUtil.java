@@ -18,6 +18,7 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
@@ -322,6 +323,19 @@ public class DomainUtil {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is not available", e);
         }
+    }
+
+    /**
+     * The user a participant acts as in the authorization stores, in {@code user:id} form: the owner a delegate
+     * acts for, such as the member a CLI session holds, else the participant itself.
+     *
+     * @param participant the participant making a call
+     * @return the user whose grants answer for it
+     */
+    public static String authzUser(Participant participant) {
+        Map<String, String> metadata = participant.getMetadata();
+        String owner = metadata != null ? metadata.get(ON_BEHALF_OF_METADATA_KEY) : null;
+        return AuthzUtil.object(AuthzUtil.USER_TYPE, owner != null ? owner : participant.getId());
     }
 
     /**

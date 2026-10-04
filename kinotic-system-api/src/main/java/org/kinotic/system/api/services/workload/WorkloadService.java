@@ -2,6 +2,9 @@ package org.kinotic.system.api.services.workload;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -11,9 +14,56 @@ import org.kinotic.management.api.model.workload.Workload;
 /**
  * The workload records as the console reads and manages them: every run deployed across the
  * cluster, its record kept after the run ends, listed by node and read back with its history.
+ * Every function is checked on the platform: reading a record needs {@code can_view_workloads},
+ * writing one {@code can_manage_workloads}.
  */
 @Publish
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, objectId = AuthzUtil.PLATFORM_OBJECT_ID)
 public interface WorkloadService extends IdentifiableCrudService<Workload, String> {
+
+    @Override
+    @AuthzCheck(permission = "can_manage_workloads")
+    Future<Workload> create(Workload entity);
+
+    @Override
+    @AuthzCheck(permission = "can_manage_workloads")
+    Future<Workload> createSync(Workload entity);
+
+    @Override
+    @AuthzCheck(permission = "can_manage_workloads")
+    Future<Workload> save(Workload entity);
+
+    @Override
+    @AuthzCheck(permission = "can_manage_workloads")
+    Future<Workload> saveSync(Workload entity);
+
+    @Override
+    @AuthzCheck(permission = "can_view_workloads")
+    Future<Workload> findById(String id);
+
+    @Override
+    @AuthzCheck(permission = "can_view_workloads")
+    Future<Long> count();
+
+    @Override
+    @AuthzCheck(permission = "can_manage_workloads")
+    Future<Void> deleteById(String id);
+
+    @Override
+    @AuthzCheck(permission = "can_manage_workloads")
+    Future<Void> deleteByIdSync(String id);
+
+    @Override
+    @AuthzCheck(permission = "can_view_workloads")
+    Future<Page<Workload>> findAll(Pageable pageable);
+
+    @Override
+    @AuthzCheck(permission = "can_view_workloads")
+    Future<Page<Workload>> search(String searchText, Pageable pageable);
+
+    @Override
+    @AuthzCheck(permission = "can_manage_workloads")
+    Future<Void> syncIndex();
 
     /**
      * Finds all workloads deployed on the given node.
@@ -21,6 +71,7 @@ public interface WorkloadService extends IdentifiableCrudService<Workload, Strin
      * @param pageable the page to return
      * @return a future that will complete with a page of workloads
      */
+    @AuthzCheck(permission = "can_view_workloads")
     Future<Page<Workload>> findAllForNode(String nodeId, Pageable pageable);
 
     /**
@@ -31,6 +82,7 @@ public interface WorkloadService extends IdentifiableCrudService<Workload, Strin
      * @return a future that will complete with a page of ledger entries, empty when the workload does
      * not exist
      */
+    @AuthzCheck(permission = "can_view_workloads")
     Future<Page<WatchEvent>> findHistory(String workloadId, Pageable pageable);
 
 }
