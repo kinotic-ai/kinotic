@@ -72,12 +72,14 @@ public class DefaultQueueService implements QueueService {
     @Override
     public Future<QueueWorker> work(String queue, String groupName, WorkerOptions options) {
         if (!QueueLog.isValidName(groupName)
+                || !QueueLog.isValidName(QueueService.deadLetterQueue(queue, groupName))
                 || options == null
                 || options.startPosition() == null
                 || options.prefetch() < 1
                 || options.leaseDuration() == null
                 || options.leaseDuration().toMillis() < 1) {
-            return Future.failedFuture(new IllegalArgumentException("Invalid group name '" + groupName + "' or options " + options));
+            return Future.failedFuture(new IllegalArgumentException("Invalid group name '" + groupName + "', which with the queue name must also name"
+                                                                            + " a valid dead-letter queue, or invalid options " + options));
         }
         Context context = vertx.getOrCreateContext();
         return definition(queue).compose(definition -> DefaultQueueWorker.open(context, client, definition, groupName, options));

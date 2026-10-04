@@ -7,7 +7,8 @@ import org.kinotic.queue.api.model.WorkItem;
 /**
  * One worker of a group sharing a queue's records: each record is leased to one worker of the group at a time. A
  * record the worker neither settles nor {@link #renew renews} within its lease, or still holds when it closes, is
- * leased to another worker, and a record leased five times without being accepted is dropped. A shard that cannot be
+ * leased to another worker, and a record leased five times without being accepted goes to the group's
+ * {@link QueueService#deadLetterQueue dead-letter queue}. A shard that cannot be
  * read for 30 seconds is reported to the {@link #exceptionHandler exception handler} once, and leasing keeps retrying
  * it. Methods must be called on the Vert.x context the worker delivers on.
  */
@@ -31,9 +32,12 @@ public interface QueueWorker extends ReadStream<WorkItem> {
     Future<Void> release(WorkItem item);
 
     /**
-     * Marks the item as one no worker can process, so the group never receives it again.
+     * Marks the item as one no worker can process and appends it to the group's
+     * {@link QueueService#deadLetterQueue dead-letter queue}, so the group never receives it again.
      *
-     * @return completes as {@link #accept} does; fails when the item's lease has expired
+     * @return completes once the item is in the dead-letter queue and the group's progress is stored as {@link #accept}
+     * describes; fails as {@link #accept} does, or when the item could not be appended to the dead-letter queue, in
+     * which case it is appended later
      */
     Future<Void> reject(WorkItem item);
 

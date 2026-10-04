@@ -13,6 +13,7 @@ import org.kinotic.queue.api.model.WorkerOptions;
 import org.kinotic.queue.api.services.QueueService;
 import org.kinotic.queue.api.services.QueueWorker;
 import org.kinotic.queue.internal.QueueTestNode;
+import org.kinotic.queue.internal.QueueTestSupport;
 import org.kinotic.queue.internal.TestSubscriber;
 import org.kinotic.queue.internal.TestWorker;
 
@@ -99,7 +100,7 @@ public class QueueWorkerTests {
     }
 
     @Test
-    public void aReleasedRecordReturnsAtOnceUntilItsLastDeliveryThenIsDropped() throws Exception {
+    public void aReleasedRecordReturnsAtOnceUntilItsLastDeliveryThenGoesToTheDeadLetterQueue() throws Exception {
         await(service.createQueueIfNotExist(new QueueDefinition(QUEUE, 1)));
         appendValues(0, 2);
         TestWorker worker = work("billing", StartPosition.EARLIEST, 1, LONG_LEASE);
@@ -112,9 +113,32 @@ public class QueueWorkerTests {
             item = worker.next();
         }
 
-        // The first record was dropped after its fifth delivery, so the second record comes next
+        // The first record went to the dead-letter queue after its fifth delivery, so the second record comes next
         assertEquals(1, value(item));
         assertEquals(1, item.deliveryCount());
+        TestSubscriber deadLetters = TestSubscriber.subscribe(node.vertx(), service, QueueService.deadLetterQueue(QUEUE, "billing"),
+                                                              "inspector", StartPosition.EARLIEST);
+        assertEquals(0, QueueTestSupport.value(deadLetters.next()));
+        assertNull(deadLetters.poll(500));
+    }
+
+    @Test
+    public void aRejectedRecordGoesToTheDeadLetterQueueBeforeTheRejectCompletes() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition(QUEUE, 2)));
+        appendValues(0, 3);
+        TestWorker worker = work("billing", StartPosition.EARLIEST, 10, LONG_LEASE);
+        for (int i = 0; i < 3; i++) {
+            WorkItem item = worker.next();
+            await(worker.settle(value(item) == 1 ? QueueWorker::reject : QueueWorker::accept, item));
+        }
+
+        TestSubscriber deadLetters = TestSubscriber.subscribe(node.vertx(), service, QueueService.deadLetterQueue(QUEUE, "billing"),
+                                                              "inspector", StartPosition.EARLIEST);
+        QueueRecord deadLetter = deadLetters.next();
+        assertEquals(1, QueueTestSupport.value(deadLetter));
+        assertEquals("key-1", deadLetter.key());
+        assertNull(deadLetters.poll(500));
+        assertNull(worker.poll(500));
     }
 
     @Test

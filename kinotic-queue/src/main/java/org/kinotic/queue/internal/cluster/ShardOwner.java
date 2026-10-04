@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.BiFunction;
 import java.util.function.ToLongFunction;
 
 /**
@@ -79,6 +80,8 @@ final class ShardOwner {
     private final TreeMap<Long, PendingMajority<Void>> pendingOffsetReplications = new TreeMap<>();
     private final List<PendingFetch> pendingFetches = new ArrayList<>();
     private final Map<String, Future<WorkDispatcher>> dispatchers = new HashMap<>();
+    // Appends a record to a group's dead-letter queue, by group name
+    private final BiFunction<String, ShardEntry, Future<Void>> deadLetters;
 
     private List<String> followers = List.of();
     private long newestSeenEpoch;
@@ -95,7 +98,8 @@ final class ShardOwner {
                ShardPlacement placement,
                QueueClusterClient client,
                ShardStateRepository shardStates,
-               ShardAssignment assignment) {
+               ShardAssignment assignment,
+               BiFunction<String, ShardEntry, Future<Void>> deadLetters) {
         this.vertx = vertx;
         this.placement = placement;
         this.client = client;
@@ -105,6 +109,7 @@ final class ShardOwner {
         this.shardLog = assignment.shardLog();
         this.consumerOffsets = assignment.consumerOffsets();
         this.groupOffsets = assignment.groupOffsets();
+        this.deadLetters = deadLetters;
         this.newestSeenEpoch = Math.max(shardLog.lastEpoch(), shardLog.acceptedEpoch());
     }
 
@@ -197,8 +202,9 @@ final class ShardOwner {
                 return Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue
                                                                                     + " has no committed offset yet in this epoch"));
             }
-            dispatcher = WorkDispatcher.open(vertx, queue, shard, request.groupName(), shardLog, groupOffsets,
-                                             () -> committedOffset, this::replicateOffsets, request.startPosition());
+            String groupName = request.groupName();
+            dispatcher = WorkDispatcher.open(vertx, queue, shard, groupName, shardLog, groupOffsets, () -> committedOffset,
+                                             this::replicateOffsets, entry -> deadLetters.apply(groupName, entry), request.startPosition());
             dispatchers.put(request.groupName(), dispatcher);
             // A failed open is dropped, so the group's next request opens the dispatcher again
             Future<WorkDispatcher> opening = dispatcher;

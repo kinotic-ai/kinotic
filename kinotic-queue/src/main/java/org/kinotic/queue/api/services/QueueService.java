@@ -13,6 +13,14 @@ import org.kinotic.queue.api.model.WorkerOptions;
 public interface QueueService {
 
     /**
+     * @return the name of the queue a worker group's rejected records, and records it was leased five times without
+     * accepting, are appended to; created with the source queue's shard count when the first record arrives
+     */
+    static String deadLetterQueue(String queue, String groupName) {
+        return queue + "." + groupName + ".dlq";
+    }
+
+    /**
      * Creates a queue unless a queue with the same name already exists.
      *
      * @param definition the name and shard count of the queue; at most 1024 shards
@@ -54,10 +62,12 @@ public interface QueueService {
 
     /**
      * Joins a group of workers that share a queue's records: each record is leased to one worker of the group at a
-     * time, with no ordering between records. A record counts as done once a worker accepts or rejects it. Delivery
-     * is at least once: a record is leased again when its lease expires, when its worker releases it or closes, and
-     * when the shard's owner changes before the group's progress past it reached the shard's other copies.
-     * Fails when the queue does not exist.
+     * time, with no ordering between records. A record counts as done once a worker accepts it, or once it is in the
+     * group's {@link #deadLetterQueue dead-letter queue} after a worker rejected it or it was leased five times without
+     * being accepted. Delivery is at least once: a record is leased again when its lease expires, when its worker
+     * releases it or closes, and when the shard's owner changes before the group's progress past it reached the
+     * shard's other copies. Fails when the queue does not exist, or when the queue and group names together are too
+     * long to name the dead-letter queue.
      *
      * @param queue     the queue name
      * @param groupName identifies the group; same character rules as a queue name

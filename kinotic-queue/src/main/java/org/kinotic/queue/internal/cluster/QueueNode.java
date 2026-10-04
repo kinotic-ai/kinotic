@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.queue.api.config.KinoticQueueProperties;
 import org.kinotic.queue.api.model.QueueDefinition;
+import org.kinotic.queue.api.services.QueueService;
 import org.kinotic.queue.internal.cluster.message.AppendRequest;
 import org.kinotic.queue.internal.cluster.message.FetchRequest;
 import org.kinotic.queue.internal.cluster.message.FetchResponse;
@@ -301,13 +302,29 @@ public class QueueNode {
         for (ShardAssignment assignment : assignments.values()) {
             ShardOwner owner = owners.get(assignment.key());
             if (owner == null) {
-                owner = new ShardOwner(vertx, placement, client, shardStates, assignment);
+                String queue = assignment.queue();
+                owner = new ShardOwner(vertx, placement, client, shardStates, assignment,
+                                       (groupName, entry) -> deadLetter(queue, groupName, entry));
                 owners.put(assignment.key(), owner);
                 owner.start(assignment.followers());
             } else {
                 owner.updateFollowers(assignment.followers());
             }
         }
+    }
+
+    // Appends a record to the group's dead-letter queue, creating the queue with the source queue's shard count, and a
+    // copy of it on this node so it is known again after every queue node restarts
+    private Future<Void> deadLetter(String queue, String groupName, ShardEntry entry) {
+        return vertx.executeBlocking(() -> {
+                        QueueDefinition source = requireDefinition(queue);
+                        QueueDefinition stored = definitions.saveIfAbsent(new QueueDefinition(QueueService.deadLetterQueue(queue, groupName),
+                                                                                              source.shardCount()));
+                        localLog(stored);
+                        return stored;
+                    }, false)
+                    .compose(definition -> client.append(definition, entry.key(), entry.payload()))
+                    .mapEmpty();
     }
 
     // After every queue node restarts, the queues are known again from the copies stored on disk

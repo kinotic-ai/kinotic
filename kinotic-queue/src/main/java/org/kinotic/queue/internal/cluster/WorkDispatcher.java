@@ -18,13 +18,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 /**
  * Shares one shard's committed records between the workers of one group, on the shard's owner. Each record is leased
- * to one worker at a time; a record whose lease expires or is released goes back to the group, and a record leased
- * {@link #MAX_DELIVERIES} times without being accepted is dropped. The group's low watermark, the offset before which
+ * to one worker at a time; a record whose lease expires or is released goes back to the group, and a record rejected,
+ * or leased {@link #MAX_DELIVERIES} times without being accepted, is done once it is in the group's dead-letter queue.
+ * The group's low watermark, the offset before which
  * every record is done, is stored in the queue's group offsets and copied to a majority of the shard's copies, so the
  * shard's next owner resumes the group from it. A lease can be renewed while its worker still processes the record.
  * Runs on the owner's context.
@@ -33,7 +35,7 @@ import java.util.function.Supplier;
 final class WorkDispatcher {
 
     /**
-     * How many times a record is leased before it is dropped.
+     * How many times a record is leased before it goes to the group's dead-letter queue.
      */
     static final int MAX_DELIVERIES = 5;
 
@@ -48,6 +50,7 @@ final class WorkDispatcher {
     private final ConsumerOffsetRepository groupOffsets;
     private final LongSupplier committedOffset;
     private final Supplier<Future<Void>> replicateOffsets;
+    private final Function<ShardEntry, Future<Void>> deadLetter;
     private final TreeMap<Long, Lease> leased = new TreeMap<>();
     // Records waiting to be leased again, with how many times they have been leased
     private final TreeMap<Long, Integer> released = new TreeMap<>();
@@ -61,6 +64,8 @@ final class WorkDispatcher {
     private Future<Void> lastSave = Future.succeededFuture();
     private boolean stopped;
     private long lastRequest = System.currentTimeMillis();
+    // Records on their way to the dead-letter queue, held in none of the maps above
+    private int deadLettering;
 
     private WorkDispatcher(Vertx vertx,
                            String queue,
@@ -70,6 +75,7 @@ final class WorkDispatcher {
                            ConsumerOffsetRepository groupOffsets,
                            LongSupplier committedOffset,
                            Supplier<Future<Void>> replicateOffsets,
+                           Function<ShardEntry, Future<Void>> deadLetter,
                            long lowWatermark) {
         this.vertx = vertx;
         this.queue = queue;
@@ -79,6 +85,7 @@ final class WorkDispatcher {
         this.groupOffsets = groupOffsets;
         this.committedOffset = committedOffset;
         this.replicateOffsets = replicateOffsets;
+        this.deadLetter = deadLetter;
         this.lowWatermark = lowWatermark;
         this.nextToLease = lowWatermark;
     }
@@ -89,6 +96,7 @@ final class WorkDispatcher {
      * from the same offset.
      *
      * @param replicateOffsets copies the shard's offsets to a majority of its copies
+     * @param deadLetter       appends a record to the group's dead-letter queue
      */
     static Future<WorkDispatcher> open(Vertx vertx,
                                        String queue,
@@ -98,6 +106,7 @@ final class WorkDispatcher {
                                        ConsumerOffsetRepository groupOffsets,
                                        LongSupplier committedOffset,
                                        Supplier<Future<Void>> replicateOffsets,
+                                       Function<ShardEntry, Future<Void>> deadLetter,
                                        StartPosition startPosition) {
         long latest = committedOffset.getAsLong();
         return vertx.executeBlocking(() -> {
@@ -110,7 +119,8 @@ final class WorkDispatcher {
                         return ret;
                     }, false)
                     .compose(position -> replicateOffsets.get().map(new WorkDispatcher(vertx, queue, shard, groupName, shardLog, groupOffsets,
-                                                                                       committedOffset, replicateOffsets, position)));
+                                                                                       committedOffset, replicateOffsets, deadLetter,
+                                                                                       position)));
     }
 
     /**
@@ -158,9 +168,13 @@ final class WorkDispatcher {
                 released.put(offset, lease.deliveryCount());
                 servePendingLeases();
             }
-            case ACCEPT, REJECT -> {
+            case ACCEPT -> {
                 leased.remove(offset);
                 ret = markDone(offset);
+            }
+            case REJECT -> {
+                leased.remove(offset);
+                ret = deadLetterThenMarkDone(offset);
             }
         }
         return ret;
@@ -178,7 +192,8 @@ final class WorkDispatcher {
      * {@code since}, in epoch milliseconds; its position is then stored up to every record it finished
      */
     boolean isIdleSince(long since) {
-        return lastRequest < since && leased.isEmpty() && released.isEmpty() && done.isEmpty() && pendingLeases.isEmpty();
+        return lastRequest < since && leased.isEmpty() && released.isEmpty() && done.isEmpty() && pendingLeases.isEmpty()
+                && deadLettering == 0;
     }
 
     void stop() {
@@ -196,15 +211,13 @@ final class WorkDispatcher {
     // Takes the offsets to lease on the context, so concurrent requests never take the same one, then reads them
     private Future<LeaseResponse> leaseNow(String workerId, int max, long leaseMillis) {
         Map<Long, Integer> taken = new TreeMap<>();
-        List<Long> dropped = new ArrayList<>();
+        List<Long> exhausted = new ArrayList<>();
         Iterator<Map.Entry<Long, Integer>> releasedIterator = released.entrySet().iterator();
         while (taken.size() < max && releasedIterator.hasNext()) {
             Map.Entry<Long, Integer> entry = releasedIterator.next();
             releasedIterator.remove();
             if (entry.getValue() >= MAX_DELIVERIES) {
-                log.warn("Dropping offset {} of shard {} of queue {} for group {} after {} deliveries",
-                         entry.getKey(), shard, queue, groupName, entry.getValue());
-                dropped.add(entry.getKey());
+                exhausted.add(entry.getKey());
             } else {
                 taken.put(entry.getKey(), entry.getValue());
             }
@@ -212,8 +225,8 @@ final class WorkDispatcher {
         long newFrom = nextToLease;
         long newTo = Math.min(Math.min(committedOffset.getAsLong(), lowWatermark + MAX_IN_FLIGHT), newFrom + max - taken.size());
         nextToLease = Math.max(nextToLease, newTo);
-        // Marked done only once this request has taken its offsets, since marking serves other waiting requests
-        dropped.forEach(this::markDone);
+        // Dead-lettered only once this request has taken its offsets, since marking them done serves other waiting requests
+        exhausted.forEach(this::deadLetterThenMarkDone);
         return vertx.executeBlocking(() -> readTaken(taken, newFrom, newTo), false)
                     .transform(ar -> {
                         Future<LeaseResponse> ret;
@@ -286,6 +299,30 @@ final class WorkDispatcher {
             PendingLease pending = pendingLeases.removeFirst();
             leaseNow(pending.workerId(), pending.max(), pending.leaseMillis()).onComplete(pending.promise());
         }
+    }
+
+    // Marks the record done once it is in the dead-letter queue. A record that could not be appended there waits among
+    // the released records, at its last delivery, so the next lease request tries again.
+    private Future<Void> deadLetterThenMarkDone(long offset) {
+        deadLettering++;
+        return vertx.executeBlocking(() -> shardLog.read(offset, 1, Long.MAX_VALUE).getFirst(), false)
+                    .compose(deadLetter)
+                    .transform(ar -> {
+                        deadLettering--;
+                        Future<Void> ret;
+                        if (stopped) {
+                            ret = Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue + " changed owner"));
+                        } else if (ar.failed()) {
+                            log.warn("Appending offset {} of shard {} of queue {} to the dead-letter queue of group {} failed, retrying",
+                                     offset, shard, queue, groupName, ar.cause());
+                            released.put(offset, MAX_DELIVERIES);
+                            ret = Future.failedFuture(ar.cause());
+                        } else {
+                            log.info("Dead-lettered offset {} of shard {} of queue {} for group {}", offset, shard, queue, groupName);
+                            ret = markDone(offset);
+                        }
+                        return ret;
+                    });
     }
 
     // Returns the replication of the advanced watermark, or a completed future when the record is past a record not yet done
