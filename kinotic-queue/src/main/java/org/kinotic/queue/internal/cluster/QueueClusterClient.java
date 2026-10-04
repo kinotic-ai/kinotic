@@ -73,7 +73,7 @@ public class QueueClusterClient {
      * Finds the offset the shard's next record will be committed at, retrying while the shard has no active owner.
      */
     public Future<Long> findCommittedOffset(String queue, int shard) {
-        Buffer request = new FetchRequest(queue, shard, -1, 0).toBuffer();
+        Buffer request = new FetchRequest(queue, shard, -1, 0, 0).toBuffer();
         return retryWhileOwnerless(() -> requestOwner(queue, shard, QueueNode.FETCH, request, REQUEST_TIMEOUT_MS),
                                    System.currentTimeMillis() + OWNER_DEADLINE_MS)
                 .map(reply -> FetchResponse.fromBuffer(reply).nextOffset());
@@ -95,8 +95,8 @@ public class QueueClusterClient {
      * Fetches committed entries from the shard's owner, which holds the request until an entry at {@code offset}
      * is committed or a short wait passes.
      */
-    public Future<FetchResponse> fetch(String queue, int shard, long offset, int max) {
-        return requestOwner(queue, shard, QueueNode.FETCH, new FetchRequest(queue, shard, offset, max).toBuffer(), FETCH_TIMEOUT_MS)
+    public Future<FetchResponse> fetch(String queue, int shard, long offset, int max, long maxBytes) {
+        return requestOwner(queue, shard, QueueNode.FETCH, new FetchRequest(queue, shard, offset, max, maxBytes).toBuffer(), FETCH_TIMEOUT_MS)
                 .map(FetchResponse::fromBuffer);
     }
 

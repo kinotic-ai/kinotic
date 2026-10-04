@@ -14,14 +14,14 @@ public class WireTests {
 
     @Test
     public void aMessageReadsBackAsWritten() {
-        FetchRequest request = new FetchRequest("orders", 3, 42, 256);
+        FetchRequest request = new FetchRequest("orders", 3, 42, 256, 1024);
 
         assertEquals(request, FetchRequest.fromBuffer(request.toBuffer()));
     }
 
     @Test
     public void aMessageOfAnotherEncodingVersionIsRefused() {
-        Buffer message = new FetchRequest("orders", 3, 42, 256).toBuffer();
+        Buffer message = new FetchRequest("orders", 3, 42, 256, 1024).toBuffer();
         message.setByte(0, (byte) (message.getByte(0) + 1));
 
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> FetchRequest.fromBuffer(message));

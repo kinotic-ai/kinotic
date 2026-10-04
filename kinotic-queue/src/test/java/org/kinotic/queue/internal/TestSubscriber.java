@@ -24,11 +24,16 @@ public final class TestSubscriber {
     private final Context context;
     private final QueueSubscription subscription;
     private final LinkedBlockingQueue<QueueRecord> received;
+    private final LinkedBlockingQueue<Throwable> failures;
 
-    private TestSubscriber(Context context, QueueSubscription subscription, LinkedBlockingQueue<QueueRecord> received) {
+    private TestSubscriber(Context context,
+                           QueueSubscription subscription,
+                           LinkedBlockingQueue<QueueRecord> received,
+                           LinkedBlockingQueue<Throwable> failures) {
         this.context = context;
         this.subscription = subscription;
         this.received = received;
+        this.failures = failures;
     }
 
     public static TestSubscriber subscribe(Vertx vertx,
@@ -38,14 +43,23 @@ public final class TestSubscriber {
                                            StartPosition startPosition) throws Exception {
         Context context = vertx.getOrCreateContext();
         LinkedBlockingQueue<QueueRecord> received = new LinkedBlockingQueue<>();
+        LinkedBlockingQueue<Throwable> failures = new LinkedBlockingQueue<>();
         CompletableFuture<QueueSubscription> subscribed = new CompletableFuture<>();
         context.runOnContext(v -> service.subscribe(queue, consumerName, startPosition)
                                          .onSuccess(subscription -> {
+                                             subscription.exceptionHandler(failures::add);
                                              subscription.handler(received::add);
                                              subscribed.complete(subscription);
                                          })
                                          .onFailure(subscribed::completeExceptionally));
-        return new TestSubscriber(context, subscribed.get(30, TimeUnit.SECONDS), received);
+        return new TestSubscriber(context, subscribed.get(30, TimeUnit.SECONDS), received, failures);
+    }
+
+    /**
+     * @return the next failure the subscription reported to its exception handler, or null when none came in time
+     */
+    public Throwable pollFailure(long millis) throws InterruptedException {
+        return failures.poll(millis, TimeUnit.MILLISECONDS);
     }
 
     public QueueRecord next() throws InterruptedException {

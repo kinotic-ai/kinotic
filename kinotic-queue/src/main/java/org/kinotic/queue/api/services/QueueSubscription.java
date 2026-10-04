@@ -5,7 +5,8 @@ import io.vertx.core.streams.ReadStream;
 import org.kinotic.queue.api.model.QueueRecord;
 
 /**
- * The records of one queue delivered to one consumer, in offset order within each shard.
+ * The records of one queue delivered to one consumer, in offset order within each shard. A shard that cannot be read
+ * for 30 seconds is reported to the {@link #exceptionHandler exception handler} once, and delivery keeps retrying it.
  * Methods must be called on the Vert.x context the subscription delivers on.
  */
 public interface QueueSubscription extends ReadStream<QueueRecord> {

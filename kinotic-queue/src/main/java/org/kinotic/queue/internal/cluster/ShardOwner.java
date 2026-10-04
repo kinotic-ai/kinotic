@@ -153,9 +153,10 @@ final class ShardOwner {
      * Returns committed entries starting at {@code offset}, holding the request up to {@link #FETCH_WAIT_MS} while
      * none is committed there yet.
      *
-     * @param offset the first offset to return, or -1 to return no entries and the committed offset at once
+     * @param offset   the first offset to return, or -1 to return no entries and the committed offset at once
+     * @param maxBytes the size after which no further entry is returned; the first entry is returned however large
      */
-    Future<FetchResponse> fetch(long offset, int max) {
+    Future<FetchResponse> fetch(long offset, int max, long maxBytes) {
         if (!active) {
             return Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue + " is recovering"));
         }
@@ -167,9 +168,9 @@ final class ShardOwner {
         if (offset < 0) {
             ret = Future.succeededFuture(new FetchResponse(List.of(), committedOffset));
         } else if (offset < committedOffset) {
-            ret = readCommitted(offset, max);
+            ret = readCommitted(offset, max, maxBytes);
         } else {
-            PendingFetch pending = new PendingFetch(offset, max, Promise.promise());
+            PendingFetch pending = new PendingFetch(offset, max, maxBytes, Promise.promise());
             pendingFetches.add(pending);
             vertx.setTimer(FETCH_WAIT_MS, t -> {
                 if (pendingFetches.remove(pending)) {
@@ -404,7 +405,7 @@ final class ShardOwner {
     // Copies entries from the most advanced copy until this copy matches it up to its end. ShardLog.replicate does the
     // checks exactly as it does for a follower, replacing any entries of this copy that differ.
     private Future<Void> catchUp(String source, long from, long target, long proposed) {
-        return client.read(source, new FetchRequest(queue, shard, Math.max(0, from - 1), CATCH_UP_BATCH_SIZE + 1))
+        return client.read(source, new FetchRequest(queue, shard, Math.max(0, from - 1), CATCH_UP_BATCH_SIZE + 1, MAX_BATCH_BYTES))
                      .compose(response -> vertx.executeBlocking(() -> applyCatchUp(from, response.entries(), target, proposed), false))
                      .compose(result -> {
                          Future<Void> ret;
@@ -484,7 +485,7 @@ final class ShardOwner {
                 PendingFetch pending = iterator.next();
                 if (pending.from() < committedOffset) {
                     iterator.remove();
-                    readCommitted(pending.from(), pending.max()).onComplete(pending.promise());
+                    readCommitted(pending.from(), pending.max(), pending.maxBytes()).onComplete(pending.promise());
                 }
             }
             scheduleStateSave();
@@ -545,9 +546,9 @@ final class ShardOwner {
         }
     }
 
-    private Future<FetchResponse> readCommitted(long from, int max) {
+    private Future<FetchResponse> readCommitted(long from, int max, long maxBytes) {
         int count = (int) Math.min(max, committedOffset - from);
-        return vertx.executeBlocking(() -> shardLog.read(from, count, MAX_BATCH_BYTES), false)
+        return vertx.executeBlocking(() -> shardLog.read(from, count, Math.min(maxBytes, MAX_BATCH_BYTES)), false)
                     .map(entries -> new FetchResponse(entries, from + entries.size()));
     }
 

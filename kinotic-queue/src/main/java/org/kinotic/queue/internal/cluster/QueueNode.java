@@ -151,7 +151,7 @@ public class QueueNode {
     private void onFetch(Message<Buffer> message) {
         FetchRequest request = FetchRequest.fromBuffer(message.body());
         reply(message, owner(request.queue(), request.shard())
-                .compose(owner -> owner.fetch(request.offset(), request.max()))
+                .compose(owner -> owner.fetch(request.offset(), request.max(), request.maxBytes()))
                 .map(FetchResponse::toBuffer));
     }
 
@@ -198,7 +198,7 @@ public class QueueNode {
             if (shard == null || request.offset() >= shard.nextOffset()) {
                 response = new FetchResponse(List.of(), request.offset());
             } else {
-                List<ShardEntry> entries = shard.read(request.offset(), request.max(), ShardOwner.MAX_BATCH_BYTES);
+                List<ShardEntry> entries = shard.read(request.offset(), request.max(), Math.min(request.maxBytes(), ShardOwner.MAX_BATCH_BYTES));
                 response = new FetchResponse(entries, request.offset() + entries.size());
             }
             return response.toBuffer();

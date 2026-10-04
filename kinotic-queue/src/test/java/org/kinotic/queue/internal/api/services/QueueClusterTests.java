@@ -30,6 +30,8 @@ import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.kinotic.queue.internal.QueueTestSupport.await;
 import static org.kinotic.queue.internal.QueueTestSupport.payload;
@@ -161,6 +163,28 @@ public class QueueClusterTests {
 
         assertInstanceOf(ReplyException.class, e.getCause());
         assertTrue(e.getCause().getMessage().contains("copies"), e.getCause().getMessage());
+    }
+
+    @Test
+    public void aSubscriptionReportsAShardItCannotReadForThirtySecondsAndKeepsRetrying() throws Exception {
+        QueueTestNode alone = start("alone");
+        await(alone.queueService().createQueueIfNotExist(new QueueDefinition(QUEUE, 1)));
+        // With one of three copies, the shard never gets an owner
+        TestSubscriber subscriber = TestSubscriber.subscribe(alone.vertx(), alone.queueService(), QUEUE, "billing", StartPosition.EARLIEST);
+
+        assertNull(subscriber.pollFailure(20_000));
+        Throwable failure = subscriber.pollFailure(30_000);
+
+        assertNotNull(failure);
+        assertTrue(failure.getMessage().contains("still retrying"), failure.getMessage());
+        // Reported once per run of failures
+        assertNull(subscriber.pollFailure(2_000));
+
+        QueueTestNode second = start("second");
+        start("third");
+        await(second.queueService().append(QUEUE, "key", payload(7)));
+        assertEquals(7, value(subscriber.next()));
+        await(subscriber.close());
     }
 
     private QueueTestNode start(String name) throws Exception {

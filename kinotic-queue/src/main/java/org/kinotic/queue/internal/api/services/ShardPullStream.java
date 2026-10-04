@@ -14,7 +14,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * A {@link ReadStream} that pulls items from every shard of a queue, one request per shard at a time, and hands them
  * to the handler as demand allows. A shard whose request fails is pulled again after a short delay, which also finds
- * its new owner when it changed. Runs on the context it was created for.
+ * its new owner when it changed; a shard that keeps failing for {@link #FAILURE_REPORT_MS} is reported to the exception
+ * handler once, and pulling it goes on. Runs on the context it was created for.
  *
  * @param <T> the items the stream delivers
  * @param <R> what one pull from a shard returns
@@ -24,9 +25,17 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
 
     private static final long RETRY_DELAY_MS = 200;
 
+    /**
+     * How long a shard keeps failing before the failure is reported.
+     */
+    static final long FAILURE_REPORT_MS = 30_000;
+
     private final Context context;
     private final String description;
     private final boolean[] pulling;
+    // When each shard's current run of failed pulls began, or 0 while its last pull succeeded
+    private final long[] failingSince;
+    private final boolean[] failureReported;
     private final ArrayDeque<T> pending = new ArrayDeque<>();
 
     private Handler<T> handler;
@@ -42,6 +51,8 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
         this.context = context;
         this.description = description;
         this.pulling = new boolean[shardCount];
+        this.failingSince = new long[shardCount];
+        this.failureReported = new boolean[shardCount];
     }
 
     /**
@@ -175,10 +186,13 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
             pull(shard).onComplete(ar -> {
                 if (ar.succeeded()) {
                     pulling[shard] = false;
+                    failingSince[shard] = 0;
+                    failureReported[shard] = false;
                     onPulled(shard, ar.result());
                     deliver();
                 } else {
                     log.debug("Pulling shard {} for {} failed, retrying", shard, description, ar.cause());
+                    reportPersistentFailure(shard, ar.cause());
                     // The shard stays marked as pulling until the retry, so deliver() cannot start a second pull of it
                     context.owner().timer(RETRY_DELAY_MS, TimeUnit.MILLISECONDS).onComplete(t -> {
                         pulling[shard] = false;
@@ -186,6 +200,22 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
                     });
                 }
             });
+        }
+    }
+
+    private void reportPersistentFailure(int shard, Throwable cause) {
+        long now = System.currentTimeMillis();
+        if (failingSince[shard] == 0) {
+            failingSince[shard] = now;
+        }
+        if (!failureReported[shard] && now - failingSince[shard] >= FAILURE_REPORT_MS) {
+            failureReported[shard] = true;
+            IllegalStateException failure = new IllegalStateException("Shard " + shard + " of " + description + " could not be read for "
+                                                                              + (now - failingSince[shard]) + " ms; still retrying", cause);
+            log.warn(failure.getMessage(), cause);
+            if (exceptionHandler != null) {
+                exceptionHandler.handle(failure);
+            }
         }
     }
 

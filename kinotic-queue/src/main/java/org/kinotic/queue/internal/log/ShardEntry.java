@@ -28,6 +28,13 @@ public record ShardEntry(long offset, long epoch, String key, byte[] payload) {
      * @return roughly the bytes the entry adds to a batch
      */
     public int size() {
+        return size(key, payload);
+    }
+
+    /**
+     * @return roughly the bytes a record with this key and payload adds to a batch
+     */
+    public static int size(String key, byte[] payload) {
         return payload.length + (key == null ? 0 : key.length());
     }
 }

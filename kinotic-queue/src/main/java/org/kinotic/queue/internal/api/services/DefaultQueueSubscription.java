@@ -21,8 +21,11 @@ import java.util.stream.IntStream;
 public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, FetchResponse> implements QueueSubscription {
 
     private static final int FETCH_SIZE = 256;
-    // Fetching pauses while this many records wait for demand
+    // Fetching pauses while this many records, or this many bytes of them, wait for demand or are being fetched
     private static final int MAX_PENDING = 1_024;
+    private static final long MAX_PENDING_BYTES = 16 * 1024 * 1024;
+    // The smallest byte budget one fetch is given, so a nearly full buffer still fetches in useful steps
+    private static final long MIN_FETCH_BYTES = 64 * 1024;
 
     private final QueueClusterClient client;
     private final String queue;
@@ -32,6 +35,9 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
     private final long[] committedNextOffsets;
     // The offset after the last record handed to the handler, per shard; a commit may not go past it
     private final long[] deliveredNextOffsets;
+    private long pendingBytes;
+    // The byte budgets of the fetches on their way
+    private long reservedBytes;
 
     private DefaultQueueSubscription(Context context,
                                      QueueClusterClient client,
@@ -116,12 +122,14 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
 
     @Override
     protected boolean canPull(int shard) {
-        return pendingCount() < MAX_PENDING;
+        return pendingCount() < MAX_PENDING && pendingBytes + reservedBytes < MAX_PENDING_BYTES;
     }
 
     @Override
     protected Future<FetchResponse> pull(int shard) {
-        return client.fetch(queue, shard, fetchOffsets[shard], FETCH_SIZE);
+        long budget = Math.max(MIN_FETCH_BYTES, (MAX_PENDING_BYTES - pendingBytes - reservedBytes) / fetchOffsets.length);
+        reservedBytes += budget;
+        return client.fetch(queue, shard, fetchOffsets[shard], FETCH_SIZE, budget).onComplete(ar -> reservedBytes -= budget);
     }
 
     @Override
@@ -129,6 +137,7 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
         if (!isEnded()) {
             for (ShardEntry entry : response.entries()) {
                 if (!entry.isMarker()) {
+                    pendingBytes += entry.size();
                     push(new QueueRecord(new QueuePosition(queue, shard, entry.offset()), entry.key(), entry.payload()));
                 }
             }
@@ -138,6 +147,7 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
 
     @Override
     protected void onDelivered(QueueRecord record) {
+        pendingBytes -= ShardEntry.size(record.key(), record.payload());
         deliveredNextOffsets[record.position().shard()] = record.position().offset() + 1;
     }
 }
