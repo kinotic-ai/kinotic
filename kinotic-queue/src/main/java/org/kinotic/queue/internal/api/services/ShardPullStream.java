@@ -5,6 +5,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.streams.ReadStream;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.queue.internal.cluster.QueueFailure;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -15,7 +16,8 @@ import java.util.concurrent.TimeUnit;
  * A {@link ReadStream} that pulls items from every shard of a queue, one request per shard at a time, and hands them
  * to the handler as demand allows. A shard whose request fails is pulled again after a short delay, which also finds
  * its new owner when it changed; a shard that keeps failing for {@link #FAILURE_REPORT_MS} is reported to the exception
- * handler once, and pulling it goes on. Runs on the context it was created for.
+ * handler once, and pulling it goes on. A stream whose queue was deleted reports it to the exception handler and closes.
+ * Runs on the context it was created for.
  *
  * @param <T> the items the stream delivers
  * @param <R> what one pull from a shard returns
@@ -200,6 +202,8 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
                     failureReported[shard] = false;
                     onPulled(shard, ar.result());
                     deliver();
+                } else if (!closed && QueueFailure.NO_QUEUE.matches(ar.cause())) {
+                    fail(new IllegalStateException("The queue of " + description + " was deleted", ar.cause()));
                 } else {
                     log.debug("Pulling shard {} for {} failed, retrying", shard, description, ar.cause());
                     // The shard stays marked as pulling until the retry, so deliver() cannot start a second pull of it
@@ -231,7 +235,7 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
         if (exceptionHandler != null) {
             notifyExceptionHandler(t);
         } else {
-            log.error("The handler of {} failed", description, t);
+            log.error("{} stopped", description, t);
         }
         close();
     }

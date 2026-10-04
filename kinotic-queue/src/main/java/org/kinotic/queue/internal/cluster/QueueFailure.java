@@ -1,5 +1,8 @@
 package org.kinotic.queue.internal.cluster;
 
+import io.vertx.core.eventbus.ReplyException;
+import io.vertx.core.eventbus.ReplyFailure;
+
 /**
  * Why a queue node refused a request, sent as the failure code of the event bus reply.
  */
@@ -42,5 +45,18 @@ public enum QueueFailure {
 
     public QueueFailureException exception(String message) {
         return new QueueFailureException(this, message);
+    }
+
+    /**
+     * @return whether the failure of a request is this one, whether this node or the node the request went to refused it
+     */
+    public boolean matches(Throwable cause) {
+        boolean ret = false;
+        if (cause instanceof QueueFailureException failure) {
+            ret = failure.getFailure() == this;
+        } else if (cause instanceof ReplyException reply) {
+            ret = reply.failureType() == ReplyFailure.RECIPIENT_FAILURE && fromCode(reply.failureCode()) == this;
+        }
+        return ret;
     }
 }

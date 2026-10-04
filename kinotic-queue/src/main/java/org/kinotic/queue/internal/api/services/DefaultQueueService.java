@@ -16,6 +16,7 @@ import org.kinotic.queue.api.services.QueueWorker;
 import org.kinotic.queue.internal.cluster.QueueClusterClient;
 import org.kinotic.queue.internal.cluster.QueueDefinitionRepository;
 import org.kinotic.queue.internal.cluster.QueueNode;
+import org.kinotic.queue.internal.cluster.ShardStateRepository;
 import org.kinotic.queue.internal.log.QueueLog;
 import org.springframework.stereotype.Component;
 
@@ -33,6 +34,7 @@ public class DefaultQueueService implements QueueService {
     private final QueueDefinitionRepository definitions;
     private final QueueNode queueNode;
     private final QueueClusterClient client;
+    private final ShardStateRepository shardStates;
 
     @Override
     public Future<QueueDefinition> createQueueIfNotExist(QueueDefinition definition) {
@@ -44,6 +46,19 @@ public class DefaultQueueService implements QueueService {
             // Keeps a copy on disk, so the queue is known again after every queue node restarts
             queueNode.localLog(stored);
             return stored;
+        }, false);
+    }
+
+    @Override
+    public Future<Void> deleteQueue(String name) {
+        return vertx.executeBlocking(() -> {
+            QueueLog.requireValidName(name);
+            String incarnation = definitions.findIncarnation(name);
+            QueueDefinition definition = definitions.find(name);
+            if (definitions.delete(name) && incarnation != null && definition != null) {
+                shardStates.deleteAll(incarnation, definition.shardCount());
+            }
+            return null;
         }, false);
     }
 

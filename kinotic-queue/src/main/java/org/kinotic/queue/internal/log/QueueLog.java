@@ -1,13 +1,19 @@
 package org.kinotic.queue.internal.log;
 
 import net.openhft.hashing.LongHashFunction;
+import org.apache.commons.io.FileUtils;
 import org.kinotic.queue.api.config.QueueProperties;
 import org.kinotic.queue.api.model.QueueDefinition;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -18,6 +24,9 @@ import java.util.regex.Pattern;
 public final class QueueLog implements AutoCloseable {
 
     private static final String SHARD_COUNT_FILE = "shard-count";
+    private static final String INCARNATION_FILE = "incarnation";
+    // The incarnations of deleted queues this node knows of, one "<incarnation> <name>" per line
+    private static final String DELETED_QUEUES_FILE = ".deleted-queues";
     // Starts with a dot, which no queue name does, so it is never taken for a queue's directory
     private static final String STORAGE_ID_FILE = ".storage-id";
     // Queue and consumer names become directory and file names, so they can never contain a path separator or "..",
@@ -26,14 +35,16 @@ public final class QueueLog implements AutoCloseable {
 
     private final Path directory;
     private final QueueDefinition definition;
+    private final String incarnation;
     private final QueueProperties properties;
     private final ShardLog[] shards;
     private final ConsumerOffsetRepository consumerOffsets;
     private final ConsumerOffsetRepository groupOffsets;
 
-    private QueueLog(Path directory, QueueDefinition definition, QueueProperties properties) {
+    private QueueLog(Path directory, QueueDefinition definition, String incarnation, QueueProperties properties) {
         this.directory = directory;
         this.definition = definition;
+        this.incarnation = incarnation;
         this.properties = properties;
         this.shards = new ShardLog[definition.shardCount()];
         this.consumerOffsets = new ConsumerOffsetRepository(directory.resolve("consumers"), definition.shardCount(), properties.isSyncWrites());
@@ -58,21 +69,87 @@ public final class QueueLog implements AutoCloseable {
     }
 
     /**
-     * Opens the queue stored in {@code directory}, storing {@code definition} there when the directory holds none.
+     * Opens the queue stored in {@code directory}, storing {@code definition} there when the directory holds none, or
+     * holds an earlier queue of the same name, whose data is deleted.
      *
-     * @param properties the queue storage settings the shards follow
+     * @param incarnation tells this queue from earlier ones of the same name
+     * @param properties  the queue storage settings the shards follow
      * @throws IllegalStateException when the directory holds the queue with a different shard count
      */
-    public static QueueLog openOrCreate(Path directory, QueueDefinition definition, QueueProperties properties) {
+    public static QueueLog openOrCreate(Path directory, QueueDefinition definition, String incarnation, QueueProperties properties) {
+        if (Files.exists(directory.resolve(SHARD_COUNT_FILE)) && !incarnation.equals(findIncarnation(directory))) {
+            delete(directory);
+        }
         QueueDefinition stored = findDefinition(directory);
         if (stored != null && stored.shardCount() != definition.shardCount()) {
             throw new IllegalStateException(directory + " holds queue " + definition.name() + " with " + stored.shardCount()
                                                     + " shards, but the cluster defines it with " + definition.shardCount());
         }
         if (stored == null) {
+            // The incarnation first, since a directory without a shard count holds no queue
+            ShardLog.writeDurably(directory.resolve(INCARNATION_FILE), incarnation);
             ShardLog.writeDurably(directory.resolve(SHARD_COUNT_FILE), String.valueOf(definition.shardCount()));
         }
-        return new QueueLog(directory, definition, properties);
+        return new QueueLog(directory, definition, incarnation, properties);
+    }
+
+    /**
+     * @return the incarnation of the queue stored in {@code directory}, or null when no queue is stored there
+     */
+    public static String findIncarnation(Path directory) {
+        Path file = directory.resolve(INCARNATION_FILE);
+        String ret = null;
+        if (Files.exists(file)) {
+            try {
+                ret = Files.readString(file).trim();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * Deletes the queue stored in {@code directory}, which must not be open.
+     */
+    public static void delete(Path directory) {
+        try {
+            // The shard count first, so a crash partway leaves a directory that holds no queue
+            Files.deleteIfExists(directory.resolve(SHARD_COUNT_FILE));
+            FileUtils.deleteDirectory(directory.toFile());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * @return the names of the deleted queues this node recorded in {@code dataDirectory}, by incarnation
+     */
+    public static Map<String, String> findDeletedQueues(Path dataDirectory) {
+        Path file = dataDirectory.resolve(DELETED_QUEUES_FILE);
+        Map<String, String> ret = new HashMap<>();
+        if (Files.exists(file)) {
+            try {
+                for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+                    String[] fields = line.trim().split(" ");
+                    if (fields.length == 2) {
+                        ret.put(fields[0], fields[1]);
+                    }
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * Records in {@code dataDirectory} the deleted queues, by incarnation, which a node restarted later still knows.
+     */
+    public static void saveDeletedQueues(Path dataDirectory, Map<String, String> deletedQueues) {
+        List<String> lines = new ArrayList<>();
+        deletedQueues.forEach((incarnation, name) -> lines.add(incarnation + " " + name));
+        ShardLog.writeDurably(dataDirectory.resolve(DELETED_QUEUES_FILE), String.join("\n", lines));
     }
 
     /**
@@ -133,6 +210,19 @@ public final class QueueLog implements AutoCloseable {
     }
 
     /**
+     * @return the shards this node has opened, by shard
+     */
+    public synchronized Map<Integer, ShardLog> openShards() {
+        Map<Integer, ShardLog> ret = new HashMap<>();
+        for (int shard = 0; shard < shards.length; shard++) {
+            if (shards[shard] != null) {
+                ret.put(shard, shards[shard]);
+            }
+        }
+        return ret;
+    }
+
+    /**
      * @return the shard, or null when this node has never held it
      */
     public synchronized ShardLog findShard(int shard) {
@@ -156,6 +246,13 @@ public final class QueueLog implements AutoCloseable {
 
     public QueueDefinition definition() {
         return definition;
+    }
+
+    /**
+     * @return what tells this queue from earlier ones of the same name
+     */
+    public String incarnation() {
+        return incarnation;
     }
 
     /**

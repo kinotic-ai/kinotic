@@ -26,11 +26,13 @@ public final class TestWorker {
     private final Context context;
     private final QueueWorker worker;
     private final LinkedBlockingQueue<WorkItem> received;
+    private final LinkedBlockingQueue<Throwable> failures;
 
-    private TestWorker(Context context, QueueWorker worker, LinkedBlockingQueue<WorkItem> received) {
+    private TestWorker(Context context, QueueWorker worker, LinkedBlockingQueue<WorkItem> received, LinkedBlockingQueue<Throwable> failures) {
         this.context = context;
         this.worker = worker;
         this.received = received;
+        this.failures = failures;
     }
 
     public static TestWorker start(Vertx vertx,
@@ -40,14 +42,23 @@ public final class TestWorker {
                                    WorkerOptions options) throws Exception {
         Context context = vertx.getOrCreateContext();
         LinkedBlockingQueue<WorkItem> received = new LinkedBlockingQueue<>();
+        LinkedBlockingQueue<Throwable> failures = new LinkedBlockingQueue<>();
         CompletableFuture<QueueWorker> started = new CompletableFuture<>();
         context.runOnContext(v -> service.work(queue, groupName, options)
                                          .onSuccess(worker -> {
+                                             worker.exceptionHandler(failures::add);
                                              worker.handler(received::add);
                                              started.complete(worker);
                                          })
                                          .onFailure(started::completeExceptionally));
-        return new TestWorker(context, started.get(30, TimeUnit.SECONDS), received);
+        return new TestWorker(context, started.get(30, TimeUnit.SECONDS), received, failures);
+    }
+
+    /**
+     * @return the next failure the worker reported to its exception handler, or null when none came in time
+     */
+    public Throwable pollFailure(long millis) throws InterruptedException {
+        return failures.poll(millis, TimeUnit.MILLISECONDS);
     }
 
     public static int value(WorkItem item) {

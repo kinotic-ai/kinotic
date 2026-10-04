@@ -10,15 +10,15 @@ import org.apache.ignite.util.AttributeNodeFilter;
 import org.springframework.stereotype.Component;
 
 /**
- * Stores the highest offset known to be committed on each shard, shared by every queue node while any of them runs.
- * A node about to own a shard compares the copies it can reach against it. Its methods block.
+ * Stores the highest offset known to be committed on each shard of each queue incarnation, shared by every queue node
+ * while any of them runs. A node about to own a shard compares the copies it can reach against it. Its methods block.
  */
 @Component
 public class ShardStateRepository {
 
     private static final String STATE_CACHE = "kinotic_queue_shard_states";
 
-    // Committed offset by "queue/shard"
+    // Committed offset by "incarnation/shard"
     private final IgniteCache<String, Long> cache;
 
     public ShardStateRepository(Ignite ignite) {
@@ -33,23 +33,32 @@ public class ShardStateRepository {
     /**
      * @return the highest offset known to be committed on the shard; zero when none is known
      */
-    public long findCommittedOffset(String queue, int shard) {
-        Long ret = cache.get(key(queue, shard));
+    public long findCommittedOffset(String incarnation, int shard) {
+        Long ret = cache.get(key(incarnation, shard));
         return ret != null ? ret : 0;
     }
 
     /**
      * Stores the shard's committed offset unless a higher one is already stored.
      */
-    public void saveCommittedOffset(String queue, int shard, long committedOffset) {
-        String key = key(queue, shard);
+    public void saveCommittedOffset(String incarnation, int shard, long committedOffset) {
+        String key = key(incarnation, shard);
         Long stored = cache.getAndPutIfAbsent(key, committedOffset);
         while (stored != null && stored < committedOffset && !cache.replace(key, stored, committedOffset)) {
             stored = cache.get(key);
         }
     }
 
-    private static String key(String queue, int shard) {
-        return queue + "/" + shard;
+    /**
+     * Deletes what is stored for the shards of a deleted queue.
+     */
+    public void deleteAll(String incarnation, int shardCount) {
+        for (int shard = 0; shard < shardCount; shard++) {
+            cache.remove(key(incarnation, shard));
+        }
+    }
+
+    private static String key(String incarnation, int shard) {
+        return incarnation + "/" + shard;
     }
 }

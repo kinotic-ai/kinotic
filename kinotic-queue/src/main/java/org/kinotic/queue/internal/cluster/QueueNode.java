@@ -74,7 +74,10 @@ public class QueueNode {
     static final String STATUS = "status";
 
     private static final long RECONCILE_INTERVAL_MS = 500;
+    // How often this node's queue directories are checked against the cluster's queues when no queue was deleted since
+    private static final long LOCAL_QUEUES_SYNC_INTERVAL_MS = 60_000;
     private static final long LIFECYCLE_TIMEOUT_SECONDS = 30;
+    private static final long METRICS_INTERVAL_MS = 5_000;
 
     private final Vertx vertx;
     private final KinoticQueueProperties properties;
@@ -82,14 +85,19 @@ public class QueueNode {
     private final QueueDefinitionRepository definitions;
     private final QueueClusterClient client;
     private final ShardStateRepository shardStates;
+    private final QueueMetrics metrics;
     private final ConcurrentHashMap<String, QueueLog> logs = new ConcurrentHashMap<>();
     // Touched only on context
     private final Map<String, ShardOwner> owners = new HashMap<>();
     private final List<MessageConsumer<Buffer>> consumers = new ArrayList<>();
     private Context context;
     private long reconcileTimer;
+    private long metricsTimer;
     private boolean reconciling;
-    private boolean stopped;
+    private volatile boolean stopped;
+    // The incarnations of deleted queues whose copies this node has deleted; written on worker threads
+    private volatile Set<String> deletedQueues = Set.of();
+    private volatile long localQueuesSyncedAt;
 
     /**
      * The event bus address a queue node receives one kind of request on.
@@ -100,7 +108,7 @@ public class QueueNode {
 
     @PostConstruct
     public void start() throws Exception {
-        publishStoredDefinitions();
+        syncLocalQueues();
         CompletableFuture<Void> started = new CompletableFuture<>();
         context = vertx.getOrCreateContext();
         context.runOnContext(v -> {
@@ -118,6 +126,7 @@ public class QueueNode {
             Future.all(consumers.stream().map(MessageConsumer::completion).toList()).onComplete(ar -> {
                 if (ar.succeeded()) {
                     reconcileTimer = vertx.setPeriodic(RECONCILE_INTERVAL_MS, t -> reconcile());
+                    metricsTimer = vertx.setPeriodic(METRICS_INTERVAL_MS, t -> refreshMetrics());
                     reconcile();
                     started.complete(null);
                 } else {
@@ -134,6 +143,7 @@ public class QueueNode {
         context.runOnContext(v -> {
             stopped = true;
             vertx.cancelTimer(reconcileTimer);
+            vertx.cancelTimer(metricsTimer);
             owners.values().forEach(ShardOwner::stop);
             owners.clear();
             Future.join(consumers.stream().map(MessageConsumer::unregister).toList())
@@ -145,11 +155,31 @@ public class QueueNode {
     }
 
     /**
-     * Opens this node's copy of a queue, creating its directory when the node has none. Blocks on disk access.
+     * Opens this node's copy of a queue, creating its directory when the node has none, or holds a copy of an earlier
+     * queue of the same name. Blocks on disk access.
+     *
+     * @throws QueueFailureException with {@link QueueFailure#NO_QUEUE} when the queue was deleted
      */
     public QueueLog localLog(QueueDefinition definition) {
-        return logs.computeIfAbsent(definition.name(), name -> QueueLog.openOrCreate(queueDirectory(name), definition,
-                                                                                    properties.getQueue()));
+        String incarnation = definitions.findIncarnation(definition.name());
+        if (incarnation == null) {
+            throw QueueFailure.NO_QUEUE.exception("No queue named " + definition.name());
+        }
+        QueueLog ret = logs.get(definition.name());
+        if (ret == null || !ret.incarnation().equals(incarnation)) {
+            // Under the map's lock for the name, so syncLocalQueues never deletes a copy opened meanwhile
+            ret = logs.compute(definition.name(), (name, open) -> {
+                QueueLog opened = open;
+                if (open == null || !open.incarnation().equals(incarnation)) {
+                    if (open != null) {
+                        open.close();
+                    }
+                    opened = QueueLog.openOrCreate(queueDirectory(name), definition, incarnation, properties.getQueue());
+                }
+                return opened;
+            });
+        }
+        return ret;
     }
 
     private void onAppend(Message<Buffer> message) {
@@ -192,7 +222,12 @@ public class QueueNode {
         ShardOwner owner = owners.get(queue + "/" + shard);
         Future<Buffer> result;
         if (owner == null) {
-            result = Future.failedFuture(QueueFailure.NOT_OWNER.exception("This node does not own shard " + shard + " of queue " + queue));
+            // A queue created moments ago may not be read here yet, and a deleted one is forgotten at the next reconcile
+            result = vertx.executeBlocking(() -> {
+                throw definitions.find(queue) == null
+                        ? QueueFailure.NO_QUEUE.exception("No queue named " + queue)
+                        : QueueFailure.NOT_OWNER.exception("This node does not own shard " + shard + " of queue " + queue);
+            }, false);
         } else if (owner.actingOwner() != null) {
             result = client.forward(owner.actingOwner(), action, message.body());
         } else {
@@ -273,17 +308,26 @@ public class QueueNode {
                     acting.add(key);
                 }
             });
-            vertx.executeBlocking(() -> assignedShards(acting), false).onComplete(ar -> {
-                reconciling = false;
-                // A reconcile that finishes after stop() would start owners nothing stops
-                if (!stopped) {
-                    if (ar.succeeded()) {
-                        applyAssignments(ar.result());
-                    } else {
-                        log.warn("Reconciling queue shard ownership failed", ar.cause());
-                    }
-                }
-            });
+            vertx.executeBlocking(() -> assignedShards(acting), false)
+                 .compose(assignments -> {
+                     // A reconcile that finishes after stop() would start owners nothing stops
+                     if (!stopped) {
+                         applyAssignments(assignments);
+                     }
+                     // Once the deleted queues' owners stopped, their copies go
+                     return vertx.executeBlocking(() -> {
+                         if (!stopped && localQueuesSyncDue()) {
+                             syncLocalQueues();
+                         }
+                         return null;
+                     }, false);
+                 })
+                 .onComplete(ar -> {
+                     reconciling = false;
+                     if (ar.failed()) {
+                         log.warn("Reconciling queue shard ownership failed", ar.cause());
+                     }
+                 });
         }
     }
 
@@ -305,13 +349,7 @@ public class QueueNode {
                         }
                     }
                     QueueLog queueLog = localLog(definition);
-                    ShardAssignment assignment = new ShardAssignment(definition.name(),
-                                                                     shard,
-                                                                     queueLog.shard(shard),
-                                                                     queueLog.consumerOffsets(),
-                                                                     queueLog.groupOffsets(),
-                                                                     followers,
-                                                                     primary);
+                    ShardAssignment assignment = new ShardAssignment(queueLog, shard, queueLog.shard(shard), followers, primary);
                     ret.put(assignment.key(), assignment);
                 }
             }
@@ -332,7 +370,7 @@ public class QueueNode {
             ShardOwner owner = owners.get(assignment.key());
             if (owner == null && assignment.primary()) {
                 String queue = assignment.queue();
-                owner = new ShardOwner(vertx, placement, client, shardStates, assignment,
+                owner = new ShardOwner(vertx, placement, client, shardStates, metrics, assignment,
                                        (groupName, entry) -> deadLetter(queue, groupName, entry));
                 owners.put(assignment.key(), owner);
                 owner.start(assignment.followers());
@@ -353,19 +391,95 @@ public class QueueNode {
                         return stored;
                     }, false)
                     .compose(definition -> client.append(definition.name(), Future.succeededFuture(definition), entry.key(), entry.payload()))
+                    .onSuccess(position -> metrics.recordDeadLetter(queue, groupName))
                     .mapEmpty();
     }
 
-    // After every queue node restarts, the queues are known again from the copies stored on disk
-    private void publishStoredDefinitions() throws IOException {
+    // Reads the owners' progress on the context, then the stored offsets and sizes, which take disk access, off it
+    private void refreshMetrics() {
+        Map<String, ShardOwner> active = new HashMap<>();
+        Map<String, Map<String, Long>> replicaLags = new HashMap<>();
+        Map<String, Long> committed = new HashMap<>();
+        owners.forEach((key, owner) -> {
+            if (owner.isActive()) {
+                active.put(key, owner);
+                committed.put(key, owner.committedOffset());
+                owner.replicaLag().forEach((node, lag) -> replicaLags.computeIfAbsent(owner.queue(), q -> new HashMap<>()).merge(node, lag, Long::sum));
+            }
+        });
+        vertx.executeBlocking(() -> {
+            Map<String, Map<String, Long>> consumerLags = new HashMap<>();
+            Map<String, Map<String, Long>> groupLags = new HashMap<>();
+            Map<String, Long> owned = new HashMap<>();
+            active.forEach((key, owner) -> {
+                QueueLog queueLog = logs.get(owner.queue());
+                if (queueLog != null) {
+                    long committedOffset = committed.get(key);
+                    owned.merge(owner.queue(), 1L, Long::sum);
+                    queueLog.consumerOffsets().findAll(owner.shard()).forEach((consumer, next) -> consumerLags
+                            .computeIfAbsent(owner.queue(), q -> new HashMap<>()).merge(consumer, Math.max(0, committedOffset - next), Long::sum));
+                    queueLog.groupOffsets().findAll(owner.shard()).forEach((group, watermark) -> groupLags
+                            .computeIfAbsent(owner.queue(), q -> new HashMap<>()).merge(group, Math.max(0, committedOffset - watermark), Long::sum));
+                }
+            });
+            Map<String, Long> sizes = new HashMap<>();
+            logs.forEach((queue, queueLog) -> sizes.put(queue, queueLog.openShards().values().stream().mapToLong(ShardLog::bytes).sum()));
+            metrics.refresh(consumerLags, groupLags, replicaLags, sizes, owned);
+            return null;
+        }, false).onFailure(e -> log.warn("Refreshing the queue metrics failed", e));
+    }
+
+    private boolean localQueuesSyncDue() {
+        return !deletedQueues.containsAll(definitions.findDeleted().keySet())
+                || System.currentTimeMillis() - localQueuesSyncedAt >= LOCAL_QUEUES_SYNC_INTERVAL_MS;
+    }
+
+    // Brings this node's queue directories in line with the cluster's queues. The deleted queues this node and the
+    // cluster know of are shared both ways, so a node away during a deletion learns of it, and every node can tell
+    // a deleted queue from one the cluster lost track of when every node restarted: a copy of a deleted queue, or of
+    // an earlier queue whose name a newer one took, is deleted, and any other copy makes its queue known again.
+    private void syncLocalQueues() throws IOException {
         Path dataDirectory = Path.of(properties.getQueue().getDataDirectory());
+        Map<String, String> recorded = QueueLog.findDeletedQueues(dataDirectory);
+        Map<String, String> deleted = new HashMap<>(definitions.findDeleted());
+        deleted.putAll(recorded);
+        definitions.saveDeleted(deleted);
+        if (!recorded.keySet().containsAll(deleted.keySet())) {
+            QueueLog.saveDeletedQueues(dataDirectory, deleted);
+        }
         if (Files.isDirectory(dataDirectory)) {
             try (Stream<Path> directories = Files.list(dataDirectory)) {
-                directories.map(QueueLog::findDefinition)
-                           .filter(definition -> definition != null)
-                           .forEach(definitions::saveIfAbsent);
+                for (Path directory : directories.toList()) {
+                    QueueDefinition definition = QueueLog.findDefinition(directory);
+                    String incarnation = QueueLog.findIncarnation(directory);
+                    if (definition != null && incarnation != null) {
+                        String current = deleted.containsKey(incarnation) ? null : definitions.saveIfAbsent(definition, incarnation);
+                        if (!incarnation.equals(current)) {
+                            deleteLocalQueue(definition.name(), incarnation);
+                        }
+                    }
+                }
             }
         }
+        deletedQueues = deleted.keySet();
+        localQueuesSyncedAt = System.currentTimeMillis();
+    }
+
+    private void deleteLocalQueue(String queue, String incarnation) {
+        // Under the map's lock for the name, so a copy of a newer queue of the name opened meanwhile stays
+        logs.compute(queue, (name, open) -> {
+            QueueLog ret = open;
+            if (incarnation.equals(QueueLog.findIncarnation(queueDirectory(name)))) {
+                if (open != null) {
+                    open.close();
+                }
+                QueueLog.delete(queueDirectory(name));
+                metrics.removeQueue(name);
+                log.info("Deleted this node's copy of queue {}, which was deleted", name);
+                ret = null;
+            }
+            return ret;
+        });
     }
 
     private QueueDefinition requireDefinition(String queue) {

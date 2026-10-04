@@ -317,12 +317,12 @@ public class ShardLogTests {
     @Test
     public void aPromiseMadeWithoutACopyHoldsForTheCopyCreatedLaterAndAfterARestart() {
         QueueDefinition definition = new QueueDefinition("orders", 2);
-        try (QueueLog queueLog = QueueLog.openOrCreate(directory.resolve("orders"), definition, PROPERTIES)) {
+        try (QueueLog queueLog = QueueLog.openOrCreate(directory.resolve("orders"), definition, "first", PROPERTIES)) {
             assertEquals(-1, queueLog.promise(1, 7));
             assertEquals(7, queueLog.promise(1, 5));
             assertNull(queueLog.findShard(1));
         }
-        try (QueueLog reopened = QueueLog.openOrCreate(directory.resolve("orders"), definition, PROPERTIES)) {
+        try (QueueLog reopened = QueueLog.openOrCreate(directory.resolve("orders"), definition, "first", PROPERTIES)) {
             ShardLog copy = reopened.shard(1);
             assertEquals(7, copy.acceptedEpoch());
             assertEquals(ReplicationStatus.STALE_EPOCH, copy.replicate(new ReplicationBatch(6, -1, -1, 0, 1, List.of(entry(0, 6)))).status());

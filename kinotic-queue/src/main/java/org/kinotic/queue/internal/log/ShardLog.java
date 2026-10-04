@@ -308,6 +308,14 @@ public final class ShardLog implements AutoCloseable {
     }
 
     /**
+     * @return about how many bytes the shard's entries take: the {@link ShardEntry#size sizes} of the entries written
+     * to its segments
+     */
+    public long bytes() {
+        return segments.stream().mapToLong(ShardSegment::bytes).sum();
+    }
+
+    /**
      * @return the newest epoch the shard has promised, or -1 when it has promised none
      */
     public long acceptedEpoch() {

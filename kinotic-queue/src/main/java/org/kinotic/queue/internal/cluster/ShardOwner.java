@@ -25,6 +25,7 @@ import org.kinotic.queue.internal.log.ShardEntry;
 import org.kinotic.queue.internal.log.ShardLog;
 import org.kinotic.queue.internal.log.StaleEpochException;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -88,7 +89,10 @@ final class ShardOwner {
     private final ShardPlacement placement;
     private final QueueClusterClient client;
     private final ShardStateRepository shardStates;
+    private final QueueMetrics metrics;
     private final String queue;
+    // Tells the queue from earlier ones of the same name
+    private final String incarnation;
     private final int shard;
     private final ShardLog shardLog;
     private final ConsumerOffsetRepository consumerOffsets;
@@ -130,13 +134,16 @@ final class ShardOwner {
                ShardPlacement placement,
                QueueClusterClient client,
                ShardStateRepository shardStates,
+               QueueMetrics metrics,
                ShardAssignment assignment,
                BiFunction<String, ShardEntry, Future<Void>> deadLetters) {
         this.vertx = vertx;
         this.placement = placement;
         this.client = client;
         this.shardStates = shardStates;
+        this.metrics = metrics;
         this.queue = assignment.queue();
+        this.incarnation = assignment.incarnation();
         this.shard = assignment.shard();
         this.shardLog = assignment.shardLog();
         this.consumerOffsets = assignment.consumerOffsets();
@@ -187,7 +194,9 @@ final class ShardOwner {
             }
             producerBatches.put(request.producerId(), new ProducerBatch(request.sequence(), written, System.currentTimeMillis()));
         }
-        return written.compose(this::awaitCommitted);
+        long received = System.nanoTime();
+        return written.compose(this::awaitCommitted)
+                      .onSuccess(offsets -> metrics.recordAppend(queue, offsets.size(), Duration.ofNanos(System.nanoTime() - received)));
     }
 
     // Writes the batch's records the shard does not hold yet, the ones at -1 in offsets
@@ -216,7 +225,7 @@ final class ShardOwner {
                 Future<List<Long>> written;
                 if (ar.failed()) {
                     // A failed append fences this epoch on the shard, so this owner can append nothing more
-                    stop();
+                    stepDown();
                     written = Future.failedFuture(ar.cause());
                 } else if (stopped) {
                     // The records may still be committed by the next owner, which then recognizes the batch
@@ -348,7 +357,13 @@ final class ShardOwner {
         } else if (request.max() == 0) {
             ret = Future.succeededFuture(new LeaseResponse(List.of()));
         } else {
-            ret = dispatcher.lease(request.workerId(), request.max(), request.leaseMillis());
+            ret = dispatcher.lease(request.workerId(), request.max(), request.leaseMillis())
+                            .onSuccess(response -> {
+                                int redelivered = (int) response.leased().stream().filter(leased -> leased.deliveryCount() > 1).count();
+                                if (redelivered > 0) {
+                                    metrics.recordRedeliveries(queue, request.groupName(), redelivered);
+                                }
+                            });
         }
         return ret;
     }
@@ -411,6 +426,24 @@ final class ShardOwner {
         return active;
     }
 
+    String queue() {
+        return queue;
+    }
+
+    int shard() {
+        return shard;
+    }
+
+    /**
+     * @return how many of this copy's entries forced to disk each node holding a copy lacks, by node id
+     */
+    Map<String, Long> replicaLag() {
+        Map<String, Long> ret = new HashMap<>();
+        long own = shardLog.syncedOffset();
+        replicators.forEach((node, replicator) -> ret.put(node, Math.max(0, own - replicator.matchedOffset())));
+        return ret;
+    }
+
     /**
      * @return the offset before which every record of the shard is committed
      */
@@ -447,6 +480,14 @@ final class ShardOwner {
         }
     }
 
+    // Stops owning the shard while it is still placed here; the queue node starts a new owner, which recovers it again
+    private void stepDown() {
+        if (!stopped) {
+            metrics.recordStepDown(queue);
+        }
+        stop();
+    }
+
     private void recover() {
         long proposed = nextEpoch();
         // A retry proposes a newer epoch, since copies that promised this one would refuse it
@@ -465,6 +506,7 @@ final class ShardOwner {
                          epoch = proposed;
                          epochStartOffset = ar.result();
                          active = true;
+                         metrics.recordTakeover(queue);
                          membership = new ShardMembership(placement, shardLog, this::appendMembership);
                          membership.place(copies());
                          sweepTimer = vertx.setPeriodic(SWEEP_INTERVAL_MS, t -> sweep());
@@ -596,7 +638,7 @@ final class ShardOwner {
                             consumerOffsets.saveAll(shard, status.consumerOffsets());
                             groupOffsets.saveAll(shard, status.groupOffsets());
                         });
-                        return shardStates.findCommittedOffset(queue, shard);
+                        return shardStates.findCommittedOffset(incarnation, shard);
                     }, false)
                     .compose(knownCommitted -> {
                         Future<Void> caughtUp;
@@ -670,7 +712,7 @@ final class ShardOwner {
             Future<Long> ret;
             if (ar.failed()) {
                 if (ar.cause() instanceof StaleEpochException) {
-                    stop();
+                    stepDown();
                 }
                 ret = Future.failedFuture(ar.cause());
             } else if (stopped) {
@@ -739,7 +781,7 @@ final class ShardOwner {
     private void startReplicator(String follower) {
         replicators.computeIfAbsent(follower, node -> {
             ShardReplicator replicator = new ShardReplicator(vertx, client, node, queue, shard, shardLog, consumerOffsets, groupOffsets,
-                                                             epoch, this::onReplicatorProgress, this::stop);
+                                                             epoch, this::onReplicatorProgress, this::stepDown);
             replicator.start();
             return replicator;
         });
@@ -781,7 +823,7 @@ final class ShardOwner {
         boolean ret = shardLog.acceptedEpoch() > epoch;
         if (ret) {
             log.info("Shard {} of queue {} promised an owner newer than epoch {}, stepping down", shard, queue, epoch);
-            stop();
+            stepDown();
         }
         return ret;
     }
@@ -802,7 +844,7 @@ final class ShardOwner {
         long now = System.currentTimeMillis();
         if (membership.committable(copy -> progress(copy, now, ShardReplicator::lastAnsweredMillis)) < now - MAJORITY_SILENCE_MS) {
             log.warn("No majority of the copies of shard {} of queue {} answered for {} ms, stepping down", shard, queue, MAJORITY_SILENCE_MS);
-            stop();
+            stepDown();
             return;
         }
         replicators.values().forEach(ShardReplicator::heartbeat);
@@ -892,7 +934,7 @@ final class ShardOwner {
                 if (!stopped) {
                     long committed = committedOffset;
                     vertx.executeBlocking(() -> {
-                        shardStates.saveCommittedOffset(queue, shard, committed);
+                        shardStates.saveCommittedOffset(incarnation, shard, committed);
                         return null;
                     }, false).onFailure(e -> log.warn("Saving the committed offset of shard {} of queue {} failed", shard, queue, e));
                 }
