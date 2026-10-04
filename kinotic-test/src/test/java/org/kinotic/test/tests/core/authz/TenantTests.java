@@ -19,6 +19,7 @@ import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.OnboardingMechanism;
+import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.api.model.security.PendingInviteSummary;
@@ -27,6 +28,7 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.TenantRepository;
+import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.TenantService;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
@@ -78,6 +80,9 @@ public class TenantTests extends KinoticTestBase {
     private static final Pageable FIRST_PAGE = Pageable.create(0, 10, Sort.by("created"));
 
     @Autowired
+    private OrganizationService organizationService;
+
+    @Autowired
     private ApplicationService applicationService;
 
     @Autowired
@@ -118,6 +123,10 @@ public class TenantTests extends KinoticTestBase {
 
     @Test
     public void aCustomerSignsUpIntoATenantItThenAdministers() throws Exception {
+        // an invitation names its organization, which the stack tests' participant carries without a record of it
+        if (await(organizationService.findById(TEST_ORG_ID)) == null) {
+            await(organizationService.createSync(new Organization().setName(TEST_ORG_ID).setDescription("the stack tests' organization")));
+        }
         String appId = "tenant-app-" + suffix();
         ApplicationKey key = new ApplicationKey(TEST_ORG_ID, appId);
         Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(
