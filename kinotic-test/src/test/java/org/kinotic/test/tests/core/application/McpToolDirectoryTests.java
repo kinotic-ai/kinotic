@@ -71,7 +71,7 @@ public class McpToolDirectoryTests extends KinoticTestBase {
 
     @Test
     public void livenessObservedBeforeTheLastVerificationIsDeclined() throws Exception {
-        // the reconcile stamps every entry with the time of its snapshot
+        // the entry was stamped when this node published it, and a reconcile stamps the entries it writes
         serviceDirectory.reconcileLiveness().await();
         ServiceDirectoryEntry verified = entry(PROJECT_SERVICE);
         Assertions.assertTrue(verified.isOnline(), describe(verified));

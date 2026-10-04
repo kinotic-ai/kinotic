@@ -7,6 +7,7 @@ import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
@@ -15,6 +16,7 @@ import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.model.WatchEventKind;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
+import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.ServiceDirectoryRecord;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -46,9 +48,8 @@ import java.util.stream.Collectors;
 public class ServiceDirectoryEntryRepository extends AbstractWatchedRepository<ServiceDirectoryRecord> {
 
     private static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.SERVICE, "kinotic_service_directory");
-    // v1 reconciliation reads the whole directory in one page. The directory only holds self-published system
-    // services today; page through it once customer contracts (which could reach 100k) start landing.
-    private static final int RECONCILE_PAGE_SIZE = 10_000;
+    // a liveness reconcile reads the directory by cursor, three fields of each entry at a time
+    private static final int LIVENESS_PAGE_SIZE = 1_000;
     // Written by the liveness owner only, so a contract write carries none of them
     private static final Set<String> LIVENESS_FIELDS = Set.of("online", "lastStatusChange", "livenessVerifiedAt");
     // A liveness write is an observation made at a time, and two writers observe the same entry: the
@@ -170,22 +171,32 @@ public class ServiceDirectoryEntryRepository extends AbstractWatchedRepository<S
     }
 
     /**
-     * Corrects the liveness of every entry to match the given snapshot of active service addresses, and
-     * stamps every entry with the snapshot's time as its last verification.
+     * Corrects the liveness of every entry that disagrees with the given snapshot of active service addresses,
+     * stamping each entry it writes with the snapshot's time as its last verification.
      */
     public Future<Void> reconcileLiveness(Set<String> activeAddresses, Instant when) {
-        return findAll(Pageable.ofSize(RECONCILE_PAGE_SIZE),
-                       b -> b.source(sc -> sc.filter(f -> f.includes("id", "serviceAddress"))))
+        return reconcileLiveness(activeAddresses, when, null);
+    }
+
+    // Reads the directory page by page from the cursor, so a directory of any size is read whole, and writes
+    // only an entry whose liveness disagrees with the snapshot
+    private Future<Void> reconcileLiveness(Set<String> activeAddresses, Instant when, String cursor) {
+        return findAll(Pageable.create(cursor, LIVENESS_PAGE_SIZE, Sort.by("id")),
+                       b -> b.source(sc -> sc.filter(f -> f.includes("id", "serviceAddress", "online"))))
                 .compose(page -> {
                     List<Future<Void>> updates = new ArrayList<>();
                     for (ServiceDirectoryEntry entry : page.getContent()) {
                         boolean desired = entry.getServiceAddress() != null
                                 && activeAddresses.contains(entry.getServiceAddress());
-                        // an entry the snapshot leaves as it is takes the snapshot's time too, so an
-                        // observation made before the snapshot cannot land on it after
-                        updates.add(setOnline(entry.getId(), desired, when));
+                        if (desired != entry.isOnline()) {
+                            updates.add(setOnline(entry.getId(), desired, when));
+                        }
                     }
-                    return Future.all(updates).mapEmpty();
+                    Future<Void> written = Future.all(updates).mapEmpty();
+                    String next = page instanceof CursorPage<ServiceDirectoryRecord> cursorPage ? cursorPage.getCursor() : null;
+                    return page.getContent().size() < LIVENESS_PAGE_SIZE || next == null
+                            ? written
+                            : written.compose(v -> reconcileLiveness(activeAddresses, when, next));
                 });
     }
 
@@ -220,9 +231,15 @@ public class ServiceDirectoryEntryRepository extends AbstractWatchedRepository<S
                                                                 String applicationId,
                                                                 CursorPageable pageable) {
         // a service exposing MCP tools is callable whether or not it also is "advertised" see @Publish
-        Query filter = composeFilter(termFilter("mcpExposed", true),
-                                     termFilter("online", true),
-                                     zoneVisibilityFilter(organizationId, applicationId));
+        Query filter;
+        try {
+            filter = composeFilter(termFilter("mcpExposed", true),
+                                   termFilter("online", true),
+                                   zoneVisibilityFilter(organizationId, applicationId));
+        } catch (IllegalArgumentException e) {
+            // a scope whose id is no zone label fails the call, never the caller's thread
+            return Future.failedFuture(e);
+        }
         return findAll(pageable, b -> {
             b.query(filter);
             // cri is used for service invocation, must never be served in a listing, so we filter it
@@ -251,10 +268,15 @@ public class ServiceDirectoryEntryRepository extends AbstractWatchedRepository<S
     public Future<McpToolDefinition> findMcpToolByName(String toolName,
                                                        String organizationId,
                                                        String applicationId) {
-        Query filter = composeFilter(termFilter("mcpTools.name", toolName),
-                                     termFilter("mcpExposed", true),
-                                     termFilter("online", true),
-                                     zoneVisibilityFilter(organizationId, applicationId));
+        Query filter;
+        try {
+            filter = composeFilter(termFilter("mcpTools.name", toolName),
+                                   termFilter("mcpExposed", true),
+                                   termFilter("online", true),
+                                   zoneVisibilityFilter(organizationId, applicationId));
+        } catch (IllegalArgumentException e) {
+            return Future.failedFuture(e);
+        }
         return findAll(Pageable.ofSize(RESOLUTION_PAGE_SIZE), b -> {
             b.query(filter);
             b.source(sc -> sc.filter(f -> f.includes("mcpTools")));
@@ -301,17 +323,26 @@ public class ServiceDirectoryEntryRepository extends AbstractWatchedRepository<S
     }
 
     // The listing view of the zone send rules enforced at dispatch time by ZoneRules, narrowed to the zones this
-    // server reaches: system sees all zones, an organization sees management-api + app-api, an application sees
-    // its own app.<org>.<app> zone + app-api. A zone is listed with its sub-zones, as ZoneRules sends to them.
+    // server reaches: system sees all zones, an organization sees management-api + app-api + app.<org>, the zone
+    // every one of its applications lives under, an application sees its own app.<org>.<app> zone + app-api. A
+    // zone is listed with its sub-zones, as ZoneRules sends to them, and an id becomes a zone label only once
+    // validated as one, as ZoneRules does, so an id holding a dot cannot name another scope's zone
     private Query zoneVisibilityFilter(String organizationId, String applicationId) {
         Optional<Set<String>> zones;
         if (organizationId == null) {
             zones = zonePartitioningService.reachableZones();
         } else {
-            Set<String> callerZones = applicationId == null
-                    ? Set.of(DomainUtil.MANAGEMENT_API_ZONE, DomainUtil.APP_API_ZONE)
-                    : Set.of(DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId,
-                             DomainUtil.APP_API_ZONE);
+            ZoneUtil.validateLabel(organizationId);
+            Set<String> callerZones;
+            if (applicationId == null) {
+                callerZones = Set.of(DomainUtil.MANAGEMENT_API_ZONE,
+                                     DomainUtil.APP_API_ZONE,
+                                     DomainUtil.APP_ZONE_PREFIX + "." + organizationId);
+            } else {
+                ZoneUtil.validateLabel(applicationId);
+                callerZones = Set.of(DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId,
+                                     DomainUtil.APP_API_ZONE);
+            }
             zones = Optional.of(callerZones.stream().filter(zonePartitioningService::reachesZone).collect(Collectors.toSet()));
         }
         return zones.map(this::inZones).orElse(null);
