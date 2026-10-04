@@ -271,6 +271,8 @@ CREATE TABLE IF NOT EXISTS kinotic_identity_credential (
 CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     id KEYWORD,
     organizationId KEYWORD,
+    applicationId KEYWORD,
+    tenantId KEYWORD,
     name KEYWORD,
     provider KEYWORD,
     clientId KEYWORD NOT INDEXED,
@@ -366,6 +368,8 @@ CREATE TABLE IF NOT EXISTS kinotic_tenant (
     tenantId KEYWORD,
     name KEYWORD,
     createdBy KEYWORD,
+    ssoConfigId KEYWORD,
+    ssoRoleId KEYWORD,
     created DATE,
     updated DATE
 );

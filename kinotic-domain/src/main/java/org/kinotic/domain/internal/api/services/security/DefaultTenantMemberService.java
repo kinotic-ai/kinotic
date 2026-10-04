@@ -115,9 +115,7 @@ public class DefaultTenantMemberService implements TenantMemberService {
         Validate.notBlank(roleId, "roleId cannot be blank");
         ApplicationParticipant caller = caller();
         return findRoles().compose(roles -> {
-                              if (roles.stream().noneMatch(role -> role.id().equals(roleId))) {
-                                  throw new IllegalArgumentException("No role a tenant grants has id " + roleId);
-                              }
+                              DomainUtil.requireRole(roles, roleId);
                               return identities.findById(subject.id());
                           })
                           .compose(identity -> {

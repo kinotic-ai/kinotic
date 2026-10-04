@@ -4,7 +4,9 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.domain.api.model.security.DelegateKind;
+import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
@@ -98,6 +100,25 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      * @return a future emitting the created user
      */
     Future<UserParticipantIdentity> createUser(UserParticipantIdentity user, String password);
+
+    /**
+     * The user an identity provider signed in to an application, by the identity it asserted: the user holding
+     * it, or, for a configuration a tenant owns, a user created in that tenant on this first sign-in with the
+     * email and name the provider asserted, granted the role the tenant gives its provider's users. A
+     * configuration no tenant owns creates nobody. Fails with {@link AlreadyExistsException} when the email
+     * already belongs to a user of the application, so a provider never takes over an account made another way
+     * or in another tenant.
+     *
+     * @param configuration the configuration the provider was reached through
+     * @param oidcSubject   the {@code sub} claim
+     * @param email         the verified email claim, required to create a user
+     * @param displayName   the name claim, or null
+     * @return the user, or null when none holds the identity and none is created
+     */
+    Future<UserParticipantIdentity> findOrCreateSsoUser(OidcConfiguration configuration,
+                                                        String oidcSubject,
+                                                        String email,
+                                                        String displayName);
 
     /**
      * Resolves the delegate for {@code (owner, clientKey)}, creating it on first approval.

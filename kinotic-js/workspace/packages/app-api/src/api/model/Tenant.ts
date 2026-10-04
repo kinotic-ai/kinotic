@@ -26,6 +26,18 @@ export class Tenant implements Identifiable<string> {
     /** The user the tenant was created for: the customer who signed up, or the user it isolates. */
     public createdBy: string | null = null
 
+    /**
+     * The id of the OidcConfiguration the tenant signs its users in with, or null while the tenant has no
+     * identity provider of its own.
+     */
+    public ssoConfigId: string | null = null
+
+    /**
+     * The role granted on the tenant to a user its identity provider signs in for the first time, such as
+     * tenant.viewer; null grants membership alone.
+     */
+    public ssoRoleId: string | null = null
+
     public created: string | null = null
 
     public updated: string | null = null

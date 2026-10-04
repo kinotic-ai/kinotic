@@ -99,6 +99,8 @@ export * from '@/api/model/security/Grant'
 export * from '@/api/model/security/RoleDefinition'
 export * from '@/api/model/security/AccessExplanation'
 export * from '@/api/model/security/Group'
+export * from '@/api/model/security/OidcProviderKind'
+export * from '@/api/model/security/OidcConfiguration'
 export * from '@/api/model/InviteEmailTemplate'
 
 export * from '@/api/model/github/GitHubAppInstallation'
