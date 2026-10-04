@@ -93,8 +93,9 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
         int shard = position.shard();
         long nextOffset = position.offset() + 1;
         if (nextOffset > committedNextOffsets[shard]) {
-            committedNextOffsets[shard] = nextOffset;
-            ret = client.commitOffset(queue, consumerName, shard, nextOffset);
+            // Raised only once stored, so a commit retried after a failure is sent again
+            ret = client.commitOffset(queue, consumerName, shard, nextOffset)
+                        .onSuccess(v -> committedNextOffsets[shard] = Math.max(committedNextOffsets[shard], nextOffset));
         } else {
             ret = Future.succeededFuture();
         }

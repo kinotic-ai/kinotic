@@ -21,8 +21,9 @@ public interface QueueService {
     Future<QueueDefinition> createQueueIfNotExist(QueueDefinition definition);
 
     /**
-     * Appends a record to the shard its key hashes to. Records appended with the same key are delivered in the
-     * order they were appended. Completes once a majority of the shard's copies has the record, and fails when
+     * Appends a record to the shard its key hashes to. A record whose append completed before the append of another
+     * record with the same key began is delivered before that record; appends that overlap may be written in either
+     * order. Completes once a majority of the shard's copies has the record, and fails when
      * the queue does not exist, the key and payload together exceed {@code kinotic.maxEventPayloadSize} bytes, or
      * no majority of copies is reachable. A failed append may still have been written, so retrying it can deliver
      * the record twice.

@@ -12,9 +12,13 @@ import org.apache.commons.io.FileUtils;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -373,14 +377,26 @@ public final class ShardLog implements AutoCloseable {
         return ret;
     }
 
+    // A promise must survive power loss, or a node could accept entries from an owner it promised to refuse, so the
+    // file and the rename that installs it are both forced to disk before the promise counts
     private void writeAcceptedEpoch(long epoch) {
         Path file = sibling(directory, ACCEPTED_EPOCH_SUFFIX);
         Path temp = sibling(directory, ACCEPTED_EPOCH_SUFFIX + ".tmp");
         try {
             Files.createDirectories(directory.getParent());
             // Written beside the target then moved, so a crash never leaves a partial epoch
-            Files.writeString(temp, String.valueOf(epoch));
+            try (FileChannel channel = FileChannel.open(temp, StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+                                                        StandardOpenOption.TRUNCATE_EXISTING)) {
+                ByteBuffer content = ByteBuffer.wrap(String.valueOf(epoch).getBytes(StandardCharsets.UTF_8));
+                while (content.hasRemaining()) {
+                    channel.write(content);
+                }
+                channel.force(true);
+            }
             Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            try (FileChannel parent = FileChannel.open(directory.getParent(), StandardOpenOption.READ)) {
+                parent.force(true);
+            }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
