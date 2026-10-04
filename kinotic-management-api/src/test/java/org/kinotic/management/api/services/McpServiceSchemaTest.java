@@ -52,6 +52,7 @@ import org.kinotic.idl.internal.directory.jdk.IntegerToC3Type;
 import org.kinotic.idl.internal.directory.jdk.IterableToC3Type;
 import org.kinotic.idl.internal.directory.jdk.LongToC3Type;
 import org.kinotic.idl.internal.directory.jdk.MapToC3Type;
+import org.kinotic.idl.internal.directory.jdk.ObjectToC3Type;
 import org.kinotic.idl.internal.directory.jdk.OptionalToC3Type;
 import org.kinotic.idl.internal.directory.jdk.ShortToC3Type;
 import org.kinotic.idl.internal.directory.jdk.StringToC3Type;
@@ -200,6 +201,7 @@ public class McpServiceSchemaTest {
                                                            new IterableToC3Type(),
                                                            new LongToC3Type(),
                                                            new MapToC3Type(),
+                                                           new ObjectToC3Type(),
                                                            new OptionalToC3Type(),
                                                            new ShortToC3Type(),
                                                            new StringToC3Type(),

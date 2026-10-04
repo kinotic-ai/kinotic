@@ -8,6 +8,7 @@ import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.domain.api.model.Application;
+import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.springframework.stereotype.Component;
@@ -32,11 +33,12 @@ public class ApplicationStoreProvisioner {
 
     public Future<Void> provision(Application application) {
         String store = application.getId();
+        AuthzModel kernel = generator.applicationModel(List.of(), List.of());
         return stores.ensureStore(store)
                      // the kernel model and its roles admit the membership tuples written at user creation and the
                      // grants made before the first definition is published; a store already running a model keeps
                      // it, since the reconciler's carries the application's definitions
-                     .compose(id -> stores.modelId(store).recover(none -> kernel(store)))
+                     .compose(id -> stores.modelId(store).recover(none -> kernel(store, kernel)))
                      .compose(version -> records.findById(store))
                      .compose(record -> {
                          Future<Void> ret;
@@ -46,7 +48,10 @@ public class ApplicationStoreProvisioner {
                              AuthzStore created = new AuthzStore().setId(store)
                                                                   .setOrganizationId(application.getOrganizationId())
                                                                   .setApplicationId(store);
-                             ret = records.createSync(created)
+                             // created with the kernel model as its intent, so a definition published before the
+                             // worker's first run renews an intent that exists, and the master reconciles the
+                             // record to the model the definitions imply on its next look
+                             ret = records.updateDesired(store, new AuthzModelRevision(kernel.hash()), created, "application created")
                                           .onSuccess(v -> log.info("Provisioned the authorization store of application {}", store))
                                           .mapEmpty();
                          }
@@ -54,8 +59,7 @@ public class ApplicationStoreProvisioner {
                      });
     }
 
-    private Future<String> kernel(String store) {
-        AuthzModel model = generator.applicationModel(List.of(), List.of());
+    private Future<String> kernel(String store, AuthzModel model) {
         return stores.ensureModel(store, model)
                      .compose(version -> relationships.ensureRoles(store, model.roles()).map(version));
     }
