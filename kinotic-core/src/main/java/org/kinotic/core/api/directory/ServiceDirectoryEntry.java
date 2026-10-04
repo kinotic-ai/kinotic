@@ -30,8 +30,8 @@ public class ServiceDirectoryEntry implements Identifiable<String> {
     private String id;
 
     /**
-     * The service's base resource address ({@code srv://...} without version), used to correlate this entry with
-     * listener registrations for liveness.
+     * The service's address, {@code srv://[zone~]namespace.name}, without scope or version: the address liveness
+     * is observed on, which any instance of the service, under any scope, keeps reachable.
      */
     private String serviceAddress;
 

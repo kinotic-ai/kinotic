@@ -53,9 +53,10 @@ public interface ServiceDirectory {
     /**
      * Returns the online MCP tools the given scope may call through this server, mirroring the zone send rules
      * enforced at call time: a system scope (both ids null) sees all tools, an organization scope sees
-     * {@code management-api}- and {@code app-api}-zone tools, and an application scope sees its own
-     * {@code app.<org>.<app>}-zone tools plus {@code app-api}-zone tools, each zone with its sub-zones, and each
-     * scope only in the zones this server's {@link org.kinotic.core.api.event.ZonePartitioningService} reaches.
+     * {@code management-api}- and {@code app-api}-zone tools and those of its own applications under
+     * {@code app.<org>}, and an application scope sees its own {@code app.<org>.<app>}-zone tools plus
+     * {@code app-api}-zone tools, each zone with its sub-zones, and each scope only in the zones this server's
+     * {@link org.kinotic.core.api.event.ZonePartitioningService} reaches.
      * @param organizationId the calling scope's organization, or null for a system scope
      * @param applicationId the calling scope's application, or null
      * @param pageable the {@link CursorPageable} to use, because the MCP spec only supports cursor.
@@ -66,8 +67,9 @@ public interface ServiceDirectory {
                                                          CursorPageable pageable);
 
     /**
-     * Corrects the liveness of every entry against a fresh snapshot of the cluster's active service addresses.
-     * @return a {@link Future} completing when all entries are corrected
+     * Corrects the liveness of every entry that disagrees with a fresh snapshot of the cluster's active service
+     * addresses.
+     * @return a {@link Future} completing when every such entry is corrected
      */
     Future<Void> reconcileLiveness();
 
@@ -89,7 +91,7 @@ public interface ServiceDirectory {
      * Reports that a caller could not reach the service at the given CRI.
      * Implementations re-check current registrations and correct the liveness state to the verified truth;
      * this is an invalidation trigger, never a blind offline write.
-     * @param cri the CRI that could not be reached
+     * @param cri the CRI that could not be reached, scoped or not: the service it names is what is verified
      * @return a {@link Future} completing when the report has been accepted
      */
     Future<Void> reportUnreachable(String cri);
@@ -103,8 +105,9 @@ public interface ServiceDirectory {
     void unregister(ServiceIdentifier serviceIdentifier);
 
     /**
-     * Verifies the cluster-wide registration state of the given service address and writes the verified liveness.
-     * @param serviceAddress the service address to verify
+     * Verifies the cluster-wide registration state of the given service and writes the verified liveness: the
+     * service is online while any instance of it listens, on its shared address or under any scope.
+     * @param serviceAddress any address of the service, with or without a scope
      * @return a {@link Future} completing when the verified state is stored
      */
     Future<Void> verifyLiveness(String serviceAddress);

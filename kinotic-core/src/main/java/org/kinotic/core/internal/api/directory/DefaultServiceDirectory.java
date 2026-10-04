@@ -95,7 +95,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     private final Object registrationLock = new Object();
     private boolean startupComplete; // guarded by registrationLock
 
-    // Collapses repeated NO_HANDLERS reports for the same CRI into one verification (seconds).
+    // Collapses repeated NO_HANDLERS reports for the same service into one verification (seconds).
     private final Cache<String, Boolean> reportDebounce = Caffeine.newBuilder()
                                                                   .expireAfterWrite(Duration.ofSeconds(5))
                                                                   .build();
@@ -187,10 +187,21 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
         }
         if (!batch.isEmpty()) {
             try {
-                // one reconcile corrects the liveness of every entry from a single cluster snapshot,
-                // instead of one registration query per service
-                upsertAll(batch.values()).compose(v -> reconcileLiveness())
-                                         .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
+                // one cluster snapshot answers the liveness of every entry this node published, instead of one
+                // registration query per service, and only this node's entries are written. The stamp is taken
+                // before the snapshot, so an observation that starts later always lands after this one
+                Instant observed = Instant.now();
+                upsertAll(batch.values())
+                        .compose(v -> eventBusService.activeServiceAddresses())
+                        .compose(addresses -> {
+                            Set<String> services = servicesOf(addresses);
+                            List<Future<Void>> writes = new ArrayList<>();
+                            for (ServiceDirectoryEntry entry : batch.values()) {
+                                writes.add(strategy.setOnline(entry.getId(), services.contains(entry.getServiceAddress()), observed));
+                            }
+                            return Future.all(writes).mapEmpty();
+                        })
+                        .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
             } catch (Exception e) {
                 log.error("Startup directory publish failed", e);
             }
@@ -265,37 +276,71 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
 
     @Override
     public Future<Void> reportUnreachable(String cri) {
+        String service = serviceOf(cri);
         Future<Void> ret;
-        if (reportDebounce.getIfPresent(cri) != null) {
+        if (reportDebounce.getIfPresent(service) != null) {
             ret = Future.succeededFuture();
         } else {
-            reportDebounce.put(cri, Boolean.TRUE);
+            reportDebounce.put(service, Boolean.TRUE);
             // a report is an invalidation trigger, not a value — verifyLiveness writes the verified state
-            ret = verifyLiveness(CRI.create(cri).baseResource());
+            ret = verifyLiveness(service);
         }
         return ret;
     }
 
     @Override
     public Future<Void> verifyLiveness(String serviceAddress) {
-        return eventBusService.isAnybodyListening(CRI.create(serviceAddress))
-                              .compose(online -> strategy.setOnlineByAddress(serviceAddress, online, Instant.now()));
+        String service = serviceOf(serviceAddress);
+        // every observation is stamped with the time it starts, here and in refreshOnline, reconcileLiveness and
+        // the startup publish: the fence on the entry declines a stamp earlier than the one it holds, so an
+        // observation that started earlier never overwrites one that started later, however long its read took
+        Instant observed = Instant.now();
+        return anyInstanceListening(service)
+                .compose(online -> strategy.setOnlineByAddress(service, online, observed));
     }
 
     @Override
     public Future<Void> reconcileLiveness() {
+        Instant observed = Instant.now();
         return eventBusService.activeServiceAddresses()
-                              .compose(addresses -> strategy.reconcileLiveness(addresses, Instant.now()));
+                              .compose(addresses -> strategy.reconcileLiveness(servicesOf(addresses), observed));
     }
 
     /**
      * Sets the entry's liveness to the verified cluster-wide registration state.
      */
     private Future<Void> refreshOnline(ServiceIdentifier serviceIdentifier) {
-        return eventBusService.isAnybodyListening(serviceIdentifier.cri())
-                              .compose(online -> strategy.setOnline(serviceIdentifier.qualifiedName(),
-                                                                    online,
-                                                                    Instant.now()));
+        Instant observed = Instant.now();
+        return anyInstanceListening(serviceIdentifier.unscopedCri().baseResource())
+                .compose(online -> strategy.setOnline(serviceIdentifier.qualifiedName(), online, observed));
+    }
+
+    // A service is reachable while any instance of it listens, on its shared address or under a scope, so
+    // liveness is observed on the service address, the address with the scope removed
+    private Future<Boolean> anyInstanceListening(String serviceAddress) {
+        return eventBusService.activeServiceAddresses()
+                              .map(addresses -> servicesOf(addresses).contains(serviceAddress));
+    }
+
+    private static Set<String> servicesOf(Set<String> addresses) {
+        Set<String> ret = new HashSet<>();
+        for (String address : addresses) {
+            ret.add(serviceOf(address));
+        }
+        return ret;
+    }
+
+    // The service address of any address of a service: its base resource with the scope removed
+    private static String serviceOf(String address) {
+        CRI cri = CRI.create(address);
+        String ret;
+        if (cri.hasScope()) {
+            String qualifiedName = cri.hasZone() ? cri.zone() + "~" + cri.resourceName() : cri.resourceName();
+            ret = CRI.create(cri.scheme(), null, qualifiedName).baseResource();
+        } else {
+            ret = cri.baseResource();
+        }
+        return ret;
     }
 
     /**
@@ -357,7 +402,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
 
         return new ServiceDirectoryEntry()
                 .setId(serviceIdentifier.qualifiedName())
-                .setServiceAddress(serviceIdentifier.cri().baseResource())
+                .setServiceAddress(serviceIdentifier.unscopedCri().baseResource())
                 .setNamespace(serviceIdentifier.namespace())
                 .setName(serviceIdentifier.name())
                 .setVersion(serviceIdentifier.version())
