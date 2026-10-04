@@ -1,16 +1,20 @@
 package org.kinotic.queue.internal.api.services;
 
+import io.vertx.core.Future;
 import io.vertx.core.eventbus.ReplyException;
+import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.kinotic.queue.api.model.QueueDefinition;
+import org.kinotic.queue.api.model.QueuePosition;
 import org.kinotic.queue.api.model.QueueRecord;
 import org.kinotic.queue.api.model.StartPosition;
 import org.kinotic.queue.api.model.WorkItem;
 import org.kinotic.queue.api.model.WorkerOptions;
 import org.kinotic.queue.api.services.QueueWorker;
 import org.kinotic.queue.internal.QueueTestNode;
+import org.kinotic.queue.internal.QueueTestSupport;
 import org.kinotic.queue.internal.TestSubscriber;
 import org.kinotic.queue.internal.TestWorker;
 import org.kinotic.queue.internal.log.QueueLog;
@@ -185,6 +189,110 @@ public class QueueClusterTests {
         await(second.queueService().append(QUEUE, "key", payload(7)));
         assertEquals(7, value(subscriber.next()));
         await(subscriber.close());
+    }
+
+    @Test
+    public void anOwnerRestartedWithAnEmptyCopyLeavesTheShardServedWhileItCatchesUp() throws Exception {
+        QueueTestNode a = start("a");
+        start("b");
+        start("c");
+        await(a.queueService().createQueueIfNotExist(new QueueDefinition(QUEUE, 1)));
+        int fillers = 100_000;
+        byte[] filler = new byte[1024];
+        for (int from = 0; from < fillers; from += 5_000) {
+            List<Future<QueuePosition>> appends = new ArrayList<>();
+            for (int i = from; i < from + 5_000; i++) {
+                appends.add(a.queueService().append(QUEUE, "filler", filler));
+            }
+            await(Future.all(appends));
+        }
+        QueueTestNode owner = nodeWithId(a.placement().replicas(QUEUE, 0).getFirst());
+        String ownerName = owner.name();
+        stop(owner);
+        FileUtils.deleteDirectory(directory.resolve(ownerName).toFile());
+
+        QueueTestNode restarted = start(ownerName);
+        assertEquals(restarted.placement().localNodeId(), restarted.placement().replicas(QUEUE, 0).getFirst(),
+                     "the restarted node is placed as the shard's owner again");
+        // Past the change of topology the restart caused, while the restarted copy is still far from caught up
+        Thread.sleep(2_000);
+        long slowest = 0;
+        int appended = 0;
+        long until = System.currentTimeMillis() + 10_000;
+        while (System.currentTimeMillis() < until) {
+            long started = System.currentTimeMillis();
+            await(restarted.queueService().append(QUEUE, "key", payload(appended++)));
+            slowest = Math.max(slowest, System.currentTimeMillis() - started);
+        }
+
+        // The node placed as owner holds none of the shard's records, so the node serving it keeps serving it
+        assertTrue(slowest < 1_000, "an append took " + slowest + " ms while the restarted copy caught up");
+        TestSubscriber subscriber = TestSubscriber.subscribe(restarted.vertx(), restarted.queueService(), QUEUE, "billing", StartPosition.EARLIEST);
+        int delivered = 0;
+        List<Integer> values = new ArrayList<>();
+        while (values.size() < appended) {
+            QueueRecord record = subscriber.next();
+            delivered++;
+            if (record.key().equals("key")) {
+                values.add(value(record));
+            }
+        }
+        assertEquals(fillers + appended, delivered);
+        assertEquals(IntStream.range(0, appended).boxed().toList(), values);
+        await(subscriber.close());
+    }
+
+    @Test
+    public void aStaleCopyDoesNotTakeAShardWhoseVotingCopiesAreAllGone() throws Exception {
+        for (String name : List.of("a", "b", "c", "d")) {
+            start(name);
+        }
+        QueueTestNode first = nodes.getFirst();
+        await(first.queueService().createQueueIfNotExist(new QueueDefinition(QUEUE, 1)));
+        for (int i = 0; i < 5; i++) {
+            await(first.queueService().append(QUEUE, "key", payload(i)));
+        }
+        // Long enough for the owner to record the committed offset for later owners
+        Thread.sleep(1_500);
+        List<String> replicas = first.placement().replicas(QUEUE, 0);
+        // A follower that leaves cleanly keeps a copy current up to here
+        QueueTestNode stale = nodeWithId(replicas.get(1));
+        String staleName = stale.name();
+        stop(stale);
+        QueueTestNode owner = nodeWithId(replicas.getFirst());
+        // The node that joined the copies in its place catches up and votes before more records are appended
+        Thread.sleep(3_000);
+        for (int i = 5; i < 10; i++) {
+            await(owner.queueService().append(QUEUE, "key", payload(i)));
+        }
+        // Gone before the owner records the new committed offset, so only the stored voting copies tell a later owner
+        // that the stale copy lacks records
+        List<QueueTestNode> voting = new ArrayList<>(nodes);
+        voting.remove(owner);
+        voting.addFirst(owner);
+        for (QueueTestNode node : voting) {
+            nodes.remove(node);
+            node.crash();
+        }
+
+        start(staleName);
+        start("e");
+        QueueTestNode f = start("f");
+        ExecutionException e = assertThrows(() -> await(f.queueService().append(QUEUE, "key", payload(99))));
+        assertInstanceOf(ReplyException.class, e.getCause());
+
+        for (QueueTestNode node : voting) {
+            start(node.name());
+        }
+        TestSubscriber subscriber = TestSubscriber.subscribe(f.vertx(), f.queueService(), QUEUE, "billing", StartPosition.EARLIEST);
+        for (int i = 0; i < 10; i++) {
+            assertEquals(i, value(subscriber.next()));
+        }
+        await(subscriber.close());
+    }
+
+    private QueueTestNode nodeWithId(String nodeId) {
+        return nodes.stream().filter(node -> node.placement().localNodeId().equals(nodeId)).findFirst().orElseThrow();
     }
 
     private QueueTestNode start(String name) throws Exception {

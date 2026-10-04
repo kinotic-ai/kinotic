@@ -268,7 +268,7 @@ final class WorkDispatcher {
             if (entry.offset() >= newFrom) {
                 newRead = entry.offset() + 1;
             }
-            if (entry.isMarker()) {
+            if (!entry.isRecord()) {
                 markDone(entry.offset());
             } else {
                 int deliveryCount = taken.getOrDefault(entry.offset(), 0) + 1;

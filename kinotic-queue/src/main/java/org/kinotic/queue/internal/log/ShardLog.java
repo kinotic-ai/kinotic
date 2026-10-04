@@ -14,8 +14,10 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
@@ -28,6 +30,8 @@ public final class ShardLog implements AutoCloseable {
 
     private static final String ACCEPTED_EPOCH_SUFFIX = ".accepted-epoch";
     private static final String MANIFEST_FILE = "segments";
+    // The membership changes the shard holds, so its last one is known without reading the shard
+    private static final String MEMBERSHIPS_FILE = "memberships";
 
     private final Path directory;
     private final boolean syncWrites;
@@ -35,6 +39,7 @@ public final class ShardLog implements AutoCloseable {
     private final ReentrantReadWriteLock segmentsLock = new ReentrantReadWriteLock();
     // Contiguous: each segment starts where the one before it ends. Replaced, never changed in place.
     private volatile List<ShardSegment> segments;
+    private final ConcurrentSkipListMap<Long, ShardEntry> memberships = new ConcurrentSkipListMap<>();
     private volatile long nextOffset;
     private volatile long lastEpoch;
     private volatile long acceptedEpoch;
@@ -48,6 +53,7 @@ public final class ShardLog implements AutoCloseable {
         this.directory = directory;
         this.syncWrites = syncWrites;
         openSegments();
+        loadMemberships();
         acceptedEpoch = Math.max(readAcceptedEpoch(directory), lastEpoch);
     }
 
@@ -88,7 +94,7 @@ public final class ShardLog implements AutoCloseable {
         try {
             for (ShardEntry record : records) {
                 ret.add(nextOffset);
-                write(new ShardEntry(nextOffset, epoch, record.key(), record.payload(), record.slot()));
+                write(ShardEntry.record(nextOffset, epoch, record.key(), record.payload(), record.slot()));
             }
             sync();
         } catch (RuntimeException e) {
@@ -112,6 +118,29 @@ public final class ShardLog implements AutoCloseable {
         write(ShardEntry.marker(ret, epoch));
         sync();
         return ret;
+    }
+
+    /**
+     * Appends a change of the copies whose majority counts toward a commit, as the shard's owner.
+     *
+     * @return the offset the change was written at
+     * @throws StaleEpochException when the shard has promised a newer owner
+     */
+    public synchronized long appendMembership(long epoch, Membership membership) {
+        requireCurrent(epoch);
+        long ret = nextOffset;
+        write(ShardEntry.membership(ret, epoch, membership));
+        sync();
+        return ret;
+    }
+
+    /**
+     * @return the last membership change this copy holds, committed or not, which decides the copies counting toward
+     * a commit; null when it holds none
+     */
+    public ShardEntry latestMembership() {
+        Map.Entry<Long, ShardEntry> ret = memberships.lastEntry();
+        return ret != null ? ret.getValue() : null;
     }
 
     /**
@@ -327,6 +356,11 @@ public final class ShardLog implements AutoCloseable {
     }
 
     private void write(ShardEntry entry) {
+        if (entry.isMembership()) {
+            memberships.put(entry.offset(), entry);
+            // Listed before it is written, so a crash in between leaves a listing past the shard's end, which open drops
+            writeMemberships();
+        }
         openSegment().write(entry);
         lastEpoch = entry.epoch();
         nextOffset = entry.offset() + 1;
@@ -375,6 +409,10 @@ public final class ShardLog implements AutoCloseable {
             }
             segments = kept;
             deleted.forEach(ShardSegment::delete);
+            if (!memberships.tailMap(offset).isEmpty()) {
+                memberships.tailMap(offset).clear();
+                writeMemberships();
+            }
             nextOffset = offset;
             lastEpoch = offset > 0 ? epochAt(offset - 1) : -1;
         } finally {
@@ -424,6 +462,46 @@ public final class ShardLog implements AutoCloseable {
         segments = List.copyOf(opened);
         nextOffset = opened.isEmpty() ? 0 : opened.getLast().end();
         lastEpoch = nextOffset > 0 ? epochAt(nextOffset - 1) : -1;
+    }
+
+    private void writeMemberships() {
+        List<String> lines = new ArrayList<>();
+        for (ShardEntry entry : memberships.values()) {
+            lines.add(entry.offset() + " " + entry.epoch() + " " + storageIds(entry.membership().voting()) + " "
+                              + storageIds(entry.membership().joining()));
+        }
+        writeDurably(directory.resolve(MEMBERSHIPS_FILE), String.join("\n", lines));
+    }
+
+    private void loadMemberships() {
+        Path file = directory.resolve(MEMBERSHIPS_FILE);
+        if (Files.exists(file)) {
+            try {
+                for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+                    if (!line.isBlank()) {
+                        String[] fields = line.trim().split(" ");
+                        long offset = Long.parseLong(fields[0]);
+                        Membership membership = new Membership(storageIds(fields[2]), storageIds(fields[3]));
+                        memberships.put(offset, ShardEntry.membership(offset, Long.parseLong(fields[1]), membership));
+                    }
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            if (!memberships.tailMap(nextOffset).isEmpty()) {
+                memberships.tailMap(nextOffset).clear();
+                writeMemberships();
+            }
+        }
+    }
+
+    // Storage ids are UUIDs, so a comma separates them; "-" stands for none
+    private static String storageIds(List<String> storageIds) {
+        return storageIds.isEmpty() ? "-" : String.join(",", storageIds);
+    }
+
+    private static List<String> storageIds(String field) {
+        return field.equals("-") ? List.of() : List.of(field.split(","));
     }
 
     private static long readAcceptedEpoch(Path directory) {

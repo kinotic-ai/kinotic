@@ -1,8 +1,10 @@
 package org.kinotic.queue.internal.cluster.message;
 
 import io.vertx.core.buffer.Buffer;
+import org.kinotic.queue.internal.log.ShardEntry;
 import org.kinotic.queue.internal.log.ShardLog;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -14,30 +16,34 @@ import java.util.Map;
  *                        -1 when it had promised none
  * @param consumerOffsets the next offset of every consumer that has committed on the shard, by consumer name
  * @param groupOffsets    the low watermark of every worker group that has finished records on the shard, by group name
+ * @param membership      the last membership change the copy holds; null when it holds none
  */
 public record ShardStatus(long nextOffset,
                           long lastEpoch,
                           long acceptedEpoch,
                           Map<String, Long> consumerOffsets,
-                          Map<String, Long> groupOffsets) {
+                          Map<String, Long> groupOffsets,
+                          ShardEntry membership) {
 
     /**
      * @param acceptedEpoch the newest epoch the copy had promised before the prepare this status answers
      */
     public static ShardStatus of(ShardLog shardLog, long acceptedEpoch, Map<String, Long> consumerOffsets, Map<String, Long> groupOffsets) {
-        return new ShardStatus(shardLog.nextOffset(), shardLog.lastEpoch(), acceptedEpoch, consumerOffsets, groupOffsets);
+        return new ShardStatus(shardLog.nextOffset(), shardLog.lastEpoch(), acceptedEpoch, consumerOffsets, groupOffsets,
+                               shardLog.latestMembership());
     }
 
     /**
      * The status of a node that holds no copy of the shard.
      */
     public static ShardStatus none(long acceptedEpoch) {
-        return new ShardStatus(0, -1, acceptedEpoch, Map.of(), Map.of());
+        return new ShardStatus(0, -1, acceptedEpoch, Map.of(), Map.of(), null);
     }
 
     public static ShardStatus fromBuffer(Buffer buffer) {
         Wire wire = new Wire(buffer);
-        return new ShardStatus(wire.readLong(), wire.readLong(), wire.readLong(), wire.readOffsets(), wire.readOffsets());
+        return new ShardStatus(wire.readLong(), wire.readLong(), wire.readLong(), wire.readOffsets(), wire.readOffsets(),
+                               wire.readEntries().stream().findFirst().orElse(null));
     }
 
     /**
@@ -50,6 +56,7 @@ public record ShardStatus(long nextOffset,
     public Buffer toBuffer() {
         Buffer ret = Wire.appendOffsets(Wire.buffer().appendLong(nextOffset).appendLong(lastEpoch).appendLong(acceptedEpoch),
                                         consumerOffsets);
-        return Wire.appendOffsets(ret, groupOffsets);
+        Wire.appendOffsets(ret, groupOffsets);
+        return Wire.appendEntries(ret, membership != null ? List.of(membership) : List.of());
     }
 }

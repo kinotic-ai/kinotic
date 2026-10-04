@@ -23,7 +23,10 @@ public class QueueProperties {
 
     /**
      * How many queue nodes hold a copy of every shard. A write completes once a majority of these copies has it,
-     * so a shard stays writable while a majority of its copies is reachable. Must be the same on every queue node.
+     * so a shard stays writable while a majority of its copies is reachable. A copy keeps its vote while its node is
+     * away, and hands it to a new copy only once the new copy has caught up, so a shard whose voting copies lose their
+     * majority for good, their nodes gone with their disks, stays unavailable rather than serving fewer records than it
+     * acknowledged. Must be the same on every queue node.
      */
     @Min(1)
     private int replicationFactor = 3;

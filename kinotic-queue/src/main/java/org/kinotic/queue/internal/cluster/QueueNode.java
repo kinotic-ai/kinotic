@@ -7,6 +7,8 @@ import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.MessageConsumer;
+import io.vertx.core.eventbus.ReplyException;
+import io.vertx.core.eventbus.ReplyFailure;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +26,9 @@ import org.kinotic.queue.internal.cluster.message.OffsetCommit;
 import org.kinotic.queue.internal.cluster.message.OffsetQuery;
 import org.kinotic.queue.internal.cluster.message.ReplicateRequest;
 import org.kinotic.queue.internal.cluster.message.PrepareRequest;
+import org.kinotic.queue.internal.cluster.message.OwnerStatus;
 import org.kinotic.queue.internal.cluster.message.ShardStatus;
+import org.kinotic.queue.internal.cluster.message.StatusRequest;
 import org.kinotic.queue.internal.cluster.message.Wire;
 import org.kinotic.queue.internal.log.QueueLog;
 import org.kinotic.queue.internal.log.ReplicationResult;
@@ -38,11 +42,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 /**
@@ -63,6 +71,7 @@ public class QueueNode {
     static final String FIND_OFFSET = "findOffset";
     static final String LEASE = "lease";
     static final String SETTLE = "settle";
+    static final String STATUS = "status";
 
     private static final long RECONCILE_INTERVAL_MS = 500;
     private static final long LIFECYCLE_TIMEOUT_SECONDS = 30;
@@ -105,6 +114,7 @@ public class QueueNode {
             register(self, FIND_OFFSET, this::onFindOffset);
             register(self, LEASE, this::onLease);
             register(self, SETTLE, this::onSettle);
+            register(self, STATUS, this::onStatus);
             Future.all(consumers.stream().map(MessageConsumer::completion).toList()).onComplete(ar -> {
                 if (ar.succeeded()) {
                     reconcileTimer = vertx.setPeriodic(RECONCILE_INTERVAL_MS, t -> reconcile());
@@ -144,34 +154,51 @@ public class QueueNode {
 
     private void onAppend(Message<Buffer> message) {
         AppendRequest request = AppendRequest.fromBuffer(message.body());
-        reply(message, owner(request.queue(), request.shard())
-                .compose(owner -> owner.append(request))
-                .map(AppendRequest::encodeReply));
+        serve(message, APPEND, request.queue(), request.shard(), owner -> owner.append(request).map(AppendRequest::encodeReply));
     }
 
     private void onFetch(Message<Buffer> message) {
         FetchRequest request = FetchRequest.fromBuffer(message.body());
-        reply(message, owner(request.queue(), request.shard())
-                .compose(owner -> owner.fetch(request.offset(), request.max(), request.maxBytes()))
-                .map(FetchResponse::toBuffer));
+        serve(message, FETCH, request.queue(), request.shard(),
+              owner -> owner.fetch(request.offset(), request.max(), request.maxBytes()).map(FetchResponse::toBuffer));
     }
 
     private void onLease(Message<Buffer> message) {
         LeaseRequest request = LeaseRequest.fromBuffer(message.body());
-        reply(message, requireValidName(request.groupName())
-                .compose(v -> request.max() >= 0 && request.leaseMillis() >= 1
-                        ? owner(request.queue(), request.shard())
-                        : Future.failedFuture(new IllegalArgumentException("Invalid lease of " + request.max() + " records for "
-                                                                                   + request.leaseMillis() + " ms")))
-                .compose(owner -> owner.lease(request))
-                .map(LeaseResponse::toBuffer));
+        if (!QueueLog.isValidName(request.groupName()) || request.max() < 0 || request.leaseMillis() < 1) {
+            reply(message, Future.failedFuture(new IllegalArgumentException("Invalid lease of " + request.max() + " records for "
+                                                                                     + request.leaseMillis() + " ms to group '"
+                                                                                     + request.groupName() + "'")));
+        } else {
+            serve(message, LEASE, request.queue(), request.shard(), owner -> owner.lease(request).map(LeaseResponse::toBuffer));
+        }
     }
 
     private void onSettle(Message<Buffer> message) {
         SettleRequest request = SettleRequest.fromBuffer(message.body());
-        reply(message, owner(request.queue(), request.shard())
-                .compose(owner -> owner.settle(request))
-                .map(v -> Wire.buffer()));
+        serve(message, SETTLE, request.queue(), request.shard(), owner -> owner.settle(request).map(v -> Wire.buffer()));
+    }
+
+    private void onStatus(Message<Buffer> message) {
+        StatusRequest request = StatusRequest.fromBuffer(message.body());
+        ShardOwner owner = owners.get(request.queue() + "/" + request.shard());
+        boolean active = owner != null && owner.isActive();
+        reply(message, Future.succeededFuture(new OwnerStatus(active, active ? owner.committedOffset() : -1).toBuffer()));
+    }
+
+    // Handles a request for a shard this node owns. While another node still serves the shard as this node's copy
+    // catches up, the request goes to that node, so clients reach the shard through the node placed as its owner.
+    private void serve(Message<Buffer> message, String action, String queue, int shard, Function<ShardOwner, Future<Buffer>> handler) {
+        ShardOwner owner = owners.get(queue + "/" + shard);
+        Future<Buffer> result;
+        if (owner == null) {
+            result = Future.failedFuture(QueueFailure.NOT_OWNER.exception("This node does not own shard " + shard + " of queue " + queue));
+        } else if (owner.actingOwner() != null) {
+            result = client.forward(owner.actingOwner(), action, message.body());
+        } else {
+            result = handler.apply(owner);
+        }
+        reply(message, result);
     }
 
     private void onReplicate(Message<Buffer> message) {
@@ -241,21 +268,16 @@ public class QueueNode {
         }, false));
     }
 
-    private static Future<Void> requireValidName(String name) {
-        return QueueLog.isValidName(name) ? Future.succeededFuture()
-                                          : Future.failedFuture(new IllegalArgumentException("Invalid name '" + name + "'"));
-    }
-
-    private Future<ShardOwner> owner(String queue, int shard) {
-        ShardOwner owner = owners.get(queue + "/" + shard);
-        return owner != null ? Future.succeededFuture(owner)
-                             : Future.failedFuture(QueueFailure.NOT_OWNER.exception("This node does not own shard " + shard + " of queue " + queue));
-    }
-
     private void reconcile() {
         if (!reconciling) {
             reconciling = true;
-            vertx.executeBlocking(this::assignedShards, false).onComplete(ar -> {
+            Set<String> acting = new HashSet<>();
+            owners.forEach((key, owner) -> {
+                if (owner.isActive()) {
+                    acting.add(key);
+                }
+            });
+            vertx.executeBlocking(() -> assignedShards(acting), false).onComplete(ar -> {
                 reconciling = false;
                 // A reconcile that finishes after stop() would start owners nothing stops
                 if (!stopped) {
@@ -269,20 +291,31 @@ public class QueueNode {
         }
     }
 
-    private Map<String, ShardAssignment> assignedShards() {
+    // The shards placed on this node as their owner, and the shards this node serves while their placed owner catches up
+    private Map<String, ShardAssignment> assignedShards(Set<String> acting) {
         String self = placement.localNodeId();
         Map<String, ShardAssignment> ret = new HashMap<>();
         for (QueueDefinition definition : definitions.findAll()) {
             for (int shard = 0; shard < definition.shardCount(); shard++) {
                 List<String> replicas = placement.replicas(definition.name(), shard);
-                if (!replicas.isEmpty() && replicas.getFirst().equals(self)) {
+                boolean primary = !replicas.isEmpty() && replicas.getFirst().equals(self);
+                if (primary || acting.contains(definition.name() + "/" + shard)) {
+                    Map<String, String> followers = new LinkedHashMap<>();
+                    for (String node : replicas) {
+                        if (!node.equals(self)) {
+                            String storageId = placement.storageId(node);
+                            // A node that left keeps a place no copy answers to
+                            followers.put(node, storageId != null ? storageId : "?" + node);
+                        }
+                    }
                     QueueLog queueLog = localLog(definition);
                     ShardAssignment assignment = new ShardAssignment(definition.name(),
                                                                      shard,
                                                                      queueLog.shard(shard),
                                                                      queueLog.consumerOffsets(),
                                                                      queueLog.groupOffsets(),
-                                                                     replicas.subList(1, replicas.size()));
+                                                                     followers,
+                                                                     primary);
                     ret.put(assignment.key(), assignment);
                 }
             }
@@ -301,13 +334,13 @@ public class QueueNode {
         });
         for (ShardAssignment assignment : assignments.values()) {
             ShardOwner owner = owners.get(assignment.key());
-            if (owner == null) {
+            if (owner == null && assignment.primary()) {
                 String queue = assignment.queue();
                 owner = new ShardOwner(vertx, placement, client, shardStates, assignment,
                                        (groupName, entry) -> deadLetter(queue, groupName, entry));
                 owners.put(assignment.key(), owner);
                 owner.start(assignment.followers());
-            } else {
+            } else if (owner != null) {
                 owner.updateFollowers(assignment.followers());
             }
         }
@@ -384,9 +417,20 @@ public class QueueNode {
             if (ar.succeeded()) {
                 message.reply(ar.result());
             } else {
-                int code = ar.cause() instanceof QueueFailureException failure ? failure.getFailure().code() : 0;
-                message.fail(code, String.valueOf(ar.cause().getMessage()));
+                message.fail(failureCode(ar.cause()), String.valueOf(ar.cause().getMessage()));
             }
         });
+    }
+
+    // A forwarded request's failure keeps the code the serving node gave it; a forward that got no answer leaves the
+    // client to find the shard's owner again
+    private static int failureCode(Throwable cause) {
+        int ret = 0;
+        if (cause instanceof QueueFailureException failure) {
+            ret = failure.getFailure().code();
+        } else if (cause instanceof ReplyException reply) {
+            ret = reply.failureType() == ReplyFailure.RECIPIENT_FAILURE ? reply.failureCode() : QueueFailure.NOT_OWNER.code();
+        }
+        return ret;
     }
 }

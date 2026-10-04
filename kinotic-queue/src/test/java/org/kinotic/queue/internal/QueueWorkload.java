@@ -33,7 +33,7 @@ public final class QueueWorkload implements AutoCloseable {
 
     private final String queue;
     private final List<QueueTestNode> live;
-    private final ReentrantLock appending = new ReentrantLock();
+    private final ReentrantLock appending = new ReentrantLock(true);
     private final Set<Integer> attempted = ConcurrentHashMap.newKeySet();
     private final Set<Integer> acknowledged = ConcurrentHashMap.newKeySet();
     private final Thread producer;

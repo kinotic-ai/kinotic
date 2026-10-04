@@ -2,6 +2,7 @@ package org.kinotic.queue.internal.cluster.message;
 
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.queue.internal.log.BatchSlot;
+import org.kinotic.queue.internal.log.Membership;
 import org.kinotic.queue.internal.log.ShardEntry;
 
 import java.nio.charset.StandardCharsets;
@@ -18,7 +19,10 @@ public final class Wire {
 
     // Raised whenever the layout of any message changes, so nodes running different layouts refuse each other's
     // messages instead of misreading them
-    private static final byte VERSION = 2;
+    private static final byte VERSION = 3;
+    private static final byte RECORD = 0;
+    private static final byte MARKER = 1;
+    private static final byte MEMBERSHIP = 2;
 
     private final Buffer buffer;
     private int position;
@@ -56,13 +60,26 @@ public final class Wire {
     public static Buffer appendEntries(Buffer buffer, List<ShardEntry> entries) {
         buffer.appendInt(entries.size());
         for (ShardEntry entry : entries) {
-            buffer.appendLong(entry.offset()).appendLong(entry.epoch()).appendByte((byte) (entry.isMarker() ? 1 : 0));
-            if (!entry.isMarker()) {
+            buffer.appendLong(entry.offset()).appendLong(entry.epoch());
+            if (entry.isRecord()) {
+                buffer.appendByte(RECORD);
                 appendString(buffer, entry.key());
                 appendBytes(buffer, entry.payload());
                 appendSlot(buffer, entry.slot());
+            } else if (entry.isMembership()) {
+                buffer.appendByte(MEMBERSHIP);
+                appendStrings(buffer, entry.membership().voting());
+                appendStrings(buffer, entry.membership().joining());
+            } else {
+                buffer.appendByte(MARKER);
             }
         }
+        return buffer;
+    }
+
+    public static Buffer appendStrings(Buffer buffer, List<String> values) {
+        buffer.appendInt(values.size());
+        values.forEach(value -> appendString(buffer, value));
         return buffer;
     }
 
@@ -111,9 +128,25 @@ public final class Wire {
         for (int i = 0; i < count; i++) {
             long offset = readLong();
             long epoch = readLong();
-            ret.add(readByte() == 1 ? ShardEntry.marker(offset, epoch) : new ShardEntry(offset, epoch, readString(), readBytes(), readSlot()));
+            byte type = readByte();
+            if (type == RECORD) {
+                ret.add(ShardEntry.record(offset, epoch, readString(), readBytes(), readSlot()));
+            } else if (type == MEMBERSHIP) {
+                ret.add(ShardEntry.membership(offset, epoch, new Membership(readStrings(), readStrings())));
+            } else {
+                ret.add(ShardEntry.marker(offset, epoch));
+            }
         }
         return ret;
+    }
+
+    public List<String> readStrings() {
+        int count = readInt();
+        List<String> ret = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            ret.add(readString());
+        }
+        return List.copyOf(ret);
     }
 
     public BatchSlot readSlot() {

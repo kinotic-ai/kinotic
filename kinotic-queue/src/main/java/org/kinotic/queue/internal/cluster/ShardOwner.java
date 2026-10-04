@@ -11,18 +11,19 @@ import org.kinotic.queue.internal.cluster.message.FetchRequest;
 import org.kinotic.queue.internal.cluster.message.FetchResponse;
 import org.kinotic.queue.internal.cluster.message.LeaseRequest;
 import org.kinotic.queue.internal.cluster.message.LeaseResponse;
+import org.kinotic.queue.internal.cluster.message.OwnerStatus;
 import org.kinotic.queue.internal.cluster.message.SettleRequest;
 import org.kinotic.queue.internal.cluster.message.PrepareRequest;
 import org.kinotic.queue.internal.cluster.message.ShardStatus;
 import org.kinotic.queue.internal.log.BatchSlot;
 import org.kinotic.queue.internal.log.ConsumerOffsetRepository;
+import org.kinotic.queue.internal.log.Membership;
 import org.kinotic.queue.internal.log.ReplicationResult;
 import org.kinotic.queue.internal.log.ShardEntry;
 import org.kinotic.queue.internal.log.ShardLog;
 import org.kinotic.queue.internal.log.StaleEpochException;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -34,11 +35,15 @@ import java.util.function.BiFunction;
 import java.util.function.ToLongFunction;
 
 /**
- * Runs a shard placed on this node as its owner. On start the owner takes an epoch newer than any the shard has seen,
- * has every reachable copy promise to refuse older owners, brings its copy level with the most advanced of them, and
- * writes a marker opening its epoch. It then appends records, replicates them to the followers, and treats records as
- * committed once a majority of the replication factor holds them and the marker. Only committed records are
- * acknowledged to appenders and served to consumers. Runs on the queue node's context.
+ * Runs a shard placed on this node as its owner. While another node still owns the shard and this node's copy is far
+ * behind it, the owner waits for its copy to catch up as that node's follower, and requests reach that node through
+ * this one. On start the owner takes an epoch newer than any the shard has seen, has every reachable copy promise to
+ * refuse older owners, brings its copy level with the most advanced of them, and writes a marker opening its epoch. It
+ * then appends records, replicates them to the followers and to every other copy counting toward a commit, and treats
+ * records as committed once a majority of the
+ * shard's voting copies holds them and the marker. Only committed records are acknowledged to appenders and served to
+ * consumers. An owner whose shard is placed elsewhere keeps serving it until the node placed as its owner takes it.
+ * Runs on the queue node's context.
  */
 @Slf4j
 final class ShardOwner {
@@ -92,8 +97,17 @@ final class ShardOwner {
     private final Map<Long, ProducerBatch> producerBatches = new HashMap<>();
     // Appends a record to a group's dead-letter queue, by group name
     private final BiFunction<String, ShardEntry, Future<Void>> deadLetters;
+    // The storage id of this node's copy
+    private final String storageId;
 
-    private List<String> followers = List.of();
+    // The storage id of each follower's node, by node id
+    private Map<String, String> followers = Map.of();
+    // The nodes replicated to, with the storage id of each one's copy: the followers, and the nodes of the other copies
+    // counting toward a commit, which a change of placement can leave outside the followers
+    private Map<String, String> targets = Map.of();
+    private ShardMembership membership;
+    // The node serving the shard while this node's copy catches up
+    private String actingOwner;
     private long newestSeenEpoch;
     private long epoch;
     private long epochStartOffset;
@@ -122,10 +136,11 @@ final class ShardOwner {
         this.consumerOffsets = assignment.consumerOffsets();
         this.groupOffsets = assignment.groupOffsets();
         this.deadLetters = deadLetters;
+        this.storageId = placement.storageId(placement.localNodeId());
         this.newestSeenEpoch = Math.max(shardLog.lastEpoch(), shardLog.acceptedEpoch());
     }
 
-    void start(List<String> followers) {
+    void start(Map<String, String> followers) {
         this.followers = followers;
         recover();
     }
@@ -177,7 +192,7 @@ final class ShardOwner {
             if (offsets.get(i) < 0) {
                 AppendRecord record = request.records().get(i);
                 BatchSlot slot = new BatchSlot(request.producerId(), request.sequence(), i, offsets.size());
-                records.add(new ShardEntry(-1, epoch, record.key(), record.payload(), slot));
+                records.add(ShardEntry.record(-1, epoch, record.key(), record.payload(), slot));
                 indexes.add(i);
             }
         }
@@ -363,18 +378,12 @@ final class ShardOwner {
                     });
     }
 
-    void updateFollowers(List<String> followers) {
+    void updateFollowers(Map<String, String> followers) {
         if (!this.followers.equals(followers)) {
             this.followers = followers;
             if (active) {
-                replicators.keySet().removeIf(node -> {
-                    boolean removed = !followers.contains(node);
-                    if (removed) {
-                        replicators.get(node).stop();
-                    }
-                    return removed;
-                });
-                followers.forEach(this::startReplicator);
+                membership.place(copies());
+                updateTargets();
                 updateCommittedOffset();
             }
         }
@@ -382,6 +391,28 @@ final class ShardOwner {
 
     boolean isStopped() {
         return stopped;
+    }
+
+    /**
+     * @return whether this node serves the shard
+     */
+    boolean isActive() {
+        return active;
+    }
+
+    /**
+     * @return the offset before which every record of the shard is committed
+     */
+    long committedOffset() {
+        return committedOffset;
+    }
+
+    /**
+     * @return the node serving the shard while this node's copy catches up, or null when this node serves it or no
+     * node does
+     */
+    String actingOwner() {
+        return active ? null : actingOwner;
     }
 
     void stop() {
@@ -409,7 +440,12 @@ final class ShardOwner {
         long proposed = nextEpoch();
         // A retry proposes a newer epoch, since copies that promised this one would refuse it
         newestSeenEpoch = Math.max(newestSeenEpoch, proposed);
-        vertx.executeBlocking(() -> placement.replicas(queue, shard), false)
+        findActingOwner()
+             .compose(acting -> {
+                 actingOwner = acting;
+                 return acting != null ? Future.failedFuture("node " + acting + " serves the shard while this copy catches up")
+                                       : vertx.executeBlocking(() -> placement.replicas(queue, shard), false);
+             })
              .compose(replicas -> prepare(proposed, replicas))
              .compose(statuses -> takeOwnership(proposed, statuses))
              .onComplete(ar -> {
@@ -418,6 +454,8 @@ final class ShardOwner {
                          epoch = proposed;
                          epochStartOffset = ar.result();
                          active = true;
+                         membership = new ShardMembership(placement, shardLog, this::appendMembership);
+                         membership.place(copies());
                          sweepTimer = vertx.setPeriodic(SWEEP_INTERVAL_MS, t -> sweep());
                          producersRecovered = vertx.executeBlocking(this::scanProducerBatches, false)
                                                    .recover(e -> {
@@ -428,12 +466,16 @@ final class ShardOwner {
                                                    })
                                                    .onSuccess(producerBatches::putAll)
                                                    .mapEmpty();
-                         followers.forEach(this::startReplicator);
+                         updateTargets();
                          updateCommittedOffset();
                          log.info("Owning shard {} of queue {} at epoch {} from offset {}", shard, queue, epoch, epochStartOffset);
                      } else {
                          recoveryFailure = ar.cause().getMessage();
-                         log.warn("Recovering shard {} of queue {} failed, retrying: {}", shard, queue, recoveryFailure);
+                         if (actingOwner != null) {
+                             log.debug("Shard {} of queue {} waits to take ownership: {}", shard, queue, recoveryFailure);
+                         } else {
+                             log.warn("Recovering shard {} of queue {} failed, retrying: {}", shard, queue, recoveryFailure);
+                         }
                          vertx.setTimer(RECOVERY_RETRY_MS, t -> {
                              if (!stopped) {
                                  recover();
@@ -449,9 +491,30 @@ final class ShardOwner {
         return (generation << NODE_ORDER_BITS) | (placement.localNodeOrder() & NODE_ORDER_MASK);
     }
 
+    // The node that serves the shard while this node's copy is more than a catch-up batch behind it, or null when none
+    // does: this node then takes the shard and catches up the rest itself
+    private Future<String> findActingOwner() {
+        String self = placement.localNodeId();
+        List<String> others = placement.queueNodes().stream().filter(node -> !node.equals(self)).toList();
+        List<Future<OwnerStatus>> replies = others.stream().map(node -> client.status(node, queue, shard)).toList();
+        return Future.join(replies).transform(ignored -> {
+            String acting = null;
+            long actingCommitted = -1;
+            for (int i = 0; i < others.size(); i++) {
+                Future<OwnerStatus> reply = replies.get(i);
+                if (reply.succeeded() && reply.result().active() && reply.result().committedOffset() > actingCommitted) {
+                    acting = others.get(i);
+                    actingCommitted = reply.result().committedOffset();
+                }
+            }
+            return Future.succeededFuture(shardLog.nextOffset() + CATCH_UP_BATCH_SIZE < actingCommitted ? acting : null);
+        });
+    }
+
     // Asks every queue node to promise the epoch. Succeeds with the status of each node that answered once a majority of
-    // the shard's copies has promised: any majority that committed a record under an older owner includes one of them,
-    // and none of them accepts that owner's records any more.
+    // the shard's placed copies has promised, and a majority of every set counting toward a commit in the most advanced
+    // copy: any majority that committed a record under an older owner includes one of them, and none of them accepts
+    // that owner's records any more.
     private Future<Map<String, ShardStatus>> prepare(long proposed, List<String> replicas) {
         String self = placement.localNodeId();
         Map<String, Future<ShardStatus>> replies = new LinkedHashMap<>();
@@ -470,6 +533,9 @@ final class ShardOwner {
                 }
             });
             long prepared = replicas.stream().filter(statuses::containsKey).count();
+            List<String> answered = statuses.keySet().stream().map(placement::storageId).toList();
+            ShardEntry membership = statuses.isEmpty() ? null : statuses.get(bestCopy(statuses, self)).membership();
+            String missing = membership == null ? null : unansweredMajority(membership.membership(), answered);
             Future<Map<String, ShardStatus>> ret;
             // A copy that had already promised the proposed epoch promised it to another owner: after every queue node
             // restarts, node orders repeat, so two owners can propose the same epoch
@@ -477,6 +543,8 @@ final class ShardOwner {
                 ret = Future.failedFuture("a copy had already promised epoch " + proposed + " or a newer one");
             } else if (prepared < placement.quorum() || !statuses.containsKey(self)) {
                 ret = Future.failedFuture("only " + prepared + " of the shard's copies answered, " + placement.quorum() + " are needed");
+            } else if (missing != null) {
+                ret = Future.failedFuture("no majority of the copies " + missing + " counting toward a commit answered");
             } else {
                 ret = Future.succeededFuture(statuses);
             }
@@ -484,18 +552,33 @@ final class ShardOwner {
         });
     }
 
+    // The node holding the most advanced copy among the statuses, preferring this node's own copy among equals
+    private static String bestCopy(Map<String, ShardStatus> statuses, String self) {
+        String ret = statuses.containsKey(self) ? self : statuses.keySet().iterator().next();
+        for (Map.Entry<String, ShardStatus> status : statuses.entrySet()) {
+            if (status.getValue().isAheadOf(statuses.get(ret))) {
+                ret = status.getKey();
+            }
+        }
+        return ret;
+    }
+
+    // The set, of the sets counting toward a commit, no majority of which answered; null when a majority of each did
+    private String unansweredMajority(Membership membership, List<String> answered) {
+        String ret = null;
+        for (List<String> copies : List.of(membership.voting(), membership.joining())) {
+            if (!copies.isEmpty() && copies.stream().filter(answered::contains).count() < placement.quorum()) {
+                ret = copies.toString();
+            }
+        }
+        return ret;
+    }
+
     // Brings this copy level with the most advanced prepared copy and writes the epoch's marker, returning its offset
     private Future<Long> takeOwnership(long proposed, Map<String, ShardStatus> statuses) {
         String self = placement.localNodeId();
-        String bestNode = self;
-        ShardStatus best = statuses.get(self);
-        for (Map.Entry<String, ShardStatus> status : statuses.entrySet()) {
-            if (status.getValue().isAheadOf(best)) {
-                bestNode = status.getKey();
-                best = status.getValue();
-            }
-        }
-        String source = bestNode;
+        String source = bestCopy(statuses, self);
+        ShardStatus best = statuses.get(source);
         long target = best.nextOffset();
         return vertx.executeBlocking(() -> {
                         statuses.values().forEach(status -> {
@@ -556,6 +639,79 @@ final class ShardOwner {
         return ret;
     }
 
+    // Appends a membership change as this owner and replicates it like a record
+    private Future<Long> appendMembership(Membership change) {
+        long appendEpoch = epoch;
+        return vertx.executeBlocking(() -> shardLog.appendMembership(appendEpoch, change), false).transform(ar -> {
+            Future<Long> ret;
+            if (ar.failed()) {
+                if (ar.cause() instanceof StaleEpochException) {
+                    stop();
+                }
+                ret = Future.failedFuture(ar.cause());
+            } else if (stopped) {
+                ret = Future.failedFuture(QueueFailure.NOT_OWNER.exception("Shard " + shard + " of queue " + queue + " changed owner"));
+            } else {
+                updateTargets();
+                replicators.values().forEach(ShardReplicator::notifyChanged);
+                updateCommittedOffset();
+                ret = Future.succeededFuture(ar.result());
+            }
+            return ret;
+        });
+    }
+
+    // The storage ids of this copy and the followers' copies
+    private List<String> copies() {
+        List<String> ret = new ArrayList<>();
+        ret.add(storageId);
+        ret.addAll(followers.values());
+        return ret;
+    }
+
+    // How far the copy with the storage id holds the shard, measured by the given progress of a follower
+    private long progress(String copy, long ownProgress, ToLongFunction<ShardReplicator> followerProgress) {
+        long ret = 0;
+        if (copy.equals(storageId)) {
+            ret = ownProgress;
+        } else {
+            for (Map.Entry<String, String> target : targets.entrySet()) {
+                ShardReplicator replicator = replicators.get(target.getKey());
+                if (target.getValue().equals(copy) && replicator != null) {
+                    ret = followerProgress.applyAsLong(replicator);
+                }
+            }
+        }
+        return ret;
+    }
+
+    // Replicates to the followers and to the live nodes of every other copy counting toward a commit
+    private void updateTargets() {
+        Map<String, String> updated = new LinkedHashMap<>(followers);
+        ShardEntry latest = shardLog.latestMembership();
+        if (latest != null) {
+            List<String> counting = new ArrayList<>(latest.membership().voting());
+            counting.addAll(latest.membership().joining());
+            for (String copy : counting) {
+                String node = copy.equals(storageId) ? null : placement.nodeWithStorageId(copy);
+                if (node != null) {
+                    updated.putIfAbsent(node, copy);
+                }
+            }
+        }
+        if (!updated.equals(targets)) {
+            targets = updated;
+            replicators.keySet().removeIf(node -> {
+                boolean removed = !updated.containsKey(node);
+                if (removed) {
+                    replicators.get(node).stop();
+                }
+                return removed;
+            });
+            updated.keySet().forEach(this::startReplicator);
+        }
+    }
+
     private void startReplicator(String follower) {
         replicators.computeIfAbsent(follower, node -> {
             ShardReplicator replicator = new ShardReplicator(vertx, client, node, queue, shard, shardLog, consumerOffsets, groupOffsets,
@@ -570,30 +726,14 @@ final class ShardOwner {
         completeReplicatedOffsets();
     }
 
-    // The progress a majority of the replication factor has reached, counting this copy as holding ownProgress and copies
-    // that are not placed as holding none
-    private long majorityProgress(long ownProgress, ToLongFunction<ShardReplicator> followerProgress) {
-        long[] copies = new long[Math.max(placement.replicationFactor(), followers.size() + 1)];
-        copies[0] = ownProgress;
-        int i = 1;
-        for (String follower : followers) {
-            ShardReplicator replicator = replicators.get(follower);
-            copies[i++] = replicator != null ? followerProgress.applyAsLong(replicator) : 0;
-        }
-        Arrays.sort(copies);
-        return copies[copies.length - placement.quorum()];
-    }
-
     // The committed offset only moves once a majority holds this epoch's marker: until then a record of an earlier epoch
     // held by a majority could still be replaced by an owner that never saw it.
     private void updateCommittedOffset() {
-        // A newer owner reached this copy, so the copies this owner counts may already hold that owner's entries
-        if (shardLog.acceptedEpoch() > epoch) {
-            log.info("Shard {} of queue {} promised an owner newer than epoch {}, stepping down", shard, queue, epoch);
-            stop();
+        if (stepDownIfFenced()) {
             return;
         }
-        long majorityOffset = majorityProgress(shardLog.nextOffset(), ShardReplicator::matchedOffset);
+        long ownOffset = shardLog.nextOffset();
+        long majorityOffset = membership.committable(copy -> progress(copy, ownOffset, ShardReplicator::matchedOffset));
         if (majorityOffset > epochStartOffset && majorityOffset > committedOffset) {
             committedOffset = majorityOffset;
             completeCommittedAppends();
@@ -608,6 +748,17 @@ final class ShardOwner {
             scheduleStateSave();
             dispatchers.values().forEach(dispatcher -> dispatcher.onSuccess(WorkDispatcher::onCommitted));
         }
+        membership.advance(committedOffset, copy -> progress(copy, ownOffset, ShardReplicator::matchedOffset));
+    }
+
+    // A newer owner reached this copy, so the copies this owner counts may already hold that owner's entries
+    private boolean stepDownIfFenced() {
+        boolean ret = shardLog.acceptedEpoch() > epoch;
+        if (ret) {
+            log.info("Shard {} of queue {} promised an owner newer than epoch {}, stepping down", shard, queue, epoch);
+            stop();
+        }
+        return ret;
     }
 
     private Promise<Void> pendingOffsetReplication(long version) {
@@ -618,6 +769,11 @@ final class ShardOwner {
 
     // Fails the requests whose majority did not confirm them in time, and drops dispatchers of groups gone quiet
     private void sweep() {
+        if (stepDownIfFenced()) {
+            return;
+        }
+        // A copy counting toward a commit may come back on a node that joined after the last change of followers
+        updateTargets();
         long now = System.currentTimeMillis();
         pendingAppends.entrySet().removeIf(entry -> {
             boolean expired = entry.getValue().deadline() <= now;
@@ -646,7 +802,7 @@ final class ShardOwner {
     }
 
     private void completeReplicatedOffsets() {
-        long majorityVersion = majorityProgress(Long.MAX_VALUE, ShardReplicator::replicatedOffsetsVersion);
+        long majorityVersion = membership.committable(copy -> progress(copy, Long.MAX_VALUE, ShardReplicator::replicatedOffsetsVersion));
         while (!pendingOffsetReplications.isEmpty() && pendingOffsetReplications.firstKey() <= majorityVersion) {
             pendingOffsetReplications.pollFirstEntry().getValue().promise().complete();
         }

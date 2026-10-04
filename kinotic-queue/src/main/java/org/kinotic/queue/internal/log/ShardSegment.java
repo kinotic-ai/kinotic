@@ -29,6 +29,10 @@ import java.util.stream.Stream;
  */
 final class ShardSegment implements AutoCloseable {
 
+    private static final byte RECORD = 0;
+    private static final byte MARKER = 1;
+    private static final byte MEMBERSHIP = 2;
+
     private final Path directory;
     private final long startOffset;
     // Chronicle sequence numbers are dense within a roll cycle and so are offsets, so an offset's queue index is
@@ -108,8 +112,8 @@ final class ShardSegment implements AutoCloseable {
                 Bytes<?> bytes = dc.wire().bytes();
                 bytes.writeLong(entry.offset())
                      .writeLong(entry.epoch())
-                     .writeBoolean(entry.isMarker());
-                if (!entry.isMarker()) {
+                     .writeByte(typeOf(entry));
+                if (entry.isRecord()) {
                     bytes.writeUtf8(entry.key())
                          .writeInt(entry.payload().length)
                          .write(entry.payload())
@@ -117,6 +121,9 @@ final class ShardSegment implements AutoCloseable {
                          .writeLong(entry.slot().sequence())
                          .writeInt(entry.slot().index())
                          .writeInt(entry.slot().size());
+                } else if (entry.isMembership()) {
+                    writeStorageIds(bytes, entry.membership().voting());
+                    writeStorageIds(bytes, entry.membership().joining());
                 }
             } catch (RuntimeException e) {
                 // A partly written excerpt would take a sequence number without an offset, breaking indexOf
@@ -211,18 +218,45 @@ final class ShardSegment implements AutoCloseable {
                 throw new IllegalStateException("Expected offset " + expected + " in " + directory + " but read " + offset);
             }
             long epoch = bytes.readLong();
+            byte type = bytes.readByte();
             ShardEntry ret;
-            if (bytes.readBoolean()) {
-                ret = ShardEntry.marker(offset, epoch);
-            } else {
+            if (type == RECORD) {
                 String key = bytes.readUtf8();
                 byte[] payload = new byte[bytes.readInt()];
                 bytes.read(payload);
                 BatchSlot slot = new BatchSlot(bytes.readLong(), bytes.readLong(), bytes.readInt(), bytes.readInt());
-                ret = new ShardEntry(offset, epoch, key, payload, slot);
+                ret = ShardEntry.record(offset, epoch, key, payload, slot);
+            } else if (type == MEMBERSHIP) {
+                ret = ShardEntry.membership(offset, epoch, new Membership(readStorageIds(bytes), readStorageIds(bytes)));
+            } else {
+                ret = ShardEntry.marker(offset, epoch);
             }
             return ret;
         }
+    }
+
+    private static byte typeOf(ShardEntry entry) {
+        byte ret = MARKER;
+        if (entry.isRecord()) {
+            ret = RECORD;
+        } else if (entry.isMembership()) {
+            ret = MEMBERSHIP;
+        }
+        return ret;
+    }
+
+    private static void writeStorageIds(Bytes<?> bytes, List<String> storageIds) {
+        bytes.writeInt(storageIds.size());
+        storageIds.forEach(bytes::writeUtf8);
+    }
+
+    private static List<String> readStorageIds(Bytes<?> bytes) {
+        int count = bytes.readInt();
+        List<String> ret = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            ret.add(bytes.readUtf8());
+        }
+        return List.copyOf(ret);
     }
 
     // Fills the cycle map from the first entry of every cycle on disk, and reads the last entry

@@ -23,7 +23,9 @@ import org.kinotic.queue.internal.cluster.message.OffsetQuery;
 import org.kinotic.queue.internal.cluster.message.ReplicateRequest;
 import org.kinotic.queue.internal.cluster.message.SettleRequest;
 import org.kinotic.queue.internal.cluster.message.PrepareRequest;
+import org.kinotic.queue.internal.cluster.message.OwnerStatus;
 import org.kinotic.queue.internal.cluster.message.ShardStatus;
+import org.kinotic.queue.internal.cluster.message.StatusRequest;
 import org.kinotic.queue.internal.log.QueueLog;
 import org.kinotic.queue.internal.log.ReplicationResult;
 import org.springframework.stereotype.Component;
@@ -198,6 +200,26 @@ public class QueueClusterClient {
      */
     public Future<FetchResponse> read(String node, FetchRequest request) {
         return request(node, QueueNode.READ, request.toBuffer(), REQUEST_TIMEOUT_MS).map(FetchResponse::fromBuffer);
+    }
+
+    /**
+     * Asks a queue node whether it owns the shard.
+     */
+    public Future<OwnerStatus> status(String node, String queue, int shard) {
+        return request(node, QueueNode.STATUS, new StatusRequest(queue, shard).toBuffer(), REQUEST_TIMEOUT_MS).map(OwnerStatus::fromBuffer);
+    }
+
+    /**
+     * Passes a request a client sent to this node on to the node serving the shard, with the timeout the client gave it.
+     */
+    public Future<Buffer> forward(String node, String action, Buffer body) {
+        long timeoutMs = switch (action) {
+            case QueueNode.APPEND, QueueNode.SETTLE -> MAJORITY_TIMEOUT_MS;
+            case QueueNode.FETCH -> FETCH_TIMEOUT_MS;
+            case QueueNode.LEASE -> LEASE_TIMEOUT_MS;
+            default -> REQUEST_TIMEOUT_MS;
+        };
+        return request(node, action, body, timeoutMs);
     }
 
     public Future<ShardStatus> prepare(String node, PrepareRequest request) {

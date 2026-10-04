@@ -136,7 +136,7 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
     protected void onPulled(int shard, FetchResponse response) {
         if (!isEnded()) {
             for (ShardEntry entry : response.entries()) {
-                if (!entry.isMarker()) {
+                if (entry.isRecord()) {
                     pendingBytes += entry.size();
                     push(new QueueRecord(new QueuePosition(queue, shard, entry.offset()), entry.key(), entry.payload()));
                 }

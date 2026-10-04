@@ -9,6 +9,7 @@ import org.kinotic.queue.api.config.KinoticQueueProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Decides which queue nodes hold the copies of each shard. Every node computes the same placement for the same
@@ -22,6 +23,12 @@ public class ShardPlacement {
      * The Ignite node attribute that marks a node running the queue module.
      */
     public static final String QUEUE_NODE_ATTRIBUTE = "kinotic.queue.node";
+
+    /**
+     * The Ignite node attribute that holds the {@link org.kinotic.queue.internal.log.QueueLog#storageId storage id}
+     * of a queue node's data.
+     */
+    public static final String STORAGE_ID_ATTRIBUTE = "kinotic.queue.storageId";
 
     // Holds no data; its affinity function assigns shard keys to queue nodes
     private static final String PLACEMENT_CACHE = "kinotic_queue_placement";
@@ -68,6 +75,27 @@ public class ShardPlacement {
                      .map(ClusterNode::id)
                      .map(Object::toString)
                      .toList();
+    }
+
+    /**
+     * @return the storage id of the node's data, or null when the node is no longer in the cluster
+     */
+    public String storageId(String nodeId) {
+        ClusterNode node = ignite.cluster().node(UUID.fromString(nodeId));
+        return node != null ? node.attribute(STORAGE_ID_ATTRIBUTE) : null;
+    }
+
+    /**
+     * @return the id of the queue node whose data has the storage id, or null when no such node is in the cluster
+     */
+    public String nodeWithStorageId(String storageId) {
+        return ignite.cluster()
+                     .forAttribute(STORAGE_ID_ATTRIBUTE, storageId)
+                     .nodes()
+                     .stream()
+                     .findFirst()
+                     .map(node -> node.id().toString())
+                     .orElse(null);
     }
 
     public String localNodeId() {

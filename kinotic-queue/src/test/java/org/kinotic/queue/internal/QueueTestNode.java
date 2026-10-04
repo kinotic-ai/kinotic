@@ -20,6 +20,7 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.kinotic.queue.KinoticQueueLibrary;
 import org.kinotic.queue.api.services.QueueService;
 import org.kinotic.queue.internal.cluster.ShardPlacement;
+import org.kinotic.queue.internal.log.QueueLog;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.env.MapPropertySource;
 
@@ -57,11 +58,14 @@ public final class QueueTestNode implements AutoCloseable {
     public static QueueTestNode start(String name, Path dataDirectory, int replicationFactor) throws Exception {
         IgniteConfiguration configuration = new IgniteConfiguration()
                 .setIgniteInstanceName(name)
+                // Placement follows the consistent id, so a node restarted under the same name holds the same shards
+                .setConsistentId(name)
                 .setGridLogger(new Slf4jLogger())
                 .setMetricsLogFrequency(0)
                 .setLocalHost("127.0.0.1")
                 .setWorkDirectory(dataDirectory.resolveSibling(name + "-ignite").toString())
-                .setUserAttributes(Map.of(ShardPlacement.QUEUE_NODE_ATTRIBUTE, Boolean.TRUE))
+                .setUserAttributes(Map.of(ShardPlacement.QUEUE_NODE_ATTRIBUTE, Boolean.TRUE,
+                                          ShardPlacement.STORAGE_ID_ATTRIBUTE, QueueLog.storageId(dataDirectory)))
                 // The event bus registry template KinoticIgniteConfigCaches gives every Kinotic node; a partitioned
                 // registry without backups loses the registrations of live nodes when a node leaves
                 .setCacheConfiguration(new CacheConfiguration<>("__vertx.*")
@@ -112,6 +116,10 @@ public final class QueueTestNode implements AutoCloseable {
 
     public QueueService queueService() {
         return context.getBean(QueueService.class);
+    }
+
+    public ShardPlacement placement() {
+        return context.getBean(ShardPlacement.class);
     }
 
     public Vertx vertx() {

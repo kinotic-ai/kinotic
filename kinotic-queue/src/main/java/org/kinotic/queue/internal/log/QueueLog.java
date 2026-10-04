@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
@@ -16,6 +17,8 @@ import java.util.regex.Pattern;
 public final class QueueLog implements AutoCloseable {
 
     private static final String SHARD_COUNT_FILE = "shard-count";
+    // Starts with a dot, which no queue name does, so it is never taken for a queue's directory
+    private static final String STORAGE_ID_FILE = ".storage-id";
     // Queue and consumer names become directory and file names, so they can never contain a path separator or "..",
     // which also rules out path traversal
     private static final Pattern NAME_PATTERN = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,127}");
@@ -86,6 +89,27 @@ public final class QueueLog implements AutoCloseable {
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
+        }
+        return ret;
+    }
+
+    /**
+     * Identifies the queue data stored in {@code dataDirectory}, creating the id when the directory holds none. The id
+     * stays the same across restarts and changes when the directory is emptied, so it tells a node that kept its data
+     * from one that lost it.
+     */
+    public static String storageId(Path dataDirectory) {
+        Path file = dataDirectory.resolve(STORAGE_ID_FILE);
+        String ret;
+        try {
+            if (Files.exists(file)) {
+                ret = Files.readString(file).trim();
+            } else {
+                ret = UUID.randomUUID().toString();
+                ShardLog.writeDurably(file, ret);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
         return ret;
     }
