@@ -209,8 +209,8 @@ public class TenantTests extends KinoticTestBase {
     @Test
     public void anApplicationIsolatingEachUserCreatesATenantPerUserAndOffersNothingElse() throws Exception {
         String appId = "isolated-app-" + suffix();
-        await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(appId, "Isolating application",
-                                                                                    EnumSet.of(OnboardingMechanism.TENANT_PER_USER))));
+        Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(
+                appId, "Isolating application", EnumSet.of(OnboardingMechanism.TENANT_PER_USER))));
 
         UserParticipantIdentity user = endUser(appId, null);
         assertNotNull(user.getTenantId(), "the user received no tenant");
@@ -219,7 +219,6 @@ public class TenantTests extends KinoticTestBase {
         assertEquals(user.getId(), tenant.getCreatedBy());
         assertEquals("Isolated User", tenant.getName());
 
-        Application application = await(runAsOrganization(() -> applicationService.findById(appId)));
         application.getOnboarding().add(OnboardingMechanism.TENANT_SIGN_UP);
         assertInstanceOf(IllegalArgumentException.class, failure(TEST_ORGANIZATION_PARTICIPANT, () -> applicationService.save(application)));
     }
