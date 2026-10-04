@@ -26,7 +26,6 @@ import org.kinotic.queue.internal.cluster.message.PrepareRequest;
 import org.kinotic.queue.internal.cluster.message.OwnerStatus;
 import org.kinotic.queue.internal.cluster.message.ShardStatus;
 import org.kinotic.queue.internal.cluster.message.StatusRequest;
-import org.kinotic.queue.internal.log.QueueLog;
 import org.kinotic.queue.internal.log.ReplicationResult;
 import org.springframework.stereotype.Component;
 
@@ -67,14 +66,14 @@ public class QueueClusterClient {
 
     /**
      * Appends a record through the owner of the shard its key hashes to, in a batch with the other appends this client
-     * makes to the shard, retrying while the shard has no active owner.
+     * makes to the shard, retrying while the shard has no active owner. Appends to a shard are sent in the order they
+     * were called, including appends called while the queue's definition was still being looked up.
      *
+     * @param definition the queue's definition, or its lookup; the append fails as the lookup does
      * @return the position the record was written at
      */
-    public Future<QueuePosition> append(QueueDefinition definition, String key, byte[] payload) {
-        int shard = QueueLog.shardOf(key, definition.shardCount());
-        return batcher.append(definition.name(), shard, key, payload)
-                      .map(offset -> new QueuePosition(definition.name(), shard, offset));
+    public Future<QueuePosition> append(String queue, Future<QueueDefinition> definition, String key, byte[] payload) {
+        return batcher.append(queue, definition, key, payload);
     }
 
     /**
@@ -161,13 +160,17 @@ public class QueueClusterClient {
     }
 
     /**
-     * @return the consumer's next offset on the shard, the newest any reachable copy stores; zero when none stores one
+     * @param startPosition where the consumer starts on the shard when it never committed there; for
+     *                      {@link StartPosition#LATEST} a majority of the shard's copies must answer, so a consumer that
+     *                      committed is never taken for one that did not
+     * @return the consumer's next offset on the shard, the newest the answering copies store; zero when none stores one
      */
-    public Future<Long> findNextOffset(String queue, String consumerName, int shard) {
-        return replicas(queue, shard).compose(replicas -> findNextOffset(replicas, new OffsetQuery(queue, consumerName, shard)));
+    public Future<Long> findNextOffset(String queue, String consumerName, int shard, StartPosition startPosition) {
+        int required = startPosition == StartPosition.LATEST ? placement.quorum() : 1;
+        return replicas(queue, shard).compose(replicas -> findNextOffset(replicas, new OffsetQuery(queue, consumerName, shard), required));
     }
 
-    private Future<Long> findNextOffset(List<String> replicas, OffsetQuery query) {
+    private Future<Long> findNextOffset(List<String> replicas, OffsetQuery query, int required) {
         String queue = query.queue();
         int shard = query.shard();
         Buffer body = query.toBuffer();
@@ -177,17 +180,22 @@ public class QueueClusterClient {
                                               .toList();
         return Future.join(replies).transform(ar -> {
             long nextOffset = -1;
+            int answered = 0;
             Throwable failure = null;
             for (Future<Long> reply : replies) {
                 if (reply.succeeded()) {
                     nextOffset = Math.max(nextOffset, reply.result());
+                    answered++;
                 } else {
                     failure = reply.cause();
                 }
             }
-            // Delivery restarting from an older offset only repeats records, so any copy that answers will do
-            return nextOffset >= 0 ? Future.succeededFuture(nextOffset)
-                                   : Future.failedFuture(failure != null ? failure : new IllegalStateException("No copy of shard " + shard + " of queue " + queue + " is placed"));
+            // A commit is stored on a majority, so a majority's answers include it. Fewer can all come from copies that
+            // missed it, which only repeats records for a consumer starting at the earliest record.
+            return answered >= required
+                    ? Future.succeededFuture(nextOffset)
+                    : Future.failedFuture(new IllegalStateException("Only " + answered + " copies of shard " + shard + " of queue " + queue
+                                                                            + " answered, " + required + " are needed", failure));
         });
     }
 

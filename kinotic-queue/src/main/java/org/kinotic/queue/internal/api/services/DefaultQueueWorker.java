@@ -87,9 +87,11 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
 
     @Override
     public Future<Void> close() {
-        end();
+        Set<QueuePosition> undelivered = new HashSet<>();
+        end().forEach(item -> undelivered.add(item.record().position()));
         List<Future<Void>> released = List.copyOf(held).stream()
-                                          .map(position -> settle(position, Settlement.RELEASE))
+                                          .map(position -> settle(position, undelivered.contains(position) ? Settlement.RETURN
+                                                                                                           : Settlement.RELEASE))
                                           .toList();
         // A record that fails to go back returns to the group once its lease expires
         return Future.join(released).otherwiseEmpty().mapEmpty();
@@ -119,7 +121,7 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
             held.add(position);
             if (isEnded()) {
                 // Leased after close(), so it goes straight back to the group
-                settle(position, Settlement.RELEASE);
+                settle(position, Settlement.RETURN);
             } else {
                 push(new WorkItem(new QueueRecord(position, leased.entry().key(), leased.entry().payload()), leased.deliveryCount()));
             }

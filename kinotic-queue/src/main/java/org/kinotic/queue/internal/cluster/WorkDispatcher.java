@@ -26,6 +26,7 @@ import java.util.function.Supplier;
  * Shares one shard's committed records between the workers of one group, on the shard's owner. Each record is leased
  * to one worker at a time; a record whose lease expires or is released goes back to the group, and a record rejected,
  * or leased {@link #MAX_DELIVERIES} times without being accepted, is done once it is in the group's dead-letter queue.
+ * A lease a closing worker returns unseen does not count.
  * The group's low watermark, the offset before which
  * every record is done, is stored in the queue's group offsets and copied to a majority of the shard's copies, so the
  * shard's next owner resumes the group from it. A lease can be renewed while its worker still processes the record.
@@ -166,6 +167,15 @@ final class WorkDispatcher {
             case RELEASE -> {
                 leased.remove(offset);
                 released.put(offset, lease.deliveryCount());
+                servePendingLeases();
+            }
+            case RETURN -> {
+                leased.remove(offset);
+                released.put(offset, lease.deliveryCount() - 1);
+                // A request still waiting from the closing worker would take the record straight back
+                List<PendingLease> closing = pendingLeases.stream().filter(pending -> pending.workerId().equals(workerId)).toList();
+                pendingLeases.removeAll(closing);
+                closing.forEach(pending -> pending.promise().tryComplete(new LeaseResponse(List.of())));
                 servePendingLeases();
             }
             case ACCEPT -> {

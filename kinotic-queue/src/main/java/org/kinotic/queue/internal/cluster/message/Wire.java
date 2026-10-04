@@ -19,7 +19,7 @@ public final class Wire {
 
     // Raised whenever the layout of any message changes, so nodes running different layouts refuse each other's
     // messages instead of misreading them
-    private static final byte VERSION = 3;
+    private static final byte VERSION = 4;
     private static final byte RECORD = 0;
     private static final byte MARKER = 1;
     private static final byte MEMBERSHIP = 2;

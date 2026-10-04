@@ -5,21 +5,28 @@ import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import org.kinotic.queue.api.model.QueueDefinition;
+import org.kinotic.queue.api.model.QueuePosition;
 import org.kinotic.queue.internal.cluster.message.AppendRecord;
 import org.kinotic.queue.internal.cluster.message.AppendRequest;
+import org.kinotic.queue.internal.log.QueueLog;
 import org.kinotic.queue.internal.log.ShardEntry;
 
 import java.security.SecureRandom;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
  * Sends one client's appends to each shard in batches, one batch per shard at a time and in the order the appends
- * were made. Each batch carries the client's producer id and a sequence that grows with every batch to the shard, so
- * a batch sent again after a failure is written once. Runs on its own context.
+ * were made, also while a queue's definition is still being looked up. Each batch carries the client's producer id and
+ * a sequence that grows with every batch to the shard, so a batch sent again after a failure is written once. Runs on
+ * its own context.
  */
 final class AppendBatcher {
 
@@ -31,6 +38,11 @@ final class AppendBatcher {
     // Random, so clients that run at the same time, or one after another, never share an id
     private final long producerId = new SecureRandom().nextLong();
     private final Map<String, ShardAppendQueue> queues = new HashMap<>();
+    // Each queue's appends not yet given to a shard, in the order they were made, while the first one's definition is
+    // still being looked up
+    private final Map<String, ArrayDeque<QueuedAppend>> resolving = new HashMap<>();
+    // The queues whose first resolving append has a callback waiting on its definition
+    private final Set<String> awaitingDefinition = new HashSet<>();
 
     /**
      * @param send sends a batch to the shard's owner, retrying while the shard has no owner, and answers with the
@@ -42,19 +54,44 @@ final class AppendBatcher {
     }
 
     /**
-     * Appends a record in the shard's next batch.
+     * Appends a record in the next batch of the shard its key hashes to.
      *
-     * @return the record's offset, completed on the calling context
+     * @param definition the queue's definition, or its lookup; the append fails as the lookup does
+     * @return the record's position, completed on the calling context
      */
-    Future<Long> append(String queue, int shard, String key, byte[] payload) {
-        Promise<Long> promise = Promise.promise();
-        QueuedAppend append = new QueuedAppend(key, payload, promise, Vertx.currentContext());
+    Future<QueuePosition> append(String queue, Future<QueueDefinition> definition, String key, byte[] payload) {
+        Promise<QueuePosition> promise = Promise.promise();
+        QueuedAppend append = new QueuedAppend(definition, key, payload, promise, Vertx.currentContext());
         context.runOnContext(v -> {
-            ShardAppendQueue shardQueue = queues.computeIfAbsent(queue + "/" + shard, name -> new ShardAppendQueue(queue, shard));
-            shardQueue.getWaiting().add(append);
-            sendNext(shardQueue);
+            resolving.computeIfAbsent(queue, name -> new ArrayDeque<>()).add(append);
+            resolve(queue);
         });
         return promise.future();
+    }
+
+    // Gives the queue's appends to their shards in the order they were made, up to the first whose definition is not
+    // known yet, and resumes once it is
+    private void resolve(String queue) {
+        ArrayDeque<QueuedAppend> appends = resolving.get(queue);
+        while (!appends.isEmpty() && appends.peek().definition().isComplete()) {
+            QueuedAppend append = appends.poll();
+            if (append.definition().succeeded()) {
+                int shard = QueueLog.shardOf(append.key(), append.definition().result().shardCount());
+                ShardAppendQueue shardQueue = queues.computeIfAbsent(queue + "/" + shard, name -> new ShardAppendQueue(queue, shard));
+                shardQueue.getWaiting().add(append);
+                sendNext(shardQueue);
+            } else {
+                complete(append, Future.failedFuture(append.definition().cause()));
+            }
+        }
+        if (appends.isEmpty()) {
+            resolving.remove(queue);
+        } else if (awaitingDefinition.add(queue)) {
+            appends.peek().definition().onComplete(ar -> context.runOnContext(v -> {
+                awaitingDefinition.remove(queue);
+                resolve(queue);
+            }));
+        }
     }
 
     private void sendNext(ShardAppendQueue shardQueue) {
@@ -74,21 +111,17 @@ final class AppendBatcher {
                 .onComplete(ar -> {
                     shardQueue.setInFlight(false);
                     for (int i = 0; i < batch.size(); i++) {
-                        complete(batch.get(i), ar, i);
+                        int index = i;
+                        complete(batch.get(i), ar.map(offsets -> new QueuePosition(shardQueue.getQueue(), shardQueue.getShard(),
+                                                                                   offsets.get(index))));
                     }
                     sendNext(shardQueue);
                 });
         }
     }
 
-    private static void complete(QueuedAppend append, AsyncResult<List<Long>> result, int index) {
-        Runnable completion = () -> {
-            if (result.succeeded()) {
-                append.promise().complete(result.result().get(index));
-            } else {
-                append.promise().fail(result.cause());
-            }
-        };
+    private static void complete(QueuedAppend append, AsyncResult<QueuePosition> result) {
+        Runnable completion = () -> append.promise().handle(result);
         if (append.caller() != null) {
             append.caller().runOnContext(v -> completion.run());
         } else {

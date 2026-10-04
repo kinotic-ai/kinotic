@@ -8,7 +8,8 @@ import org.kinotic.queue.api.model.WorkItem;
  * One worker of a group sharing a queue's records: each record is leased to one worker of the group at a time. A
  * record the worker neither settles nor {@link #renew renews} within its lease, or still holds when it closes, is
  * leased to another worker, and a record leased five times without being accepted goes to the group's
- * {@link QueueService#deadLetterQueue dead-letter queue}. A shard that cannot be
+ * {@link QueueService#deadLetterQueue dead-letter queue}; a lease counts unless the worker closed before its handler
+ * received the record. A handler that throws closes the worker. A shard that cannot be
  * read for 30 seconds is reported to the {@link #exceptionHandler exception handler} once, and leasing keeps retrying
  * it. Methods must be called on the Vert.x context the worker delivers on.
  */

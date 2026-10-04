@@ -19,5 +19,10 @@ public enum Settlement {
     /**
      * The worker still processes the record, so its lease starts over.
      */
-    RENEW
+    RENEW,
+    /**
+     * The worker closed before handing the record to its handler, so the record goes back to the group without the
+     * lease counting toward its deliveries, and the worker's waiting lease requests end with no records.
+     */
+    RETURN
 }

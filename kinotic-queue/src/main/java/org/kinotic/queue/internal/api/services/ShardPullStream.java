@@ -43,6 +43,7 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
     private Handler<Void> endHandler;
     private long demand = Long.MAX_VALUE;
     private boolean closed;
+    private boolean delivering;
 
     /**
      * @param description names the stream in log messages
@@ -145,17 +146,26 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
      * Hands pending items to the handler as demand allows, then pulls more.
      */
     protected final void deliver() {
-        while (!closed && handler != null && demand > 0 && !pending.isEmpty()) {
-            T item = pending.poll();
-            if (demand != Long.MAX_VALUE) {
-                demand--;
+        // A handler calling fetch() or resume() lands here again; the loop below picks up the demand it added
+        if (delivering) {
+            return;
+        }
+        delivering = true;
+        try {
+            while (!closed && handler != null && demand > 0 && !pending.isEmpty()) {
+                T item = pending.poll();
+                if (demand != Long.MAX_VALUE) {
+                    demand--;
+                }
+                onDelivered(item);
+                try {
+                    handler.handle(item);
+                } catch (Throwable t) {
+                    fail(t);
+                }
             }
-            onDelivered(item);
-            try {
-                handler.handle(item);
-            } catch (Throwable t) {
-                fail(t);
-            }
+        } finally {
+            delivering = false;
         }
         if (!closed) {
             pullAll();
@@ -192,12 +202,12 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
                     deliver();
                 } else {
                     log.debug("Pulling shard {} for {} failed, retrying", shard, description, ar.cause());
-                    reportPersistentFailure(shard, ar.cause());
                     // The shard stays marked as pulling until the retry, so deliver() cannot start a second pull of it
                     context.owner().timer(RETRY_DELAY_MS, TimeUnit.MILLISECONDS).onComplete(t -> {
                         pulling[shard] = false;
                         pullShard(shard);
                     });
+                    reportPersistentFailure(shard, ar.cause());
                 }
             });
         }
@@ -213,18 +223,26 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
             IllegalStateException failure = new IllegalStateException("Shard " + shard + " of " + description + " could not be read for "
                                                                               + (now - failingSince[shard]) + " ms; still retrying", cause);
             log.warn(failure.getMessage(), cause);
-            if (exceptionHandler != null) {
-                exceptionHandler.handle(failure);
-            }
+            notifyExceptionHandler(failure);
         }
     }
 
     private void fail(Throwable t) {
         if (exceptionHandler != null) {
-            exceptionHandler.handle(t);
+            notifyExceptionHandler(t);
         } else {
             log.error("The handler of {} failed", description, t);
         }
         close();
+    }
+
+    private void notifyExceptionHandler(Throwable t) {
+        if (exceptionHandler != null) {
+            try {
+                exceptionHandler.handle(t);
+            } catch (Throwable thrown) {
+                log.error("The exception handler of {} failed", description, thrown);
+            }
+        }
     }
 }

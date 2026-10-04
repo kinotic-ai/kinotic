@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -85,6 +86,40 @@ public class QueueClusterTests {
 
         // Every shard committed exactly its records below 50, so delivery resumes at 50 on each
         assertRedelivers(c, IntStream.range(50, 150).boxed().collect(Collectors.toSet()));
+    }
+
+    @Test
+    public void appendsMadeWithoutWaitingOnANodeNewToTheQueueAreWrittenInTheOrderTheyWereCalled() throws Exception {
+        QueueTestNode a = start("a");
+        QueueTestNode b = start("b");
+        start("c");
+        List<String> queues = IntStream.range(0, 6).mapToObj(i -> QUEUE + "-" + i).toList();
+        for (String queue : queues) {
+            await(a.queueService().createQueueIfNotExist(new QueueDefinition(queue, 1)));
+        }
+
+        // Called on one context of a node that has not looked the queues up yet
+        CompletableFuture<List<Future<QueuePosition>>> called = new CompletableFuture<>();
+        b.vertx().runOnContext(v -> {
+            List<Future<QueuePosition>> appends = new ArrayList<>();
+            for (String queue : queues) {
+                for (int i = 0; i < 200; i++) {
+                    appends.add(b.queueService().append(queue, "same-key", payload(i)));
+                }
+            }
+            called.complete(appends);
+        });
+        for (Future<QueuePosition> append : called.get(30, TimeUnit.SECONDS)) {
+            await(append);
+        }
+
+        for (String queue : queues) {
+            TestSubscriber subscriber = TestSubscriber.subscribe(a.vertx(), a.queueService(), queue, "billing", StartPosition.EARLIEST);
+            for (int i = 0; i < 200; i++) {
+                assertEquals(i, value(subscriber.next()), "out of order in " + queue);
+            }
+            await(subscriber.close());
+        }
     }
 
     @Test

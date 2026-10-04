@@ -57,7 +57,8 @@ public class DefaultQueueService implements QueueService {
             return Future.failedFuture(new IllegalArgumentException("The record is " + size + " bytes, larger than kinotic.maxEventPayloadSize ("
                                                                             + properties.getMaxEventPayloadSize() + ")"));
         }
-        return definition(queue).compose(definition -> client.append(definition, key, payload));
+        // Handed to the client before the lookup completes, so appends keep the order they were called in
+        return client.append(queue, definition(queue), key, payload);
     }
 
     @Override

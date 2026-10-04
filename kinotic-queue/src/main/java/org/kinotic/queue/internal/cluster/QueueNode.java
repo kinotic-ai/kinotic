@@ -356,7 +356,7 @@ public class QueueNode {
                         localLog(stored);
                         return stored;
                     }, false)
-                    .compose(definition -> client.append(definition, entry.key(), entry.payload()))
+                    .compose(definition -> client.append(definition.name(), Future.succeededFuture(definition), entry.key(), entry.payload()))
                     .mapEmpty();
     }
 

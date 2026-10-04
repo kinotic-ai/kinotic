@@ -64,7 +64,7 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
                                           String consumerName,
                                           StartPosition startPosition) {
         List<Future<Long>> committed = IntStream.range(0, definition.shardCount())
-                                                .mapToObj(shard -> client.findNextOffset(definition.name(), consumerName, shard))
+                                                .mapToObj(shard -> client.findNextOffset(definition.name(), consumerName, shard, startPosition))
                                                 .toList();
         List<Future<Long>> starts = IntStream.range(0, definition.shardCount())
                                              .mapToObj(shard -> committed.get(shard).compose(next -> startOffset(client, definition.name(), shard,

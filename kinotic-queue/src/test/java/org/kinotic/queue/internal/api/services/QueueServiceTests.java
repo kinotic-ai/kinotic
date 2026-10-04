@@ -19,9 +19,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -198,6 +201,41 @@ public class QueueServiceTests {
         ExecutionException traversal = assertThrows(ExecutionException.class,
                                                     () -> await(service.append("../outside", "key", payload(0))));
         assertInstanceOf(IllegalArgumentException.class, traversal.getCause());
+    }
+
+    @Test
+    public void aHandlerFetchingOneRecordAtATimeReceivesEveryRecordOfManyShards() throws Exception {
+        int count = 16_384;
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 64)));
+        List<Future<QueuePosition>> appends = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            appends.add(service.append("orders", "key-" + i, new byte[0]));
+        }
+        for (Future<QueuePosition> append : appends) {
+            await(append);
+        }
+
+        AtomicInteger received = new AtomicInteger();
+        CompletableFuture<Throwable> stopped = new CompletableFuture<>();
+        node.vertx().getOrCreateContext().runOnContext(v -> service.subscribe("orders", "billing", StartPosition.EARLIEST).onSuccess(subscription -> {
+            subscription.exceptionHandler(stopped::complete);
+            subscription.endHandler(ignored -> stopped.complete(new IllegalStateException("the subscription ended")));
+            // Paused while every shard fills the buffer, then every buffered record arrives inside fetch(1) of the record
+            // before it
+            subscription.pause();
+            subscription.handler(record -> {
+                received.incrementAndGet();
+                subscription.fetch(1);
+            });
+            node.vertx().setTimer(3_000, t -> subscription.fetch(1));
+        }).onFailure(stopped::complete));
+        long deadline = System.currentTimeMillis() + 60_000;
+        while (received.get() < count && !stopped.isDone() && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50);
+        }
+
+        assertFalse(stopped.isDone(), () -> "the subscription stopped: " + stopped.join());
+        assertEquals(count, received.get());
     }
 
     private void startNode() throws Exception {

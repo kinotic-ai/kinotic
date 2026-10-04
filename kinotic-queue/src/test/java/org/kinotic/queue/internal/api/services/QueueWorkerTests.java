@@ -113,11 +113,10 @@ public class QueueWorkerTests {
             item = worker.next();
         }
 
-        // The first record went to the dead-letter queue after its fifth delivery, so the second record comes next
+        // The first record goes to the dead-letter queue after its fifth delivery, so the second record comes next
         assertEquals(1, value(item));
         assertEquals(1, item.deliveryCount());
-        TestSubscriber deadLetters = TestSubscriber.subscribe(node.vertx(), service, QueueService.deadLetterQueue(QUEUE, "billing"),
-                                                              "inspector", StartPosition.EARLIEST);
+        TestSubscriber deadLetters = subscribeOnceCreated(QueueService.deadLetterQueue(QUEUE, "billing"));
         assertEquals(0, QueueTestSupport.value(deadLetters.next()));
         assertNull(deadLetters.poll(500));
     }
@@ -215,6 +214,36 @@ public class QueueWorkerTests {
     private void startNode() throws Exception {
         node = QueueTestNode.start("single", directory.resolve("single"), 1);
         service = node.queueService();
+    }
+
+    @Test
+    public void closingAWorkerCountsOneDeliveryOfAnItemItsHandlerReceived() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition(QUEUE, 1)));
+        appendValues(0, 1);
+
+        // Each worker still asks for more when it closes, since it has room for ten
+        for (int delivery = 1; delivery <= 3; delivery++) {
+            TestWorker worker = work("billing", StartPosition.EARLIEST, 10, LONG_LEASE);
+            assertEquals(delivery, worker.next().deliveryCount());
+            await(worker.close());
+        }
+    }
+
+    // The record leaving for a dead-letter queue does not wait for the queue's creation before the next record is leased
+    private TestSubscriber subscribeOnceCreated(String queue) throws Exception {
+        long deadline = System.currentTimeMillis() + 10_000;
+        TestSubscriber ret = null;
+        while (ret == null) {
+            try {
+                ret = TestSubscriber.subscribe(node.vertx(), service, queue, "inspector", StartPosition.EARLIEST);
+            } catch (ExecutionException e) {
+                if (!(e.getCause() instanceof IllegalArgumentException) || System.currentTimeMillis() > deadline) {
+                    throw e;
+                }
+                Thread.sleep(100);
+            }
+        }
+        return ret;
     }
 
     private void appendValues(int from, int to) throws Exception {
