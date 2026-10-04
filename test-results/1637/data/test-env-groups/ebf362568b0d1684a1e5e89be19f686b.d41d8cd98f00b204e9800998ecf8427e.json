@@ -1,0 +1,1 @@
+{"id":"ebf362568b0d1684a1e5e89be19f686b.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/e2e-tests:test/native/NamedQuery.test.ts#Kinotic JS rejects a query that names another entity, or is not a query","name":"rejects a query that names another entity, or is not a query","status":"passed","testResultsByEnv":{"default":"9e30d16cd54863a37ba82a5606e5a46a"}}
