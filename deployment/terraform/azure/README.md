@@ -211,6 +211,7 @@ terraform apply -var="beta_mode=false"
 | VNet, subnet, identities | `cluster/` | Disposable |
 | cert-manager + TLS cert | `cluster/` | Disposable (re-issued on rebuild) |
 | Elasticsearch + ECK | `cluster/` | Disposable (data lost on destroy) |
+| OpenFGA + Azure Database for PostgreSQL (its relationships) | `cluster/` | Disposable (relationships lost on destroy) |
 | The Kinotic servers (org, system, app) | `cluster/` | Disposable |
 | Observability (Loki, Tempo, Mimir, Alloy, Grafana) | `cluster/` | Disposable |
 | Firecracker VMs | `cluster/` | Disposable |

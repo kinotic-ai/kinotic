@@ -27,6 +27,20 @@ CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-core:compileJava \
 
 This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing and frontend support.
 
+### Running the kinotic-test suite in the cloud
+
+The suite starts `compose.kinotic-test.yml` through Testcontainers, which recreates the stack on every run. Two things in this environment stand in its way:
+
+- The proxy forbids `docker.elastic.co`, and the sandbox disk reads as over 90% used, so Elasticsearch's disk watermark leaves every shard unassigned and the migration fails with `no_shard_available_action_exception`. Docker Hub's official `elasticsearch` image is the same build, so derive a local image from it with the watermark disabled, under the name the compose file uses:
+
+  ```bash
+  docker pull docker.io/library/elasticsearch:9.5.1
+  printf 'FROM docker.io/library/elasticsearch:9.5.1\nENV cluster.routing.allocation.disk.threshold_enabled=false\n' > /tmp/es.Dockerfile
+  docker build -t docker.elastic.co/elasticsearch/elasticsearch:9.5.1 -f /tmp/es.Dockerfile /tmp
+  ```
+
+- Elasticsearch refuses to start with the default `vm.max_map_count`; raise it with `sysctl -w vm.max_map_count=262144`.
+
 ## Branch and pull request workflow
 
 A merged pull request is finished — never stack new commits onto its history, and never reuse

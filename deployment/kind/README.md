@@ -73,7 +73,7 @@ every server's pods.
 |---|---|
 | `elastic-system` | ECK operator |
 | `elastic` | Elasticsearch cluster |
-| `kinotic` | The Kinotic servers, TLS secret, Keycloak, PostgreSQL, load generator |
+| `kinotic` | The Kinotic servers, TLS secret, OpenFGA and its Postgres, Keycloak, PostgreSQL, load generator |
 | `observability` | Loki, Tempo, Mimir, Alloy, Grafana |
 
 ## Service Access
@@ -107,6 +107,7 @@ its application's host, or an application's OAuth flow, works only without mkcer
 
 ```bash
 kubectl port-forward svc/kinotic-es-es-http -n elastic 9200:9200    # Elasticsearch
+kubectl port-forward svc/openfga -n kinotic 8080:8080                # OpenFGA, the authorization engine
 kubectl port-forward svc/keycloak-db-postgresql -n kinotic 5432:5432  # PostgreSQL (with Keycloak)
 ```
 
@@ -182,6 +183,8 @@ host both resolve, as the compose stack does with the `keycloak` host.
 | `keycloak_db_username` | `keycloak` | Keycloak PostgreSQL user |
 | `keycloak_db_password` | `keycloak` | Keycloak PostgreSQL password |
 | `keycloak_admin_password` | `admin` | Keycloak admin console password |
+| `openfga_db_username` | `openfga` | OpenFGA PostgreSQL user |
+| `openfga_db_password` | `openfga` | OpenFGA PostgreSQL password |
 | `deploy_timeout` | `600` | Helm release timeout (seconds) |
 
 ## Load Generator
@@ -297,6 +300,7 @@ deployment/kind/
 │   ├── platform-secrets.tf          # Secret of JWT signing keys, secret-storage master key, GitHub App secrets
 │   ├── elasticsearch.tf             # ECK operator + Elasticsearch (eck-stack chart)
 │   ├── kinotic.tf                   # The Kinotic servers (NodePort + TLS)
+│   ├── openfga.tf                   # OpenFGA, the authorization engine, with its Postgres
 │   ├── observability.tf             # Loki + Tempo + Mimir + Alloy + Grafana (TLS)
 │   ├── keycloak.tf                  # PostgreSQL + Keycloak (conditional, NodePort + TLS)
 │   ├── load-generator.tf            # Load generator (conditional)

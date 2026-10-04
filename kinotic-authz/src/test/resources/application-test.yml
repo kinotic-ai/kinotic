@@ -1,3 +1,12 @@
+kinotic:
+  ignite:
+    # Local discovery on ports of its own: the shared-filesystem default would join this context's node to
+    # the cluster another module's tests form on the same host when Gradle runs the modules in parallel,
+    # and a test asserting its cluster is one node would then see this one too
+    discoveryType: LOCAL
+    discoveryPort: 47520
+    communicationPort: 47120
+
 logging:
   level:
     org:

@@ -13,6 +13,7 @@ import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.persistence.internal.api.services.sql.elasticsearch.ElasticVertxClient;
 import org.kinotic.persistence.internal.api.services.sql.executors.AggregateQueryExecutor;
+import org.kinotic.persistence.internal.api.services.sql.executors.EntityContextValidationExecutor;
 import org.kinotic.persistence.internal.api.services.sql.executors.ParameterProcessorExecutor;
 import org.kinotic.persistence.internal.api.services.sql.executors.QueryExecutor;
 import org.kinotic.persistence.internal.api.services.sql.executors.SelectQueryExecutor;
@@ -70,7 +71,9 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
         }
 
         QueryExecutor queryExecutor = createQueryExecutorForStatement(entityDescriptor, queryName, queryDecorator.getStatements());
-        return new ParameterProcessorExecutor(entityDescriptor, namedQuery, queryExecutor);
+        return new ParameterProcessorExecutor(entityDescriptor,
+                                              namedQuery,
+                                              new EntityContextValidationExecutor(entityDescriptor, queryExecutor));
     }
 
     private QueryExecutor createQueryExecutorForStatement(EntityDescriptor entityDescriptor,

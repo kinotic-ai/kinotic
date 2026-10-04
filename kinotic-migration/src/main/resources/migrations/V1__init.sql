@@ -192,8 +192,23 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
     ),
     online BOOLEAN,
     lastStatusChange DATE,
-    livenessVerifiedAt LONG
+    livenessVerifiedAt LONG,
+    contractHash KEYWORD,
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, unrecorded JSON NOT INDEXED)
 );
+
+-- The authorization store of each scope, the platform's and one per application, and the model it runs. A
+-- contract published to the service directory marks its entry, and the reconcile master tells the store the
+-- entry belongs to, which regenerates its model. The platform's row is seeded here because the master drops a
+-- parent it cannot read: the row exists before any server does, as the platform's store in the engine does.
+CREATE TABLE IF NOT EXISTS kinotic_authz_store (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, unrecorded JSON NOT INDEXED, desired OBJECT (hash KEYWORD), observed OBJECT (hash KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN)
+);
+
+INSERT INTO kinotic_authz_store (id) VALUES ('platform') WITH REFRESH, DOCUMENT_ID 'platform';
 
 -- Participant Identity: authenticated identities at each scope layer — a person (type=USER)
 -- or a client acting on a person's behalf (type=DELEGATE). Scope is encoded structurally by

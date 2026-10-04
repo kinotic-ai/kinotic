@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * Test base for tests that need the Kinotic stack (Elasticsearch + kinotic-migration)
+ * Test base for tests that need the Kinotic stack (Elasticsearch + kinotic-migration + OpenFGA)
  * via Docker Compose (compose.kinotic-test.yml).
  * Uses Testcontainers Docker Compose support.
  */

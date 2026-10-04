@@ -79,11 +79,11 @@ public class WatchEventRepository {
         own.add(crudServiceTemplate.termFilter("id", id));
         List<Query> about = new ArrayList<>();
         if (scope != null) {
-            // an id is unique within the scope its record is addressed under, so the entries are read under it,
-            // and a pointer names its parent by scope, so the record's own pointer form finds what it made
+            // an id is unique within the scope its record is addressed under, so the entries are read under it
             own.add(crudServiceTemplate.termFilter("scope", scope));
-            about.add(crudServiceTemplate.termFilter("parent", new WatchedParent(type, scope, id).value()));
         }
+        // a pointer names its parent by scope, so the record's own pointer form finds what it made
+        about.add(crudServiceTemplate.termFilter("parent", new WatchedParent(type, scope, id).value()));
         about.add(crudServiceTemplate.composeFilter(own.toArray(Query[]::new)));
         return crudServiceTemplate.search(DATA_STREAM, pageable, WatchEvent.class,
                                           b -> b.query(q -> q.bool(bq -> bq.should(about).minimumShouldMatch("1")))

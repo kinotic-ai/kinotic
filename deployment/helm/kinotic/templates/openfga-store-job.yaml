@@ -1,0 +1,37 @@
+# Creates the platform store, the one store named kinotic-platform that every server looks up by name and
+# never creates, unless the engine has it. Runs before the servers of each install and upgrade, as the
+# migration does. Store names are not unique, so the listing is checked before the create, and a listing that
+# fails stops the script rather than creating a second store.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kinotic.fullname" . }}-openfga-store-{{ .Release.Revision }}
+  labels:
+    app: {{ include "kinotic.name" . }}-openfga-store
+    release: {{ .Release.Name }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app: {{ include "kinotic.name" . }}-openfga-store
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: openfga-store
+          image: curlimages/curl:8.17.0
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              stores=$(curl -sf '{{ .Values.kinotic.authz.apiUrl }}/stores?name=kinotic-platform')
+              if echo "$stores" | grep -Eq '"name":[[:space:]]*"kinotic-platform"'; then
+                echo 'The platform store kinotic-platform exists'
+              else
+                curl -sf -X POST '{{ .Values.kinotic.authz.apiUrl }}/stores' -H 'Content-Type: application/json' -d '{"name":"kinotic-platform"}'
+                echo; echo 'Created the platform store kinotic-platform'
+              fi

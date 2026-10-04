@@ -1,5 +1,6 @@
 # OpenFGA, the authorization engine every server checks against, with the Postgres it stores relationships
-# in. The migrate job prepares the schema before the engine starts. The caches match what the servers are
+# in. The migrate job prepares the schema before the engine starts, and openfga-init creates the platform
+# store, which the servers look up by name and never create. The caches match what the servers are
 # tuned for: a check answers from cached subproblems, invalidated by the cache controller on every write.
 services:
   openfga-db:
@@ -51,6 +52,26 @@ services:
       interval: 5s
       timeout: 30s
       retries: 3
+
+  # Creates the platform store, the one store named kinotic-platform, unless the engine has it; the servers
+  # wait for this to complete. Store names are not unique, so the listing is checked before the create, and
+  # a listing that fails stops the script rather than creating a second store.
+  openfga-init:
+    container_name: openfga-init
+    image: curlimages/curl:8.17.0
+    depends_on:
+      openfga:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        stores=$$(curl -sf 'http://openfga:8080/stores?name=kinotic-platform')
+        if echo "$$stores" | grep -Eq '"name":[[:space:]]*"kinotic-platform"'; then
+          echo 'The platform store kinotic-platform exists'
+        else
+          curl -sf -X POST http://openfga:8080/stores -H 'Content-Type: application/json' -d '{"name":"kinotic-platform"}'
+          echo; echo 'Created the platform store kinotic-platform'
+        fi
 
 volumes:
   openfga-db-data:

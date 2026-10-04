@@ -1,0 +1,13 @@
+# Azure AKS: two engine replicas on the managed Azure Database for PostgreSQL flexible server the
+# cluster root creates (openfga.tf), whose connection URI the `openfga-db` Secret carries; nothing
+# runs beside the engine here.
+
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 2
+    memory: 1Gi

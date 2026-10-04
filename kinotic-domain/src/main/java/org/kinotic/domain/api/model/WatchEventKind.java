@@ -39,5 +39,10 @@ public enum WatchEventKind {
     /**
      * The record's deletion was asked for; its worker finalizes it.
      */
-    DELETION_REQUESTED
+    DELETION_REQUESTED,
+    /**
+     * A service's contract was published to the directory: registered for the first time, or registered
+     * again changed.
+     */
+    CONTRACT_PUBLISHED
 }

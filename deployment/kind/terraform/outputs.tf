@@ -47,6 +47,7 @@ output "port_forward_commands" {
   value = merge(
     {
       elasticsearch = "kubectl port-forward svc/kinotic-es-es-http 9200:9200"
+      openfga       = "kubectl port-forward svc/openfga -n kinotic 8080:8080"
     },
     var.enable_keycloak ? {
       postgresql = "kubectl port-forward svc/keycloak-db-postgresql 5432:5432"
