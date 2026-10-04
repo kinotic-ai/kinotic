@@ -19,7 +19,7 @@ public record SettleRequest(String queue, int shard, String groupName, String wo
     }
 
     public Buffer toBuffer() {
-        Buffer ret = Wire.appendString(Buffer.buffer(), queue).appendInt(shard);
+        Buffer ret = Wire.appendString(Wire.buffer(), queue).appendInt(shard);
         Wire.appendString(ret, groupName);
         Wire.appendString(ret, workerId);
         return ret.appendInt(settlement.ordinal()).appendLong(offset);

@@ -19,6 +19,6 @@ public record FetchResponse(List<ShardEntry> entries, long nextOffset) {
     }
 
     public Buffer toBuffer() {
-        return Wire.appendEntries(Buffer.buffer(), entries).appendLong(nextOffset);
+        return Wire.appendEntries(Wire.buffer(), entries).appendLong(nextOffset);
     }
 }

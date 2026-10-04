@@ -14,6 +14,6 @@ public record PrepareRequest(String queue, int shard, long epoch) {
     }
 
     public Buffer toBuffer() {
-        return Wire.appendString(Buffer.buffer(), queue).appendInt(shard).appendLong(epoch);
+        return Wire.appendString(Wire.buffer(), queue).appendInt(shard).appendLong(epoch);
     }
 }

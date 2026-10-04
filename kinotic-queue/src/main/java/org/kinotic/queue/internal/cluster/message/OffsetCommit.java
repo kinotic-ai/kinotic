@@ -13,7 +13,7 @@ public record OffsetCommit(String queue, String consumerName, int shard, long ne
     }
 
     public Buffer toBuffer() {
-        Buffer ret = Wire.appendString(Buffer.buffer(), queue);
+        Buffer ret = Wire.appendString(Wire.buffer(), queue);
         return Wire.appendString(ret, consumerName).appendInt(shard).appendLong(nextOffset);
     }
 }

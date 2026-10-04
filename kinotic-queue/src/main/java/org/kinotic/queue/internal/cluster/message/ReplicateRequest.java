@@ -37,7 +37,7 @@ public record ReplicateRequest(String queue,
     }
 
     public static Buffer encodeReply(ReplicationResult result) {
-        return Buffer.buffer().appendInt(result.status().ordinal()).appendLong(result.nextOffset());
+        return Wire.buffer().appendInt(result.status().ordinal()).appendLong(result.nextOffset());
     }
 
     public static ReplicationResult decodeReply(Buffer buffer) {
@@ -46,7 +46,7 @@ public record ReplicateRequest(String queue,
     }
 
     public Buffer toBuffer() {
-        Buffer ret = Buffer.buffer();
+        Buffer ret = Wire.buffer();
         Wire.appendString(ret, queue)
             .appendInt(shard)
             .appendLong(epoch)

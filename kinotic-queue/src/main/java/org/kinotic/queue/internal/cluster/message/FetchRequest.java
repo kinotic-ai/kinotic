@@ -16,6 +16,6 @@ public record FetchRequest(String queue, int shard, long offset, int max) {
     }
 
     public Buffer toBuffer() {
-        return Wire.appendString(Buffer.buffer(), queue).appendInt(shard).appendLong(offset).appendInt(max);
+        return Wire.appendString(Wire.buffer(), queue).appendInt(shard).appendLong(offset).appendInt(max);
     }
 }

@@ -48,7 +48,7 @@ public record ShardStatus(long nextOffset,
     }
 
     public Buffer toBuffer() {
-        Buffer ret = Wire.appendOffsets(Buffer.buffer().appendLong(nextOffset).appendLong(lastEpoch).appendLong(acceptedEpoch),
+        Buffer ret = Wire.appendOffsets(Wire.buffer().appendLong(nextOffset).appendLong(lastEpoch).appendLong(acceptedEpoch),
                                         consumerOffsets);
         return Wire.appendOffsets(ret, groupOffsets);
     }

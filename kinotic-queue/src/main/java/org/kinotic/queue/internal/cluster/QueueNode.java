@@ -24,6 +24,7 @@ import org.kinotic.queue.internal.cluster.message.OffsetQuery;
 import org.kinotic.queue.internal.cluster.message.ReplicateRequest;
 import org.kinotic.queue.internal.cluster.message.PrepareRequest;
 import org.kinotic.queue.internal.cluster.message.ShardStatus;
+import org.kinotic.queue.internal.cluster.message.Wire;
 import org.kinotic.queue.internal.log.QueueLog;
 import org.kinotic.queue.internal.log.ReplicationResult;
 import org.kinotic.queue.internal.log.ReplicationStatus;
@@ -169,7 +170,7 @@ public class QueueNode {
         SettleRequest request = SettleRequest.fromBuffer(message.body());
         reply(message, owner(request.queue(), request.shard())
                 .compose(owner -> owner.settle(request))
-                .map(v -> Buffer.buffer()));
+                .map(v -> Wire.buffer()));
     }
 
     private void onReplicate(Message<Buffer> message) {
@@ -225,7 +226,7 @@ public class QueueNode {
             QueueLog.requireValidName(commit.consumerName());
             localLog(requireDefinition(commit.queue())).consumerOffsets()
                                                        .save(commit.consumerName(), commit.shard(), commit.nextOffset());
-            return Buffer.buffer();
+            return Wire.buffer();
         }, false));
     }
 
@@ -351,7 +352,14 @@ public class QueueNode {
     }
 
     private void register(String nodeId, String action, Handler<Message<Buffer>> handler) {
-        consumers.add(vertx.eventBus().consumer(address(nodeId, action), handler));
+        consumers.add(vertx.eventBus().consumer(address(nodeId, action), message -> {
+            try {
+                handler.handle(message);
+            } catch (RuntimeException e) {
+                // A request this node cannot decode is answered, so its sender does not wait out its timeout
+                message.fail(0, String.valueOf(e.getMessage()));
+            }
+        }));
     }
 
     private static void reply(Message<Buffer> message, Future<Buffer> result) {

@@ -31,7 +31,7 @@ public record LeaseRequest(String queue,
     }
 
     public Buffer toBuffer() {
-        Buffer ret = Wire.appendString(Buffer.buffer(), queue).appendInt(shard);
+        Buffer ret = Wire.appendString(Wire.buffer(), queue).appendInt(shard);
         Wire.appendString(ret, groupName);
         Wire.appendString(ret, workerId);
         return ret.appendInt(max).appendLong(leaseMillis).appendInt(startPosition.ordinal());

@@ -13,15 +13,15 @@ public record AppendRequest(String queue, int shard, String key, byte[] payload)
     }
 
     public static Buffer encodeReply(long offset) {
-        return Buffer.buffer(Long.BYTES).appendLong(offset);
+        return Wire.buffer().appendLong(offset);
     }
 
     public static long decodeReply(Buffer buffer) {
-        return buffer.getLong(0);
+        return new Wire(buffer).readLong();
     }
 
     public Buffer toBuffer() {
-        Buffer ret = Buffer.buffer();
+        Buffer ret = Wire.buffer();
         Wire.appendString(ret, queue).appendInt(shard);
         Wire.appendString(ret, key);
         Wire.appendBytes(ret, payload);

@@ -15,11 +15,33 @@ import java.util.Map;
  */
 public final class Wire {
 
+    // Raised whenever the layout of any message changes, so nodes running different layouts refuse each other's
+    // messages instead of misreading them
+    private static final byte VERSION = 1;
+
     private final Buffer buffer;
     private int position;
 
+    /**
+     * Reads a message written to a {@link #buffer()}.
+     *
+     * @throws IllegalArgumentException when the message was written in another version of the encoding
+     */
     public Wire(Buffer buffer) {
         this.buffer = buffer;
+        byte version = buffer.length() > 0 ? buffer.getByte(0) : -1;
+        if (version != VERSION) {
+            throw new IllegalArgumentException("Received a queue message of encoding version " + version + ", but this node uses version "
+                                                       + VERSION + "; every queue node must run the same version");
+        }
+        this.position = Byte.BYTES;
+    }
+
+    /**
+     * @return an empty message, to append values to with the static methods
+     */
+    public static Buffer buffer() {
+        return Buffer.buffer().appendByte(VERSION);
     }
 
     public static Buffer appendString(Buffer buffer, String value) {

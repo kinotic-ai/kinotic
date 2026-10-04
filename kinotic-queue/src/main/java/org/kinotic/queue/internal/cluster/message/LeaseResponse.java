@@ -21,7 +21,7 @@ public record LeaseResponse(List<LeasedEntry> leased) {
     }
 
     public Buffer toBuffer() {
-        Buffer ret = Wire.appendEntries(Buffer.buffer(), leased.stream().map(LeasedEntry::entry).toList());
+        Buffer ret = Wire.appendEntries(Wire.buffer(), leased.stream().map(LeasedEntry::entry).toList());
         leased.forEach(entry -> ret.appendInt(entry.deliveryCount()));
         return ret;
     }
