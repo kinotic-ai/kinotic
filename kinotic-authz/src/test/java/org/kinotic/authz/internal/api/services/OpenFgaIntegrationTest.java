@@ -7,19 +7,16 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
-import org.apache.ignite.Ignite;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -59,12 +56,6 @@ class OpenFgaIntegrationTest {
 
     private static GenericContainer<?> openfga;
     private static String apiUrl;
-
-    @Autowired
-    private Ignite ignite;
-
-    @Autowired
-    private ObjectProvider<ServiceDirectory> directory;
 
     @Autowired
     private AuthzStoreService storeService;
@@ -128,7 +119,7 @@ class OpenFgaIntegrationTest {
 
         assertEquals(modelId, await(storeService.ensurePlatformModel(model)));
         // every node resolves the same store
-        assertEquals(modelId, await(new DefaultAuthzStoreService(fga, properties, ignite, directory).ensurePlatformModel(model)));
+        assertEquals(modelId, await(new DefaultAuthzStoreService(fga, properties).ensurePlatformModel(model)));
         String platformStoreId = await(fga.listStores(100, null, DefaultAuthzStoreService.PLATFORM_STORE_NAME))
                 .getStores().getFirst().getId();
         assertEquals(modelId, await(fga.readAuthorizationModels(platformStoreId, 1, null))
@@ -139,7 +130,7 @@ class OpenFgaIntegrationTest {
     void anUnreachableEngineFailsTheCallAndTheNodeKeepsRunning() {
         KinoticAuthzProperties unreachable = new KinoticAuthzProperties();
         unreachable.getAuthz().setApiUrl("http://127.0.0.1:1");
-        DefaultAuthzStoreService node = new DefaultAuthzStoreService(new OpenFgaService(unreachable), unreachable, ignite, directory);
+        DefaultAuthzStoreService node = new DefaultAuthzStoreService(new OpenFgaService(unreachable), unreachable);
         AuthzModel model = generator.platformModel(List.of(projectService()));
 
         assertThrows(ExecutionException.class, () -> await(node.ensurePlatformModel(model)));

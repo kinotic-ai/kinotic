@@ -11,13 +11,23 @@ import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.event.ZonePartitioningService;
+import org.kinotic.domain.api.model.AuthzStore;
+import org.kinotic.domain.api.model.WatchEventKind;
+import org.kinotic.domain.api.model.WatchedParent;
+import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.domain.internal.api.model.ServiceDirectoryRecord;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.SerializationFeature;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,18 +35,22 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Elasticsearch repository for {@link ServiceDirectoryEntry}s over the {@code kinotic_service_directory} index.
- * Built on the unscoped {@link AbstractRepository} because system entries have no organization to route by; scope is
- * applied explicitly in the queries here.
+ * Elasticsearch repository for the service directory over the {@code kinotic_service_directory} index, whose
+ * documents are {@link ServiceDirectoryRecord}s: each entry with what the platform keeps on a watched record. A
+ * contract write marks the entry for the reconcile master, which tells the authorization store the entry belongs
+ * to, so the store regenerates its model. Built on the unscoped watched repository because system entries have no
+ * organization to route by; scope is applied explicitly in the queries here.
  */
 @Slf4j
 @Component
-public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceDirectoryEntry> {
+public class ServiceDirectoryEntryRepository extends AbstractWatchedRepository<ServiceDirectoryRecord> {
 
+    private static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.SERVICE, "kinotic_service_directory");
     // v1 reconciliation reads the whole directory in one page. The directory only holds self-published system
     // services today; page through it once customer contracts (which could reach 100k) start landing.
     private static final int RECONCILE_PAGE_SIZE = 10_000;
-
+    // Written by the liveness owner only, so a contract write carries none of them
+    private static final Set<String> LIVENESS_FIELDS = Set.of("online", "lastStatusChange", "livenessVerifiedAt");
     // A liveness write is an observation made at a time, and two writers observe the same entry: the
     // node whose services stop and the node whose services start, a verify and a reconcile. The entry
     // keeps the time of the latest observation applied and declines one observed earlier that lands
@@ -52,7 +66,23 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
                 ctx._source.livenessVerifiedAt = params.verifiedAt;
             }
             """;
-
+    // A contract write is one shard operation that stores the contract and marks the entry for the reconcile
+    // master, so the store the entry belongs to regenerates its model. The hash of the stored contract tells an
+    // unchanged write apart, so a node starting with what the directory already holds marks nothing; an entry
+    // being created holds no hash yet, so its first write is never declined
+    private static final String PUBLISH_CONTRACT = WatchedStateRepository.STATE_FUNCTIONS + """
+            if (ctx._source.contractHash == params.contractHash) {
+                ctx.op = 'noop';
+            } else {
+                for (def field : params.contract.entrySet()) {
+                    ctx._source[field.getKey()] = field.getValue();
+                }
+                ctx._source.contractHash = params.contractHash;
+                def s = state(ctx._source);
+                s.parent = params.parent;
+                touched(ctx._source, s, params);
+            }
+            """;
     // a name resolution matches at most a handful of entries; more than this only under pathological collision
     private static final int RESOLUTION_PAGE_SIZE = 25;
 
@@ -60,26 +90,59 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     private final ZonePartitioningService zonePartitioningService;
 
     public ServiceDirectoryEntryRepository(CrudServiceTemplate crudServiceTemplate,
+                                           WatchedStateRepository watchedStateRepository,
+                                           WatchEventRepository watchEventRepository,
                                            ObjectMapper objectMapper,
                                            ZonePartitioningService zonePartitioningService) {
-        super("kinotic_service_directory", ServiceDirectoryEntry.class, crudServiceTemplate);
+        super(WATCHED, ServiceDirectoryRecord.class, crudServiceTemplate, watchedStateRepository, watchEventRepository);
         this.objectMapper = objectMapper;
         this.zonePartitioningService = zonePartitioningService;
     }
 
+    @Override
+    public String scopeOf(ServiceDirectoryRecord record) {
+        return record.getOrganizationId();
+    }
+
     /**
-     * Upserts an entry as a partial update, leaving the liveness fields untouched so a re-registration never
-     * clobbers the {@code online} state the liveness owner maintains.
+     * Publishes an entry's contract, leaving the liveness fields untouched so a re-registration never clobbers
+     * the {@code online} state the liveness owner maintains. The write marks the entry for the reconcile master,
+     * names the authorization store the entry belongs to as its parent, and is entered in the ledger; a
+     * contract equal to the one stored leaves the entry as it is. Visible to search on completion.
      */
     public Future<Void> upsertEntry(ServiceDirectoryEntry entry) {
         @SuppressWarnings("unchecked")
-        Map<String, Object> partial = objectMapper.convertValue(entry, Map.class);
-        partial.remove("online");
-        partial.remove("lastStatusChange");
-        partial.remove("livenessVerifiedAt");
-        // the caller reconciles liveness with a search right after this completes, so the write
-        // must be visible to search before the future does
-        return crudServiceTemplate.partialUpdateSync(indexName, entry.getId(), partial, true);
+        Map<String, Object> contract = objectMapper.convertValue(entry, Map.class);
+        contract.keySet().removeAll(LIVENESS_FIELDS);
+        String contractHash = hash(contract);
+        Map<String, Object> params = Map.of("contract", contract,
+                                            "contractHash", contractHash,
+                                            "parent", storeOf(entry).value());
+        return watchedStateRepository.write(document(entry.getId()), PUBLISH_CONTRACT, params,
+                                            new WatchedChange(WatchEventKind.CONTRACT_PUBLISHED, "service registration",
+                                                              "Published " + entry.getId(), Map.of("contractHash", contractHash)),
+                                            contract)
+                                     .mapEmpty();
+    }
+
+    // The store an entry's contract belongs to: its application's, or the platform's for every other entry
+    private static WatchedParent storeOf(ServiceDirectoryEntry entry) {
+        return entry.getApplicationId() == null
+                ? new WatchedParent(WatchedType.AUTHZ_STORE, null, AuthzStore.PLATFORM)
+                : new WatchedParent(WatchedType.AUTHZ_STORE, entry.getOrganizationId(), entry.getApplicationId());
+    }
+
+    // SHA-256 of the contract with its keys sorted at every level, so two writes of one contract hash the same
+    private String hash(Map<String, Object> contract) {
+        String canonical = objectMapper.writer()
+                                       .with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+                                       .writeValueAsString(contract);
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                                                         .digest(canonical.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
     }
 
     /**
@@ -138,14 +201,15 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
             if (scopeFilter != null) {
                 b.query(scopeFilter);
             }
-        });
+        }).map(page -> page.<ServiceDirectoryEntry>map(record -> record));
     }
 
     /**
      * Returns the entries of the platform's own services, the ones with no owning organization.
      */
     public Future<Page<ServiceDirectoryEntry>> findSystemEntries(Pageable pageable) {
-        return findAll(pageable, b -> b.query(q -> q.bool(bq -> bq.mustNot(n -> n.exists(e -> e.field("organizationId"))))));
+        return findAll(pageable, b -> b.query(q -> q.bool(bq -> bq.mustNot(n -> n.exists(e -> e.field("organizationId"))))))
+                .map(page -> page.<ServiceDirectoryEntry>map(record -> record));
     }
 
     /**
@@ -159,7 +223,6 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         Query filter = composeFilter(termFilter("mcpExposed", true),
                                      termFilter("online", true),
                                      zoneVisibilityFilter(organizationId, applicationId));
-
         return findAll(pageable, b -> {
             b.query(filter);
             // cri is used for service invocation, must never be served in a listing, so we filter it
@@ -172,7 +235,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
                 }
             }
             // the cursor tracks ENTRIES, so a short entry page is the last page and returns no cursor
-            String nextCursor = page instanceof CursorPage<ServiceDirectoryEntry> cursorPage
+            String nextCursor = page instanceof CursorPage<ServiceDirectoryRecord> cursorPage
                     && page.getContent().size() == pageable.getPageSize()
                     ? cursorPage.getCursor()
                     : null;
@@ -270,5 +333,4 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         }
         return ret;
     }
-
 }
