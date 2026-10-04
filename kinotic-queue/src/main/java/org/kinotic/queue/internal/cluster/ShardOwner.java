@@ -15,6 +15,7 @@ import org.kinotic.queue.internal.cluster.message.OwnerStatus;
 import org.kinotic.queue.internal.cluster.message.SettleRequest;
 import org.kinotic.queue.internal.cluster.message.PrepareRequest;
 import org.kinotic.queue.internal.cluster.message.ShardStatus;
+import org.kinotic.queue.internal.cluster.message.StatusRequest;
 import org.kinotic.queue.internal.log.BatchSlot;
 import org.kinotic.queue.internal.log.ConsumerOffsetRepository;
 import org.kinotic.queue.internal.log.LogStart;
@@ -195,8 +196,13 @@ final class ShardOwner {
             producerBatches.put(request.producerId(), new ProducerBatch(request.sequence(), written, System.currentTimeMillis()));
         }
         long received = System.nanoTime();
-        return written.compose(this::awaitCommitted)
-                      .onSuccess(offsets -> metrics.recordAppend(queue, offsets.size(), Duration.ofNanos(System.nanoTime() - received)));
+        // A batch sent again was counted when first written
+        boolean resent = last != null && request.sequence() == last.sequence();
+        return written.compose(this::awaitCommitted).onSuccess(offsets -> {
+            if (!resent) {
+                metrics.recordAppend(queue, offsets.size(), Duration.ofNanos(System.nanoTime() - received));
+            }
+        });
     }
 
     // Writes the batch's records the shard does not hold yet, the ones at -1 in offsets
@@ -430,6 +436,13 @@ final class ShardOwner {
         return queue;
     }
 
+    /**
+     * @return what tells the shard's queue from earlier ones of the same name
+     */
+    String incarnation() {
+        return incarnation;
+    }
+
     int shard() {
         return shard;
     }
@@ -549,7 +562,7 @@ final class ShardOwner {
     private Future<String> findActingOwner() {
         String self = placement.localNodeId();
         List<String> others = placement.queueNodes().stream().filter(node -> !node.equals(self)).toList();
-        List<Future<OwnerStatus>> replies = others.stream().map(node -> client.status(node, queue, shard)).toList();
+        List<Future<OwnerStatus>> replies = others.stream().map(node -> client.status(node, new StatusRequest(queue, incarnation, shard))).toList();
         return Future.join(replies).transform(ignored -> {
             String acting = null;
             long actingCommitted = -1;
@@ -575,7 +588,7 @@ final class ShardOwner {
             replies.put(node, node.equals(self)
                     ? vertx.executeBlocking(() -> ShardStatus.of(shardLog, shardLog.promise(proposed),
                                                                  consumerOffsets.findAll(shard), groupOffsets.findAll(shard)), false)
-                    : client.prepare(node, new PrepareRequest(queue, shard, proposed)));
+                    : client.prepare(node, new PrepareRequest(queue, incarnation, shard, proposed)));
         }
         return Future.join(new ArrayList<>(replies.values())).transform(ignored -> {
             Map<String, ShardStatus> statuses = new HashMap<>();
@@ -663,7 +676,7 @@ final class ShardOwner {
         // The source's entry before the batch is read too, for its epoch, unless the batch begins at the source's start
         long readFrom = first > sourceStart.offset() ? first - 1 : first;
         int max = (int) Math.min(CATCH_UP_BATCH_SIZE + 1, target - readFrom);
-        return client.read(source, new FetchRequest(queue, shard, readFrom, max, MAX_BATCH_BYTES))
+        return client.read(source, new FetchRequest(queue, incarnation, shard, readFrom, max, MAX_BATCH_BYTES))
                      .compose(response -> vertx.executeBlocking(() -> applyCatchUp(sourceStart, first, response.entries(), target, proposed),
                                                                 false))
                      .compose(result -> {
@@ -780,7 +793,7 @@ final class ShardOwner {
 
     private void startReplicator(String follower) {
         replicators.computeIfAbsent(follower, node -> {
-            ShardReplicator replicator = new ShardReplicator(vertx, client, node, queue, shard, shardLog, consumerOffsets, groupOffsets,
+            ShardReplicator replicator = new ShardReplicator(vertx, client, node, queue, incarnation, shard, shardLog, consumerOffsets, groupOffsets,
                                                              epoch, this::onReplicatorProgress, this::stepDown);
             replicator.start();
             return replicator;

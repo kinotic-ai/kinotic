@@ -2,7 +2,6 @@ package org.kinotic.queue.internal.api.services;
 
 import io.vertx.core.Context;
 import io.vertx.core.Future;
-import org.kinotic.queue.api.model.QueueDefinition;
 import org.kinotic.queue.api.model.QueuePosition;
 import org.kinotic.queue.api.model.QueueRecord;
 import org.kinotic.queue.api.model.StartPosition;
@@ -10,6 +9,7 @@ import org.kinotic.queue.api.model.WorkItem;
 import org.kinotic.queue.api.model.WorkerOptions;
 import org.kinotic.queue.api.services.QueueWorker;
 import org.kinotic.queue.internal.cluster.QueueClusterClient;
+import org.kinotic.queue.internal.cluster.StoredQueue;
 import org.kinotic.queue.internal.cluster.message.LeaseRequest;
 import org.kinotic.queue.internal.cluster.message.LeaseResponse;
 import org.kinotic.queue.internal.cluster.message.LeasedEntry;
@@ -29,7 +29,7 @@ import java.util.stream.IntStream;
 public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse> implements QueueWorker {
 
     private final QueueClusterClient client;
-    private final String queue;
+    private final StoredQueue queue;
     private final String groupName;
     private final WorkerOptions options;
     private final int shardCount;
@@ -39,8 +39,8 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
     // Records asked for by lease requests still on their way
     private int requested;
 
-    private DefaultQueueWorker(Context context, QueueClusterClient client, String queue, int shardCount, String groupName, WorkerOptions options) {
-        super(context, shardCount, "worker of group " + groupName + " of queue " + queue);
+    private DefaultQueueWorker(Context context, QueueClusterClient client, StoredQueue queue, int shardCount, String groupName, WorkerOptions options) {
+        super(context, shardCount, "worker of group " + groupName + " of queue " + queue.name());
         this.client = client;
         this.queue = queue;
         this.groupName = groupName;
@@ -53,16 +53,16 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
      * Opens a worker of the group. A group starting at the latest record has its position stored on every shard
      * before the worker opens, so it receives every record appended after it opened.
      */
-    static Future<QueueWorker> open(Context context, QueueClusterClient client, QueueDefinition definition, String groupName,
+    static Future<QueueWorker> open(Context context, QueueClusterClient client, StoredQueue queue, String groupName,
                                     WorkerOptions options) {
         Future<Void> joined = Future.succeededFuture();
         if (options.startPosition() == StartPosition.LATEST) {
-            joined = Future.all(IntStream.range(0, definition.shardCount())
-                                         .mapToObj(shard -> client.joinGroup(definition.name(), shard, groupName, StartPosition.LATEST))
+            joined = Future.all(IntStream.range(0, queue.definition().shardCount())
+                                         .mapToObj(shard -> client.joinGroup(queue, shard, groupName, StartPosition.LATEST))
                                          .toList())
                            .mapEmpty();
         }
-        return joined.map(v -> new DefaultQueueWorker(context, client, definition.name(), definition.shardCount(), groupName, options));
+        return joined.map(v -> new DefaultQueueWorker(context, client, queue, queue.definition().shardCount(), groupName, options));
     }
 
     @Override
@@ -109,7 +109,7 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
         int room = Math.max(0, options.prefetch() - held.size() - requested);
         int wanted = Math.max(1, (room + shardCount - 1) / shardCount);
         requested += wanted;
-        LeaseRequest request = new LeaseRequest(queue, shard, groupName, workerId, wanted,
+        LeaseRequest request = new LeaseRequest(queue.name(), queue.incarnation(), shard, groupName, workerId, wanted,
                                                 options.leaseDuration().toMillis(), options.startPosition());
         return client.lease(request).onComplete(ar -> requested -= wanted);
     }
@@ -117,7 +117,7 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
     @Override
     protected void onPulled(int shard, LeaseResponse response) {
         for (LeasedEntry leased : response.leased()) {
-            QueuePosition position = new QueuePosition(queue, shard, leased.entry().offset());
+            QueuePosition position = new QueuePosition(queue.name(), shard, leased.entry().offset());
             held.add(position);
             if (isEnded()) {
                 // Leased after close(), so it goes straight back to the group
@@ -142,7 +142,7 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
     }
 
     private Future<Void> settle(QueuePosition position, Settlement settlement) {
-        return client.settle(new SettleRequest(queue, position.shard(), groupName, workerId, settlement, position.offset()))
+        return client.settle(new SettleRequest(queue.name(), queue.incarnation(), position.shard(), groupName, workerId, settlement, position.offset()))
                      .onComplete(ar -> {
                          // A renewed item stays held; any other settlement, or a failure, means it is no longer leased here
                          if (settlement != Settlement.RENEW || ar.failed()) {

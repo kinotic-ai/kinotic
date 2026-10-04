@@ -30,14 +30,15 @@ public interface QueueService {
 
     /**
      * Deletes the queue, with its records and the positions of its consumers and worker groups, on every queue node.
-     * Appends to the queue fail from then on, and its subscriptions and workers end, reporting the deletion to their
-     * exception handlers. A queue node away during the deletion deletes its copies when it returns. A queue created
-     * later with the same name starts empty. The queue's {@link #deadLetterQueue dead-letter queues} are queues of
-     * their own and stay.
+     * Appends to the queue fail from then on, until a queue with the name is created again, which is a new, empty
+     * queue. The deleted queue's subscriptions and workers end, reporting the deletion to their exception handlers, the
+     * next time they reach the queue, and never read a queue created later. A queue node away during the deletion
+     * deletes its copies when it returns. The queue's {@link #deadLetterQueue dead-letter queues} are queues of their
+     * own and stay.
      *
      * @param name the queue name
      * @return completes once the deletion is recorded, also when no queue had the name; every queue node stops
-     * serving the queue and deletes its copies within a second of it
+     * serving the queue as it learns of the deletion and deletes its copies within a second of it
      */
     Future<Void> deleteQueue(String name);
 

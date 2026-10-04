@@ -10,7 +10,6 @@ import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.queue.api.model.QueueDefinition;
 import org.kinotic.queue.api.model.QueuePosition;
 import org.kinotic.queue.api.model.StartPosition;
 import org.kinotic.queue.internal.cluster.message.AppendRequest;
@@ -69,19 +68,19 @@ public class QueueClusterClient {
      * makes to the shard, retrying while the shard has no active owner. Appends to a shard are sent in the order they
      * were called, including appends called while the queue's definition was still being looked up.
      *
-     * @param definition the queue's definition, or its lookup; the append fails as the lookup does
+     * @param stored the queue as the cluster stores it, or its lookup; the append fails as the lookup does
      * @return the position the record was written at
      */
-    public Future<QueuePosition> append(String queue, Future<QueueDefinition> definition, String key, byte[] payload) {
-        return batcher.append(queue, definition, key, payload);
+    public Future<QueuePosition> append(String queue, Future<StoredQueue> stored, String key, byte[] payload) {
+        return batcher.append(queue, stored, key, payload);
     }
 
     /**
      * Finds the offset the shard's next record will be committed at, retrying while the shard has no active owner.
      */
-    public Future<Long> findCommittedOffset(String queue, int shard) {
-        Buffer request = new FetchRequest(queue, shard, -1, 0, 0).toBuffer();
-        return retryWhileOwnerless(() -> requestOwner(queue, shard, QueueNode.FETCH, request, REQUEST_TIMEOUT_MS),
+    public Future<Long> findCommittedOffset(StoredQueue queue, int shard) {
+        Buffer request = new FetchRequest(queue.name(), queue.incarnation(), shard, -1, 0, 0).toBuffer();
+        return retryWhileOwnerless(() -> requestOwner(queue.name(), shard, QueueNode.FETCH, request, REQUEST_TIMEOUT_MS),
                                    System.currentTimeMillis() + OWNER_DEADLINE_MS)
                 .map(reply -> FetchResponse.fromBuffer(reply).nextOffset());
     }
@@ -90,10 +89,10 @@ public class QueueClusterClient {
      * Has the shard's owner store the group's position on the shard, starting it at {@code startPosition} when it has
      * none, retrying while the shard has no active owner.
      */
-    public Future<Void> joinGroup(String queue, int shard, String groupName, StartPosition startPosition) {
+    public Future<Void> joinGroup(StoredQueue queue, int shard, String groupName, StartPosition startPosition) {
         // A lease of no records only opens the group on the owner
-        Buffer request = new LeaseRequest(queue, shard, groupName, "", 0, 1, startPosition).toBuffer();
-        return retryWhileOwnerless(() -> requestOwner(queue, shard, QueueNode.LEASE, request, LEASE_TIMEOUT_MS),
+        Buffer request = new LeaseRequest(queue.name(), queue.incarnation(), shard, groupName, "", 0, 1, startPosition).toBuffer();
+        return retryWhileOwnerless(() -> requestOwner(queue.name(), shard, QueueNode.LEASE, request, LEASE_TIMEOUT_MS),
                                    System.currentTimeMillis() + OWNER_DEADLINE_MS)
                 .mapEmpty();
     }
@@ -102,8 +101,9 @@ public class QueueClusterClient {
      * Fetches committed entries from the shard's owner, which holds the request until an entry at {@code offset}
      * is committed or a short wait passes.
      */
-    public Future<FetchResponse> fetch(String queue, int shard, long offset, int max, long maxBytes) {
-        return requestOwner(queue, shard, QueueNode.FETCH, new FetchRequest(queue, shard, offset, max, maxBytes).toBuffer(), FETCH_TIMEOUT_MS)
+    public Future<FetchResponse> fetch(StoredQueue queue, int shard, long offset, int max, long maxBytes) {
+        return requestOwner(queue.name(), shard, QueueNode.FETCH,
+                            new FetchRequest(queue.name(), queue.incarnation(), shard, offset, max, maxBytes).toBuffer(), FETCH_TIMEOUT_MS)
                 .map(FetchResponse::fromBuffer);
     }
 
@@ -129,8 +129,9 @@ public class QueueClusterClient {
      *
      * @return completes once a majority of the replication factor has stored it
      */
-    public Future<Void> commitOffset(String queue, String consumerName, int shard, long nextOffset) {
-        return replicas(queue, shard).compose(replicas -> commitOffset(replicas, new OffsetCommit(queue, consumerName, shard, nextOffset)));
+    public Future<Void> commitOffset(StoredQueue queue, String consumerName, int shard, long nextOffset) {
+        return replicas(queue.name(), shard)
+                .compose(replicas -> commitOffset(replicas, new OffsetCommit(queue.name(), queue.incarnation(), consumerName, shard, nextOffset)));
     }
 
     private Future<Void> commitOffset(List<String> replicas, OffsetCommit commit) {
@@ -165,9 +166,10 @@ public class QueueClusterClient {
      *                      committed is never taken for one that did not
      * @return the consumer's next offset on the shard, the newest the answering copies store; zero when none stores one
      */
-    public Future<Long> findNextOffset(String queue, String consumerName, int shard, StartPosition startPosition) {
+    public Future<Long> findNextOffset(StoredQueue queue, String consumerName, int shard, StartPosition startPosition) {
         int required = startPosition == StartPosition.LATEST ? placement.quorum() : 1;
-        return replicas(queue, shard).compose(replicas -> findNextOffset(replicas, new OffsetQuery(queue, consumerName, shard), required));
+        return replicas(queue.name(), shard)
+                .compose(replicas -> findNextOffset(replicas, new OffsetQuery(queue.name(), queue.incarnation(), consumerName, shard), required));
     }
 
     private Future<Long> findNextOffset(List<String> replicas, OffsetQuery query, int required) {
@@ -213,8 +215,8 @@ public class QueueClusterClient {
     /**
      * Asks a queue node whether it owns the shard.
      */
-    public Future<OwnerStatus> status(String node, String queue, int shard) {
-        return request(node, QueueNode.STATUS, new StatusRequest(queue, shard).toBuffer(), REQUEST_TIMEOUT_MS).map(OwnerStatus::fromBuffer);
+    public Future<OwnerStatus> status(String node, StatusRequest request) {
+        return request(node, QueueNode.STATUS, request.toBuffer(), REQUEST_TIMEOUT_MS).map(OwnerStatus::fromBuffer);
     }
 
     /**

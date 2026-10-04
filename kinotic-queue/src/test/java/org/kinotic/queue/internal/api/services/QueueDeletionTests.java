@@ -17,13 +17,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.kinotic.queue.internal.QueueTestSupport.await;
@@ -82,6 +85,50 @@ public class QueueDeletionTests {
         TestSubscriber again = TestSubscriber.subscribe(a.vertx(), a.queueService(), QUEUE, "billing", StartPosition.EARLIEST);
         assertEquals(100, value(again.next()));
         await(again.close());
+    }
+
+    @Test
+    public void aQueueCreatedRightAfterItsNamesakeWasDeletedHoldsNoneOfItsRecordsOrPositions() throws Exception {
+        QueueTestNode a = start("a");
+        QueueTestNode b = start("b");
+        QueueTestNode c = start("c");
+        await(a.queueService().createQueueIfNotExist(new QueueDefinition(QUEUE, 2)));
+        append(a, 0, 20);
+        TestSubscriber old = TestSubscriber.subscribe(b.vertx(), b.queueService(), QUEUE, "billing", StartPosition.EARLIEST);
+        for (int i = 0; i < 20; i++) {
+            await(old.commit(old.next()));
+        }
+        TestWorker oldWorker = TestWorker.start(c.vertx(), c.queueService(), QUEUE, "thumbnails",
+                                                new WorkerOptions(StartPosition.EARLIEST, 100, Duration.ofMinutes(1)));
+        for (int i = 0; i < 20; i++) {
+            await(oldWorker.settle(QueueWorker::accept, oldWorker.next()));
+        }
+
+        // Created again before any node had a chance to delete its copy
+        await(a.queueService().deleteQueue(QUEUE));
+        await(a.queueService().createQueueIfNotExist(new QueueDefinition(QUEUE, 2)));
+        append(c, 100, 105);
+
+        // The consumer and the group start the new queue from scratch: positions of the deleted one would skip these
+        TestSubscriber subscriber = TestSubscriber.subscribe(b.vertx(), b.queueService(), QUEUE, "billing", StartPosition.EARLIEST);
+        Set<Integer> delivered = new HashSet<>();
+        while (delivered.size() < 5) {
+            delivered.add(value(subscriber.next()));
+        }
+        assertEquals(Set.of(100, 101, 102, 103, 104), delivered);
+        TestWorker worker = TestWorker.start(a.vertx(), a.queueService(), QUEUE, "thumbnails",
+                                             new WorkerOptions(StartPosition.EARLIEST, 100, Duration.ofMinutes(1)));
+        Set<Integer> leased = new HashSet<>();
+        while (leased.size() < 5) {
+            leased.add(value(worker.next().record()));
+        }
+        assertEquals(Set.of(100, 101, 102, 103, 104), leased);
+
+        // The deleted queue's subscription ends without reading the new queue
+        assertNotNull(old.pollFailure(30_000), "the subscription of the deleted queue kept running");
+        assertNull(old.poll(500), "the subscription of the deleted queue read the new queue");
+        await(subscriber.close());
+        await(worker.close());
     }
 
     @Test

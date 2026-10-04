@@ -160,21 +160,19 @@ public class QueueNode {
      *
      * @throws QueueFailureException with {@link QueueFailure#NO_QUEUE} when the queue was deleted
      */
-    public QueueLog localLog(QueueDefinition definition) {
-        String incarnation = definitions.findIncarnation(definition.name());
-        if (incarnation == null) {
-            throw QueueFailure.NO_QUEUE.exception("No queue named " + definition.name());
-        }
-        QueueLog ret = logs.get(definition.name());
-        if (ret == null || !ret.incarnation().equals(incarnation)) {
+    public QueueLog localLog(StoredQueue queue) {
+        QueueLog ret = logs.get(queue.name());
+        if (ret == null || !ret.incarnation().equals(queue.incarnation())) {
             // Under the map's lock for the name, so syncLocalQueues never deletes a copy opened meanwhile
-            ret = logs.compute(definition.name(), (name, open) -> {
+            ret = logs.compute(queue.name(), (name, open) -> {
                 QueueLog opened = open;
-                if (open == null || !open.incarnation().equals(incarnation)) {
+                if (open == null || !open.incarnation().equals(queue.incarnation())) {
+                    // Opening a copy deletes a copy of another incarnation, which only a newer queue may do
+                    requireCurrent(name, queue.incarnation());
                     if (open != null) {
                         open.close();
                     }
-                    opened = QueueLog.openOrCreate(queueDirectory(name), definition, incarnation, properties.getQueue());
+                    opened = QueueLog.openOrCreate(queueDirectory(name), queue.definition(), queue.incarnation(), properties.getQueue());
                 }
                 return opened;
             });
@@ -184,12 +182,12 @@ public class QueueNode {
 
     private void onAppend(Message<Buffer> message) {
         AppendRequest request = AppendRequest.fromBuffer(message.body());
-        serve(message, APPEND, request.queue(), request.shard(), owner -> owner.append(request).map(AppendRequest::encodeReply));
+        serve(message, APPEND, request.queue(), request.incarnation(), request.shard(), owner -> owner.append(request).map(AppendRequest::encodeReply));
     }
 
     private void onFetch(Message<Buffer> message) {
         FetchRequest request = FetchRequest.fromBuffer(message.body());
-        serve(message, FETCH, request.queue(), request.shard(),
+        serve(message, FETCH, request.queue(), request.incarnation(), request.shard(),
               owner -> owner.fetch(request.offset(), request.max(), request.maxBytes()).map(FetchResponse::toBuffer));
     }
 
@@ -200,33 +198,38 @@ public class QueueNode {
                                                                                      + request.leaseMillis() + " ms to group '"
                                                                                      + request.groupName() + "'")));
         } else {
-            serve(message, LEASE, request.queue(), request.shard(), owner -> owner.lease(request).map(LeaseResponse::toBuffer));
+            serve(message, LEASE, request.queue(), request.incarnation(), request.shard(), owner -> owner.lease(request).map(LeaseResponse::toBuffer));
         }
     }
 
     private void onSettle(Message<Buffer> message) {
         SettleRequest request = SettleRequest.fromBuffer(message.body());
-        serve(message, SETTLE, request.queue(), request.shard(), owner -> owner.settle(request).map(v -> Wire.buffer()));
+        serve(message, SETTLE, request.queue(), request.incarnation(), request.shard(), owner -> owner.settle(request).map(v -> Wire.buffer()));
     }
 
     private void onStatus(Message<Buffer> message) {
         StatusRequest request = StatusRequest.fromBuffer(message.body());
         ShardOwner owner = owners.get(request.queue() + "/" + request.shard());
-        boolean active = owner != null && owner.isActive();
+        boolean active = owner != null && owner.isActive() && owner.incarnation().equals(request.incarnation());
         reply(message, Future.succeededFuture(new OwnerStatus(active, active ? owner.committedOffset() : -1).toBuffer()));
     }
 
     // Handles a request for a shard this node owns. While another node still serves the shard as this node's copy
     // catches up, the request goes to that node, so clients reach the shard through the node placed as its owner.
-    private void serve(Message<Buffer> message, String action, String queue, int shard, Function<ShardOwner, Future<Buffer>> handler) {
+    private void serve(Message<Buffer> message,
+                       String action,
+                       String queue,
+                       String incarnation,
+                       int shard,
+                       Function<ShardOwner, Future<Buffer>> handler) {
         ShardOwner owner = owners.get(queue + "/" + shard);
         Future<Buffer> result;
-        if (owner == null) {
-            // A queue created moments ago may not be read here yet, and a deleted one is forgotten at the next reconcile
+        if (owner == null || !owner.incarnation().equals(incarnation)) {
+            // A request for a deleted queue fails for good; an owner of the queue may not have started here yet, or be
+            // replaced at the next reconcile when it owns an earlier queue of the name
             result = vertx.executeBlocking(() -> {
-                throw definitions.find(queue) == null
-                        ? QueueFailure.NO_QUEUE.exception("No queue named " + queue)
-                        : QueueFailure.NOT_OWNER.exception("This node does not own shard " + shard + " of queue " + queue);
+                requireCurrent(queue, incarnation);
+                throw QueueFailure.NOT_OWNER.exception("This node does not own shard " + shard + " of queue " + queue);
             }, false);
         } else if (owner.actingOwner() != null) {
             result = client.forward(owner.actingOwner(), action, message.body());
@@ -239,7 +242,7 @@ public class QueueNode {
     private void onReplicate(Message<Buffer> message) {
         reply(message, vertx.executeBlocking(() -> {
             ReplicateRequest request = ReplicateRequest.fromBuffer(message.body());
-            QueueLog queueLog = localLog(requireDefinition(request.queue()));
+            QueueLog queueLog = localLog(requireCurrent(request.queue(), request.incarnation()));
             ReplicationResult result = queueLog.shard(request.shard()).replicate(request.batch());
             if (result.status() != ReplicationStatus.STALE_EPOCH) {
                 queueLog.consumerOffsets().saveAll(request.shard(), request.consumerOffsets());
@@ -252,7 +255,7 @@ public class QueueNode {
     private void onRead(Message<Buffer> message) {
         reply(message, vertx.executeBlocking(() -> {
             FetchRequest request = FetchRequest.fromBuffer(message.body());
-            ShardLog shard = findLocalShard(request.queue(), request.shard());
+            ShardLog shard = findLocalShard(requireCurrent(request.queue(), request.incarnation()), request.shard());
             FetchResponse response;
             if (shard == null || request.offset() >= shard.nextOffset()) {
                 response = new FetchResponse(List.of(), request.offset());
@@ -267,7 +270,7 @@ public class QueueNode {
     private void onPrepare(Message<Buffer> message) {
         reply(message, vertx.executeBlocking(() -> {
             PrepareRequest request = PrepareRequest.fromBuffer(message.body());
-            QueueLog queueLog = localLog(requireDefinition(request.queue()));
+            QueueLog queueLog = localLog(requireCurrent(request.queue(), request.incarnation()));
             long promisedBefore = queueLog.promise(request.shard(), request.epoch());
             ShardLog shard = queueLog.findShard(request.shard());
             ShardStatus status = shard != null ? ShardStatus.of(shard,
@@ -283,7 +286,7 @@ public class QueueNode {
         reply(message, vertx.executeBlocking(() -> {
             OffsetCommit commit = OffsetCommit.fromBuffer(message.body());
             QueueLog.requireValidName(commit.consumerName());
-            localLog(requireDefinition(commit.queue())).consumerOffsets()
+            localLog(requireCurrent(commit.queue(), commit.incarnation())).consumerOffsets()
                                                        .save(commit.consumerName(), commit.shard(), commit.nextOffset());
             return Wire.buffer();
         }, false));
@@ -293,7 +296,7 @@ public class QueueNode {
         reply(message, vertx.executeBlocking(() -> {
             OffsetQuery query = OffsetQuery.fromBuffer(message.body());
             QueueLog.requireValidName(query.consumerName());
-            QueueLog queueLog = findLocalLog(query.queue());
+            QueueLog queueLog = findLocalLog(requireCurrent(query.queue(), query.incarnation()));
             long nextOffset = queueLog == null ? 0 : queueLog.consumerOffsets().findNextOffset(query.consumerName(), query.shard());
             return OffsetQuery.encodeReply(nextOffset);
         }, false));
@@ -335,7 +338,8 @@ public class QueueNode {
     private Map<String, ShardAssignment> assignedShards(Set<String> acting) {
         String self = placement.localNodeId();
         Map<String, ShardAssignment> ret = new HashMap<>();
-        for (QueueDefinition definition : definitions.findAll()) {
+        for (StoredQueue queue : definitions.findAll()) {
+            QueueDefinition definition = queue.definition();
             for (int shard = 0; shard < definition.shardCount(); shard++) {
                 List<String> replicas = placement.replicas(definition.name(), shard);
                 boolean primary = !replicas.isEmpty() && replicas.getFirst().equals(self);
@@ -348,7 +352,7 @@ public class QueueNode {
                             followers.put(node, storageId != null ? storageId : "?" + node);
                         }
                     }
-                    QueueLog queueLog = localLog(definition);
+                    QueueLog queueLog = localLog(queue);
                     ShardAssignment assignment = new ShardAssignment(queueLog, shard, queueLog.shard(shard), followers, primary);
                     ret.put(assignment.key(), assignment);
                 }
@@ -358,9 +362,13 @@ public class QueueNode {
     }
 
     private void applyAssignments(Map<String, ShardAssignment> assignments) {
-        // An owner that stepped down for a newer epoch is replaced, so it recovers again if the shard is still placed here
+        // An owner that stepped down for a newer epoch is replaced, so it recovers again if the shard is still placed here,
+        // and so is the owner of a deleted queue whose name a newer queue took
         owners.entrySet().removeIf(entry -> {
-            boolean removed = !assignments.containsKey(entry.getKey()) || entry.getValue().isStopped();
+            ShardAssignment assignment = assignments.get(entry.getKey());
+            boolean removed = assignment == null
+                    || entry.getValue().isStopped()
+                    || !entry.getValue().incarnation().equals(assignment.incarnation());
             if (removed) {
                 entry.getValue().stop();
             }
@@ -384,13 +392,16 @@ public class QueueNode {
     // copy of it on this node so it is known again after every queue node restarts
     private Future<Void> deadLetter(String queue, String groupName, ShardEntry entry) {
         return vertx.executeBlocking(() -> {
-                        QueueDefinition source = requireDefinition(queue);
-                        QueueDefinition stored = definitions.saveIfAbsent(new QueueDefinition(QueueService.deadLetterQueue(queue, groupName),
-                                                                                              source.shardCount()));
+                        StoredQueue source = definitions.findStored(queue);
+                        if (source == null) {
+                            throw QueueFailure.NO_QUEUE.exception("No queue named " + queue);
+                        }
+                        StoredQueue stored = definitions.saveIfAbsent(new QueueDefinition(QueueService.deadLetterQueue(queue, groupName),
+                                                                                          source.definition().shardCount()));
                         localLog(stored);
                         return stored;
                     }, false)
-                    .compose(definition -> client.append(definition.name(), Future.succeededFuture(definition), entry.key(), entry.payload()))
+                    .compose(stored -> client.append(stored.name(), Future.succeededFuture(stored), entry.key(), entry.payload()))
                     .onSuccess(position -> metrics.recordDeadLetter(queue, groupName))
                     .mapEmpty();
     }
@@ -408,6 +419,10 @@ public class QueueNode {
             }
         });
         vertx.executeBlocking(() -> {
+            // A refresh queued as the node stopped would register gauges no one removes again
+            if (stopped) {
+                return null;
+            }
             Map<String, Map<String, Long>> consumerLags = new HashMap<>();
             Map<String, Map<String, Long>> groupLags = new HashMap<>();
             Map<String, Long> owned = new HashMap<>();
@@ -430,7 +445,7 @@ public class QueueNode {
     }
 
     private boolean localQueuesSyncDue() {
-        return !deletedQueues.containsAll(definitions.findDeleted().keySet())
+        return definitions.countDeleted() != deletedQueues.size()
                 || System.currentTimeMillis() - localQueuesSyncedAt >= LOCAL_QUEUES_SYNC_INTERVAL_MS;
     }
 
@@ -447,6 +462,8 @@ public class QueueNode {
         if (!recorded.keySet().containsAll(deleted.keySet())) {
             QueueLog.saveDeletedQueues(dataDirectory, deleted);
         }
+        // Owners of a deleted queue stopped before this, so none stores its shards' states again
+        deleted.keySet().stream().filter(incarnation -> !deletedQueues.contains(incarnation)).forEach(shardStates::deleteAll);
         if (Files.isDirectory(dataDirectory)) {
             try (Stream<Path> directories = Files.list(dataDirectory)) {
                 for (Path directory : directories.toList()) {
@@ -482,27 +499,32 @@ public class QueueNode {
         });
     }
 
-    private QueueDefinition requireDefinition(String queue) {
-        QueueDefinition ret = definitions.find(queue);
-        if (ret == null) {
-            throw QueueFailure.NO_QUEUE.exception("No queue named " + queue);
+    /**
+     * @return the queue with the name, as the cluster stores it now
+     * @throws QueueFailureException with {@link QueueFailure#NO_QUEUE} when it is not of the incarnation, which was
+     *                               deleted
+     */
+    private StoredQueue requireCurrent(String queue, String incarnation) {
+        StoredQueue ret = definitions.findStored(queue);
+        if (ret == null || !ret.incarnation().equals(incarnation)) {
+            throw QueueFailure.NO_QUEUE.exception("No queue named " + queue + " of incarnation " + incarnation);
         }
         return ret;
     }
 
-    // Opens only queues the definitions name, whose names were validated when the queue was created
-    private QueueLog findLocalLog(String queue) {
-        QueueLog ret = logs.get(queue);
-        if (ret == null) {
-            QueueDefinition definition = definitions.find(queue);
-            if (definition != null && Files.isDirectory(queueDirectory(definition.name()))) {
-                ret = localLog(definition);
-            }
+    // This node's copy of the queue, without creating one
+    private QueueLog findLocalLog(StoredQueue queue) {
+        QueueLog ret = logs.get(queue.name());
+        if (ret != null && !ret.incarnation().equals(queue.incarnation())) {
+            ret = null;
+        }
+        if (ret == null && queue.incarnation().equals(QueueLog.findIncarnation(queueDirectory(queue.name())))) {
+            ret = localLog(queue);
         }
         return ret;
     }
 
-    private ShardLog findLocalShard(String queue, int shard) {
+    private ShardLog findLocalShard(StoredQueue queue, int shard) {
         QueueLog queueLog = findLocalLog(queue);
         return queueLog == null ? null : queueLog.findShard(shard);
     }

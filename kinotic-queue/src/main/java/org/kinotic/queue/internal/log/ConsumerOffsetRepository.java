@@ -38,6 +38,7 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
         }
     };
     private boolean allLoaded;
+    private boolean closed;
 
     /**
      * @param syncWrites whether each save is forced to disk before it returns
@@ -82,6 +83,10 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
      * Stores the next offset to deliver to the consumer on one shard, unless a later one is already stored.
      */
     public synchronized void save(String consumerName, int shard, long nextOffset) {
+        // A closed repository's directory may already hold the files of a queue created later with the same name
+        if (closed) {
+            throw new IllegalStateException("The offsets in " + directory + " are closed");
+        }
         long[] stored = load(consumerName);
         if (nextOffset > stored[shard]) {
             ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES).putLong(0, nextOffset);
@@ -111,6 +116,7 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
 
     @Override
     public synchronized void close() {
+        closed = true;
         channels.values().forEach(ConsumerOffsetRepository::closeQuietly);
         channels.clear();
     }

@@ -17,6 +17,7 @@ import org.kinotic.queue.internal.cluster.QueueClusterClient;
 import org.kinotic.queue.internal.cluster.QueueDefinitionRepository;
 import org.kinotic.queue.internal.cluster.QueueNode;
 import org.kinotic.queue.internal.cluster.ShardStateRepository;
+import org.kinotic.queue.internal.cluster.StoredQueue;
 import org.kinotic.queue.internal.log.QueueLog;
 import org.springframework.stereotype.Component;
 
@@ -42,10 +43,10 @@ public class DefaultQueueService implements QueueService {
             QueueLog.requireValidName(definition.name());
             Validate.isTrue(definition.shardCount() > 0 && definition.shardCount() <= MAX_SHARD_COUNT,
                             "shardCount must be between 1 and %d", MAX_SHARD_COUNT);
-            QueueDefinition stored = definitions.saveIfAbsent(definition);
+            StoredQueue stored = definitions.saveIfAbsent(definition);
             // Keeps a copy on disk, so the queue is known again after every queue node restarts
             queueNode.localLog(stored);
-            return stored;
+            return stored.definition();
         }, false);
     }
 
@@ -53,10 +54,9 @@ public class DefaultQueueService implements QueueService {
     public Future<Void> deleteQueue(String name) {
         return vertx.executeBlocking(() -> {
             QueueLog.requireValidName(name);
-            String incarnation = definitions.findIncarnation(name);
-            QueueDefinition definition = definitions.find(name);
-            if (definitions.delete(name) && incarnation != null && definition != null) {
-                shardStates.deleteAll(incarnation, definition.shardCount());
+            StoredQueue deleted = definitions.delete(name);
+            if (deleted != null) {
+                shardStates.deleteAll(deleted.incarnation());
             }
             return null;
         }, false);
@@ -82,7 +82,7 @@ public class DefaultQueueService implements QueueService {
             return Future.failedFuture(new IllegalArgumentException("Invalid consumer name '" + consumerName + "' or missing startPosition"));
         }
         Context context = vertx.getOrCreateContext();
-        return definition(queue).compose(definition -> DefaultQueueSubscription.open(context, client, definition, consumerName, startPosition));
+        return definition(queue).compose(stored -> DefaultQueueSubscription.open(context, client, stored, consumerName, startPosition));
     }
 
     @Override
@@ -98,20 +98,20 @@ public class DefaultQueueService implements QueueService {
                                                                             + " a valid dead-letter queue, or invalid options " + options));
         }
         Context context = vertx.getOrCreateContext();
-        return definition(queue).compose(definition -> DefaultQueueWorker.open(context, client, definition, groupName, options));
+        return definition(queue).compose(stored -> DefaultQueueWorker.open(context, client, stored, groupName, options));
     }
 
-    private Future<QueueDefinition> definition(String queue) {
-        Future<QueueDefinition> ret;
-        QueueDefinition known = queue != null ? definitions.findKnown(queue) : null;
+    private Future<StoredQueue> definition(String queue) {
+        Future<StoredQueue> ret;
+        StoredQueue known = queue != null ? definitions.findKnown(queue) : null;
         if (known != null) {
             ret = Future.succeededFuture(known);
         } else {
             ret = vertx.executeBlocking(() -> {
                 QueueLog.requireValidName(queue);
-                QueueDefinition definition = definitions.find(queue);
-                Validate.isTrue(definition != null, "No queue named %s", queue);
-                return definition;
+                StoredQueue stored = definitions.findStored(queue);
+                Validate.isTrue(stored != null, "No queue named %s", queue);
+                return stored;
             }, false);
         }
         return ret;

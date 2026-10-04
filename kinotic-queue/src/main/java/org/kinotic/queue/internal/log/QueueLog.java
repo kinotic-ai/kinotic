@@ -77,7 +77,8 @@ public final class QueueLog implements AutoCloseable {
      * @throws IllegalStateException when the directory holds the queue with a different shard count
      */
     public static QueueLog openOrCreate(Path directory, QueueDefinition definition, String incarnation, QueueProperties properties) {
-        if (Files.exists(directory.resolve(SHARD_COUNT_FILE)) && !incarnation.equals(findIncarnation(directory))) {
+        // Anything else there belongs to an earlier queue, or to a deletion a crash interrupted
+        if (Files.isDirectory(directory) && !incarnation.equals(findIncarnation(directory))) {
             delete(directory);
         }
         QueueDefinition stored = findDefinition(directory);

@@ -2,12 +2,12 @@ package org.kinotic.queue.internal.api.services;
 
 import io.vertx.core.Context;
 import io.vertx.core.Future;
-import org.kinotic.queue.api.model.QueueDefinition;
 import org.kinotic.queue.api.model.QueuePosition;
 import org.kinotic.queue.api.model.QueueRecord;
 import org.kinotic.queue.api.model.StartPosition;
 import org.kinotic.queue.api.services.QueueSubscription;
 import org.kinotic.queue.internal.cluster.QueueClusterClient;
+import org.kinotic.queue.internal.cluster.StoredQueue;
 import org.kinotic.queue.internal.cluster.message.FetchResponse;
 import org.kinotic.queue.internal.log.ShardEntry;
 
@@ -28,7 +28,7 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
     private static final long MIN_FETCH_BYTES = 64 * 1024;
 
     private final QueueClusterClient client;
-    private final String queue;
+    private final StoredQueue queue;
     private final String consumerName;
     // The next offset to fetch per shard
     private final long[] fetchOffsets;
@@ -41,11 +41,11 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
 
     private DefaultQueueSubscription(Context context,
                                      QueueClusterClient client,
-                                     String queue,
+                                     StoredQueue queue,
                                      String consumerName,
                                      long[] fetchOffsets,
                                      long[] committedNextOffsets) {
-        super(context, fetchOffsets.length, "consumer " + consumerName + " of queue " + queue);
+        super(context, fetchOffsets.length, "consumer " + consumerName + " of queue " + queue.name());
         this.client = client;
         this.queue = queue;
         this.consumerName = consumerName;
@@ -60,20 +60,21 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
      */
     static Future<QueueSubscription> open(Context context,
                                           QueueClusterClient client,
-                                          QueueDefinition definition,
+                                          StoredQueue queue,
                                           String consumerName,
                                           StartPosition startPosition) {
-        List<Future<Long>> committed = IntStream.range(0, definition.shardCount())
-                                                .mapToObj(shard -> client.findNextOffset(definition.name(), consumerName, shard, startPosition))
+        int shardCount = queue.definition().shardCount();
+        List<Future<Long>> committed = IntStream.range(0, shardCount)
+                                                .mapToObj(shard -> client.findNextOffset(queue, consumerName, shard, startPosition))
                                                 .toList();
-        List<Future<Long>> starts = IntStream.range(0, definition.shardCount())
-                                             .mapToObj(shard -> committed.get(shard).compose(next -> startOffset(client, definition.name(), shard,
+        List<Future<Long>> starts = IntStream.range(0, shardCount)
+                                             .mapToObj(shard -> committed.get(shard).compose(next -> startOffset(client, queue, shard,
                                                                                                                   next, startPosition)))
                                              .toList();
         return Future.all(starts).map(ignored -> {
             long[] committedNextOffsets = committed.stream().mapToLong(Future::result).toArray();
             long[] fetchOffsets = starts.stream().mapToLong(Future::result).toArray();
-            DefaultQueueSubscription ret = new DefaultQueueSubscription(context, client, definition.name(), consumerName,
+            DefaultQueueSubscription ret = new DefaultQueueSubscription(context, client, queue, consumerName,
                                                                         fetchOffsets, committedNextOffsets);
             context.runOnContext(v -> ret.pullAll());
             return ret;
@@ -81,7 +82,7 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
     }
 
     // A committed next offset is at least one, so zero means the consumer never committed on the shard
-    private static Future<Long> startOffset(QueueClusterClient client, String queue, int shard, long committedNextOffset,
+    private static Future<Long> startOffset(QueueClusterClient client, StoredQueue queue, int shard, long committedNextOffset,
                                             StartPosition startPosition) {
         Future<Long> ret;
         if (committedNextOffset > 0 || startPosition == StartPosition.EARLIEST) {
@@ -95,7 +96,7 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
     @Override
     public Future<Void> commit(QueueRecord record) {
         QueuePosition position = record.position();
-        if (!queue.equals(position.queue())
+        if (!queue.name().equals(position.queue())
                 || position.shard() < 0
                 || position.shard() >= deliveredNextOffsets.length
                 || position.offset() >= deliveredNextOffsets[position.shard()]) {
@@ -138,7 +139,7 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
             for (ShardEntry entry : response.entries()) {
                 if (entry.isRecord()) {
                     pendingBytes += entry.size();
-                    push(new QueueRecord(new QueuePosition(queue, shard, entry.offset()), entry.key(), entry.payload()));
+                    push(new QueueRecord(new QueuePosition(queue.name(), shard, entry.offset()), entry.key(), entry.payload()));
                 }
             }
             fetchOffsets[shard] = response.nextOffset();

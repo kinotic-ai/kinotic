@@ -9,6 +9,11 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.util.AttributeNodeFilter;
 import org.springframework.stereotype.Component;
 
+import javax.cache.Cache;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+
 /**
  * Stores the highest offset known to be committed on each shard of each queue incarnation, shared by every queue node
  * while any of them runs. A node about to own a shard compares the copies it can reach against it. Its methods block.
@@ -52,10 +57,14 @@ public class ShardStateRepository {
     /**
      * Deletes what is stored for the shards of a deleted queue.
      */
-    public void deleteAll(String incarnation, int shardCount) {
-        for (int shard = 0; shard < shardCount; shard++) {
-            cache.remove(key(incarnation, shard));
+    public void deleteAll(String incarnation) {
+        List<String> keys = new ArrayList<>();
+        for (Cache.Entry<String, Long> entry : cache) {
+            if (entry.getKey().startsWith(incarnation + "/")) {
+                keys.add(entry.getKey());
+            }
         }
+        cache.removeAll(new HashSet<>(keys));
     }
 
     private static String key(String incarnation, int shard) {

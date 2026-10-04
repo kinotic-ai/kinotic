@@ -36,6 +36,7 @@ final class ShardReplicator {
     private final QueueClusterClient client;
     private final String follower;
     private final String queue;
+    private final String incarnation;
     private final int shard;
     private final ShardLog shardLog;
     private final ConsumerOffsetRepository consumerOffsets;
@@ -64,6 +65,7 @@ final class ShardReplicator {
                     QueueClusterClient client,
                     String follower,
                     String queue,
+                    String incarnation,
                     int shard,
                     ShardLog shardLog,
                     ConsumerOffsetRepository consumerOffsets,
@@ -75,6 +77,7 @@ final class ShardReplicator {
         this.client = client;
         this.follower = follower;
         this.queue = queue;
+        this.incarnation = incarnation;
         this.shard = shard;
         this.shardLog = shardLog;
         this.consumerOffsets = consumerOffsets;
@@ -193,7 +196,7 @@ final class ShardReplicator {
         List<ShardEntry> entries = shardLog.read(first, BATCH_SIZE, ShardOwner.MAX_BATCH_BYTES);
         // Read after the entries, so the owner's end covers every entry in the batch
         long ownerNextOffset = shardLog.nextOffset();
-        return new ReplicateRequest(queue, shard, new ReplicationBatch(epoch, first - 1, prevEpoch, start.offset(), ownerNextOffset, entries),
+        return new ReplicateRequest(queue, incarnation, shard, new ReplicationBatch(epoch, first - 1, prevEpoch, start.offset(), ownerNextOffset, entries),
                                     consumers, groups);
     }
 

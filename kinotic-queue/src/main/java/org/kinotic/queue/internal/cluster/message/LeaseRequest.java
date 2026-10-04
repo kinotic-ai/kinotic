@@ -5,6 +5,8 @@ import org.kinotic.queue.api.model.StartPosition;
 
 /**
  * Asks a shard's owner to lease records of the shard to one worker of a group. The reply is a {@link LeaseResponse}.
+ * The {@code incarnation} names the queue the request is about, so a request about a deleted queue is never applied to a
+ * queue created later with the same name.
  *
  * @param workerId      identifies the worker the records are leased to
  * @param max           the most records to lease
@@ -12,6 +14,7 @@ import org.kinotic.queue.api.model.StartPosition;
  * @param startPosition where the group starts when it has no position on the shard
  */
 public record LeaseRequest(String queue,
+                           String incarnation,
                            int shard,
                            String groupName,
                            String workerId,
@@ -22,6 +25,7 @@ public record LeaseRequest(String queue,
     public static LeaseRequest fromBuffer(Buffer buffer) {
         Wire wire = new Wire(buffer);
         return new LeaseRequest(wire.readString(),
+                                wire.readString(),
                                 wire.readInt(),
                                 wire.readString(),
                                 wire.readString(),
@@ -31,7 +35,7 @@ public record LeaseRequest(String queue,
     }
 
     public Buffer toBuffer() {
-        Buffer ret = Wire.appendString(Wire.buffer(), queue).appendInt(shard);
+        Buffer ret = Wire.appendString(Wire.appendString(Wire.buffer(), queue), incarnation).appendInt(shard);
         Wire.appendString(ret, groupName);
         Wire.appendString(ret, workerId);
         return ret.appendInt(max).appendLong(leaseMillis).appendInt(startPosition.ordinal());
