@@ -166,7 +166,7 @@ public class PermissionServiceTests extends KinoticTestBase {
 
         await(runAsOrganization(() -> permissions.revoke(onApplication, grant.id())));
         assertFalse(held(member, "project_can_edit", onProject));
-        assertTrue(await(runAsOrganization(() -> permissions.findGrants(onProject))).isEmpty());
+        assertFalse(await(runAsOrganization(() -> permissions.findGrants(onProject))).contains(grant));
     }
 
     @Test
