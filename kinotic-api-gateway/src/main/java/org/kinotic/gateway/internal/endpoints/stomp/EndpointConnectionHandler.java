@@ -200,8 +200,13 @@ public class EndpointConnectionHandler {
                 }
 
                 incomingInvocationTracker.requestSent(incomingEvent);
-                return services.eventBusService
-                        .sendWithAck(incomingEvent)
+                // the zone admitted the destination; the function's own check decides the caller may invoke it
+                return services.requestAuthorizer
+                        .authorize(incomingEvent.cri(),
+                                   connectedInfo.getParticipant(),
+                                   incomingEvent.metadata().get(EventConstants.CONTENT_TYPE_HEADER),
+                                   incomingEvent.data())
+                        .compose(v -> services.eventBusService.sendWithAck(incomingEvent))
                         .onSuccess(nodeId -> incomingInvocationTracker.requestAccepted(correlationId, nodeId, incomingEvent.cri()))
                         .recover(throwable -> {
                             // no reply will come for a request that never left

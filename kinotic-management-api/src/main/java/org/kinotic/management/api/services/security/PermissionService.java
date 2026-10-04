@@ -7,6 +7,9 @@ import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.Group;
@@ -23,18 +26,21 @@ import java.util.Set;
  * and a role, a group, a user or a resource named must belong to that organization.
  */
 @Publish
+@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, objectId = "{@organizationId}")
 public interface PermissionService {
 
     /**
      * The permissions a role may bundle, by resource type: the model names of every permission the platform's
      * services declare, such as {@code project_can_edit} under {@code project}.
      */
+    @AuthzCheck(permission = "can_view_access")
     Future<Map<String, Set<String>>> findPermissions();
 
     /**
      * Every role a grant can name: the built-in roles the model defines, then the organization's custom roles,
      * each with the permissions it bundles.
      */
+    @AuthzCheck(permission = "can_view_access")
     Future<List<RoleDefinition>> findRoles();
 
     /**
@@ -45,6 +51,7 @@ public interface PermissionService {
      * @param role the role, with a null id for a new one
      * @return the role as saved
      */
+    @AuthzCheck(permission = "can_manage_access")
     Future<RoleDefinition> saveRole(RoleDefinition role);
 
     /**
@@ -53,6 +60,7 @@ public interface PermissionService {
      *
      * @param roleId the role
      */
+    @AuthzCheck(permission = "can_manage_access")
     Future<Void> deleteRole(String roleId);
 
     /**
@@ -60,6 +68,7 @@ public interface PermissionService {
      *
      * @param pageable the page to return
      */
+    @AuthzCheck(permission = "can_view_access")
     Future<Page<Group>> findGroups(Pageable pageable);
 
     /**
@@ -68,6 +77,7 @@ public interface PermissionService {
      * @param group the group, with a null id for a new one
      * @return the group as saved
      */
+    @AuthzCheck(permission = "can_manage_access")
     Future<Group> saveGroup(Group group);
 
     /**
@@ -76,6 +86,7 @@ public interface PermissionService {
      *
      * @param groupId the group
      */
+    @AuthzCheck(permission = "can_manage_access")
     Future<Void> deleteGroup(String groupId);
 
     /**
@@ -83,6 +94,7 @@ public interface PermissionService {
      *
      * @param groupId the group
      */
+    @AuthzCheck(permission = "can_view_access")
     Future<List<UserParticipantIdentity>> findGroupMembers(String groupId);
 
     /**
@@ -91,6 +103,7 @@ public interface PermissionService {
      * @param groupId the group
      * @param userId  the member's identity id
      */
+    @AuthzCheck(permission = "can_manage_access")
     Future<Void> addGroupMember(String groupId, String userId);
 
     /**
@@ -99,6 +112,7 @@ public interface PermissionService {
      * @param groupId the group
      * @param userId  the user's identity id
      */
+    @AuthzCheck(permission = "can_manage_access")
     Future<Void> removeGroupMember(String groupId, String userId);
 
     /**
@@ -111,6 +125,7 @@ public interface PermissionService {
      * @param resource where the grant is made
      * @return the grant
      */
+    @AuthzCheck(permission = "can_manage_access")
     Future<Grant> grant(Subject subject, String roleId, Resource resource);
 
     /**
@@ -119,6 +134,7 @@ public interface PermissionService {
      * @param resource where the grant was made
      * @param grantId  the grant
      */
+    @AuthzCheck(permission = "can_manage_access")
     Future<Void> revoke(Resource resource, String grantId);
 
     /**
@@ -127,6 +143,7 @@ public interface PermissionService {
      *
      * @param resource the resource
      */
+    @AuthzCheck(permission = "can_view_access")
     Future<List<Grant>> findGrants(Resource resource);
 
     /**
@@ -136,6 +153,7 @@ public interface PermissionService {
      * @param permission the permission's short name, such as {@code can_view}
      * @return the ids of the resources
      */
+    @AuthzCheck(zoneOnly = true)
     Future<List<String>> listAccessible(String type, String permission);
 
     /**
@@ -145,5 +163,6 @@ public interface PermissionService {
      * @param permission the permission's short name, such as {@code can_edit}
      * @param resource   the resource
      */
+    @AuthzCheck(permission = "can_view_access")
     Future<AccessExplanation> explain(Subject subject, String permission, Resource resource);
 }

@@ -66,7 +66,10 @@ public class AuthzModelGeneratorTest {
                                function("deploy", "project", "project", "can_deploy", "can_view"),
                                function("count", "application", "project", "can_view")),
                        service("VmNodeService", "vm_node", "platform",
-                               function("register", "platform", "vm_node", "can_register_node")));
+                               function("register", "platform", "vm_node", "can_register_node")),
+                       service("MemberService", "organization", null,
+                               function("findMembers", "organization", "organization", "can_view_members"),
+                               function("removeMember", "organization", "organization", "can_manage_members")));
     }
 
     private static JsonNode type(AuthzModel model, String name) {
@@ -185,7 +188,8 @@ public class AuthzModelGeneratorTest {
         AuthzModel model = generator.platformModel(platformServices());
 
         assertEquals(Map.of("project", Set.of("can_delete", "can_deploy", "can_edit", "can_view"),
-                            "vm_node", Set.of("can_register_node")),
+                            "vm_node", Set.of("can_register_node"),
+                            "organization", Set.of("can_view_members", "can_manage_members")),
                      model.permissions());
     }
 
@@ -196,10 +200,15 @@ public class AuthzModelGeneratorTest {
         assertEquals(Set.of("project_can_view"), model.roles().get("project.viewer"));
         assertEquals(Set.of("project_can_view", "project_can_edit", "project_can_deploy"), model.roles().get("project.editor"));
         assertEquals(Set.of("project_can_view", "project_can_edit", "project_can_deploy", "project_can_delete"), model.roles().get("project.admin"));
-        // the admin of a container holds everything inside it, the developer everything but the container's own
-        assertEquals(model.roles().get("project.admin"), model.roles().get(AuthzUtil.ORGANIZATION_ADMIN_ROLE));
+        // the admin of a container holds everything inside it and its own, the developer everything but the container's own
+        assertEquals(Set.of("project_can_view", "project_can_edit", "project_can_deploy", "project_can_delete",
+                            "organization_can_view_members", "organization_can_manage_members"),
+                     model.roles().get(AuthzUtil.ORGANIZATION_ADMIN_ROLE));
         assertEquals(model.roles().get("project.admin"), model.roles().get("application.admin"));
         assertEquals(model.roles().get("project.admin"), model.roles().get(AuthzUtil.APPLICATION_DEVELOPER_ROLE));
+        // a permission named can_view_<something> only reads, so the viewer holds it
+        assertEquals(Set.of("organization_can_view_members"), model.roles().get("organization.viewer"));
+        assertEquals(Set.of("organization_can_view_members", "organization_can_manage_members"), model.roles().get("organization.editor"));
         // a type with no reading permission has no viewer, and a role bundling nothing is not a role
         assertEquals(Set.of("vm_node_can_register_node"), model.roles().get("vm_node.editor"));
         assertFalse(model.roles().containsKey("vm_node.viewer"));

@@ -259,6 +259,11 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     }
 
     @Override
+    public Future<ServiceDirectoryEntry> findEntry(String entryId) {
+        return strategy.findEntry(entryId);
+    }
+
+    @Override
     public Future<List<ServiceDefinition>> findSystemContracts() {
         return systemContracts(0, new ArrayList<>());
     }

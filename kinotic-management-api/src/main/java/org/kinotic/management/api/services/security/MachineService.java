@@ -2,6 +2,9 @@ package org.kinotic.management.api.services.security;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
@@ -21,6 +24,7 @@ import java.util.List;
  * organization, and only its machines are visible or mutable.
  */
 @Publish
+@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, objectId = "{@organizationId}")
 public interface MachineService {
 
     /**
@@ -32,9 +36,11 @@ public interface MachineService {
      * @param applicationId the application whose API the machine calls; must belong to the
      *                      caller's organization
      */
+    @AuthzCheck(permission = "can_manage_machines")
     Future<MachineProvisionResult> createMachine(String displayName, String applicationId);
 
     /** Lists the machines of the given application of the caller's organization, disabled ones included. */
+    @AuthzCheck(permission = "can_view_machines")
     Future<Page<MachineParticipantIdentity>> findMachines(String applicationId, Pageable pageable);
 
     /**
@@ -46,6 +52,7 @@ public interface MachineService {
      *
      * @param projectId a project belonging to the caller's organization
      */
+    @AuthzCheck(permission = "can_view_machines")
     Future<List<MachineParticipantIdentity>> findProjectMachines(String projectId);
 
     /**
@@ -55,6 +62,7 @@ public interface MachineService {
      *
      * @param machineId a machine belonging to the caller's organization
      */
+    @AuthzCheck(permission = "can_manage_machines", consistent = true)
     Future<String> rotateSecret(String machineId);
 
     /**
@@ -64,6 +72,7 @@ public interface MachineService {
      *
      * @param machineId a machine belonging to the caller's organization
      */
+    @AuthzCheck(permission = "can_manage_machines", consistent = true)
     Future<Void> setMachineEnabled(String machineId, boolean enabled);
 
     /**
@@ -72,5 +81,6 @@ public interface MachineService {
      *
      * @param machineId a machine belonging to the caller's organization
      */
+    @AuthzCheck(permission = "can_manage_machines", consistent = true)
     Future<Void> removeMachine(String machineId);
 }

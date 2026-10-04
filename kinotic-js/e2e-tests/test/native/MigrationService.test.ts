@@ -266,17 +266,17 @@ describe('Kinotic JS', () => {
     )
 
     it<LocalTestContext>(
-        'answers only for a project of the caller\'s organization',
+        'refuses a project the caller holds nothing on',
         async () => {
+            // a project outside the organization, or one that does not exist, is one the caller holds no
+            // permission on, so the gateway refuses the request before the service sees it
             const unknownProject = 'not-a-project-' + generateRandomString(5)
-            await expect(Kinotic.migrations.getLastAppliedMigrationVersion(unknownProject)).rejects.toThrow(/not found/)
-            await expect(Kinotic.migrations.isMigrationApplied(unknownProject, '1')).rejects.toThrow(/not found/)
-            const result = await Kinotic.migrations.executeMigrations({
+            await expect(Kinotic.migrations.getLastAppliedMigrationVersion(unknownProject)).rejects.toThrow(/Not authorized/)
+            await expect(Kinotic.migrations.isMigrationApplied(unknownProject, '1')).rejects.toThrow(/Not authorized/)
+            await expect(Kinotic.migrations.executeMigrations({
                 projectId: unknownProject,
                 migrations: [migration(1, `DELETE FROM PersonWithTenant WHERE id = 'x';`)]
-            })
-            expect(result.success).toBe(false)
-            expect(result.errorMessage).toContain('not found')
+            })).rejects.toThrow(/Not authorized/)
         }
     )
 

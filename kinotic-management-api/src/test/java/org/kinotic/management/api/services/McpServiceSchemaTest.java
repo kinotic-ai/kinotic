@@ -5,12 +5,28 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.ResolvableTypeConverter;
 import org.kinotic.management.api.services.deployment.MicroserviceDeploymentService;
+import org.kinotic.management.api.services.deployment.ProjectArtifactService;
 import org.kinotic.management.api.services.deployment.UiDeploymentService;
+import org.kinotic.management.api.services.github.GitHubAppInstallationService;
+import org.kinotic.management.api.services.security.MachineService;
+import org.kinotic.management.api.services.security.MemberService;
+import org.kinotic.management.api.services.security.PermissionService;
+import org.kinotic.management.api.services.telemetry.LogService;
+import org.kinotic.management.api.services.telemetry.TelemetryService;
 import org.kinotic.management.internal.api.services.DefaultApplicationService;
 import org.kinotic.management.internal.api.services.DefaultEntityDefinitionService;
+import org.kinotic.management.internal.api.services.DefaultJobMonitoringService;
+import org.kinotic.management.internal.api.services.DefaultMigrationService;
 import org.kinotic.management.internal.api.services.DefaultProjectService;
 import org.kinotic.management.internal.api.services.deployment.DefaultMicroserviceDeploymentService;
+import org.kinotic.management.internal.api.services.deployment.DefaultProjectArtifactService;
 import org.kinotic.management.internal.api.services.deployment.DefaultUiDeploymentService;
+import org.kinotic.management.internal.api.services.github.DefaultGitHubAppInstallationService;
+import org.kinotic.management.internal.api.services.security.DefaultMachineService;
+import org.kinotic.management.internal.api.services.security.DefaultMemberService;
+import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
+import org.kinotic.management.internal.api.services.telemetry.DefaultLogService;
+import org.kinotic.management.internal.api.services.telemetry.DefaultTelemetryService;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
@@ -52,8 +68,8 @@ import java.util.function.Supplier;
 /**
  * Verifies every management-api service the directory publishes, for its MCP tools or its authorization resource,
  * converts to a ServiceDefinition with the same converter set
- * the server wires at startup — an unconvertible type anywhere in a signature rejects the service's
- * registration, and with it the server's startup.
+ * the server wires at startup — an unconvertible type anywhere in a signature, or a function whose check
+ * cannot be derived, rejects the service's registration, and with it the server's startup.
  */
 public class McpServiceSchemaTest {
 
@@ -64,9 +80,18 @@ public class McpServiceSchemaTest {
                                                            new ServiceDeclaration(ApplicationService.class, DefaultApplicationService.class),
                                                            new ServiceDeclaration(EntityDefinitionService.class, DefaultEntityDefinitionService.class),
                                                            new ServiceDeclaration(MicroserviceDeploymentService.class, DefaultMicroserviceDeploymentService.class),
-                                                           new ServiceDeclaration(UiDeploymentService.class, DefaultUiDeploymentService.class)));
+                                                           new ServiceDeclaration(UiDeploymentService.class, DefaultUiDeploymentService.class),
+                                                           new ServiceDeclaration(MemberService.class, DefaultMemberService.class),
+                                                           new ServiceDeclaration(MachineService.class, DefaultMachineService.class),
+                                                           new ServiceDeclaration(PermissionService.class, DefaultPermissionService.class),
+                                                           new ServiceDeclaration(GitHubAppInstallationService.class, DefaultGitHubAppInstallationService.class),
+                                                           new ServiceDeclaration(TelemetryService.class, DefaultTelemetryService.class),
+                                                           new ServiceDeclaration(LogService.class, DefaultLogService.class),
+                                                           new ServiceDeclaration(JobMonitoringService.class, DefaultJobMonitoringService.class),
+                                                           new ServiceDeclaration(MigrationService.class, DefaultMigrationService.class),
+                                                           new ServiceDeclaration(ProjectArtifactService.class, DefaultProjectArtifactService.class)));
 
-        Assertions.assertEquals(5, namespaceDefinition.getServices().size());
+        Assertions.assertEquals(14, namespaceDefinition.getServices().size());
     }
 
     @Test

@@ -41,6 +41,14 @@ public interface ServiceDirectory {
     Future<List<ServiceDefinition>> findSystemContracts();
 
     /**
+     * The entry of one service, by the id a registration gives it: the service's qualified name with its zone,
+     * {@code <zone>~<namespace>.<Name>}.
+     * @param entryId the entry's id
+     * @return the entry, or null when no service of that id has registered
+     */
+    Future<ServiceDirectoryEntry> findEntry(String entryId);
+
+    /**
      * Resolves the online MCP tool with the given name that the given scope may call, using the same visibility
      * rules as {@link #findMcpToolsCallableBy}. Tool names are unique system wide.
      * @param toolName the MCP tool name to resolve

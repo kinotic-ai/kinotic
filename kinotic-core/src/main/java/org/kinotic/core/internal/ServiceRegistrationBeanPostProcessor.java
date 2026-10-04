@@ -60,6 +60,20 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
 
             log.info("Registering Service {}", serviceIdentifier);
 
+            // The directory's contract is what the gateway authorizes against and what MCP clients call through,
+            // so a service the directory rejects must not start: a late registration is converted here and
+            // fails this bean, one made while the context starts fails the refresh from the directory itself.
+            // It is written before the registry serves the service, so no request reaches a function before
+            // the contract carrying its check is there. With no directory bean present, nothing at all happens here.
+            ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
+            if (serviceDirectory != null) {
+                try {
+                    serviceDirectory.register(serviceIdentifier, clazz, bean.getClass());
+                } catch (Exception e) {
+                    throw new FatalBeanException("Failed to register service " + serviceIdentifier + " in the ServiceDirectory", e);
+                }
+            }
+
             try {
                 serviceRegistryProvider.getObject()
                                .register(serviceIdentifier, clazz, bean)
@@ -71,6 +85,9 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             } catch (Exception e) {
                 // A service that is not actually serving must not advertise itself in the directory
                 log.error("Error Registering service {}", serviceIdentifier, e);
+                if (serviceDirectory != null) {
+                    serviceDirectory.unregister(serviceIdentifier);
+                }
                 return;
             }
 
@@ -79,19 +96,6 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             // ordering its destruction before theirs, so the dependency is recorded here.
             for(String registryBeanName : beanFactory.getBeanNamesForType(ServiceRegistry.class)){
                 beanFactory.registerDependentBean(registryBeanName, beanName);
-            }
-
-            // The directory's contract is what the gateway authorizes against and what MCP clients call through,
-            // so a service the directory rejects must not start: a late registration is converted here and
-            // fails this bean, one made while the context starts fails the refresh from the directory itself.
-            // With no directory bean present, nothing at all happens here.
-            ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
-            if (serviceDirectory != null) {
-                try {
-                    serviceDirectory.register(serviceIdentifier, clazz, bean.getClass());
-                } catch (Exception e) {
-                    throw new FatalBeanException("Failed to register service " + serviceIdentifier + " in the ServiceDirectory", e);
-                }
             }
         });
         return bean;

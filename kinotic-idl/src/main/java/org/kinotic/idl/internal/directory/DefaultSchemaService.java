@@ -15,6 +15,7 @@ import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
@@ -164,12 +165,15 @@ public class DefaultSchemaService implements SchemaService {
                 decorators.add(mcpTool);
             }
             if (authzResource != null) {
-                decorators.add(AuthzDecorators.checkOf(serviceInterface,
-                                                       authzResource,
-                                                       function.getKey(),
-                                                       specificMethod,
-                                                       functionDefinition.getParameters(),
-                                                       conversionContext));
+                AuthzCheckC3Decorator check = AuthzDecorators.checkOf(serviceInterface,
+                                                                      authzResource,
+                                                                      function.getKey(),
+                                                                      specificMethod,
+                                                                      functionDefinition.getParameters(),
+                                                                      conversionContext);
+                if (check != null) {
+                    decorators.add(check);
+                }
             }
             if (!decorators.isEmpty()) {
                 functionDefinition.setDecorators(decorators);

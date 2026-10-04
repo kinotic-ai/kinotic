@@ -9,7 +9,9 @@ import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
 import org.kinotic.idl.internal.support.TestService;
+import org.kinotic.idl.internal.support.authz.TestContradictoryService;
 import org.kinotic.idl.internal.support.authz.TestEntityService;
+import org.kinotic.idl.internal.support.authz.TestMemberService;
 import org.kinotic.idl.internal.support.authz.TestMisreferencingService;
 import org.kinotic.idl.internal.support.authz.TestProjectService;
 import org.kinotic.idl.internal.support.authz.TestUnderivableService;
@@ -21,6 +23,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,7 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Verifies the authorization declarations a {@link SchemaService} derives while converting a resource service:
  * the resource decorator on the service, one check per function from its name, parameters and
- * {@code @AuthzCheck}, and the rejection of a function whose check does not resolve.
+ * {@code @AuthzCheck}, the object a service names for functions naming none, the zone-only and consistent
+ * declarations, and the rejection of a function whose check does not resolve.
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -161,6 +165,56 @@ public class SchemaServiceAuthzTest {
         AuthzCheckC3Decorator delete = check(service, "deleteByVmNodeId");
         assertEquals("{vmNodeId}", delete.getObjectId());
         assertEquals("can_delete", delete.getPermission());
+    }
+
+    @Test
+    public void aServiceNamingItsObjectChecksEveryFunctionOnIt() {
+        ServiceDefinition service = convert(TestMemberService.class);
+
+        assertEquals("{@organizationId}", service.findDecorator(AuthzResourceC3Decorator.class).getObjectId());
+        AuthzCheckC3Decorator findMembers = check(service, "findMembers");
+        assertEquals("organization", findMembers.getResource());
+        assertEquals("{@organizationId}", findMembers.getObjectId());
+        assertEquals("organization", findMembers.getPermissionResource());
+        assertEquals("can_view_members", findMembers.getPermission());
+        assertFalse(findMembers.isConsistent());
+        // an argument with an id, and a create, are checked on the service's object too
+        assertEquals("{@organizationId}", check(service, "saveRole").getObjectId());
+        assertEquals("organization", check(service, "saveRole").getResource());
+        assertEquals("{@organizationId}", check(service, "createInvite").getObjectId());
+        assertEquals("organization", check(service, "createInvite").getPermissionResource());
+
+        // a function naming its own object is checked on it, not on the service's
+        AuthzCheckC3Decorator findProject = check(service, "findProject");
+        assertEquals("project", findProject.getResource());
+        assertEquals("{projectId}", findProject.getObjectId());
+        assertEquals("project", findProject.getPermissionResource());
+    }
+
+    @Test
+    public void aConsistentCheckIsMarked() {
+        AuthzCheckC3Decorator remove = check(convert(TestMemberService.class), "removeMember");
+
+        assertEquals("can_manage_members", remove.getPermission());
+        assertEquals("{@organizationId}", remove.getObjectId());
+        assertTrue(remove.isConsistent());
+        assertFalse(check(convert(TestProjectService.class), "save").isConsistent());
+    }
+
+    @Test
+    public void aZoneOnlyFunctionCarriesNoCheck() {
+        ServiceDefinition service = convert(TestMemberService.class);
+
+        assertNull(check(service, "listAccessible"));
+        assertEquals(List.of("type", "permission"),
+                     function(service, "listAccessible").getParameters().stream().map(ParameterDefinition::getName).toList());
+    }
+
+    @Test
+    public void zoneOnlyBesideACheckRejectsTheService() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestContradictoryService.class));
+
+        assertTrue(e.getMessage().contains("zone-only"));
     }
 
     @Test

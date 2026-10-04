@@ -34,6 +34,8 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
     private final KinoticAuthzProperties properties;
     // kept once found, as a stage with no context of its own; a failed lookup is replaced by the next caller's
     private volatile CompletableFuture<String> platformStore;
+    private static final long MODEL_VERSION_RETENTION_MILLIS = 30_000;
+    private volatile PlatformModelVersion platformModelVersion;
 
     @Override
     public Future<String> ensurePlatformModel(AuthzModel model) {
@@ -42,12 +44,22 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
 
     @Override
     public Future<String> platformModelId() {
-        return platformStoreId().compose(this::latestModel).map(model -> {
-            if (model == null) {
-                throw new IllegalStateException("The platform store runs no model yet");
-            }
-            return model.getId();
-        });
+        PlatformModelVersion kept = platformModelVersion;
+        Future<String> ret;
+        if (kept != null && kept.readAt() + MODEL_VERSION_RETENTION_MILLIS > System.currentTimeMillis()) {
+            ret = Future.succeededFuture(kept.id());
+        } else {
+            // every request's check names the version, so it is read once and kept; the reconciler's write of a
+            // new version reaches a node within the retention, and the version it ran meanwhile still exists
+            ret = platformStoreId().compose(this::latestModel).map(model -> {
+                if (model == null) {
+                    throw new IllegalStateException("The platform store runs no model yet");
+                }
+                platformModelVersion = new PlatformModelVersion(model.getId(), System.currentTimeMillis());
+                return model.getId();
+            });
+        }
+        return ret;
     }
 
     /**
@@ -142,5 +154,4 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
         ret.remove("id");
         return ret;
     }
-
 }

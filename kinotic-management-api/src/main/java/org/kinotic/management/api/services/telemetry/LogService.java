@@ -3,6 +3,9 @@ package org.kinotic.management.api.services.telemetry;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.telemetry.LogQuery;
 import org.kinotic.management.api.model.telemetry.ServerLogQuery;
 import reactor.core.publisher.Flux;
@@ -16,6 +19,7 @@ import reactor.core.publisher.Flux;
  * parses Loki's wire format.
  */
 @Publish //FIXME: figure out how to provide an McpTool that returns a flux, or add an exclusion to the McpTool annotation.
+@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, objectId = "{@organizationId}")
 public interface LogService {
 
     /**
@@ -30,6 +34,7 @@ public interface LogService {
      * @param start the moment to follow from, epoch milliseconds (inclusive)
      * @return a {@link Flux} emitting raw Loki tail frames
      */
+    @AuthzCheck(permission = "can_view_telemetry")
     Flux<Buffer> tail(String organizationId, String workloadId, long start);
 
     /**
@@ -38,6 +43,7 @@ public interface LogService {
      * @param query the {@link LogQuery} naming the organization, workload, time range, and limit
      * @return a {@link Future} emitting the raw Loki {@code query_range} response
      */
+    @AuthzCheck(permission = "can_view_telemetry")
     Future<Buffer> history(LogQuery query);
 
     /**
@@ -53,6 +59,7 @@ public interface LogService {
      * @param start the moment to follow from, epoch milliseconds (inclusive)
      * @return a {@link Flux} emitting raw Loki tail frames
      */
+    @AuthzCheck(permission = "can_view_telemetry")
     Flux<Buffer> tailServer(String telemetryServiceName, String telemetryServiceInstanceId, long start);
 
     /**
@@ -62,5 +69,6 @@ public interface LogService {
      * @param query the {@link ServerLogQuery} naming the server, the node, the time range, and the limit
      * @return a {@link Future} emitting the raw Loki {@code query_range} response
      */
+    @AuthzCheck(permission = "can_view_telemetry")
     Future<Buffer> serverHistory(ServerLogQuery query);
 }

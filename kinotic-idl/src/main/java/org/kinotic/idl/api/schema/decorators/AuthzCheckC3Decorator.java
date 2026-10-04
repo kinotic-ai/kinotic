@@ -50,6 +50,11 @@ public final class AuthzCheckC3Decorator extends C3Decorator {
      */
     private List<String> implies = List.of();
 
+    /**
+     * Whether the check must answer from the stored relationships rather than the engine's caches.
+     */
+    private boolean consistent;
+
     public AuthzCheckC3Decorator() {
         this.targets = List.of(DecoratorTarget.FUNCTION);
     }

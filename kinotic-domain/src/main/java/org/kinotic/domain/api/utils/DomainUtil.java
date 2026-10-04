@@ -66,6 +66,11 @@ public class DomainUtil {
      */
     public static final String INDEX_PREFIX = "kinotic_";
 
+    /**
+     * The participant metadata key naming the owner a delegate acts for, whose authority the delegate holds.
+     */
+    public static final String ON_BEHALF_OF_METADATA_KEY = "onBehalfOf";
+
     // Organization ids beginning with this prefix belong to the platform, which needs an
     // organization wherever it is its own tenant — the owner of VM workloads the OS runs for
     // the OS, for instance
@@ -435,7 +440,7 @@ public class DomainUtil {
                              user.getDisplayName() != null ? user.getDisplayName() : user.getEmail());
             }
             case DelegatingParticipantIdentity delegate -> {
-                metadata.put("onBehalfOf", delegate.getOwnerId());
+                metadata.put(ON_BEHALF_OF_METADATA_KEY, delegate.getOwnerId());
                 metadata.put("displayName",
                              delegate.getDisplayName() != null ? delegate.getDisplayName() : delegate.getId());
             }
