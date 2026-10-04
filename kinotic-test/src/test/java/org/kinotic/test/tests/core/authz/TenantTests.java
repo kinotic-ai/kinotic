@@ -57,7 +57,6 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -129,8 +128,7 @@ public class TenantTests extends KinoticTestBase {
         // the customer signs up: a pending record first, then the tenant with the customer as its administrator
         String email = "owner-" + suffix() + "@acme.test";
         await(signUpService.initiateTenantSignUp(key, email, "Acme Owner"));
-        PendingSignUp pending = await(pendingSignUps.findByEmailAndApplication(email, TEST_ORG_ID, appId));
-        assertNotNull(pending, "the sign-up was not recorded");
+        PendingSignUp pending = pendingSignUp(email, appId);
         assertInstanceOf(IllegalArgumentException.class, failure(() -> signUpService.initiateTenantSignUp(key, email, "Acme Owner")));
         UserParticipantIdentity owner = await(signUpService.completeTenantSignUp(pending.getVerificationToken(), "Acme Corp", "Acme-Pass-1"));
         assertEquals("acme-corp", owner.getTenantId());
@@ -139,7 +137,8 @@ public class TenantTests extends KinoticTestBase {
         assertNotNull(tenant, "the tenant was not created");
         assertEquals("Acme Corp", tenant.getName());
         assertEquals(owner.getId(), tenant.getCreatedBy());
-        assertNull(await(pendingSignUps.findByEmailAndApplication(email, TEST_ORG_ID, appId)), "the pending sign-up outlived its completion");
+        assertTrue(awaitUntil(() -> await(pendingSignUps.findByEmailAndApplication(email, TEST_ORG_ID, appId)) == null),
+                   "the pending sign-up outlived its completion");
 
         // the administrator is admitted to the tenant services once the store answers for its grant
         Participant admin = participant(appId, "acme-corp", owner.getId());
@@ -186,7 +185,7 @@ public class TenantTests extends KinoticTestBase {
         assertInstanceOf(IllegalArgumentException.class, failure(admin, () -> tenantMembers.removeMember(owner.getId())));
         String otherEmail = "other-" + suffix() + "@acme.test";
         await(signUpService.initiateTenantSignUp(key, otherEmail, "Other Owner"));
-        String otherToken = await(pendingSignUps.findByEmailAndApplication(otherEmail, TEST_ORG_ID, appId)).getVerificationToken();
+        String otherToken = pendingSignUp(otherEmail, appId).getVerificationToken();
         assertInstanceOf(IllegalArgumentException.class, failure(() -> signUpService.completeTenantSignUp(otherToken, "Acme Corp", "Other-Pass-1")));
 
         // the colleague is removed
@@ -221,6 +220,13 @@ public class TenantTests extends KinoticTestBase {
 
         application.getOnboarding().add(OnboardingMechanism.TENANT_SIGN_UP);
         assertInstanceOf(IllegalArgumentException.class, failure(TEST_ORGANIZATION_PARTICIPANT, () -> applicationService.save(application)));
+    }
+
+    // The pending record a sign-up stores, once the index answers for it
+    private PendingSignUp pendingSignUp(String email, String applicationId) throws Exception {
+        assertTrue(awaitUntil(() -> await(pendingSignUps.findByEmailAndApplication(email, TEST_ORG_ID, applicationId)) != null),
+                   "the sign-up of " + email + " was not recorded");
+        return await(pendingSignUps.findByEmailAndApplication(email, TEST_ORG_ID, applicationId));
     }
 
     private Set<String> memberIds(Participant caller) throws Exception {
