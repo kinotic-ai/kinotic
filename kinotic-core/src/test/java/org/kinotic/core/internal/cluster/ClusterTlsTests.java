@@ -1,5 +1,9 @@
 package org.kinotic.core.internal.cluster;
 
+import org.apache.ignite.Ignition;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.SslMode;
+import org.apache.ignite.configuration.ClientConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -18,13 +22,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Starts Kinotic nodes in their own processes with kinotic.clusterTls enabled and checks that nodes holding a trusted
- * certificate form a cluster, and that a node whose certificate the cluster does not trust never joins it. Skipped
- * where the JDK's keytool is missing.
+ * certificate form a cluster, that a node whose certificate the cluster does not trust never joins it, and that the
+ * nodes' thin client port only serves clients holding a trusted certificate. Skipped where the JDK's keytool is
+ * missing.
  */
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 public class ClusterTlsTests {
@@ -62,6 +68,10 @@ public class ClusterTlsTests {
         AtomicInteger second = start("second", 1, trusted, trust);
         awaitServers(first, 2);
         awaitServers(second, 2);
+
+        assertFalse(connects(new ClientConfiguration()), "a thin client connected without TLS");
+        assertFalse(connects(tlsClient(intruder, trust)), "a thin client with an untrusted certificate connected");
+        assertTrue(connects(tlsClient(trusted, trust)), "a thin client with a trusted certificate could not connect");
 
         AtomicInteger rejected = start("intruder", 2, intruder, trust);
         // Long enough for the intruder to have joined had its certificate been accepted
@@ -104,6 +114,28 @@ public class ClusterTlsTests {
                 // The process ended
             }
         });
+        return ret;
+    }
+
+    private static ClientConfiguration tlsClient(Path keyStore, Path trustStore) {
+        return new ClientConfiguration().setSslMode(SslMode.REQUIRED)
+                                        .setSslClientCertificateKeyStorePath(keyStore.toString())
+                                        .setSslClientCertificateKeyStoreType("PKCS12")
+                                        .setSslClientCertificateKeyStorePassword(PASSWORD)
+                                        .setSslTrustCertificateKeyStorePath(trustStore.toString())
+                                        .setSslTrustCertificateKeyStoreType("PKCS12")
+                                        .setSslTrustCertificateKeyStorePassword(PASSWORD);
+    }
+
+    // Whether a thin client with the configuration can read the cache names from one of the nodes' client ports
+    private static boolean connects(ClientConfiguration configuration) {
+        boolean ret;
+        try (IgniteClient client = Ignition.startClient(configuration.setAddresses("127.0.0.1:10800..10810").setTimeout(5_000))) {
+            client.cacheNames();
+            ret = true;
+        } catch (Exception e) {
+            ret = false;
+        }
         return ret;
     }
 

@@ -137,8 +137,8 @@ public class KinoticIgniteConfig {
             cfg.setCommunicationSpi(tcpCommunicationSpi);
         }
 
-        // Discovery and communication both take their TLS from the node's SSL context factory, and discovery requires
-        // the connecting node's certificate
+        // Discovery, communication and the thin client connector all take their TLS from the node's SSL context factory;
+        // discovery and the connector require the connecting side's certificate
         ClusterTlsProperties tls = properties.getClusterTls();
         if (tls.isEnabled()) {
             tls.requireStores();
@@ -150,6 +150,7 @@ public class KinoticIgniteConfig {
             sslContextFactory.setTrustStoreFilePath(tls.getTrustStorePath());
             sslContextFactory.setTrustStorePassword(password(tls.getTrustStorePassword()));
             cfg.setSslContextFactory(sslContextFactory);
+            cfg.setClientConnectorConfiguration(new ClientConnectorConfiguration().setSslEnabled(true).setSslClientAuth(true));
         }
 
         // Setup calcite sql engine
