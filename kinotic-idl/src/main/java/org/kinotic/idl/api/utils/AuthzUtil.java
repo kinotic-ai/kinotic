@@ -71,6 +71,11 @@ public final class AuthzUtil {
     public static final String PLATFORM_OPERATOR_ROLE = PLATFORM_TYPE + "." + OPERATOR;
     /** The built-in role holding the viewing permissions of the platform and of everything on it. */
     public static final String PLATFORM_SUPPORT_ROLE = PLATFORM_TYPE + "." + SUPPORT;
+    /**
+     * The declared role of an application's runtimes, which the contract service declares and a deployment grants
+     * the runtime machines it provisions on the application.
+     */
+    public static final String APPLICATION_RUNTIME_ROLE = APPLICATION_TYPE + ".runtime";
 
     public static final String CAN_VIEW = "can_view";
     public static final String CAN_EDIT = "can_edit";

@@ -71,7 +71,7 @@ export class TenantMemberService implements ITenantMemberService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${APP_API_ZONE}~org.kinotic.domain.api.services.security.TenantMemberService`)
+        this.serviceProxy = kinotic.serviceProxy(`${APP_API_ZONE}~org.kinotic.app.api.services.security.TenantMemberService`)
     }
 
     public async findMembers(pageable: Pageable): Promise<IterablePage<UserParticipantIdentity>> {

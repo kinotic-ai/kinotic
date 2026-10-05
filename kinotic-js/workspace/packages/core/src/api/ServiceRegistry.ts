@@ -62,7 +62,7 @@ export class TextEventFactory implements IEventFactory {
  * The platform service a runtime publishes the contracts of its checked services through, in the zone an
  * organization's runtimes reach.
  */
-const SERVICE_CONTRACT_SERVICE = 'app-api~org.kinotic.domain.api.services.ServiceContractService'
+const SERVICE_CONTRACT_SERVICE = 'app-api~org.kinotic.app.api.services.ServiceContractService'
 // an application's zone is app.<organizationId>.<applicationId>, with the service's own labels after it
 const APPLICATION_ZONE = /^app\.[^.]+\.([^.]+)(\.|$)/
 

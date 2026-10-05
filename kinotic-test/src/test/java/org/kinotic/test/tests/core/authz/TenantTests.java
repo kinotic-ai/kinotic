@@ -25,11 +25,11 @@ import org.kinotic.domain.api.model.security.participant.DefaultOrganizationPart
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.services.OrganizationService;
-import org.kinotic.domain.api.services.TenantService;
+import org.kinotic.app.api.services.TenantService;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.SignUpService;
-import org.kinotic.domain.api.services.security.TenantMemberService;
+import org.kinotic.app.api.services.security.TenantMemberService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.repositories.PendingInviteRepository;
 import org.kinotic.domain.internal.api.repositories.PendingSignUpRepository;
@@ -68,8 +68,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest
 public class TenantTests extends KinoticTestBase {
 
-    private static final String TENANT_SERVICE = DomainUtil.APP_API_ZONE + "~org.kinotic.domain.api.services.TenantService";
-    private static final String MEMBER_SERVICE = DomainUtil.APP_API_ZONE + "~org.kinotic.domain.api.services.security.TenantMemberService";
+    private static final String TENANT_SERVICE = DomainUtil.APP_API_ZONE + "~org.kinotic.app.api.services.TenantService";
+    private static final String MEMBER_SERVICE = DomainUtil.APP_API_ZONE + "~org.kinotic.app.api.services.security.TenantMemberService";
     private static final Pageable FIRST_PAGE = Pageable.create(0, 10, Sort.by("created"));
 
     @Autowired

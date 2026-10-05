@@ -9,7 +9,6 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
-import org.kinotic.domain.api.services.ServiceContractService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
@@ -131,7 +130,7 @@ public class ProjectDeployIdentityService {
                                          // the runtime also publishes the contracts of the application's services
                                          .compose(v -> unsaved.getMachineKind() == MachineKind.APP_RUNTIME
                                                  ? relationships.bind(AuthzStoreService.PLATFORM,
-                                                                      ServiceContractService.RUNTIME_ROLE,
+                                                                      AuthzUtil.APPLICATION_RUNTIME_ROLE,
                                                                       machine,
                                                                       AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, project.getApplicationId()))
                                                  : Future.succeededFuture())

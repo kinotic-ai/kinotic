@@ -1,4 +1,4 @@
-package org.kinotic.domain.internal.api.services;
+package org.kinotic.app.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
@@ -8,7 +8,7 @@ import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
-import org.kinotic.domain.api.services.ServiceContractService;
+import org.kinotic.app.api.services.ServiceContractService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.directory.ServiceContract;
 import org.springframework.beans.factory.ObjectProvider;
