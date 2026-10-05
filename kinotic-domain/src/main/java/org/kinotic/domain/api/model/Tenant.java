@@ -39,6 +39,17 @@ public class Tenant implements ApplicationScoped<String> {
      * The user the tenant was created for: the customer who signed up, or the user it isolates.
      */
     private String createdBy;
+    /**
+     * The id of the {@link org.kinotic.domain.api.model.security.OidcConfiguration} the tenant signs its users
+     * in with, or null while the tenant has no identity provider of its own; one per tenant, as an organization
+     * has one.
+     */
+    private String ssoConfigId;
+    /**
+     * The role granted on the tenant to a user its identity provider signs in for the first time, such as
+     * {@code tenant.viewer}; null grants membership alone.
+     */
+    private String ssoRoleId;
     private Date created;
     private Date updated;
 }

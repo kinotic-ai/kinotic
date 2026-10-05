@@ -11,6 +11,7 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.appserver.api.config.AppServerProperties;
 import org.kinotic.domain.api.model.ApplicationKey;
+import org.kinotic.domain.api.rest.support.OAuth2Util;
 import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.rest.support.CallbackResult;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
@@ -24,6 +25,7 @@ import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 
@@ -71,26 +73,34 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * {@code POST /api/auth/app/login/lookup {email}} — email-first SSO/password
-     * decision: {@code {type:"sso", redirect:"…"}} when the user is OIDC with a live
-     * config, otherwise {@code {type:"password"}}. Refused with {@code 403} from a page that is
-     * not one of the application's UIs.
+     * {@code POST /api/auth/app/login/lookup {email}} or {@code {tenantId}} — the SSO/password decision:
+     * {@code {type:"sso", redirect:"…"}} for a user who signs in with an identity provider that is live, or for
+     * a tenant that signs its users in with one of its own, otherwise {@code {type:"password"}}. Refused with
+     * {@code 403} from a page that is not one of the application's UIs.
      */
     private void handleLookup(RoutingContext ctx) {
         ApplicationKey applicationKey = requireApplicationUi(ctx);
         JsonObject body = authEndpointSupport.readJsonBody(ctx);
         String email = body.getString("email");
-        if (email == null || email.isBlank()) {
-            authEndpointSupport.respondError(ctx, 400, "email is required");
+        String tenantId = body.getString("tenantId");
+        Future<Void> answered;
+        if (tenantId != null && !tenantId.isBlank()) {
+            // a tenant's id selects its own identity provider before any user is known, as a tenant's login page does
+            answered = oidcConfigurationService.findTenantLoginConfig(applicationKey.organizationId(), applicationKey.applicationId(), tenantId)
+                                               .compose(config -> config == null
+                                                       ? authEndpointSupport.respondPasswordPath(ctx)
+                                                       : startSso(ctx, applicationKey, config));
+        } else if (email == null || email.isBlank()) {
+            authEndpointSupport.respondError(ctx, 400, "email or tenantId is required");
             return;
+        } else {
+            answered = identityService.findByEmail(email, applicationKey.organizationId(), applicationKey.applicationId())
+                                      .compose(user -> resolveSsoOrPassword(ctx, applicationKey, user));
         }
-
-        identityService.findByEmail(email, applicationKey.organizationId(), applicationKey.applicationId())
-              .compose(user -> resolveSsoOrPassword(ctx, applicationKey, user))
-              .onFailure(err -> {
-                  log.warn("App login lookup failed for {}/{}: {}", HostLabelUtil.label(applicationKey), email, err.getMessage());
-                  authEndpointSupport.respondError(ctx, 500, "Lookup failed");
-              });
+        answered.onFailure(err -> {
+            log.warn("App login lookup failed for {}: {}", HostLabelUtil.label(applicationKey), err.getMessage());
+            authEndpointSupport.respondError(ctx, 500, "Lookup failed");
+        });
     }
 
     private Future<Void> resolveSsoOrPassword(RoutingContext ctx, ApplicationKey applicationKey, UserParticipantIdentity user) {
@@ -99,16 +109,16 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
                 || user.getOidcConfigId() == null) {
             return authEndpointSupport.respondPasswordPath(ctx);
         }
-
         String configId = user.getOidcConfigId();
         return oidcConfigurationService.findById(configId, applicationKey.organizationId())
-                     .compose(match -> {
-                         if (match == null || !match.isEnabled()) {
-                             return authEndpointSupport.respondPasswordPath(ctx);
-                         }
-                         return oidcFlowOrchestrator.startFlow(ctx, match, callbackUrl(applicationKey, match.getId()), null)
-                                 .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
-                     });
+                     .compose(match -> match == null || !match.isEnabled()
+                             ? authEndpointSupport.respondPasswordPath(ctx)
+                             : startSso(ctx, applicationKey, match));
+    }
+
+    private Future<Void> startSso(RoutingContext ctx, ApplicationKey applicationKey, OidcConfiguration config) {
+        return oidcFlowOrchestrator.startFlow(ctx, config, callbackUrl(applicationKey, config.getId()), null)
+                                   .compose(url -> authEndpointSupport.respondSsoRedirect(ctx, url));
     }
 
     /**
@@ -124,27 +134,27 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * {@code GET /api/auth/app/login/oidc/callback/:configId} — the IdP returns here;
-     * validates the callback and logs the user into the application. The pre-auth flow has
-     * no participant bound, so the config lookup is scoped by the application's organization.
+     * {@code GET /api/auth/app/login/oidc/callback/:configId} — the IdP returns here; validates the callback
+     * and logs the user into the application. A user the provider signs in for the first time through a
+     * tenant's own configuration is created in that tenant. The pre-auth flow has no participant bound, so the
+     * config lookup is scoped by the application's organization.
      */
     private void handleCallback(RoutingContext ctx) {
         ApplicationKey applicationKey = authEndpointSupport.applicationKey(ctx);
         String pathConfigId = ctx.pathParam("configId");
-
         oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
                 ctx, pathConfigId, callbackUrl(applicationKey, pathConfigId),
                 _ -> oidcConfigurationService.findById(pathConfigId, applicationKey.organizationId()))
-                .onSuccess(result -> completeAppLogin(ctx, result, applicationKey))
+                .onSuccess(result -> completeAppLogin(ctx, result))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
 
-    private void completeAppLogin(RoutingContext ctx,
-                                  CallbackResult<OidcConfiguration> result,
-                                  ApplicationKey applicationKey) {
+    private void completeAppLogin(RoutingContext ctx, CallbackResult<OidcConfiguration> result) {
+        Map<String, Object> claims = result.claims();
         authEndpointSupport.completeOidcLogin(ctx, result,
-                sub -> identityService.findByOidcIdentity(sub, result.config().getId(),
-                                                         applicationKey.organizationId(), applicationKey.applicationId()));
+                sub -> identityService.findOrCreateSsoUser(result.config(), sub,
+                                                           OAuth2Util.stringClaim(claims, "email"),
+                                                           OAuth2Util.firstPresent(claims, "name", "preferred_username", "email")));
     }
 
     /**

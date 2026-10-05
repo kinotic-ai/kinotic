@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
@@ -438,7 +439,8 @@ public abstract class AuthEndpointSupport {
               })
               .onFailure(err -> {
                   log.warn("Login resolution failed: {}", err.getMessage());
-                  redirectError(ctx, result.origin(), OidcErrorCodes.LOOKUP_FAILED);
+                  redirectError(ctx, result.origin(), err instanceof AlreadyExistsException
+                          ? OidcErrorCodes.ACCOUNT_EXISTS : OidcErrorCodes.LOOKUP_FAILED);
               });
     }
 }

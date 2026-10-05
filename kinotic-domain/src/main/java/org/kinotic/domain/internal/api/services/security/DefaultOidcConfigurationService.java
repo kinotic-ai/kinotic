@@ -6,6 +6,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
+import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
@@ -27,17 +28,20 @@ public class DefaultOidcConfigurationService extends AbstractOrganizationScopedS
     private final OrganizationService organizationService;
     private final ApplicationRepository applicationRepository;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
+    private final TenantRepository tenants;
 
     public DefaultOidcConfigurationService(OidcConfigurationRepository repository,
                                            OrganizationService organizationService,
                                            ApplicationRepository applicationRepository,
                                            OrgSignupOidcConfigurationService orgSignupOidcConfigurationService,
+                                           TenantRepository tenants,
                                            SecurityContext securityContext) {
         super(repository, securityContext);
         this.oidcRepository = repository;
         this.organizationService = organizationService;
         this.applicationRepository = applicationRepository;
         this.orgSignupOidcConfigurationService = orgSignupOidcConfigurationService;
+        this.tenants = tenants;
     }
 
     @Override
@@ -110,6 +114,41 @@ public class DefaultOidcConfigurationService extends AbstractOrganizationScopedS
                         });
         }
         return ret;
+    }
+
+    @Override
+    public Future<OidcConfiguration> findTenantLoginConfig(String organizationId, String applicationId, String tenantId) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        Validate.notBlank(applicationId, "applicationId cannot be blank");
+        Validate.notBlank(tenantId, "tenantId cannot be blank");
+        return tenants.findByTenantId(organizationId, applicationId, tenantId).compose(tenant -> {
+            Future<OidcConfiguration> ret;
+            if (tenant == null || tenant.getSsoConfigId() == null) {
+                ret = Future.succeededFuture();
+            } else {
+                // a direct repository lookup, since the login lookup runs before a participant is bound; the row
+                // must be the tenant's own and enabled
+                ret = oidcRepository.findById(tenant.getSsoConfigId(), organizationId)
+                                    .map(config -> config != null && config.isEnabled()
+                                            && applicationId.equals(config.getApplicationId())
+                                            && tenantId.equals(config.getTenantId()) ? config : null);
+            }
+            return ret;
+        });
+    }
+
+    @Override
+    public Future<OidcConfiguration> saveTenantConfig(OidcConfiguration configuration) {
+        Validate.notBlank(configuration.getOrganizationId(), "A tenant's configuration names its organization");
+        Validate.notBlank(configuration.getApplicationId(), "A tenant's configuration names its application");
+        Validate.notBlank(configuration.getTenantId(), "A tenant's configuration names its tenant");
+        return beforeSave(configuration).compose(v -> oidcRepository.saveSync(configuration, configuration.getOrganizationId()));
+    }
+
+    @Override
+    public Future<Void> deleteTenantConfig(OidcConfiguration configuration) {
+        Validate.notBlank(configuration.getTenantId(), "A tenant's configuration names its tenant");
+        return oidcRepository.deleteByIdSync(configuration.getId(), configuration.getOrganizationId());
     }
 
     private static OidcConfiguration validForOrgLogin(OidcConfiguration config, String expectedOrgId) {

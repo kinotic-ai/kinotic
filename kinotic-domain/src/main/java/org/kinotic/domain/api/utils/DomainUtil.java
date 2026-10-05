@@ -3,6 +3,7 @@ package org.kinotic.domain.api.utils;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
@@ -410,6 +411,19 @@ public class DomainUtil {
             ret = StringUtils.isNotBlank(metadata.get("displayName")) ? metadata.get("displayName") : metadata.get("email");
         }
         return StringUtils.isNotBlank(ret) ? ret : participant.getId();
+    }
+
+    /**
+     * Confirms a role is among those a grant can name.
+     *
+     * @param roles  the roles a grant can name
+     * @param roleId the role asked for
+     * @throws IllegalArgumentException when none of the roles has the id
+     */
+    public static void requireRole(List<RoleDefinition> roles, String roleId) {
+        if (roles.stream().noneMatch(role -> role.id().equals(roleId))) {
+            throw new IllegalArgumentException("No role a grant here can name has id " + roleId);
+        }
     }
 
     /**

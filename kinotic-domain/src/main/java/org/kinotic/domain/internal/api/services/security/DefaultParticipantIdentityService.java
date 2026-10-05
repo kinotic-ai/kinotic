@@ -6,10 +6,12 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.OnboardingMechanism;
 import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.security.AuthType;
+import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
@@ -341,6 +343,70 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         Validate.notNull(newPassword, "newPassword cannot be null");
 
         return saveCredential(identityId, newPassword).mapEmpty();
+    }
+
+    @Override
+    public Future<UserParticipantIdentity> findOrCreateSsoUser(OidcConfiguration configuration,
+                                                               String oidcSubject,
+                                                               String email,
+                                                               String displayName) {
+        Validate.notNull(configuration, "configuration cannot be null");
+        Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
+        return findByOidcIdentity(oidcSubject, configuration.getId(), configuration.getOrganizationId(), configuration.getApplicationId())
+                .compose(found -> {
+                    Future<UserParticipantIdentity> ret;
+                    if (found != null || configuration.getTenantId() == null) {
+                        ret = Future.succeededFuture(found);
+                    } else {
+                        Validate.notBlank(email, "The identity provider asserted no email");
+                        ret = provisionSsoUser(configuration, oidcSubject, DomainUtil.normalizeEmail(email), displayName);
+                    }
+                    return ret;
+                });
+    }
+
+    // A tenant's provider vouches for whoever it signs in, so the user is created in the tenant and granted the
+    // role the tenant chose; an email already held in the application is refused rather than taken over
+    private Future<UserParticipantIdentity> provisionSsoUser(OidcConfiguration configuration,
+                                                             String oidcSubject,
+                                                             String email,
+                                                             String displayName) {
+        String organizationId = configuration.getOrganizationId();
+        String applicationId = configuration.getApplicationId();
+        String tenantId = configuration.getTenantId();
+        return findByEmail(email, organizationId, applicationId)
+                .compose(existing -> {
+                    if (existing != null) {
+                        throw new AlreadyExistsException("An account with this email already exists.");
+                    }
+                    return tenants.findByTenantId(organizationId, applicationId, tenantId);
+                })
+                .compose(tenant -> {
+                    if (tenant == null) {
+                        throw new IllegalStateException("No tenant of the application has id " + tenantId);
+                    }
+                    UserParticipantIdentity user = new UserParticipantIdentity();
+                    user.setEmail(email);
+                    user.setDisplayName(StringUtils.isNotBlank(displayName) ? displayName : email);
+                    user.setOrganizationId(organizationId);
+                    user.setApplicationId(applicationId);
+                    user.setTenantId(tenantId);
+                    user.setOidcSubject(oidcSubject);
+                    user.setOidcConfigId(configuration.getId());
+                    // refreshed at once, so a second sign-in moments later finds the user instead of refusing its email
+                    return createUser(user, null).compose(created -> syncIndex().map(created)).compose(created -> {
+                        Future<UserParticipantIdentity> granted;
+                        if (tenant.getSsoRoleId() == null) {
+                            granted = Future.succeededFuture(created);
+                        } else {
+                            granted = relationships.bind(applicationId, tenant.getSsoRoleId(),
+                                                         AuthzUtil.object(AuthzUtil.USER_TYPE, created.getId()),
+                                                         AuthzUtil.object(AuthzUtil.TENANT_TYPE, tenantId))
+                                                   .map(created);
+                        }
+                        return granted;
+                    });
+                });
     }
 
     @Override
