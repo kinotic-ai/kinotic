@@ -4,6 +4,8 @@ import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.service.ServiceIdentifier;
+import org.kinotic.idl.api.directory.SchemaService;
+import org.kinotic.idl.api.directory.ServiceContract;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 
 import io.vertx.core.Future;
@@ -57,6 +59,21 @@ public interface ServiceDirectory {
      * @return the entry, or null when no service of that id has registered
      */
     Future<ServiceDirectoryEntry> findEntry(String entryId);
+
+    /**
+     * Publishes the contract of a service a runtime of an application serves, as the platform's own services
+     * publish theirs when they register: the entry is stored with the organization and application it belongs
+     * to, so the application's store reconciles to a model carrying the service, and its liveness follows the
+     * service's registrations on the event bus. A contract equal to the one stored leaves the entry as it is.
+     *
+     * @param contract       the declared contract
+     * @param organizationId the organization the application belongs to
+     * @param applicationId  the application the service belongs to
+     * @return a future that completes once the entry is stored
+     * @throws IllegalStateException    when the contract does not convert, as {@link SchemaService#createForContract} says
+     * @throws IllegalArgumentException when the contract names no namespace or no name
+     */
+    Future<Void> registerContract(ServiceContract contract, String organizationId, String applicationId);
 
     /**
      * Resolves the online MCP tool with the given name that the given scope may call, using the same visibility

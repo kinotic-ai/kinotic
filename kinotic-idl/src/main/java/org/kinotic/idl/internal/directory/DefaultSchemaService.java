@@ -3,6 +3,8 @@
 package org.kinotic.idl.internal.directory;
 
 import org.kinotic.idl.api.directory.ConversionContext;
+import org.kinotic.idl.api.directory.FunctionContract;
+import org.kinotic.idl.api.directory.ServiceContract;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.GenericTypeConverter;
 
@@ -11,6 +13,7 @@ import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.annotations.McpToolInfo;
 import org.kinotic.idl.api.directory.SchemaService;
 import org.kinotic.idl.api.utils.IdlUtil;
+import org.kinotic.idl.api.schema.AnyC3Type;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
@@ -105,6 +108,47 @@ public class DefaultSchemaService implements SchemaService {
                                                       conversionContext));
         }
         ret.setComplexC3Types(conversionContext.getComplexC3Types());
+        return ret;
+    }
+
+    @Override
+    public ServiceDefinition createForContract(ServiceContract contract) {
+        Assert.notNull(contract, "contract cannot be null");
+        Assert.hasText(contract.namespace(), "The contract names no namespace");
+        Assert.hasText(contract.name(), "The contract names no name");
+        String declarer = contract.qualifiedName();
+        if (contract.resource() == null) {
+            throw new IllegalStateException("The contract of " + declarer + " declares no resource; a published contract is a checked service's");
+        }
+        AuthzResourceC3Decorator authzResource = AuthzDecorators.resourceOf(declarer, contract.resource());
+        ServiceDefinition ret = new ServiceDefinition();
+        ret.setNamespace(contract.namespace());
+        ret.setName(contract.name());
+        ret.setDecorators(List.of(authzResource));
+        // the contract declares no types, so nothing converts; the derivation reads references through the context
+        DefaultConversionContext conversionContext = new DefaultConversionContext(typeConverter, true);
+        Set<String> names = new HashSet<>();
+        for (FunctionContract function : contract.functions()) {
+            if (!names.add(function.name())) {
+                throw new IllegalStateException(declarer + " declares the function " + function.name() + " twice");
+            }
+            FunctionDefinition functionDefinition = new FunctionDefinition();
+            functionDefinition.setName(function.name());
+            functionDefinition.setReturnType(new AnyC3Type());
+            for (String parameter : function.parameters()) {
+                functionDefinition.addParameter(parameter, new AnyC3Type());
+            }
+            AuthzCheckC3Decorator check = AuthzDecorators.checkOf(declarer,
+                                                                  authzResource,
+                                                                  function.name(),
+                                                                  function.check(),
+                                                                  functionDefinition.getParameters(),
+                                                                  conversionContext);
+            if (check != null) {
+                functionDefinition.setDecorators(List.of(check));
+            }
+            ret.addFunction(functionDefinition);
+        }
         return ret;
     }
 

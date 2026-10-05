@@ -13,6 +13,8 @@ import { Event } from './event/EventBus'
 import { EventConstants, type IEvent, type IEventBus } from './event/IEventBus'
 import type {IEventFactory, IServiceProxy, IServiceRegistry} from './IServiceRegistry'
 import type {ContextInterceptor, ServiceContext} from './ContextInterceptor'
+import { serviceContractOf } from './KinoticDecorators'
+import type { ServiceContract } from './ServiceContract'
 
 /**
  * An implementation of a {@link IEventFactory} which uses JSON content
@@ -56,9 +58,19 @@ export class TextEventFactory implements IEventFactory {
 /**
  * The default implementation of {@link IServiceRegistry}
  */
+/**
+ * The platform service a runtime publishes the contracts of its checked services through, in the zone an
+ * organization's runtimes reach.
+ */
+const SERVICE_CONTRACT_SERVICE = 'app-api~org.kinotic.domain.api.services.ServiceContractService'
+// an application's zone is app.<organizationId>.<applicationId>, with the service's own labels after it
+const APPLICATION_ZONE = /^app\.[^.]+\.([^.]+)(\.|$)/
+
 export class ServiceRegistry implements IServiceRegistry {
     private _eventBus: IEventBus
     private supervisors: Map<string, ServiceInvocationSupervisor> = new Map()
+    // the contracts of the checked services registered, by CRI, published once the connection is up
+    private contracts: Map<string, ServiceContract> = new Map()
     private contextInterceptor: ContextInterceptor<any> | null = null
     private debugLogger = debug('kinotic:serviceRegistry')
 
@@ -86,6 +98,8 @@ export class ServiceRegistry implements IServiceRegistry {
         const criString = serviceIdentifier.cri().raw()
         if (!this.supervisors.has(criString)) {
             this.debugLogger(`Registering service for CRI: ${criString}`)
+            // read before the supervisor starts, so a class whose contract cannot be built never serves
+            const contract = serviceContractOf(service, serviceIdentifier)
             const supervisor = new ServiceInvocationSupervisor(
                 serviceIdentifier,
                 service,
@@ -94,6 +108,12 @@ export class ServiceRegistry implements IServiceRegistry {
             )
             this.supervisors.set(criString, supervisor)
             supervisor.start()
+            if (contract) {
+                this.contracts.set(criString, contract)
+                if (this.eventBus.isConnected()) {
+                    this.publishContract(contract).catch(error => this.debugLogger(`Failed to publish the contract of ${criString}`, error))
+                }
+            }
         }
     }
 
@@ -104,6 +124,35 @@ export class ServiceRegistry implements IServiceRegistry {
             this.debugLogger(`Unregistering service for CRI: ${criString}`)
             supervisor.stop()
             this.supervisors.delete(criString)
+            this.contracts.delete(criString)
+        }
+    }
+
+    /**
+     * Publishes the contract of every checked service registered so far to the platform's directory, so the
+     * platform checks requests to them; a contract the platform refuses fails the publication. The contract of
+     * a service registered later is published as it registers.
+     */
+    public async publishContracts(): Promise<void> {
+        for (const contract of this.contracts.values()) {
+            await this.publishContract(contract)
+        }
+    }
+
+    /**
+     * The contracts of the checked services registered, by the CRI each is registered under.
+     */
+    public registeredContracts(): ReadonlyMap<string, ServiceContract> {
+        return this.contracts
+    }
+
+    // A checked service is published in its application's zone, which names the application the contract
+    // registers with; a service in any other zone is the platform's own, whose contract the platform holds already
+    private async publishContract(contract: ServiceContract): Promise<void> {
+        const application = APPLICATION_ZONE.exec(contract.zone)
+        if (application) {
+            this.debugLogger(`Publishing the contract of ${contract.zone}~${contract.namespace}.${contract.name}`)
+            await this.serviceProxy(SERVICE_CONTRACT_SERVICE).invoke('register', [application[1], contract])
         }
     }
 

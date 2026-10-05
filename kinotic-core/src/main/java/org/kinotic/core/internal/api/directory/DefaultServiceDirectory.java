@@ -36,6 +36,8 @@ import org.kinotic.idl.api.schema.ComplexC3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ObjectC3Type;
+import org.kinotic.idl.api.directory.ServiceContract;
+import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StreamC3Type;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
@@ -264,6 +266,25 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     }
 
     @Override
+    public Future<Void> registerContract(ServiceContract contract, String organizationId, String applicationId) {
+        ServiceDefinition definition = schemaService.createForContract(contract);
+        // addressed as the runtime registers it: the zone and the qualified name, no scope, whatever its version
+        String entryId = contract.zone() + ZoneUtil.ZONE_DELIMITER + definition.getQualifiedName();
+        String serviceAddress = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, null, entryId, null, null).baseResource();
+        ServiceDirectoryEntry entry = new ServiceDirectoryEntry()
+                .setId(entryId)
+                .setServiceAddress(serviceAddress)
+                .setOrganizationId(organizationId)
+                .setApplicationId(applicationId)
+                .setNamespace(contract.namespace())
+                .setName(contract.name())
+                .setVersion(contract.version())
+                .setZone(contract.zone())
+                .setServiceDefinition(definition);
+        return strategy.upsertEntry(entry).compose(v -> refreshOnline(entryId, serviceAddress));
+    }
+
+    @Override
     public Future<List<ServiceDefinition>> findSystemContracts() {
         return systemContracts(0, new ArrayList<>());
     }
@@ -349,9 +370,12 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
      * Sets the entry's liveness to the verified cluster-wide registration state.
      */
     private Future<Void> refreshOnline(ServiceIdentifier serviceIdentifier) {
+        return refreshOnline(serviceIdentifier.qualifiedName(), serviceIdentifier.unscopedCri().baseResource());
+    }
+
+    private Future<Void> refreshOnline(String entryId, String serviceAddress) {
         Instant observed = Instant.now();
-        return anyInstanceListening(serviceIdentifier.unscopedCri().baseResource())
-                .compose(online -> strategy.setOnline(serviceIdentifier.qualifiedName(), online, observed));
+        return anyInstanceListening(serviceAddress).compose(online -> strategy.setOnline(entryId, online, observed));
     }
 
     // A service is reachable while any instance of it listens, on its shared address or under a scope, so
