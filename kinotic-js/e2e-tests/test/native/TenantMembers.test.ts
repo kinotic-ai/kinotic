@@ -66,7 +66,7 @@ describe('Kinotic JS', () => {
     it('grants a role on the tenant and revokes it', async () => {
         const roles = await appKinotic.tenantMembers.findRoles()
         expect(roles.map(role => role.id)).toContain('tenant.viewer')
-        expect(roles.some(role => role.id.startsWith('application.'))).toBe(false)
+        expect(roles.some(role => role.id?.startsWith('application.'))).toBe(false)
 
         const grant = await appKinotic.tenantMembers.grant({kind: SubjectKind.USER, id: subject.id}, 'tenant.viewer')
         expect((await appKinotic.tenantMembers.findGrants()).map(made => made.id)).toContain(grant.id)

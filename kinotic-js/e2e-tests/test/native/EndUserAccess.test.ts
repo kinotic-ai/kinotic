@@ -1,5 +1,5 @@
 import {Kinotic, KinoticSingleton, Pageable} from '@kinotic-ai/core'
-import {EntityDefinition, Project, type Resource, type Subject} from '@kinotic-ai/management-api'
+import {EntityDefinition, type Resource, type Subject} from '@kinotic-ai/management-api'
 import {EntitiesRepository, EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
