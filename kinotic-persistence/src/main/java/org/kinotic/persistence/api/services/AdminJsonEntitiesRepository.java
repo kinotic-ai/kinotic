@@ -7,6 +7,9 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.model.*;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
@@ -17,9 +20,13 @@ import java.util.List;
  * Provides Admin access to entities for a given {@link EntityDefinition}.
  * Admin access allows you to read and write data for tenants other than the one that is logged into by the participant.
  * Created by Nic Padilla 🤪on 6/18/23.
+ *
+ * Every function is checked on the entity definition named, as the organization's developers hold it: reading
+ * its rows needs {@code can_view} of the definition, deleting them {@code can_edit}.
  */
 @Publish
 @Zone(DomainUtil.APP_API_ZONE)
+@AuthzResource(value = AuthzUtil.ENTITY_DEFINITION_TYPE, parent = AuthzUtil.APPLICATION_TYPE)
 public interface AdminJsonEntitiesRepository {
 
     /**
@@ -30,6 +37,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the number of entities.
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW, objectId = "{entityDefinitionId}")
     Future<Long> count(String entityDefinitionId, List<String> tenantSelection, ScopedParticipant participant);
 
     /**
@@ -41,6 +49,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the number of entities.
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW, objectId = "{entityDefinitionId}")
     Future<Long> countByQuery(String entityDefinitionId, String query, List<String> tenantSelection, ScopedParticipant participant);
 
     /**
@@ -51,6 +60,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting when delete is complete
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_EDIT, objectId = "{entityDefinitionId}")
     Future<Void> deleteById(String entityDefinitionId, TenantSpecificId id, ScopedParticipant participant);
 
     /**
@@ -62,6 +72,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting when delete is complete
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_EDIT, objectId = "{entityDefinitionId}")
     Future<Void> deleteByQuery(String entityDefinitionId, String query, List<String> tenantSelection, ScopedParticipant participant);
 
     /**
@@ -73,6 +84,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a page of entities
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW, objectId = "{entityDefinitionId}")
     Future<Page<FastestType>> findAll(String entityDefinitionId, List<String> tenantSelection, Pageable pageable, ScopedParticipant participant);
 
     /**
@@ -83,6 +95,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} with the entity with the given id or {@link Future} emitting null if none found
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW, objectId = "{entityDefinitionId}")
     Future<FastestType> findById(String entityDefinitionId, TenantSpecificId id, ScopedParticipant participant);
 
     /**
@@ -93,6 +106,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} with the list of matched entities with the given ids or {@link Future} emitting an empty list if none found
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW, objectId = "{entityDefinitionId}")
     Future<List<FastestType>> findByIds(String entityDefinitionId, List<TenantSpecificId> ids, ScopedParticipant participant);
 
     /**
@@ -105,6 +119,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant     the participant of the logged-in user
      * @return {@link Future} with the result of the query
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW, objectId = "{entityDefinitionId}")
     Future<List<RawJson>> namedQuery(String entityDefinitionId,
                                      String queryName,
                                      List<QueryParameter> queryParameters,
@@ -122,6 +137,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant     the participant of the logged-in user
      * @return {@link Future} with the result of the query
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW, objectId = "{entityDefinitionId}")
     Future<Page<RawJson>> namedQueryPage(String entityDefinitionId,
                                          String queryName,
                                          List<QueryParameter> queryParameters,
@@ -141,6 +157,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a {@link Future} of a page of entities
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW, objectId = "{entityDefinitionId}")
     Future<Page<FastestType>> search(String entityDefinitionId, String searchText, List<String> tenantSelection, Pageable pageable, ScopedParticipant participant);
 
 }

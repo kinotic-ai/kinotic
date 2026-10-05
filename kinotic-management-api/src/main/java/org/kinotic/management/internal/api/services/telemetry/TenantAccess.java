@@ -66,7 +66,7 @@ public class TenantAccess {
         if (participant instanceof SystemParticipant) {
             RelationshipTuple reads = new RelationshipTuple(DomainUtil.authzUser(participant), READS_TELEMETRY,
                                                             AuthzUtil.object(AuthzUtil.PLATFORM_TYPE, AuthzUtil.PLATFORM_OBJECT_ID));
-            ret = stores.platformModelId()
+            ret = stores.modelId(PLATFORM)
                         .compose(modelId -> relationships.check(PLATFORM, modelId, reads, Consistency.MINIMIZE_LATENCY))
                         .map(allowed -> {
                             if (!allowed) {

@@ -110,7 +110,7 @@ public class RequestAuthorizationTests extends KinoticTestBase {
     public void awaitPlatformModel() throws Exception {
         AuthzModel model = modelGenerator.platformModel(await(serviceDirectory.findSystemContracts()));
         assertTrue(awaitUntil(() -> reconciledTo(model.hash())), "the platform store never reconciled to the directory's model");
-        modelId = await(storeService.platformModelId());
+        modelId = await(storeService.modelId(AuthzStoreService.PLATFORM));
     }
 
     @Test

@@ -49,7 +49,7 @@ abstract class ParticipantCallTest {
         // before any Vertx instance is created
         securityContext = new SecurityContext();
         AuthzStoreService stores = mock(AuthzStoreService.class);
-        when(stores.platformModelId()).thenReturn(Future.succeededFuture("model-1"));
+        when(stores.modelId(AuthzStoreService.PLATFORM)).thenReturn(Future.succeededFuture("model-1"));
         RelationshipService relationships = mock(RelationshipService.class);
         // the operator holds what it is asked about on the platform, the newcomer nothing
         when(relationships.check(eq(AuthzStoreService.PLATFORM), eq("model-1"), any(), any()))

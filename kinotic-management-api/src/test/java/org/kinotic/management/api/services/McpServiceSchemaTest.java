@@ -10,6 +10,7 @@ import org.kinotic.management.api.services.deployment.UiDeploymentService;
 import org.kinotic.management.api.services.github.GitHubAppInstallationService;
 import org.kinotic.management.api.services.security.MachineService;
 import org.kinotic.management.api.services.security.MemberService;
+import org.kinotic.management.api.services.security.ApplicationAccessService;
 import org.kinotic.management.api.services.security.PermissionService;
 import org.kinotic.management.api.services.telemetry.LogService;
 import org.kinotic.management.api.services.telemetry.TelemetryService;
@@ -24,6 +25,7 @@ import org.kinotic.management.internal.api.services.deployment.DefaultUiDeployme
 import org.kinotic.management.internal.api.services.github.DefaultGitHubAppInstallationService;
 import org.kinotic.management.internal.api.services.security.DefaultMachineService;
 import org.kinotic.management.internal.api.services.security.DefaultMemberService;
+import org.kinotic.management.internal.api.services.security.DefaultApplicationAccessService;
 import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
 import org.kinotic.management.internal.api.services.telemetry.DefaultLogService;
 import org.kinotic.management.internal.api.services.telemetry.DefaultTelemetryService;
@@ -50,6 +52,7 @@ import org.kinotic.idl.internal.directory.jdk.IntegerToC3Type;
 import org.kinotic.idl.internal.directory.jdk.IterableToC3Type;
 import org.kinotic.idl.internal.directory.jdk.LongToC3Type;
 import org.kinotic.idl.internal.directory.jdk.MapToC3Type;
+import org.kinotic.idl.internal.directory.jdk.ObjectToC3Type;
 import org.kinotic.idl.internal.directory.jdk.OptionalToC3Type;
 import org.kinotic.idl.internal.directory.jdk.ShortToC3Type;
 import org.kinotic.idl.internal.directory.jdk.StringToC3Type;
@@ -84,6 +87,7 @@ public class McpServiceSchemaTest {
                                                            new ServiceDeclaration(MemberService.class, DefaultMemberService.class),
                                                            new ServiceDeclaration(MachineService.class, DefaultMachineService.class),
                                                            new ServiceDeclaration(PermissionService.class, DefaultPermissionService.class),
+                                                           new ServiceDeclaration(ApplicationAccessService.class, DefaultApplicationAccessService.class),
                                                            new ServiceDeclaration(GitHubAppInstallationService.class, DefaultGitHubAppInstallationService.class),
                                                            new ServiceDeclaration(TelemetryService.class, DefaultTelemetryService.class),
                                                            new ServiceDeclaration(LogService.class, DefaultLogService.class),
@@ -91,7 +95,7 @@ public class McpServiceSchemaTest {
                                                            new ServiceDeclaration(MigrationService.class, DefaultMigrationService.class),
                                                            new ServiceDeclaration(ProjectArtifactService.class, DefaultProjectArtifactService.class)));
 
-        Assertions.assertEquals(14, namespaceDefinition.getServices().size());
+        Assertions.assertEquals(15, namespaceDefinition.getServices().size());
     }
 
     @Test
@@ -197,6 +201,7 @@ public class McpServiceSchemaTest {
                                                            new IterableToC3Type(),
                                                            new LongToC3Type(),
                                                            new MapToC3Type(),
+                                                           new ObjectToC3Type(),
                                                            new OptionalToC3Type(),
                                                            new ShortToC3Type(),
                                                            new StringToC3Type(),

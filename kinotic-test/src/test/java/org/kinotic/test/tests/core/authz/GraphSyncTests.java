@@ -170,7 +170,7 @@ public class GraphSyncTests extends KinoticTestBase {
         String suffix = suffix();
         AuthzModel model = modelFromDirectory();
         assertTrue(awaitUntil(() -> reconciledTo(model.hash())), "the platform store never reconciled to the directory's model");
-        String modelId = await(storeService.ensurePlatformModel(model));
+        String modelId = await(storeService.ensureModel(AuthzStoreService.PLATFORM, model));
 
         String token = UUID.randomUUID().toString();
         PendingSignUp pending = new PendingSignUp();

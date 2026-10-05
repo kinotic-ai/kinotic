@@ -131,6 +131,7 @@ export * from '@/api/services/security/IDelegateService'
 export * from '@/api/services/security/IProfileService'
 export * from '@/api/services/security/IMachineService'
 export * from '@/api/services/security/IPermissionService'
+export * from '@/api/services/security/IApplicationAccessService'
 export * from '@/api/services/IGitHubAppInstallationService'
 
 // Plugin

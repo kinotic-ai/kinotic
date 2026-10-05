@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
+import org.kinotic.authz.api.model.EntityResource;
+import org.kinotic.authz.api.model.EntityScope;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
@@ -127,11 +129,11 @@ class OpenFgaIntegrationTest {
     void platformModelGoesToTheStoreOfThePlatformsName() throws Exception {
         AuthzModel model = generator.platformModel(List.of(projectService()));
 
-        String modelId = await(storeService.ensurePlatformModel(model));
+        String modelId = await(storeService.ensureModel(PLATFORM, model));
 
-        assertEquals(modelId, await(storeService.ensurePlatformModel(model)));
+        assertEquals(modelId, await(storeService.ensureModel(PLATFORM, model)));
         // every node resolves the same store
-        assertEquals(modelId, await(new DefaultAuthzStoreService(fga, properties).ensurePlatformModel(model)));
+        assertEquals(modelId, await(new DefaultAuthzStoreService(fga, properties).ensureModel(PLATFORM, model)));
         String platformStoreId = await(fga.listStores(100, null, DefaultAuthzStoreService.PLATFORM_STORE_NAME))
                 .getStores().getFirst().getId();
         assertEquals(modelId, await(fga.readAuthorizationModels(platformStoreId, 1, null))
@@ -145,25 +147,91 @@ class OpenFgaIntegrationTest {
         DefaultAuthzStoreService node = new DefaultAuthzStoreService(new OpenFgaService(unreachable), unreachable);
         AuthzModel model = generator.platformModel(List.of(projectService()));
 
-        assertThrows(ExecutionException.class, () -> await(node.ensurePlatformModel(model)));
-        assertThrows(ExecutionException.class, () -> await(node.ensurePlatformModel(model)));
+        assertThrows(ExecutionException.class, () -> await(node.ensureModel(PLATFORM, model)));
+        assertThrows(ExecutionException.class, () -> await(node.ensureModel(PLATFORM, model)));
     }
 
     @Test
     void modelIsWrittenOnceAndReusedWhileUnchanged() throws Exception {
-        String storeId = await(storeService.createStore("model-test"));
+        await(storeService.ensureStore("model-test"));
         AuthzModel model = generator.platformModel(List.of(projectService()));
 
-        String modelId = await(storeService.ensureModel(storeId, model));
+        String modelId = await(storeService.ensureModel("model-test", model));
 
-        assertEquals(modelId, await(storeService.ensureModel(storeId, model)));
+        assertEquals(modelId, await(storeService.ensureModel("model-test", model)));
         AuthzModel grown = generator.platformModel(List.of(projectService(), vmNodeService()));
-        assertNotEquals(modelId, await(storeService.ensureModel(storeId, grown)));
+        assertNotEquals(modelId, await(storeService.ensureModel("model-test", grown)));
+    }
+
+    @Test
+    void anApplicationsStoreIsCreatedOnceFoundByNameAndDeletedWithEverythingInIt() throws Exception {
+        String store = "lifecycle-" + System.nanoTime();
+        AuthzModel model = generator.applicationModel(List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT)));
+
+        String storeId = await(storeService.ensureStore(store));
+
+        assertEquals(storeId, await(storeService.ensureStore(store)));
+        // every node resolves the store the first created, by its name
+        assertEquals(storeId, await(new DefaultAuthzStoreService(fga, properties).ensureStore(store)));
+        String modelId = await(storeService.ensureModel(store, model));
+        assertEquals(modelId, await(storeService.modelId(store)));
+        await(relationshipService.ensure(store, List.of(new RelationshipTuple("user:bob", "end_user", "application:" + store))));
+        assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:bob", "end_user", "application:" + store))));
+
+        await(storeService.deleteStore(store));
+
+        assertThrows(ExecutionException.class, () -> await(storeService.modelId(store)));
+        assertTrue(await(fga.listStores(1, null, DefaultAuthzStoreService.APPLICATION_STORE_PREFIX + store)).getStores().isEmpty());
+        // a store already gone leaves nothing to delete
+        await(storeService.deleteStore(store));
+    }
+
+    @Test
+    void aStoreCreatedAgainUnderItsNameIsResolvedAgainByEveryNodeWithinTheRetention() throws Exception {
+        String store = "recreated-" + System.nanoTime();
+        AuthzModel model = generator.applicationModel(List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT)));
+        RelationshipTuple bob = new RelationshipTuple("user:bob", "end_user", "application:" + store);
+        DefaultAuthzStoreService elsewhere = new DefaultAuthzStoreService(fga, properties);
+        DefaultRelationshipService relationshipsElsewhere = new DefaultRelationshipService(fga, elsewhere);
+        String storeId = await(storeService.ensureStore(store));
+        String modelId = await(storeService.ensureModel(store, model));
+        await(relationshipService.ensure(store, List.of(bob)));
+        // another node resolved the store and read its model before the application was deleted
+        assertEquals(storeId, await(elsewhere.ensureStore(store)));
+        assertEquals(modelId, await(elsewhere.modelId(store)));
+        await(storeService.deleteStore(store));
+
+        String recreated = await(storeService.ensureStore(store));
+        AuthzModel grown = generator.applicationModel(List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT),
+                                                                         new EntityResource("receipt", EntityScope.TENANT)));
+        String grownModelId = await(storeService.ensureModel(store, grown));
+        await(relationshipService.ensureRoles(store, grown.roles()));
+        await(relationshipService.bind(store, "receipt.viewer", "user:bob", "tenant:t1"));
+
+        assertNotEquals(storeId, recreated);
+        // the engine keeps answering for the deleted store, so the other node answers from it until the retention
+        // has passed and it confirms the id it kept, finds the store gone and resolves the name again
+        long deadline = System.currentTimeMillis() + DefaultAuthzStoreService.RETENTION_MILLIS + 15_000;
+        while (await(relationshipsElsewhere.holds(store, bob)) && System.currentTimeMillis() < deadline) {
+            Thread.sleep(500);
+        }
+        assertFalse(await(relationshipsElsewhere.holds(store, bob)));
+        assertEquals(grownModelId, await(elsewhere.modelId(store)));
+        // a check naming the version the node read before is answered by the newest, as is one naming a relation
+        // the version it kept lacked
+        RelationshipTuple reads = new RelationshipTuple("user:bob", "receipt_can_read", "tenant:t1");
+        assertTrue(await(relationshipsElsewhere.check(store, modelId, reads, Consistency.HIGHER_CONSISTENCY)));
+        assertTrue(await(relationshipService.check(store, await(storeService.modelId(store)), reads, Consistency.HIGHER_CONSISTENCY)));
+        // a relation no version has fails as the engine refuses it
+        assertThrows(ExecutionException.class,
+                     () -> await(relationshipService.check(store, grownModelId, new RelationshipTuple("user:bob", "nothing_can_read", "tenant:t1"),
+                                                           Consistency.HIGHER_CONSISTENCY)));
+        await(storeService.deleteStore(store));
     }
 
     @Test
     void checksAnswerFromWrittenRelationships() throws Exception {
-        String modelId = await(storeService.ensurePlatformModel(generator.platformModel(List.of(projectService()))));
+        String modelId = await(storeService.ensureModel(PLATFORM, generator.platformModel(List.of(projectService()))));
         List<RelationshipTuple> written = List.of(
                 new RelationshipTuple("user:sally-checks", "member", "organization:acme-checks"),
                 new RelationshipTuple("organization:acme-checks", "organization", "application:crm-checks"),
@@ -193,7 +261,7 @@ class OpenFgaIntegrationTest {
     @Test
     void builtInRolesAreSeededByDifferenceAndBindingsGrantThem() throws Exception {
         AuthzModel model = generator.platformModel(List.of(projectService()));
-        String modelId = await(storeService.ensurePlatformModel(model));
+        String modelId = await(storeService.ensureModel(PLATFORM, model));
 
         await(relationshipService.ensureRoles(PLATFORM, model.roles()));
         List<RelationshipTuple> editor = await(relationshipService.read(PLATFORM, "role:project.editor"));
@@ -220,7 +288,7 @@ class OpenFgaIntegrationTest {
 
     @Test
     void ensureAndRemoveAreIdempotent() throws Exception {
-        await(storeService.ensurePlatformModel(generator.platformModel(List.of(projectService()))));
+        await(storeService.ensureModel(PLATFORM, generator.platformModel(List.of(projectService()))));
         RelationshipTuple contained = new RelationshipTuple("application:crm-ensure", "application", "project:billing-ensure");
         RelationshipTuple member = new RelationshipTuple("user:sally-ensure", "member", "organization:acme-ensure");
 
@@ -236,7 +304,7 @@ class OpenFgaIntegrationTest {
 
     @Test
     void writesBeyondOneRequestAreBatched() throws Exception {
-        String modelId = await(storeService.ensurePlatformModel(generator.platformModel(List.of(projectService()))));
+        String modelId = await(storeService.ensureModel(PLATFORM, generator.platformModel(List.of(projectService()))));
         List<RelationshipTuple> members = new ArrayList<>();
         for (int i = 0; i < 250; i++) {
             members.add(new RelationshipTuple("user:member" + i, "member", "group:everyone-batch"));
@@ -251,15 +319,15 @@ class OpenFgaIntegrationTest {
 
     @Test
     void platformModelIdIsTheVersionTheStoreRuns() throws Exception {
-        String modelId = await(storeService.ensurePlatformModel(generator.platformModel(List.of(projectService()))));
+        String modelId = await(storeService.ensureModel(PLATFORM, generator.platformModel(List.of(projectService()))));
 
-        assertEquals(modelId, await(storeService.platformModelId()));
+        assertEquals(modelId, await(storeService.modelId(PLATFORM)));
     }
 
     @Test
     void unbindLeavesNothingOfABindingAndReadsByUserFindItsHolders() throws Exception {
         AuthzModel model = generator.platformModel(List.of(projectService()));
-        String modelId = await(storeService.ensurePlatformModel(model));
+        String modelId = await(storeService.ensureModel(PLATFORM, model));
         await(relationshipService.ensureRoles(PLATFORM, model.roles()));
         await(relationshipService.ensure(PLATFORM, List.of(new RelationshipTuple("application:crm-unbind", "application", "project:billing-unbind"))));
         String bindingId = await(relationshipService.bind(PLATFORM, "project.editor", "user:sally-unbind", "project:billing-unbind"));
@@ -282,10 +350,10 @@ class OpenFgaIntegrationTest {
     void theStoreResolvedOnOneContextKeepsLaterCallersOnTheirOwn() throws Exception {
         // the store is resolved once and kept, so every caller after the first composes on a kept result
         DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, properties);
-        await(onContext(vertx.getOrCreateContext(), node::platformModelId));
+        await(onContext(vertx.getOrCreateContext(), () -> node.modelId(PLATFORM)));
         Context later = vertx.getOrCreateContext();
 
-        boolean stayed = await(onContext(later, () -> node.platformModelId().map(id -> Vertx.currentContext() == later)));
+        boolean stayed = await(onContext(later, () -> node.modelId(PLATFORM).map(id -> Vertx.currentContext() == later)));
         assertTrue(stayed, "a continuation composed on the kept result left the caller's context");
     }
 

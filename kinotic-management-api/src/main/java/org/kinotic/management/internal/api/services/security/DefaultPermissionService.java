@@ -249,7 +249,7 @@ public class DefaultPermissionService implements PermissionService {
         Validate.notBlank(type, "type cannot be blank");
         Validate.notBlank(permission, "permission cannot be blank");
         OrganizationParticipant participant = requireOrgParticipant();
-        return stores.platformModelId()
+        return stores.modelId(PLATFORM)
                      .compose(modelId -> relationships.listObjects(PLATFORM, modelId,
                                                                    AuthzUtil.object(AuthzUtil.USER_TYPE, participant.getId()),
                                                                    AuthzUtil.permissionName(type, permission), type,
@@ -268,11 +268,11 @@ public class DefaultPermissionService implements PermissionService {
         return requireSubject(subject, organizationId)
                 .compose(v -> requireInOrganization(resource, organizationId))
                 .compose(this::grantsOn)
-                .compose(grants -> stores.platformModelId().compose(modelId -> {
+                .compose(grants -> stores.modelId(PLATFORM).compose(modelId -> {
                     // an admin asks after changing access, so the answer must not predate the change
                     Future<Boolean> allowed = relationships.check(PLATFORM, modelId, new RelationshipTuple(user, name, objectOf(resource)),
                                                                   Consistency.HIGHER_CONSISTENCY);
-                    List<Future<Boolean>> explains = grants.stream().map(grant -> explains(grant, subject, name, modelId)).toList();
+                    List<Future<Boolean>> explains = grants.stream().map(grant -> relationships.explains(PLATFORM, modelId, grant, subject, name)).toList();
                     return Future.all(explains).compose(results -> allowed.map(held -> {
                         List<Grant> through = new ArrayList<>();
                         for (int i = 0; i < grants.size(); i++) {
@@ -283,22 +283,6 @@ public class DefaultPermissionService implements PermissionService {
                         return new AccessExplanation(held, through);
                     }));
                 }));
-    }
-
-    // A grant explains the subject's permission when its role bundles the permission and the subject is its
-    // member, as itself or through the group it was made to
-    private Future<Boolean> explains(Grant grant, Subject subject, String permission, String modelId) {
-        Future<Boolean> bundled = relationships.holds(PLATFORM, new RelationshipTuple(AuthzUtil.EVERYONE, permission,
-                                                                                     AuthzUtil.object(AuthzUtil.ROLE_TYPE, grant.roleId())));
-        Future<Boolean> member;
-        if (grant.subject().equals(subject)) {
-            member = Future.succeededFuture(true);
-        } else if (grant.subject().kind() == SubjectKind.GROUP && subject.kind() == SubjectKind.USER) {
-            member = relationships.check(PLATFORM, modelId, membership(subject.id(), grant.subject().id()), Consistency.HIGHER_CONSISTENCY);
-        } else {
-            member = Future.succeededFuture(false);
-        }
-        return Future.all(bundled, member).map(both -> both.<Boolean>resultAt(0) && both.<Boolean>resultAt(1));
     }
 
     // The grants made on each resource of a lineage, the resource's own first

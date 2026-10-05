@@ -15,6 +15,7 @@ import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
+import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -46,6 +47,9 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     private final OidcConfigurationService oidcConfigurationService;
     private final UiDeploymentRepository uiDeploymentRepository;
     private final RelationshipService relationships;
+    private final ApplicationStoreProvisioner storeProvisioner;
+    private final AuthzStoreService storeService;
+    private final AuthzStoreRepository stores;
 
     public DefaultApplicationService(ApplicationRepository repository,
                                      ProjectRepository projectRepository,
@@ -54,7 +58,10 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                                      OidcConfigurationService oidcConfigurationService,
                                      UiDeploymentRepository uiDeploymentRepository,
                                      SecurityContext securityContext,
-                                     RelationshipService relationships) {
+                                     RelationshipService relationships,
+                                     ApplicationStoreProvisioner storeProvisioner,
+                                     AuthzStoreService storeService,
+                                     AuthzStoreRepository stores) {
         super(repository, securityContext);
         this.projectRepository = projectRepository;
         this.entityDefinitionRepository = entityDefinitionRepository;
@@ -62,6 +69,9 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
         this.oidcConfigurationService = oidcConfigurationService;
         this.uiDeploymentRepository = uiDeploymentRepository;
         this.relationships = relationships;
+        this.storeProvisioner = storeProvisioner;
+        this.storeService = storeService;
+        this.stores = stores;
     }
 
     @Override
@@ -141,18 +151,30 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
 
     @Override
     public Future<Void> deleteById(String id) {
-        return super.deleteById(id).compose(v -> relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(id))));
+        return super.deleteById(id).compose(v -> released(id));
     }
 
     @Override
     public Future<Void> deleteByIdSync(String id) {
-        return super.deleteByIdSync(id).compose(v -> relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(id))));
+        return super.deleteByIdSync(id).compose(v -> released(id));
     }
 
     // The application's place in the graph, written once the record is, so a write that fails leaves an
-    // application nobody can reach rather than one nobody stores
+    // application nobody can reach rather than one nobody stores; and its own store, which its users are
+    // answered by
     private Future<Application> contained(Application application) {
-        return relationships.ensure(AuthzStoreService.PLATFORM, List.of(containment(application.getId()))).map(application);
+        return relationships.ensure(AuthzStoreService.PLATFORM, List.of(containment(application.getId())))
+                            .compose(v -> storeProvisioner.provision(application))
+                            .map(application);
+    }
+
+    // The application leaves the graph and its store goes with everything in it, before its record does, so
+    // an application created under the same id afterwards starts from an empty store rather than inheriting
+    // this one's grants
+    private Future<Void> released(String applicationId) {
+        return relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(applicationId)))
+                            .compose(v -> storeService.deleteStore(applicationId))
+                            .compose(v -> stores.deleteByIdSync(applicationId));
     }
 
     private RelationshipTuple containment(String applicationId) {

@@ -48,14 +48,17 @@ import static org.mockito.Mockito.when;
  * Pins how a request is resolved against its function's contract: the object read from a positional or a
  * named body, at the parameter's position or by its name and down a property path; the caller's scope for a
  * scope reference, at the caller's own level when the check names one below it, and on the platform for a
- * system participant; a delegate checked as its owner; a zone-only function, a service with no entry and an
- * application participant passing without the engine; and the refusals: a denied check, a request naming no
- * object, a body no id can be read from.
+ * system participant, and on its own application's store for an application participant, on its tenant, or on
+ * the application when it has none, with the entity type a request names resolved from the definition's id; a
+ * delegate checked as its owner; a zone-only function and a service with no entry passing without the engine;
+ * and the refusals: a denied check, a request naming no object, a body no id can be read from.
  */
 class DefaultRequestAuthorizerTest {
 
     private static final String SERVICE = "management-api~org.kinotic.management.api.services.ProjectService";
+    private static final String ENTITIES = "app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository";
     private static final String MODEL_ID = "model-1";
+    private static final String CRM_MODEL_ID = "crm-model-1";
 
     private ServiceDirectory directory;
     private RelationshipService relationships;
@@ -69,9 +72,11 @@ class DefaultRequestAuthorizerTest {
         ObjectProvider<ServiceDirectory> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(directory);
         AuthzStoreService stores = mock(AuthzStoreService.class);
-        when(stores.platformModelId()).thenReturn(Future.succeededFuture(MODEL_ID));
+        when(stores.modelId(PLATFORM)).thenReturn(Future.succeededFuture(MODEL_ID));
+        when(stores.modelId("crm")).thenReturn(Future.succeededFuture(CRM_MODEL_ID));
         relationships = mock(RelationshipService.class);
         when(relationships.check(eq(PLATFORM), eq(MODEL_ID), any(), any())).thenReturn(Future.succeededFuture(true));
+        when(relationships.check(eq("crm"), eq(CRM_MODEL_ID), any(), any())).thenReturn(Future.succeededFuture(true));
         authorizer = new DefaultRequestAuthorizer(provider, stores, relationships, JsonMapper.builder().build());
 
         ServiceDefinition service = new ServiceDefinition().setNamespace("org.kinotic.management.api.services").setName("ProjectService");
@@ -83,6 +88,11 @@ class DefaultRequestAuthorizerTest {
         service.addFunction(function("listAccessible", null, "type", "permission"));
         entry = new ServiceDirectoryEntry().setId(SERVICE).setServiceDefinition(service);
         when(directory.findEntry(SERVICE)).thenReturn(Future.succeededFuture(entry));
+
+        // the rows of an entity definition, typed by the definition each request names, checked on the caller's tenant
+        ServiceDefinition entities = new ServiceDefinition().setNamespace("org.kinotic.persistence.api.services").setName("JsonEntitiesRepository");
+        entities.addFunction(function("findById", check("tenant", "{@tenantId}", "{entityDefinitionId}", "can_read", false), "entityDefinitionId", "id"));
+        when(directory.findEntry(ENTITIES)).thenReturn(Future.succeededFuture(new ServiceDirectoryEntry().setId(ENTITIES).setServiceDefinition(entities)));
     }
 
     @Test
@@ -181,14 +191,36 @@ class DefaultRequestAuthorizerTest {
     }
 
     @Test
-    void anApplicationParticipantPassesOnItsZone() throws Exception {
-        Participant appUser = DefaultApplicationParticipant.builder().id("bob").organizationId("acme").applicationId("crm")
-                                                           .tenantId("t1").metadata(Map.of()).roles(List.of()).build();
+    void anApplicationParticipantIsCheckedOnItsApplicationsStoreAndItsTenant() throws Exception {
+        authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/findById#1.0.0"), bob("t1"),
+                             EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",\"row-1\"]"))
+                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
-        authorize("save", appUser, EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-b\"}]");
+        // the definition's rows are typed by the last segment of its id
+        assertEquals(new RelationshipTuple("user:bob", "person_can_read", "tenant:t1"), checked("crm", CRM_MODEL_ID, Consistency.MINIMIZE_LATENCY));
+        verify(relationships, never()).check(eq(PLATFORM), any(), any(), any());
+    }
 
-        verify(relationships, never()).check(any(), any(), any(), any());
-        verify(directory, never()).findEntry(any());
+    @Test
+    void anApplicationParticipantWithoutATenantIsCheckedOnItsApplication() throws Exception {
+        authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/findById#1.0.0"), bob(null),
+                             EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",\"row-1\"]"))
+                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        assertEquals(new RelationshipTuple("user:bob", "person_can_read", "application:crm"), checked("crm", CRM_MODEL_ID, Consistency.MINIMIZE_LATENCY));
+    }
+
+    @Test
+    void anApplicationParticipantIsRefusedWhatItsStoreDenies() {
+        when(relationships.check(eq("crm"), eq(CRM_MODEL_ID), any(), any())).thenReturn(Future.succeededFuture(false));
+
+        ExecutionException failure = assertThrows(ExecutionException.class,
+                                                  () -> authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/findById#1.0.0"), bob("t1"),
+                                                                             EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",\"row-1\"]"))
+                                                                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
+
+        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
+        assertTrue(refused.getMessage().contains("person_can_read on tenant:t1"), refused.getMessage());
     }
 
     @Test
@@ -235,8 +267,12 @@ class DefaultRequestAuthorizerTest {
     }
 
     private RelationshipTuple checked(Consistency consistency) {
+        return checked(PLATFORM, MODEL_ID, consistency);
+    }
+
+    private RelationshipTuple checked(String store, String modelId, Consistency consistency) {
         ArgumentCaptor<RelationshipTuple> tuple = ArgumentCaptor.forClass(RelationshipTuple.class);
-        verify(relationships).check(eq(PLATFORM), eq(MODEL_ID), tuple.capture(), eq(consistency));
+        verify(relationships).check(eq(store), eq(modelId), tuple.capture(), eq(consistency));
         return tuple.getValue();
     }
 
@@ -250,6 +286,12 @@ class DefaultRequestAuthorizerTest {
 
     private static Participant sally() {
         return DefaultOrganizationParticipant.builder().id("sally").organizationId("acme").metadata(Map.of()).roles(List.of()).build();
+    }
+
+    // an end user of the application crm, in the given tenant or in none
+    private static Participant bob(String tenantId) {
+        return DefaultApplicationParticipant.builder().id("bob").organizationId("acme").applicationId("crm")
+                                            .tenantId(tenantId).metadata(Map.of()).roles(List.of()).build();
     }
 
     private static FunctionDefinition function(String name, AuthzCheckC3Decorator check, String... parameters) {

@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.model.Subject;
 
 import java.util.List;
 import java.util.Map;
@@ -132,6 +133,19 @@ public interface RelationshipService {
      * @return the grants, empty for a resource nothing is bound on
      */
     Future<List<Grant>> findGrants(String store, String object);
+
+    /**
+     * Whether a grant gives a subject a permission: the grant's role bundles the permission, and the grant was
+     * made to the subject, or to a group the subject is a member of.
+     *
+     * @param store      the store, named as its record is
+     * @param modelId    the model version to evaluate a group's membership against
+     * @param grant      the grant
+     * @param subject    the user or group asked about
+     * @param permission the model name of the permission, such as {@code project_can_edit}
+     * @return true when the grant gives it
+     */
+    Future<Boolean> explains(String store, String modelId, Grant grant, Subject subject, String permission);
 
     /**
      * Whether the user holds the relation on the object, directly or through the model's rules.

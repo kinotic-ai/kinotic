@@ -195,7 +195,7 @@ describe('Kinotic JS', () => {
                     adminQuery('adminFindByLastName', 'SELECT * FROM PersonWithTenant WHERE lastName = :lastName', people, 'lastName')
                 ]))
 
-            const appKinotic = await initKinoticAppClient(applicationIdUsed, 'tenant01')
+            const appKinotic = await initKinoticAppClient(applicationIdUsed, 'tenant01', entityDefinition.name)
             try {
                 const myPeople: IEntityRepository<PersonWithTenant> = new EntityRepository(TEST_ORG_ID, applicationIdUsed, entityDefinition.name, new EntitiesRepository(appKinotic))
                 const doe = [{key: 'lastName', value: 'Doe'}]

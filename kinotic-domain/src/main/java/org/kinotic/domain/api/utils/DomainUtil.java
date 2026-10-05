@@ -160,6 +160,17 @@ public class DomainUtil {
     }
 
     /**
+     * The type an entity definition's rows are in its application's authorization store: the definition's name
+     * lowercased, the last segment of the id {@link #createEntityDefinitionId} makes.
+     *
+     * @param entityDefinitionId the definition's id
+     * @return the rows' type
+     */
+    public static String entityTypeOf(String entityDefinitionId) {
+        return entityDefinitionId.substring(entityDefinitionId.lastIndexOf('.') + 1);
+    }
+
+    /**
      * Creates the id of an {@link EntityDefinition}, {@code <organizationId>.<applicationId>.<name>} lowercased.
      *
      * @param applicationKey       the application the definition belongs to

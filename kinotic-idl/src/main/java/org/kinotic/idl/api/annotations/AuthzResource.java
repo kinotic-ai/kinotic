@@ -26,7 +26,10 @@ public @interface AuthzResource {
 
     /**
      * The resource type, a single lowercase identifier such as {@code project}. The type of an entity row is
-     * the entity definition's name, so a service type must not collide with one.
+     * the entity definition's name, so a service type must not collide with one. A service acting on the rows
+     * of whichever entity definition each request names declares the template naming it, such as
+     * {@code {entityDefinitionId}}: its type is the definition's, and every function declares its check on
+     * the {@link #parent()}, which carries the permissions of every row type inside it.
      */
     String value();
 

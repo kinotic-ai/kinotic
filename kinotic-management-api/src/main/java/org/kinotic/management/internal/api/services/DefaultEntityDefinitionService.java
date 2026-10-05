@@ -23,6 +23,7 @@ import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.management.api.services.EntityDefinitionService;
+import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -46,6 +47,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final EntityDefinitionProperties entityDefinitionProperties;
     private final DomainPersistenceProperties domainPersistenceProperties;
     private final RelationshipService relationships;
+    private final AuthzStoreRepository stores;
 
     public DefaultEntityDefinitionService(ApplicationEventPublisher eventPublisher,
                                           CrudServiceTemplate crudServiceTemplate,
@@ -54,9 +56,11 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                           ManagementApiProperties managementApiProperties,
                                           DomainPersistenceProperties domainPersistenceProperties,
                                           SecurityContext securityContext,
-                                          RelationshipService relationships) {
+                                          RelationshipService relationships,
+                                          AuthzStoreRepository stores) {
         super(entityDefinitionRepository, securityContext);
         this.relationships = relationships;
+        this.stores = stores;
         this.eventPublisher = eventPublisher;
         this.crudServiceTemplate = crudServiceTemplate;
         this.entityDefinitionConversionService = entityDefinitionConversionService;
@@ -132,6 +136,17 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     // definition nobody can reach rather than one nobody stores
     private Future<EntityDefinition> contained(EntityDefinition entityDefinition) {
         return relationships.ensure(AuthzStoreService.PLATFORM, List.of(containment(entityDefinition))).map(entityDefinition);
+    }
+
+    // The application's store runs a model with one type per published definition, so a change of the published
+    // set asks its worker for the model again; an application whose store is not provisioned yet gets it with
+    // the definitions as they are then
+    private Future<Void> regenerated(EntityDefinition entityDefinition, String change) {
+        String store = entityDefinition.getApplicationId();
+        return stores.findById(store)
+                     .compose(record -> record == null
+                             ? Future.succeededFuture()
+                             : stores.renewDesired(store, "entity definition " + entityDefinition.getId() + " " + change));
     }
 
     private static RelationshipTuple containment(EntityDefinition entityDefinition) {
@@ -229,7 +244,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         return super.saveSync(entityDefinition)
                                     .compose(entityDefinition1 -> {
                                         this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.applicationKey(), entityDefinition1.getId()));
-                                        return Future.succeededFuture();
+                                        return regenerated(entityDefinition1, "published");
                                     });
                     });
                 });
@@ -373,7 +388,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         return super.saveSync(entityDefinition)
                                     .compose(entityDefinition1 -> {
                                         this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.applicationKey(), entityDefinition1.getId()));
-                                        return Future.succeededFuture();
+                                        return regenerated(entityDefinition1, "unpublished");
                                     });
                     });
                 });

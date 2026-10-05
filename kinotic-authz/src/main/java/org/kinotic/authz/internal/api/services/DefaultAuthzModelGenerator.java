@@ -76,6 +76,16 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                 carried.computeIfAbsent(ancestor, k -> new TreeSet<>()).add(type.name);
             }
         }
+        // in an application's store a tenant is a slice of its application, so it also carries the entity types
+        // the application holds for everyone: a check made on a caller's tenant answers for either kind of row,
+        // through the tenant's own grants and the application's above it
+        if (kind == AuthzStoreKind.APPLICATION) {
+            for (ResourceType type : types.values()) {
+                if (APPLICATION.equals(type.parent) && !TENANT.equals(type.name)) {
+                    carried.get(TENANT).add(type.name);
+                }
+            }
+        }
         Set<String> allPermissions = new TreeSet<>();
         for (ResourceType type : types.values()) {
             for (String permission : type.permissions.keySet()) {
@@ -212,7 +222,8 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     private static void declareServiceTypes(Collection<ServiceDefinition> services, Map<String, ResourceType> types) {
         for (ServiceDefinition service : services) {
             AuthzResourceC3Decorator resource = service.findDecorator(AuthzResourceC3Decorator.class);
-            if (resource != null) {
+            // a service whose type each request names acts on the entity types, declared with the entities
+            if (resource != null && !AuthzUtil.isTemplate(resource.getResourceType())) {
                 ResourceType type = types.get(resource.getResourceType());
                 if (type == null) {
                     type = new ResourceType(resource.getResourceType(), resource.getParent());

@@ -26,6 +26,7 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -232,15 +233,23 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     // The user's membership in the graph, written once the record is: an organization user is a member of its
-    // organization, an application user an end user of its application, and a system user belongs to nothing
-    // until the platform's own resource grants it
+    // organization, an application user an end user of its application, in the platform's store and in the
+    // application's own, where its tenant is also placed under the application, and a system user belongs to
+    // nothing until the platform's own resource grants it
     private Future<UserParticipantIdentity> member(UserParticipantIdentity user) {
         Future<Void> written;
         if (user.getApplicationId() != null) {
-            written = relationships.ensure(AuthzStoreService.PLATFORM,
-                                           List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId()),
-                                                                         AuthzUtil.END_USER_RELATION,
-                                                                         AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, user.getApplicationId()))));
+            String me = AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId());
+            String application = AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, user.getApplicationId());
+            RelationshipTuple endUser = new RelationshipTuple(me, AuthzUtil.END_USER_RELATION, application);
+            List<RelationshipTuple> inApplication = new ArrayList<>(List.of(endUser));
+            if (user.getTenantId() != null) {
+                String tenant = AuthzUtil.object(AuthzUtil.TENANT_TYPE, user.getTenantId());
+                inApplication.add(new RelationshipTuple(application, AuthzUtil.APPLICATION_TYPE, tenant));
+                inApplication.add(new RelationshipTuple(me, AuthzUtil.MEMBER_RELATION, tenant));
+            }
+            written = relationships.ensure(AuthzStoreService.PLATFORM, List.of(endUser))
+                                   .compose(v -> relationships.ensure(user.getApplicationId(), inApplication));
         } else if (user.getOrganizationId() != null) {
             written = relationships.ensure(AuthzStoreService.PLATFORM,
                                            List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId()),

@@ -4,7 +4,9 @@ import io.vertx.core.Future;
 import org.kinotic.authz.api.model.AuthzModel;
 
 /**
- * The stores of the authorization engine and the model each one runs.
+ * The stores of the authorization engine and the model each one runs. Every operation names its store the
+ * way the store's record is named, {@link #PLATFORM} for the platform's and an application's id for its own,
+ * and the engine's own id is resolved from the name.
  */
 public interface AuthzStoreService {
 
@@ -15,42 +17,43 @@ public interface AuthzStoreService {
     String PLATFORM = "platform";
 
     /**
-     * Makes the given model the platform store's current one, as {@link #ensureModel} does for a store named
-     * by id. The platform store is the one store named {@code kinotic-platform}, created ahead of the servers
-     * and never by one; it is looked up on first use and kept once found, and a lookup that fails, because the
-     * engine is unreachable or there is no store of the name, fails the caller and is made again by the next
-     * one.
+     * Makes the store exist in the engine. The platform's store is created ahead of the servers and never by
+     * one, so for it this is a lookup that fails when there is none; an application's store is created when
+     * the engine has none of its name. A store found or created is kept, and a lookup that fails, because the
+     * engine is unreachable, fails the caller and is made again by the next one.
      *
-     * @param model the model the platform store must run
-     * @return the id of the version the platform store now runs
+     * @param store the store, named as its record is
+     * @return the engine's id of the store
      */
-    Future<String> ensurePlatformModel(AuthzModel model);
+    Future<String> ensureStore(String store);
 
     /**
-     * The id of the version the platform store runs, read from the engine: the version every check against the
-     * platform store names.
+     * Deletes a store from the engine with every model and relationship it holds. A store the engine does not
+     * have leaves nothing to delete.
      *
-     * @return the version's id; fails when the platform store runs no model yet
+     * @param store the store, named as its record is
+     * @return completes when the engine has no store of the name
      */
-    Future<String> platformModelId();
+    Future<Void> deleteStore(String store);
 
     /**
-     * Creates a store. Store names are not unique in OpenFGA, so the caller records the id it gets back.
+     * The id of the version the store runs, read from the engine and kept for a while: the version every check
+     * against the store names.
      *
-     * @param name the store's name
-     * @return the new store's id
+     * @param store the store, named as its record is
+     * @return the version's id; fails when the store does not exist or runs no model yet
      */
-    Future<String> createStore(String name);
+    Future<String> modelId(String store);
 
     /**
      * Makes the given model the store's current one. The store's latest version is kept when it already matches
      * the model, since versions are immutable and never deleted; otherwise the model is written as a new
      * version.
      *
-     * @param storeId the store
-     * @param model   the model the store must run
+     * @param store the store, named as its record is
+     * @param model the model the store must run
      * @return the id of the version the store now runs, the one every check names
      */
-    Future<String> ensureModel(String storeId, AuthzModel model);
+    Future<String> ensureModel(String store, AuthzModel model);
 
 }

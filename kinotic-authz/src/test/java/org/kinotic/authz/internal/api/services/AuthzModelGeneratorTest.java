@@ -333,6 +333,19 @@ public class AuthzModelGeneratorTest {
         assertEquals(List.of("ttu:role_binding->invoice_can_search", "computed:invoice_can_read", "ttu:tenant->invoice_can_search"),
                      children(type(model, "invoice"), "invoice_can_search", "union"));
         assertEquals(Set.of("can_create", "can_delete", "can_edit", "can_read", "can_search"), model.permissions().get("invoice"));
+        // a tenant carries the application's own entity types too, answered through the application above it
+        assertEquals(List.of("ttu:role_binding->catalog_can_read", "computed:catalog_can_edit", "ttu:application->catalog_can_read"),
+                     children(type(model, "tenant"), "catalog_can_read", "union"));
+        assertTrue(model.roles().get("tenant.admin").containsAll(Set.of("invoice_can_delete", "catalog_can_delete")));
+    }
+
+    @Test
+    public void aServiceWhoseTypeEachRequestNamesDeclaresNoType() {
+        ServiceDefinition entities = service("JsonEntitiesRepository", "{entityDefinitionId}", "tenant",
+                                             function("findById", "tenant", "{entityDefinitionId}", "can_read"));
+        AuthzModel model = generator.applicationModel(List.of(entities), List.of(new EntityResource("invoice", EntityScope.TENANT)));
+
+        assertEquals(Set.of("user", "group", "role", "role_binding", "application", "invoice", "tenant"), typeNames(model));
     }
 
     @Test

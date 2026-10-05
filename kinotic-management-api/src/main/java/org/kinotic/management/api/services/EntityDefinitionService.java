@@ -21,7 +21,7 @@ import org.kinotic.domain.api.model.persistence.EntityDefinition;
 public interface EntityDefinitionService extends ProjectScopedCrudService<EntityDefinition, String> {
 
     /** The resource type an entity definition is in the platform's authorization model. */
-    String RESOURCE_TYPE = "entity_definition";
+    String RESOURCE_TYPE = AuthzUtil.ENTITY_DEFINITION_TYPE;
 
     /**
      * Creates a new {@link EntityDefinition}. Validates the definition, derives the logical

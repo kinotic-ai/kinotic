@@ -42,11 +42,13 @@ import java.util.Map;
 import static org.kinotic.authz.api.services.AuthzStoreService.PLATFORM;
 
 /**
- * The {@link RequestAuthorizer} over the platform store: a function's check is read from its contract in the
- * service directory and kept, the object it names is read from the request with a parse that stops at it,
- * and the engine answers for the caller, or for the owner a delegate acts for. A platform operator or one of
- * the platform's machines, whose scope names no organization, is checked on the platform itself wherever a
- * check names the caller's scope.
+ * The {@link RequestAuthorizer} over the stores: a function's check is read from its contract in the service
+ * directory and kept, the object it names is read from the request with a parse that stops at it, and the
+ * engine answers for the caller, or for the owner a delegate acts for, from the platform's store for an
+ * organization's members and the platform's own staff, and from the application's store for an application's
+ * users. A platform operator or one of the platform's machines, whose scope names no organization, is checked
+ * on the platform itself wherever a check names the caller's scope, and an application's user on its tenant,
+ * or on the application when it has none.
  */
 @Slf4j
 @Component
@@ -79,13 +81,11 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         Validate.notNull(cri, "cri cannot be null");
         Validate.notNull(participant, "participant cannot be null");
         Future<Void> ret;
-        if (participant instanceof ApplicationParticipant) {
-            // an application's store arrives with its contracts; until then its zone alone admits its users
-            ret = Future.succeededFuture();
-        } else if (participant instanceof ScopedParticipant scoped) {
+        if (participant instanceof ScopedParticipant scoped) {
+            String store = participant instanceof ApplicationParticipant application ? application.getApplicationId() : PLATFORM;
             ret = spec(cri).compose(spec -> spec.check() == null
                     ? Future.succeededFuture()
-                    : check(spec, scoped, contentType, body));
+                    : check(spec, scoped, store, contentType, body));
         } else {
             ret = Future.failedFuture(new AuthorizationException("No store answers for participant " + participant.getId()));
         }
@@ -125,20 +125,20 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         });
     }
 
-    private Future<Void> check(FunctionSpec spec, ScopedParticipant participant, String contentType, byte[] body) {
+    private Future<Void> check(FunctionSpec spec, ScopedParticipant participant, String store, String contentType, byte[] body) {
         AuthzCheckC3Decorator check = spec.check();
         Future<Void> ret;
         try {
             Resource checked = scopeLevelOf(check, participant.getScope());
-            String resource = resolve(checked.type(), spec, participant, contentType, body);
+            String resource = typeOf(checked.type(), spec, participant, contentType, body);
             String objectId = resolve(checked.id(), spec, participant, contentType, body);
-            String permissionResource = resolve(check.getPermissionResource(), spec, participant, contentType, body);
+            String permissionResource = typeOf(check.getPermissionResource(), spec, participant, contentType, body);
             RelationshipTuple relationship = new RelationshipTuple(DomainUtil.authzUser(participant),
                                                                    AuthzUtil.permissionName(permissionResource, check.getPermission()),
                                                                    AuthzUtil.object(resource, objectId));
             Consistency consistency = check.isConsistent() ? Consistency.HIGHER_CONSISTENCY : Consistency.MINIMIZE_LATENCY;
-            ret = stores.platformModelId()
-                        .compose(modelId -> relationships.check(PLATFORM, modelId, relationship, consistency))
+            ret = stores.modelId(store)
+                        .compose(modelId -> relationships.check(store, modelId, relationship, consistency))
                         .compose(allowed -> allowed
                                 ? Future.succeededFuture()
                                 : Future.failedFuture(new AuthorizationException("Not authorized: " + relationship.relation()
@@ -167,6 +167,12 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
             ret = level < SCOPE_LEVELS.size() ? SCOPE_LEVELS.get(level) : PLATFORM_LEVEL;
         }
         return ret;
+    }
+
+    // A type a request names is an entity definition's id, whose rows are typed by the definition's name
+    private String typeOf(String template, FunctionSpec spec, ScopedParticipant participant, String contentType, byte[] body) {
+        String ret = resolve(template, spec, participant, contentType, body);
+        return AuthzUtil.isTemplate(template) ? DomainUtil.entityTypeOf(ret) : ret;
     }
 
     private String resolve(String template, FunctionSpec spec, ScopedParticipant participant, String contentType, byte[] body) {
