@@ -8,16 +8,21 @@ import dev.openfga.sdk.api.model.WriteAuthorizationModelRequest;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelResponse;
 import dev.openfga.sdk.errors.FgaError;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.core.api.utils.KinoticUtil;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DefaultAuthzStoreService implements AuthzStoreService {
+public class DefaultAuthzStoreService implements AuthzStoreService, InitializingBean {
 
     static final String PLATFORM_STORE_NAME = "kinotic-platform";
     static final String APPLICATION_STORE_PREFIX = "kinotic-app-";
@@ -34,9 +39,14 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
     // how long a store's engine id and newest model version are kept before the engine is asked again
     static final long RETENTION_MILLIS = 30_000;
+    private static final int STORE_PAGE_SIZE = 100;
+    // the address every node hears a store's deletion on, so none keeps answering with the id of a store the
+    // engine has deleted while another node already resolved the one created again under its name
+    static final String STORE_DELETED_ADDRESS = "kinotic.authz.store-deleted";
 
     private final OpenFgaService fga;
     private final KinoticAuthzProperties properties;
+    private final Vertx vertx;
     // each store's engine id, kept once found, as a stage with no context of its own; a failed lookup is
     // replaced by the next caller's, and a kept id is confirmed with the engine once the retention has passed
     private final Map<String, CompletableFuture<ResolvedStore>> storeIds = new ConcurrentHashMap<>();
@@ -58,17 +68,35 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
                             ? Future.succeededFuture(found)
                             : fga.createStore(new CreateStoreRequest().name(name))
                                  .map(CreateStoreResponse::getId)
-                                 .onSuccess(id -> log.info("Created authorization store {} for '{}'", id, store)))
+                                 .onSuccess(id -> log.info("Created authorization store {} for '{}'", id, store))
+                                 .compose(id -> keepOldest(store, name, id)))
                     .onSuccess(id -> storeIds.put(store, CompletableFuture.completedFuture(new ResolvedStore(id, System.currentTimeMillis()))));
         }
         return ret;
     }
 
     @Override
+    public void afterPropertiesSet() {
+        vertx.eventBus().<JsonObject>consumer(STORE_DELETED_ADDRESS,
+                                              message -> forgetIfKept(message.body().getString("store"), message.body().getString("id")));
+    }
+
+    @Override
     public Future<Void> deleteStore(String store) {
         return findStore(storeNameOf(store))
-                .compose(id -> id == null ? Future.succeededFuture() : fga.deleteStore(id).onSuccess(v -> forget(store, id)))
+                .compose(id -> id == null ? Future.succeededFuture() : fga.deleteStore(id).onSuccess(v -> {
+                    forget(store, id);
+                    vertx.eventBus().publish(STORE_DELETED_ADDRESS, new JsonObject().put("store", store).put("id", id));
+                }))
                 .onSuccess(v -> log.info("Deleted the authorization store of '{}'", store));
+    }
+
+    // Another node deleted the store: its id is forgotten where it is the one kept, so the next caller resolves
+    // the name again; a node that already resolved the store created again under the name keeps that one
+    private void forgetIfKept(String store, String storeId) {
+        storeIds.computeIfPresent(store, (name, stage) -> stage.isDone() && !stage.isCompletedExceptionally()
+                && stage.join().id().equals(storeId) ? null : stage);
+        modelVersions.remove(storeId);
     }
 
     @Override
@@ -200,13 +228,36 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
                                    store, properties.getAuthz().getApiUrl(), e.getMessage()));
     }
 
+    // Nodes creating a store together, as the provisioner and the reconciler do for a new application, each
+    // create one under the name; the oldest is the store of the name, so a creator whose store is not it deletes
+    // its own and answers with the oldest, which every lookup by name answers with as well
+    private Future<String> keepOldest(String store, String name, String created) {
+        return findStore(name).compose(oldest -> oldest.equals(created)
+                ? Future.succeededFuture(created)
+                : fga.deleteStore(created)
+                     .map(oldest)
+                     .onSuccess(v -> log.info("Deleted authorization store {} of '{}', created beside {}", created, store, oldest)));
+    }
+
     /**
-     * The id of the store of the given name, or null when the engine has none.
+     * The id of the store of the given name, the oldest where several carry it, or null when the engine has none.
      */
     private Future<String> findStore(String name) {
-        return fga.listStores(1, null, name).map(page -> {
-            Store store = page.getStores().isEmpty() ? null : page.getStores().getFirst();
-            return store != null && name.equals(store.getName()) ? store.getId() : null;
+        return findStores(name, null, new ArrayList<>()).map(ids -> ids.stream().min(String::compareTo).orElse(null));
+    }
+
+    // the engine's ids are time-ordered, so the smallest is the oldest
+    private Future<List<String>> findStores(String name, String continuationToken, List<String> collected) {
+        return fga.listStores(STORE_PAGE_SIZE, continuationToken, name).compose(page -> {
+            for (Store store : page.getStores()) {
+                if (name.equals(store.getName())) {
+                    collected.add(store.getId());
+                }
+            }
+            String next = page.getContinuationToken();
+            return next == null || next.isEmpty()
+                    ? Future.succeededFuture(collected)
+                    : findStores(name, next, collected);
         });
     }
 

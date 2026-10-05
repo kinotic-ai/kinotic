@@ -17,10 +17,13 @@ public record AuthzCheckDeclaration(String permission,
                                     String resource,
                                     String objectId,
                                     List<String> implies,
-                                    boolean zoneOnly,
-                                    boolean consistent) {
+                                    Boolean zoneOnly,
+                                    Boolean consistent) {
 
     public AuthzCheckDeclaration {
         implies = implies == null ? List.of() : List.copyOf(implies);
+        // a client's contract leaves a flag out where it is not set, and the mapper refuses a missing primitive
+        zoneOnly = zoneOnly != null && zoneOnly;
+        consistent = consistent != null && consistent;
     }
 }

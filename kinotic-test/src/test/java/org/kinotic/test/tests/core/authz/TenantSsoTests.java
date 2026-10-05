@@ -13,7 +13,7 @@ import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OidcProviderKind;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
-import org.kinotic.domain.api.services.TenantService;
+import org.kinotic.app.api.services.TenantService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.idl.api.utils.AuthzUtil;

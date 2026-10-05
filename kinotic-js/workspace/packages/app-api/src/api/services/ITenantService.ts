@@ -45,7 +45,7 @@ export class TenantService implements ITenantService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${APP_API_ZONE}~org.kinotic.domain.api.services.TenantService`)
+        this.serviceProxy = kinotic.serviceProxy(`${APP_API_ZONE}~org.kinotic.app.api.services.TenantService`)
     }
 
     public getTenant(): Promise<Tenant> {

@@ -2,6 +2,7 @@ package org.kinotic.idl.api.utils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -70,10 +71,17 @@ public final class AuthzUtil {
     public static final String PLATFORM_OPERATOR_ROLE = PLATFORM_TYPE + "." + OPERATOR;
     /** The built-in role holding the viewing permissions of the platform and of everything on it. */
     public static final String PLATFORM_SUPPORT_ROLE = PLATFORM_TYPE + "." + SUPPORT;
+    /**
+     * The declared role of an application's runtimes, which the contract service declares and a deployment grants
+     * the runtime machines it provisions on the application.
+     */
+    public static final String APPLICATION_RUNTIME_ROLE = APPLICATION_TYPE + ".runtime";
 
     public static final String CAN_VIEW = "can_view";
     public static final String CAN_EDIT = "can_edit";
     public static final String CAN_DELETE = "can_delete";
+    /** The permissions that only read, beside every {@code can_view_<something>}. */
+    private static final Set<String> READING = Set.of(CAN_VIEW, "can_read", "can_search");
 
     /** The longest relation name OpenFGA accepts; a typed permission name must fit it. */
     public static final int MAX_RELATION_NAME_LENGTH = 50;
@@ -136,6 +144,14 @@ public final class AuthzUtil {
      */
     public static String permissionName(String type, String permission) {
         return type + "_" + permission;
+    }
+
+    /**
+     * Whether a permission only reads: {@code can_view}, {@code can_read}, {@code can_search} and every
+     * {@code can_view_<something>}; a viewer holds these and nothing else.
+     */
+    public static boolean isReading(String permission) {
+        return READING.contains(permission) || permission.startsWith(CAN_VIEW + "_");
     }
 
     /**

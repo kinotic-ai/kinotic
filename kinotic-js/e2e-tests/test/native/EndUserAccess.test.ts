@@ -17,7 +17,9 @@ import {
     generateRandomString,
     initKinoticClient,
     shutdownKinoticClient,
-    until
+    until,
+    untilAdmitted,
+    untilRefused
 } from '../TestHelpers.js'
 
 // Fixed id: the app client logs in as app-<APP_ID>-<APP_TENANT>@test.local, an APPLICATION-scoped
@@ -86,7 +88,7 @@ describe('Kinotic JS', () => {
         expect(grant.resource).toEqual(tenant)
         await until(async () => (await Kinotic.applicationAccess.explain(APP_ID, subject, 'person_can_read', tenant)).allowed)
 
-        const saved = await people.save(createTestPerson())
+        const saved = await untilAdmitted(() => people.save(createTestPerson()))
         expect(saved.id).toBeTruthy()
         const found = await people.findById(saved.id as string)
         expect(found?.firstName).toBe(saved.firstName)
@@ -104,7 +106,7 @@ describe('Kinotic JS', () => {
 
         await Kinotic.applicationAccess.revoke(APP_ID, tenant, grant.id)
         await until(async () => !(await Kinotic.applicationAccess.explain(APP_ID, subject, 'person_can_read', tenant)).allowed)
-        await expect(people.findById(saved.id as string)).rejects.toThrowError(/person_can_read/)
+        await untilRefused(() => people.findById(saved.id as string), /person_can_read/)
         expect(await Kinotic.applicationAccess.findGrants(APP_ID, tenant)).toHaveLength(0)
     }, 60000)
 

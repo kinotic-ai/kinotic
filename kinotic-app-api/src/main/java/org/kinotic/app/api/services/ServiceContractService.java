@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.services;
+package org.kinotic.app.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
@@ -23,19 +23,13 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 @Zone(DomainUtil.APP_API_ZONE)
 @AuthzResource(value = AuthzUtil.APPLICATION_TYPE,
                parent = AuthzUtil.ORGANIZATION_TYPE,
-               roles = @AuthzRole(id = ServiceContractService.RUNTIME_ROLE, permissions = ServiceContractService.CAN_PUBLISH_SERVICES))
+               roles = @AuthzRole(id = AuthzUtil.APPLICATION_RUNTIME_ROLE, permissions = ServiceContractService.CAN_PUBLISH_SERVICES))
 public interface ServiceContractService {
 
     /**
      * The permission to publish a service of an application, on the application.
      */
     String CAN_PUBLISH_SERVICES = "can_publish_services";
-
-    /**
-     * The role of an application's runtimes, which a deployment grants the runtime machines it provisions on
-     * the application.
-     */
-    String RUNTIME_ROLE = AuthzUtil.APPLICATION_TYPE + ".runtime";
 
     /**
      * Publishes the contract of a service a runtime of the application serves, replacing the one stored for

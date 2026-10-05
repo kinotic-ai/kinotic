@@ -115,9 +115,11 @@ public class RequestAuthorizationTests extends KinoticTestBase {
         assertRefused(PROJECT_SERVICE, "save", caller, EventConstants.CONTENT_TYPE_NAMED_JSON, Map.of("entity", b), "project:" + b.getId());
 
         // editing implies viewing, and a declared permission is checked on the project the argument names
-        authorize(PROJECT_SERVICE, "findById", caller, EventConstants.CONTENT_TYPE_JSON, List.of(a.getId()));
+        authorize(PROJECT_SERVICE, "findDependencies", caller, EventConstants.CONTENT_TYPE_JSON, List.of(a.getId()));
         authorize(PROJECT_SERVICE, "retryRepoInitialization", caller, EventConstants.CONTENT_TYPE_JSON, List.of(a.getId()));
-        assertRefused(PROJECT_SERVICE, "findById", caller, EventConstants.CONTENT_TYPE_JSON, List.of(b.getId()), "project_can_view");
+        assertRefused(PROJECT_SERVICE, "findDependencies", caller, EventConstants.CONTENT_TYPE_JSON, List.of(b.getId()), "project_can_view");
+        // a read by id is admitted unchecked: the service answers it by what the caller may see
+        authorize(PROJECT_SERVICE, "findById", caller, EventConstants.CONTENT_TYPE_JSON, List.of(b.getId()));
         // an editor does not delete
         assertRefused(PROJECT_SERVICE, "deleteById", caller, EventConstants.CONTENT_TYPE_JSON, List.of(a.getId()), "project_can_delete");
         // a request naming no project is refused before the engine is asked

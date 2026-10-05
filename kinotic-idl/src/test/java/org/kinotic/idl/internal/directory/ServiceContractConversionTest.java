@@ -14,10 +14,12 @@ import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzRoleDeclaration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -77,6 +79,25 @@ public class ServiceContractConversionTest {
                                                () -> schemaService.createForContract(reports(new FunctionContract("render", List.of("reportId"), null))));
 
         assertTrue(e.getMessage().contains("render on com.acme.reports.ReportService"), e.getMessage());
+    }
+
+    @Test
+    public void aContractPublishedWithoutTheFlagsConverts() throws Exception {
+        // a client's contract leaves a flag out where it is not set
+        String published = """
+                {"namespace":"com.acme.reports","name":"ReportService","version":null,"zone":"app.acme.crm",
+                 "resource":{"value":"report","parent":"tenant","roles":[{"id":"report.generator","permissions":["can_generate"]}]},
+                 "functions":[{"name":"findReports","parameters":[],"check":null},
+                              {"name":"generate","parameters":["name"],"check":{"permission":"can_generate","resource":"tenant"}}]}
+                """;
+        ServiceContract contract = JsonMapper.builder().build().readValue(published, ServiceContract.class);
+
+        ServiceDefinition service = schemaService.createForContract(contract);
+
+        AuthzCheckC3Decorator generate = check(service, "generate");
+        assertEquals("tenant:{@tenantId}", at(generate));
+        assertEquals("report_can_generate", permission(generate));
+        assertFalse(generate.isConsistent());
     }
 
     @Test

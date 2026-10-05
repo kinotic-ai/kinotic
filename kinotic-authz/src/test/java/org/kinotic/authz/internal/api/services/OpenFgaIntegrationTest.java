@@ -133,7 +133,7 @@ class OpenFgaIntegrationTest {
 
         assertEquals(modelId, await(storeService.ensureModel(PLATFORM, model)));
         // every node resolves the same store
-        assertEquals(modelId, await(new DefaultAuthzStoreService(fga, properties).ensureModel(PLATFORM, model)));
+        assertEquals(modelId, await(new DefaultAuthzStoreService(fga, properties, vertx).ensureModel(PLATFORM, model)));
         String platformStoreId = await(fga.listStores(100, null, DefaultAuthzStoreService.PLATFORM_STORE_NAME))
                 .getStores().getFirst().getId();
         assertEquals(modelId, await(fga.readAuthorizationModels(platformStoreId, 1, null))
@@ -144,7 +144,7 @@ class OpenFgaIntegrationTest {
     void anUnreachableEngineFailsTheCallAndTheNodeKeepsRunning() {
         KinoticAuthzProperties unreachable = new KinoticAuthzProperties();
         unreachable.getAuthz().setApiUrl("http://127.0.0.1:1");
-        DefaultAuthzStoreService node = new DefaultAuthzStoreService(new OpenFgaService(unreachable), unreachable);
+        DefaultAuthzStoreService node = new DefaultAuthzStoreService(new OpenFgaService(unreachable), unreachable, vertx);
         AuthzModel model = generator.platformModel(List.of(projectService()));
 
         assertThrows(ExecutionException.class, () -> await(node.ensureModel(PLATFORM, model)));
@@ -172,7 +172,7 @@ class OpenFgaIntegrationTest {
 
         assertEquals(storeId, await(storeService.ensureStore(store)));
         // every node resolves the store the first created, by its name
-        assertEquals(storeId, await(new DefaultAuthzStoreService(fga, properties).ensureStore(store)));
+        assertEquals(storeId, await(new DefaultAuthzStoreService(fga, properties, vertx).ensureStore(store)));
         String modelId = await(storeService.ensureModel(store, model));
         assertEquals(modelId, await(storeService.modelId(store)));
         await(relationshipService.ensure(store, List.of(new RelationshipTuple("user:bob", "end_user", "application:" + store))));
@@ -191,7 +191,7 @@ class OpenFgaIntegrationTest {
         String store = "recreated-" + System.nanoTime();
         AuthzModel model = generator.applicationModel(List.of(), List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT)));
         RelationshipTuple bob = new RelationshipTuple("user:bob", "end_user", "application:" + store);
-        DefaultAuthzStoreService elsewhere = new DefaultAuthzStoreService(fga, properties);
+        DefaultAuthzStoreService elsewhere = new DefaultAuthzStoreService(fga, properties, vertx);
         DefaultRelationshipService relationshipsElsewhere = new DefaultRelationshipService(fga, elsewhere);
         String storeId = await(storeService.ensureStore(store));
         String modelId = await(storeService.ensureModel(store, model));
@@ -349,7 +349,7 @@ class OpenFgaIntegrationTest {
     @Test
     void theStoreResolvedOnOneContextKeepsLaterCallersOnTheirOwn() throws Exception {
         // the store is resolved once and kept, so every caller after the first composes on a kept result
-        DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, properties);
+        DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, properties, vertx);
         await(onContext(vertx.getOrCreateContext(), () -> node.modelId(PLATFORM)));
         Context later = vertx.getOrCreateContext();
 

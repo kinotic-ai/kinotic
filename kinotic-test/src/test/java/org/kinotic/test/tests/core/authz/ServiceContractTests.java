@@ -16,7 +16,7 @@ import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
-import org.kinotic.domain.api.services.ServiceContractService;
+import org.kinotic.app.api.services.ServiceContractService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.directory.AuthzCheckDeclaration;
@@ -60,7 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest
 public class ServiceContractTests extends KinoticTestBase {
 
-    private static final String CONTRACT_SERVICE = DomainUtil.APP_API_ZONE + "~org.kinotic.domain.api.services.ServiceContractService";
+    private static final String CONTRACT_SERVICE = DomainUtil.APP_API_ZONE + "~org.kinotic.app.api.services.ServiceContractService";
     private static final String ZONE = DomainUtil.applicationZone(TEST_ORG_ID, TEST_APP_ID);
     private static final String NAMESPACE = "com.acme.reports";
     private static final String VERSION = "1.0.0";
@@ -97,7 +97,7 @@ public class ServiceContractTests extends KinoticTestBase {
         // the gateway refuses a runtime the application has not granted the role to
         assertRefused(CONTRACT_SERVICE, "register", runtimeCaller, List.of(TEST_APP_ID, contract),
                       AuthzUtil.permissionName(AuthzUtil.APPLICATION_TYPE, ServiceContractService.CAN_PUBLISH_SERVICES) + " on application:" + TEST_APP_ID);
-        await(relationships.bind(AuthzStoreService.PLATFORM, ServiceContractService.RUNTIME_ROLE,
+        await(relationships.bind(AuthzStoreService.PLATFORM, AuthzUtil.APPLICATION_RUNTIME_ROLE,
                                  AuthzUtil.object(AuthzUtil.USER_TYPE, runtime.getId()), AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, TEST_APP_ID)));
         assertTrue(awaitUntil(() -> admitted(CONTRACT_SERVICE, "register", runtimeCaller, List.of(TEST_APP_ID, contract))), "the runtime was never admitted");
 
