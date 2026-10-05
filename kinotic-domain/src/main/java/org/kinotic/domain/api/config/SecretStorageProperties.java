@@ -24,8 +24,4 @@ public class SecretStorageProperties {
      * Azure Key Vault settings. Required when {@code backend} is {@link SecretStorageBackendType#AZURE}.
      */
     private AzureProperties azure;
-    /**
-     * Chronicle Map settings. Required when {@code backend} is {@link SecretStorageBackendType#HFT}.
-     */
-    private ChronicleMapProperties chronicleMap;
 }
