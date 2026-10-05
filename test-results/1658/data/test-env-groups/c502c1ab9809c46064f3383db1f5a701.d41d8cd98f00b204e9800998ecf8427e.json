@@ -1,0 +1,1 @@
+{"id":"c502c1ab9809c46064f3383db1f5a701.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.sql.TypeMapperTest.whenMapNestedInsideObject_thenNestedPropertyMappedCorrectly","name":"whenMapNestedInsideObject_thenNestedPropertyMappedCorrectly()","status":"passed","testResultsByEnv":{"default":"7294d402dcc88050dd0dc1e5f5c49aef"}}

@@ -1,1 +1,0 @@
-{"id":"8baafc77e001f805a4d4b07e35870657.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenScalarValues_thenParsedByType","name":"whenScalarValues_thenParsedByType()","status":"passed","testResultsByEnv":{"default":"69c8603f6b654548fd9ac583cfc2edf6"}}
