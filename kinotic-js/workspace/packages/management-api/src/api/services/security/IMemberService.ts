@@ -33,7 +33,7 @@ export interface IMemberService {
      * pending invitation. Rejects when the email already has an account in the scope or an
      * invitation is already pending for it.
      */
-    inviteMember(email: string, displayName: string | null, applicationId: string | null): Promise<PendingInviteSummary>
+    inviteMember(email: string, displayName: string | null, applicationId: string | null, tenantId?: string | null): Promise<PendingInviteSummary>
 
     /**
      * Enables or disables a member of the caller's organization. Disabling gates future
@@ -78,8 +78,8 @@ export class MemberService implements IMemberService {
             (next: Pageable) => this.serviceProxy.invoke('searchMembers', [searchText, applicationId, next]))
     }
 
-    public inviteMember(email: string, displayName: string | null, applicationId: string | null): Promise<PendingInviteSummary> {
-        return this.serviceProxy.invoke('inviteMember', [email, displayName, applicationId])
+    public inviteMember(email: string, displayName: string | null, applicationId: string | null, tenantId: string | null = null): Promise<PendingInviteSummary> {
+        return this.serviceProxy.invoke('inviteMember', [email, displayName, applicationId, tenantId])
     }
 
     public setMemberEnabled(userId: string, enabled: boolean): Promise<void> {

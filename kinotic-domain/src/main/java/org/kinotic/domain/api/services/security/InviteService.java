@@ -68,6 +68,18 @@ public interface InviteService {
                                                    Pageable pageable);
 
     /**
+     * Lists the live (unexpired) invitations into one tenant of an application.
+     *
+     * @param organizationId the application's organization
+     * @param applicationId  the application
+     * @param tenantId       the tenant
+     */
+    Future<Page<PendingInvite>> findPendingInvitesByTenant(String organizationId,
+                                                           String applicationId,
+                                                           String tenantId,
+                                                           Pageable pageable);
+
+    /**
      * Cancels (deletes) a pending invitation. Fails unless the invitation belongs to the given
      * organization.
      *
@@ -75,4 +87,15 @@ public interface InviteService {
      * @param organizationId the organization the caller is acting for
      */
     Future<Void> cancelInvite(String inviteId, String organizationId);
+
+    /**
+     * Cancels (deletes) a pending invitation into a tenant. Fails unless the invitation was made into the given
+     * tenant of the given application.
+     *
+     * @param inviteId       id of the invitation to cancel
+     * @param organizationId the application's organization
+     * @param applicationId  the application
+     * @param tenantId       the tenant the caller is acting for
+     */
+    Future<Void> cancelTenantInvite(String inviteId, String organizationId, String applicationId, String tenantId);
 }

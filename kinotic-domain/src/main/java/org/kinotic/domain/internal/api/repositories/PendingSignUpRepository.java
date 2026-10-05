@@ -18,7 +18,19 @@ public class PendingSignUpRepository extends AbstractTokenVerificationRepository
     }
 
     /** Finds a pending sign-up by email, or {@code null} — used to block duplicate submissions. */
+    /**
+     * The pending organization sign-up of the email, or null.
+     */
     public Future<PendingSignUp> findByEmail(String email) {
-        return findFirst(b -> b.query(termFilter("email", email)));
+        return findFirst(b -> b.query(composeFilter(termFilter("email", email), missingFilter("applicationId"))));
+    }
+
+    /**
+     * The pending tenant sign-up of the email into the application, or null.
+     */
+    public Future<PendingSignUp> findByEmailAndApplication(String email, String organizationId, String applicationId) {
+        return findFirst(b -> b.query(composeFilter(termFilter("email", email),
+                                                    termFilter("organizationId", organizationId),
+                                                    termFilter("applicationId", applicationId))));
     }
 }

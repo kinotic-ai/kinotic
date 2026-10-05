@@ -1,10 +1,14 @@
 package org.kinotic.domain.internal.api.services.security;
 
 import io.vertx.core.Future;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
+import org.kinotic.domain.api.model.ApplicationKey;
+import org.kinotic.domain.api.model.OnboardingMechanism;
+import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.security.AuthType;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.DelegateKind;
@@ -12,7 +16,9 @@ import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdent
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.IdentityCredential;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.IdentityCredentialRepository;
@@ -21,7 +27,6 @@ import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
-import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
@@ -39,17 +44,20 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     private final ParticipantIdentityRepository identityRepository;
     private final IdentityCredentialRepository credentialRepository;
     private final ApplicationRepository applicationRepository;
+    private final TenantRepository tenants;
     private final RelationshipService relationships;
 
     public DefaultParticipantIdentityService(ParticipantIdentityRepository repository,
                                  IdentityCredentialRepository credentialRepository,
                                  ApplicationRepository applicationRepository,
-                                 RelationshipService relationships) {
+                                 RelationshipService relationships,
+                                 TenantRepository tenants) {
         super(repository);
         this.identityRepository = repository;
         this.credentialRepository = credentialRepository;
         this.applicationRepository = applicationRepository;
         this.relationships = relationships;
+        this.tenants = tenants;
     }
 
     @Override
@@ -203,6 +211,16 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
+    public Future<Page<UserParticipantIdentity>> findUsersByTenant(String organizationId,
+                                                                   String applicationId,
+                                                                   String tenantId,
+                                                                   Pageable pageable) {
+        requireOrgWithApp(organizationId, applicationId);
+        Validate.notBlank(tenantId, "tenantId cannot be blank");
+        return identityRepository.findUsersByTenant(organizationId, applicationId, tenantId, pageable);
+    }
+
+    @Override
     public Future<UserParticipantIdentity> createUser(UserParticipantIdentity user, String password) {
         Validate.notNull(user.getEmail(), "UserParticipantIdentity email cannot be null");
         validateScopeFields(user);
@@ -262,28 +280,38 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     /**
-     * Applies the owning application's tenant policy to a new APPLICATION-scope user: when the
-     * app has {@code tenantPerUser} enabled and no explicit tenantId was supplied, a fresh UUID
-     * becomes the user's tenantId. Deliberately NOT the user's id — the tenantId is an ES
-     * routing key and part of the immutable _id of every SHARED entity the user writes, while
-     * createUser accepts caller-supplied ids of any shape; a dedicated UUID keeps tenant
-     * identity decoupled from id semantics.
+     * Applies the owning application's onboarding to a new APPLICATION-scope user: when the application isolates
+     * each user in a tenant of its own and no tenantId was supplied, a tenant is created for the user, named for
+     * them, and its id set on the user. The tenant's id is a fresh UUID, deliberately not the user's id: the
+     * tenantId is an ES routing key and part of the immutable _id of every SHARED entity the user writes, while
+     * createUser accepts caller-supplied ids of any shape, so a dedicated UUID keeps tenant identity decoupled
+     * from id semantics.
      */
     private Future<UserParticipantIdentity> applyTenantPolicy(UserParticipantIdentity user) {
         if (user.getApplicationId() == null || user.getTenantId() != null) {
             return Future.succeededFuture(user);
         }
         return applicationRepository.findById(user.getApplicationId(), user.getOrganizationId())
-                .map(app -> {
+                .compose(app -> {
                     if (app == null) {
                         throw new IllegalArgumentException(
                                 "Application " + user.getApplicationId() + " not found in organization "
                                 + user.getOrganizationId());
                     }
-                    if (app.isTenantPerUser()) {
-                        user.setTenantId(UUID.randomUUID().toString());
+                    Future<UserParticipantIdentity> ret;
+                    if (app.getOnboarding().contains(OnboardingMechanism.TENANT_PER_USER)) {
+                        Tenant tenant = DomainUtil.createTenant(new ApplicationKey(user.getOrganizationId(), user.getApplicationId()),
+                                                               UUID.randomUUID().toString(),
+                                                               StringUtils.isNotBlank(user.getDisplayName()) ? user.getDisplayName() : user.getEmail())
+                                                 .setCreatedBy(user.getId());
+                        ret = tenants.save(tenant, user.getOrganizationId()).map(saved -> {
+                            user.setTenantId(saved.getTenantId());
+                            return user;
+                        });
+                    } else {
+                        ret = Future.succeededFuture(user);
                     }
-                    return user;
+                    return ret;
                 });
     }
 

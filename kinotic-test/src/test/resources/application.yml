@@ -17,6 +17,8 @@ kinotic:
   maxNumberOfCoresToUse: 4
   domain:
     email:
+      # the test node sends no mail: a sign-up's or an invitation's link is logged instead
+      enabled: false
       # the UI the emailed links open; the test node presents the management server's development UI
       linkBaseUrl: http://localhost:9090
     oauth:

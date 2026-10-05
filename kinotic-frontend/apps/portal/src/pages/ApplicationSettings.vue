@@ -1,7 +1,7 @@
 <template>
   <div>
     <PageHeader title="Settings"
-                description="Name, description, tenancy, primary UI, and the emails this application sends." />
+                description="Name, description, how users come to belong to tenants, primary UI, and the emails this application sends." />
 
     <Tabs lazy :value="activeTab" @update:value="selectTab">
       <TabList>
@@ -42,16 +42,17 @@
             </DashboardSection>
 
             <DashboardSection :icon="UsersRound" :tint="TINTS.blue" title="Sign-in and tenancy"
-                              description="How the application's users are kept apart and where their browser flows land.">
+                              description="How the application's users come to belong to tenants and where their browser flows land.">
               <div class="divide-y divide-surface-200 dark:divide-surface-700">
-                <div :class="ROW_CLASS">
+                <div v-for="mechanism in MECHANISMS" :key="mechanism.id" :class="ROW_CLASS">
                   <div>
-                    <label for="app-tenancy" :class="LABEL_CLASS">Tenant per user</label>
-                    <p :class="HELP_CLASS">Each user of this application gets their own isolated tenant. Applies to users created after enabling.</p>
+                    <label :for="mechanism.inputId" :class="LABEL_CLASS">{{ mechanism.label }}</label>
+                    <p :class="HELP_CLASS">{{ mechanism.help }}</p>
                   </div>
                   <div class="flex items-center gap-3">
-                    <ToggleSwitch input-id="app-tenancy" v-model="tenantPerUser" />
-                    <span class="text-sm text-surface-700 dark:text-surface-200">{{ tenantPerUser ? 'On' : 'Off' }}</span>
+                    <ToggleSwitch :input-id="mechanism.inputId" :model-value="enabled(mechanism.id)" :disabled="excluded(mechanism.id)"
+                                  @update:model-value="toggle(mechanism.id, $event)" />
+                    <span class="text-sm text-surface-700 dark:text-surface-200">{{ enabled(mechanism.id) ? 'On' : 'Off' }}</span>
                   </div>
                 </div>
 
@@ -112,6 +113,7 @@ import { useQueryTab } from '@/composables/useQueryTab'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 import { Kinotic } from '@kinotic-ai/core'
+import { OnboardingMechanism } from '@kinotic-ai/management-api'
 import { useToast } from 'primevue/usetoast'
 
 const props = defineProps({
@@ -124,7 +126,7 @@ const props = defineProps({
 const toast = useToast()
 const activeTab = useQueryTab(['general', 'invitation-email'] as const)
 const appDescription = ref('')
-const tenantPerUser = ref(false)
+const onboarding = ref<OnboardingMechanism[]>([])
 const primaryUiId = ref<string | null>(null)
 const publishedUiNames = ref<string[]>([])
 const loading = ref(false)
@@ -134,10 +136,39 @@ const ROW_CLASS = 'grid items-start gap-3 px-5 py-4 md:grid-cols-[minmax(0,1fr)_
 const LABEL_CLASS = 'block text-sm font-medium text-surface-950 dark:text-surface-0'
 const HELP_CLASS = 'mt-1 text-xs leading-5 text-muted-color'
 
+/** The ways a user comes to belong to a tenant, one toggle each. */
+const MECHANISMS = [
+  { id: OnboardingMechanism.TENANT_PER_USER, inputId: 'app-tenant-per-user', label: 'Tenant per user',
+    help: 'Each user of this application gets a tenant of their own. Applies to users created after enabling, and excludes sign-up and invitations.' },
+  { id: OnboardingMechanism.TENANT_SIGN_UP, inputId: 'app-tenant-sign-up', label: 'Tenant sign-up',
+    help: 'New customers sign up at the application\'s own sign-up page, which creates their tenant and makes them its administrator. Needs a primary UI for the verification link to open.' },
+  { id: OnboardingMechanism.TENANT_INVITE, inputId: 'app-tenant-invite', label: 'Tenant invitations',
+    help: 'A tenant\'s administrator invites colleagues into the tenant from the application\'s own pages.' }
+]
+
+function enabled(mechanism: OnboardingMechanism): boolean {
+  return onboarding.value.includes(mechanism)
+}
+
+// isolating each user excludes the ways several users come to share a tenant, and they exclude it
+function excluded(mechanism: OnboardingMechanism): boolean {
+  return mechanism === OnboardingMechanism.TENANT_PER_USER
+    ? onboarding.value.some(other => other !== OnboardingMechanism.TENANT_PER_USER)
+    : enabled(OnboardingMechanism.TENANT_PER_USER)
+}
+
+function toggle(mechanism: OnboardingMechanism, on: boolean): void {
+  onboarding.value = on ? [...onboarding.value, mechanism] : onboarding.value.filter(other => other !== mechanism)
+}
+
+function sameMechanisms(a: OnboardingMechanism[], b: OnboardingMechanism[]): boolean {
+  return a.length === b.length && a.every(mechanism => b.includes(mechanism))
+}
+
 /** The values last loaded or saved, which the form compares against to know it has changes. */
-const saved = ref({ description: '', tenantPerUser: false, primaryUiId: null as string | null })
+const saved = ref({ description: '', onboarding: [] as OnboardingMechanism[], primaryUiId: null as string | null })
 const dirty = computed(() => appDescription.value !== saved.value.description
-    || tenantPerUser.value !== saved.value.tenantPerUser
+    || !sameMechanisms(onboarding.value, saved.value.onboarding)
     || primaryUiId.value !== saved.value.primaryUiId)
 
 // a primary UI whose deployment was removed stays designated, so it stays selectable
@@ -148,9 +179,9 @@ const uiOptions = computed(() => primaryUiId.value && !publishedUiNames.value.in
 watch(() => APPLICATION_STATE.currentApplication, (newApp) => {
   if (newApp) {
     appDescription.value = newApp.description || ''
-    tenantPerUser.value = Boolean(newApp.tenantPerUser)
+    onboarding.value = [...(newApp.onboarding ?? [])]
     primaryUiId.value = newApp.primaryUiId ?? null
-    saved.value = { description: appDescription.value, tenantPerUser: tenantPerUser.value, primaryUiId: primaryUiId.value }
+    saved.value = { description: appDescription.value, onboarding: [...onboarding.value], primaryUiId: primaryUiId.value }
   }
 }, { immediate: true })
 
@@ -175,7 +206,7 @@ async function copyId(): Promise<void> {
 
 function discard(): void {
   appDescription.value = saved.value.description
-  tenantPerUser.value = saved.value.tenantPerUser
+  onboarding.value = [...saved.value.onboarding]
   primaryUiId.value = saved.value.primaryUiId
 }
 
@@ -200,7 +231,7 @@ const saveSettings = async () => {
       ...APPLICATION_STATE.currentApplication,
       organizationId: USER_STATE.getOrganizationId(),
       description: appDescription.value,
-      tenantPerUser: tenantPerUser.value,
+      onboarding: [...onboarding.value],
       primaryUiId: primaryUiId.value
     }
 

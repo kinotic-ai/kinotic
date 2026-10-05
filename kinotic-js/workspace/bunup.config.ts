@@ -19,6 +19,10 @@ export default defineWorkspace(
 			root: 'packages/management-api'
 		},
 		{
+			name: 'app-api',
+			root: 'packages/app-api'
+		},
+		{
 			name: 'persistence',
 			root: 'packages/persistence'
 		},

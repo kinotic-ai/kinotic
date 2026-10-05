@@ -29,8 +29,9 @@ import java.util.List;
 
 /**
  * The worker of the authorization stores: keeps the model a store runs equal to the one generated for it, the
- * platform's from the directory entries that belong to it and an application's from its published entity
- * definitions and the contracts registered in its scope, and the store's built-in roles bundling what that
+ * platform's from the directory entries that belong to it and an application's from the platform's services
+ * its users call, its published entity definitions and the contracts registered in its scope, and the store's
+ * built-in roles bundling what that
  * model has. The reconcile master calls it when a contract of the store is published, when an application's
  * definitions change, when the store is found out of its desired state, and once when the master starts, so a
  * model write the engine refused is made again and a master lost mid-write is caught up. The model is written
@@ -61,24 +62,25 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
         return modelOf(current).compose(model -> run(current, model)).map(Requeue.NONE);
     }
 
-    // The platform's model from the platform's own contracts; an application's from its published definitions
-    // and whatever contracts its own services registered
+    // The platform's model from the platform's own contracts; an application's from the platform's services its
+    // users call, its published definitions and whatever contracts its own services registered
     private Future<AuthzModel> modelOf(AuthzStore store) {
         Future<AuthzModel> ret;
         if (store.getApplicationId() == null) {
             ret = directory.findSystemContracts().map(generator::platformModel);
         } else {
-            ret = directory.findApplicationContracts(store.getOrganizationId(), store.getApplicationId())
-                           .compose(contracts -> entityDefinitions.findAllPublishedForApplication(store.getApplicationId(),
-                                                                                                  store.getOrganizationId(),
-                                                                                                  Pageable.create(0, DEFINITION_PAGE_SIZE, Sort.by("id")))
-                                                                  .map(page -> {
-                                                                      List<EntityResource> entities = new ArrayList<>();
-                                                                      for (EntityDefinition definition : page.getContent()) {
-                                                                          entities.add(entityOf(definition));
-                                                                      }
-                                                                      return generator.applicationModel(contracts, entities);
-                                                                  }));
+            ret = directory.findSystemContracts()
+                           .compose(platform -> directory.findApplicationContracts(store.getOrganizationId(), store.getApplicationId())
+                                                         .compose(contracts -> entityDefinitions.findAllPublishedForApplication(store.getApplicationId(),
+                                                                                                                                store.getOrganizationId(),
+                                                                                                                                Pageable.create(0, DEFINITION_PAGE_SIZE, Sort.by("id")))
+                                                                                                .map(page -> {
+                                                                                                    List<EntityResource> entities = new ArrayList<>();
+                                                                                                    for (EntityDefinition definition : page.getContent()) {
+                                                                                                        entities.add(entityOf(definition));
+                                                                                                    }
+                                                                                                    return generator.applicationModel(platform, contracts, entities);
+                                                                                                })));
         }
         return ret;
     }

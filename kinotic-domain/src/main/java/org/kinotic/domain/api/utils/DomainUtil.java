@@ -3,11 +3,13 @@ package org.kinotic.domain.api.utils;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.OrganizationScoped;
+import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
@@ -15,6 +17,7 @@ import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentityType;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
@@ -26,6 +29,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
@@ -194,6 +198,37 @@ public class DomainUtil {
     }
 
     /**
+     * Creates the id of a {@link Tenant} record,
+     * {@code <organizationId>.<applicationId>.<tenantId>}, so a tenant id is unique within its application.
+     *
+     * @param applicationKey the application the tenant belongs to
+     * @param tenantId       the tenant's id within the application
+     * @return the record's id
+     */
+    public static String createTenantId(ApplicationKey applicationKey, String tenantId) {
+        return applicationKey.organizationId() + "." + applicationKey.applicationId() + "." + tenantId;
+    }
+
+    /**
+     * Creates an unsaved {@link Tenant} of an application, keyed by {@link #createTenantId}, created now.
+     *
+     * @param applicationKey the application the tenant belongs to
+     * @param tenantId       the tenant's id within the application
+     * @param name           the name the tenant's users know it by
+     * @return the tenant, to be saved
+     */
+    public static Tenant createTenant(ApplicationKey applicationKey, String tenantId, String name) {
+        Date now = new Date();
+        return new Tenant().setId(createTenantId(applicationKey, tenantId))
+                           .setTenantId(tenantId)
+                           .setOrganizationId(applicationKey.organizationId())
+                           .setApplicationId(applicationKey.applicationId())
+                           .setName(name)
+                           .setCreated(now)
+                           .setUpdated(now);
+    }
+
+    /**
      * The Elasticsearch {@code _id} an entity's item is stored under. A {@link MultiTenancyType#SHARED} entity
      * prefixes the item's id with its tenant, so two tenants may each hold an item of the same id.
      *
@@ -359,6 +394,36 @@ public class DomainUtil {
         Map<String, String> metadata = participant.getMetadata();
         String owner = metadata != null ? metadata.get(ON_BEHALF_OF_METADATA_KEY) : null;
         return AuthzUtil.object(AuthzUtil.USER_TYPE, owner != null ? owner : participant.getId());
+    }
+
+    /**
+     * The name a participant is shown by where it acts for others, such as the inviter named in an invitation:
+     * its display name, else its email, else its id.
+     *
+     * @param participant the participant making a call
+     * @return the name to show
+     */
+    public static String displayNameOf(Participant participant) {
+        Map<String, String> metadata = participant.getMetadata();
+        String ret = null;
+        if (metadata != null) {
+            ret = StringUtils.isNotBlank(metadata.get("displayName")) ? metadata.get("displayName") : metadata.get("email");
+        }
+        return StringUtils.isNotBlank(ret) ? ret : participant.getId();
+    }
+
+    /**
+     * The tenant an application participant belongs to, for a function acting on the caller's own tenant.
+     *
+     * @param participant the calling participant
+     * @return the tenant's id
+     * @throws AuthorizationException when the participant belongs to no tenant
+     */
+    public static String requireTenant(ApplicationParticipant participant) {
+        if (participant.getTenantId() == null) {
+            throw new AuthorizationException("Access denied");
+        }
+        return participant.getTenantId();
     }
 
     /**

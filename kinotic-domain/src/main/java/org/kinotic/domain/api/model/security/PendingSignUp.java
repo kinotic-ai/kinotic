@@ -47,4 +47,15 @@ public class PendingSignUp implements PendingVerification {
 
     /** Id of the OIDC configuration that produced the identity; null for LOCAL. */
     private String oidcConfigId;
+
+    /**
+     * The organization of the application a tenant sign-up is for; null for an organization sign-up.
+     */
+    private String organizationId;
+
+    /**
+     * The application a tenant sign-up is for, whose completion creates a tenant with the signer as its first
+     * user; null for an organization sign-up.
+     */
+    private String applicationId;
 }

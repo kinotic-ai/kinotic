@@ -74,7 +74,7 @@ import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { ExecutionStatus, RepositoryConnectionStatus, WorkloadStatus,
          type Application, type JobRun, type Project, type Workload } from '@kinotic-ai/management-api'
 import { DashboardSection, DatetimeUtil, FactList, InitialsTile, PageHeader, ProjectsIcon, StatCard, TINTS,
-         errorMessage, executionStatusSeverity, scanJobRuns, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+         errorMessage, executionStatusSeverity, onboardingLabel, scanJobRuns, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 
 import { deployRunsByProject } from '@/util/runs'
 import { applicationPath, organizationPath, projectPath } from '@/util/scope'
@@ -133,14 +133,7 @@ const health = computed(() => {
 
 const facts = computed(() => {
   const app = application.value
-  let tenancy: string
-  if (!app) {
-    tenancy = '—'
-  } else if (app.tenantPerUser) {
-    tenancy = 'Tenant per user'
-  } else {
-    tenancy = 'Shared tenant'
-  }
+  const tenancy = app ? onboardingLabel(app.onboarding) : '—'
   return [
     { label: 'Name', icon: markRaw(TagIcon), value: app?.name ?? '—' },
     { label: 'Application id', icon: markRaw(Hash), value: props.applicationId, mono: true },

@@ -1,10 +1,9 @@
-package org.kinotic.management.api.model;
+package org.kinotic.domain.api.model.security;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.domain.api.model.security.PendingInvite;
 
 import java.util.Date;
 
@@ -29,6 +28,9 @@ public class PendingInviteSummary {
     /** The Application the invitee would join; {@code null} for an organization-member invite. */
     private String applicationId;
 
+    /** The tenant of the application the invitee would join; {@code null} for an invite into no tenant. */
+    private String tenantId;
+
     /** Display name of the member who sent the invitation. */
     private String invitedByName;
 
@@ -46,9 +48,9 @@ public class PendingInviteSummary {
                 .setEmail(invite.getEmail())
                 .setDisplayName(invite.getDisplayName())
                 .setApplicationId(invite.getApplicationId())
+                .setTenantId(invite.getTenantId())
                 .setInvitedByName(invite.getInvitedByName())
                 .setCreated(invite.getCreated())
                 .setExpiresAt(invite.getExpiresAt());
     }
 }
-

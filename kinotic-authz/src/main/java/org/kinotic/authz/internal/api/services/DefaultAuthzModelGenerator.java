@@ -55,8 +55,18 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     }
 
     @Override
-    public AuthzModel applicationModel(Collection<ServiceDefinition> services, Collection<EntityResource> entities) {
-        return generate(AuthzStoreKind.APPLICATION, services, entities);
+    public AuthzModel applicationModel(Collection<ServiceDefinition> platformServices,
+                                       Collection<ServiceDefinition> services,
+                                       Collection<EntityResource> entities) {
+        List<ServiceDefinition> all = new ArrayList<>();
+        for (ServiceDefinition service : platformServices) {
+            AuthzResourceC3Decorator resource = service.findDecorator(AuthzResourceC3Decorator.class);
+            if (resource != null && TENANT.equals(resource.getResourceType())) {
+                all.add(service);
+            }
+        }
+        all.addAll(services);
+        return generate(AuthzStoreKind.APPLICATION, all, entities);
     }
 
     private AuthzModel generate(AuthzStoreKind kind,

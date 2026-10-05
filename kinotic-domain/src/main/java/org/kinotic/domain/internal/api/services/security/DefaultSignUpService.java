@@ -8,6 +8,13 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.Organization;
+import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.domain.api.repositories.TenantRepository;
+import org.kinotic.domain.api.repositories.ApplicationRepository;
+import org.kinotic.domain.api.model.Tenant;
+import org.kinotic.domain.api.model.OnboardingMechanism;
+import org.kinotic.domain.api.model.ApplicationKey;
+import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.security.AuthType;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.PendingSignUp;
@@ -34,6 +41,8 @@ public class DefaultSignUpService implements SignUpService {
     private final OrganizationService organizationService;
     private final RelationshipService relationships;
     private final EmailService emailService;
+    private final ApplicationRepository applications;
+    private final TenantRepository tenants;
 
     @Override
     public Future<Void> initiateLocalSignUp(String email, String displayName) {
@@ -102,6 +111,111 @@ public class DefaultSignUpService implements SignUpService {
                 .compose(pending -> createOrgWithAdmin(orgName, orgDescription, newUser(pending), null)
                         .compose(savedAdmin -> pendingSignUpRepository.deleteById(pending.getId())
                                 .map(savedAdmin)));
+    }
+
+    @Override
+    public Future<Void> initiateTenantSignUp(ApplicationKey applicationKey, String email, String displayName) {
+        Validate.notNull(applicationKey, "applicationKey cannot be null");
+        Validate.notBlank(email, "Email is required");
+        Validate.notBlank(displayName, "Display name is required");
+        String normalized = DomainUtil.normalizeEmail(email);
+        return requireSignUpOffered(applicationKey)
+                .compose(application -> pendingSignUpRepository.findByEmailAndApplication(normalized, applicationKey.organizationId(), applicationKey.applicationId())
+                        .compose(existing -> {
+                            if (existing != null) {
+                                return Future.failedFuture(new IllegalArgumentException(
+                                        "A sign-up is already pending for this email. Check your inbox for the verification link."));
+                            }
+                            return identityService.findByEmail(normalized, applicationKey.organizationId(), applicationKey.applicationId());
+                        })
+                        .compose(existingUser -> {
+                            if (existingUser != null) {
+                                return Future.failedFuture(new IllegalArgumentException("An account with this email already exists."));
+                            }
+                            String token = UUID.randomUUID().toString();
+                            Date now = new Date();
+                            PendingSignUp pending = new PendingSignUp()
+                                    .setId(UUID.randomUUID().toString())
+                                    .setEmail(normalized)
+                                    .setDisplayName(displayName)
+                                    .setAuthType(AuthType.LOCAL)
+                                    .setOrganizationId(applicationKey.organizationId())
+                                    .setApplicationId(applicationKey.applicationId())
+                                    .setVerificationToken(token)
+                                    .setCreated(now)
+                                    .setExpiresAt(new Date(now.getTime() + LOCAL_TTL_MS));
+                            return pendingSignUpRepository.save(pending)
+                                    .compose(saved -> emailService.sendVerificationEmail(normalized, displayName, token, application.getPrimaryUiUrl()));
+                        }));
+    }
+
+    @Override
+    public Future<UserParticipantIdentity> completeTenantSignUp(String token, String tenantName, String password) {
+        Validate.notBlank(token, "Verification token is required");
+        Validate.notBlank(tenantName, "Tenant name is required");
+        Validate.notBlank(password, "Password is required");
+        return pendingSignUpRepository.findValidByToken(token)
+                .compose(pending -> {
+                    if (pending.getApplicationId() == null) {
+                        return Future.failedFuture(new IllegalArgumentException("This link belongs to an organization sign-up."));
+                    }
+                    ApplicationKey applicationKey = new ApplicationKey(pending.getOrganizationId(), pending.getApplicationId());
+                    return requireSignUpOffered(applicationKey)
+                            .compose(application -> createTenantWithAdmin(applicationKey, tenantName, newUser(pending), password))
+                            .compose(savedAdmin -> pendingSignUpRepository.deleteById(pending.getId()).map(savedAdmin));
+                });
+    }
+
+    // The application, which must exist and offer sign-up, with a primary UI the verification link leads into
+    private Future<Application> requireSignUpOffered(ApplicationKey applicationKey) {
+        return applications.findById(applicationKey.applicationId(), applicationKey.organizationId()).map(application -> {
+            if (application == null) {
+                throw new IllegalArgumentException("Application not found.");
+            }
+            if (!application.getOnboarding().contains(OnboardingMechanism.TENANT_SIGN_UP)) {
+                throw new IllegalArgumentException("This application does not offer sign-up.");
+            }
+            Validate.validState(application.getPrimaryUiUrl() != null,
+                                "The application '%s' has no primary UI for its sign-up link to lead into", application.getId());
+            return application;
+        });
+    }
+
+    /**
+     * Creates the tenant (failing if the application has one of the name), makes {@code admin} its first user
+     * and creator, and binds the admin as the tenant's administrator in the application's store, so the admin
+     * holds every permission on the tenant's rows and on the tenant itself.
+     */
+    private Future<UserParticipantIdentity> createTenantWithAdmin(ApplicationKey applicationKey,
+                                                                  String tenantName,
+                                                                  UserParticipantIdentity admin,
+                                                                  String password) {
+        String tenantId = DomainUtil.slugifyId(tenantName);
+        Tenant tenant = DomainUtil.createTenant(applicationKey, tenantId, tenantName);
+        return tenants.findByTenantId(applicationKey.organizationId(), applicationKey.applicationId(), tenantId)
+                      .compose(existing -> {
+                          if (existing != null) {
+                              return Future.failedFuture(new IllegalArgumentException("A tenant named '" + tenantName + "' already exists."));
+                          }
+                          return tenants.createSync(tenant, applicationKey.organizationId());
+                      })
+                      .compose(savedTenant -> {
+                          admin.setOrganizationId(applicationKey.organizationId())
+                               .setApplicationId(applicationKey.applicationId())
+                               .setTenantId(savedTenant.getTenantId());
+                          return identityService.createUser(admin, password)
+                                  .compose(savedAdmin -> {
+                                      savedTenant.setCreatedBy(savedAdmin.getId());
+                                      // the customer administers the tenant: a binding of the tenant admin role on the tenant,
+                                      // which reaches every row of every definition in it
+                                      return tenants.save(savedTenant, applicationKey.organizationId())
+                                              .compose(v -> relationships.bind(applicationKey.applicationId(),
+                                                                               AuthzUtil.roleId(AuthzUtil.TENANT_TYPE, AuthzUtil.ADMIN),
+                                                                               AuthzUtil.object(AuthzUtil.USER_TYPE, savedAdmin.getId()),
+                                                                               AuthzUtil.object(AuthzUtil.TENANT_TYPE, savedTenant.getTenantId())))
+                                              .map(savedAdmin);
+                                  });
+                      });
     }
 
     /**

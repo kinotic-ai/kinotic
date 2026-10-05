@@ -151,7 +151,7 @@ import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { type Project, DeploymentStatusType, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
-import { createDebug, DatetimeUtil, deploymentStatusSeverity, FactList, InitialsTile, observedPhase, observedPhaseSeverity, PageHeader, ProjectsIcon, StatCard, TINTS, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { createDebug, DatetimeUtil, deploymentStatusSeverity, FactList, InitialsTile, observedPhase, observedPhaseSeverity, onboardingLabel, PageHeader, ProjectsIcon, StatCard, TINTS, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 
@@ -221,7 +221,7 @@ const health = computed(() => {
 const facts = computed(() => [
   { label: 'Name', icon: markRaw(TagIcon), value: application.value?.name ?? '—', mono: false },
   { label: 'Zone', icon: markRaw(Waypoints), value: `app.${organizationId.value}.${props.applicationId}`, mono: true },
-  { label: 'Tenancy', icon: markRaw(Users), value: application.value?.tenantPerUser ? 'Tenant per user' : 'Shared tenant', mono: false },
+  { label: 'Tenancy', icon: markRaw(Users), value: onboardingLabel(application.value?.onboarding), mono: false },
   { label: 'Primary UI', icon: markRaw(Globe), value: application.value?.primaryUiId ?? 'Not set', mono: false },
   { label: 'Updated', icon: markRaw(CalendarClock),
     value: application.value?.updated ? DatetimeUtil.formatRelativeDate(application.value.updated) : null, mono: false }

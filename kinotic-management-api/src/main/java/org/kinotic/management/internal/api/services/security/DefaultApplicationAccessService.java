@@ -26,9 +26,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.TreeSet;
 
 @Component
 @RequiredArgsConstructor
@@ -42,18 +39,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
 
     @Override
     public Future<List<RoleDefinition>> findRoles(String applicationId) {
-        return requireApplication(applicationId)
-                // the roles the store's model defines are the ones holding a permission for everyone
-                .compose(application -> relationships.readByUser(applicationId, AuthzUtil.EVERYONE, AuthzUtil.ROLE_TYPE))
-                .map(held -> {
-                    Map<String, TreeSet<String>> permissions = new TreeMap<>();
-                    for (RelationshipTuple tuple : held) {
-                        permissions.computeIfAbsent(AuthzUtil.idOf(tuple.object()), k -> new TreeSet<>()).add(tuple.relation());
-                    }
-                    List<RoleDefinition> ret = new ArrayList<>();
-                    permissions.forEach((id, bundled) -> ret.add(new RoleDefinition(id, AuthzUtil.builtInRoleName(id), null, true, bundled)));
-                    return ret;
-                });
+        return requireApplication(applicationId).compose(application -> relationships.findRoles(applicationId));
     }
 
     @Override
@@ -79,17 +65,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     public Future<Void> revoke(String applicationId, Resource resource, String grantId) {
         validate(applicationId, resource);
         Validate.notBlank(grantId, "grantId cannot be blank");
-        String object = objectOf(resource);
-        String binding = AuthzUtil.object(AuthzUtil.ROLE_BINDING_TYPE, grantId);
-        return requireApplication(applicationId)
-                .compose(application -> relationships.holds(applicationId, new RelationshipTuple(binding, AuthzUtil.ROLE_BINDING_RELATION, object)))
-                .compose(made -> {
-                    // a grant is revoked where it was made, so an id guessed from elsewhere unbinds nothing
-                    if (!made) {
-                        throw new IllegalArgumentException("No grant " + grantId + " was made on " + object);
-                    }
-                    return relationships.unbind(applicationId, grantId, object);
-                });
+        return requireApplication(applicationId).compose(application -> relationships.revoke(applicationId, grantId, objectOf(resource)));
     }
 
     @Override

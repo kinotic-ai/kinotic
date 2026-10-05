@@ -17,6 +17,7 @@ import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
+import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectKind;
 import org.kinotic.authz.api.services.RelationshipService;
@@ -28,6 +29,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.UUID;
 
 @Component
@@ -145,6 +148,31 @@ public class DefaultRelationshipService implements RelationshipService {
             List<RelationshipTuple> tuples = new ArrayList<>(held);
             tuples.add(new RelationshipTuple(binding, AuthzUtil.ROLE_BINDING_RELATION, object));
             return remove(store, tuples);
+        });
+    }
+
+    @Override
+    public Future<List<RoleDefinition>> findRoles(String store) {
+        // the roles the store's model defines are the ones holding a permission for everyone
+        return readByUser(store, AuthzUtil.EVERYONE, AuthzUtil.ROLE_TYPE).map(held -> {
+            Map<String, TreeSet<String>> permissions = new TreeMap<>();
+            for (RelationshipTuple tuple : held) {
+                permissions.computeIfAbsent(AuthzUtil.idOf(tuple.object()), k -> new TreeSet<>()).add(tuple.relation());
+            }
+            List<RoleDefinition> ret = new ArrayList<>();
+            permissions.forEach((id, bundled) -> ret.add(new RoleDefinition(id, AuthzUtil.builtInRoleName(id), null, true, bundled)));
+            return ret;
+        });
+    }
+
+    @Override
+    public Future<Void> revoke(String store, String bindingId, String object) {
+        String binding = AuthzUtil.object(AuthzUtil.ROLE_BINDING_TYPE, bindingId);
+        return holds(store, new RelationshipTuple(binding, AuthzUtil.ROLE_BINDING_RELATION, object)).compose(made -> {
+            if (!made) {
+                throw new IllegalArgumentException("No grant " + bindingId + " was made on " + object);
+            }
+            return unbind(store, bindingId, object);
         });
     }
 

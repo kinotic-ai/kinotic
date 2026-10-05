@@ -14,6 +14,7 @@ INSERT INTO kinotic_participant_identity (id, type, email, displayName, authType
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000015', 'USER', 'app-e2e-admin-named-query-tenant01@test.local', 'e2e AdminNamedQuery App User', 'LOCAL', 'kinotic-test', 'e2e-admin-named-query', 'tenant01', true) WITH REFRESH;
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000016', 'USER', 'app-e2e-end-user-access-kinotic@test.local', 'e2e EndUserAccess App User', 'LOCAL', 'kinotic-test', 'e2e-end-user-access', 'kinotic', true) WITH REFRESH;
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000017', 'USER', 'app-e2e-ts-service-kinotic@test.local', 'e2e TsService App User', 'LOCAL', 'kinotic-test', 'e2e-ts-service', 'kinotic', true) WITH REFRESH;
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000018', 'USER', 'app-e2e-tenant-members-kinotic@test.local', 'e2e TenantMembers App User', 'LOCAL', 'kinotic-test', 'e2e-tenant-members', 'kinotic', true) WITH REFRESH;
 
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000003', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000005', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
@@ -24,6 +25,10 @@ INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000015', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000016', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000017', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
+INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000018', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
+
+-- The tenant record of the TenantMembers fixture user above, so the tenant service answers for its tenant
+INSERT INTO kinotic_tenant (id, organizationId, applicationId, tenantId, name, createdBy, created, updated) VALUES ('kinotic-test.e2e-tenant-members.kinotic', 'kinotic-test', 'e2e-tenant-members', 'kinotic', 'Kinotic', '00000000-0000-0000-0000-000000000018', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z') WITH REFRESH, ROUTING 'kinotic-test', DOCUMENT_ID 'kinotic-test--kinotic-test.e2e-tenant-members.kinotic';
 
 -- APPLICATION-scope machine identity for the machine connection e2e tests
 -- (clientId: the identity id below, clientSecret: kinotic)
