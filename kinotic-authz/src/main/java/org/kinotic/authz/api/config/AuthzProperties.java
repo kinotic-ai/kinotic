@@ -8,6 +8,7 @@ import lombok.experimental.Accessors;
 
 /**
  * The OpenFGA engine every authorization store lives in. Configured under {@code kinotic.authz.*}.
+ * Created by Navíd Mitchell 🤪on 10/4/26
  */
 @Getter
 @Setter

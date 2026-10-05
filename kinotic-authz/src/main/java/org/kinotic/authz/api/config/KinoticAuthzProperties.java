@@ -12,6 +12,7 @@ import org.springframework.validation.annotation.Validated;
 /**
  * Contributes the {@link AuthzProperties} to the kinotic prefix.
  * Configuration is accessible via {@code kinotic.authz.*}
+ *  * Created by Navíd Mitchell 🤪on 10/4/26
  */
 @Getter
 @Setter

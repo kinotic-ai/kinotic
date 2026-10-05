@@ -2,6 +2,7 @@ package org.kinotic.authz.api.model;
 
 /**
  * What an entity definition's rows are contained in, which is where a grant over all of its rows is bound.
+ * Created by Navíd Mitchell 🤪on 10/4/26
  */
 public enum EntityScope {
 

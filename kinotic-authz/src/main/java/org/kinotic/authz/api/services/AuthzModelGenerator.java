@@ -16,6 +16,7 @@ import java.util.Collection;
  * its rows. A permission is named {@code <type>_<permission>} throughout, it is held by a binding of a role that
  * bundles it on the resource or on any ancestor, and the derived {@code can_delete}, {@code can_edit} and
  * {@code can_view} imply each other in that order.
+ * Created by Navíd Mitchell 🤪on 10/4/26
  */
 public interface AuthzModelGenerator {
 

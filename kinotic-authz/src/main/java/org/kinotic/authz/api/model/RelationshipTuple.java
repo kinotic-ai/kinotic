@@ -8,6 +8,7 @@ package org.kinotic.authz.api.model;
  * @param user     who holds the relation
  * @param relation the relation held
  * @param object   what it is held on
+ * Created by Navíd Mitchell 🤪on 10/4/26
  */
 public record RelationshipTuple(String user, String relation, String object) {
 }

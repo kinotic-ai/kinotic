@@ -15,6 +15,7 @@ import java.util.TreeSet;
 /**
  * The digest that identifies an authorization model's definition, equal for a generated definition and for the
  * same definition read back from a store.
+ * Created by Navíd Mitchell 🤪on 10/4/26
  */
 final class ModelHash {
 

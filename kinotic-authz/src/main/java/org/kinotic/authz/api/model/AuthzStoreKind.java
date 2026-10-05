@@ -2,6 +2,7 @@ package org.kinotic.authz.api.model;
 
 /**
  * Which kind of store a model is generated for, which decides the kernel types the model carries.
+ * Created by Navíd Mitchell 🤪on 10/4/26
  */
 public enum AuthzStoreKind {
 

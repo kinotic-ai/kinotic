@@ -7,6 +7,7 @@ import org.kinotic.authz.api.model.AuthzModel;
  * The stores of the authorization engine and the model each one runs. Every operation names its store the
  * way the store's record is named, {@link #PLATFORM} for the platform's and an application's id for its own,
  * and the engine's own id is resolved from the name.
+ * Created by Navíd Mitchell 🤪on 10/4/26
  */
 public interface AuthzStoreService {
 

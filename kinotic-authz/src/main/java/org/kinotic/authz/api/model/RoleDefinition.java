@@ -12,6 +12,7 @@ import java.util.Set;
  * @param description what the role is for, or null
  * @param builtIn     true for a role the model defines
  * @param permissions the model names of the permissions the role bundles, such as {@code project_can_edit}
+ * Created by Navíd Mitchell 🤪on 10/4/26
  */
 public record RoleDefinition(String id, String name, String description, boolean builtIn, Set<String> permissions) {
 }

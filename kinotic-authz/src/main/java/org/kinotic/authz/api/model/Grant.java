@@ -8,6 +8,7 @@ package org.kinotic.authz.api.model;
  * @param roleId   the role granted, a built-in role's id or a custom role's
  * @param subject  who holds it
  * @param resource where it was made
+ * Created by Navíd Mitchell 🤪on 10/4/26
  */
 public record Grant(String id, String roleId, Subject subject, Resource resource) {
 }

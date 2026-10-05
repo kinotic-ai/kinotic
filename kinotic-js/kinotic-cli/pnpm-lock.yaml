@@ -16,17 +16,17 @@ importers:
         specifier: ^8.5.2
         version: 8.5.2(@types/node@25.9.5)
       '@kinotic-ai/core':
-        specifier: 5.0.0-beta.19
-        version: 5.0.0-beta.19(supports-color@8.1.1)
+        specifier: 5.0.0-beta.20
+        version: 5.0.0-beta.20(supports-color@8.1.1)
       '@kinotic-ai/idl':
-        specifier: 5.0.0-beta.1
-        version: 5.0.0-beta.1
+        specifier: 5.0.0-beta.2
+        version: 5.0.0-beta.2
       '@kinotic-ai/management-api':
-        specifier: 5.0.0-beta.48
-        version: 5.0.0-beta.48(@kinotic-ai/core@5.0.0-beta.19(supports-color@8.1.1))
+        specifier: 5.0.0-beta.49
+        version: 5.0.0-beta.49(@kinotic-ai/core@5.0.0-beta.20(supports-color@8.1.1))
       '@kinotic-ai/persistence':
         specifier: 5.0.0-beta.12
-        version: 5.0.0-beta.12(@kinotic-ai/core@5.0.0-beta.19(supports-color@8.1.1))
+        version: 5.0.0-beta.12(@kinotic-ai/core@5.0.0-beta.20(supports-color@8.1.1))
       '@kinotic-ai/spawn':
         specifier: 5.0.0-beta.1
         version: 5.0.0-beta.1
@@ -449,16 +449,19 @@ packages:
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
     engines: {node: '>=12'}
 
-  '@kinotic-ai/core@5.0.0-beta.19':
-    resolution: {integrity: sha512-UluJ+uW/xmItgFARlqJLjL/LWE3smx9rMZMvD9syIeAv7iJUn6yjUpK+uqyPUuqMylsTFqoNEiUeuI6DS1S1RA==}
+  '@kinotic-ai/core@5.0.0-beta.20':
+    resolution: {integrity: sha512-BeTRxWAQzd8Q3lvOt3jVUN8fbL66xywBJT0Pr5z75SzMeyTSOhB3iB0w/6JAHLj1KGvx6+gMnpsO/XIVfSJkKw==}
 
   '@kinotic-ai/idl@5.0.0-beta.1':
     resolution: {integrity: sha512-zM4NGbHQ5JMKYMh+SU/+Q4GL3UPZsJ5oQWbPAlzRvD9SiLzbnD9mVJpukRVbWnu7zxuk3Z6o3WNQ/7YAokEbDg==}
 
-  '@kinotic-ai/management-api@5.0.0-beta.48':
-    resolution: {integrity: sha512-aYQk07JklE2SmZa16o2r5As7AofzcVH5cqAyeB1SbqriWtuDCuZKEgTrx8krDE2otOC7sPwbdLUg/+SVG0rJ4w==}
+  '@kinotic-ai/idl@5.0.0-beta.2':
+    resolution: {integrity: sha512-hvQqyRB3P1WoOtNkPbDbiGL0+K0AMZrt77BdQFdhLlIUJyscmKrOYj24SuPQWL/O/RB7HrDrnamLiE0fZY7adg==}
+
+  '@kinotic-ai/management-api@5.0.0-beta.49':
+    resolution: {integrity: sha512-dHUvnwqDGB+jd7ol6GMJZtYGwpFx3h+3wqGAFO5QdZJn5NYh2p2H3K1bqTHokWwBGEsp1SG9AMJtx9WC76H3BQ==}
     peerDependencies:
-      '@kinotic-ai/core': ^5.0.0-beta.18
+      '@kinotic-ai/core': ^5.0.0-beta.20
 
   '@kinotic-ai/persistence@5.0.0-beta.12':
     resolution: {integrity: sha512-F3dzUtFt1oGu58yPWrfPydLKu6gU90LS5Uwbz5uWqQqGYjJF6I7WmdYyBOaqBTLxD6YKIoKbpudovy5C6vEELQ==}
@@ -1837,8 +1840,9 @@ snapshots:
       wrap-ansi: 8.1.0
       wrap-ansi-cjs: wrap-ansi@7.0.0
 
-  '@kinotic-ai/core@5.0.0-beta.19(supports-color@8.1.1)':
+  '@kinotic-ai/core@5.0.0-beta.20(supports-color@8.1.1)':
     dependencies:
+      '@kinotic-ai/idl': 5.0.0-beta.2
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.43.0
       '@stomp/rx-stomp': 2.4.0(@stomp/stompjs@7.3.0)(rxjs@7.8.2)(uuid@13.0.2)
@@ -1856,16 +1860,18 @@ snapshots:
 
   '@kinotic-ai/idl@5.0.0-beta.1': {}
 
-  '@kinotic-ai/management-api@5.0.0-beta.48(@kinotic-ai/core@5.0.0-beta.19(supports-color@8.1.1))':
+  '@kinotic-ai/idl@5.0.0-beta.2': {}
+
+  '@kinotic-ai/management-api@5.0.0-beta.49(@kinotic-ai/core@5.0.0-beta.20(supports-color@8.1.1))':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.19(supports-color@8.1.1)
-      '@kinotic-ai/idl': 5.0.0-beta.1
-      '@kinotic-ai/persistence': 5.0.0-beta.12(@kinotic-ai/core@5.0.0-beta.19(supports-color@8.1.1))
+      '@kinotic-ai/core': 5.0.0-beta.20(supports-color@8.1.1)
+      '@kinotic-ai/idl': 5.0.0-beta.2
+      '@kinotic-ai/persistence': 5.0.0-beta.12(@kinotic-ai/core@5.0.0-beta.20(supports-color@8.1.1))
       rxjs: 7.8.2
 
-  '@kinotic-ai/persistence@5.0.0-beta.12(@kinotic-ai/core@5.0.0-beta.19(supports-color@8.1.1))':
+  '@kinotic-ai/persistence@5.0.0-beta.12(@kinotic-ai/core@5.0.0-beta.20(supports-color@8.1.1))':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.19(supports-color@8.1.1)
+      '@kinotic-ai/core': 5.0.0-beta.20(supports-color@8.1.1)
       '@kinotic-ai/idl': 5.0.0-beta.1
       rxjs: 7.8.2
 

@@ -15,6 +15,7 @@ import java.util.Set;
  * The relationships held in the stores, and the questions a store answers from them. Every operation names its
  * store the way the store's record is named, {@link AuthzStoreService#PLATFORM} for the platform's and an
  * application's id for its own, and the module resolves the name to the engine's store.
+ * Created by Navíd Mitchell 🤪on 10/4/26
  */
 public interface RelationshipService {
 
