@@ -10,9 +10,6 @@ import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
-import org.kinotic.core.api.event.CRI;
-import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.security.identity.MachineKind;
@@ -21,7 +18,6 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.services.ServiceContractService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
-import org.kinotic.domain.api.services.security.RequestAuthorizer;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.directory.AuthzCheckDeclaration;
 import org.kinotic.idl.api.directory.AuthzResourceDeclaration;
@@ -35,9 +31,7 @@ import org.kinotic.management.api.services.security.ApplicationAccessService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import tools.jackson.databind.json.JsonMapper;
 
-import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -75,9 +69,6 @@ public class ServiceContractTests extends KinoticTestBase {
     private ServiceContractService contracts;
 
     @Autowired
-    private RequestAuthorizer authorizer;
-
-    @Autowired
     private ApplicationAccessService access;
 
     @Autowired
@@ -91,9 +82,6 @@ public class ServiceContractTests extends KinoticTestBase {
 
     @Autowired
     private ServiceDirectory serviceDirectory;
-
-    @Autowired
-    private JsonMapper jsonMapper;
 
     @Test
     public void aRuntimePublishesAContractTheStoreReconcilesToAndTheGatewayChecksAgainst() throws Exception {
@@ -200,37 +188,8 @@ public class ServiceContractTests extends KinoticTestBase {
                                                   List.of());
     }
 
-    private void authorize(String service, String function, Participant caller, Object arguments) throws Exception {
-        await(authorizer.authorize(cri(service, function), caller, EventConstants.CONTENT_TYPE_JSON,
-                                   jsonMapper.writeValueAsString(arguments).getBytes(StandardCharsets.UTF_8)));
-    }
-
-    private boolean admitted(String service, String function, Participant caller, Object arguments) throws Exception {
-        boolean ret;
-        try {
-            authorize(service, function, caller, arguments);
-            ret = true;
-        } catch (ExecutionException refused) {
-            assertInstanceOf(AuthorizationException.class, refused.getCause());
-            ret = false;
-        }
-        return ret;
-    }
-
-    private void assertRefused(String service, String function, Participant caller, Object arguments, String naming) throws Exception {
-        ExecutionException failure = assertThrows(ExecutionException.class, () -> authorize(service, function, caller, arguments));
-        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
-        assertTrue(refused.getMessage().contains(naming), refused.getMessage());
-    }
-
     private Throwable failure(Participant caller, Supplier<Future<?>> call) {
         return assertThrows(ExecutionException.class, () -> await(runAs(caller, call::get))).getCause();
-    }
-
-    private CRI cri(String service, String function) throws Exception {
-        ServiceDirectoryEntry entry = await(serviceDirectory.findEntry(service));
-        assertNotNull(entry, "the directory holds no contract for " + service);
-        return CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME + "://" + TEST_ORG_ID + "@" + service + "/" + function + "#" + entry.getVersion());
     }
 
     private static String suffix() {

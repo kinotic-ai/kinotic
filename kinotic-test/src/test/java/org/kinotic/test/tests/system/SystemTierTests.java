@@ -13,9 +13,6 @@ import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.directory.ServiceDirectory;
-import org.kinotic.core.api.directory.ServiceDirectoryEntry;
-import org.kinotic.core.api.event.CRI;
-import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
@@ -30,7 +27,6 @@ import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipan
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
-import org.kinotic.domain.api.services.security.RequestAuthorizer;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.telemetry.ServerLogQuery;
 import org.kinotic.management.api.services.telemetry.LogService;
@@ -42,9 +38,7 @@ import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.kinotic.test.support.system.NodeFixtures;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import tools.jackson.databind.json.JsonMapper;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -56,7 +50,6 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.kinotic.authz.api.services.AuthzStoreService.PLATFORM;
 
@@ -83,9 +76,6 @@ public class SystemTierTests extends KinoticTestBase {
     private static final String SEEDED_ADMIN_ID = "00000000-0000-0000-0000-000000000001";
     private static final String SEEDED_VM_MANAGER_ID = "00000000-0000-0000-0000-000000000011";
     private static final Map<String, Object> PAGE = Map.of("pageNumber", 0, "pageSize", 10);
-
-    @Autowired
-    private RequestAuthorizer authorizer;
 
     @Autowired
     private SystemAccessService access;
@@ -119,9 +109,6 @@ public class SystemTierTests extends KinoticTestBase {
 
     @Autowired
     private ServiceDirectory serviceDirectory;
-
-    @Autowired
-    private JsonMapper jsonMapper;
 
     private final List<String> nodes = new ArrayList<>();
 
@@ -283,28 +270,6 @@ public class SystemTierTests extends KinoticTestBase {
         return await(access.findGrants()).stream().filter(grant -> roleId.equals(grant.roleId()) && subject.equals(grant.subject())).count();
     }
 
-    private void authorize(String service, String function, Participant caller, Object arguments) throws Exception {
-        await(authorizer.authorize(cri(service, function), caller, EventConstants.CONTENT_TYPE_JSON, body(arguments)));
-    }
-
-    private boolean admitted(String service, String function, Participant caller, Object arguments) throws Exception {
-        boolean ret;
-        try {
-            authorize(service, function, caller, arguments);
-            ret = true;
-        } catch (ExecutionException refused) {
-            assertInstanceOf(AuthorizationException.class, refused.getCause());
-            ret = false;
-        }
-        return ret;
-    }
-
-    private void assertRefused(String service, String function, Participant caller, Object arguments, String naming) throws Exception {
-        ExecutionException failure = assertThrows(ExecutionException.class, () -> authorize(service, function, caller, arguments));
-        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
-        assertTrue(refused.getMessage().contains(naming), refused.getMessage());
-    }
-
     private static Throwable failure(java.util.function.Supplier<Future<?>> call) {
         Throwable ret;
         try {
@@ -316,15 +281,6 @@ public class SystemTierTests extends KinoticTestBase {
             ret = e;
         }
         return ret;
-    }
-
-    private CRI cri(String service, String function) throws Exception {
-        ServiceDirectoryEntry entry = await(serviceDirectory.findEntry(service));
-        return CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME + "://" + service + "/" + function + "#" + entry.getVersion());
-    }
-
-    private byte[] body(Object arguments) {
-        return jsonMapper.writeValueAsString(arguments).getBytes(StandardCharsets.UTF_8);
     }
 
     private static Participant operator(String id) {

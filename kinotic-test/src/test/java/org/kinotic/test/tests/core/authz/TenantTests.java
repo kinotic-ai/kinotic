@@ -9,11 +9,6 @@ import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectKind;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
-import org.kinotic.core.api.directory.ServiceDirectory;
-import org.kinotic.core.api.directory.ServiceDirectoryEntry;
-import org.kinotic.core.api.event.CRI;
-import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.Application;
@@ -33,7 +28,6 @@ import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.TenantService;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
-import org.kinotic.domain.api.services.security.RequestAuthorizer;
 import org.kinotic.domain.api.services.security.SignUpService;
 import org.kinotic.domain.api.services.security.TenantMemberService;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -44,9 +38,7 @@ import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import tools.jackson.databind.json.JsonMapper;
 
-import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -112,15 +104,6 @@ public class TenantTests extends KinoticTestBase {
 
     @Autowired
     private ParticipantIdentityService identityService;
-
-    @Autowired
-    private RequestAuthorizer authorizer;
-
-    @Autowired
-    private ServiceDirectory serviceDirectory;
-
-    @Autowired
-    private JsonMapper jsonMapper;
 
     @Test
     public void aCustomerSignsUpIntoATenantItThenAdministers() throws Exception {
@@ -276,43 +259,12 @@ public class TenantTests extends KinoticTestBase {
                                                  List.of("USER"));
     }
 
-    private void authorize(String service, String function, Participant caller, Object arguments) throws Exception {
-        await(authorizer.authorize(cri(service, function, caller), caller, EventConstants.CONTENT_TYPE_JSON,
-                                   jsonMapper.writeValueAsString(arguments).getBytes(StandardCharsets.UTF_8)));
-    }
-
-    private boolean admitted(String service, String function, Participant caller, Object arguments) throws Exception {
-        boolean ret;
-        try {
-            authorize(service, function, caller, arguments);
-            ret = true;
-        } catch (ExecutionException refused) {
-            assertInstanceOf(AuthorizationException.class, refused.getCause());
-            ret = false;
-        }
-        return ret;
-    }
-
-    private void assertRefused(String service, String function, Participant caller, Object arguments, String naming) throws Exception {
-        ExecutionException failure = assertThrows(ExecutionException.class, () -> authorize(service, function, caller, arguments));
-        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
-        assertTrue(refused.getMessage().contains(naming), refused.getMessage());
-    }
-
     private Throwable failure(Supplier<Future<?>> call) {
         return assertThrows(ExecutionException.class, () -> await(call.get())).getCause();
     }
 
     private Throwable failure(Participant caller, Supplier<Future<?>> call) {
         return assertThrows(ExecutionException.class, () -> await(runAs(caller, call::get))).getCause();
-    }
-
-    // An application participant addresses a service in its application's scope
-    private CRI cri(String service, String function, Participant caller) throws Exception {
-        ServiceDirectoryEntry entry = await(serviceDirectory.findEntry(service));
-        assertNotNull(entry, "the directory holds no contract for " + service);
-        String scope = ((DefaultApplicationParticipant) caller).getApplicationId();
-        return CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME + "://" + scope + "@" + service + "/" + function + "#" + entry.getVersion());
     }
 
     private static String suffix() {
