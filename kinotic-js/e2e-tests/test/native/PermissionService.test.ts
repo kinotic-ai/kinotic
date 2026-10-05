@@ -76,7 +76,8 @@ describe('Kinotic JS', () => {
 
             const grant = await Kinotic.permissions.grant({kind: SubjectKind.GROUP, id: savedGroup.id!}, 'project.viewer', onProject)
             try {
-                expect(await Kinotic.permissions.findGrants(onProject)).toEqual([grant])
+                // the listing reaches up to the organization, where the fixture administrator's grant is
+                expect((await Kinotic.permissions.findGrants(onProject)).filter(listed => listed.resource.id === onProject.id)).toEqual([grant])
                 const views = await Kinotic.permissions.explain(sally, 'can_view', onProject)
                 expect(views.allowed).toBe(true)
                 expect(views.through).toEqual([grant])

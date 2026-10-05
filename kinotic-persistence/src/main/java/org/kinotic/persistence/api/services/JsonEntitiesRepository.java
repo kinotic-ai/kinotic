@@ -197,7 +197,7 @@ public interface JsonEntitiesRepository {
      * @param participant     the participant of the logged-in user
      * @return a {@link Future} that will complete when the operation is complete
      */
-    @AuthzCheck(resource = AuthzUtil.APPLICATION_TYPE, objectId = "{@applicationId}", permission = "can_edit")
+    @AuthzCheck(resource = AuthzUtil.TENANT_TYPE, permission = "can_edit")
     Future<Void> syncIndex(String entityDefinitionId, ScopedParticipant participant);
 
     /**

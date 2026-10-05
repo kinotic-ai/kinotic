@@ -8,12 +8,15 @@ import dev.openfga.sdk.api.model.WriteAuthorizationModelRequest;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelResponse;
 import dev.openfga.sdk.errors.FgaError;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.core.api.utils.KinoticUtil;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -27,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DefaultAuthzStoreService implements AuthzStoreService {
+public class DefaultAuthzStoreService implements AuthzStoreService, InitializingBean {
 
     static final String PLATFORM_STORE_NAME = "kinotic-platform";
     static final String APPLICATION_STORE_PREFIX = "kinotic-app-";
@@ -37,9 +40,13 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
     // how long a store's engine id and newest model version are kept before the engine is asked again
     static final long RETENTION_MILLIS = 30_000;
     private static final int STORE_PAGE_SIZE = 100;
+    // the address every node hears a store's deletion on, so none keeps answering with the id of a store the
+    // engine has deleted while another node already resolved the one created again under its name
+    static final String STORE_DELETED_ADDRESS = "kinotic.authz.store-deleted";
 
     private final OpenFgaService fga;
     private final KinoticAuthzProperties properties;
+    private final Vertx vertx;
     // each store's engine id, kept once found, as a stage with no context of its own; a failed lookup is
     // replaced by the next caller's, and a kept id is confirmed with the engine once the retention has passed
     private final Map<String, CompletableFuture<ResolvedStore>> storeIds = new ConcurrentHashMap<>();
@@ -69,10 +76,27 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
     }
 
     @Override
+    public void afterPropertiesSet() {
+        vertx.eventBus().<JsonObject>consumer(STORE_DELETED_ADDRESS,
+                                              message -> forgetIfKept(message.body().getString("store"), message.body().getString("id")));
+    }
+
+    @Override
     public Future<Void> deleteStore(String store) {
         return findStore(storeNameOf(store))
-                .compose(id -> id == null ? Future.succeededFuture() : fga.deleteStore(id).onSuccess(v -> forget(store, id)))
+                .compose(id -> id == null ? Future.succeededFuture() : fga.deleteStore(id).onSuccess(v -> {
+                    forget(store, id);
+                    vertx.eventBus().publish(STORE_DELETED_ADDRESS, new JsonObject().put("store", store).put("id", id));
+                }))
                 .onSuccess(v -> log.info("Deleted the authorization store of '{}'", store));
+    }
+
+    // Another node deleted the store: its id is forgotten where it is the one kept, so the next caller resolves
+    // the name again; a node that already resolved the store created again under the name keeps that one
+    private void forgetIfKept(String store, String storeId) {
+        storeIds.computeIfPresent(store, (name, stage) -> stage.isDone() && !stage.isCompletedExceptionally()
+                && stage.join().id().equals(storeId) ? null : stage);
+        modelVersions.remove(storeId);
     }
 
     @Override

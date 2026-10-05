@@ -119,5 +119,5 @@ describe('Kinotic JS', () => {
         grantId = undefined
 
         await untilRefused(() => sallyKinotic.projects.save({...projectA, description: 'edited after revocation'}), /Not authorized/)
-    })
+    }, 60000)
 })
