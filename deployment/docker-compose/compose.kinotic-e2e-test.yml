@@ -47,6 +47,13 @@ x-kinotic-app-server-e2e-environment: &kinotic-app-server-e2e-environment
   KINOTIC_APPSERVER_APIBASEURL: http://localhost:58505
 
 services:
+  openfga:
+    environment:
+      # The suites delete and republish definitions within seconds, and the engine's caches, kept as the stack
+      # runs them, answer from before a change for their TTL; a second is what a suite's next step waits
+      OPENFGA_CHECK_QUERY_CACHE_TTL: 1s
+      OPENFGA_CHECK_ITERATOR_CACHE_TTL: 1s
+      OPENFGA_CACHE_CONTROLLER_TTL: 1s
   kinotic-migration:
     # The suites start the servers, so the refresh interval is applied through the migration they depend on
     depends_on:
