@@ -26,6 +26,9 @@ x-kinotic-server-e2e-environment: &kinotic-server-e2e-environment
   # the running suite did not start does not resolve; Ignite logs the miss and carries on.
   KINOTIC_IGNITE_DISCOVERYTYPE: LOCAL
   KINOTIC_IGNITE_LOCALADDRESSES: kinotic-server-management:47500,kinotic-server-system:47500,kinotic-server-app:47500,kinotic-server-app-2:47500
+  # The emailed links' base, read before the send is skipped as disabled: every server invites, the app
+  # server into an application's tenants
+  KINOTIC_DOMAIN_EMAIL_LINKBASEURL: http://localhost:9090
 
 # Placeholder GitHub App config for the servers that load management-api: GithubProperties validates
 # these @NotBlank at boot even though no e2e test calls GitHub. disableProvisioner swaps in
@@ -77,8 +80,6 @@ services:
       KINOTIC_SYSTEMSERVER_APIBASEURL: http://localhost:58504
       KINOTIC_SYSTEMSERVER_CONSOLEBASEURL: http://localhost:5174
       KINOTIC_SYSTEMAPI_DEPLOYMENT_APPAPIBASEURL: http://localhost:58505
-      # The emailed links' base, read before the send is skipped as disabled
-      KINOTIC_DOMAIN_EMAIL_LINKBASEURL: http://localhost:9090
     # Replaces compose.kinotic-servers.yml's mount of the developer's GitHub App
     volumes: !override
       - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro

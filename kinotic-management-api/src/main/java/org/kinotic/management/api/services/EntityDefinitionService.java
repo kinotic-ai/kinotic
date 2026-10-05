@@ -24,6 +24,15 @@ public interface EntityDefinitionService extends ProjectScopedCrudService<Entity
     String RESOURCE_TYPE = AuthzUtil.ENTITY_DEFINITION_TYPE;
 
     /**
+     * Returns the entity definition with the given id when the caller may view it.
+     *
+     * @param id the definition's id
+     * @return a {@link Future} emitting the definition, or null when none has the id or the caller may not view it
+     */
+    @AuthzCheck(zoneOnly = true)
+    Future<EntityDefinition> findById(String id);
+
+    /**
      * Creates a new {@link EntityDefinition}. Validates the definition, derives the logical
      * index name, and persists it. The definition is not usable for data operations until
      * {@link #publish(String)} is called.

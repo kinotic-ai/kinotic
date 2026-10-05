@@ -30,6 +30,16 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
     String RESOURCE_TYPE = "project";
 
     /**
+     * Returns the project with the given id when the caller may see it: a project the caller may view, or one
+     * containing an entity definition the caller may view.
+     *
+     * @param id the project's id
+     * @return a {@link Future} emitting the project, or null when none has the id or the caller may not see it
+     */
+    @AuthzCheck(zoneOnly = true)
+    Future<Project> findById(String id);
+
+    /**
      * Returns the number of projects the caller may see: those the caller may view, and those containing an
      * entity definition the caller may view.
      *

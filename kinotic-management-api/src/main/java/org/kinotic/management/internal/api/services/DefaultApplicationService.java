@@ -75,9 +75,14 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
         this.stores = stores;
     }
 
+    // Read before the engine is asked, so a missing id never leaves a denial in the engine's caches for the
+    // record's creation to outlive; the functions the gateway checked on the application read it with
+    // super.findById
     @Override
     public Future<Application> findById(String id) {
-        return visibleIds().compose(ids -> ids.contains(id) ? super.findById(id) : Future.succeededFuture(null));
+        return super.findById(id).compose(application -> application == null
+                ? Future.succeededFuture(null)
+                : visibleIds().map(ids -> ids.contains(id) ? application : null));
     }
 
     @Override
@@ -117,7 +122,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     public Future<Application> createApplicationIfNotExist(String name, String description, Set<OnboardingMechanism> onboarding) {
         String applicationId = DomainUtil.slugifyId(name);
         String organizationId = requireOrganizationId();
-        return findById(applicationId)
+        return super.findById(applicationId)
                 .compose(application -> {
                     Future<Application> ret;
                     if(application != null){
@@ -229,7 +234,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
             primaryUiUrl = Future.succeededFuture();
         } else {
             // resolved only when it changes, so removing the primary UI's deployment never fails the application's other edits
-            primaryUiUrl = findById(entity.getId())
+            primaryUiUrl = super.findById(entity.getId())
                     .compose(stored -> stored != null && entity.getPrimaryUiId().equals(stored.getPrimaryUiId())
                             ? Future.succeededFuture(stored.getPrimaryUiUrl())
                             : publishedUiUrl(applicationKey, entity.getPrimaryUiId()));
@@ -253,7 +258,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     @Override
     public Future<List<OidcConfiguration>> getOidcConfigurations(String applicationId) {
         Validate.notNull(applicationId, "applicationId cannot be null");
-        return findById(applicationId)
+        return super.findById(applicationId)
                 .compose(application -> {
                     Validate.notNull(application, "Application not found: %s", applicationId);
                     List<String> ids = application.getOidcConfigurationIds();

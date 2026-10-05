@@ -329,7 +329,7 @@ public class DefaultPermissionService implements PermissionService {
     private Future<Void> requireSubject(Subject subject, String organizationId) {
         Future<?> ret;
         if (subject.kind() == SubjectKind.USER) {
-            ret = requireMember(subject.id(), organizationId);
+            ret = requireIdentity(subject.id(), organizationId);
         } else {
             ret = requireGroup(subject.id(), organizationId);
         }
@@ -354,11 +354,22 @@ public class DefaultPermissionService implements PermissionService {
         });
     }
 
+    // One of the organization's own identities, a member or a machine such as a deployment's runtime; an
+    // application's user is neither
+    private Future<ParticipantIdentity> requireIdentity(String id, String organizationId) {
+        return identities.findById(id).map(identity -> {
+            if (identity == null
+                    || !organizationId.equals(identity.getOrganizationId())
+                    || identity.getApplicationId() != null) {
+                throw new IllegalArgumentException("No member or machine of the organization has id " + id);
+            }
+            return identity;
+        });
+    }
+
     private Future<UserParticipantIdentity> requireMember(String userId, String organizationId) {
-        return identities.findById(userId).map(identity -> {
-            if (!(identity instanceof UserParticipantIdentity user)
-                    || !organizationId.equals(user.getOrganizationId())
-                    || user.getApplicationId() != null) {
+        return requireIdentity(userId, organizationId).map(identity -> {
+            if (!(identity instanceof UserParticipantIdentity user)) {
                 throw new IllegalArgumentException("No member of the organization has id " + userId);
             }
             return user;

@@ -92,6 +92,15 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         return visibleIds().compose(ids -> projectRepository.findAllForApplication(applicationId, requireOrganizationId(), ids, pageable));
     }
 
+    // Read before the engine is asked, so a missing id never leaves a denial in the engine's caches for the
+    // record's creation to outlive; the functions the gateway checked on the project read it with super.findById
+    @Override
+    public Future<Project> findById(String id) {
+        return super.findById(id).compose(project -> project == null
+                ? Future.succeededFuture(null)
+                : visibleIds().map(ids -> ids.contains(id) ? project : null));
+    }
+
     // What the caller may see: the projects it views, and those containing an entity definition it views, so a
     // grant on an entity definition makes its project reachable
     private Future<Set<String>> visibleIds() {
@@ -119,7 +128,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     @Override
     public Future<Project> createProjectIfNotExist(Project project) {
         validateAndDeriveId(project);
-        return findById(project.getId())
+        return super.findById(project.getId())
                 .compose(existing -> {
                     if (existing != null) {
                         return Future.succeededFuture(existing);
@@ -130,12 +139,12 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
 
     @Override
     public Future<Void> deleteById(String id) {
-        return findById(id).compose(project -> super.deleteById(id).compose(v -> uncontained(project)));
+        return super.findById(id).compose(project -> super.deleteById(id).compose(v -> uncontained(project)));
     }
 
     @Override
     public Future<Void> deleteByIdSync(String id) {
-        return findById(id).compose(project -> super.deleteByIdSync(id).compose(v -> uncontained(project)));
+        return super.findById(id).compose(project -> super.deleteByIdSync(id).compose(v -> uncontained(project)));
     }
 
     // The project's place in the graph, written once the record is, so a write that fails leaves a project
@@ -221,7 +230,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     @Override
     public Future<Project> retryRepoInitialization(String projectId) {
         Validate.notBlank(projectId, "projectId must not be blank");
-        return findById(projectId).compose(project -> {
+        return super.findById(projectId).compose(project -> {
             if (project == null) {
                 return Future.failedFuture(new IllegalArgumentException(
                         "Project for id " + projectId + " does not exist"));
@@ -240,7 +249,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         validateAndDeriveId(project);
         // Fail fast on a known duplicate before provisioning a repo; the atomic write
         // catches the race where another create lands between this check and it.
-        return findById(project.getId())
+        return super.findById(project.getId())
                 .compose(existing -> {
                     if (existing != null) {
                         return Future.failedFuture(new IllegalArgumentException(
@@ -261,6 +270,10 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         Validate.notNull(project.getName(), "Project name cannot be null");
         Validate.notNull(project.getApplicationId(), "Project applicationId cannot be null");
         DomainUtil.validateApplicationId(project.getApplicationId());
+        // the caller's organization is the only one it may create in
+        if (project.getOrganizationId() == null) {
+            project.setOrganizationId(requireOrganizationId());
+        }
         if (project.getId() == null) {
             project.setId(deriveId(project));
         }

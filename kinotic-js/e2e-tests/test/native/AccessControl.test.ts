@@ -89,7 +89,7 @@ describe('Kinotic JS', () => {
         const saved = await sallyKinotic.projects.save({...projectA, description: 'edited by Sally'})
         expect(saved.description).toBe('edited by Sally')
 
-        await expect(sallyKinotic.projects.findById(projectB.id!)).rejects.toThrow(/Not authorized/)
+        await expect(sallyKinotic.projects.findById(projectB.id!)).resolves.toBeNull()
         await expect(sallyKinotic.projects.save({...projectB, description: 'edited by Sally'})).rejects.toThrow(/Not authorized/)
         // an editor does not delete
         await expect(sallyKinotic.projects.deleteById(projectA.id!)).rejects.toThrow(/Not authorized/)

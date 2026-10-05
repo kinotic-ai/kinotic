@@ -23,6 +23,7 @@ import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.management.api.services.EntityDefinitionService;
+import org.kinotic.management.api.services.security.PermissionService;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
@@ -48,6 +49,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final DomainPersistenceProperties domainPersistenceProperties;
     private final RelationshipService relationships;
     private final AuthzStoreRepository stores;
+    private final PermissionService permissions;
 
     public DefaultEntityDefinitionService(ApplicationEventPublisher eventPublisher,
                                           CrudServiceTemplate crudServiceTemplate,
@@ -57,10 +59,12 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                           DomainPersistenceProperties domainPersistenceProperties,
                                           SecurityContext securityContext,
                                           RelationshipService relationships,
-                                          AuthzStoreRepository stores) {
+                                          AuthzStoreRepository stores,
+                                          PermissionService permissions) {
         super(entityDefinitionRepository, securityContext);
         this.relationships = relationships;
         this.stores = stores;
+        this.permissions = permissions;
         this.eventPublisher = eventPublisher;
         this.crudServiceTemplate = crudServiceTemplate;
         this.entityDefinitionConversionService = entityDefinitionConversionService;
@@ -168,7 +172,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     }
 
     private Future<Void> deleteAndEvict(String entityDefinitionId) {
-        return findById(entityDefinitionId)
+        return super.findById(entityDefinitionId)
                 .compose(entityDefinition -> {
 
                     if (entityDefinition == null) {
@@ -192,6 +196,17 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                 });
     }
 
+    // Read before the engine is asked, so a missing id never leaves a denial in the engine's caches for the
+    // record's creation to outlive; the functions the gateway checked on the definition read it with
+    // super.findById
+    @Override
+    public Future<EntityDefinition> findById(String id) {
+        return super.findById(id).compose(entityDefinition -> entityDefinition == null
+                ? Future.succeededFuture(null)
+                : permissions.listAccessible(EntityDefinitionService.RESOURCE_TYPE, AuthzUtil.CAN_VIEW)
+                             .map(ids -> ids.contains(id) ? entityDefinition : null));
+    }
+
     @WithSpan
     @Override
     public Future<Page<EntityDefinition>> findAllPublishedForApplication(@SpanAttribute("applicationId") String applicationId,
@@ -202,7 +217,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     @WithSpan
     @Override
     public Future<Void> publish(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
-        return findById(entityDefinitionId)
+        return super.findById(entityDefinitionId)
                 .compose(entityDefinition -> {
                     if (entityDefinition == null) {
                         return Future.failedFuture(
@@ -271,7 +286,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             return Future.failedFuture(e);
         }
 
-        return findById(entityDefinition.getId())
+        return super.findById(entityDefinition.getId())
                 .compose(existingEntityDefinition -> {
                     if (existingEntityDefinition == null) {
                         return Future.failedFuture(
@@ -354,7 +369,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     @WithSpan
     @Override
     public Future<Void> unPublish(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
-        return findById(entityDefinitionId)
+        return super.findById(entityDefinitionId)
                 .compose(entityDefinition -> {
                     if (entityDefinition == null) {
                         return Future.failedFuture(
