@@ -179,6 +179,12 @@ const pageRoutes: RouteRecordRaw[] = [
         props: true
       },
       {
+        name: 'application-users-access',
+        path: 'users/access',
+        component: () => import('@/pages/ApplicationUsersAccessPage.vue'),
+        props: true
+      },
+      {
         name: 'application-machines',
         path: 'machines',
         meta: { sidebar: applicationItem('Machines', Server, 60, 'Access') } as RouteMeta,
