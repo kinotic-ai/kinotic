@@ -13,8 +13,9 @@ import { Event } from './event/EventBus'
 import { EventConstants, type IEvent, type IEventBus } from './event/IEventBus'
 import type {IEventFactory, IServiceProxy, IServiceRegistry} from './IServiceRegistry'
 import type {ContextInterceptor, ServiceContext} from './ContextInterceptor'
-import { serviceContractOf } from './KinoticDecorators'
-import type { ServiceContract } from './ServiceContract'
+import type { ServiceDefinition } from '@kinotic-ai/idl'
+import { declaresAuthzResource, isAdvertised } from './KinoticDecorators'
+import type { ServiceDirectoryEntry } from './ServiceDirectoryEntry'
 
 /**
  * An implementation of a {@link IEventFactory} which uses JSON content
@@ -56,21 +57,95 @@ export class TextEventFactory implements IEventFactory {
 }
 
 /**
- * The default implementation of {@link IServiceRegistry}
+ * The platform service a runtime registers its application services with, in the zone an organization's
+ * runtimes reach.
  */
-/**
- * The platform service a runtime publishes the contracts of its checked services through, in the zone an
- * organization's runtimes reach.
- */
-const SERVICE_CONTRACT_SERVICE = 'app-api~org.kinotic.app.api.services.ServiceContractService'
+const SERVICE_DIRECTORY_SERVICE = 'app-api~org.kinotic.app.api.services.ServiceDirectoryService'
 // an application's zone is app.<organizationId>.<applicationId>, with the service's own labels after it
 const APPLICATION_ZONE = /^app\.[^.]+\.([^.]+)(\.|$)/
 
+// the definitions declared for the project's published services, by qualified name
+const declaredDefinitions = new Map<string, ServiceDefinition>()
+
+/**
+ * Declares the definitions of the project's published services, as `kinotic sync` generates them into the
+ * project's ServiceDefinitions module, so every registry registers each service in the platform's service
+ * directory with its definition when the service comes online. A definition declared again for a qualified
+ * name replaces the one held.
+ * @param definitions the generated definitions
+ */
+export function declareServiceDefinitions(definitions: ServiceDefinition[]): void {
+    for (const definition of definitions) {
+        declaredDefinitions.set(qualifiedNameOf(definition.namespace, definition.name), definition)
+    }
+}
+
+// The namespace and name joined with '.', omitting an absent namespace, as the identifier qualifies them
+function qualifiedNameOf(namespace: string | null | undefined, name: string): string {
+    return namespace ? `${namespace}.${name}` : name
+}
+
+// The names of the methods an instance serves: the same prototype walk the invocation supervisor makes
+function servedFunctions(serviceInstance: object): string[] {
+    const ret = new Set<string>()
+    let proto = Object.getPrototypeOf(serviceInstance)
+    while (proto && proto !== Object.prototype) {
+        for (const key of Object.getOwnPropertyNames(proto)) {
+            const descriptor = Object.getOwnPropertyDescriptor(proto, key)
+            if (typeof descriptor?.value === 'function' && key !== 'constructor') {
+                ret.add(key)
+            }
+        }
+        proto = Object.getPrototypeOf(proto)
+    }
+    return [...ret].sort()
+}
+
+/**
+ * The directory entry of a service registered in an application's zone: the definition the project declared
+ * for it, which names exactly the functions the instance serves, with what the registration adds. Null for a
+ * service in no application's zone, or one the project declared no definition for, which serves on its zone
+ * alone unless it declares a resource.
+ * @throws when the definition declares other functions than the instance serves, or the service declares a
+ *         resource and the project declares no definition for it
+ */
+function directoryEntryOf(serviceInstance: object, serviceIdentifier: ServiceIdentifier): ServiceDirectoryEntry | null {
+    let ret: ServiceDirectoryEntry | null = null
+    const application = serviceIdentifier.zone ? APPLICATION_ZONE.exec(serviceIdentifier.zone) : null
+    if (application) {
+        const qualifiedName = qualifiedNameOf(serviceIdentifier.namespace, serviceIdentifier.name)
+        const definition = declaredDefinitions.get(qualifiedName)
+        if (definition) {
+            const declared = definition.functions.map(f => f.name).sort()
+            const served = servedFunctions(serviceInstance)
+            if (declared.join() !== served.join()) {
+                throw new Error(`${qualifiedName} serves the functions [${served}] but its definition declares [${declared}];`
+                                + ' run kinotic sync and import the generated ServiceDefinitions module')
+            }
+            ret = {
+                // the group is what the zone matched on
+                applicationId: application[1] as string,
+                zone: serviceIdentifier.zone as string,
+                version: serviceIdentifier.version ?? null,
+                advertised: isAdvertised(serviceInstance),
+                serviceDefinition: definition
+            }
+        } else if (declaresAuthzResource(serviceInstance)) {
+            throw new Error(`${qualifiedName} declares a resource but the project declares no definition for it;`
+                            + ' run kinotic sync and import the generated ServiceDefinitions module')
+        }
+    }
+    return ret
+}
+
+/**
+ * The default implementation of {@link IServiceRegistry}
+ */
 export class ServiceRegistry implements IServiceRegistry {
     private _eventBus: IEventBus
     private supervisors: Map<string, ServiceInvocationSupervisor> = new Map()
-    // the contracts of the checked services registered, by CRI, published once the connection is up
-    private contracts: Map<string, ServiceContract> = new Map()
+    // the directory entries of the application services registered, by CRI, registered once the connection is up
+    private entries: Map<string, ServiceDirectoryEntry> = new Map()
     private contextInterceptor: ContextInterceptor<any> | null = null
     private debugLogger = debug('kinotic:serviceRegistry')
 
@@ -98,8 +173,8 @@ export class ServiceRegistry implements IServiceRegistry {
         const criString = serviceIdentifier.cri().raw()
         if (!this.supervisors.has(criString)) {
             this.debugLogger(`Registering service for CRI: ${criString}`)
-            // read before the supervisor starts, so a class whose contract cannot be built never serves
-            const contract = serviceContractOf(service, serviceIdentifier)
+            // resolved before the supervisor starts, so a service whose entry cannot be built never serves
+            const entry = directoryEntryOf(service, serviceIdentifier)
             const supervisor = new ServiceInvocationSupervisor(
                 serviceIdentifier,
                 service,
@@ -108,10 +183,10 @@ export class ServiceRegistry implements IServiceRegistry {
             )
             this.supervisors.set(criString, supervisor)
             supervisor.start()
-            if (contract) {
-                this.contracts.set(criString, contract)
+            if (entry) {
+                this.entries.set(criString, entry)
                 if (this.eventBus.isConnected()) {
-                    this.publishContract(contract).catch(error => this.debugLogger(`Failed to publish the contract of ${criString}`, error))
+                    this.registerEntry(entry).catch(error => this.debugLogger(`Failed to register ${criString} in the directory`, error))
                 }
             }
         }
@@ -124,36 +199,25 @@ export class ServiceRegistry implements IServiceRegistry {
             this.debugLogger(`Unregistering service for CRI: ${criString}`)
             supervisor.stop()
             this.supervisors.delete(criString)
-            this.contracts.delete(criString)
+            this.entries.delete(criString)
         }
     }
 
     /**
-     * Publishes the contract of every checked service registered so far to the platform's directory, so the
-     * platform checks requests to them; a contract the platform refuses fails the publication. The contract of
-     * a service registered later is published as it registers.
+     * Registers every application service registered so far in the platform's service directory, with the
+     * definition the project declared for it, so the directory lists the service and the platform checks
+     * requests to it; a service the platform refuses fails the registration. A service registered later is
+     * registered in the directory as it registers here.
      */
-    public async publishContracts(): Promise<void> {
-        for (const contract of this.contracts.values()) {
-            await this.publishContract(contract)
+    public async registerEntries(): Promise<void> {
+        for (const entry of this.entries.values()) {
+            await this.registerEntry(entry)
         }
     }
 
-    /**
-     * The contracts of the checked services registered, by the CRI each is registered under.
-     */
-    public registeredContracts(): ReadonlyMap<string, ServiceContract> {
-        return this.contracts
-    }
-
-    // A checked service is published in its application's zone, which names the application the contract
-    // registers with; a service in any other zone is the platform's own, whose contract the platform holds already
-    private async publishContract(contract: ServiceContract): Promise<void> {
-        const application = APPLICATION_ZONE.exec(contract.zone)
-        if (application) {
-            this.debugLogger(`Publishing the contract of ${contract.zone}~${contract.namespace}.${contract.name}`)
-            await this.serviceProxy(SERVICE_CONTRACT_SERVICE).invoke('register', [application[1], contract])
-        }
+    private async registerEntry(entry: ServiceDirectoryEntry): Promise<void> {
+        this.debugLogger(`Registering ${entry.zone}~${qualifiedNameOf(entry.serviceDefinition.namespace, entry.serviceDefinition.name)} in the directory`)
+        await this.serviceProxy(SERVICE_DIRECTORY_SERVICE).invoke('register', [entry])
     }
 
     public registerContextInterceptor<T extends ServiceContext>(interceptor: ContextInterceptor<T> | null): void {

@@ -1,4 +1,5 @@
 import {EntityCodeGenerationService} from '@/internal/EntityCodeGenerationService'
+import {ServiceDefinitionGenerationService} from '@/internal/ServiceDefinitionGenerationService'
 import {Command, Flags} from '@oclif/core'
 import {
     chdirToProjectRoot,
@@ -9,7 +10,7 @@ import {
 export class Generate extends Command {
     static aliases = ['gen']
 
-    static description = 'This will generate all Repository classes.'
+    static description = 'Generates the Repository classes and the ServiceDefinitions module.'
 
     static examples = [
         '$ kinotic generate',
@@ -37,7 +38,10 @@ export class Generate extends Command {
                                                                       kinoticProjectConfig.fileExtensionForImports,
                                                                       this)
 
-            await codeGenerationService.generateAllEntities(kinoticProjectConfig, flags.verbose, undefined, flags.force)
+        await codeGenerationService.generateAllEntities(kinoticProjectConfig, flags.verbose, undefined, flags.force)
+
+        await new ServiceDefinitionGenerationService(kinoticProjectConfig.applicationId, this)
+            .generateAll(kinoticProjectConfig, flags.verbose)
 
         this.log(`Code Generation Complete For application: ${kinoticProjectConfig.applicationId}`)
     }

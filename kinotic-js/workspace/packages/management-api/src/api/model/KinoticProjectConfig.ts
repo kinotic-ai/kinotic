@@ -65,7 +65,15 @@ export class KinoticProjectConfig {
     public entitiesPaths!: (string | EntitiesPathConfig)[]
 
     /**
-     * The default path to where generated files will be placed when entitiesPaths contains plain strings.
+     * The paths to search for classes decorated with @Publish, the services the project serves. `kinotic sync`
+     * writes their definitions to the ServiceDefinitions module in {@link generatedPath}, which the project
+     * imports so each service registers in the platform's service directory as it comes online.
+     */
+    public servicesPaths?: string[]
+
+    /**
+     * The default path to where generated files will be placed when entitiesPaths contains plain strings, and
+     * where the ServiceDefinitions module of {@link servicesPaths} is written.
      * Ignored for entitiesPaths entries that use {@link EntitiesPathConfig}.
      */
     public generatedPath?: string

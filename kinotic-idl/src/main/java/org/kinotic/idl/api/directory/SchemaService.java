@@ -5,6 +5,8 @@ package org.kinotic.idl.api.directory;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
+import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
 
 import java.util.Collection;
 
@@ -48,17 +50,20 @@ public interface SchemaService {
     NamespaceDefinition createForServices(Collection<ServiceDeclaration> services);
 
     /**
-     * Creates the {@link ServiceDefinition} of a contract a runtime declares, as a TypeScript service's runtime
-     * does: one function per declared function, its parameters named as declared and typed as anything, since
-     * the runtime declares no types, the service's resource decorator, and each function's check derived from
-     * its name, its parameters and what it declares, exactly as a {@code @Publish} interface's is.
+     * Derives the checks of a service definition a runtime declares, as a TypeScript service's generated
+     * definition is: for a definition carrying an {@link AuthzResourceC3Decorator}, the resource decorator is
+     * resolved and each function's {@link AuthzCheckC3Decorator} is derived from its name, its parameters and
+     * the check it declares, exactly as a {@code @Publish} interface's is, a function declared zone-only
+     * carrying none; a definition declaring no resource is returned as declared. The given definition is left
+     * as it is.
      *
-     * @param contract the declared contract
+     * @param definition the declared definition
      * @return the definition the directory stores for the service
-     * @throws IllegalStateException    when the contract declares no resource, declares a function twice, or an
-     *                                  authorization declaration does not resolve
-     * @throws IllegalArgumentException when the contract names no namespace or no name
+     * @throws IllegalStateException    when a function of a resource service derives no check and declares
+     *                                  none, a function declares a check on a service declaring no resource, or
+     *                                  an authorization declaration does not resolve
+     * @throws IllegalArgumentException when the definition names no namespace or no name
      */
-    ServiceDefinition createForContract(ServiceContract contract);
+    ServiceDefinition deriveChecks(ServiceDefinition definition);
 
 }

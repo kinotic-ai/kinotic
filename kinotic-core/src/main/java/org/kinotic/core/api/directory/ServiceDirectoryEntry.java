@@ -11,11 +11,11 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * A directory record for one registered service contract. Scope is structural: {@link #organizationId} and
+ * A directory record for one registered service. Scope is structural: {@link #organizationId} and
  * {@link #applicationId} both null means a system (OS) service, mirroring the participant model. An
  * {@link #applicationId} is never set without an {@link #organizationId}.
  * <p>
- * Contract fields are written when the service is published to the directory; {@link #online} and {@link #lastStatusChange} are maintained
+ * The service's fields are written when the service is registered in the directory; {@link #online} and {@link #lastStatusChange} are maintained
  * separately by the liveness owner and must be left untouched by entry upserts.
  */
 @Getter
@@ -64,7 +64,7 @@ public class ServiceDirectoryEntry implements Identifiable<String> {
     private String description;
 
     /**
-     * The C3 contract for the service, decorators included.
+     * The service's C3 definition, decorators included.
      */
     private ServiceDefinition serviceDefinition;
 

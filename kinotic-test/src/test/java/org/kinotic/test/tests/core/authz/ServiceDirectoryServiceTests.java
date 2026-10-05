@@ -2,6 +2,7 @@ package org.kinotic.test.tests.core.authz;
 
 import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
+import org.kinotic.app.api.services.ServiceDirectoryService;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
@@ -16,14 +17,14 @@ import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
-import org.kinotic.app.api.services.ServiceContractService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.idl.api.directory.AuthzCheckDeclaration;
-import org.kinotic.idl.api.directory.AuthzResourceDeclaration;
-import org.kinotic.idl.api.directory.FunctionContract;
-import org.kinotic.idl.api.directory.ServiceContract;
+import org.kinotic.idl.api.schema.AnyC3Type;
+import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
+import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzRoleDeclaration;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.ApplicationService;
@@ -49,24 +50,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies an application's own service is checked as the platform's are: a runtime of the organization is
- * refused the contract service until granted the runtime role on the application, then publishes a declared
- * contract in the application's zone, which the directory stores for the application with its checks derived;
+ * refused the directory service until granted the runtime role on the application, then registers a declared
+ * service in the application's zone, which the directory stores for the application with its checks derived;
  * the application's store reconciles to a model carrying the service's type and roles; and an end user is
  * refused the service until granted the type's viewer role on its tenant, admitted after, and refused the
- * function needing the declared permission until granted the declared role. A contract outside the
- * application's zone, one for an application the organization has none of, and one that does not convert are
- * refused.
+ * function needing the declared permission until granted the declared role. A service outside the
+ * application's zone, one of an application the organization has none of, and one whose definition does not
+ * derive are refused.
  */
 @SpringBootTest
-public class ServiceContractTests extends KinoticTestBase {
+public class ServiceDirectoryServiceTests extends KinoticTestBase {
 
-    private static final String CONTRACT_SERVICE = DomainUtil.APP_API_ZONE + "~org.kinotic.app.api.services.ServiceContractService";
+    private static final String DIRECTORY_SERVICE = DomainUtil.APP_API_ZONE + "~org.kinotic.app.api.services.ServiceDirectoryService";
     private static final String ZONE = DomainUtil.applicationZone(TEST_ORG_ID, TEST_APP_ID);
     private static final String NAMESPACE = "com.acme.reports";
     private static final String VERSION = "1.0.0";
 
     @Autowired
-    private ServiceContractService contracts;
+    private ServiceDirectoryService directoryService;
 
     @Autowired
     private ApplicationAccessService access;
@@ -84,35 +85,37 @@ public class ServiceContractTests extends KinoticTestBase {
     private ServiceDirectory serviceDirectory;
 
     @Test
-    public void aRuntimePublishesAContractTheStoreReconcilesToAndTheGatewayChecksAgainst() throws Exception {
+    public void aRuntimeRegistersAServiceTheStoreReconcilesToAndTheGatewayChecksAgainst() throws Exception {
         await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(TEST_APP_ID, "Sample application", null)));
         MachineParticipantIdentity runtime = runtime();
         Participant runtimeCaller = machine(runtime.getId());
-        // a type of its own per run, so the store is seen taking the contract up
+        // a type of its own per run, so the store is seen taking the service up
         String type = "report" + suffix();
         String name = "ReportService" + suffix();
         String service = ZONE + "~" + NAMESPACE + "." + name;
-        ServiceContract contract = contract(name, type, ZONE);
+        ServiceDirectoryEntry entry = entry(TEST_APP_ID, ZONE, reports(name, type));
 
         // the gateway refuses a runtime the application has not granted the role to
-        assertRefused(CONTRACT_SERVICE, "register", runtimeCaller, List.of(TEST_APP_ID, contract),
-                      AuthzUtil.permissionName(AuthzUtil.APPLICATION_TYPE, ServiceContractService.CAN_PUBLISH_SERVICES) + " on application:" + TEST_APP_ID);
+        assertRefused(DIRECTORY_SERVICE, "register", runtimeCaller, List.of(entry),
+                      AuthzUtil.permissionName(AuthzUtil.APPLICATION_TYPE, ServiceDirectoryService.CAN_REGISTER_SERVICES) + " on application:" + TEST_APP_ID);
         await(relationships.bind(AuthzStoreService.PLATFORM, AuthzUtil.APPLICATION_RUNTIME_ROLE,
                                  AuthzUtil.object(AuthzUtil.USER_TYPE, runtime.getId()), AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, TEST_APP_ID)));
-        assertTrue(awaitUntil(() -> admitted(CONTRACT_SERVICE, "register", runtimeCaller, List.of(TEST_APP_ID, contract))), "the runtime was never admitted");
+        assertTrue(awaitUntil(() -> admitted(DIRECTORY_SERVICE, "register", runtimeCaller, List.of(entry))), "the runtime was never admitted");
 
-        await(runAs(runtimeCaller, () -> contracts.register(TEST_APP_ID, contract)));
+        await(runAs(runtimeCaller, () -> directoryService.register(entry)));
 
         // stored for the application, with the checks derived as a Java interface's would be
-        ServiceDirectoryEntry entry = await(serviceDirectory.findEntry(service));
-        assertNotNull(entry, "the contract never reached the directory");
-        assertEquals(TEST_ORG_ID, entry.getOrganizationId());
-        assertEquals(TEST_APP_ID, entry.getApplicationId());
-        assertEquals(ZONE, entry.getZone());
-        AuthzCheckC3Decorator generate = entry.getServiceDefinition().getFunctions().stream()
-                                             .filter(function -> function.getName().equals("generate"))
-                                             .findFirst().orElseThrow()
-                                             .findDecorator(AuthzCheckC3Decorator.class);
+        ServiceDirectoryEntry stored = await(serviceDirectory.findEntry(service));
+        assertNotNull(stored, "the service never reached the directory");
+        assertEquals(TEST_ORG_ID, stored.getOrganizationId());
+        assertEquals(TEST_APP_ID, stored.getApplicationId());
+        assertEquals(ZONE, stored.getZone());
+        assertEquals(VERSION, stored.getVersion());
+        assertTrue(stored.isAdvertised());
+        AuthzCheckC3Decorator generate = stored.getServiceDefinition().getFunctions().stream()
+                                              .filter(function -> function.getName().equals("generate"))
+                                              .findFirst().orElseThrow()
+                                              .findDecorator(AuthzCheckC3Decorator.class);
         assertEquals("tenant:{@tenantId}", generate.getResource() + ":" + generate.getObjectId());
         assertEquals(type + "_can_generate", generate.getPermissionResource() + "_" + generate.getPermission());
         // the application's store takes the service up: a viewer of its type, and the role it declares
@@ -138,22 +141,45 @@ public class ServiceContractTests extends KinoticTestBase {
         // a zone-only function passes on the zone
         authorize(service, "ping", caller, List.of());
 
-        // what the contract service refuses
-        assertInstanceOf(IllegalArgumentException.class, failure(runtimeCaller, () -> contracts.register(TEST_APP_ID, contract(name, type, "app.other.crm"))));
-        assertInstanceOf(IllegalArgumentException.class, failure(runtimeCaller, () -> contracts.register("no-such-app", contract(name, type, DomainUtil.applicationZone(TEST_ORG_ID, "no-such-app")))));
-        ServiceContract unconvertible = new ServiceContract(NAMESPACE, name, VERSION, ZONE, contract.resource(),
-                                                            List.of(new FunctionContract("render", List.of("reportId"), null)));
-        assertInstanceOf(IllegalStateException.class, failure(runtimeCaller, () -> contracts.register(TEST_APP_ID, unconvertible)));
+        // what the directory service refuses
+        assertInstanceOf(IllegalArgumentException.class, failure(runtimeCaller, () -> directoryService.register(entry(TEST_APP_ID, "app.other.crm", reports(name, type)))));
+        assertInstanceOf(IllegalArgumentException.class, failure(runtimeCaller, () -> directoryService.register(entry("no-such-app", DomainUtil.applicationZone(TEST_ORG_ID, "no-such-app"), reports(name, type)))));
+        ServiceDefinition underived = reports(name, type);
+        underived.addFunction(function("render", null, "reportId"));
+        assertInstanceOf(IllegalStateException.class, failure(runtimeCaller, () -> directoryService.register(entry(TEST_APP_ID, ZONE, underived))));
     }
 
-    private static ServiceContract contract(String name, String type, String zone) {
-        AuthzResourceDeclaration resource = new AuthzResourceDeclaration(type, AuthzUtil.TENANT_TYPE, null, null,
-                                                                         List.of(new AuthzRoleDeclaration().setId(type + ".generator").setPermissions(List.of("can_generate"))));
-        return new ServiceContract(NAMESPACE, name, VERSION, zone, resource,
-                                   List.of(new FunctionContract("findReports", List.of(), null),
-                                           new FunctionContract("generate", List.of("name"),
-                                                                new AuthzCheckDeclaration("can_generate", AuthzUtil.TENANT_TYPE, null, null, false, false)),
-                                           new FunctionContract("ping", List.of(), new AuthzCheckDeclaration(null, null, null, null, true, false))));
+    private static ServiceDirectoryEntry entry(String applicationId, String zone, ServiceDefinition definition) {
+        return new ServiceDirectoryEntry()
+                .setApplicationId(applicationId)
+                .setZone(zone)
+                .setVersion(VERSION)
+                .setAdvertised(true)
+                .setServiceDefinition(definition);
+    }
+
+    private static ServiceDefinition reports(String name, String type) {
+        AuthzResourceC3Decorator resource = new AuthzResourceC3Decorator()
+                .setResourceType(type)
+                .setParent(AuthzUtil.TENANT_TYPE)
+                .setRoles(List.of(new AuthzRoleDeclaration().setId(type + ".generator").setPermissions(List.of("can_generate"))));
+        ServiceDefinition ret = new ServiceDefinition().setNamespace(NAMESPACE).setName(name);
+        ret.setDecorators(List.of(resource));
+        ret.addFunction(function("findReports", null));
+        ret.addFunction(function("generate", new AuthzCheckC3Decorator().setPermission("can_generate").setResource(AuthzUtil.TENANT_TYPE), "name"));
+        ret.addFunction(function("ping", new AuthzCheckC3Decorator().setZoneOnly(true)));
+        return ret;
+    }
+
+    private static FunctionDefinition function(String name, AuthzCheckC3Decorator check, String... parameters) {
+        FunctionDefinition ret = new FunctionDefinition().setName(name).setReturnType(new AnyC3Type());
+        for (String parameter : parameters) {
+            ret.addParameter(parameter, new StringC3Type());
+        }
+        if (check != null) {
+            ret.setDecorators(List.of(check));
+        }
+        return ret;
     }
 
     private Set<String> roleIds() throws Exception {
@@ -174,12 +200,12 @@ public class ServiceContractTests extends KinoticTestBase {
 
     private UserParticipantIdentity endUser(String tenantId) throws Exception {
         UserParticipantIdentity user = new UserParticipantIdentity();
-        user.setEmail("contract-user-" + suffix() + "@kinotic.test");
-        user.setDisplayName("Contract User");
+        user.setEmail("directory-user-" + suffix() + "@kinotic.test");
+        user.setDisplayName("Directory User");
         user.setOrganizationId(TEST_ORG_ID);
         user.setApplicationId(TEST_APP_ID);
         user.setTenantId(tenantId);
-        return await(identityService.createUser(user, "Contract-1"));
+        return await(identityService.createUser(user, "Directory-1"));
     }
 
     private static Participant machine(String id) {

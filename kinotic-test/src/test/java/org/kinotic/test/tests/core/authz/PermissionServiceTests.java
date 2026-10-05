@@ -90,7 +90,7 @@ public class PermissionServiceTests extends KinoticTestBase {
     // every grant below binds on
     @BeforeEach
     public void awaitPlatformModel() throws Exception {
-        AuthzModel model = modelGenerator.platformModel(await(serviceDirectory.findSystemContracts()));
+        AuthzModel model = modelGenerator.platformModel(await(serviceDirectory.findSystemDefinitions()));
         assertTrue(awaitUntil(() -> reconciledTo(model.hash())), "the platform store never reconciled to the directory's model");
         modelId = await(storeService.modelId(AuthzStoreService.PLATFORM));
     }

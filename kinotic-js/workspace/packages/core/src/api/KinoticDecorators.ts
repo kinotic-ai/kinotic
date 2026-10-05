@@ -1,6 +1,5 @@
 import { Kinotic } from '@/api/Kinotic'
 
-import type {AuthzCheckDeclaration, AuthzResourceDeclaration, FunctionContract, ServiceContract} from '@/api/ServiceContract'
 import { ServiceIdentifier } from '@/api/ServiceIdentifier'
 import { validateZone } from '@/api/ZoneUtil'
 
@@ -16,8 +15,52 @@ const versionRegistry = new WeakMap<Function, string>()
 const zonesRegistry = new WeakMap<Function, string>()
 const advertisedRegistry = new WeakMap<Function, boolean>()
 const contextMarkedFunctions = new WeakSet<Function>()
-const authzResourceRegistry = new WeakMap<Function, AuthzResourceDeclaration>()
-const authzCheckRegistry = new WeakMap<Function, AuthzCheckDeclaration>()
+const authzResourceClasses = new WeakSet<Function>()
+
+/**
+ * A role a service declares for its resource type, named `<type>.<level>`, bundling permissions of the type.
+ */
+export interface AuthzRoleDeclaration {
+    /** The role's id, `<type>.<level>` with a lowercase identifier as the level. */
+    id: string
+    /** The short names of the type's permissions the role bundles, such as `can_generate`. */
+    permissions: string[]
+}
+
+/**
+ * What a service declares about the resource its functions act on, as {@link AuthzResource} declares it.
+ */
+export interface AuthzResourceDeclaration {
+    /** The resource type, a lowercase identifier such as `report`. */
+    value: string
+    /** The type the resource sits under, such as `tenant` or `application`; absent for a root type. */
+    parent?: string | null
+    /** The id template every function is checked on, such as `{@applicationId}`, when the service acts on one object. */
+    objectId?: string | null
+    /** The permission every function of the service needs, when they all need the same one. */
+    permission?: string | null
+    /** The roles the service declares for its type. */
+    roles?: AuthzRoleDeclaration[] | null
+}
+
+/**
+ * What a function declares about its check, as {@link AuthzCheck} declares it; whatever is left out is derived
+ * from the function's name and parameters.
+ */
+export interface AuthzCheckDeclaration {
+    /** The short permission name, such as `can_generate`. */
+    permission?: string | null
+    /** The type of the object the check is made on, when it is not the service's own. */
+    resource?: string | null
+    /** The id template of the object, over the function's parameters and the caller's scope, such as `{reportId}`. */
+    objectId?: string | null
+    /** Short names of permissions this one implies. */
+    implies?: string[] | null
+    /** True for a function any caller the zone admits may call, which carries no check. */
+    zoneOnly?: boolean
+    /** True for a check that must answer from the stored relationships rather than the engine's caches. */
+    consistent?: boolean
+}
 
 // A Version above @Publish stamps the replacement class while one below it stamps the
 // original, so the lookup walks the constructor prototype chain to find either.
@@ -176,131 +219,46 @@ function resolveEffectiveZone(constructor: Function): string | null {
 }
 
 /**
- * Declares the resource a service's functions act on, which puts the service's contract in the platform's
- * directory when its instance registers, so every request to it is checked. The check of each function is
- * derived by the platform from the function's name and parameters, as it is for the platform's own services:
- * a `find`, `get`, `count`, `search` or `list` function needs `can_view`, a `save`, `update` or `set` function
- * `can_edit`, a `delete` or `remove` function `can_delete`, and a `create` function `can_edit` on the parent,
- * each on the object a parameter named `id` or `<type>Id` names, or on the parent when none does. A function
- * the derivation cannot read declares its check with {@link AuthzCheck}.
+ * Declares the resource a service's functions act on. `kinotic sync` reads the declaration from the class's
+ * source into the service's definition, which the runtime registers in the platform's service directory when
+ * the service comes online, so every request to the service is checked. The check of each function is derived
+ * by the platform from the function's name and parameters, as it is for the platform's own services: a `find`,
+ * `get`, `count`, `search` or `list` function needs `can_view`, a `save`, `update` or `set` function `can_edit`,
+ * a `delete` or `remove` function `can_delete`, and a `create` function `can_edit` on the parent, each on the
+ * object a parameter named `id` or `<type>Id` names, or on the parent when none does. A function the derivation
+ * cannot read declares its check with {@link AuthzCheck}. A runtime holding no definition for a service
+ * declaring a resource refuses to serve it.
  * @param declaration the resource type, or the type with its parent, object, permission and roles
  */
 export function AuthzResource(declaration: AuthzResourceDeclaration | string) {
-    const resource: AuthzResourceDeclaration = typeof declaration === 'string' ? {value: declaration} : declaration
-    if (!resource.value) {
-        throw new Error('AuthzResource must name the resource type')
-    }
+    void declaration
     return function (value: Function, _context: ClassDecoratorContext<any>): void {
-        authzResourceRegistry.set(value, resource)
+        authzResourceClasses.add(value)
     }
 }
 
 /**
- * Declares the check of a function of an {@link AuthzResource} service: a permission of its own, such as
- * `can_generate`, another object than the derived one, the permissions it implies, a consistent answer, or
- * that any caller the zone admits may call it (`zoneOnly`).
+ * Declares the check of a function of an {@link AuthzResource} service, which `kinotic sync` reads into the
+ * service's definition: a permission of its own, such as `can_generate`, another object than the derived one,
+ * the permissions it implies, a consistent answer, or that any caller the zone admits may call it (`zoneOnly`).
  * @param declaration what the derivation cannot read from the function's name and parameters
  */
 export function AuthzCheck(declaration: AuthzCheckDeclaration) {
-    return function (value: Function, _context: ClassMethodDecoratorContext): void {
-        authzCheckRegistry.set(value, declaration)
+    void declaration
+    return function (_value: Function, _context: ClassMethodDecoratorContext): void {
     }
 }
 
 /**
- * The contract of a service instance registered under the identifier, or null for a class declaring no
- * {@link AuthzResource}: its functions are the methods of its prototype chain, each with the names of the
- * parameters a request carries, read from the method's source, less the context a {@link Context} method
- * takes last. A runtime whose build renames parameters publishes names a check's template cannot reference,
- * which the platform refuses at registration.
- * @param serviceInstance the registered instance
- * @param serviceIdentifier how it is addressed, which the contract names
+ * Returns whether the given service instance's class, or a class it extends, declares an {@link AuthzResource}.
+ * @param serviceInstance the service instance to inspect
  */
-export function serviceContractOf(serviceInstance: object, serviceIdentifier: ServiceIdentifier): ServiceContract | null {
-    const resource = findInConstructorChain(authzResourceRegistry, serviceInstance.constructor)
-    let ret: ServiceContract | null = null
-    if (resource) {
-        if (!serviceIdentifier.zone) {
-            throw new Error(`${serviceIdentifier.qualifiedName()} declares a resource but no zone; a checked service is addressed in a zone`)
-        }
-        const functions: FunctionContract[] = []
-        const seen = new Set<string>()
-        // the same walk the invocation supervisor makes, so the contract carries exactly the functions served
-        let proto = Object.getPrototypeOf(serviceInstance)
-        while (proto && proto !== Object.prototype) {
-            for (const key of Object.getOwnPropertyNames(proto)) {
-                const descriptor = Object.getOwnPropertyDescriptor(proto, key)
-                if (typeof descriptor?.value === 'function' && key !== 'constructor' && !seen.has(key)) {
-                    seen.add(key)
-                    const method: Function = descriptor.value
-                    const parameters = parameterNames(method)
-                    if (contextMarkedFunctions.has(method)) {
-                        parameters.pop()
-                    }
-                    functions.push({name: key, parameters, check: authzCheckRegistry.get(method) ?? null})
-                }
-            }
-            proto = Object.getPrototypeOf(proto)
-        }
-        ret = {
-            namespace: serviceIdentifier.namespace,
-            name: serviceIdentifier.name,
-            version: serviceIdentifier.version ?? null,
-            zone: serviceIdentifier.zone,
-            resource,
-            functions
-        }
-    }
-    return ret
-}
-
-// The names of a function's parameters in order, from the parameter list of its source: a parameter with a
-// default keeps its name, a rest parameter its name without the dots, and a destructured one, which has no
-// name, is named for its position
-function parameterNames(method: Function): string[] {
-    const source = method.toString().replace(/\/\*[\s\S]*?\*\//g, '')
-    let depth = 0
-    let start = -1
-    let end = -1
-    for (let i = 0; i < source.length && end < 0; i++) {
-        const c = source[i]
-        if (c === '(') {
-            if (depth === 0 && start < 0) {
-                start = i + 1
-            }
-            depth++
-        } else if (c === ')') {
-            depth--
-            if (depth === 0 && start >= 0) {
-                end = i
-            }
-        }
-    }
-    const ret: string[] = []
-    if (start >= 0 && end >= 0) {
-        let nested = 0
-        let current = ''
-        const parts: string[] = []
-        for (const c of source.substring(start, end)) {
-            if ('([{'.includes(c)) {
-                nested++
-            } else if (')]}'.includes(c)) {
-                nested--
-            }
-            if (c === ',' && nested === 0) {
-                parts.push(current)
-                current = ''
-            } else {
-                current += c
-            }
-        }
-        parts.push(current)
-        parts.map(part => (part.split('=')[0] ?? '').trim())
-             .filter(part => part.length > 0)
-             .forEach((part, index) => {
-                 const name = part.replace(/^\.\.\./, '')
-                 ret.push(/^[A-Za-z_$][\w$]*$/.test(name) ? name : `arg${index}`)
-             })
+export function declaresAuthzResource(serviceInstance: object): boolean {
+    let ret = false
+    let current: Function | null = serviceInstance.constructor
+    while (current && !ret) {
+        ret = authzResourceClasses.has(current)
+        current = Object.getPrototypeOf(current)
     }
     return ret
 }

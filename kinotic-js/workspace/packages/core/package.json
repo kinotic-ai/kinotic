@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/core",
-  "version": "5.0.0-beta.19",
+  "version": "5.0.0-beta.20",
   "type": "module",
   "files": [
     "dist"
@@ -69,6 +69,7 @@
     "vitest": "^4.1.4"
   },
   "dependencies": {
+    "@kinotic-ai/idl": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/semantic-conventions": "^1.40.0",
     "@stomp/rx-stomp": "^2.4.0",

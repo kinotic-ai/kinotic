@@ -11,6 +11,7 @@ import {Command, Flags} from '@oclif/core'
 import chalk from 'chalk'
 import {EntityCodeGenerationService} from '@/internal/EntityCodeGenerationService'
 import {ProjectMigrationService} from '@/internal/ProjectMigrationService'
+import {ServiceDefinitionGenerationService} from '@/internal/ServiceDefinitionGenerationService'
 import {resolveServer} from '@/internal/state/Environment'
 import {CliAuthenticator} from '@/internal/CliAuthenticator'
 
@@ -92,6 +93,10 @@ export class Synchronize extends Command {
                                          }
                                      },
                                      flags.force)
+
+            // the services' definitions reach the directory from the runtime, as each service comes online
+            await new ServiceDefinitionGenerationService(kinoticProjectConfig.applicationId, this)
+                .generateAll(kinoticProjectConfig, flags.verbose || flags.dryRun)
 
             // Apply migrations after entity synchronization
             if (!flags.dryRun) {

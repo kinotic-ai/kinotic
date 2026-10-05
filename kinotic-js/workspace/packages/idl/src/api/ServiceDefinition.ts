@@ -24,10 +24,9 @@ export class ServiceDefinition extends AbstractDefinition implements HasQualifie
     }
 
     /**
-     * This defines {@link FunctionDefinition}'s for this {@link ServiceDefinition}
-     * The key is the function name and the value is the schema that defines the function
+     * The {@link FunctionDefinition}s of this {@link ServiceDefinition}, in declaration order; no two share a name.
      */
-    public functions: Set<FunctionDefinition> = new Set<FunctionDefinition>()
+    public functions: FunctionDefinition[] = []
 
     /**
      * Stores the given value in the functions definitions for this schema
@@ -36,10 +35,10 @@ export class ServiceDefinition extends AbstractDefinition implements HasQualifie
      * @return this
      */
     public addFunction(func: FunctionDefinition): ServiceDefinition {
-        if(this.functions.has(func)){
+        if(this.functions.some(existing => existing.name === func.name)){
             throw new Error(`ServiceDefinition already contains function for name ${func.name}`)
         }
-        this.functions.add(func)
+        this.functions.push(func)
         return this
     }
 

@@ -20,7 +20,7 @@ import java.util.List;
  * Gives an application its authorization store: the store in the engine, running the kernel model, the
  * platform's tenant services included, with its roles so the application's users and tenants can be placed in
  * it and granted on at once, and the store's record, which the reconciler keeps in step with the application's
- * entity definitions and contracts from then on. Provisioning an application that has its store is a no-op.
+ * entity definitions and registered services from then on. Provisioning an application that has its store is a no-op.
  */
 @Slf4j
 @Component
@@ -34,7 +34,7 @@ public class ApplicationStoreProvisioner {
     private final ServiceDirectory directory;
 
     public Future<Void> provision(Application application) {
-        return directory.findSystemContracts()
+        return directory.findSystemDefinitions()
                      .map(platform -> generator.applicationModel(platform, List.of(), List.of()))
                      .compose(kernel -> provision(application, kernel));
     }
