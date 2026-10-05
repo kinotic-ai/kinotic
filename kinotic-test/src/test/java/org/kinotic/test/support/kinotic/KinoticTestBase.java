@@ -7,6 +7,11 @@ import io.vertx.core.Vertx;
 import org.junit.jupiter.api.BeforeEach;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.directory.ServiceDirectoryEntry;
+import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityContext;
@@ -15,18 +20,27 @@ import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
+import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
+import org.kinotic.domain.api.model.security.participant.SystemParticipant;
+import org.kinotic.domain.api.services.security.RequestAuthorizer;
 import org.kinotic.test.support.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
+import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -77,6 +91,15 @@ public abstract class KinoticTestBase {
 
     @Autowired
     private RelationshipService relationshipService;
+
+    @Autowired
+    private RequestAuthorizer requestAuthorizer;
+
+    @Autowired
+    private ServiceDirectory serviceDirectory;
+
+    @Autowired
+    private JsonMapper jsonMapper;
 
     /**
      * Makes {@link #TEST_ORGANIZATION_PARTICIPANT} the administrator of {@link #TEST_ORG_ID} in the platform
@@ -161,6 +184,85 @@ public abstract class KinoticTestBase {
             }
         });
         return promise.future();
+    }
+
+    /**
+     * Authorizes a request to a service's function as the gateway does when the caller sends it, with the
+     * arguments in order as the JSON body.
+     *
+     * @param service   the service's directory entry id, its zone and qualified name
+     * @param function  the function requested
+     * @param caller    the participant making the request
+     * @param arguments the function's arguments in order
+     * @throws ExecutionException caused by an {@link AuthorizationException} when the caller is refused
+     */
+    protected void authorize(String service, String function, Participant caller, Object arguments) throws Exception {
+        authorize(service, function, caller, EventConstants.CONTENT_TYPE_JSON, arguments);
+    }
+
+    /**
+     * Authorizes a request as {@link #authorize(String, String, Participant, Object)} does, with a body of the
+     * given content type: the arguments in order for {@link EventConstants#CONTENT_TYPE_JSON}, by parameter name
+     * for {@link EventConstants#CONTENT_TYPE_NAMED_JSON}.
+     */
+    protected void authorize(String service, String function, Participant caller, String contentType, Object arguments) throws Exception {
+        requestAuthorizer.authorize(cri(service, function, caller), caller, contentType,
+                                    jsonMapper.writeValueAsString(arguments).getBytes(StandardCharsets.UTF_8))
+                         .toCompletionStage().toCompletableFuture().get(30, TimeUnit.SECONDS);
+    }
+
+    /**
+     * @return whether {@link #authorize(String, String, Participant, Object)} admits the request; a request
+     *         failing for any reason but a refusal fails the test
+     */
+    protected boolean admitted(String service, String function, Participant caller, Object arguments) throws Exception {
+        boolean ret;
+        try {
+            authorize(service, function, caller, arguments);
+            ret = true;
+        } catch (ExecutionException refused) {
+            assertInstanceOf(AuthorizationException.class, refused.getCause());
+            ret = false;
+        }
+        return ret;
+    }
+
+    /**
+     * Asserts {@link #authorize(String, String, Participant, Object)} refuses the request with a message
+     * containing {@code naming}, the permission or object the refusal names.
+     */
+    protected void assertRefused(String service, String function, Participant caller, Object arguments, String naming) throws Exception {
+        assertRefused(service, function, caller, EventConstants.CONTENT_TYPE_JSON, arguments, naming);
+    }
+
+    /**
+     * Asserts a refusal as {@link #assertRefused(String, String, Participant, Object, String)} does, of a
+     * request whose body has the given content type.
+     */
+    protected void assertRefused(String service, String function, Participant caller, String contentType, Object arguments, String naming) throws Exception {
+        ExecutionException failure = assertThrows(ExecutionException.class, () -> authorize(service, function, caller, contentType, arguments));
+        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
+        assertTrue(refused.getMessage().contains(naming), refused.getMessage());
+    }
+
+    /**
+     * The destination of a request to a service's function at the version the directory holds for the service,
+     * addressed in the caller's scope: an {@link ApplicationParticipant} addresses its application, an
+     * {@link OrganizationParticipant} its organization, and a {@link SystemParticipant} the service unscoped.
+     *
+     * @param service  the service's directory entry id, its zone and qualified name
+     * @param function the function requested
+     * @param caller   the participant making the request
+     */
+    protected CRI cri(String service, String function, Participant caller) throws Exception {
+        ServiceDirectoryEntry entry = serviceDirectory.findEntry(service).toCompletionStage().toCompletableFuture().get(30, TimeUnit.SECONDS);
+        assertNotNull(entry, "the directory holds no contract for " + service);
+        String scope = switch ((ScopedParticipant) caller) {
+            case ApplicationParticipant application -> application.getApplicationId();
+            case OrganizationParticipant organization -> organization.getOrganizationId();
+            case SystemParticipant _ -> null;
+        };
+        return CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, scope, service, "/" + function, entry.getVersion());
     }
 
     /**

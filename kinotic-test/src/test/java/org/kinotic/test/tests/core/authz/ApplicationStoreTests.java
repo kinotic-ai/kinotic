@@ -11,11 +11,6 @@ import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectKind;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
-import org.kinotic.core.api.directory.ServiceDirectory;
-import org.kinotic.core.api.directory.ServiceDirectoryEntry;
-import org.kinotic.core.api.event.CRI;
-import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.AuthzStore;
@@ -23,7 +18,6 @@ import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
-import org.kinotic.domain.api.services.security.RequestAuthorizer;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.ApplicationService;
@@ -32,9 +26,7 @@ import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.kinotic.test.support.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import tools.jackson.databind.json.JsonMapper;
 
-import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -67,9 +59,6 @@ public class ApplicationStoreTests extends KinoticTestBase {
     private static final String ENTITIES_SERVICE = DomainUtil.APP_API_ZONE + "~org.kinotic.persistence.api.services.JsonEntitiesRepository";
 
     @Autowired
-    private RequestAuthorizer authorizer;
-
-    @Autowired
     private ApplicationService applicationService;
 
     @Autowired
@@ -89,12 +78,6 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
     @Autowired
     private TestDataService testData;
-
-    @Autowired
-    private ServiceDirectory serviceDirectory;
-
-    @Autowired
-    private JsonMapper jsonMapper;
 
     @Test
     public void theStoreRunsTheModelItsPublishedDefinitionsImply() throws Exception {
@@ -138,21 +121,21 @@ public class ApplicationStoreTests extends KinoticTestBase {
         Resource tenant = new Resource(AuthzUtil.TENANT_TYPE, tenantId);
         List<Object> readRow = List.of(person.getId(), "row-1");
         // the contract carries the arguments a client sends; the participant is stamped on by the gateway
-        assertRefused("findById", caller, readRow, AuthzUtil.permissionName(personType, "can_read") + " on tenant:" + tenantId);
-        assertRefused("count", caller, List.of(person.getId()), AuthzUtil.permissionName(personType, "can_search"));
+        assertRefused(ENTITIES_SERVICE, "findById", caller, readRow, AuthzUtil.permissionName(personType, "can_read") + " on tenant:" + tenantId);
+        assertRefused(ENTITIES_SERVICE, "count", caller, List.of(person.getId()), AuthzUtil.permissionName(personType, "can_search"));
 
         Grant grant = await(runAsOrganization(() -> access.grant(TEST_APP_ID, subject, AuthzUtil.roleId(personType, AuthzUtil.EDITOR), tenant)));
 
-        assertTrue(awaitUntil(() -> admitted("findById", caller, readRow)), "the editor was never admitted to the rows");
-        authorize("count", caller, List.of(person.getId()));
-        authorize("bulkUpdate", caller, List.of(person.getId(), List.of(Map.of("id", "row-1"))));
+        assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "findById", caller, readRow)), "the editor was never admitted to the rows");
+        authorize(ENTITIES_SERVICE, "count", caller, List.of(person.getId()));
+        authorize(ENTITIES_SERVICE, "bulkUpdate", caller, List.of(person.getId(), List.of(Map.of("id", "row-1"))));
         // an editor neither deletes nor reads another definition's rows, and another tenant's user holds nothing
-        assertRefused("deleteById", caller, readRow, AuthzUtil.permissionName(personType, "can_delete"));
-        assertRefused("findById", caller, List.of(car.getId(), "row-1"), AuthzUtil.permissionName(carType, "can_read"));
+        assertRefused(ENTITIES_SERVICE, "deleteById", caller, readRow, AuthzUtil.permissionName(personType, "can_delete"));
+        assertRefused(ENTITIES_SERVICE, "findById", caller, List.of(car.getId(), "row-1"), AuthzUtil.permissionName(carType, "can_read"));
         String otherTenant = "tenant-" + suffix();
         UserParticipantIdentity alice = endUser(TEST_APP_ID, otherTenant);
         Participant other = applicationParticipant(otherTenant, alice.getId());
-        assertRefused("findById", other, readRow, "tenant:" + otherTenant);
+        assertRefused(ENTITIES_SERVICE, "findById", other, readRow, "tenant:" + otherTenant);
 
         // the administrator sees the grant where it was made and what it explains
         List<Grant> grants = await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, tenant)));
@@ -166,12 +149,12 @@ public class ApplicationStoreTests extends KinoticTestBase {
         Grant everywhere = await(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectKind.USER, alice.getId()),
                                                                       AuthzUtil.roleId(personType, AuthzUtil.VIEWER),
                                                                       new Resource(AuthzUtil.APPLICATION_TYPE, TEST_APP_ID))));
-        assertTrue(awaitUntil(() -> admitted("findById", other, readRow)), "the viewer granted on the application was never admitted");
-        assertRefused("bulkUpdate", other, List.of(person.getId(), List.of()), AuthzUtil.permissionName(personType, "can_edit"));
+        assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "findById", other, readRow)), "the viewer granted on the application was never admitted");
+        assertRefused(ENTITIES_SERVICE, "bulkUpdate", other, List.of(person.getId(), List.of()), AuthzUtil.permissionName(personType, "can_edit"));
         assertEquals(List.of(everywhere), await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, new Resource(AuthzUtil.TENANT_TYPE, otherTenant)))));
 
         await(runAsOrganization(() -> access.revoke(TEST_APP_ID, tenant, grant.id())));
-        assertTrue(awaitUntil(() -> !admitted("findById", caller, readRow)), "the revoked editor was still admitted");
+        assertTrue(awaitUntil(() -> !admitted(ENTITIES_SERVICE, "findById", caller, readRow)), "the revoked editor was still admitted");
         // the grant made on the application still reaches the tenant, and is all that does
         assertEquals(List.of(everywhere), await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, tenant))));
         await(runAsOrganization(() -> access.revoke(TEST_APP_ID, new Resource(AuthzUtil.APPLICATION_TYPE, TEST_APP_ID), everywhere.id())));
@@ -245,37 +228,8 @@ public class ApplicationStoreTests extends KinoticTestBase {
         return await(identityService.createUser(user, "End-User-1"));
     }
 
-    private void authorize(String function, Participant caller, Object arguments) throws Exception {
-        await(authorizer.authorize(cri(function), caller, EventConstants.CONTENT_TYPE_JSON,
-                                   jsonMapper.writeValueAsString(arguments).getBytes(StandardCharsets.UTF_8)));
-    }
-
-    private boolean admitted(String function, Participant caller, Object arguments) throws Exception {
-        boolean ret;
-        try {
-            authorize(function, caller, arguments);
-            ret = true;
-        } catch (ExecutionException refused) {
-            assertInstanceOf(AuthorizationException.class, refused.getCause());
-            ret = false;
-        }
-        return ret;
-    }
-
-    private void assertRefused(String function, Participant caller, Object arguments, String naming) throws Exception {
-        ExecutionException failure = assertThrows(ExecutionException.class, () -> authorize(function, caller, arguments));
-        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
-        assertTrue(refused.getMessage().contains(naming), refused.getMessage());
-    }
-
     private Throwable failure(java.util.function.Supplier<Future<?>> call) {
         return assertThrows(ExecutionException.class, () -> await(runAsOrganization(call::get))).getCause();
-    }
-
-    private CRI cri(String function) throws Exception {
-        ServiceDirectoryEntry entry = await(serviceDirectory.findEntry(ENTITIES_SERVICE));
-        assertNotNull(entry, "the directory holds no contract for " + ENTITIES_SERVICE);
-        return CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME + "://" + TEST_APP_ID + "@" + ENTITIES_SERVICE + "/" + function + "#" + entry.getVersion());
     }
 
     private static String suffix() {
