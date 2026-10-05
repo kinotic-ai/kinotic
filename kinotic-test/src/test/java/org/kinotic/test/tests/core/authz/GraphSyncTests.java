@@ -212,7 +212,7 @@ public class GraphSyncTests extends KinoticTestBase {
     }
 
     private AuthzModel modelFromDirectory() throws Exception {
-        return modelGenerator.platformModel(await(serviceDirectory.findSystemContracts()));
+        return modelGenerator.platformModel(await(serviceDirectory.findSystemDefinitions()));
     }
 
     private boolean reconciledTo(String hash) throws Exception {

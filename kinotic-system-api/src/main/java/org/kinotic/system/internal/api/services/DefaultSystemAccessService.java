@@ -97,7 +97,7 @@ public class DefaultSystemAccessService implements SystemAccessService {
     }
 
     private Future<AuthzModel> model() {
-        return directory.findSystemContracts().map(generator::platformModel);
+        return directory.findSystemDefinitions().map(generator::platformModel);
     }
 
     // The platform's staff are its own identities: an operator or a machine in SYSTEM scope

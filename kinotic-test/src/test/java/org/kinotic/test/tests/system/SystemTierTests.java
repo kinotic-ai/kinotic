@@ -114,7 +114,7 @@ public class SystemTierTests extends KinoticTestBase {
 
     @BeforeEach
     public void awaitPlatformModel() throws Exception {
-        AuthzModel model = modelGenerator.platformModel(await(serviceDirectory.findSystemContracts()));
+        AuthzModel model = modelGenerator.platformModel(await(serviceDirectory.findSystemDefinitions()));
         assertTrue(awaitUntil(() -> reconciledTo(model.hash())), "the platform store never reconciled to the directory's model");
     }
 

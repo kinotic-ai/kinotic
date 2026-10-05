@@ -26,8 +26,9 @@
     },
     "packages/core": {
       "name": "@kinotic-ai/core",
-      "version": "5.0.0-beta.19",
+      "version": "5.0.0-beta.20",
       "dependencies": {
+        "@kinotic-ai/idl": "workspace:*",
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/semantic-conventions": "^1.40.0",
         "@stomp/rx-stomp": "^2.4.0",
@@ -63,7 +64,7 @@
     },
     "packages/idl": {
       "name": "@kinotic-ai/idl",
-      "version": "5.0.0-beta.1",
+      "version": "5.0.0-beta.2",
       "devDependencies": {
         "@types/node": "^25.3.2",
         "@types/ws": "^8.18.1",
@@ -73,7 +74,7 @@
     },
     "packages/management-api": {
       "name": "@kinotic-ai/management-api",
-      "version": "5.0.0-beta.48",
+      "version": "5.0.0-beta.49",
       "dependencies": {
         "@kinotic-ai/idl": "workspace:*",
         "@kinotic-ai/persistence": "workspace:*",

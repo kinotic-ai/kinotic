@@ -399,7 +399,7 @@ public class DefaultPermissionService implements PermissionService {
     }
 
     private Future<AuthzModel> model() {
-        return directory.findSystemContracts().map(generator::platformModel);
+        return directory.findSystemDefinitions().map(generator::platformModel);
     }
 
     private OrganizationParticipant requireOrgParticipant() {

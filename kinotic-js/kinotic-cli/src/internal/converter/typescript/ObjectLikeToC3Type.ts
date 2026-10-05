@@ -1,4 +1,4 @@
-import {Type, Symbol, DecoratableNode} from 'ts-morph'
+import {DecoratableNode, Node, Type, Symbol} from 'ts-morph'
 import {ArrayC3Type, C3Type, DateC3Type, ObjectC3Type, PropertyDefinition} from '@kinotic-ai/idl'
 import {ConverterConstants} from '@/internal/converter/ConverterConstants'
 import {TypescriptConversionState} from './TypescriptConversionState'
@@ -49,17 +49,10 @@ export class ObjectLikeToC3Type implements ITypeConverter<Type, C3Type, Typescri
     }
 
     private convertDecorators(value: Type, ret: ObjectC3Type) {
-        const errText = "No value declaration could be found for object " + value.getText()
-        const valueDeclaration = value.getSymbolOrThrow(errText)
-                                                   .getValueDeclarationOrThrow(errText)
-
-        // Typescript cannot detect that this can be a DecoratableNode, so we have to cast it twice
-        const decoratableNode = valueDeclaration as unknown as DecoratableNode
-
-        // Now Add any class level decorators
-        const decorators = decoratableNode.getDecorators()
-        if (decorators) {
-            for (const decorator of decorators) {
+        // an interface or a type literal has no value declaration, and nothing to decorate
+        const valueDeclaration = value.getSymbol()?.getValueDeclaration()
+        if (valueDeclaration && Node.isDecoratable(valueDeclaration)) {
+            for (const decorator of valueDeclaration.getDecorators()) {
                 const c3Decorator = tsDecoratorToC3Decorator(decorator)
                 if (c3Decorator) {
                     ret.addDecorator(c3Decorator)

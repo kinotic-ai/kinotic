@@ -57,8 +57,8 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
 
     // a service's contract is read from the directory once and kept; the version in a request's CRI makes a
     // redeployed service a new key, and the retention bounds how long a platform service's new check waits
-    private static final Duration CONTRACT_RETENTION = Duration.ofMinutes(5);
-    private static final int CONTRACT_CAPACITY = 10_000;
+    private static final Duration DEFINITION_RETENTION = Duration.ofMinutes(5);
+    private static final int DEFINITION_CAPACITY = 10_000;
 
     // the scope levels a check can be made on, each named by the template of its id, innermost first: a caller
     // missing one is checked on the next, and one missing them all on the platform
@@ -71,9 +71,9 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
     private final AuthzStoreService stores;
     private final RelationshipService relationships;
     private final JsonMapper jsonMapper;
-    private final AsyncCache<String, Map<String, FunctionSpec>> contracts = Caffeine.newBuilder()
-                                                                                    .maximumSize(CONTRACT_CAPACITY)
-                                                                                    .expireAfterWrite(CONTRACT_RETENTION)
+    private final AsyncCache<String, Map<String, FunctionSpec>> definitions = Caffeine.newBuilder()
+                                                                                    .maximumSize(DEFINITION_CAPACITY)
+                                                                                    .expireAfterWrite(DEFINITION_RETENTION)
                                                                                     .buildAsync();
 
     @Override
@@ -101,19 +101,19 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
             // an entry is keyed as a registration keys it: the zone and the qualified name, never the scope
             String entryId = cri.hasZone() ? cri.zone() + "~" + cri.resourceName() : cri.resourceName();
             String key = entryId + "|" + cri.version();
-            ret = KinoticUtil.toFuture(contracts.get(key, (k, executor) -> load(directory, entryId).toCompletionStage().toCompletableFuture()))
+            ret = KinoticUtil.toFuture(definitions.get(key, (k, executor) -> load(directory, entryId).toCompletionStage().toCompletableFuture()))
                              .map(functions -> cri.hasPath() ? functions.getOrDefault(cri.path().substring(1), FunctionSpec.ZONE_ONLY)
                                                              : FunctionSpec.ZONE_ONLY);
         }
         return ret;
     }
 
-    // The specs of a service's functions by name; empty for a service the directory has no contract for
+    // The specs of a service's functions by name; empty for a service the directory has no definition for
     private Future<Map<String, FunctionSpec>> load(ServiceDirectory directory, String entryId) {
         return directory.findEntry(entryId).map(entry -> {
             Map<String, FunctionSpec> ret = new HashMap<>();
             if (entry == null || entry.getServiceDefinition() == null) {
-                log.debug("No contract covers {}; its zone alone admits requests to it", entryId);
+                log.debug("No definition covers {}; its zone alone admits requests to it", entryId);
             } else {
                 for (FunctionDefinition function : entry.getServiceDefinition().getFunctions()) {
                     ret.put(function.getName(),

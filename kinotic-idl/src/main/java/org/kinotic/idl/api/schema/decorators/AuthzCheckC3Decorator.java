@@ -51,6 +51,12 @@ public final class AuthzCheckC3Decorator extends C3Decorator {
     private List<String> implies = List.of();
 
     /**
+     * True for a function declared zone-only, which any caller the zone admits may call: the derivation drops
+     * the check of such a function, so a stored definition carries none.
+     */
+    private boolean zoneOnly;
+
+    /**
      * Whether the check must answer from the stored relationships rather than the engine's caches.
      */
     private boolean consistent;

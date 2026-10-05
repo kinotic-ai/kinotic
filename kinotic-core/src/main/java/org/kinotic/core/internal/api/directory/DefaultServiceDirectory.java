@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.annotations.Publish;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -36,7 +37,6 @@ import org.kinotic.idl.api.schema.ComplexC3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ObjectC3Type;
-import org.kinotic.idl.api.directory.ServiceContract;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StreamC3Type;
@@ -78,8 +78,8 @@ import java.util.Set;
 public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializingSingleton {
 
     private static final String LIVENESS_SINGLETON_NAME = "kinotic-service-liveness-updater";
-    // the platform publishes a few dozen services, so its contracts are read in a page or two
-    private static final int SYSTEM_CONTRACTS_PAGE_SIZE = 200;
+    // the platform publishes a few dozen services, so its definitions are read in a page or two
+    private static final int DEFINITIONS_PAGE_SIZE = 200;
 
     // A strategy pattern is used, to favor composition over inheritance
     private final ServiceDirectoryStrategy strategy;
@@ -266,57 +266,69 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     }
 
     @Override
-    public Future<Void> registerContract(ServiceContract contract, String organizationId, String applicationId) {
-        ServiceDefinition definition = schemaService.createForContract(contract);
+    public Future<Void> register(ServiceDirectoryEntry entry) {
+        Validate.notNull(entry, "entry cannot be null");
+        Validate.notBlank(entry.getOrganizationId(), "The entry names no organization");
+        Validate.notBlank(entry.getApplicationId(), "The entry names no application");
+        Validate.notBlank(entry.getZone(), "The entry names no zone");
+        Validate.notNull(entry.getServiceDefinition(), "The entry carries no service definition");
+        ServiceDefinition definition = schemaService.deriveChecks(entry.getServiceDefinition());
         // addressed as the runtime registers it: the zone and the qualified name, no scope, whatever its version
-        String entryId = contract.zone() + ZoneUtil.ZONE_DELIMITER + definition.getQualifiedName();
+        String entryId = entry.getZone() + ZoneUtil.ZONE_DELIMITER + definition.getQualifiedName();
         String serviceAddress = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, null, entryId, null, null).baseResource();
-        ServiceDirectoryEntry entry = new ServiceDirectoryEntry()
+        // the runtime declares its types inline, so no reference resolves
+        List<McpToolDefinition> tools = toolsOf(entryId, null, definition, Map.of());
+        ServiceDirectoryEntry stored = new ServiceDirectoryEntry()
                 .setId(entryId)
                 .setServiceAddress(serviceAddress)
-                .setOrganizationId(organizationId)
-                .setApplicationId(applicationId)
-                .setNamespace(contract.namespace())
-                .setName(contract.name())
-                .setVersion(contract.version())
-                .setZone(contract.zone())
-                .setServiceDefinition(definition);
-        return strategy.upsertEntry(entry).compose(v -> refreshOnline(entryId, serviceAddress));
+                .setOrganizationId(entry.getOrganizationId())
+                .setApplicationId(entry.getApplicationId())
+                .setProjectId(entry.getProjectId())
+                .setNamespace(definition.getNamespace())
+                .setName(definition.getName())
+                .setVersion(entry.getVersion())
+                .setZone(entry.getZone())
+                .setDescription(entry.getDescription())
+                .setServiceDefinition(definition)
+                .setAdvertised(entry.isAdvertised())
+                .setMcpExposed(!tools.isEmpty())
+                .setMcpTools(tools.isEmpty() ? null : tools);
+        return strategy.upsertEntry(stored).compose(v -> refreshOnline(entryId, serviceAddress));
     }
 
     @Override
-    public Future<List<ServiceDefinition>> findSystemContracts() {
-        return systemContracts(0, new ArrayList<>());
+    public Future<List<ServiceDefinition>> findSystemDefinitions() {
+        return systemDefinitions(0, new ArrayList<>());
     }
 
-    private Future<List<ServiceDefinition>> systemContracts(int pageNumber, List<ServiceDefinition> collected) {
-        return strategy.findSystemEntries(Pageable.create(pageNumber, SYSTEM_CONTRACTS_PAGE_SIZE, Sort.by("id")))
+    private Future<List<ServiceDefinition>> systemDefinitions(int pageNumber, List<ServiceDefinition> collected) {
+        return strategy.findSystemEntries(Pageable.create(pageNumber, DEFINITIONS_PAGE_SIZE, Sort.by("id")))
                        .compose(page -> {
                            for (ServiceDirectoryEntry entry : page.getContent()) {
                                collected.add(entry.getServiceDefinition());
                            }
-                           return page.getContent().size() < SYSTEM_CONTRACTS_PAGE_SIZE
+                           return page.getContent().size() < DEFINITIONS_PAGE_SIZE
                                    ? Future.succeededFuture(collected)
-                                   : systemContracts(pageNumber + 1, collected);
+                                   : systemDefinitions(pageNumber + 1, collected);
                        });
     }
 
     @Override
-    public Future<List<ServiceDefinition>> findApplicationContracts(String organizationId, String applicationId) {
-        return applicationContracts(organizationId, applicationId, 0, new ArrayList<>());
+    public Future<List<ServiceDefinition>> findApplicationDefinitions(String organizationId, String applicationId) {
+        return applicationDefinitions(organizationId, applicationId, 0, new ArrayList<>());
     }
 
-    private Future<List<ServiceDefinition>> applicationContracts(String organizationId, String applicationId, int pageNumber, List<ServiceDefinition> collected) {
-        return strategy.findEntriesScopedTo(organizationId, applicationId, Pageable.create(pageNumber, SYSTEM_CONTRACTS_PAGE_SIZE, Sort.by("id")))
+    private Future<List<ServiceDefinition>> applicationDefinitions(String organizationId, String applicationId, int pageNumber, List<ServiceDefinition> collected) {
+        return strategy.findEntriesScopedTo(organizationId, applicationId, Pageable.create(pageNumber, DEFINITIONS_PAGE_SIZE, Sort.by("id")))
                        .compose(page -> {
                            for (ServiceDirectoryEntry entry : page.getContent()) {
                                if (entry.getServiceDefinition() != null) {
                                    collected.add(entry.getServiceDefinition());
                                }
                            }
-                           return page.getContent().size() < SYSTEM_CONTRACTS_PAGE_SIZE
+                           return page.getContent().size() < DEFINITIONS_PAGE_SIZE
                                    ? Future.succeededFuture(collected)
-                                   : applicationContracts(organizationId, applicationId, pageNumber + 1, collected);
+                                   : applicationDefinitions(organizationId, applicationId, pageNumber + 1, collected);
                        });
     }
 
@@ -415,6 +427,33 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                                              Class<?> serviceInterface,
                                              ServiceDefinition serviceDefinition,
                                              Map<String, ObjectC3Type> referenceResolver) {
+        List<McpToolDefinition> tools = toolsOf(serviceIdentifier.qualifiedName(),
+                                                serviceIdentifier.scope(),
+                                                serviceDefinition,
+                                                referenceResolver);
+        return new ServiceDirectoryEntry()
+                .setId(serviceIdentifier.qualifiedName())
+                .setServiceAddress(serviceIdentifier.unscopedCri().baseResource())
+                .setNamespace(serviceIdentifier.namespace())
+                .setName(serviceIdentifier.name())
+                .setVersion(serviceIdentifier.version())
+                .setZone(serviceIdentifier.zone())
+                .setServiceDefinition(serviceDefinition)
+                .setAdvertised(isAdvertised(serviceInterface))
+                .setMcpExposed(!tools.isEmpty())
+                .setMcpTools(tools.isEmpty() ? null : tools);
+    }
+
+    /**
+     * The MCP tools of a service's functions, one per function carrying the tool decorator, named and
+     * addressed under the service's qualified name.
+     *
+     * @throws IllegalStateException when a tool's function streams its result, or two tools share a name
+     */
+    private List<McpToolDefinition> toolsOf(String qualifiedName,
+                                            String scope,
+                                            ServiceDefinition serviceDefinition,
+                                            Map<String, ObjectC3Type> referenceResolver) {
         List<McpToolDefinition> tools = new ArrayList<>();
         Set<String> toolNames = new HashSet<>();
 
@@ -431,16 +470,16 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                     returnType = asyncC3Type.getValueType();
                 }
                 if (returnType instanceof StreamC3Type) {
-                    throw new IllegalStateException("@McpTool function '" + function.getName() + "' on service " + serviceIdentifier
+                    throw new IllegalStateException("@McpTool function '" + function.getName() + "' on service " + qualifiedName
                                                             + " has a streaming return type, which MCP tools do not support");
                 }
 
-                String toolName = KinoticUtil.mcpToolName(serviceIdentifier.qualifiedName(), function.getName());
+                String toolName = KinoticUtil.mcpToolName(qualifiedName, function.getName());
                 if (!toolNames.add(toolName)) {
                     // the name is a hash, so it names nothing on its own — the function it was minted from
                     // is what a reader needs to act on this
                     throw new IllegalStateException("Duplicate MCP tool name '" + toolName + "' for function '"
-                                                            + function.getName() + "' on service " + serviceIdentifier);
+                                                            + function.getName() + "' on service " + qualifiedName);
                 }
 
                 tools.add(new McpToolDefinition()
@@ -451,8 +490,8 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                                   // the full invocation CRI, so dispatching a call needs no reconstruction;
                                   // no version: the invoker does not support version-specific routing
                                   .setCri(CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
-                                                     serviceIdentifier.scope(),
-                                                     serviceIdentifier.qualifiedName(),
+                                                     scope,
+                                                     qualifiedName,
                                                      "/" + function.getName(),
                                                      null).raw())
                                   .setAnnotations(new McpToolAnnotations()
@@ -462,18 +501,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                                                           .setOpenWorldHint(decorator.isOpenWorldHint())));
             }
         }
-
-        return new ServiceDirectoryEntry()
-                .setId(serviceIdentifier.qualifiedName())
-                .setServiceAddress(serviceIdentifier.unscopedCri().baseResource())
-                .setNamespace(serviceIdentifier.namespace())
-                .setName(serviceIdentifier.name())
-                .setVersion(serviceIdentifier.version())
-                .setZone(serviceIdentifier.zone())
-                .setServiceDefinition(serviceDefinition)
-                .setAdvertised(isAdvertised(serviceInterface))
-                .setMcpExposed(!tools.isEmpty())
-                .setMcpTools(tools.isEmpty() ? null : tools);
+        return tools;
     }
 
     // Directory inclusion is opt-in via @Publish(advertise = true); an @McpTool function is already
