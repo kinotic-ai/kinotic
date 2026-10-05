@@ -26,7 +26,9 @@ import java.util.List;
  * Every function is checked on the caller's tenant, or on the application for a caller with none, for the
  * permission of the definition's rows it needs: reading one needs {@code can_read}, listing, counting, querying
  * and searching {@code can_search}, saving {@code can_create}, updating {@code can_edit} and deleting
- * {@code can_delete}, each named for the definition, as {@code invoice_can_read} is.
+ * {@code can_delete}, each named for the definition, as {@code invoice_can_read} is. A caller above every
+ * application, an organization's member or a platform operator, is checked on the platform's entity definition
+ * instead: for {@code can_view} where the rows' permission reads, and {@code can_edit} otherwise.
  */
 @Publish
 @Zone(DomainUtil.APP_API_ZONE)

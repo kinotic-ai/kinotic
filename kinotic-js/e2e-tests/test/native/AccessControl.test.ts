@@ -10,7 +10,8 @@ import {E2E_FIXTURE_PASSWORD,
         initKinoticClient,
         managementServer,
         restBase,
-        shutdownKinoticClient} from '../TestHelpers.js'
+        shutdownKinoticClient,
+        untilRefused} from '../TestHelpers.js'
 
 // the second kinotic-test organization user V2__kinotic_test_users seeds, who holds no grant until this suite makes one
 const SALLY_ID = '00000000-0000-0000-0000-000000000004'
@@ -113,10 +114,10 @@ describe('Kinotic JS', () => {
         }
     })
 
-    it('stops the access the moment the grant is revoked', async () => {
+    it('stops the access once the grant is revoked', async () => {
         await Kinotic.permissions.revoke({type: 'project', id: projectA.id!}, grantId!)
         grantId = undefined
 
-        await expect(sallyKinotic.projects.save({...projectA, description: 'edited after revocation'})).rejects.toThrow(/Not authorized/)
+        await untilRefused(() => sallyKinotic.projects.save({...projectA, description: 'edited after revocation'}), /Not authorized/)
     })
 })

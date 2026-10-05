@@ -92,6 +92,7 @@ class DefaultRequestAuthorizerTest {
         // the rows of an entity definition, typed by the definition each request names, checked on the caller's tenant
         ServiceDefinition entities = new ServiceDefinition().setNamespace("org.kinotic.persistence.api.services").setName("JsonEntitiesRepository");
         entities.addFunction(function("findById", check("tenant", "{@tenantId}", "{entityDefinitionId}", "can_read", false), "entityDefinitionId", "id"));
+        entities.addFunction(function("save", check("tenant", "{@tenantId}", "{entityDefinitionId}", "can_create", false), "entityDefinitionId", "entity"));
         when(directory.findEntry(ENTITIES)).thenReturn(Future.succeededFuture(new ServiceDirectoryEntry().setId(ENTITIES).setServiceDefinition(entities)));
     }
 
@@ -208,6 +209,27 @@ class DefaultRequestAuthorizerTest {
                   .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
         assertEquals(new RelationshipTuple("user:bob", "person_can_read", "application:crm"), checked("crm", CRM_MODEL_ID, Consistency.MINIMIZE_LATENCY));
+    }
+
+    @Test
+    void anOrganizationMemberReadingRowsIsCheckedForViewingThePlatformsDefinition() throws Exception {
+        authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/findById#1.0.0"), sally(),
+                             EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",\"row-1\"]"))
+                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        assertEquals(new RelationshipTuple("user:sally", "entity_definition_can_view", "entity_definition:acme.crm.person"),
+                     checked(Consistency.MINIMIZE_LATENCY));
+        verify(relationships, never()).check(eq("crm"), any(), any(), any());
+    }
+
+    @Test
+    void anOrganizationMemberWritingRowsIsCheckedForEditingThePlatformsDefinition() throws Exception {
+        authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/save#1.0.0"), sally(),
+                             EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",\"{}\"]"))
+                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        assertEquals(new RelationshipTuple("user:sally", "entity_definition_can_edit", "entity_definition:acme.crm.person"),
+                     checked(Consistency.MINIMIZE_LATENCY));
     }
 
     @Test

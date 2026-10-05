@@ -130,11 +130,21 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         Future<Void> ret;
         try {
             Resource checked = scopeLevelOf(check, participant.getScope());
+            String permissionResource = check.getPermissionResource();
+            String permission = check.getPermission();
+            // An application's rows are typed in its own store. A caller above every application, an organization's
+            // member or a platform operator, holds the definition itself on the platform, so a reading permission
+            // of its rows is the definition's can_view and any other its can_edit
+            if (AuthzUtil.isTemplate(permissionResource) && participant.getScope().applicationId() == null) {
+                checked = new Resource(AuthzUtil.ENTITY_DEFINITION_TYPE, permissionResource);
+                permissionResource = AuthzUtil.ENTITY_DEFINITION_TYPE;
+                permission = AuthzUtil.isReading(permission) ? AuthzUtil.CAN_VIEW : AuthzUtil.CAN_EDIT;
+            }
             String resource = typeOf(checked.type(), spec, participant, contentType, body);
             String objectId = resolve(checked.id(), spec, participant, contentType, body);
-            String permissionResource = typeOf(check.getPermissionResource(), spec, participant, contentType, body);
+            String permissionType = typeOf(permissionResource, spec, participant, contentType, body);
             RelationshipTuple relationship = new RelationshipTuple(DomainUtil.authzUser(participant),
-                                                                   AuthzUtil.permissionName(permissionResource, check.getPermission()),
+                                                                   AuthzUtil.permissionName(permissionType, permission),
                                                                    AuthzUtil.object(resource, objectId));
             Consistency consistency = check.isConsistent() ? Consistency.HIGHER_CONSISTENCY : Consistency.MINIMIZE_LATENCY;
             ret = stores.modelId(store)

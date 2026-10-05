@@ -18,6 +18,8 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,6 +36,7 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
     // how long a store's engine id and newest model version are kept before the engine is asked again
     static final long RETENTION_MILLIS = 30_000;
+    private static final int STORE_PAGE_SIZE = 100;
 
     private final OpenFgaService fga;
     private final KinoticAuthzProperties properties;
@@ -58,7 +61,8 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
                             ? Future.succeededFuture(found)
                             : fga.createStore(new CreateStoreRequest().name(name))
                                  .map(CreateStoreResponse::getId)
-                                 .onSuccess(id -> log.info("Created authorization store {} for '{}'", id, store)))
+                                 .onSuccess(id -> log.info("Created authorization store {} for '{}'", id, store))
+                                 .compose(id -> keepOldest(store, name, id)))
                     .onSuccess(id -> storeIds.put(store, CompletableFuture.completedFuture(new ResolvedStore(id, System.currentTimeMillis()))));
         }
         return ret;
@@ -200,13 +204,36 @@ public class DefaultAuthzStoreService implements AuthzStoreService {
                                    store, properties.getAuthz().getApiUrl(), e.getMessage()));
     }
 
+    // Nodes creating a store together, as the provisioner and the reconciler do for a new application, each
+    // create one under the name; the oldest is the store of the name, so a creator whose store is not it deletes
+    // its own and answers with the oldest, which every lookup by name answers with as well
+    private Future<String> keepOldest(String store, String name, String created) {
+        return findStore(name).compose(oldest -> oldest.equals(created)
+                ? Future.succeededFuture(created)
+                : fga.deleteStore(created)
+                     .map(oldest)
+                     .onSuccess(v -> log.info("Deleted authorization store {} of '{}', created beside {}", created, store, oldest)));
+    }
+
     /**
-     * The id of the store of the given name, or null when the engine has none.
+     * The id of the store of the given name, the oldest where several carry it, or null when the engine has none.
      */
     private Future<String> findStore(String name) {
-        return fga.listStores(1, null, name).map(page -> {
-            Store store = page.getStores().isEmpty() ? null : page.getStores().getFirst();
-            return store != null && name.equals(store.getName()) ? store.getId() : null;
+        return findStores(name, null, new ArrayList<>()).map(ids -> ids.stream().min(String::compareTo).orElse(null));
+    }
+
+    // the engine's ids are time-ordered, so the smallest is the oldest
+    private Future<List<String>> findStores(String name, String continuationToken, List<String> collected) {
+        return fga.listStores(STORE_PAGE_SIZE, continuationToken, name).compose(page -> {
+            for (Store store : page.getStores()) {
+                if (name.equals(store.getName())) {
+                    collected.add(store.getId());
+                }
+            }
+            String next = page.getContinuationToken();
+            return next == null || next.isEmpty()
+                    ? Future.succeededFuture(collected)
+                    : findStores(name, next, collected);
         });
     }
 

@@ -5,6 +5,7 @@ package org.kinotic.core.internal;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.ServiceRegistry;
@@ -46,6 +47,7 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
     // during ordinary singleton initialization instead.
     private final ObjectProvider<ServiceRegistry> serviceRegistryProvider;
     private final ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
+    private final ObjectProvider<ZonePartitioningService> partitioningProvider;
     private ConfigurableListableBeanFactory beanFactory;
 
     @Override
@@ -57,6 +59,12 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
 
         processBean(bean, (serviceIdentifier, clazz) -> {
+            // a module's bean is on every server that loads the module; its zone is served where it is hosted
+            ZonePartitioningService partitioning = partitioningProvider.getIfAvailable();
+            if (partitioning != null && !partitioning.hosts(serviceIdentifier.cri().raw())) {
+                log.debug("Not registering service {}: the {} server does not host its zone", serviceIdentifier, partitioning.name());
+                return;
+            }
 
             log.info("Registering Service {}", serviceIdentifier);
 

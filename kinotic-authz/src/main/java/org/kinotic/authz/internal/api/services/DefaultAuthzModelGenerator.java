@@ -40,9 +40,6 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     static final String MEMBER = AuthzUtil.MEMBER_RELATION;
     static final String END_USER = AuthzUtil.END_USER_RELATION;
     static final String GRANT = AuthzUtil.GRANT_RELATION;
-    // the permissions a viewer holds: the ones that only read, among them every can_view_<something>
-    private static final Set<String> VIEWING = Set.of(AuthzUtil.CAN_VIEW, "can_read", "can_search");
-    private static final String VIEWING_PREFIX = AuthzUtil.CAN_VIEW + "_";
 
     private static final String SCHEMA_VERSION = "1.1";
     private static final String CAN_READ = "can_read";
@@ -184,7 +181,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     private static Set<String> viewing(ResourceType type) {
         Set<String> ret = new TreeSet<>();
         for (String permission : type.permissions.keySet()) {
-            if (VIEWING.contains(permission) || permission.startsWith(VIEWING_PREFIX)) {
+            if (AuthzUtil.isReading(permission)) {
                 ret.add(AuthzUtil.permissionName(type.name, permission));
             }
         }

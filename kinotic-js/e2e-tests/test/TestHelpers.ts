@@ -214,6 +214,40 @@ export async function grantTenantAdmin(applicationId: string, tenantId: string, 
 }
 
 /**
+ * Polls the call until it is admitted, for up to the timeout, and returns what it answers: the gateway answers
+ * from the engine's caches, which lag a grant by a moment.
+ */
+export async function untilAdmitted<T>(call: () => Promise<T>, timeoutMs: number = 30000): Promise<T> {
+    let ret!: T
+    await until(async () => {
+        ret = await call()
+        return true
+    }, timeoutMs)
+    return ret
+}
+
+/**
+ * Polls the call until it is refused with a message matching the pattern, for up to the timeout: the gateway
+ * answers from the engine's caches, which lag a revocation by a moment. A refusal for any other reason fails
+ * the wait.
+ */
+export async function untilRefused(call: () => Promise<unknown>, pattern: RegExp, timeoutMs: number = 30000): Promise<void> {
+    await until(async () => {
+        let ret = false
+        try {
+            await call()
+        } catch (e) {
+            const message = e instanceof Error ? e.message : String(e)
+            if (!pattern.test(message)) {
+                throw e
+            }
+            ret = true
+        }
+        return ret
+    }, timeoutMs)
+}
+
+/**
  * Polls the condition every quarter second until it holds, for up to the timeout; a condition that throws is
  * polled again.
  */

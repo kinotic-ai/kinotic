@@ -11,6 +11,7 @@ import dev.openfga.sdk.api.model.Tuple;
 import dev.openfga.sdk.api.model.TupleKey;
 import dev.openfga.sdk.api.model.TupleKeyWithoutCondition;
 import dev.openfga.sdk.errors.FgaApiValidationError;
+import dev.openfga.sdk.errors.ApiException;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.authz.api.model.Consistency;
@@ -28,6 +29,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -36,6 +38,8 @@ import java.util.UUID;
 @Component
 @RequiredArgsConstructor
 public class DefaultRelationshipService implements RelationshipService {
+
+    private static final int HTTP_CONFLICT = 409;
 
     private final OpenFgaService fga;
     private final DefaultAuthzStoreService stores;
@@ -76,20 +80,35 @@ public class DefaultRelationshipService implements RelationshipService {
 
     @Override
     public Future<Void> ensure(String store, List<RelationshipTuple> relationships) {
-        return missing(store, relationships).compose(missing -> write(store, missing, List.of()));
+        return converging(() -> missing(store, relationships).compose(missing -> write(store, missing, List.of())));
     }
 
     @Override
     public Future<Void> remove(String store, List<RelationshipTuple> relationships) {
-        return missing(store, relationships).compose(missing -> {
+        return converging(() -> missing(store, relationships).compose(missing -> {
             List<RelationshipTuple> held = new ArrayList<>(relationships);
             held.removeAll(missing);
             return write(store, List.of(), held);
-        });
+        }));
+    }
+
+    // A write the engine refuses as a conflict was raced by another node bringing the same tuples to the same
+    // state, as the provisioner and the reconciler do for a new application's roles, so the tuples are read again
+    // and only what still differs is written; a second conflict is reported
+    private static Future<Void> converging(Supplier<Future<Void>> attempt) {
+        return attempt.get().recover(e -> isConflict(e) ? attempt.get() : Future.failedFuture(e));
+    }
+
+    private static boolean isConflict(Throwable e) {
+        return e instanceof ApiException api && api.getStatusCode() == HTTP_CONFLICT;
     }
 
     @Override
     public Future<Void> ensureRoles(String store, Map<String, Set<String>> roles) {
+        return converging(() -> reconcileRoles(store, roles));
+    }
+
+    private Future<Void> reconcileRoles(String store, Map<String, Set<String>> roles) {
         List<Future<List<RelationshipTuple>>> reads = new ArrayList<>();
         List<String> ids = new ArrayList<>(roles.keySet());
         for (String roleId : ids) {
