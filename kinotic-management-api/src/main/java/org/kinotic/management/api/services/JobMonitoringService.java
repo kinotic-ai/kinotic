@@ -12,6 +12,7 @@ import org.kinotic.grind.api.model.events.JobRunEvent;
 import org.kinotic.grind.api.model.events.TaskCompletedEvent;
 import org.kinotic.idl.api.annotations.AuthzCheck;
 import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.annotations.AuthzUnchecked;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import reactor.core.publisher.Flux;
 
@@ -35,7 +36,7 @@ public interface JobMonitoringService {
      * @return the node id
      */
     @Scope
-    @AuthzCheck(zoneOnly = true)
+    @AuthzUnchecked
     String nodeId();
 
     /**

@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Verifies the authorization declarations a {@link SchemaService} derives while converting a resource service:
  * the resource decorator on the service, one check per function from its name, parameters and
- * {@code @AuthzCheck}, the object a service names for functions naming none, the zone-only and consistent
+ * {@code @AuthzCheck}, the object a service names for functions naming none, the unchecked and consistent
  * declarations, and the rejection of a function whose check does not resolve.
  */
 @SpringBootTest
@@ -219,7 +219,7 @@ public class SchemaServiceAuthzTest {
     }
 
     @Test
-    public void aZoneOnlyFunctionCarriesNoCheck() {
+    public void anUncheckedFunctionCarriesNoCheck() {
         ServiceDefinition service = convert(TestMemberService.class);
 
         assertNull(check(service, "listAccessible"));
@@ -228,10 +228,10 @@ public class SchemaServiceAuthzTest {
     }
 
     @Test
-    public void zoneOnlyBesideACheckRejectsTheService() {
+    public void uncheckedBesideACheckRejectsTheService() {
         IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestContradictoryService.class));
 
-        assertTrue(e.getMessage().contains("zone-only"));
+        assertTrue(e.getMessage().contains("unchecked"));
     }
 
     @Test

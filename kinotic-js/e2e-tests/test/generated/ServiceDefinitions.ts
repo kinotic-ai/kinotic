@@ -40,7 +40,7 @@ declareServiceDefinitions(JSON.parse(`[
             "type": "AuthzCheck",
             "resource": "tenant",
             "permission": "can_generate",
-            "zoneOnly": false,
+            "unchecked": false,
             "consistent": false
           }
         ],

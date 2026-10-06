@@ -9,6 +9,7 @@ import org.kinotic.authz.api.model.Subject;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.idl.api.annotations.AuthzCheck;
 import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.annotations.AuthzUnchecked;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -153,7 +154,7 @@ public interface PermissionService {
      * @param permission the permission's short name, such as {@code can_view}
      * @return the ids of the resources
      */
-    @AuthzCheck(zoneOnly = true)
+    @AuthzUnchecked
     Future<List<String>> listAccessible(String type, String permission);
 
     /**

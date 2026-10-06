@@ -2,6 +2,7 @@ package org.kinotic.management.api.services;
 
 import org.kinotic.idl.api.annotations.AuthzCheck;
 import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.annotations.AuthzUnchecked;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
@@ -36,7 +37,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @param id the project's id
      * @return a {@link Future} emitting the project, or null when none has the id or the caller may not see it
      */
-    @AuthzCheck(zoneOnly = true)
+    @AuthzUnchecked
     Future<Project> findById(String id);
 
     /**
@@ -46,7 +47,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @return {@link Future} emitting the number of projects
      */
     @Override
-    @AuthzCheck(zoneOnly = true)
+    @AuthzUnchecked
     Future<Long> count();
 
     /**
@@ -57,7 +58,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @return a page of projects
      */
     @Override
-    @AuthzCheck(zoneOnly = true)
+    @AuthzUnchecked
     Future<Page<Project>> findAll(Pageable pageable);
 
     /**
@@ -69,7 +70,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @return a page of projects
      */
     @Override
-    @AuthzCheck(zoneOnly = true)
+    @AuthzUnchecked
     Future<Page<Project>> search(String searchText, Pageable pageable);
 
     /**
@@ -80,7 +81,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @return {@link Future} emitting the number of projects
      */
     @Override
-    @AuthzCheck(zoneOnly = true)
+    @AuthzUnchecked
     Future<Long> countForApplication(String applicationId);
 
     /**
@@ -92,7 +93,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @return a page of projects
      */
     @Override
-    @AuthzCheck(zoneOnly = true)
+    @AuthzUnchecked
     Future<Page<Project>> findAllForApplication(String applicationId, Pageable pageable);
 
     /**

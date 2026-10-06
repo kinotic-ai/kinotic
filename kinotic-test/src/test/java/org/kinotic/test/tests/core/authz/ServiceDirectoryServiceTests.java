@@ -138,7 +138,7 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
         assertRefused(service, "generate", caller, List.of("q3"), type + "_can_generate");
         await(runAsOrganization(() -> access.grant(TEST_APP_ID, subject, type + ".generator", tenant)));
         assertTrue(awaitUntil(() -> admitted(service, "generate", caller, List.of("q3"))), "the generator was never admitted");
-        // a zone-only function passes on the zone
+        // an unchecked function passes on the zone
         authorize(service, "ping", caller, List.of());
 
         // what the directory service refuses
@@ -167,7 +167,7 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
         ret.setDecorators(List.of(resource));
         ret.addFunction(function("findReports", null));
         ret.addFunction(function("generate", new AuthzCheckC3Decorator().setPermission("can_generate").setResource(AuthzUtil.TENANT_TYPE), "name"));
-        ret.addFunction(function("ping", new AuthzCheckC3Decorator().setZoneOnly(true)));
+        ret.addFunction(function("ping", new AuthzCheckC3Decorator().setUnchecked(true)));
         return ret;
     }
 

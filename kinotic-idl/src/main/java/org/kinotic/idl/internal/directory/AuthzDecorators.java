@@ -3,6 +3,7 @@ package org.kinotic.idl.internal.directory;
 import org.kinotic.idl.api.annotations.AuthzCheck;
 import org.kinotic.idl.api.annotations.AuthzResource;
 import org.kinotic.idl.api.annotations.AuthzRole;
+import org.kinotic.idl.api.annotations.AuthzUnchecked;
 import org.kinotic.idl.api.directory.ConversionContext;
 import org.kinotic.idl.api.schema.AnyC3Type;
 import org.kinotic.idl.api.schema.C3Type;
@@ -28,7 +29,7 @@ import java.util.regex.Pattern;
 /**
  * Derives the authorization declarations of a service while its definition is created: the
  * {@link AuthzResourceC3Decorator} of the service and one {@link AuthzCheckC3Decorator} per function, from
- * what the service declares, the {@link AuthzResource} and {@link AuthzCheck} annotations of a {@code @Publish}
+ * what the service declares, the {@link AuthzResource}, {@link AuthzCheck} and {@link AuthzUnchecked} annotations of a {@code @Publish}
  * interface or the decorators a runtime's definition declares, and the function's parameters. A function that
  * derives no check and declares none fails the conversion, so a resource service never serves an unchecked
  * function.
@@ -116,7 +117,6 @@ final class AuthzDecorators {
                 .setResource(check.resource())
                 .setObjectId(check.objectId())
                 .setImplies(List.of(check.implies()))
-                .setZoneOnly(check.zoneOnly())
                 .setConsistent(check.consistent());
     }
 
@@ -145,13 +145,14 @@ final class AuthzDecorators {
     }
 
     /**
-     * The check of one function of a resource service, or null for a function declared zone-only.
+     * The check of one function of a resource service, or null for a function declared unchecked.
      *
      * @param serviceInterface  the {@code @Publish} interface, named in errors
      * @param resource          the service's resource decorator
      * @param functionName      the function's name, whose leading verb derives the permission
      * @param interfaceMethod   the interface's most specific declaration of the function, which carries the
-     *                          {@link AuthzCheck}, its own or one inherited from a super interface
+     *                          {@link AuthzCheck} or {@link AuthzUnchecked}, its own or one inherited from a
+     *                          super interface
      * @param parameters        the function's converted parameters, the ones a request carries
      * @param conversionContext the context the parameters were converted in, which resolves their references
      * @throws IllegalStateException as {@link #checkOf(String, AuthzResourceC3Decorator, String, AuthzCheckC3Decorator, List, ConversionContext)} does
@@ -164,13 +165,16 @@ final class AuthzDecorators {
                                          ConversionContext conversionContext) {
         // the check is the interface's: its redeclaration of an inherited function carries it, which
         // the implementation's method, inherited from a base class outside that interface, would not reach
-        AuthzCheck declared = AnnotationUtils.findAnnotation(interfaceMethod, AuthzCheck.class);
-        return checkOf(serviceInterface.getName(), resource, functionName, declared == null ? null : declarationOf(declared),
-                       parameters, conversionContext);
+        AuthzCheck check = AnnotationUtils.findAnnotation(interfaceMethod, AuthzCheck.class);
+        AuthzCheckC3Decorator declared = check == null ? null : declarationOf(check);
+        if (AnnotationUtils.findAnnotation(interfaceMethod, AuthzUnchecked.class) != null) {
+            declared = (declared == null ? new AuthzCheckC3Decorator() : declared).setUnchecked(true);
+        }
+        return checkOf(serviceInterface.getName(), resource, functionName, declared, parameters, conversionContext);
     }
 
     /**
-     * The check of one function of a resource service, or null for a function declared zone-only.
+     * The check of one function of a resource service, or null for a function declared unchecked.
      *
      * @param declarer          the service, named in errors
      * @param resource          the service's resource decorator
@@ -194,11 +198,11 @@ final class AuthzDecorators {
         String declaredResource = declared == null ? null : present(declared.getResource());
         String declaredObjectId = declared == null ? null : present(declared.getObjectId());
         List<String> implies = declared == null || declared.getImplies() == null ? List.of() : declared.getImplies();
-        if (declared != null && declared.isZoneOnly()) {
+        if (declared != null && declared.isUnchecked()) {
             if (declaredPermission != null || declaredResource != null || declaredObjectId != null
                     || !implies.isEmpty() || declared.isConsistent()) {
-                throw new IllegalStateException("The function " + where + " is declared zone-only beside a check;"
-                                                        + " a zone-only function has none");
+                throw new IllegalStateException("The function " + where + " is declared unchecked beside a check;"
+                                                        + " an unchecked function has none");
             }
             return null;
         }

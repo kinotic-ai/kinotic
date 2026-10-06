@@ -1,7 +1,7 @@
 package org.kinotic.management.api.services;
 
-import org.kinotic.idl.api.annotations.AuthzCheck;
 import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.annotations.AuthzUnchecked;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
@@ -33,7 +33,7 @@ public interface ApplicationService extends IdentifiableCrudService<Application,
      * @param id the application's id
      * @return a {@link Future} emitting the application, or null when none has the id or the caller may not see it
      */
-    @AuthzCheck(zoneOnly = true)
+    @AuthzUnchecked
     Future<Application> findById(String id);
 
     /**
@@ -42,7 +42,7 @@ public interface ApplicationService extends IdentifiableCrudService<Application,
      *
      * @return a {@link Future} emitting the count
      */
-    @AuthzCheck(zoneOnly = true)
+    @AuthzUnchecked
     Future<Long> count();
 
     /**
@@ -52,7 +52,7 @@ public interface ApplicationService extends IdentifiableCrudService<Application,
      * @param pageable the page to return
      * @return a {@link Future} emitting the page
      */
-    @AuthzCheck(zoneOnly = true)
+    @AuthzUnchecked
     Future<Page<Application>> findAll(Pageable pageable);
 
     /**
@@ -63,7 +63,7 @@ public interface ApplicationService extends IdentifiableCrudService<Application,
      * @param pageable   the page to return
      * @return a {@link Future} emitting the matching page
      */
-    @AuthzCheck(zoneOnly = true)
+    @AuthzUnchecked
     Future<Page<Application>> search(String searchText, Pageable pageable);
 
     /**

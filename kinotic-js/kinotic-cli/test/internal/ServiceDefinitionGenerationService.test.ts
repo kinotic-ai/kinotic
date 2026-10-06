@@ -19,7 +19,7 @@ import {KinoticProjectConfig} from '@kinotic-ai/management-api'
 import {ConsoleLogger} from '../../src/internal/Logger.js'
 import {SERVICE_DEFINITIONS_MODULE, ServiceDefinitionGenerationService} from '../../src/internal/ServiceDefinitionGenerationService.js'
 
-const SERVICE_SOURCE = `import {AuthzCheck, AuthzResource, Context, Publish, type ServiceContext} from '@kinotic-ai/core'
+const SERVICE_SOURCE = `import {AuthzCheck, AuthzResource, AuthzUnchecked, Context, Publish, type ServiceContext} from '@kinotic-ai/core'
 
 export interface Report {
     id: string
@@ -54,7 +54,7 @@ export class ReportService extends BaseReportService {
         void options
     }
 
-    @AuthzCheck({zoneOnly: true})
+    @AuthzUnchecked
     ping(): Promise<string> {
         return Promise.resolve('pong')
     }
@@ -164,9 +164,9 @@ describe('ServiceDefinitionGenerationService', () => {
         expect(check.type).to.equal('AuthzCheck')
         expect(check.permission).to.equal('can_generate')
         expect(check.consistent).to.equal(true)
-        expect(check.zoneOnly).to.equal(false)
+        expect(check.unchecked).to.equal(false)
 
-        expect((fn(reports, 'ping').decorators![0] as AuthzCheckDecorator).zoneOnly).to.equal(true)
+        expect((fn(reports, 'ping').decorators![0] as AuthzCheckDecorator).unchecked).to.equal(true)
         // the context a @Context method takes last is the platform's, not the caller's
         expect(fn(reports, 'describe').parameters.map(p => p.name)).to.deep.equal(['reportId'])
         // a destructured parameter has no name of its own, a rest parameter keeps its name
