@@ -59,6 +59,9 @@ export function createGlobalSetup(serverNames: KinoticServerName[]): GlobalSetup
                 const files = ['compose.kinotic-e2e-test.yml']
                 let compose = new DockerComposeEnvironment(resolvedPath, files)
                     .withWaitStrategy('kinotic-elasticsearch', Wait.forHttp('/_cluster/health', 9200))
+                    // The default wait runs a port check inside the container, and the engine's image has
+                    // no shell to run it with; the engine's own healthcheck is what the servers wait on too
+                    .withWaitStrategy('openfga', Wait.forHealthCheck())
                     .withEnvironmentFile(path.resolve('../../', 'gradle.properties'))
                 for(const serverName of serverNames){
                     compose = compose.withWaitStrategy(serverName, Wait.forHttp('/health', SERVER_PORTS[serverName]))
