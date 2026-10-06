@@ -1,0 +1,1 @@
+{"id":"e1023e80758b4d7e3aa6135b39f81512.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenInsertGeoPointLiteral_thenGeoQueryMatches","name":"whenInsertGeoPointLiteral_thenGeoQueryMatches()","status":"passed","testResultsByEnv":{"default":"0effd5a58ef0a58aa2adf6e88b8e11bf"}}

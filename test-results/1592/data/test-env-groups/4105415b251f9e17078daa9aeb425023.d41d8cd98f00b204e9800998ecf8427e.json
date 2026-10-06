@@ -1,1 +1,0 @@
-{"id":"4105415b251f9e17078daa9aeb425023.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/core:test/ReturnValueConverter.test.ts#Kinotic JS packages/core BasicReturnValueConverter sends JSON null for a method that returns nothing","name":"sends JSON null for a method that returns nothing","status":"passed","testResultsByEnv":{"default":"17f31d1a9ac1d7dd9cdf30357bbeec59"}}

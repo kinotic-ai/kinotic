@@ -1,0 +1,1 @@
+{"id":"dd0e709d1456633a02dd5ce1d9aab74a.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.sql.MigrationExecutorIntegrationTest.whenCreateTableMigration_thenTableCreated","name":"whenCreateTableMigration_thenTableCreated()","status":"passed","testResultsByEnv":{"default":"4a1a18a8c5226aa3ae77f98db31d58fb"}}
