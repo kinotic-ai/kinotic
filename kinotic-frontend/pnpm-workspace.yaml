@@ -8,8 +8,8 @@ packages:
 catalog:
   '@kinotic-ai/core': ^5.0.0-beta.20
   '@kinotic-ai/idl': ^5.0.0-beta.2
-  '@kinotic-ai/management-api': ^5.0.0-beta.49
-  '@kinotic-ai/persistence': ^5.0.0-beta.10
+  '@kinotic-ai/management-api': ^5.0.0-beta.50
+  '@kinotic-ai/persistence': ^5.0.0-beta.13
   '@kinotic-ai/system-api': ^5.0.0-beta.24
 
 allowBuilds:
