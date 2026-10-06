@@ -28,7 +28,7 @@ import reactor.core.publisher.Flux;
  * recorded on {@link JobRun#getNodeId()}.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, objectId = "{@organizationId}")
+@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, resourceId = "{@organizationId}")
 public interface JobMonitoringService {
 
     /**

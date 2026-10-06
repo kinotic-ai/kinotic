@@ -29,7 +29,7 @@ import org.kinotic.management.api.model.github.GitHubInstallCompletion;
  * organization without completing the round-trip below.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, objectId = "{@organizationId}")
+@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, resourceId = "{@organizationId}")
 public interface GitHubAppInstallationService {
 
     /**

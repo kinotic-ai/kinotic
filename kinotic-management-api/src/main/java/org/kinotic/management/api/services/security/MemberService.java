@@ -18,7 +18,7 @@ import org.kinotic.domain.api.model.security.PendingInviteSummary;
  * that application's members.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, objectId = "{@organizationId}")
+@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, resourceId = "{@organizationId}")
 public interface MemberService {
 
     /** Lists the members of the scope. */

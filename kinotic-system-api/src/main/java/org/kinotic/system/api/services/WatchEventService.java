@@ -13,7 +13,7 @@ import org.kinotic.domain.api.model.WatchEvent;
  * The ledger of every watched record on the platform, as the console reads it.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, objectId = AuthzUtil.PLATFORM_OBJECT_ID)
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, resourceId = AuthzUtil.PLATFORM_OBJECT_ID)
 public interface WatchEventService {
 
     /**

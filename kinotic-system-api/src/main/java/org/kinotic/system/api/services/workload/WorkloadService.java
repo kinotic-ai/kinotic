@@ -18,7 +18,7 @@ import org.kinotic.management.api.model.workload.Workload;
  * writing one {@code can_manage_workloads}.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, objectId = AuthzUtil.PLATFORM_OBJECT_ID, permission = "can_manage_workloads")
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, resourceId = AuthzUtil.PLATFORM_OBJECT_ID, permission = "can_manage_workloads")
 public interface WorkloadService extends IdentifiableCrudService<Workload, String> {
 
     @Override

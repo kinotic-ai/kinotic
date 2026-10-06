@@ -20,7 +20,7 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 @Publish
 @Version("1.0.0")
 @Zone(DomainUtil.APP_API_ZONE)
-@AuthzResource(value = AuthzUtil.TENANT_TYPE, parent = AuthzUtil.APPLICATION_TYPE, objectId = "{@tenantId}")
+@AuthzResource(value = AuthzUtil.TENANT_TYPE, parent = AuthzUtil.APPLICATION_TYPE, resourceId = "{@tenantId}")
 public interface TenantService {
 
     /**

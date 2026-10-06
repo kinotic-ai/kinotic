@@ -31,7 +31,7 @@ public interface VmNodeService extends IdentifiableCrudService<VmNode, String> {
      * @return a future that will complete with a page of ledger entries, empty when the node is not
      * registered
      */
-    @AuthzCheck(objectId = "{nodeId}")
+    @AuthzCheck(resourceId = "{nodeId}")
     Future<Page<WatchEvent>> findHistory(String nodeId, Pageable pageable);
 
 }

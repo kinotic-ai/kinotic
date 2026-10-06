@@ -93,7 +93,7 @@ final class AuthzDecorators {
         return new AuthzResourceC3Decorator()
                 .setResourceType(type)
                 .setParent(parent)
-                .setObjectId(present(declared.getObjectId()))
+                .setResourceId(present(declared.getResourceId()))
                 .setPermission(permission)
                 .setRoles(List.copyOf(roles));
     }
@@ -106,7 +106,7 @@ final class AuthzDecorators {
         return new AuthzResourceC3Decorator()
                 .setResourceType(resource.value())
                 .setParent(resource.parent())
-                .setObjectId(resource.objectId())
+                .setResourceId(resource.resourceId())
                 .setPermission(resource.permission())
                 .setRoles(roles);
     }
@@ -115,7 +115,7 @@ final class AuthzDecorators {
         return new AuthzCheckC3Decorator()
                 .setPermission(check.permission())
                 .setResource(check.resource())
-                .setObjectId(check.objectId())
+                .setResourceId(check.resourceId())
                 .setImplies(List.of(check.implies()))
                 .setConsistent(check.consistent());
     }
@@ -196,10 +196,10 @@ final class AuthzDecorators {
         String where = functionName + " on " + declarer;
         String declaredPermission = declared == null ? null : present(declared.getPermission());
         String declaredResource = declared == null ? null : present(declared.getResource());
-        String declaredObjectId = declared == null ? null : present(declared.getObjectId());
+        String declaredResourceId = declared == null ? null : present(declared.getResourceId());
         List<String> implies = declared == null || declared.getImplies() == null ? List.of() : declared.getImplies();
         if (declared != null && declared.isUnchecked()) {
-            if (declaredPermission != null || declaredResource != null || declaredObjectId != null
+            if (declaredPermission != null || declaredResource != null || declaredResourceId != null
                     || !implies.isEmpty() || declared.isConsistent()) {
                 throw new IllegalStateException("The function " + where + " is declared unchecked beside a check;"
                                                         + " an unchecked function has none");
@@ -226,43 +226,43 @@ final class AuthzDecorators {
         }
 
         String checkedResource;
-        String objectId;
+        String resourceId;
         String permissionResource;
-        if (declaredResource != null || declaredObjectId != null) {
+        if (declaredResource != null || declaredResourceId != null) {
             checkedResource = declaredResource != null ? declaredResource : type;
-            objectId = declaredObjectId != null ? declaredObjectId
-                    : objectIdOf(checkedResource, type, parent, parameters, conversionContext);
+            resourceId = declaredResourceId != null ? declaredResourceId
+                    : resourceIdOf(checkedResource, type, parent, parameters, conversionContext);
             // a check made on the parent is about this type within it, as a derived create or listing is;
             // any other explicit resource is a permission of that resource itself
             permissionResource = checkedResource.equals(parent) ? type : checkedResource;
-        } else if (resource.getObjectId() != null) {
+        } else if (resource.getResourceId() != null) {
             // the service names the object its functions act on; what a function's arguments carry, a role, a
             // member, a machine, is what it acts with, not a resource of the service's type
             checkedResource = type;
-            objectId = resource.getObjectId();
+            resourceId = resource.getResourceId();
             permissionResource = type;
         } else if (CREATE_VERB.equals(leadingWord(functionName))) {
             checkedResource = requireParent(parent, where, "a create");
-            objectId = parentId(parent, parameters, conversionContext);
+            resourceId = parentId(parent, parameters, conversionContext);
             permissionResource = type;
         } else {
-            String resourceId = resourceId(type, parameters, conversionContext);
-            if (resourceId != null) {
+            String ownId = resourceId(type, parameters, conversionContext);
+            if (ownId != null) {
                 checkedResource = type;
-                objectId = resourceId;
+                resourceId = ownId;
             } else {
                 // no resource of this type is named, so the check is on the collection within the parent
                 checkedResource = requireParent(parent, where, "a function naming no resource id");
-                objectId = parentId(parent, parameters, conversionContext);
+                resourceId = parentId(parent, parameters, conversionContext);
             }
             permissionResource = type;
         }
-        if (objectId == null) {
-            throw new IllegalStateException("The function " + where + " names no object to check;"
-                                                    + " declare one with @AuthzCheck(objectId = ...)");
+        if (resourceId == null) {
+            throw new IllegalStateException("The function " + where + " names no resource to check;"
+                                                    + " declare one with @AuthzCheck(resourceId = ...)");
         }
 
-        for (String template : List.of(checkedResource, objectId)) {
+        for (String template : List.of(checkedResource, resourceId)) {
             for (String reference : AuthzUtil.templateReferences(template)) {
                 String parameterName = AuthzUtil.referencedParameter(reference);
                 if (parameterName == null) {
@@ -287,7 +287,7 @@ final class AuthzDecorators {
 
         return new AuthzCheckC3Decorator()
                 .setResource(checkedResource)
-                .setObjectId(objectId)
+                .setResourceId(resourceId)
                 .setPermissionResource(permissionResource)
                 .setPermission(permission)
                 .setImplies(implies)
@@ -295,10 +295,10 @@ final class AuthzDecorators {
     }
 
     /**
-     * The derived id of an object of {@code resource}: the platform's fixed id, the parent's id when the resource
-     * is the parent, else a resource of the service's own type among the parameters.
+     * The derived id of the checked resource of type {@code resource}: the platform's fixed id, the parent's id
+     * when the resource is the parent, else a resource of the service's own type among the parameters.
      */
-    private static String objectIdOf(String resource,
+    private static String resourceIdOf(String resource,
                                      String type,
                                      String parent,
                                      List<ParameterDefinition> parameters,

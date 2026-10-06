@@ -9,7 +9,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A service declaring a function unchecked beside a check, which the conversion rejects.
  */
-@AuthzResource(value = "organization", objectId = "{@organizationId}")
+@AuthzResource(value = "organization", resourceId = "{@organizationId}")
 public interface TestContradictoryService {
 
     @AuthzUnchecked

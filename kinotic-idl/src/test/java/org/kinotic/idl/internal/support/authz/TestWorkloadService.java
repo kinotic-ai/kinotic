@@ -8,7 +8,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A resource service whose functions all require the one permission it names, but for the one that names its own.
  */
-@AuthzResource(value = "platform", objectId = "kinotic", permission = "can_manage_workloads")
+@AuthzResource(value = "platform", resourceId = "kinotic", permission = "can_manage_workloads")
 public interface TestWorkloadService {
 
     CompletableFuture<Void> deployWorkload(String workloadId);

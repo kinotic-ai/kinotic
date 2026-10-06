@@ -78,7 +78,7 @@ public class SchemaServiceAuthzTest {
         AuthzCheckC3Decorator findById = check(convert(TestProjectService.class), "findById");
 
         assertEquals("project", findById.getResource());
-        assertEquals("{id}", findById.getObjectId());
+        assertEquals("{id}", findById.getResourceId());
         assertEquals("project", findById.getPermissionResource());
         assertEquals("can_view", findById.getPermission());
     }
@@ -88,7 +88,7 @@ public class SchemaServiceAuthzTest {
         AuthzCheckC3Decorator findAll = check(convert(TestProjectService.class), "findAllForApplication");
 
         assertEquals("application", findAll.getResource());
-        assertEquals("{applicationId}", findAll.getObjectId());
+        assertEquals("{applicationId}", findAll.getResourceId());
         assertEquals("project", findAll.getPermissionResource());
         assertEquals("can_view", findAll.getPermission());
     }
@@ -98,7 +98,7 @@ public class SchemaServiceAuthzTest {
         AuthzCheckC3Decorator save = check(convert(TestProjectService.class), "save");
 
         assertEquals("project", save.getResource());
-        assertEquals("{value.id}", save.getObjectId());
+        assertEquals("{value.id}", save.getResourceId());
         assertEquals("can_edit", save.getPermission());
     }
 
@@ -107,7 +107,7 @@ public class SchemaServiceAuthzTest {
         AuthzCheckC3Decorator create = check(convert(TestProjectService.class), "createProjectIfNotExist");
 
         assertEquals("application", create.getResource());
-        assertEquals("{project.applicationId}", create.getObjectId());
+        assertEquals("{project.applicationId}", create.getResourceId());
         assertEquals("project", create.getPermissionResource());
         assertEquals("can_edit", create.getPermission());
     }
@@ -117,7 +117,7 @@ public class SchemaServiceAuthzTest {
         AuthzCheckC3Decorator retry = check(convert(TestProjectService.class), "retryRepoInitialization");
 
         assertEquals("project", retry.getResource());
-        assertEquals("{projectId}", retry.getObjectId());
+        assertEquals("{projectId}", retry.getResourceId());
         assertEquals("can_edit", retry.getPermission());
         assertTrue(retry.getImplies().isEmpty());
     }
@@ -128,7 +128,7 @@ public class SchemaServiceAuthzTest {
 
         assertEquals(List.of("projectId"), deploy.getParameters().stream().map(ParameterDefinition::getName).toList());
         AuthzCheckC3Decorator check = deploy.findDecorator(AuthzCheckC3Decorator.class);
-        assertEquals("{projectId}", check.getObjectId());
+        assertEquals("{projectId}", check.getResourceId());
         assertEquals("can_deploy", check.getPermission());
         assertEquals(List.of("can_view"), check.getImplies());
     }
@@ -138,7 +138,7 @@ public class SchemaServiceAuthzTest {
         AuthzCheckC3Decorator count = check(convert(TestProjectService.class), "count");
 
         assertEquals("application", count.getResource());
-        assertEquals("{@applicationId}", count.getObjectId());
+        assertEquals("{@applicationId}", count.getResourceId());
         assertEquals("project", count.getPermissionResource());
     }
 
@@ -147,7 +147,7 @@ public class SchemaServiceAuthzTest {
         AuthzCheckC3Decorator findById = check(convert(TestEntityService.class), "findById");
 
         assertEquals("{entityDefinitionId}", findById.getResource());
-        assertEquals("{id}", findById.getObjectId());
+        assertEquals("{id}", findById.getResourceId());
         assertEquals("{entityDefinitionId}", findById.getPermissionResource());
         assertEquals("can_view", findById.getPermission());
     }
@@ -159,7 +159,7 @@ public class SchemaServiceAuthzTest {
         assertEquals("{entityDefinitionId}", service.findDecorator(AuthzResourceC3Decorator.class).getResourceType());
         AuthzCheckC3Decorator findById = check(service, "findById");
         assertEquals("tenant", findById.getResource());
-        assertEquals("{@tenantId}", findById.getObjectId());
+        assertEquals("{@tenantId}", findById.getResourceId());
         assertEquals("{entityDefinitionId}", findById.getPermissionResource());
         assertEquals("can_read", findById.getPermission());
         assertEquals("can_search", check(service, "count").getPermission());
@@ -171,16 +171,16 @@ public class SchemaServiceAuthzTest {
 
         AuthzCheckC3Decorator register = check(service, "register");
         assertEquals("platform", register.getResource());
-        assertEquals("kinotic", register.getObjectId());
+        assertEquals("kinotic", register.getResourceId());
         assertEquals("vm_node", register.getPermissionResource());
         assertEquals("can_register_node", register.getPermission());
 
         AuthzCheckC3Decorator heartbeat = check(service, "heartbeat");
         assertEquals("vm_node", heartbeat.getResource());
-        assertEquals("{registration.id}", heartbeat.getObjectId());
+        assertEquals("{registration.id}", heartbeat.getResourceId());
 
         AuthzCheckC3Decorator delete = check(service, "deleteByVmNodeId");
-        assertEquals("{vmNodeId}", delete.getObjectId());
+        assertEquals("{vmNodeId}", delete.getResourceId());
         assertEquals("can_delete", delete.getPermission());
     }
 
@@ -188,23 +188,23 @@ public class SchemaServiceAuthzTest {
     public void aServiceNamingItsObjectChecksEveryFunctionOnIt() {
         ServiceDefinition service = convert(TestMemberService.class);
 
-        assertEquals("{@organizationId}", service.findDecorator(AuthzResourceC3Decorator.class).getObjectId());
+        assertEquals("{@organizationId}", service.findDecorator(AuthzResourceC3Decorator.class).getResourceId());
         AuthzCheckC3Decorator findMembers = check(service, "findMembers");
         assertEquals("organization", findMembers.getResource());
-        assertEquals("{@organizationId}", findMembers.getObjectId());
+        assertEquals("{@organizationId}", findMembers.getResourceId());
         assertEquals("organization", findMembers.getPermissionResource());
         assertEquals("can_view_members", findMembers.getPermission());
         assertFalse(findMembers.isConsistent());
         // an argument with an id, and a create, are checked on the service's object too
-        assertEquals("{@organizationId}", check(service, "saveRole").getObjectId());
+        assertEquals("{@organizationId}", check(service, "saveRole").getResourceId());
         assertEquals("organization", check(service, "saveRole").getResource());
-        assertEquals("{@organizationId}", check(service, "createInvite").getObjectId());
+        assertEquals("{@organizationId}", check(service, "createInvite").getResourceId());
         assertEquals("organization", check(service, "createInvite").getPermissionResource());
 
         // a function naming its own object is checked on it, not on the service's
         AuthzCheckC3Decorator findProject = check(service, "findProject");
         assertEquals("project", findProject.getResource());
-        assertEquals("{projectId}", findProject.getObjectId());
+        assertEquals("{projectId}", findProject.getResourceId());
         assertEquals("project", findProject.getPermissionResource());
     }
 
@@ -213,7 +213,7 @@ public class SchemaServiceAuthzTest {
         AuthzCheckC3Decorator remove = check(convert(TestMemberService.class), "removeMember");
 
         assertEquals("can_manage_members", remove.getPermission());
-        assertEquals("{@organizationId}", remove.getObjectId());
+        assertEquals("{@organizationId}", remove.getResourceId());
         assertTrue(remove.isConsistent());
         assertFalse(check(convert(TestProjectService.class), "save").isConsistent());
     }
@@ -249,7 +249,7 @@ public class SchemaServiceAuthzTest {
         // a verb deriving nothing, and one deriving a permission, both take the service's
         assertEquals("can_manage_workloads", check(service, "deployWorkload").getPermission());
         assertEquals("can_manage_workloads", check(service, "deleteWorkload").getPermission());
-        assertEquals("platform:kinotic", check(service, "deployWorkload").getResource() + ":" + check(service, "deployWorkload").getObjectId());
+        assertEquals("platform:kinotic", check(service, "deployWorkload").getResource() + ":" + check(service, "deployWorkload").getResourceId());
         assertEquals("can_view_workloads", check(service, "findWorkload").getPermission());
     }
 

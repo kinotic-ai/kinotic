@@ -64,7 +64,7 @@ public class AuthzModelGeneratorTest {
         FunctionDefinition ret = new FunctionDefinition().setName(name);
         ret.setDecorators(List.of(new AuthzCheckC3Decorator()
                                           .setResource(resource)
-                                          .setObjectId("{id}")
+                                          .setResourceId("{id}")
                                           .setPermissionResource(permissionResource)
                                           .setPermission(permission)
                                           .setImplies(List.of(implies))));

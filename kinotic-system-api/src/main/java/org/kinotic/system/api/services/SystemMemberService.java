@@ -19,7 +19,7 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
  * manage through {@code MachineService}.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, objectId = AuthzUtil.PLATFORM_OBJECT_ID)
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, resourceId = AuthzUtil.PLATFORM_OBJECT_ID)
 public interface SystemMemberService {
 
     /**

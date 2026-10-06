@@ -41,7 +41,7 @@ public interface ServiceDirectoryService {
      * @param entry the service to register, in the application's zone
      * @return a future that completes once the entry is in the directory
      */
-    @AuthzCheck(permission = CAN_REGISTER_SERVICES, objectId = "{entry.applicationId}")
+    @AuthzCheck(permission = CAN_REGISTER_SERVICES, resourceId = "{entry.applicationId}")
     Future<Void> register(ServiceDirectoryEntry entry);
 
 }

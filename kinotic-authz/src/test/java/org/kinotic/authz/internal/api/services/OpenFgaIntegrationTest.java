@@ -398,7 +398,7 @@ class OpenFgaIntegrationTest {
         FunctionDefinition ret = new FunctionDefinition().setName(name);
         ret.setDecorators(List.of(new AuthzCheckC3Decorator()
                                           .setResource(resource)
-                                          .setObjectId("{id}")
+                                          .setResourceId("{id}")
                                           .setPermissionResource(permissionResource)
                                           .setPermission(permission)));
         return ret;

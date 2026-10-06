@@ -105,18 +105,18 @@ public class SystemServiceSchemaTest {
                                 resource.getRoles().stream().map(role -> role.getId()).toList());
 
         AuthzCheckC3Decorator register = check(service, "registerNode");
-        Assertions.assertEquals("platform:kinotic", register.getResource() + ":" + register.getObjectId());
+        Assertions.assertEquals("platform:kinotic", register.getResource() + ":" + register.getResourceId());
         Assertions.assertEquals("vm_node", register.getPermissionResource());
         Assertions.assertEquals("can_register_node", register.getPermission());
 
         AuthzCheckC3Decorator heartbeat = check(service, "heartbeat");
-        Assertions.assertEquals("vm_node:{nodeId}", heartbeat.getResource() + ":" + heartbeat.getObjectId());
+        Assertions.assertEquals("vm_node:{nodeId}", heartbeat.getResource() + ":" + heartbeat.getResourceId());
         Assertions.assertEquals("can_report", heartbeat.getPermission());
         Assertions.assertEquals("can_report", check(service, "reportWorkloadStatus").getPermission());
         Assertions.assertEquals("can_report", check(service, "deregisterNode").getPermission());
         Assertions.assertEquals("can_edit", check(service, "verifyNode").getPermission());
         // a listing of nodes with room names none, so it is checked on the platform, which every node is on
-        Assertions.assertEquals("platform:kinotic", check(service, "findAvailableNode").getResource() + ":" + check(service, "findAvailableNode").getObjectId());
+        Assertions.assertEquals("platform:kinotic", check(service, "findAvailableNode").getResource() + ":" + check(service, "findAvailableNode").getResourceId());
         Assertions.assertEquals("can_view", check(service, "findAvailableNode").getPermission());
     }
 
@@ -129,7 +129,7 @@ public class SystemServiceSchemaTest {
                                                            new ServiceDeclaration(SystemOrganizationService.class, DefaultSystemOrganizationService.class)));
 
         ServiceDefinition members = service(namespaceDefinition, "SystemMemberService");
-        Assertions.assertEquals("platform:kinotic", check(members, "createMachine").getResource() + ":" + check(members, "createMachine").getObjectId());
+        Assertions.assertEquals("platform:kinotic", check(members, "createMachine").getResource() + ":" + check(members, "createMachine").getResourceId());
         Assertions.assertEquals("can_manage_machines", check(members, "createMachine").getPermission());
         Assertions.assertTrue(check(members, "rotateSecret").isConsistent());
 
@@ -147,10 +147,10 @@ public class SystemServiceSchemaTest {
 
         // a read of one organization is checked on it, a read across them on the platform
         ServiceDefinition organizations = service(namespaceDefinition, "SystemOrganizationService");
-        Assertions.assertEquals("organization:{organizationId}", check(organizations, "findApplications").getResource() + ":" + check(organizations, "findApplications").getObjectId());
+        Assertions.assertEquals("organization:{organizationId}", check(organizations, "findApplications").getResource() + ":" + check(organizations, "findApplications").getResourceId());
         Assertions.assertEquals("can_view", check(organizations, "findApplications").getPermission());
         Assertions.assertEquals("can_view_members", check(organizations, "findMembers").getPermission());
-        Assertions.assertEquals("platform:kinotic", check(organizations, "findOrganizations").getResource() + ":" + check(organizations, "findOrganizations").getObjectId());
+        Assertions.assertEquals("platform:kinotic", check(organizations, "findOrganizations").getResource() + ":" + check(organizations, "findOrganizations").getResourceId());
         Assertions.assertEquals("organization", check(organizations, "findOrganizations").getPermissionResource());
     }
 

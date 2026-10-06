@@ -12,7 +12,7 @@ import java.util.concurrent.CompletableFuture;
  * on, whatever their arguments carry; one function names its own object, one is unchecked and one asks for a
  * consistent answer.
  */
-@AuthzResource(value = "organization", objectId = "{@organizationId}")
+@AuthzResource(value = "organization", resourceId = "{@organizationId}")
 public interface TestMemberService {
 
     @AuthzCheck(permission = "can_view_members")
@@ -27,7 +27,7 @@ public interface TestMemberService {
     @AuthzCheck(permission = "can_manage_members", consistent = true)
     CompletableFuture<Void> removeMember(String memberId);
 
-    @AuthzCheck(permission = "can_view", objectId = "{projectId}", resource = "project")
+    @AuthzCheck(permission = "can_view", resourceId = "{projectId}", resource = "project")
     CompletableFuture<TestProject> findProject(String projectId);
 
     @AuthzUnchecked

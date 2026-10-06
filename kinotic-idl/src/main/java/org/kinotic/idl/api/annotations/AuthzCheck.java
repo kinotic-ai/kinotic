@@ -8,16 +8,16 @@ import java.lang.annotation.Target;
 
 /**
  * States a part of one function's check that derivation gets wrong or cannot know: the permission, the type of
- * the object, or its id. Every attribute left empty keeps the derived value, or the one the service declares on
+ * the resource, or its id. Every attribute left empty keeps the derived value, or the one the service declares on
  * {@link AuthzResource}, so a function states only the part derivation misses. Derivation is described on
  * {@link AuthzResource}; a function served with no check is marked {@link AuthzUnchecked} instead.
  *
- * <p>{@link #resource()} and {@link #objectId()} are templates over the function's parameters: {@code {nodeId}}
+ * <p>{@link #resource()} and {@link #resourceId()} are templates over the function's parameters: {@code {nodeId}}
  * is a parameter's value, {@code {registration.id}} a property of an object parameter, and
  * {@code {@organizationId}}, {@code {@applicationId}} or {@code {@tenantId}} the matching id of the caller's
  * scope.
  *
- * <p>Examples: {@code @AuthzCheck(permission = "can_report", objectId = "{registration.id}")} on
+ * <p>Examples: {@code @AuthzCheck(permission = "can_report", resourceId = "{registration.id}")} on
  * {@code heartbeat(Registration registration)}, whose name derives no permission and whose id is inside the
  * body; {@code @AuthzCheck(resource = "tenant", permission = "can_create")} on a function of a service typed by
  * its request, checked on the caller's tenant for a permission of the request's type.
@@ -35,16 +35,16 @@ public @interface AuthzCheck {
     String permission() default "";
 
     /**
-     * The type of the object the check is made on, when it is not the service's own type: the parent for a
+     * The type of the resource the check is made on, when it is not the service's own type: the parent for a
      * create, or a template such as {@code {definitionId}} for a function whose type is an argument.
      */
     String resource() default "";
 
     /**
-     * The id of the object the check is made on, as a template such as {@code {nodeId}} or
+     * The id of the resource the check is made on, as a template such as {@code {nodeId}} or
      * {@code {registration.id}}.
      */
-    String objectId() default "";
+    String resourceId() default "";
 
     /**
      * Short names of permissions on the same type that this permission also grants, so a role bundling

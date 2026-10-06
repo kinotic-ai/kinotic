@@ -17,7 +17,7 @@ public interface TestVmNodeService {
     @AuthzCheck(resource = "platform", permission = "can_register_node")
     CompletableFuture<TestProject> register(TestProject registration);
 
-    @AuthzCheck(permission = "can_heartbeat", objectId = "{registration.id}")
+    @AuthzCheck(permission = "can_heartbeat", resourceId = "{registration.id}")
     CompletableFuture<Void> heartbeat(TestProject registration);
 
     CompletableFuture<Void> deleteByVmNodeId(String vmNodeId);

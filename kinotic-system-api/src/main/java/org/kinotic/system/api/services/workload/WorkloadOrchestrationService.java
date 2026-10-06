@@ -19,7 +19,7 @@ import java.util.List;
  * For querying workloads (findById, findAll, search) use {@link WorkloadService} directly.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, objectId = AuthzUtil.PLATFORM_OBJECT_ID, permission = "can_manage_workloads")
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, resourceId = AuthzUtil.PLATFORM_OBJECT_ID, permission = "can_manage_workloads")
 public interface WorkloadOrchestrationService {
 
     /**

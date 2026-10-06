@@ -16,7 +16,7 @@ import org.kinotic.management.api.model.telemetry.TraceQuery;
  * the caller parses Tempo's and Prometheus's wire formats.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, objectId = "{@organizationId}")
+@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, resourceId = "{@organizationId}")
 public interface TelemetryService {
 
     /**

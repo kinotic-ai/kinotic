@@ -11,8 +11,8 @@ import java.lang.annotation.Target;
  * the gateway before the service sees the request. The type and the permissions its functions need become part
  * of the generated authorization model, where roles bundle permissions and grants bind roles to callers.
  *
- * <p>A function's check has three parts: the permission it needs, the type of the object it is checked on, and
- * the id of that object. Each part is derived from the function's name and parameters where it can be;
+ * <p>A function's check has three parts: the permission it needs, the type of the resource it is checked on,
+ * and the id of that resource. Each part is derived from the function's name and parameters where it can be;
  * {@link AuthzCheck} states a part derivation gets wrong or cannot know, and {@link AuthzUnchecked} marks a
  * function served with no check. A function left with no check and no marker fails the service's
  * registration, so no function of a resource service is served unchecked by accident.
@@ -23,7 +23,7 @@ import java.lang.annotation.Target;
  * needs {@code can_edit} of this type on the parent. {@code can_delete} implies {@code can_edit}, which implies
  * {@code can_view}.
  *
- * <p>The object is derived from the parameters: its id is the {@code String} parameter named {@code id} or
+ * <p>The resource is derived from the parameters: its id is the {@code String} parameter named {@code id} or
  * {@code <type>Id} ({@code projectId} for the type {@code project}), else the id of the first
  * {@code Identifiable} parameter. A function with neither is checked on the parent, whose id is found the same
  * way with the parent's name, else on the caller's own scope.
@@ -46,10 +46,10 @@ public @interface AuthzResource {
     /**
      * The resource type, a single lowercase identifier such as {@code project}. It names the type in the model,
      * prefixes the type's permissions ({@code project_can_view}) and roles ({@code project.editor}), and is the
-     * type of the object every function is checked on unless the function names another with
+     * type of the resource every function is checked on unless the function names another with
      * {@link AuthzCheck}. Several services may declare one type; each adds its functions' permissions to it.
      *
-     * <p>A service whose functions act on objects of a type each request names declares a template over the
+     * <p>A service whose functions act on resources of a type each request names declares a template over the
      * parameter carrying it, such as {@code {definitionId}}: the type is that parameter's value, and each
      * function states its check with {@link AuthzCheck}, on the {@link #parent()}, since the type itself has
      * no functions of its own. A type must not collide with one the model holds for another reason.
@@ -58,18 +58,18 @@ public @interface AuthzResource {
 
     /**
      * The type that contains this one, such as {@code application} for {@code project}. A grant made on an
-     * object of the parent type inherits to every object of this type inside it, and a function naming no
-     * object of its own, such as a listing or a create, is checked on the parent. Empty for a root type.
+     * resource of the parent type inherits to every resource of this type inside it, and a function naming no
+     * resource of its own, such as a listing or a create, is checked on the parent. Empty for a root type.
      */
     String parent() default "";
 
     /**
-     * The object every function of the service is checked on, for a service whose functions act on one object
-     * the request does not name: a template over the caller's scope, {@code {@organizationId}},
-     * {@code {@applicationId}} or {@code {@tenantId}}, or a literal id. A function naming its own object with
+     * The resource every function of the service is checked on, for a service whose functions act on one
+     * resource the request does not name: a template over the caller's scope, {@code {@organizationId}},
+     * {@code {@applicationId}} or {@code {@tenantId}}, or a literal id. A function naming its own resource with
      * {@link AuthzCheck} is unaffected.
      */
-    String objectId() default "";
+    String resourceId() default "";
 
     /**
      * The permission every function of the service needs, as a short name such as {@code can_manage}, for a
