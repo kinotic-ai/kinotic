@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/persistence",
-  "version": "5.0.0-beta.13",
+  "version": "5.0.0-beta.14",
   "type": "module",
   "files": [
     "dist"
@@ -40,7 +40,7 @@
     "@kinotic-ai/core": "workspace:^"
   },
   "dependencies": {
-    "@kinotic-ai/idl": "workspace:*",
+    "@kinotic-ai/idl": "workspace:^",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {

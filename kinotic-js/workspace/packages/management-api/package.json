@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/management-api",
-  "version": "5.0.0-beta.50",
+  "version": "5.0.0-beta.51",
   "type": "module",
   "files": [
     "dist"
@@ -40,7 +40,7 @@
     "@kinotic-ai/core": "workspace:^"
   },
   "dependencies": {
-    "@kinotic-ai/idl": "workspace:*",
+    "@kinotic-ai/idl": "workspace:^",
     "@kinotic-ai/persistence": "workspace:*",
     "rxjs": "^7.8.2"
   },
