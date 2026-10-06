@@ -50,7 +50,7 @@ import static org.mockito.Mockito.when;
  * scope reference, at the caller's own level when the check names one below it, and on the platform for a
  * system participant, and on its own application's store for an application participant, on its tenant, or on
  * the application when it has none, with the entity type a request names resolved from the definition's id; a
- * delegate checked as its owner; a zone-only function and a service with no entry passing without the engine;
+ * delegate checked as its owner; an unchecked function and a service with no entry passing without the engine;
  * and the refusals: a denied check, a request naming no object, a body no id can be read from.
  */
 class DefaultRequestAuthorizerTest {
@@ -174,7 +174,7 @@ class DefaultRequestAuthorizerTest {
     }
 
     @Test
-    void aZoneOnlyFunctionPassesWithoutTheEngine() throws Exception {
+    void anUncheckedFunctionPassesWithoutTheEngine() throws Exception {
         authorize("listAccessible", sally(), EventConstants.CONTENT_TYPE_JSON, "[\"project\",\"can_view\"]");
 
         verify(relationships, never()).check(any(), any(), any(), any());

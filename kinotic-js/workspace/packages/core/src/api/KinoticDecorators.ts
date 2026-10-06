@@ -18,12 +18,14 @@ const contextMarkedFunctions = new WeakSet<Function>()
 const authzResourceClasses = new WeakSet<Function>()
 
 /**
- * A role a service declares for its resource type, named `<type>.<level>`, bundling permissions of the type.
+ * A role a service declares for its resource type beside the built-in `viewer`, `editor` and `admin`: a bundle
+ * of the type's own permissions, defined by the generated model, named like a built-in role and granted the
+ * same way.
  */
 export interface AuthzRoleDeclaration {
-    /** The role's id, `<type>.<level>` with a lowercase identifier as the level. */
+    /** The role's id, `<type>.<level>`, with a lowercase identifier no built-in role of the type uses as the level. */
     id: string
-    /** The short names of the type's permissions the role bundles, such as `can_generate`. */
+    /** The short names of the permissions the role bundles, each one a permission a function of the type needs. */
     permissions: string[]
 }
 
@@ -31,34 +33,64 @@ export interface AuthzRoleDeclaration {
  * What a service declares about the resource its functions act on, as {@link AuthzResource} declares it.
  */
 export interface AuthzResourceDeclaration {
-    /** The resource type, a lowercase identifier such as `report`. */
+    /**
+     * The resource type, a single lowercase identifier such as `report`: it names the type in the model, prefixes
+     * the type's permissions (`report_can_view`) and roles (`report.editor`), and is the type of the object every
+     * function is checked on unless the function names another with {@link AuthzCheck}.
+     */
     value: string
-    /** The type the resource sits under, such as `tenant` or `application`; absent for a root type. */
+    /**
+     * The type that contains this one, such as `tenant` for `report`: a grant made on an object of the parent type
+     * inherits to every object of this type inside it, and a function naming no object of its own, such as a
+     * listing or a create, is checked on the parent. Absent for a root type.
+     */
     parent?: string | null
-    /** The id template every function is checked on, such as `{@applicationId}`, when the service acts on one object. */
+    /**
+     * The object every function of the service is checked on, for a service whose functions act on one object the
+     * request does not name: a template over the caller's scope, `{@applicationId}` or `{@tenantId}`, or a literal
+     * id. A function naming its own object with {@link AuthzCheck} is unaffected.
+     */
     objectId?: string | null
-    /** The permission every function of the service needs, when they all need the same one. */
+    /**
+     * The permission every function of the service needs, as a short name such as `can_manage`, for a service whose
+     * functions all need the one permission whatever their names. A function declaring a permission of its own with
+     * {@link AuthzCheck} keeps it. Name the service's strictest permission.
+     */
     permission?: string | null
-    /** The roles the service declares for its type. */
+    /** Roles of this type beside the built-in ones, each bundling permissions the type's functions need. */
     roles?: AuthzRoleDeclaration[] | null
 }
 
 /**
  * What a function declares about its check, as {@link AuthzCheck} declares it; whatever is left out is derived
- * from the function's name and parameters.
+ * from the function's name and parameters, as described on {@link AuthzResource}.
  */
 export interface AuthzCheckDeclaration {
-    /** The short permission name, such as `can_generate`. */
+    /**
+     * The permission the function needs, as a short name such as `can_generate`. In the model it is prefixed by
+     * the type it is about, so `can_generate` on a `report` service is `report_can_generate`.
+     */
     permission?: string | null
-    /** The type of the object the check is made on, when it is not the service's own. */
+    /**
+     * The type of the object the check is made on, when it is not the service's own type: the parent for a
+     * create, or a template such as `{definitionId}` for a function whose type is an argument.
+     */
     resource?: string | null
-    /** The id template of the object, over the function's parameters and the caller's scope, such as `{reportId}`. */
+    /**
+     * The id of the object the check is made on, as a template over the function's parameters and the caller's
+     * scope: `{reportId}` is a parameter's value, `{registration.id}` a property of an object parameter, and
+     * `{@applicationId}` or `{@tenantId}` the matching id of the caller's scope.
+     */
     objectId?: string | null
-    /** Short names of permissions this one implies. */
+    /**
+     * Short names of permissions on the same type that this permission also grants, so a role bundling
+     * `can_generate` declared with `implies: ['can_view']` views what it generates.
+     */
     implies?: string[] | null
-    /** True for a function any caller the zone admits may call, which carries no check. */
-    zoneOnly?: boolean
-    /** True for a check that must answer from the stored relationships rather than the engine's caches. */
+    /**
+     * True for a function whose check must not be answered from the engine's caches, because a stale allow would
+     * be a security event.
+     */
     consistent?: boolean
 }
 
@@ -219,15 +251,28 @@ function resolveEffectiveZone(constructor: Function): string | null {
 }
 
 /**
- * Declares the resource a service's functions act on. `kinotic sync` reads the declaration from the class's
+ * Marks a published service as acting on one type of resource, which `kinotic sync` reads from the class's
  * source into the service's definition, which the runtime registers in the platform's service directory when
- * the service comes online, so every request to the service is checked. The check of each function is derived
- * by the platform from the function's name and parameters, as it is for the platform's own services: a `find`,
- * `get`, `count`, `search` or `list` function needs `can_view`, a `save`, `update` or `set` function `can_edit`,
- * a `delete` or `remove` function `can_delete`, and a `create` function `can_edit` on the parent, each on the
- * object a parameter named `id` or `<type>Id` names, or on the parent when none does. A function the derivation
- * cannot read declares its check with {@link AuthzCheck}. A runtime holding no definition for a service
- * declaring a resource refuses to serve it.
+ * the service comes online, so every request to the service is authorized before the service sees it. The type
+ * and the permissions its functions need become part of the application's authorization model, where roles
+ * bundle permissions and grants bind roles to callers.
+ *
+ * A function's check has three parts: the permission it needs, the type of the object it is checked on, and
+ * the id of that object. Each part is derived from the function's name and parameters where it can be;
+ * {@link AuthzCheck} states a part derivation gets wrong or cannot know, and {@link AuthzUnchecked} marks a
+ * function served with no check. A function left with no check and no marker fails the service's registration.
+ *
+ * The permission is derived from the first word of the function's name: `find`, `get`, `count`, `search` and
+ * `list` need `can_view`; `save`, `update` and `set` need `can_edit`; `delete` and `remove` need `can_delete`;
+ * `create` needs `can_edit` of this type on the parent. The object's id is the parameter named `id` or
+ * `<type>Id` (`reportId` for the type `report`), else the `id` of the first object parameter; a function with
+ * neither is checked on the parent, whose id is found the same way with the parent's name, else on the caller's
+ * own scope.
+ *
+ * Example: with `@AuthzResource({value: 'report', parent: 'tenant'})`, `findById(id: string)` is checked for
+ * `report_can_view` on the report `id` names, `save(report: Report)` for `report_can_edit` on the report
+ * `report.id` names, and `findReports()` for `report_can_view` on the caller's tenant, with nothing declared on
+ * them. A runtime holding no definition for a service declaring a resource refuses to serve it.
  * @param declaration the resource type, or the type with its parent, object, permission and roles
  */
 export function AuthzResource(declaration: AuthzResourceDeclaration | string) {
@@ -238,15 +283,29 @@ export function AuthzResource(declaration: AuthzResourceDeclaration | string) {
 }
 
 /**
- * Declares the check of a function of an {@link AuthzResource} service, which `kinotic sync` reads into the
- * service's definition: a permission of its own, such as `can_generate`, another object than the derived one,
- * the permissions it implies, a consistent answer, or that any caller the zone admits may call it (`zoneOnly`).
- * @param declaration what the derivation cannot read from the function's name and parameters
+ * States a part of one function's check that derivation gets wrong or cannot know, which `kinotic sync` reads
+ * into the service's definition: the permission, the type of the object, or its id. Every part left out keeps
+ * the derived value, or the one the service declares with {@link AuthzResource}, so a function states only the
+ * part derivation misses. A function served with no check is marked {@link AuthzUnchecked} instead.
+ *
+ * Example: `@AuthzCheck({permission: 'can_report', objectId: '{registration.id}'})` on
+ * `heartbeat(registration: Registration)`, whose name derives no permission and whose id is inside the body.
+ * @param declaration the parts of the check derivation cannot read from the function's name and parameters
  */
 export function AuthzCheck(declaration: AuthzCheckDeclaration) {
     void declaration
     return function (_value: Function, _context: ClassMethodDecoratorContext): void {
     }
+}
+
+/**
+ * Marks a function of an {@link AuthzResource} service that is served with no authorization check, which
+ * `kinotic sync` reads into the service's definition: any caller the service's zone admits may call it, and the
+ * service itself is responsible for answering only what the caller may see or do. It is for a function that has
+ * no object to check, such as a listing of the caller's own grants. A function carrying this and
+ * {@link AuthzCheck} fails the service's registration.
+ */
+export function AuthzUnchecked(_value: Function, _context: ClassMethodDecoratorContext): void {
 }
 
 /**

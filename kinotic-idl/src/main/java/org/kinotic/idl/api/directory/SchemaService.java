@@ -53,7 +53,7 @@ public interface SchemaService {
      * Derives the checks of a service definition a runtime declares, as a TypeScript service's generated
      * definition is: for a definition carrying an {@link AuthzResourceC3Decorator}, the resource decorator is
      * resolved and each function's {@link AuthzCheckC3Decorator} is derived from its name, its parameters and
-     * the check it declares, exactly as a {@code @Publish} interface's is, a function declared zone-only
+     * the check it declares, exactly as a {@code @Publish} interface's is, a function declared unchecked
      * carrying none; a definition declaring no resource is returned as declared. The given definition is left
      * as it is.
      *

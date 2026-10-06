@@ -40,7 +40,7 @@ public class CheckDerivationTest {
                 function("findReports", null),
                 function("findById", null, "reportId"),
                 function("generate", new AuthzCheckC3Decorator().setPermission("can_generate").setConsistent(true), "reportId", "options"),
-                function("ping", new AuthzCheckC3Decorator().setZoneOnly(true)),
+                function("ping", new AuthzCheckC3Decorator().setUnchecked(true)),
                 function("archive", new AuthzCheckC3Decorator().setPermission("can_archive").setResource("tenant").setImplies(List.of("can_view")), "arg0", "tags"));
 
         ServiceDefinition service = schemaService.deriveChecks(declared);
@@ -73,7 +73,7 @@ public class CheckDerivationTest {
         assertInstanceOf(AnyC3Type.class, generate.getReturnType());
         // the declared definition is left as it is
         assertNull(function(declared, "findReports").getDecorators());
-        assertTrue(function(declared, "ping").findDecorator(AuthzCheckC3Decorator.class).isZoneOnly());
+        assertTrue(function(declared, "ping").findDecorator(AuthzCheckC3Decorator.class).isUnchecked());
     }
 
     @Test

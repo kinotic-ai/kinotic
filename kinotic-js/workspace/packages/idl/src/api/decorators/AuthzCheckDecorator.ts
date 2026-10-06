@@ -3,7 +3,7 @@ import {C3Decorator} from '@/api/decorators/C3Decorator'
 /**
  * The authorization check a function requires. A service's definition declares what the derivation cannot
  * read from the function's name and parameters: a permission of its own, another object than the derived
- * one, the permissions it implies, a consistent answer, or that any caller the zone admits may call it. The
+ * one, the permissions it implies, a consistent answer, or that the function is served with no check. The
  * platform derives the rest when the service registers, naming the object checked and the type the permission
  * is named for.
  */
@@ -36,10 +36,9 @@ export class AuthzCheckDecorator extends C3Decorator {
     public implies: string[] = []
 
     /**
-     * True for a function declared zone-only, which any caller the zone admits may call and which carries no
-     * check.
+     * True for a function declared served with no check, which any caller the zone admits may call.
      */
-    public zoneOnly: boolean = false
+    public unchecked: boolean = false
 
     /**
      * Whether the check must answer from the stored relationships rather than the engine's caches.

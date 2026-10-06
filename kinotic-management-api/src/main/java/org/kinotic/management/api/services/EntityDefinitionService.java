@@ -3,6 +3,7 @@ package org.kinotic.management.api.services;
 
 import org.kinotic.idl.api.annotations.AuthzCheck;
 import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.annotations.AuthzUnchecked;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
@@ -29,7 +30,7 @@ public interface EntityDefinitionService extends ProjectScopedCrudService<Entity
      * @param id the definition's id
      * @return a {@link Future} emitting the definition, or null when none has the id or the caller may not view it
      */
-    @AuthzCheck(zoneOnly = true)
+    @AuthzUnchecked
     Future<EntityDefinition> findById(String id);
 
     /**
