@@ -310,7 +310,7 @@ public class AuthzModelGeneratorTest {
         AuthzModel other = generator.platformModel(List.of(platformServices().getFirst()));
 
         assertEquals(model.hash(), same.hash());
-        assertEquals(64, model.hash().length());
+        assertEquals(32, model.hash().length());
         assertNotEquals(model.hash(), other.hash());
     }
 

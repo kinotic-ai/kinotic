@@ -5,9 +5,9 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.JsonNodeFactory;
 import tools.jackson.databind.node.ObjectNode;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import net.openhft.hashing.LongTupleHashFunction;
+
+import java.nio.ByteBuffer;
 import java.util.HexFormat;
 import java.util.Set;
 import java.util.TreeSet;
@@ -27,16 +27,12 @@ final class ModelHash {
     }
 
     /**
-     * The SHA-256 hex digest of the definition's canonical form.
+     * The hex digest of the definition's canonical form: its 128-bit xxHash, which equal definitions share and
+     * a changed one differs in.
      */
     static String of(JsonNode definition) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256")
-                                         .digest(canonical(definition).toString().getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is unavailable", e);
-        }
+        long[] hash = LongTupleHashFunction.xx128().hashChars(canonical(definition).toString());
+        return HexFormat.of().formatHex(ByteBuffer.allocate(Long.BYTES * 2).putLong(hash[0]).putLong(hash[1]).array());
     }
 
     /**
