@@ -1,5 +1,6 @@
 import {BasicCredentialsResolver, type ConnectOptions, Kinotic, KinoticSingleton, RpcError, type ServerInfo} from '@kinotic-ai/core'
 import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
+import {ManagementApiPlugin, SubjectKind} from '@kinotic-ai/management-api'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {firstValueFrom, lastValueFrom, take, toArray} from 'rxjs'
@@ -7,6 +8,7 @@ import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {
     buildConnectOptions,
     E2E_FIXTURE_PASSWORD,
+    E2E_ORG_USER_EMAIL,
     E2E_ORGANIZATION_ID,
     kinoticServer
 } from '../TestHelpers.js'
@@ -18,9 +20,10 @@ ensureNodeWebSocket()
 
 const execFileAsync = promisify(execFile)
 
-// The host publishes the probe in an app zone of the e2e organization, which the organization's runtime machine may
-// host and call
-const ZONE = `app.${E2E_ORGANIZATION_ID}.node-failure`
+// The host publishes the probe in the zone of an application the suite creates in the e2e organization, whose
+// runtime role it grants the organization's runtime machine
+const APP_ID = 'node-failure'
+const ZONE = `app.${E2E_ORGANIZATION_ID}.${APP_ID}`
 const PROBE_SERVICE = `${ZONE}~e2e.nodefailure.ProbeService`
 
 /** The organization's runtime machine V3__e2e_app_fixtures seeds, which connects to app server nodes (clientSecret: kinotic). */
@@ -50,12 +53,24 @@ const probeEvents: ProbeEvent[] = []
 /**
  * Runs the suite's kill-and-restart scenarios against the two app server nodes the node-failure setup starts:
  * kinotic-server-app (node 1) and kinotic-server-app-2 (node 2). The probe host is the global Kinotic client;
- * callers are separate clients so each side of a call can be placed on the node the scenario needs.
+ * callers are separate clients so each side of a call can be placed on the node the scenario needs. The
+ * organization's administrator, on a client of its own, creates the probe's application and grants the runtime
+ * machine the runtime role on it, so the host may register the probe.
  */
 describe('Node failure handling for service proxies', () => {
+    const admin = new KinoticSingleton()
     const callers: KinoticSingleton[] = []
+    let runtimeGrantId: string | undefined
 
     beforeAll(async () => {
+        admin.use(ManagementApiPlugin)
+        await admin.connect(buildConnectOptions(new BasicCredentialsResolver(E2E_ORG_USER_EMAIL, E2E_FIXTURE_PASSWORD,
+                                                                             E2E_ORGANIZATION_ID)))
+        await admin.applications.createApplicationIfNotExist(APP_ID, 'e2e fixture application for the node-failure suite')
+        const runtimeGrant = await admin.permissions.grant({kind: SubjectKind.USER, id: RUNTIME_MACHINE_ID},
+                                                           'application.runtime', {type: 'application', id: APP_ID})
+        runtimeGrantId = runtimeGrant.id
+
         Kinotic.zonePrefix = ZONE
         new ProbeService(event => probeEvents.push(event))
         await Kinotic.connect(runtimeConnectOptions(node2()))
@@ -67,6 +82,11 @@ describe('Node failure handling for service proxies', () => {
         }
         await Kinotic.disconnect(true)
         Kinotic.zonePrefix = null
+        if (runtimeGrantId !== undefined) {
+            await admin.permissions.revoke({type: 'application', id: APP_ID}, runtimeGrantId).catch(() => undefined)
+        }
+        await admin.applications.deleteById(APP_ID)
+        await admin.disconnect()
     }, 120_000)
 
     /** Connects a new caller to the node; the suite disconnects it at the end. */
