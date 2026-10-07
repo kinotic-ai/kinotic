@@ -1,1 +1,0 @@
-{"id":"f3f7c03bb6e967b16be039c9400bb693.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.MigrationParserSyntaxErrorTest.whenKeywordsAreLowercaseAndColumnsAreNamedLikeTypes_thenParses","name":"whenKeywordsAreLowercaseAndColumnsAreNamedLikeTypes_thenParses()","status":"passed","testResultsByEnv":{"default":"762bcc08954491bc46589208cbc17fd6"}}
