@@ -59,7 +59,7 @@ import static org.kinotic.authz.api.services.AuthzStoreService.PLATFORM;
  * or on the application when it has none. A definition's rows are checked on the definition a request names: a
  * tenant's user on the definition within its tenant, an organization's member on the definition in the
  * platform's store. What is kept of a contract is dropped when the directory announces the contract written
- * again. A refusal is answered "Not authorized", and its reason is logged with the request and the caller.
+ * again. A refusal is answered "Not authorized", and its reason is logged.
  */
 @Slf4j
 @Component
@@ -116,19 +116,17 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                     ? Future.succeededFuture()
                     : check(spec, scoped, store, contentType, body));
         } else {
-            ret = Future.failedFuture(new AuthorizationException("No store answers for participant of type "
-                                                                         + participant.getClass().getSimpleName()));
+            ret = Future.failedFuture(notAuthorized("No store answers for participant of type {} with id {}",
+                                                    participant.getClass().getSimpleName(), participant.getId()));
         }
-        // a refusal's reason names the contract, the check and the ids it resolved, so it is logged here and the
-        // caller is answered without it
-        return ret.recover(error -> {
-            Throwable answer = error;
-            if (error instanceof AuthorizationException) {
-                log.warn("Refused {} to participant {}: {}", cri.raw(), participant.getId(), error.getMessage());
-                answer = new AuthorizationException("Not authorized");
-            }
-            return Future.failedFuture(answer);
-        });
+        return ret;
+    }
+
+    // The refusal a caller is answered with; the reason names the contract, the check and the ids resolved from
+    // the request, so it is logged rather than returned
+    private static AuthorizationException notAuthorized(String reason, Object... arguments) {
+        log.warn(reason, arguments);
+        return new AuthorizationException("Not authorized");
     }
 
     private Future<FunctionSpec> spec(CRI cri) {
@@ -137,10 +135,9 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         String entryId = cri.hasZone() ? cri.zone() + "~" + cri.resourceName() : cri.resourceName();
         Future<FunctionSpec> ret;
         if (directory == null) {
-            ret = Future.failedFuture(new AuthorizationException("No service directory holds the contract of " + entryId
-                                                                         + ", so its functions are refused"));
+            ret = Future.failedFuture(notAuthorized("No service directory holds the contract of {}, so its functions are refused", entryId));
         } else if (!cri.hasPath()) {
-            ret = Future.failedFuture(new AuthorizationException("The request names no function of " + entryId));
+            ret = Future.failedFuture(notAuthorized("The request names no function of {}", entryId));
         } else {
             String key = entryId + "|" + cri.version();
             String function = cri.path().substring(1);
@@ -148,8 +145,8 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                              .map(functions -> {
                                  FunctionSpec spec = functions.get(function);
                                  if (spec == null) {
-                                     throw new AuthorizationException("No contract covers " + function + " of " + entryId
-                                                                              + "; a function is served with a check, or marked unchecked");
+                                     throw notAuthorized("No contract covers {} of {}; a function is served with a check, or marked unchecked",
+                                                         function, entryId);
                                  }
                                  return spec;
                              });
@@ -212,7 +209,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
             Resource checked = scopeLevelOf(check, scope);
             String resourceId = authzIdOf(checked.type(), resolve(checked.id(), spec, scope, contentType, body), scope);
             if (!AuthzUtil.isObjectId(resourceId)) {
-                throw new AuthorizationException("The request names the " + checked.type() + " '" + resourceId + "', which names no resource");
+                throw notAuthorized("The request names the {} '{}', which names no resource", checked.type(), resourceId);
             }
             // A tenant's user is checked on the definition within its tenant, an object no store holds tuples for:
             // its two edges come with the check, the tenant's from the caller's scope and the definition's from the
@@ -231,9 +228,8 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                         .compose(modelId -> relationships.check(store, modelId, relationship, consistency, edges))
                         .compose(allowed -> allowed
                                 ? Future.succeededFuture()
-                                : Future.failedFuture(new AuthorizationException("Denied " + relationship.relation() + " on "
-                                                                                         + relationship.object() + " to "
-                                                                                         + relationship.user())));
+                                : Future.failedFuture(notAuthorized("Denied {} on {} to {}", relationship.relation(),
+                                                                    relationship.object(), relationship.user())));
         } catch (AuthorizationException e) {
             ret = Future.failedFuture(e);
         }
@@ -266,7 +262,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         try {
             return DomainUtil.authzId(type, scope.organizationId(), id);
         } catch (IllegalArgumentException e) {
-            throw new AuthorizationException("The check names " + type + " " + id + ", which only a caller in an organization addresses");
+            throw notAuthorized("The check names {} {}, which only a caller in an organization addresses", type, id);
         }
     }
 
@@ -278,7 +274,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                     ? scopeValue(reference, scope)
                     : locate(contentType, body, parameter.parameter(), parameter.position(), parameter.path());
             if (value == null || value.isEmpty()) {
-                throw new AuthorizationException("The request names no " + reference + ", which its check needs");
+                throw notAuthorized("The request names no {}, which its check needs", reference);
             }
             ret = ret.replace("{" + reference + "}", value);
         }
@@ -290,7 +286,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
             case "@organizationId" -> scope.organizationId();
             case "@applicationId" -> scope.applicationId();
             case "@tenantId" -> scope.tenantId();
-            default -> throw new AuthorizationException("The check names the unknown scope value " + reference);
+            default -> throw notAuthorized("The check names the unknown scope value {}", reference);
         };
     }
 
@@ -302,11 +298,11 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
      */
     private String locate(String contentType, byte[] body, String parameter, int position, List<String> path) {
         if (body == null || body.length == 0) {
-            throw new AuthorizationException("The request carries no body, in which its check names " + parameter);
+            throw notAuthorized("The request carries no body, in which its check names {}", parameter);
         }
         boolean named = EventConstants.CONTENT_TYPE_NAMED_JSON.equals(contentType);
         if (!named && !EventConstants.CONTENT_TYPE_JSON.equals(contentType)) {
-            throw new AuthorizationException("The request's body is " + contentType + ", in which no id can be located");
+            throw notAuthorized("The request's body is {}, in which no id can be located", contentType);
         }
         String ret;
         // the services bind the last of a property named twice, which need not be the one read here, so the
@@ -327,7 +323,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                 token = parser.nextToken();
             }
         } catch (StreamReadException e) {
-            throw new AuthorizationException("The request's body cannot be read for its check: " + e.getOriginalMessage());
+            throw notAuthorized("The request's body cannot be read for its check: {}", e.getOriginalMessage());
         }
         return ret;
     }

@@ -205,7 +205,6 @@ class DefaultRequestAuthorizerTest {
 
         String reason = refused("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-b\"}]");
 
-        assertTrue(reason.contains("srv://acme@" + SERVICE + "/save"), reason);
         assertTrue(reason.contains("project_can_edit on project:acme.proj-b to user:sally"), reason);
     }
 
