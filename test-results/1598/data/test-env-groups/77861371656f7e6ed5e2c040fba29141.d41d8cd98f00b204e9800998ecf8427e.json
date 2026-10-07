@@ -1,1 +1,0 @@
-{"id":"77861371656f7e6ed5e2c040fba29141.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/e2e-tests:test/native/SystemLogin.test.ts#System login route rejects a wrong password with a generic 401","name":"rejects a wrong password with a generic 401","status":"passed","testResultsByEnv":{"default":"c7d43637d8d39178a179ee8a611cf01c"}}
