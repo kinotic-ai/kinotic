@@ -334,9 +334,10 @@ public class AuthzModelGeneratorTest {
         assertFalse(type(model, "application").get("relations").has("organization"));
         assertEquals(List.of("user", "group#member", "application#end_user", "tenant#member"),
                      directTypes(type(model, "role_binding"), "member"));
-        // a definition sits in the application, and knows the application's end users through it
+        // the application is placed in its own store by a wildcard tuple, and a definition under it is placed through it
+        assertEquals(List.of("user:*"), directTypes(type(model, "application"), "placed"));
         assertEquals(List.of("application"), directTypes(type(model, "entity_definition"), "application"));
-        assertEquals(List.of("ttu:application->end_user"), List.of(source(type(model, "entity_definition").get("relations").get("end_user"))));
+        assertEquals("ttu:application->placed", source(type(model, "entity_definition").get("relations").get("placed")));
         assertEquals(List.of("ttu:role_binding->entity_definition_can_edit", "computed:entity_definition_can_delete", "ttu:application->entity_definition_can_edit"),
                      children(type(model, "entity_definition"), "entity_definition_can_edit", "union"));
         assertEquals(Set.of("can_create", "can_delete", "can_edit", "can_read", "can_search"), model.permissions().get("entity_definition"));
@@ -350,7 +351,7 @@ public class AuthzModelGeneratorTest {
         JsonNode pair = type(model, "tenant_definition");
         assertEquals(List.of("entity_definition"), directTypes(pair, "definition"));
         assertEquals(List.of("tenant"), directTypes(pair, "tenant"));
-        assertEquals("ttu:definition->end_user", source(pair.get("relations").get("placed")));
+        assertEquals("ttu:definition->placed", source(pair.get("relations").get("placed")));
         assertEquals(List.of("ttu:role_binding->entity_definition_can_search", "computed:entity_definition_can_read",
                              "ttu:definition->entity_definition_can_search", "intersection:[ttu:tenant->entity_definition_can_search, computed:placed]"),
                      children(pair, "entity_definition_can_search", "union"));

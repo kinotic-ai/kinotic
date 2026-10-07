@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.directory.ServiceDirectory;
@@ -13,6 +14,7 @@ import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -67,7 +69,11 @@ public class ApplicationStoreProvisioner {
                      });
     }
 
+    // The kernel model, its roles, and the one tuple the application holds in its own store: everyone is placed
+    // on it, which the placement of each definition under it is read through
     private Future<String> kernel(String store, AuthzModel model) {
-        return relationships.ensureModelWithRoles(store, model);
+        RelationshipTuple placed = new RelationshipTuple(AuthzUtil.EVERYONE, AuthzUtil.PLACED_RELATION, AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, store));
+        return relationships.ensureModelWithRoles(store, model)
+                            .compose(version -> relationships.ensure(store, List.of(placed)).map(version));
     }
 }

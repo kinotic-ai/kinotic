@@ -105,8 +105,10 @@ public class ApplicationStoreTests extends KinoticTestBase {
         assertTrue(tenantAdmin.builtIn());
         assertTrue(tenantAdmin.permissions().contains(AuthzUtil.permissionName(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.CAN_DELETE)),
                    tenantAdmin.permissions().toString());
-        // each definition created is placed in the application, which is what lets a grant on the tenant reach it
+        // the application is placed in its own store, and each definition created is placed under it, which is what
+        // lets a grant on the tenant reach the definition's rows there
         String application = AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, store);
+        assertTrue(await(relationships.holds(store, new RelationshipTuple(AuthzUtil.EVERYONE, AuthzUtil.PLACED_RELATION, application))));
         assertTrue(await(relationships.holds(store, new RelationshipTuple(application, AuthzUtil.APPLICATION_TYPE, AuthzUtil.object(AuthzUtil.ENTITY_DEFINITION_TYPE, person.getId())))));
         assertTrue(await(relationships.holds(store, new RelationshipTuple(application, AuthzUtil.APPLICATION_TYPE, AuthzUtil.object(AuthzUtil.ENTITY_DEFINITION_TYPE, car.getId())))));
     }

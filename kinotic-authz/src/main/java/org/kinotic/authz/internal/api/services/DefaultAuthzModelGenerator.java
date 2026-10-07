@@ -43,8 +43,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     private static final String ENTITY_DEFINITION = AuthzUtil.ENTITY_DEFINITION_TYPE;
     private static final String TENANT_DEFINITION = AuthzUtil.TENANT_DEFINITION_TYPE;
     private static final String DEFINITION = AuthzUtil.DEFINITION_RELATION;
-    // whether a definition within a tenant is placed in the application the tenant belongs to
-    private static final String PLACED = "placed";
+    private static final String PLACED = AuthzUtil.PLACED_RELATION;
 
     @Override
     public AuthzModel platformModel(Collection<ServiceDefinition> services) {
@@ -216,6 +215,9 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         } else {
             ResourceType application = new ResourceType(APPLICATION, null);
             application.memberships.put(END_USER, Set.of(USER));
+            // held by everyone through the one wildcard tuple the store is provisioned with, so a definition
+            // under the application is told from one of another application by reading it through the definition
+            application.memberships.put(PLACED, Set.of(AuthzUtil.EVERYONE));
             ret.put(APPLICATION, application);
             // every definition's rows have the one set of permissions, on the definition the request names
             ResourceType definition = new ResourceType(ENTITY_DEFINITION, APPLICATION);
@@ -224,9 +226,8 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             definition.addPermission(AuthzUtil.CAN_CREATE, List.of());
             definition.addPermission(AuthzUtil.CAN_EDIT, List.of(AuthzUtil.CAN_READ));
             definition.addPermission(AuthzUtil.CAN_DELETE, List.of(AuthzUtil.CAN_EDIT));
-            // the end users of the application the definition is placed in, which a definition placed nowhere
-            // in this store has none of
-            definition.inherited.put(END_USER, APPLICATION);
+            // everyone for a definition placed under the application, no one for a definition this store does not hold
+            definition.inherited.put(PLACED, APPLICATION);
             ret.put(ENTITY_DEFINITION, definition);
         }
         ResourceType tenant = new ResourceType(TENANT, APPLICATION);
@@ -408,7 +409,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         relations.put(DEFINITION, direct(List.of(ENTITY_DEFINITION)));
         relations.put(TENANT, direct(List.of(TENANT)));
         relations.put(ROLE_BINDING, direct(List.of(ROLE_BINDING)));
-        relations.put(PLACED, tupleToUserset(DEFINITION, END_USER));
+        relations.put(PLACED, tupleToUserset(DEFINITION, PLACED));
         for (Map.Entry<String, Set<String>> permission : new TreeMap<>(definition.permissions).entrySet()) {
             String name = AuthzUtil.permissionName(definition.name, permission.getKey());
             List<ObjectNode> sources = new ArrayList<>();

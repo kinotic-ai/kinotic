@@ -40,6 +40,12 @@ public final class AuthzUtil {
     public static final String TENANT_DEFINITION_TYPE = "tenant_definition";
     /** The relation of a definition's rows within a tenant to the definition. */
     public static final String DEFINITION_RELATION = "definition";
+    /**
+     * The relation everyone holds on an application in the application's own store, written when the store is
+     * provisioned, and so on every definition placed under the application there: what a check on a definition's
+     * rows within a tenant reads to tell a definition of this application from one of another.
+     */
+    public static final String PLACED_RELATION = "placed";
 
     /** The type a project is in the platform store, under its application. */
     public static final String PROJECT_TYPE = "project";
