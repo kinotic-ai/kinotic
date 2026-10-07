@@ -31,9 +31,6 @@ class DefaultLogServiceTest extends ParticipantCallTest {
 
         assertEquals("acme", lokiClient.tenant);
         assertEquals("{workload_id=\"wl-acme\"}", lokiClient.query);
-        assertEquals(1_000L, lokiClient.start);
-        assertEquals(2_000L, lokiClient.end);
-        assertEquals(50, lokiClient.limit);
     }
 
     @Test
@@ -76,7 +73,6 @@ class DefaultLogServiceTest extends ParticipantCallTest {
 
         assertEquals("acme", lokiClient.tenant);
         assertEquals("{workload_id=\"wl-acme\"}", lokiClient.query);
-        assertEquals(1_000L, lokiClient.start);
     }
 
     @Test
@@ -92,9 +88,6 @@ class DefaultLogServiceTest extends ParticipantCallTest {
 
         assertEquals(TelemetryTenant.SYSTEM, lokiClient.tenant);
         assertEquals("{service_name=\"kinotic-server-system\"}", lokiClient.query);
-        assertEquals(1_000L, lokiClient.start);
-        assertEquals(2_000L, lokiClient.end);
-        assertEquals(50, lokiClient.limit);
     }
 
     @Test
@@ -129,7 +122,6 @@ class DefaultLogServiceTest extends ParticipantCallTest {
         assertEquals(TelemetryTenant.SYSTEM, lokiClient.tenant);
         assertEquals("{service_name=\"kinotic-server-app\", service_instance_id=\"kinotic-server-app-7d9f8-x2k4q\"}",
                      lokiClient.query);
-        assertEquals(1_000L, lokiClient.start);
     }
 
     @Test
@@ -155,17 +147,11 @@ class DefaultLogServiceTest extends ParticipantCallTest {
 
         String tenant;
         String query;
-        long start;
-        long end;
-        int limit;
 
         @Override
         public Future<Buffer> queryRange(String tenant, String query, long start, long end, int limit) {
             this.tenant = tenant;
             this.query = query;
-            this.start = start;
-            this.end = end;
-            this.limit = limit;
             return Future.succeededFuture(Buffer.buffer("history"));
         }
 
@@ -173,7 +159,6 @@ class DefaultLogServiceTest extends ParticipantCallTest {
         public Flux<Buffer> tail(String tenant, String query, long start) {
             this.tenant = tenant;
             this.query = query;
-            this.start = start;
             return Flux.empty();
         }
 

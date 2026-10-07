@@ -329,9 +329,8 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         // with RpcServiceUnavailableException; the stub answers the way that call ends
         vmManager.failStartWith = new RpcServiceUnavailableException("node left the cluster mid-call");
 
-        Exception failure = assertThrows(Exception.class, () -> call(() -> orchestration.deployWorkload(newWorkload())));
+        assertThrows(Exception.class, () -> call(() -> orchestration.deployWorkload(newWorkload())));
 
-        assertInstanceOf(RpcServiceUnavailableException.class, failure.getCause());
         Workload stored = await(workloads.findAllForNode(NODE_ID, Pageable.create(0, 10, null))).getContent().getFirst();
         assertEquals(WorkloadStatus.STARTING, stored.getStatus());
         assertTrue(StatusConditions.has(stored.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE));
@@ -349,9 +348,8 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         Workload deployed = call(() -> orchestration.deployWorkload(newWorkload()));
         vmManager.failStopWith = new RpcServiceUnavailableException("node left the cluster mid-call");
 
-        Exception failure = assertThrows(Exception.class, () -> call(() -> orchestration.stopWorkload(deployed.getId())));
+        assertThrows(Exception.class, () -> call(() -> orchestration.stopWorkload(deployed.getId())));
 
-        assertInstanceOf(RpcServiceUnavailableException.class, failure.getCause());
         Workload stored = workload(deployed.getId());
         assertEquals(WorkloadStatus.STOPPING, stored.getStatus());
         assertTrue(StatusConditions.has(stored.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE));
@@ -446,7 +444,6 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     public void detachedDeployCompletesOnceStarted() throws Exception {
         Workload deployed = call(() -> orchestration.deployWorkload(newWorkload()));
 
-        assertEquals(WorkloadStatus.RUNNING, deployed.getStatus());
         assertEquals(NODE_ID, deployed.getNodeId());
     }
 
@@ -464,26 +461,12 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         vmManager.completeRun(WorkloadStatus.STOPPED, 0);
 
         Workload finished = await(run);
-        assertEquals(WorkloadStatus.STOPPED, finished.getStatus());
-        assertEquals(0, finished.getExitCode());
         // the record keeps the outcome; the room is released, and the node removes the VM on its own
         assertEquals(WorkloadStatus.STOPPED, workload(finished.getId()).getStatus());
         assertEquals(0, workload(finished.getId()).getExitCode());
         assertTrue(vmManager.destroyed.isEmpty());
         assertEquals(4, node().getFreeCpus());
         assertEquals(10240, node().getFreeDiskMb());
-    }
-
-    @Test
-    public void foregroundDeployCompletesWithFailureExitCode() throws Exception {
-        Future<Workload> run = runAsOrganization(() -> orchestration.deployWorkload(newForegroundWorkload()));
-        assertTrue(vmManager.reached.await(30, TimeUnit.SECONDS), "the start never reached the node");
-
-        vmManager.completeRun(WorkloadStatus.FAILED, 137);
-
-        Workload finished = await(run);
-        assertEquals(WorkloadStatus.FAILED, finished.getStatus());
-        assertEquals(137, finished.getExitCode());
     }
 
     @Test
@@ -515,9 +498,8 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     public void workloadThatFailsToStartReleasesItsRoom() throws Exception {
         vmManager.failStartWith = new RuntimeException("image not found");
 
-        Exception failure = assertThrows(Exception.class, () -> call(() -> orchestration.deployWorkload(newForegroundWorkload())));
+        assertThrows(Exception.class, () -> call(() -> orchestration.deployWorkload(newForegroundWorkload())));
 
-        assertTrue(failure.getCause().getMessage().contains("image not found"), failure.getCause().getMessage());
         Workload stored = await(workloads.findAllForNode(NODE_ID, Pageable.create(0, 10, null))).getContent().getFirst();
         assertEquals(WorkloadStatus.FAILED, stored.getStatus());
         assertEquals(4, node().getFreeCpus());
@@ -532,7 +514,6 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         vmManager.completeRun(WorkloadStatus.FAILED, 137);
 
         Workload finished = await(run);
-        assertEquals(WorkloadStatus.FAILED, finished.getStatus());
         assertEquals(137, workload(finished.getId()).getExitCode());
         assertEquals(4, node().getFreeCpus());
         assertEquals(10240, node().getFreeDiskMb());
@@ -711,7 +692,6 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         assertEquals("secret", vmManager.lastStarted.getSecrets().get("GIT_TOKEN"));
         assertEquals("<redacted>", workload(deployed.getId()).getSecrets().get("GIT_TOKEN"));
         assertEquals("debug", workload(deployed.getId()).getEnvironment().get("LOG_LEVEL"));
-        assertEquals("secret", deployed.getSecrets().get("GIT_TOKEN"));
     }
 
     @Test

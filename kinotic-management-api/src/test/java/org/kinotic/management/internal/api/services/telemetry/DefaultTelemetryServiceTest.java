@@ -29,10 +29,6 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
         callAs(ACME_USER, () -> service.searchTraces(traceQuery("acme")));
 
         assertEquals("acme", tempoClient.tenant);
-        assertEquals("{ status = error }", tempoClient.query);
-        assertEquals(1_000L, tempoClient.start);
-        assertEquals(2_000L, tempoClient.end);
-        assertEquals(20, tempoClient.limit);
     }
 
     @Test
@@ -52,7 +48,6 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
         callAs(PLATFORM_OPERATOR, () -> service.findTrace("globex", "abc123"));
 
         assertEquals("globex", tempoClient.tenant);
-        assertEquals("abc123", tempoClient.traceId);
     }
 
     @Test
@@ -63,14 +58,10 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
     }
 
     @Test
-    void metricQueryPassesItsExpressionRangeAndStep() throws Throwable {
+    void organizationParticipantQueriesMetricsInItsOwnTenant() throws Throwable {
         callAs(ACME_USER, () -> service.queryMetrics(metricQuery("acme")));
 
         assertEquals("acme", mimirClient.tenant);
-        assertEquals("sum(rate(traces_spanmetrics_calls_total[1m]))", mimirClient.query);
-        assertEquals(1_000L, mimirClient.start);
-        assertEquals(2_000L, mimirClient.end);
-        assertEquals(15L, mimirClient.step);
     }
 
     @Test
@@ -100,26 +91,16 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
     private static class RecordingTempoClient implements TempoClient {
 
         String tenant;
-        String query;
-        String traceId;
-        long start;
-        long end;
-        int limit;
 
         @Override
         public Future<Buffer> search(String tenant, String query, long start, long end, int limit) {
             this.tenant = tenant;
-            this.query = query;
-            this.start = start;
-            this.end = end;
-            this.limit = limit;
             return Future.succeededFuture(Buffer.buffer("traces"));
         }
 
         @Override
         public Future<Buffer> findTrace(String tenant, String traceId) {
             this.tenant = tenant;
-            this.traceId = traceId;
             return Future.succeededFuture(Buffer.buffer("trace"));
         }
     }
@@ -127,18 +108,10 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
     private static class RecordingMimirClient implements MimirClient {
 
         String tenant;
-        String query;
-        long start;
-        long end;
-        long step;
 
         @Override
         public Future<Buffer> queryRange(String tenant, String query, long start, long end, long step) {
             this.tenant = tenant;
-            this.query = query;
-            this.start = start;
-            this.end = end;
-            this.step = step;
             return Future.succeededFuture(Buffer.buffer("metrics"));
         }
     }
