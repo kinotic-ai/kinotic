@@ -25,7 +25,7 @@ import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.domain.api.services.security.RequestAuthorizer;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.FunctionSpec;
-import org.kinotic.domain.internal.api.model.Locator;
+import org.kinotic.domain.internal.api.model.ParameterReference;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
@@ -160,7 +160,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                     } else {
                         ret.put(function.getName(), check.isUnchecked()
                                 ? FunctionSpec.UNCHECKED
-                                : new FunctionSpec(check, locatorsOf(check, parameters, entryId + "/" + function.getName())));
+                                : new FunctionSpec(check, referencesOf(check, parameters, entryId + "/" + function.getName())));
                     }
                 }
             }
@@ -169,9 +169,9 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
     }
 
     // Where each parameter reference of the check's id is read from, resolved once per contract rather than per
-    // request; a reference to the caller's scope needs no locator
-    private static List<Locator> locatorsOf(AuthzCheckC3Decorator check, List<String> parameters, String function) {
-        List<Locator> ret = new ArrayList<>();
+    // request; a reference to the caller's scope names no parameter
+    private static List<ParameterReference> referencesOf(AuthzCheckC3Decorator check, List<String> parameters, String function) {
+        List<ParameterReference> ret = new ArrayList<>();
         for (String reference : AuthzUtil.templateReferences(check.getResourceId())) {
             String parameter = AuthzUtil.referencedParameter(reference);
             if (parameter != null) {
@@ -185,7 +185,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                 List<String> path = reference.length() > parameter.length()
                         ? Arrays.asList(reference.substring(parameter.length() + 1).split("\\."))
                         : List.of();
-                ret.add(new Locator(reference, parameter, position, path));
+                ret.add(new ParameterReference(reference, parameter, position, path));
             }
         }
         return ret;
@@ -259,10 +259,10 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
     private String resolve(String template, FunctionSpec spec, ParticipantScope scope, String contentType, byte[] body) {
         String ret = template;
         for (String reference : AuthzUtil.templateReferences(template)) {
-            Locator locator = spec.locator(reference);
-            String value = locator == null
+            ParameterReference parameter = spec.reference(reference);
+            String value = parameter == null
                     ? scopeValue(reference, scope)
-                    : locate(contentType, body, locator.parameter(), locator.position(), locator.path());
+                    : locate(contentType, body, parameter.parameter(), parameter.position(), parameter.path());
             if (value == null || value.isEmpty()) {
                 throw new AuthorizationException("The request names no " + reference + ", which its check needs");
             }
