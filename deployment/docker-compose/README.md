@@ -245,7 +245,7 @@ If you also run the Vite frontend (`pnpm dev` on `:5173`), it calls the server d
 `kinotic-frontend/apps/portal/ENV_SETUP.md`. For flows where the IdP or GitHub has to call back into
 your machine, use `pnpm dev:tunnel` behind your ngrok tunnel, with the tunnel origin in
 `~/.kinotic/dev-environment/kinotic-server-management/application.yml` — see "Local development
-environment" in the contributing guide (`website/content/02.platform/09.contributing.md`).
+environment" in the contributing guide (`website/content/02.platform/11.contributing.md`).
 
 ## Storage paths
 
