@@ -1,5 +1,6 @@
 import {C3Type, FunctionDefinition, ObjectC3Type} from '@kinotic-ai/idl'
 import fs from 'fs'
+import {pipeline} from 'node:stream/promises'
 import {Liquid} from 'liquidjs'
 import path from 'path'
 import {Project, Type} from 'ts-morph'
@@ -222,8 +223,7 @@ export class EntityCodeGenerationService {
                                                                            validationLogic,
                                                                            importStatements
                                                                        })
-        let baseWriteStream = fs.createWriteStream(baseEntityServicePath)
-        baseReadStream.pipe(baseWriteStream)
+        await pipeline(baseReadStream, fs.createWriteStream(baseEntityServicePath))
 
         //  we only generate if the file does not exist
         let namedQueries: FunctionDefinition[] = []
@@ -235,8 +235,7 @@ export class EntityCodeGenerationService {
                                                                            validate,
                                                                            fileExtensionForImports
                                                                        })
-            let writeStream = fs.createWriteStream(entityServicePath)
-            readStream.pipe(writeStream)
+            await pipeline(readStream, fs.createWriteStream(entityServicePath))
         } else {
             // if it already exists we check if there are any named queries defined
             namedQueries = await this.processNamedQueries(adminService,

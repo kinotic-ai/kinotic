@@ -1,7 +1,7 @@
 import { C3Decorator } from './C3Decorator'
 
 export class RequirePermissionDecorator extends C3Decorator {
-    readonly type = 'RequirePermission'
+    override readonly type = 'RequirePermission'
     permission = ''
     resourceType = 'entity_definition'
     idArgument = ''

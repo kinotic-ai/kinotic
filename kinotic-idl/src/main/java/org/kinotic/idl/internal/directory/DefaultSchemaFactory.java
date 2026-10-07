@@ -16,6 +16,7 @@ import org.kinotic.idl.api.annotations.McpToolInfo;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.C3Type;
+import org.kinotic.idl.api.schema.AnyC3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
@@ -85,6 +86,23 @@ public class DefaultSchemaFactory implements SchemaFactory {
             throw new IllegalArgumentException("No schemaConverter can be found for "+ clazz.getName());
         }
         return ret;
+    }
+
+    @Override
+    public ServiceDefinition createPermissionContract(ServiceDeclaration service) {
+        Class<?> serviceInterface = service.serviceInterface();
+        var definition = new ServiceDefinition().setNamespace(serviceInterface.getPackageName()).setName(serviceInterface.getSimpleName());
+        for (var method : IdlUtil.serviceFunctions(serviceInterface).entrySet()) {
+            var function = new FunctionDefinition().setName(method.getKey()).setReturnType(new AnyC3Type());
+            for (int index = 0; index < method.getValue().getParameterCount(); index++) {
+                function.addParameter(IdlUtil.parameterName(new MethodParameter(method.getValue(), index)), new AnyC3Type());
+            }
+            var specific = BridgeMethodResolver.findBridgedMethod(ClassUtils.getMostSpecificMethod(method.getValue(), service.serviceImplementation()));
+            var permission = createPermissionDecorator(serviceInterface, specific, function);
+            if (permission != null) function.setDecorators(new ArrayList<>(List.of(permission)));
+            definition.addFunction(function);
+        }
+        return definition;
     }
 
     @Override

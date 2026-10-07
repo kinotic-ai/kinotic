@@ -75,6 +75,19 @@ public class TestSchemaFactory {
     }
 
     @Test
+    public void permissionMetadataDoesNotDependOnPayloadSchemaConversion() {
+        Class<?> service = org.kinotic.idl.internal.support.PermissionMetadataTestService.class;
+        var definition = schemaFactory.createPermissionContract(new ServiceDeclaration(service, service));
+        var function = definition.getFunctions().iterator().next();
+        Assertions.assertInstanceOf(org.kinotic.idl.api.schema.AnyC3Type.class, function.getReturnType());
+        Assertions.assertEquals(List.of("requestId", "resourceId"), function.getParameters().stream().map(parameter -> parameter.getName()).toList());
+        var permission = function.findDecorator(RequirePermissionC3Decorator.class);
+        Assertions.assertEquals("metadata.inspect", permission.getPermission());
+        Assertions.assertEquals("project", permission.getResourceType());
+        Assertions.assertEquals("resourceId", permission.getIdArgument());
+    }
+
+    @Test
     public void testSchemaFactory() throws Exception {
         NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new ServiceDeclaration(TestService.class, TestService.class),
                                                                                           new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));

@@ -9,6 +9,7 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.ServiceRequestAuthorizer;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.ZoneRules;
 import org.kinotic.domain.api.model.security.authorization.AuthorizationPermission;
 import org.kinotic.domain.api.services.security.authorization.AuthorizationResourceResolver;
 import org.kinotic.idl.api.schema.decorators.RequirePermissionC3Decorator;
@@ -18,6 +19,7 @@ import java.util.List;
 import org.springframework.util.MimeTypeUtils;
 import tools.jackson.core.JsonToken;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 import java.util.Objects;
 
@@ -35,6 +37,7 @@ public class OpenFgaRequestAuthorizer implements ServiceRequestAuthorizer {
         return authorization.bounded(() -> {
             if (!(event.sender() instanceof ScopedParticipant participant)) return Future.failedFuture(new AuthorizationException("Authenticated scope is required"));
             if (authorization.bootstrap(participant)) return Future.succeededFuture();
+            if (!ZoneRules.from(participant).sendAllowed(event.cri())) return Future.failedFuture(new AuthorizationException("Access denied"));
             String qualified = event.cri().zone() == null ? event.cri().resourceName() : event.cri().zone() + "~" + event.cri().resourceName();
             return directory.findEntryById(qualified).compose(entry -> {
                 if (entry == null || entry.getServiceDefinition() == null || event.cri().hasVersion() && !Objects.equals(entry.getVersion(), event.cri().version())) return Future.failedFuture(new AuthorizationException("No active permission contract"));
@@ -73,19 +76,21 @@ public class OpenFgaRequestAuthorizer implements ServiceRequestAuthorizer {
             return resourceId(arguments[permission.getArgumentIndex()]);
         }
         try (var parser = jsonMapper.createParser(event.data())) {
+            // The target is one subtree inside the invocation body; following arguments belong to the invoker.
+            var reader = jsonMapper.reader().without(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
             JsonNode value = null;
             var token = parser.nextToken();
             if (EventConstants.CONTENT_TYPE_NAMED_JSON.equals(contentType) && token == JsonToken.START_OBJECT) {
                 while (parser.nextToken() == JsonToken.PROPERTY_NAME) {
                     String name = parser.currentName(); parser.nextToken();
-                    if (name.equals(parts[0])) { value = jsonMapper.readTree(parser); break; }
+                    if (name.equals(parts[0])) { value = reader.readTree(parser); break; }
                     parser.skipChildren();
                 }
             } else if (MimeTypeUtils.APPLICATION_JSON_VALUE.equals(contentType) && token == JsonToken.START_ARRAY && permission.getArgumentIndex() >= 0) {
                 for (int index = 0; index <= permission.getArgumentIndex(); index++) {
                     var next = parser.nextToken();
                     if (next == null || next == JsonToken.END_ARRAY) throw new AuthorizationException("Missing resource argument");
-                    if (index == permission.getArgumentIndex()) value = jsonMapper.readTree(parser);
+                    if (index == permission.getArgumentIndex()) value = reader.readTree(parser);
                     else parser.skipChildren();
                 }
             } else throw new AuthorizationException("Unsupported resource argument encoding");

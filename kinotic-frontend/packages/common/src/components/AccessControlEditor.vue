@@ -79,6 +79,7 @@ const permissions = ref<AuthorizationPermission[]>([])
 const identities = ref<AuthorizationIdentityOption[]>([])
 const nextCursor = ref<string | null>(null)
 const firstAdministrator = ref('')
+let scopeRevision = 0
 const subjectKinds = Object.values(AuthorizationSubjectKind)
 const selectors = Object.values(AuthorizationSelector)
 const effects = Object.values(AuthorizationEffect)
@@ -96,28 +97,43 @@ const permissionOptions = computed(() => {
   for (const role of policy.value?.roles ?? []) for (const permission of role.permissions) if (!entries.has(permission)) entries.set(permission, { value: permission, label: permission })
   return [...entries.values()]
 })
-function apply(view: AuthorizationPolicyView) {
+function apply(view: AuthorizationPolicyView, revision: number) {
+  if (revision !== scopeRevision) return false
   policy.value = view.policy
   permissions.value = view.permissions
   pending.value = view.pending
   loaded.value = true
+  return true
 }
-async function action(work: () => Promise<void>) {
+async function action(work: () => Promise<void>, revision = scopeRevision) {
   if (busy.value) return
   busy.value = true; error.value = ''; saved.value = false
-  try { await work() } catch (failure) { error.value = failure instanceof Error ? failure.message : String(failure) }
-  finally { busy.value = false }
+  try { await work() } catch (failure) { if (revision === scopeRevision) error.value = failure instanceof Error ? failure.message : String(failure) }
+  finally { if (revision === scopeRevision) busy.value = false }
 }
-async function identityPage(cursor: string | null) {
-  const page = await props.service.findIdentities(props.scope, Pageable.createWithCursor(cursor, 200))
+async function identityPage(cursor: string | null, scope = { ...props.scope }, revision = scopeRevision) {
+  const page = await props.service.findIdentities(scope, Pageable.createWithCursor(cursor, 200))
+  if (revision !== scopeRevision) return
   identities.value = cursor ? [...identities.value, ...(page.content ?? [])] : page.content ?? []
   nextCursor.value = page.cursor ?? null
 }
-function reload() { return action(async () => { apply(await props.service.load(props.scope)); await identityPage(null) }) }
+function reload() {
+  const scope = { ...props.scope }; const revision = scopeRevision
+  return action(async () => { if (apply(await props.service.load(scope), revision)) await identityPage(null, scope, revision) }, revision)
+}
 function loadMoreIdentities() { return action(() => identityPage(nextCursor.value)) }
-function save() { return action(async () => { if (policy.value) { apply(await props.service.save(policy.value, policy.value.revision)); saved.value = true } }) }
-function republish() { return action(async () => { if (policy.value) { apply(await props.service.republish(props.scope, policy.value.revision)); saved.value = true } }) }
-function initialize() { return action(async () => { apply(await props.service.initialize(props.scope, firstAdministrator.value)); saved.value = true }) }
+function save() {
+  const value = policy.value; const revision = scopeRevision
+  return action(async () => { if (value && apply(await props.service.save(value, value.revision), revision)) saved.value = true }, revision)
+}
+function republish() {
+  const scope = { ...props.scope }; const value = policy.value; const revision = scopeRevision
+  return action(async () => { if (value && apply(await props.service.republish(scope, value.revision), revision)) saved.value = true }, revision)
+}
+function initialize() {
+  const scope = { ...props.scope }; const administrator = firstAdministrator.value; const revision = scopeRevision
+  return action(async () => { if (apply(await props.service.initialize(scope, administrator), revision)) saved.value = true }, revision)
+}
 function addRole() { policy.value?.roles.push({ id: crypto.randomUUID(), name: 'New role', permissions: [] }) }
 function addGroup() { policy.value?.groups.push({ id: crypto.randomUUID(), name: 'New group', memberIds: [] }) }
 function removeRole(id: string) { if (policy.value) { policy.value.roles = policy.value.roles.filter(value => value.id !== id); policy.value.assignments = policy.value.assignments.filter(value => value.roleId !== id) } }
@@ -127,5 +143,9 @@ function resourceTypes(roleId: string) {
   const role = policy.value?.roles.find(value => value.id === roleId)
   return [...new Set(permissions.value.filter(permission => role?.permissions.some(pattern => pattern === '*' || pattern === permission.permission || pattern.endsWith('.*') && permission.permission.startsWith(pattern.slice(0, -1)))).map(permission => permission.resourceType))]
 }
-watch(() => JSON.stringify(props.scope), () => { loaded.value = false; policy.value = null; identities.value = []; void reload() }, { immediate: true })
+watch(() => JSON.stringify(props.scope), () => {
+  scopeRevision++; busy.value = false; error.value = ''; saved.value = false; pending.value = false
+  loaded.value = false; policy.value = null; identities.value = []; nextCursor.value = null; firstAdministrator.value = ''
+  void reload()
+}, { immediate: true })
 </script>

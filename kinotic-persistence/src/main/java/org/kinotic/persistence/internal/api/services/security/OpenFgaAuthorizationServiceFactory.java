@@ -34,14 +34,15 @@ public class OpenFgaAuthorizationServiceFactory implements AuthorizationServiceF
     public Future<AuthorizationService<EntityOperation>> createEntityDefinitionAuthorizationService(EntityDefinition definition) {
         if (legacyPolicies(definition)) return Future.failedFuture(new IllegalStateException("Migrate legacy Policy decorators before enabling OpenFGA"));
         return Future.succeededFuture((operation, context) -> {
-            Future<Void> result = require(context, definition.toDescriptor(), "entity_definition", "data." + operation.methodName());
+            var actor = securityContext.requireParticipant(ScopedParticipant.class);
+            Future<Void> result = require(actor, context, definition.toDescriptor(), "entity_definition", "data." + operation.methodName());
             var entityPermission = definition.getSchema().findDecorator(RequirePermissionC3Decorator.class);
-            if (entityPermission != null) result = result.compose(ignored -> require(context, definition.toDescriptor(), entityPermission.getResourceType(), entityPermission.getPermission()));
+            if (entityPermission != null) result = result.compose(ignored -> require(actor, context, definition.toDescriptor(), entityPermission.getResourceType(), entityPermission.getPermission()));
             for (var property : definition.getDecoratedProperties()) {
                 var permission = property.findDecorator(RequirePermissionC3Decorator.class);
                 boolean included = !context.hasIncludedFieldsFilter() || context.getIncludedFieldsFilter().stream().anyMatch(field -> field.equals(property.getJsonPath()) || property.getJsonPath().startsWith(field + ".") || field.startsWith(property.getJsonPath() + "."));
                 // Writes conservatively require every protected field; EntityContext carries no changed-field set.
-                if (permission != null && (included || writes(operation))) result = result.compose(ignored -> require(context, definition.toDescriptor(), permission.getResourceType(), permission.getPermission()));
+                if (permission != null && (included || writes(operation))) result = result.compose(ignored -> require(actor, context, definition.toDescriptor(), permission.getResourceType(), permission.getPermission()));
             }
             return result;
         });
@@ -54,13 +55,15 @@ public class OpenFgaAuthorizationServiceFactory implements AuthorizationServiceF
     public Future<AuthorizationService<NamedQueryOperation>> createNamedQueryAuthorizationService(FunctionDefinition query, EntityDescriptor entity) {
         if (query.containsDecorator(PolicyDecorator.class)) return Future.failedFuture(new IllegalStateException("Migrate legacy named-query policies before enabling OpenFGA"));
         var permission = query.findDecorator(RequirePermissionC3Decorator.class);
-        return Future.succeededFuture((operation, context) -> entities.findById(entity.id(), entity.organizationId()).compose(definition -> {
-            if (definition == null || !definition.toDescriptor().equals(entity)) return denied();
-            return require(context, entity, permission == null ? "entity_definition" : permission.getResourceType(), permission == null ? "queries.execute" : permission.getPermission());
-        }));
+        return Future.succeededFuture((operation, context) -> {
+            var actor = securityContext.requireParticipant(ScopedParticipant.class);
+            return entities.findById(entity.id(), entity.organizationId()).compose(definition -> {
+                if (definition == null || !definition.toDescriptor().equals(entity)) return denied();
+                return require(actor, context, entity, permission == null ? "entity_definition" : permission.getResourceType(), permission == null ? "queries.execute" : permission.getPermission());
+            });
+        });
     }
-    private Future<Void> require(EntityContext context, EntityDescriptor entity, String type, String permission) {
-        ScopedParticipant actor = securityContext.requireParticipant(ScopedParticipant.class);
+    private Future<Void> require(ScopedParticipant actor, EntityContext context, EntityDescriptor entity, String type, String permission) {
         if (context.getParticipant() == null || !Objects.equals(context.getParticipant().getId(), actor.getId())
                 || !Objects.equals(context.getParticipant().getScope(), actor.getScope())) return denied();
         if (actor == null || !Objects.equals(actor.getScope().organizationId(), entity.organizationId())

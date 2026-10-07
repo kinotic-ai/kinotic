@@ -62,6 +62,11 @@ class OpenFgaRequestAuthorizerTest {
         assertThrows(Exception.class, () -> await(authorizer.authorize(event("application/json", "[\"note\",\"id\"]", "#0.9.0"))));
         verifyNoInteractions(client);
     }
+    @Test void appParticipantsCannotUsePermissionsToCrossPlatformZoneBoundaries() {
+        var event = Event.create(CRI.create("srv://management-api~billing.InvoiceService/update"), Metadata.create(), "[]".getBytes(StandardCharsets.UTF_8), actor);
+        assertThrows(Exception.class, () -> await(authorizer.authorize(event)));
+        verifyNoInteractions(client);
+    }
     @Test void missingOrNumericIdCannotBecomeABroadGrant() {
         assertThrows(Exception.class, () -> await(authorizer.authorize(event("application/json", "[\"note\",42]", ""))));
         verifyNoInteractions(client);

@@ -34,6 +34,7 @@ import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StreamC3Type;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
+import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.schema.decorators.RequirePermissionC3Decorator;
 import org.kinotic.core.api.security.Participant;
 import org.springframework.core.MethodParameter;
@@ -179,7 +180,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
      * between services are converted once.
      */
     private Future<Void> publishAllToDirectory(Map<ServiceIdentifier, ServiceDeclaration> registrations) {
-        NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values());
+        NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values().stream().filter(this::requiresWireSchema).toList());
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
         Map<String, ServiceDefinition> definitionsByQualifiedName = new HashMap<>();
         for (ServiceDefinition definition : namespace.getServices()) {
@@ -195,8 +196,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 ServiceDefinition definition = definitionsByQualifiedName.get(
                         serviceInterface.getPackageName() + "." + serviceInterface.getSimpleName());
                 if (definition == null) {
-                    // conversion failed, SchemaFactory omitted the service and logged the cause
-                    continue;
+                    definition = schemaFactory.createPermissionContract(registration.getValue());
                 }
                 compileResourceIndexes(serviceInterface, definition);
                 writes.add(strategy.upsertEntry(buildEntry(registration.getKey(),
@@ -209,6 +209,14 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             }
         }
         return Future.all(writes).mapEmpty();
+    }
+
+    private boolean requiresWireSchema(ServiceDeclaration declaration) {
+        Class<?> serviceInterface = declaration.serviceInterface();
+        if (isAdvertised(serviceInterface) || AnnotationUtils.findAnnotation(serviceInterface, McpTool.class) != null
+                || AnnotationUtils.findAnnotation(declaration.serviceImplementation(), McpTool.class) != null) return true;
+        return IdlUtil.serviceFunctions(serviceInterface).values().stream().anyMatch(method ->
+                AnnotationUtils.findAnnotation(ClassUtils.getMostSpecificMethod(method, declaration.serviceImplementation()), McpTool.class) != null);
     }
 
     @Override
