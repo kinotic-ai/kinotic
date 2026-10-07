@@ -8,6 +8,10 @@ import org.kinotic.idl.api.directory.GenericTypeConverter;
 
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.idl.api.annotations.McpTool;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.ResourceTarget;
+import org.kinotic.idl.api.schema.decorators.RequirePermissionC3Decorator;
 import org.kinotic.idl.api.annotations.McpToolInfo;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.utils.IdlUtil;
@@ -30,6 +34,7 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
@@ -151,13 +156,41 @@ public class DefaultSchemaFactory implements SchemaFactory {
                                                                  specificMethod,
                                                                  typeLevelMcpTool);
             if (mcpTool != null) {
-                functionDefinition.setDecorators(List.of(mcpTool));
+                functionDefinition.setDecorators(new ArrayList<>(List.of(mcpTool)));
+            }
+
+            var permission = createPermissionDecorator(serviceInterface, specificMethod, functionDefinition);
+            if (permission != null) {
+                if (functionDefinition.getDecorators() == null) functionDefinition.setDecorators(new ArrayList<>());
+                functionDefinition.getDecorators().add(permission);
             }
 
             serviceDefinition.addFunction(functionDefinition);
         }
 
         return serviceDefinition;
+    }
+
+    private RequirePermissionC3Decorator createPermissionDecorator(Class<?> serviceInterface, Method method, FunctionDefinition function) {
+        var declaration = AnnotationUtils.findAnnotation(method, RequirePermission.class);
+        if (declaration == null) declaration = AnnotationUtils.findAnnotation(serviceInterface, RequirePermission.class);
+        if (declaration == null) return null;
+        var namespace = AnnotationUtils.findAnnotation(serviceInterface, PermissionNamespace.class);
+        var serviceTarget = AnnotationUtils.findAnnotation(serviceInterface, ResourceTarget.class);
+        var methodTarget = AnnotationUtils.findAnnotation(method, ResourceTarget.class);
+        String relative = declaration.value().isEmpty() ? function.getName() : declaration.value();
+        String key = namespace == null ? relative : namespace.value() + "." + relative;
+        String type = methodTarget != null && !methodTarget.type().isEmpty() ? methodTarget.type()
+                : serviceTarget != null && !serviceTarget.type().isEmpty() ? serviceTarget.type() : "scope";
+        String argument = methodTarget != null ? methodTarget.idArgument() : serviceTarget == null ? "" : serviceTarget.idArgument();
+        if (!key.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*") || !type.matches("[A-Za-z][A-Za-z0-9_]{0,62}")) throw new IllegalArgumentException("Invalid permission contract");
+        if (!argument.isEmpty()) {
+            String root = argument.split("\\.")[0];
+            if (!argument.matches("[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*")
+                    || function.getParameters().stream().noneMatch(parameter -> parameter.getName().equals(root))) throw new IllegalArgumentException("ResourceTarget names an unknown argument: " + argument);
+        }
+        return new RequirePermissionC3Decorator().setPermission(key).setResourceType(type).setIdArgument(argument)
+                .setLabel(declaration.label()).setTenantDelegable(declaration.tenantDelegable());
     }
 
     /**

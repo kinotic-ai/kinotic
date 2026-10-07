@@ -16,6 +16,8 @@ import java.util.Set;
  */
 public interface ServiceDirectoryStrategy {
 
+    Future<ServiceDirectoryEntry> findEntryById(String id);
+
     /**
      * Returns the entries scoped to the given organization/application. A system scope (both ids null) returns all
      * entries.

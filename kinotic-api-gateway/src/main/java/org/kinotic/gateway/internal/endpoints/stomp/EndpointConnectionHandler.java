@@ -199,9 +199,13 @@ public class EndpointConnectionHandler {
                     return Future.succeededFuture();
                 }
 
-                incomingInvocationTracker.requestSent(incomingEvent);
-                return services.eventBusService
-                        .sendWithAck(incomingEvent)
+                var authorizer = services.requestAuthorizerProvider.getIfAvailable();
+                Future<Void> authorized = authorizer == null ? Future.succeededFuture()
+                        : authorizer.authorize(incomingEvent);
+                return authorized.compose(ignored -> {
+                            incomingInvocationTracker.requestSent(incomingEvent);
+                            return services.eventBusService.sendWithAck(incomingEvent);
+                        })
                         .onSuccess(nodeId -> incomingInvocationTracker.requestAccepted(correlationId, nodeId, incomingEvent.cri()))
                         .recover(throwable -> {
                             // no reply will come for a request that never left

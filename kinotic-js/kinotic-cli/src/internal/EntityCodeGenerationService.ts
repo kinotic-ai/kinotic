@@ -280,6 +280,9 @@ export class EntityCodeGenerationService {
                                                                           [tsDecoratorToC3Decorator(queryDecorator)!])
 
                         // TODO: add more generic decorator handling
+                        const permissionDecorator = method.getDecorator('RequirePermission')
+                        if (permissionDecorator) functionDefinition.addDecorator(tsDecoratorToC3Decorator(permissionDecorator)!)
+
                         const policyDecorator = method.getDecorator('Policy')
                         if(policyDecorator){
                             functionDefinition.addDecorator(tsDecoratorToC3Decorator(policyDecorator)!)

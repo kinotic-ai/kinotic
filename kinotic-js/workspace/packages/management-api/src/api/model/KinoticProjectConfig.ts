@@ -62,6 +62,9 @@ export class KinoticProjectConfig {
      *
      * When a plain string is provided, the {@link generatedPath} will be used as the repository output path.
      */
+    /** App service sources whose decorators kinotic sync publishes as gateway contracts. */
+    public servicesPaths?: string[]
+
     public entitiesPaths!: (string | EntitiesPathConfig)[]
 
     /**

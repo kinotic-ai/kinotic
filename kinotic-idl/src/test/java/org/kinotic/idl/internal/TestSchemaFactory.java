@@ -16,6 +16,8 @@ import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StreamC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
+import org.kinotic.idl.api.schema.decorators.RequirePermissionC3Decorator;
+import org.kinotic.idl.internal.support.AuthorizationTestService;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.internal.support.BrokenTestService;
 import org.kinotic.idl.internal.support.DefaultTestRenamedService;
@@ -57,6 +59,20 @@ public class TestSchemaFactory {
 
     @Autowired
     private JsonMapper objectMapper;
+
+    @Test
+    public void compilesRelativePermissionsAndExplicitNamedTargets() {
+        var namespace = schemaFactory.createForServices(List.of(new ServiceDeclaration(AuthorizationTestService.class, AuthorizationTestService.class)));
+        var definition = namespace.getServices().iterator().next();
+        var initialize = definition.getFunctions().stream().filter(function -> function.getName().equals("initialize")).findFirst().orElseThrow();
+        var declaration = initialize.findDecorator(RequirePermissionC3Decorator.class);
+        Assertions.assertEquals("projects.repo.initialize", declaration.getPermission());
+        Assertions.assertEquals("project", declaration.getResourceType());
+        Assertions.assertEquals("projectId", declaration.getIdArgument());
+        var list = definition.getFunctions().stream().filter(function -> function.getName().equals("list")).findFirst().orElseThrow();
+        Assertions.assertEquals("projects.list", list.findDecorator(RequirePermissionC3Decorator.class).getPermission());
+        Assertions.assertEquals("", list.findDecorator(RequirePermissionC3Decorator.class).getIdArgument());
+    }
 
     @Test
     public void testSchemaFactory() throws Exception {

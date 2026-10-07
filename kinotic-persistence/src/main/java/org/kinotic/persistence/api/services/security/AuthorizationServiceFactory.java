@@ -1,6 +1,7 @@
 package org.kinotic.persistence.api.services.security;
 
 import io.vertx.core.Future;
+import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.persistence.api.model.NamedQueryOperation;
@@ -27,4 +28,8 @@ public interface AuthorizationServiceFactory {
      */
     Future<AuthorizationService<NamedQueryOperation>> createNamedQueryAuthorizationService(FunctionDefinition namedQuery);
 
+    /** Supplies trusted ownership metadata for named-query authorization. */
+    default Future<AuthorizationService<NamedQueryOperation>> createNamedQueryAuthorizationService(FunctionDefinition query, EntityDescriptor entity) {
+        return createNamedQueryAuthorizationService(query);
+    }
 }

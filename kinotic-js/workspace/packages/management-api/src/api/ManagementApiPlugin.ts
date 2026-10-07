@@ -1,3 +1,4 @@
+import { AccessControlService, type IAccessControlService } from './services/security/IAccessControlService'
 import type { IKinotic, KinoticPlugin } from '@kinotic-ai/core'
 import { ApplicationService, type IApplicationService } from '@/api/services/IApplicationService'
 import { ProjectService, type IProjectService } from '@/api/services/IProjectService'
@@ -18,6 +19,7 @@ import { GitHubAppInstallationService, type IGitHubAppInstallationService } from
 import { JobMonitoringService, type IJobMonitoringService } from '@/api/services/IJobMonitoringService'
 
 export interface IManagementApiExtension {
+    accessControl: IAccessControlService
     applications: IApplicationService
     projects: IProjectService
     projectArtifacts: IProjectArtifactService
@@ -40,6 +42,7 @@ export interface IManagementApiExtension {
 export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
     install(kinotic: IKinotic): IManagementApiExtension {
         return {
+            accessControl: new AccessControlService(kinotic),
             applications: new ApplicationService(kinotic),
             projects: new ProjectService(kinotic),
             projectArtifacts: new ProjectArtifactService(kinotic),

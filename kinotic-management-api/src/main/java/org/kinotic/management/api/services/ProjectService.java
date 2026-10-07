@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
@@ -19,8 +22,36 @@ import java.util.List;
  * inherited from {@link ApplicationScopedCrudService}.
  */
 @Publish
+@PermissionNamespace("projects")
+@ResourceTarget(type = "project")
+@RequirePermission
 @McpTool
 public interface ProjectService extends ApplicationScopedCrudService<Project, String> {
+    @Override
+    @RequirePermission("read")
+    @ResourceTarget(idArgument = "id")
+    Future<Project> findById(String id);
+
+    @Override
+    @RequirePermission("update")
+    @ResourceTarget(idArgument = "entity.id")
+    Future<Project> save(Project entity);
+
+    @Override
+    @RequirePermission("update")
+    @ResourceTarget(idArgument = "entity.id")
+    Future<Project> saveSync(Project entity);
+
+    @Override
+    @RequirePermission("delete")
+    @ResourceTarget(idArgument = "id")
+    Future<Void> deleteById(String id);
+
+    @Override
+    @RequirePermission("delete")
+    @ResourceTarget(idArgument = "id")
+    Future<Void> deleteByIdSync(String id);
+
 
     /**
      * Creates a new project if it does not already exist. If a project with the same id
@@ -48,6 +79,8 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @return a {@link Future} emitting the deployment record, or {@code null} when the
      *         project has never been deployed
      */
+    @RequirePermission("read")
+    @ResourceTarget(idArgument = "projectId")
     Future<ProjectDeployment> findDeployment(String projectId);
 
     /**
@@ -60,6 +93,8 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @return a {@link Future} emitting a page of ledger entries, empty when the project has never
      *         been deployed
      */
+    @RequirePermission("read")
+    @ResourceTarget(idArgument = "projectId")
     Future<Page<WatchEvent>> findDeploymentHistory(String projectId, Pageable pageable);
 
     /**
@@ -83,6 +118,8 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @return a {@link Future} emitting the dependency tree, or {@code null} when the project has
      *         no SBOM of the dependencies its last sync reported
      */
+    @RequirePermission("read")
+    @ResourceTarget(idArgument = "projectId")
     Future<ProjectDependencies> findDependencies(String projectId);
 
     /**
@@ -97,6 +134,8 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @throws IllegalStateException when the project is not awaiting an initialization retry
      */
     @McpTool(openWorldHint = true)
+    @RequirePermission("repo.initialize")
+    @ResourceTarget(idArgument = "projectId")
     Future<Project> retryRepoInitialization(String projectId);
 
 }

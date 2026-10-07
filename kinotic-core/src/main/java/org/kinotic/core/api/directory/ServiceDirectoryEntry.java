@@ -25,7 +25,7 @@ import java.util.List;
 public class ServiceDirectoryEntry implements Identifiable<String> {
 
     /**
-     * The service's qualified name ({@code zone.namespace.name}, omitting unset parts).
+     * The service's qualified name ({@code zone~namespace.name}, omitting unset parts).
      */
     private String id;
 
@@ -70,7 +70,7 @@ public class ServiceDirectoryEntry implements Identifiable<String> {
 
     /**
      * True when the service advertised itself with {@code @Publish(advertise = true)} and appears in directory
-     * listings; false when the entry exists only to carry the service's MCP tools.
+     * listings; false when the entry carries a non-advertised service contract.
      */
     private boolean advertised;
 

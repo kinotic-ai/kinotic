@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import org.kinotic.management.api.model.MigrationRequest;
 import org.kinotic.management.api.model.MigrationResult;
@@ -10,6 +13,9 @@ import org.kinotic.core.api.annotations.Publish;
  * This service allows external clients to apply their own migrations to projects.
  */
 @Publish
+@PermissionNamespace("migration")
+@ResourceTarget(type = "scope")
+@RequirePermission
 public interface MigrationService {
 
     /**

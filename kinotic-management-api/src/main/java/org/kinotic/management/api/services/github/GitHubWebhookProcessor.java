@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services.github;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import org.kinotic.management.api.model.deployment.ProjectPushEvent;
 import org.kinotic.management.api.model.github.GitHubWebhookEvent;
@@ -10,7 +13,10 @@ import org.kinotic.management.api.model.github.GitHubWebhookEvent;
  * events, and publishes a {@link ProjectPushEvent} per backing project to the cluster-wide
  * event fabric for a push to the repository's default branch.
  * <p>
- * Not {@code @Publish}ed — {@link #process(GitHubWebhookEvent)} may only ever be called by the
+ * Not {@code @Publish
+@PermissionNamespace("gitHubWebhookProcessor")
+@ResourceTarget(type = "scope")
+@RequirePermission}ed — {@link #process(GitHubWebhookEvent)} may only ever be called by the
  * gateway's webhook handler, in-process.
  */
 public interface GitHubWebhookProcessor {

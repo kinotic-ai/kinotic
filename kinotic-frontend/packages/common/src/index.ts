@@ -86,3 +86,5 @@ export { default as WorkloadLogsDialog } from './components/WorkloadLogsDialog.v
 
 // Registers the ECharts modules the apps' charts render with
 import './charts/echarts'
+
+export { default as AccessControlEditor } from './components/AccessControlEditor.vue'
