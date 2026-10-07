@@ -82,21 +82,17 @@ public class DefaultRelationshipService implements RelationshipService {
 
     @Override
     public Future<Void> ensure(String store, List<RelationshipTuple> relationships) {
-        return converging(() -> missing(store, relationships).compose(missing -> write(store, missing, List.of())));
+        return converging(() -> write(store, relationships, List.of()));
     }
 
     @Override
     public Future<Void> remove(String store, List<RelationshipTuple> relationships) {
-        return converging(() -> missing(store, relationships).compose(missing -> {
-            List<RelationshipTuple> held = new ArrayList<>(relationships);
-            held.removeAll(missing);
-            return write(store, List.of(), held);
-        }));
+        return converging(() -> write(store, List.of(), relationships));
     }
 
     // A write the engine refuses as a conflict was raced by another node bringing the same tuples to the same
-    // state, as the provisioner and the reconciler do for a new application's roles, so the tuples are read again
-    // and only what still differs is written; a second conflict is reported
+    // state, as the provisioner and the reconciler do for a new application's roles, so it is made again; a second
+    // conflict is reported
     private static Future<Void> converging(Supplier<Future<Void>> attempt) {
         return attempt.get().recover(e -> isConflict(e) ? attempt.get() : Future.failedFuture(e));
     }
@@ -321,23 +317,6 @@ public class DefaultRelationshipService implements RelationshipService {
             List<RelationshipTuple> ret = new ArrayList<>();
             for (Tuple tuple : tuples) {
                 ret.add(new RelationshipTuple(tuple.getKey().getUser(), tuple.getKey().getRelation(), tuple.getKey().getObject()));
-            }
-            return ret;
-        });
-    }
-
-    // The given relationships the store does not hold, in their order
-    private Future<List<RelationshipTuple>> missing(String store, List<RelationshipTuple> relationships) {
-        List<Future<Boolean>> held = new ArrayList<>();
-        for (RelationshipTuple relationship : relationships) {
-            held.add(holds(store, relationship));
-        }
-        return Future.all(held).map(results -> {
-            List<RelationshipTuple> ret = new ArrayList<>();
-            for (int i = 0; i < relationships.size(); i++) {
-                if (!results.<Boolean>resultAt(i)) {
-                    ret.add(relationships.get(i));
-                }
             }
             return ret;
         });

@@ -332,6 +332,11 @@ class OpenFgaIntegrationTest {
         await(relationshipService.remove(PLATFORM, List.of(contained, member)));
         assertFalse(await(relationshipService.holds(PLATFORM, contained)));
         assertFalse(await(relationshipService.holds(PLATFORM, member)));
+        // two writers at once, as two servers provisioning one application are, each find the other's work done
+        await(Future.all(relationshipService.ensure(PLATFORM, List.of(contained)), relationshipService.ensure(PLATFORM, List.of(contained))));
+        assertTrue(await(relationshipService.holds(PLATFORM, contained)));
+        await(Future.all(relationshipService.remove(PLATFORM, List.of(contained)), relationshipService.remove(PLATFORM, List.of(contained))));
+        assertFalse(await(relationshipService.holds(PLATFORM, contained)));
     }
 
     @Test

@@ -95,18 +95,21 @@ public class OpenFgaService {
 
     /**
      * Adds and removes relationships, in as many requests as the engine's limit per request takes, the writes
-     * before the deletes.
+     * before the deletes. Adding a relationship the store already holds, or removing one it does not, leaves the
+     * store as it is.
      */
     public Future<Void> write(String storeId, List<TupleKey> writes, List<TupleKeyWithoutCondition> deletes) {
         Future<Void> ret = Future.succeededFuture();
         for (int from = 0; from < writes.size(); from += WRITE_BATCH_SIZE) {
             WriteRequest request = new WriteRequest().writes(new WriteRequestWrites()
-                                                                     .tupleKeys(writes.subList(from, Math.min(writes.size(), from + WRITE_BATCH_SIZE))));
+                                                                     .tupleKeys(writes.subList(from, Math.min(writes.size(), from + WRITE_BATCH_SIZE)))
+                                                                     .onDuplicate(WriteRequestWrites.OnDuplicateEnum.IGNORE));
             ret = ret.compose(v -> call(() -> api.write(storeId, request)).mapEmpty());
         }
         for (int from = 0; from < deletes.size(); from += WRITE_BATCH_SIZE) {
             WriteRequest request = new WriteRequest().deletes(new WriteRequestDeletes()
-                                                                      .tupleKeys(deletes.subList(from, Math.min(deletes.size(), from + WRITE_BATCH_SIZE))));
+                                                                      .tupleKeys(deletes.subList(from, Math.min(deletes.size(), from + WRITE_BATCH_SIZE)))
+                                                                      .onMissing(WriteRequestDeletes.OnMissingEnum.IGNORE));
             ret = ret.compose(v -> call(() -> api.write(storeId, request)).mapEmpty());
         }
         return ret;

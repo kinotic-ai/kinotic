@@ -21,9 +21,8 @@ import java.util.Set;
 public interface RelationshipService {
 
     /**
-     * Adds and removes relationships, in as many requests as the engine's limit per request takes. Writing a
-     * relationship the store already holds fails, as does deleting one it does not; {@link #ensure} and
-     * {@link #remove} are the idempotent forms.
+     * Adds and removes relationships, in as many requests as the engine's limit per request takes. Adding a
+     * relationship the store already holds, or removing one it does not, leaves the store as it is.
      *
      * @param store   the store, named as its record is
      * @param writes  the relationships to add
