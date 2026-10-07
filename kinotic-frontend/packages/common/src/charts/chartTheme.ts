@@ -34,11 +34,20 @@ export function chartGridColor(dark: boolean): string {
     return dark ? '#27272A' : '#E4E4E7'
 }
 
-/** A legend below the plot, dot-marked and in muted text, as every chart draws its own. */
+/**
+ * A legend below the plot, dot-marked and in muted text, as every chart draws its own. It keeps to
+ * one row, paging through entries that don't fit, so it stays clear of the axis labels above it.
+ */
 export function chartLegend(dark: boolean): Record<string, unknown> {
     return {
+        type: 'scroll',
         bottom: 0,
         left: 0,
+        right: 0,
+        pageIconColor: chartTextColor(dark),
+        pageIconInactiveColor: chartGridColor(dark),
+        pageIconSize: 10,
+        pageTextStyle: { color: chartTextColor(dark) },
         icon: 'circle',
         itemWidth: 10,
         itemHeight: 10,

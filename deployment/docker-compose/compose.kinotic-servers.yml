@@ -55,9 +55,9 @@ x-kinotic-server-environment: &kinotic-server-environment
   # behind this flag. Direct buffers matter here — Vert.x and Netty allocate off-heap
   # against MaxDirectMemorySize.
   OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY: "true"
-  # Names the bare PUT/GET transport spans under each Elasticsearch call, which otherwise
-  # carry only an HTTP method in the waterfall.
-  OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING: "kinotic-elasticsearch:9200=elasticsearch"
+  # Names the far end of the bare PUT/GET/POST spans of each Elasticsearch call and of each
+  # Loki, Tempo and Mimir query, which otherwise carry only an HTTP method in the waterfall.
+  OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING: "kinotic-elasticsearch:9200=elasticsearch,loki:3100=loki,tempo:3200=tempo,mimir:9009=mimir"
   SPRING_PROFILES_ACTIVE: development,compose
   THC_PATH: /health # THC defaults to "/", which 404s; the api-gateway only mounts /health
 

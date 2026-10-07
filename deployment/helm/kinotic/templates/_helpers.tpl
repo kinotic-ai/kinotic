@@ -141,8 +141,8 @@ OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "{{ $root.Values.otel.metricsEndpoint }}"
 OTEL_EXPORTER_OTLP_HEADERS: "X-Scope-OrgID=kinotic-system"
 # jvm.buffer.* and jvm.system.cpu.*, which the agent gates behind this flag
 OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY: "true"
-# Names the bare transport spans under each Elasticsearch call
-OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING: "{{ range $index, $value := $root.Values.kinotic.elastic.connections }}{{ if $index }},{{ end }}{{ $value.host }}:{{ $value.port }}=elasticsearch{{ end }}"
+# Names the bare transport spans under each Elasticsearch call and each Loki, Tempo and Mimir query
+OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING: "{{ range $index, $value := $root.Values.kinotic.elastic.connections }}{{ if $index }},{{ end }}{{ $value.host }}:{{ $value.port }}=elasticsearch{{ end }},{{ (urlParse $root.Values.kinotic.managementApi.lokiUrl).host }}=loki,{{ (urlParse $root.Values.kinotic.managementApi.tempoUrl).host }}=tempo,{{ (urlParse $root.Values.kinotic.managementApi.mimirUrl).host }}=mimir"
 {{- if $root.Values.tls.enabled }}
 
 # ── SSL/TLS ──────────────────────────────────────────────
