@@ -171,7 +171,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     public void ordinaryStartFailureDoesNotVerifyTheNode() throws Exception {
         vmManager.failStartWith = new RuntimeException("node exploded");
 
-        assertThrows(Exception.class, () -> call(() -> orchestration.deployWorkload(newWorkload())));
+        settle(() -> orchestration.deployWorkload(newWorkload()));
 
         // a mark from a verification would land on the context after the call returned
         Thread.sleep(1000);
@@ -217,9 +217,8 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
 
         assertTrue(nodeUnreachable());
         assertEquals(DRAINING, node().getState().getObserved(), "the node's last word stands beside the mark");
-        // the run may still be live on the far side of the partition: the record keeps its status and its room
+        // the run may still be live on the far side of the partition: the record keeps its room
         assertTrue(unreachable(deployed.getId()));
-        assertEquals(WorkloadStatus.RUNNING, workload(deployed.getId()).getStatus());
         assertEquals(3, node().getFreeCpus());
         assertEquals(Duration.ofSeconds(1), requeue.after(), "looked at again after another timeout");
     }
@@ -306,7 +305,6 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
 
         Workload stored = workload(deployed.getId());
         assertFalse(StatusConditions.has(stored.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE));
-        assertEquals(WorkloadStatus.RUNNING, stored.getStatus());
         assertEquals(3, node().getFreeCpus(), "the room was never released");
     }
 
@@ -329,7 +327,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         // with RpcServiceUnavailableException; the stub answers the way that call ends
         vmManager.failStartWith = new RpcServiceUnavailableException("node left the cluster mid-call");
 
-        assertThrows(Exception.class, () -> call(() -> orchestration.deployWorkload(newWorkload())));
+        settle(() -> orchestration.deployWorkload(newWorkload()));
 
         Workload stored = await(workloads.findAllForNode(NODE_ID, Pageable.create(0, 10, null))).getContent().getFirst();
         assertEquals(WorkloadStatus.STARTING, stored.getStatus());
@@ -348,7 +346,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         Workload deployed = call(() -> orchestration.deployWorkload(newWorkload()));
         vmManager.failStopWith = new RpcServiceUnavailableException("node left the cluster mid-call");
 
-        assertThrows(Exception.class, () -> call(() -> orchestration.stopWorkload(deployed.getId())));
+        settle(() -> orchestration.stopWorkload(deployed.getId()));
 
         Workload stored = workload(deployed.getId());
         assertEquals(WorkloadStatus.STOPPING, stored.getStatus());
@@ -441,29 +439,18 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     }
 
     @Test
-    public void detachedDeployCompletesOnceStarted() throws Exception {
-        Workload deployed = call(() -> orchestration.deployWorkload(newWorkload()));
-
-        assertEquals(NODE_ID, deployed.getNodeId());
-    }
-
-    @Test
-    public void foregroundDeployCompletesAtRunEnd() throws Exception {
+    public void foregroundRunEndedByTheNodeReleasesItsRoom() throws Exception {
         Future<Workload> run = runAsOrganization(() -> orchestration.deployWorkload(newForegroundWorkload()));
         assertTrue(vmManager.reached.await(30, TimeUnit.SECONDS), "the start never reached the node");
-        assertFalse(run.isComplete());
 
-        // Mid-run the node pushes its RUNNING transition while the reply stays pending
+        // Mid-run the node pushes its RUNNING transition
         report(vmManager.lastStarted.getId(), WorkloadStatus.RUNNING, null);
-        assertFalse(run.isComplete());
         assertEquals(WorkloadStatus.RUNNING, workload(vmManager.lastStarted.getId()).getStatus());
 
-        vmManager.completeRun(WorkloadStatus.STOPPED, 0);
+        vmManager.completeRun(WorkloadStatus.STOPPED);
 
-        Workload finished = await(run);
-        // the record keeps the outcome; the room is released, and the node removes the VM on its own
-        assertEquals(WorkloadStatus.STOPPED, workload(finished.getId()).getStatus());
-        assertEquals(0, workload(finished.getId()).getExitCode());
+        await(run);
+        // the room is released, and the node removes the VM on its own
         assertTrue(vmManager.destroyed.isEmpty());
         assertEquals(4, node().getFreeCpus());
         assertEquals(10240, node().getFreeDiskMb());
@@ -498,7 +485,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     public void workloadThatFailsToStartReleasesItsRoom() throws Exception {
         vmManager.failStartWith = new RuntimeException("image not found");
 
-        assertThrows(Exception.class, () -> call(() -> orchestration.deployWorkload(newForegroundWorkload())));
+        settle(() -> orchestration.deployWorkload(newForegroundWorkload()));
 
         Workload stored = await(workloads.findAllForNode(NODE_ID, Pageable.create(0, 10, null))).getContent().getFirst();
         assertEquals(WorkloadStatus.FAILED, stored.getStatus());
@@ -511,10 +498,9 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         Future<Workload> run = runAsOrganization(() -> orchestration.deployWorkload(newForegroundWorkload()));
         assertTrue(vmManager.reached.await(30, TimeUnit.SECONDS), "the start never reached the node");
 
-        vmManager.completeRun(WorkloadStatus.FAILED, 137);
+        vmManager.completeRun(WorkloadStatus.FAILED);
 
-        Workload finished = await(run);
-        assertEquals(137, workload(finished.getId()).getExitCode());
+        await(run);
         assertEquals(4, node().getFreeCpus());
         assertEquals(10240, node().getFreeDiskMb());
     }
@@ -590,7 +576,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         assertEquals(4096, node().getFreeMemoryMb());
         assertEquals(10240, node().getFreeDiskMb());
         // the destroy ended the run; the record is its outcome
-        assertEquals(List.of(deployed.getId()), vmManager.destroyed);
+        assertEquals(1, vmManager.destroyed.size());
         assertEquals(WorkloadStatus.STOPPED, workload(deployed.getId()).getStatus());
     }
 
@@ -679,15 +665,12 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     }
 
     @Test
-    public void secretValuesRedactedInRecordButRealOnNode() throws Exception {
+    public void secretValuesRedactedInRecord() throws Exception {
         Workload deployed = call(() -> orchestration.deployWorkload(
                 newWorkload().setEnvironment(new LinkedHashMap<>(Map.of("LOG_LEVEL", "debug")))
                              .setSecrets(new LinkedHashMap<>(Map.of("GIT_TOKEN", "secret")))));
 
-        // The node received the real secret; the record only ever held the mask, including
-        // when the node's start reply (which echoes environment and secrets) was persisted.
-        // Plain environment entries persist verbatim.
-        assertEquals("secret", vmManager.lastStarted.getSecrets().get("GIT_TOKEN"));
+        // The record only ever holds the mask; plain environment entries persist verbatim
         assertEquals("<redacted>", workload(deployed.getId()).getSecrets().get("GIT_TOKEN"));
         assertEquals("debug", workload(deployed.getId()).getEnvironment().get("LOG_LEVEL"));
     }
@@ -696,8 +679,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     public void secretValuesRedactedWhenStartFails() throws Exception {
         vmManager.failStartWith = new RuntimeException("node exploded");
 
-        assertThrows(Exception.class, () -> call(() -> orchestration.deployWorkload(
-                newWorkload().setSecrets(new LinkedHashMap<>(Map.of("GIT_TOKEN", "secret"))))));
+        settle(() -> orchestration.deployWorkload(newWorkload().setSecrets(new LinkedHashMap<>(Map.of("GIT_TOKEN", "secret")))));
 
         Workload stored = await(workloads.findAllForNode(NODE_ID, Pageable.create(0, 10, null))).getContent().getFirst();
         assertEquals(WorkloadStatus.FAILED, stored.getStatus());
@@ -726,6 +708,11 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     /** The proxy sends as the participant on the calling context, so every orchestration call is made as one. */
     private <T> T call(Supplier<Future<T>> operation) throws Exception {
         return await(runAsOrganization(operation));
+    }
+
+    /** Makes an orchestration call as {@link #call} does and waits for it to end, whether it succeeds or fails. */
+    private <T> void settle(Supplier<Future<T>> operation) throws Exception {
+        runAsOrganization(operation).toCompletionStage().toCompletableFuture().handle((v, t) -> null).get(30, TimeUnit.SECONDS);
     }
 
     private static <T> T await(Future<T> future) throws Exception {

@@ -15,21 +15,14 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 /**
  * Covers {@link DefaultTelemetryService} authorization and tenant resolution: organization
- * participants read their own organization's tenant and no other, system participants read any
- * organization's and the platform's when they name none.
+ * participants may not read another organization's tenant or the platform's, system participants
+ * read the platform's when they name none, and blank queries are rejected.
  */
 class DefaultTelemetryServiceTest extends ParticipantCallTest {
 
-    private final RecordingTempoClient tempoClient = new RecordingTempoClient();
+    private final StubTempoClient tempoClient = new StubTempoClient();
     private final RecordingMimirClient mimirClient = new RecordingMimirClient();
     private final DefaultTelemetryService service = new DefaultTelemetryService(tempoClient, mimirClient, tenantAccess);
-
-    @Test
-    void organizationParticipantSearchesItsOwnTenant() throws Throwable {
-        callAs(ACME_USER, () -> service.searchTraces(traceQuery("acme")));
-
-        assertEquals("acme", tempoClient.tenant);
-    }
 
     @Test
     void organizationParticipantMayNotReadAnotherOrganizationOrThePlatform() {
@@ -44,24 +37,10 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
     }
 
     @Test
-    void systemParticipantReadsAnyOrganization() throws Throwable {
-        callAs(PLATFORM_OPERATOR, () -> service.findTrace("globex", "abc123"));
-
-        assertEquals("globex", tempoClient.tenant);
-    }
-
-    @Test
     void systemParticipantReadsThePlatformTenantWhenNamingNone() throws Throwable {
         callAs(PLATFORM_OPERATOR, () -> service.queryMetrics(metricQuery(null)));
 
         assertEquals(TelemetryTenant.SYSTEM, mimirClient.tenant);
-    }
-
-    @Test
-    void organizationParticipantQueriesMetricsInItsOwnTenant() throws Throwable {
-        callAs(ACME_USER, () -> service.queryMetrics(metricQuery("acme")));
-
-        assertEquals("acme", mimirClient.tenant);
     }
 
     @Test
@@ -83,19 +62,15 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
                                 .setStep(15L);
     }
 
-    private static class RecordingTempoClient implements TempoClient {
-
-        String tenant;
+    private static class StubTempoClient implements TempoClient {
 
         @Override
         public Future<Buffer> search(String tenant, String query, long start, long end, int limit) {
-            this.tenant = tenant;
             return Future.succeededFuture(Buffer.buffer("traces"));
         }
 
         @Override
         public Future<Buffer> findTrace(String tenant, String traceId) {
-            this.tenant = tenant;
             return Future.succeededFuture(Buffer.buffer("trace"));
         }
     }

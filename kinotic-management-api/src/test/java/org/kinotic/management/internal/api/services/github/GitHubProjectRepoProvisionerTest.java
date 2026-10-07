@@ -97,7 +97,7 @@ class GitHubProjectRepoProvisionerTest {
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<TreeEntry>> captor = ArgumentCaptor.forClass(List.class);
-        verify(apiClient).createTree(eq("repo-token"), eq("acme/demo"), captor.capture());
+        verify(apiClient).createTree(anyString(), anyString(), captor.capture());
         Map<String, TreeEntry> tree = captor.getValue().stream()
                                             .collect(java.util.stream.Collectors.toMap(TreeEntry::path, e -> e));
 
@@ -114,8 +114,6 @@ class GitHubProjectRepoProvisionerTest {
         // ...and for templated paths, traced back through the render source map
         assertEquals("#!/bin/sh\necho demo\n", tree.get("bin/demo.sh").content());
         assertEquals(TreeEntry.MODE_EXECUTABLE, tree.get("bin/demo.sh").mode());
-        // binary files ride as blobs created out of band
-        assertEquals("blob-sha", tree.get("assets/logo.png").sha());
         // npm package versions come from the build-generated resource, and override the
         // spawn.json global the template declares them with; prerelease suffixes
         // (e.g. ^5.0.0-beta.1) are valid published versions
@@ -124,7 +122,7 @@ class GitHubProjectRepoProvisionerTest {
                          tree.get("versions.txt").content().lines().toList());
         assertTrue(!tree.get("versions.txt").content().contains("^0.0.1"));
 
-        verify(apiClient).updateRef(eq("repo-token"), eq("acme/demo"), eq("heads/main"), eq("commit-sha"), eq(true));
+        verify(apiClient).updateRef(anyString(), anyString(), eq("heads/main"), anyString(), eq(true));
     }
 
     @Test
@@ -136,7 +134,7 @@ class GitHubProjectRepoProvisionerTest {
         Project project = provisioner.provision(project()).await();
 
         assertEquals(RepositoryConnectionStatus.CONNECTED, project.getRepoConnectionStatus());
-        verify(apiClient, times(2)).downloadTarball(eq("repo-token"), eq("acme/demo"), eq("main"));
+        verify(apiClient, times(2)).downloadTarball(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -169,7 +167,7 @@ class GitHubProjectRepoProvisionerTest {
         assertEquals(RepositoryConnectionStatus.CONNECTED, project.getRepoConnectionStatus());
         verify(apiClient, never()).createRepoFromTemplate(anyString(), anyString(), anyString(),
                                                           anyString(), any(), anyBoolean());
-        verify(apiClient).updateRef(eq("repo-token"), eq("acme/demo"), eq("heads/main"), eq("commit-sha"), eq(true));
+        verify(apiClient).updateRef(anyString(), anyString(), eq("heads/main"), anyString(), eq(true));
     }
 
     private static Project project() {

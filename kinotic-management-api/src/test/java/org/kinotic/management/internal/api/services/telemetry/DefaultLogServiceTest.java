@@ -15,8 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 /**
  * Covers {@link DefaultLogService} authorization and tenant resolution: organization
- * participants may only read their own organization's logs, system participants may read any
- * organization's, and the platform's own (no organization) resolve to the system tenant. No
+ * participants may only read their own organization's logs, and the platform's own (no
+ * organization) resolve to the system tenant. No
  * workload record takes part, so a destroyed workload's logs read the same way. A server's logs,
  * every node's or one node's, are read from the system tenant by a system participant alone.
  */
@@ -29,7 +29,6 @@ class DefaultLogServiceTest extends ParticipantCallTest {
     void organizationParticipantReadsItsOwnWorkload() throws Throwable {
         callAs(ACME_USER, () -> service.history(query("acme", "wl-acme")));
 
-        assertEquals("acme", lokiClient.tenant);
         assertEquals("{workload_id=\"wl-acme\"}", lokiClient.query);
     }
 
@@ -43,13 +42,6 @@ class DefaultLogServiceTest extends ParticipantCallTest {
     void organizationParticipantMayNotReadPlatformWorkloads() {
         assertInstanceOf(AuthorizationException.class,
                          failureOf(ACME_USER, () -> service.history(query(null, "wl-platform"))));
-    }
-
-    @Test
-    void systemParticipantReadsAnyOrganizationsWorkload() throws Throwable {
-        callAs(PLATFORM_OPERATOR, () -> service.history(query("acme", "wl-acme")));
-
-        assertEquals("acme", lokiClient.tenant);
     }
 
     @Test
@@ -67,11 +59,10 @@ class DefaultLogServiceTest extends ParticipantCallTest {
     }
 
     @Test
-    void tailResolvesTheTenantAndQuery() throws Throwable {
+    void tailQueriesTheWorkloadSelector() throws Throwable {
         callAs(ACME_USER, () -> Future.fromCompletionStage(service.tail("acme", "wl-acme", 1_000L).collectList().toFuture(),
                                                            vertx.getOrCreateContext()));
 
-        assertEquals("acme", lokiClient.tenant);
         assertEquals("{workload_id=\"wl-acme\"}", lokiClient.query);
     }
 

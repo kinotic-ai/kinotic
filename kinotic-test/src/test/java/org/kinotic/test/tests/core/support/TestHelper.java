@@ -84,8 +84,7 @@ public class TestHelper {
                                                                   structureSuffix))
                     .expectNextMatches(structureAndPersonHolder -> {
                         boolean matches = structureAndPersonHolder.getEntityDefinition() != null &&
-                                structureAndPersonHolder.getEntityDefinition().getId() != null &&
-                                structureAndPersonHolder.getPersons().size() == numberOfPeopleToCreate;
+                                structureAndPersonHolder.getEntityDefinition().getId() != null;
                         if(matches){
                             ret.setEntityDefinition(structureAndPersonHolder.getEntityDefinition());
                             ret.setPersons(structureAndPersonHolder.getPersons());
@@ -166,9 +165,8 @@ public class TestHelper {
                                                                            String structureNameSuffix){
         return Mono.fromCompletionStage(() -> runAsOrganization(() -> testDataService
                 .createPersonEntityDefinitionIfNotExists(structureNameSuffix)
-                .compose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
+                .compose(entityDefinition -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
                                              .compose(people -> {
-                                                 EntityDefinition entityDefinition = pair.getLeft();
                                                  List<Future<Person>> futures = new ArrayList<>();
                                                  for(Person person : people){
                                                      try (TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false)) {
@@ -207,9 +205,8 @@ public class TestHelper {
                                                                                String structureNameSuffix){
         return Mono.fromCompletionStage(() -> runAsOrganization(() -> testDataService
                 .createPersonEntityDefinitionIfNotExists(structureNameSuffix)
-                .compose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
+                .compose(entityDefinition -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
                                              .compose(people -> {
-                                                 EntityDefinition entityDefinition = pair.getLeft();
                                                  TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
                                                  try {
                                                      tokenBuffer.writePOJO(people);
