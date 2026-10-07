@@ -59,7 +59,7 @@ import static org.kinotic.authz.api.services.AuthzStoreService.PLATFORM;
  * or on the application when it has none. A definition's rows are checked on the definition a request names: a
  * tenant's user on the definition within its tenant, an organization's member on the definition in the
  * platform's store. What is kept of a contract is dropped when the directory announces the contract written
- * again.
+ * again. A refusal is answered "Not authorized", and its reason is logged with the request and the caller.
  */
 @Slf4j
 @Component
@@ -116,10 +116,19 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                     ? Future.succeededFuture()
                     : check(spec, scoped, store, contentType, body));
         } else {
-            log.warn("No store answers for participant of type {} with id {}", participant.getClass().getSimpleName(), participant.getId());
-            ret = Future.failedFuture(new AuthorizationException("Not authorized"));
+            ret = Future.failedFuture(new AuthorizationException("No store answers for participant of type "
+                                                                         + participant.getClass().getSimpleName()));
         }
-        return ret;
+        // a refusal's reason names the contract, the check and the ids it resolved, so it is logged here and the
+        // caller is answered without it
+        return ret.recover(error -> {
+            Throwable answer = error;
+            if (error instanceof AuthorizationException) {
+                log.warn("Refused {} to participant {}: {}", cri.raw(), participant.getId(), error.getMessage());
+                answer = new AuthorizationException("Not authorized");
+            }
+            return Future.failedFuture(answer);
+        });
     }
 
     private Future<FunctionSpec> spec(CRI cri) {
@@ -222,8 +231,9 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                         .compose(modelId -> relationships.check(store, modelId, relationship, consistency, edges))
                         .compose(allowed -> allowed
                                 ? Future.succeededFuture()
-                                : Future.failedFuture(new AuthorizationException("Not authorized: " + relationship.relation()
-                                                                                         + " on " + relationship.object())));
+                                : Future.failedFuture(new AuthorizationException("Denied " + relationship.relation() + " on "
+                                                                                         + relationship.object() + " to "
+                                                                                         + relationship.user())));
         } catch (AuthorizationException e) {
             ret = Future.failedFuture(e);
         }
