@@ -61,7 +61,9 @@ public class CheckDerivationTest {
         assertEquals("report:{reportId}", at(check(service, "generate")));
         assertEquals("report_can_generate", permission(check(service, "generate")));
         assertTrue(check(service, "generate").isConsistent());
-        assertNull(check(service, "ping"));
+        // a function declared unchecked carries the mark, and no check
+        assertTrue(check(service, "ping").isUnchecked());
+        assertNull(check(service, "ping").getPermission());
         // a check on the parent is the type's permission within it
         assertEquals("tenant:{@tenantId}", at(check(service, "archive")));
         assertEquals("report_can_archive", permission(check(service, "archive")));

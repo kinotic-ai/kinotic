@@ -58,6 +58,55 @@ final class AuthzDecorators {
     }
 
     /**
+     * Whether a service declaring no resource marks every function unchecked with {@link AuthzUnchecked}.
+     *
+     * @throws IllegalStateException when the service declares a resource too
+     */
+    static boolean uncheckedService(Class<?> serviceInterface) {
+        boolean ret = AnnotationUtils.findAnnotation(serviceInterface, AuthzUnchecked.class) != null;
+        if (ret && AnnotationUtils.findAnnotation(serviceInterface, AuthzResource.class) != null) {
+            throw new IllegalStateException("@AuthzUnchecked on " + serviceInterface.getName()
+                                                    + " marks every function unchecked beside the @AuthzResource its functions are checked on;"
+                                                    + " mark the functions instead");
+        }
+        return ret;
+    }
+
+    /**
+     * Whether a function declares anything about its check: an {@link AuthzCheck} or an {@link AuthzUnchecked}
+     * of its own, which a service declaring no resource has no place for.
+     */
+    static boolean declaresCheck(Method interfaceMethod) {
+        return AnnotationUtils.findAnnotation(interfaceMethod, AuthzCheck.class) != null
+                || AnnotationUtils.findAnnotation(interfaceMethod, AuthzUnchecked.class) != null;
+    }
+
+    /**
+     * The mark a contract carries for a function served unchecked, which tells it from a function no contract
+     * covers.
+     */
+    static AuthzCheckC3Decorator unchecked() {
+        return new AuthzCheckC3Decorator().setUnchecked(true);
+    }
+
+    /**
+     * The mark of a function declared unchecked, which declares nothing else about its check.
+     *
+     * @param where    the function, named in errors
+     * @param declared the declaration carrying the mark
+     * @throws IllegalStateException when the declaration carries a check beside the mark
+     */
+    static AuthzCheckC3Decorator uncheckedOf(String where, AuthzCheckC3Decorator declared) {
+        List<String> implies = declared.getImplies() == null ? List.of() : declared.getImplies();
+        if (present(declared.getPermission()) != null || present(declared.getResource()) != null
+                || present(declared.getResourceId()) != null || !implies.isEmpty() || declared.isConsistent()) {
+            throw new IllegalStateException("The function " + where + " is declared unchecked beside a check;"
+                                                    + " an unchecked function has none");
+        }
+        return unchecked();
+    }
+
+    /**
      * The resource decorator a service's declaration resolves to.
      *
      * @param declarer the service, named in errors
@@ -139,7 +188,7 @@ final class AuthzDecorators {
     }
 
     /**
-     * The check of one function of a resource service, or null for a function declared unchecked.
+     * The check of one function of a resource service, or the unchecked mark for a function declared unchecked.
      *
      * @param serviceInterface  the {@code @Publish} interface, named in errors
      * @param resource          the service's resource decorator
@@ -168,7 +217,7 @@ final class AuthzDecorators {
     }
 
     /**
-     * The check of one function of a resource service, or null for a function declared unchecked.
+     * The check of one function of a resource service, or the unchecked mark for a function declared unchecked.
      *
      * @param declarer          the service, named in errors
      * @param resource          the service's resource decorator
@@ -193,12 +242,7 @@ final class AuthzDecorators {
         String declaredResourceId = declared == null ? null : present(declared.getResourceId());
         List<String> implies = declared == null || declared.getImplies() == null ? List.of() : declared.getImplies();
         if (declared != null && declared.isUnchecked()) {
-            if (declaredPermission != null || declaredResource != null || declaredResourceId != null
-                    || !implies.isEmpty() || declared.isConsistent()) {
-                throw new IllegalStateException("The function " + where + " is declared unchecked beside a check;"
-                                                        + " an unchecked function has none");
-            }
-            return null;
+            return uncheckedOf(where, declared);
         }
 
         // the function's own permission, else the one its service requires of every function, else its verb's

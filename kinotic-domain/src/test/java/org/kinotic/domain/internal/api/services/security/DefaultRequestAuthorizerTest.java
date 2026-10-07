@@ -57,8 +57,10 @@ import static org.mockito.Mockito.when;
  * caller's tenant with the object's two edges supplied, on the definition itself for a user without a tenant, and
  * in the platform's store for an organization member; an application or a project named within the caller's
  * organization, which a system participant cannot name; a
- * delegate checked as its owner; an unchecked function and a service with no entry passing without the engine;
- * and the refusals: a denied check, a request naming no object, a body no id can be read from.
+ * delegate checked as its owner; a function its contract marks unchecked passing without the engine; and the
+ * refusals: a denied check, a request naming no object, a body no id can be read from, and the requests no
+ * contract covers, of a service the directory holds no definition for, a function the definition leaves out or
+ * marks neither way, and a node running no directory.
  */
 class DefaultRequestAuthorizerTest {
 
@@ -95,7 +97,9 @@ class DefaultRequestAuthorizerTest {
         service.addFunction(function("deploy", check("project", "{projectId}", "project", "can_deploy", true), "projectId"));
         service.addFunction(function("findMembers", check("organization", "{@organizationId}", "organization", "can_view_members", false)));
         service.addFunction(function("count", check("application", "{@applicationId}", "project", "can_view", false)));
-        service.addFunction(function("listAccessible", null, "type", "permission"));
+        service.addFunction(function("listAccessible", unchecked(), "type", "permission"));
+        // a function the contract marks neither way
+        service.addFunction(function("describe", null, "projectId"));
         entry = new ServiceDirectoryEntry().setId(SERVICE).setServiceDefinition(service);
         when(directory.findEntry(SERVICE)).thenReturn(Future.succeededFuture(entry));
 
@@ -119,7 +123,7 @@ class DefaultRequestAuthorizerTest {
 
         // the contract written again serves save unchecked
         ServiceDefinition changed = new ServiceDefinition().setNamespace("org.kinotic.management.api.services").setName("ProjectService");
-        changed.addFunction(function("save", null, "entity"));
+        changed.addFunction(function("save", unchecked(), "entity"));
         when(directory.findEntry(SERVICE)).thenReturn(Future.succeededFuture(new ServiceDirectoryEntry().setId(SERVICE).setServiceDefinition(changed)));
         vertx.eventBus().publish(ServiceDirectory.CONTRACT_CHANGED_ADDRESS, SERVICE);
 
@@ -217,14 +221,48 @@ class DefaultRequestAuthorizerTest {
     }
 
     @Test
-    void aServiceWithoutAnEntryPassesOnTheZone() throws Exception {
+    void aServiceWithoutAContractIsRefused() {
         when(directory.findEntry("app.acme.crm~OrderService")).thenReturn(Future.succeededFuture(null));
 
-        authorizer.authorize(CRI.create("srv://app.acme.crm~OrderService/create#1.0.0"), sally(),
-                             EventConstants.CONTENT_TYPE_JSON, bytes("[{}]"))
-                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        ExecutionException failure = assertThrows(ExecutionException.class,
+                                                  () -> authorizer.authorize(CRI.create("srv://app.acme.crm~OrderService/create#1.0.0"), sally(),
+                                                                             EventConstants.CONTENT_TYPE_JSON, bytes("[{}]"))
+                                                                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
 
+        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
+        assertTrue(refused.getMessage().contains("No contract covers create"), refused.getMessage());
         verify(relationships, never()).check(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aFunctionTheContractLeavesOutIsRefused() {
+        AuthorizationException refused = refused("render", sally(), EventConstants.CONTENT_TYPE_JSON, "[]");
+
+        assertTrue(refused.getMessage().contains("No contract covers render"), refused.getMessage());
+        verify(relationships, never()).check(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aFunctionMarkedNeitherCheckedNorUncheckedIsRefused() {
+        AuthorizationException refused = refused("describe", sally(), EventConstants.CONTENT_TYPE_JSON, "[\"proj-a\"]");
+
+        assertTrue(refused.getMessage().contains("No contract covers describe"), refused.getMessage());
+        verify(relationships, never()).check(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aNodeWithoutADirectoryRefusesEveryRequest() {
+        ObjectProvider<ServiceDirectory> none = mock(ObjectProvider.class);
+        when(none.getIfAvailable()).thenReturn(null);
+        DefaultRequestAuthorizer alone = new DefaultRequestAuthorizer(none, mock(AuthzStoreService.class), relationships, JsonMapper.builder().build(), vertx);
+
+        ExecutionException failure = assertThrows(ExecutionException.class,
+                                                  () -> alone.authorize(cri("listAccessible"), sally(), EventConstants.CONTENT_TYPE_JSON, bytes("[]"))
+                                                             .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
+
+        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
+        assertTrue(refused.getMessage().contains("No service directory"), refused.getMessage());
     }
 
     @Test
@@ -378,6 +416,10 @@ class DefaultRequestAuthorizerTest {
             ret.setDecorators(List.of(check));
         }
         return ret;
+    }
+
+    private static AuthzCheckC3Decorator unchecked() {
+        return new AuthzCheckC3Decorator().setUnchecked(true);
     }
 
     private static AuthzCheckC3Decorator check(String resource, String resourceId, String permissionResource, String permission, boolean consistent) {

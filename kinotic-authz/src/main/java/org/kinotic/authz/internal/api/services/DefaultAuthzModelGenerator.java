@@ -268,7 +268,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         for (ServiceDefinition service : services) {
             for (FunctionDefinition function : service.getFunctions()) {
                 AuthzCheckC3Decorator check = function.findDecorator(AuthzCheckC3Decorator.class);
-                if (check != null) {
+                if (check != null && !check.isUnchecked()) {
                     ResourceType type = types.get(check.getPermissionResource());
                     if (type == null) {
                         throw new IllegalArgumentException("Function " + function.getName() + " of " + service.getQualifiedName()

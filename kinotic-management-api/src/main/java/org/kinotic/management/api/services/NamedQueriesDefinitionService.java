@@ -3,6 +3,8 @@ package org.kinotic.management.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.domain.api.services.ProjectScopedCrudService;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
 
@@ -10,6 +12,7 @@ import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
  * Created by Navíd Mitchell 🤪on 4/23/24.
  */
 @Publish
+@AuthzResource(value = AuthzUtil.ENTITY_DEFINITION_TYPE, parent = AuthzUtil.APPLICATION_TYPE)
 public interface NamedQueriesDefinitionService extends ProjectScopedCrudService<NamedQueriesDefinition, String> {
 
     /**

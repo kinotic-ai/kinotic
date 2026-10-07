@@ -2,6 +2,7 @@ package org.kinotic.management.api.services.security;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzUnchecked;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.Participant;
@@ -17,6 +18,7 @@ import java.util.List;
  * see or revoke it, and only a person (never a delegate) may call these at all.
  */
 @Publish
+@AuthzUnchecked
 public interface DelegateService {
 
     /**

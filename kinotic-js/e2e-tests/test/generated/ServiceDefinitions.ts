@@ -60,5 +60,72 @@ declareServiceDefinitions(JSON.parse(`[
         ]
       }
     ]
+  },
+  {
+    "name": "ProbeService",
+    "namespace": "e2e.nodefailure",
+    "functions": [
+      {
+        "name": "echo",
+        "decorators": [
+          {
+            "type": "AuthzCheck",
+            "unchecked": true,
+            "consistent": false
+          }
+        ],
+        "returnType": {
+          "type": "string"
+        },
+        "parameters": [
+          {
+            "name": "value",
+            "type": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      {
+        "name": "hang",
+        "decorators": [
+          {
+            "type": "AuthzCheck",
+            "unchecked": true,
+            "consistent": false
+          }
+        ],
+        "returnType": {
+          "type": "async",
+          "valueType": {
+            "type": "any"
+          }
+        }
+      },
+      {
+        "name": "ticks",
+        "decorators": [
+          {
+            "type": "AuthzCheck",
+            "unchecked": true,
+            "consistent": false
+          }
+        ],
+        "returnType": {
+          "type": "stream",
+          "valueType": {
+            "type": "int"
+          }
+        },
+        "parameters": [
+          {
+            "name": "periodMs",
+            "type": {
+              "type": "int"
+            }
+          }
+        ]
+      }
+    ]
   }
 ]`))

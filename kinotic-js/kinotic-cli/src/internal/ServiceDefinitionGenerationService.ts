@@ -1,4 +1,4 @@
-import {AnyC3Type, AsyncC3Type, C3Type, FunctionDefinition, ServiceDefinition, StreamC3Type, VoidC3Type} from '@kinotic-ai/idl'
+import {AnyC3Type, AsyncC3Type, AuthzCheckDecorator, C3Type, FunctionDefinition, ServiceDefinition, StreamC3Type, VoidC3Type} from '@kinotic-ai/idl'
 import {KinoticProjectConfig} from '@kinotic-ai/management-api'
 import fsPromises from 'fs/promises'
 import path from 'path'
@@ -96,10 +96,17 @@ export class ServiceDefinitionGenerationService {
         const ret = new ServiceDefinition(name, namespace as string)
         const service = `${namespace ? namespace + '.' : ''}${name}`
 
+        // the mark on the class is carried by each function, so the definition reads as one marked per function
+        const unchecked = declaration.getDecorator('AuthzUnchecked') !== undefined
+        if (unchecked && declaration.getDecorator('AuthzResource')) {
+            throw new Error(`${service} is marked @AuthzUnchecked beside the @AuthzResource its functions are checked on; mark the functions instead`)
+        }
         for (const decorator of declaration.getDecorators()) {
-            const c3Decorator = tsDecoratorToC3Decorator(decorator)
-            if (c3Decorator) {
-                ret.addDecorator(c3Decorator)
+            if (decorator.getName() !== 'AuthzUnchecked') {
+                const c3Decorator = tsDecoratorToC3Decorator(decorator)
+                if (c3Decorator) {
+                    ret.addDecorator(c3Decorator)
+                }
             }
         }
 
@@ -113,7 +120,7 @@ export class ServiceDefinitionGenerationService {
             for (const method of current.getInstanceMethods()) {
                 if (!method.isOverload() && !converted.has(method.getName())) {
                     converted.add(method.getName())
-                    ret.addFunction(this.convertMethod(method, service, conversionContext))
+                    ret.addFunction(this.convertMethod(method, service, unchecked, conversionContext))
                 }
             }
             current = current.getBaseClass()
@@ -123,14 +130,23 @@ export class ServiceDefinitionGenerationService {
 
     private convertMethod(method: MethodDeclaration,
                           service: string,
+                          unchecked: boolean,
                           conversionContext: IConversionContext<Type, C3Type, TypescriptConversionState>): FunctionDefinition {
         const ret = new FunctionDefinition(method.getName())
         const where = `${method.getName()} on ${service}`
         for (const decorator of method.getDecorators()) {
+            if (unchecked && (decorator.getName() === 'AuthzCheck' || decorator.getName() === 'AuthzUnchecked')) {
+                throw new Error(`${where} declares a check, but the service is marked @AuthzUnchecked as a whole`)
+            }
             const c3Decorator = tsDecoratorToC3Decorator(decorator)
             if (c3Decorator) {
                 ret.addDecorator(c3Decorator)
             }
+        }
+        if (unchecked) {
+            const mark = new AuthzCheckDecorator()
+            mark.unchecked = true
+            ret.addDecorator(mark)
         }
         const parameters = method.getParameters()
         // the context a @Context method takes last is the platform's, not the caller's

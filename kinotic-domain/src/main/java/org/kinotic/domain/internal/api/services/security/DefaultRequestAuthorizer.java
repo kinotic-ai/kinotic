@@ -48,7 +48,9 @@ import static org.kinotic.authz.api.services.AuthzStoreService.PLATFORM;
 /**
  * The {@link RequestAuthorizer} over the stores: a function's check is read from its contract in the service
  * directory and kept, the object it names is read from the request with a parse that stops at it, and the
- * engine answers for the caller, or for the owner a delegate acts for, from the platform's store for an
+ * engine answers for the caller. A function is served without the engine only when its contract marks it
+ * unchecked; a function no contract covers, of a service the directory holds no definition for or one the
+ * definition leaves out, is refused. The engine answers for the caller, or for the owner a delegate acts for, from the platform's store for an
  * organization's members and the platform's own staff, and from the application's store for an application's
  * users. A platform operator or one of the platform's machines, whose scope names no organization, is checked
  * on the platform itself wherever a check names the caller's scope, and an application's user on its tenant,
@@ -118,33 +120,48 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
 
     private Future<FunctionSpec> spec(CRI cri) {
         ServiceDirectory directory = directoryProvider.getIfAvailable();
+        // an entry is keyed as a registration keys it: the zone and the qualified name, never the scope
+        String entryId = cri.hasZone() ? cri.zone() + "~" + cri.resourceName() : cri.resourceName();
         Future<FunctionSpec> ret;
         if (directory == null) {
-            ret = Future.succeededFuture(FunctionSpec.UNCHECKED);
+            ret = Future.failedFuture(new AuthorizationException("No service directory holds the contract of " + entryId
+                                                                         + ", so its functions are refused"));
+        } else if (!cri.hasPath()) {
+            ret = Future.failedFuture(new AuthorizationException("The request names no function of " + entryId));
         } else {
-            // an entry is keyed as a registration keys it: the zone and the qualified name, never the scope
-            String entryId = cri.hasZone() ? cri.zone() + "~" + cri.resourceName() : cri.resourceName();
             String key = entryId + "|" + cri.version();
+            String function = cri.path().substring(1);
             ret = KinoticUtil.toFuture(definitions.get(key, (k, executor) -> load(directory, entryId).toCompletionStage().toCompletableFuture()))
-                             .map(functions -> cri.hasPath() ? functions.getOrDefault(cri.path().substring(1), FunctionSpec.UNCHECKED)
-                                                             : FunctionSpec.UNCHECKED);
+                             .map(functions -> {
+                                 FunctionSpec spec = functions.get(function);
+                                 if (spec == null) {
+                                     throw new AuthorizationException("No contract covers " + function + " of " + entryId
+                                                                              + "; a function is served with a check, or marked unchecked");
+                                 }
+                                 return spec;
+                             });
         }
         return ret;
     }
 
-    // The specs of a service's functions by name; empty for a service the directory has no definition for
+    // The specs of a service's functions by name, the checked and the marked unchecked: a function the contract
+    // leaves out or marks neither way is absent, as every function of a service the directory has no definition for
     private Future<Map<String, FunctionSpec>> load(ServiceDirectory directory, String entryId) {
         return directory.findEntry(entryId).map(entry -> {
             Map<String, FunctionSpec> ret = new HashMap<>();
             if (entry == null || entry.getServiceDefinition() == null) {
-                log.debug("No definition covers {}; its functions are served unchecked", entryId);
+                log.warn("No definition covers {}; its functions are refused until one is registered", entryId);
             } else {
                 for (FunctionDefinition function : entry.getServiceDefinition().getFunctions()) {
                     AuthzCheckC3Decorator check = function.findDecorator(AuthzCheckC3Decorator.class);
                     List<String> parameters = function.getParameters().stream().map(ParameterDefinition::getName).toList();
-                    ret.put(function.getName(), check == null
-                            ? FunctionSpec.UNCHECKED
-                            : new FunctionSpec(check, locatorsOf(check, parameters, entryId + "/" + function.getName())));
+                    if (check == null) {
+                        log.warn("The contract of {} neither checks {} nor marks it unchecked; it is refused", entryId, function.getName());
+                    } else {
+                        ret.put(function.getName(), check.isUnchecked()
+                                ? FunctionSpec.UNCHECKED
+                                : new FunctionSpec(check, locatorsOf(check, parameters, entryId + "/" + function.getName())));
+                    }
                 }
             }
             return Map.copyOf(ret);

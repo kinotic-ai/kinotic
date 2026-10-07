@@ -13,7 +13,7 @@ import java.util.List;
  */
 public record FunctionSpec(AuthzCheckC3Decorator check, List<Locator> locators) {
 
-    /** The spec of an unchecked function: one declared with no check, or one no contract covers. */
+    /** The spec of a function its contract marks unchecked. */
     public static final FunctionSpec UNCHECKED = new FunctionSpec(null, List.of());
 
     /**

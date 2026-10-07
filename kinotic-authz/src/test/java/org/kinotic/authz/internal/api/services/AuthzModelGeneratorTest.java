@@ -31,6 +31,16 @@ public class AuthzModelGeneratorTest {
 
     private final DefaultAuthzModelGenerator generator = new DefaultAuthzModelGenerator();
 
+    @Test
+    public void aFunctionMarkedUncheckedAddsNoPermission() {
+        FunctionDefinition ping = new FunctionDefinition().setName("ping");
+        ping.setDecorators(List.of(new AuthzCheckC3Decorator().setUnchecked(true)));
+        AuthzModel model = generator.platformModel(List.of(service("ReportService", "report", "organization",
+                                                                   function("findReports", "report", "report", "can_view"), ping)));
+
+        assertEquals(Set.of("can_view"), model.permissions().get("report"));
+    }
+
     private static ServiceDefinition service(String name, String type, String parent, FunctionDefinition... functions) {
         return service(name, type, parent, List.of(), functions);
     }

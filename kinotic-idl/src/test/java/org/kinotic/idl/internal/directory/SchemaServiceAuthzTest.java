@@ -16,7 +16,10 @@ import org.kinotic.idl.internal.support.authz.TestMemberService;
 import org.kinotic.idl.internal.support.authz.TestMisnamedRoleService;
 import org.kinotic.idl.internal.support.authz.TestMisreferencingService;
 import org.kinotic.idl.internal.support.authz.TestProjectService;
+import org.kinotic.idl.internal.support.authz.TestResourcelessCheckService;
 import org.kinotic.idl.internal.support.authz.TestRowsService;
+import org.kinotic.idl.internal.support.authz.TestUncheckedResourceService;
+import org.kinotic.idl.internal.support.authz.TestUncheckedService;
 import org.kinotic.idl.internal.support.authz.TestUnderivableService;
 import org.kinotic.idl.internal.support.authz.TestVmNodeService;
 import org.kinotic.idl.internal.support.authz.TestWorkloadService;
@@ -35,9 +38,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Verifies the authorization declarations a {@link SchemaService} derives while converting a resource service:
  * the resource decorator on the service, one check per function from its name, parameters and
- * {@code @AuthzCheck}, the object a service names for functions naming none, the unchecked and consistent
- * declarations, and the rejections: a function whose check does not resolve, and a type named by a template,
- * which only a resource id may be.
+ * {@code @AuthzCheck}, the object a service names for functions naming none, the unchecked mark on a function
+ * and on a whole service declaring no resource, the consistent declaration, and the rejections: a function
+ * whose check does not resolve, a type named by a template, which only a resource id may be, a service marked
+ * unchecked beside its resource, and a check declared on a service with no resource.
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -213,12 +217,41 @@ public class SchemaServiceAuthzTest {
     }
 
     @Test
-    public void anUncheckedFunctionCarriesNoCheck() {
+    public void anUncheckedFunctionCarriesTheMarkAndNoCheck() {
         ServiceDefinition service = convert(TestMemberService.class);
 
-        assertNull(check(service, "listAccessible"));
+        AuthzCheckC3Decorator mark = check(service, "listAccessible");
+        assertTrue(mark.isUnchecked());
+        assertNull(mark.getPermission());
+        assertNull(mark.getResource());
         assertEquals(List.of("type", "permission"),
                      function(service, "listAccessible").getParameters().stream().map(ParameterDefinition::getName).toList());
+    }
+
+    @Test
+    public void aServiceMarkedUncheckedCarriesTheMarkOnEveryFunction() {
+        ServiceDefinition service = convert(TestUncheckedService.class);
+
+        assertNull(service.findDecorator(AuthzResourceC3Decorator.class));
+        for (FunctionDefinition function : service.getFunctions()) {
+            assertTrue(function.findDecorator(AuthzCheckC3Decorator.class).isUnchecked(), function.getName());
+        }
+    }
+
+    @Test
+    public void aServiceMarkedUncheckedBesideAResourceRejectsTheService() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestUncheckedResourceService.class));
+
+        assertTrue(e.getMessage().contains("@AuthzUnchecked"), e.getMessage());
+        assertTrue(e.getMessage().contains("TestUncheckedResourceService"), e.getMessage());
+    }
+
+    @Test
+    public void aCheckOnAServiceDeclaringNoResourceRejectsTheService() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestResourcelessCheckService.class));
+
+        assertTrue(e.getMessage().contains("declares no resource"), e.getMessage());
+        assertTrue(e.getMessage().contains("findById"), e.getMessage());
     }
 
     @Test
