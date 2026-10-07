@@ -74,6 +74,9 @@ config: |
           # of one application or workload can be selected within its organization's tenant
           - application_id
           - workload_id
+          # The backend a client span called, as the servers' peer-service mapping names it, so a
+          # query can select or leave out the Elasticsearch, Loki, Tempo and Mimir calls
+          - peer.service
         enable_target_info: true
       local_blocks:
         filter_server_spans: false

@@ -194,15 +194,20 @@ nothing. The rules that matter:
   bridges onto the OTLP exporter — so they are only exported when the agent is attached.
 - **Tempo's metrics-generator** writes its own series to Mimir — `traces_spanmetrics_calls_total`
   and `traces_spanmetrics_latency_bucket`, labelled `service`, `span_name`, `span_kind`,
-  `status_code`. These only exist because `tempo.yml` enables the processors under `overrides`;
-  the `metrics_generator.processor` block alone does nothing.
+  `status_code`, and `peer_service` on HTTP client spans to a named backend. These only exist
+  because `tempo.yml` enables the processors under `overrides`; the `metrics_generator.processor`
+  block alone does nothing.
 - **Loki** promotes `service.name` to the `service_name` index label and keeps `trace_id` /
   `span_id` as structured metadata, which is what the Tempo link on each log line matches.
 - **Span names come from semconv, not from the code**: `get` / `index` / `search` are
   Elasticsearch endpoint ids, and a bare `GET` / `PUT` / `POST` is an HTTP span with no route
   template. Each Elasticsearch call therefore appears twice — the client span and its transport
-  child. `peer.service` and `db.system` are what identify the far end, and Tempo resolves them
-  into virtual nodes on the service graph.
+  child, and each Loki, Tempo or Mimir query the servers make is a bare `GET` / `POST` too.
+  `peer.service` and `db.system` are what identify the far end, and Tempo resolves them
+  into virtual nodes on the service graph. `OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING`
+  sets `peer.service` on each HTTP client span from the host and port it called (`elasticsearch`,
+  `loki`, `tempo`, `mimir`), so `{peer_service!="elasticsearch"}` leaves the Elasticsearch
+  transport spans out of a query; the endpoint spans keep their `get` / `index` / `search` names.
 
 `mimir.yml` and `tempo.yml` are bind-mounted, so editing them does not change the container
 spec and `docker compose up -d` leaves the old config running. Restart those services
