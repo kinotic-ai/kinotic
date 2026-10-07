@@ -4,6 +4,7 @@ import dev.openfga.sdk.api.model.CheckRequest;
 import dev.openfga.sdk.api.model.CheckRequestTupleKey;
 import dev.openfga.sdk.api.model.CheckResponse;
 import dev.openfga.sdk.api.model.ConsistencyPreference;
+import dev.openfga.sdk.api.model.ContextualTupleKeys;
 import dev.openfga.sdk.api.model.ListObjectsRequest;
 import dev.openfga.sdk.api.model.ListObjectsResponse;
 import dev.openfga.sdk.api.model.ReadRequestTupleKey;
@@ -267,18 +268,22 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     @Override
-    public Future<Boolean> check(String store, String modelId, RelationshipTuple relationship, Consistency consistency) {
+    public Future<Boolean> check(String store, String modelId, RelationshipTuple relationship, Consistency consistency, List<RelationshipTuple> context) {
         CheckRequestTupleKey key = new CheckRequestTupleKey().user(relationship.user())
                                                              .relation(relationship.relation())
                                                              ._object(relationship.object());
-        return check(store, modelId, key, consistency).recover(e -> {
+        List<TupleKey> contextual = new ArrayList<>();
+        for (RelationshipTuple tuple : context) {
+            contextual.add(new TupleKey().user(tuple.user()).relation(tuple.relation())._object(tuple.object()));
+        }
+        return check(store, modelId, key, contextual, consistency).recover(e -> {
             // the engine refuses a check for what it names: a version of the store deleted and re-created under its
             // name since the caller read it, or a relation the version lacked when it was read and the newest has;
             // the newest version is read and answers once, and refusing too, fails as itself
             Future<Boolean> ret;
             if (e instanceof FgaApiValidationError) {
                 ret = stores.refreshModelId(store)
-                            .compose(newest -> newest.equals(modelId) ? Future.failedFuture(e) : check(store, newest, key, consistency));
+                            .compose(newest -> newest.equals(modelId) ? Future.failedFuture(e) : check(store, newest, key, contextual, consistency));
             } else {
                 ret = Future.failedFuture(e);
             }
@@ -286,8 +291,11 @@ public class DefaultRelationshipService implements RelationshipService {
         });
     }
 
-    private Future<Boolean> check(String store, String modelId, CheckRequestTupleKey key, Consistency consistency) {
+    private Future<Boolean> check(String store, String modelId, CheckRequestTupleKey key, List<TupleKey> contextual, Consistency consistency) {
         CheckRequest request = new CheckRequest().authorizationModelId(modelId).consistency(preference(consistency)).tupleKey(key);
+        if (!contextual.isEmpty()) {
+            request.contextualTuples(new ContextualTupleKeys().tupleKeys(contextual));
+        }
         return stores.storeIdOf(store).compose(id -> fga.check(id, request)).map(CheckResponse::getAllowed);
     }
 

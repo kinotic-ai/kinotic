@@ -49,10 +49,10 @@ public @interface AuthzResource {
      * type of the resource every function is checked on unless the function names another with
      * {@link AuthzCheck}. Several services may declare one type; each adds its functions' permissions to it.
      *
-     * <p>A service whose functions act on resources of a type each request names declares a template over the
-     * parameter carrying it, such as {@code {definitionId}}: the type is that parameter's value, and each
-     * function states its check with {@link AuthzCheck}, on the {@link #parent()}, since the type itself has
-     * no functions of its own. A type must not collide with one the model holds for another reason.
+     * <p>A type is a constant. Which resource of the type a function acts on is named by the id its check resolves
+     * from the request, so a service acting on whichever of many things a request names declares the one type
+     * those things share and takes the thing's id from the request, as the entity functions take the
+     * definition's. A type must not collide with one the model holds for another reason.
      */
     String value();
 

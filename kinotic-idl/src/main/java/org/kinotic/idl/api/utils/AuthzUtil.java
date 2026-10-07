@@ -33,6 +33,13 @@ public final class AuthzUtil {
 
     /** The type an entity definition is in the platform store, under its application. */
     public static final String ENTITY_DEFINITION_TYPE = "entity_definition";
+    /**
+     * The type of a definition's rows within one tenant, in an application's store: a definition and a tenant
+     * paired, so a grant made on it reaches that tenant's rows of that definition alone.
+     */
+    public static final String TENANT_DEFINITION_TYPE = "tenant_definition";
+    /** The relation of a definition's rows within a tenant to the definition. */
+    public static final String DEFINITION_RELATION = "definition";
 
     /** The type a project is in the platform store, under its application. */
     public static final String PROJECT_TYPE = "project";
@@ -83,14 +90,19 @@ public final class AuthzUtil {
     public static final String CAN_VIEW = "can_view";
     public static final String CAN_EDIT = "can_edit";
     public static final String CAN_DELETE = "can_delete";
+    /** The permissions of a definition's rows beside {@code can_edit} and {@code can_delete}. */
+    public static final String CAN_READ = "can_read";
+    public static final String CAN_SEARCH = "can_search";
+    public static final String CAN_CREATE = "can_create";
     /** The permissions that only read, beside every {@code can_view_<something>}. */
-    private static final Set<String> READING = Set.of(CAN_VIEW, "can_read", "can_search");
+    private static final Set<String> READING = Set.of(CAN_VIEW, CAN_READ, CAN_SEARCH);
 
     /** The longest relation name OpenFGA accepts; a typed permission name must fit it. */
     public static final int MAX_RELATION_NAME_LENGTH = 50;
 
     private static final Pattern TEMPLATE_REFERENCE = Pattern.compile("\\{([^{}]+)}");
     private static final Pattern IDENTIFIER = Pattern.compile("[a-z][a-z0-9_]*");
+    private static final Pattern OBJECT_ID = Pattern.compile("[^#:\\s]+");
 
     private AuthzUtil() {
     }
@@ -158,14 +170,6 @@ public final class AuthzUtil {
     }
 
     /**
-     * Whether a resource or object id template takes its value from the request, rather than naming a type or
-     * id outright.
-     */
-    public static boolean isTemplate(String value) {
-        return value != null && TEMPLATE_REFERENCE.matcher(value).find();
-    }
-
-    /**
      * The references a template makes, without their braces: {@code {registration.id}} yields
      * {@code registration.id}. A literal yields none.
      */
@@ -201,6 +205,32 @@ public final class AuthzUtil {
      */
     public static boolean isIdentifier(String name) {
         return name != null && IDENTIFIER.matcher(name).matches();
+    }
+
+    /**
+     * Whether a value can be an object's id in a store: anything but {@code #}, {@code :} and whitespace, which
+     * the engine reserves.
+     */
+    public static boolean isObjectId(String id) {
+        return id != null && OBJECT_ID.matcher(id).matches();
+    }
+
+    /**
+     * The id of a definition's rows within a tenant, the {@link #TENANT_DEFINITION_TYPE} object: the definition's
+     * id and the tenant's, joined by {@code @}.
+     */
+    public static String tenantDefinitionId(String definitionId, String tenantId) {
+        return definitionId + "@" + tenantId;
+    }
+
+    /** The definition a {@link #TENANT_DEFINITION_TYPE} id names; a definition's id holds no {@code @}. */
+    public static String definitionOf(String tenantDefinitionId) {
+        return tenantDefinitionId.substring(0, tenantDefinitionId.indexOf('@'));
+    }
+
+    /** The tenant a {@link #TENANT_DEFINITION_TYPE} id names. */
+    public static String tenantOf(String tenantDefinitionId) {
+        return tenantDefinitionId.substring(tenantDefinitionId.indexOf('@') + 1);
     }
 
 }

@@ -150,7 +150,7 @@ export async function shutdownKinoticClient(): Promise<void> {
  * seeded for the given (applicationId, tenantId) pair by the V3__e2e_app_fixtures migration (email
  * convention app-<applicationId>-<tenantId>@test.local, password kinotic), granted the tenant admin role
  * on its tenant first, so it reads and writes every definition's rows there, and connected once the
- * application's store answers for each entity named. The caller is responsible for disconnecting it
+ * application's store answers for each entity named within the tenant. The caller is responsible for disconnecting it
  * when done. The instance has {@code ManagementApiPlugin}, {@code PersistencePlugin} and {@code AppApiPlugin}
  * installed so it can back an {@code EntityRepository} that acts on the SHARED entity data of its own tenant
  * and call the tenant services for it.
@@ -193,10 +193,9 @@ export async function appFixtureSubject(applicationId: string, tenantId: string)
 
 /**
  * Grants the fixture user of the (applicationId, tenantId) pair the tenant admin role on its tenant, which reaches
- * the rows of every definition of the application in that tenant, once the role exists, which it does once the
- * store's worker has written the model the first published definition implies; then waits until the store answers
- * for each entity named, as it does once that model carries it. A user already holding the role is granted nothing
- * again.
+ * the rows of every definition of the application in that tenant; then waits until the store answers for each
+ * entity named within the tenant, which the definition's creation placed in the store. A user already holding the
+ * role is granted nothing again.
  */
 export async function grantTenantAdmin(applicationId: string, tenantId: string, entityNames: string[]): Promise<void> {
     const subject = await appFixtureSubject(applicationId, tenantId)
@@ -209,7 +208,9 @@ export async function grantTenantAdmin(applicationId: string, tenantId: string, 
         return true
     })
     for (const entityName of entityNames) {
-        await until(async () => (await Kinotic.applicationAccess.explain(applicationId, subject, `${entityName.toLowerCase()}_can_read`, tenant)).allowed)
+        const definitionId = `${E2E_ORGANIZATION_ID}.${applicationId}.${entityName}`.toLowerCase()
+        const rows: Resource = {type: 'tenant_definition', id: `${definitionId}@${tenantId}`}
+        await until(async () => (await Kinotic.applicationAccess.explain(applicationId, subject, 'entity_definition_can_read', rows)).allowed)
     }
 }
 

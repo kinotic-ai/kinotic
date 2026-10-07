@@ -8,30 +8,35 @@ import type { Subject } from '@/api/model/security/Subject'
 
 /**
  * The access control of one application's users, in the application's own store: the roles its users and
- * machines can be granted, and the grants made on the application or on one of its tenants, which reach every
- * row of the application's entity definitions inside. Every function names the application, which must belong
+ * machines can be granted, and the grants made on the application, on one of its tenants, on one of its entity
+ * definitions or on a definition within a tenant, which reach the rows below where they are made. A definition
+ * within a tenant is named `<definition id>@<tenant id>`. Every function names the application, which must belong
  * to the caller's organization, and a subject named must be one of the application's own users or machines.
  */
 export interface IApplicationAccessService {
 
     /**
-     * The built-in roles the application's model defines: a viewer, an editor and an admin of each entity
-     * definition's rows, and an admin of a tenant and of the application, each with the permissions it bundles.
+     * The built-in roles the application's model defines: a viewer, an editor and an admin of a definition's rows,
+     * the same for every definition, and an admin of a tenant and of the application, each with the permissions it
+     * bundles.
      */
     findRoles(applicationId: string): Promise<RoleDefinition[]>
 
     /**
-     * The grants that reach a resource: those made on it, then those made on the application when the resource
-     * is one of its tenants, each naming the resource it was made on.
-     * @param resource the application itself, or one of its tenants
+     * The grants that reach a resource: those made on it, then those made above it, on the tenant and the
+     * definition of a definition within a tenant and on the application for everything but itself, each naming
+     * the resource it was made on.
+     * @param resource the application itself, one of its tenants, one of its entity definitions or a definition within a tenant
      */
     findGrants(applicationId: string, resource: Resource): Promise<Grant[]>
 
     /**
-     * Grants a role to a user or a machine of the application on the application or on one of its tenants: a
-     * grant on a tenant reaches the rows of that tenant, a grant on the application the rows of every tenant.
+     * Grants a role to a user or a machine of the application: a grant on a definition within a tenant reaches
+     * those rows alone, one on a tenant every definition's rows in that tenant, one on a definition its rows in
+     * every tenant, and one on the application the rows of every definition in every tenant. A definition named
+     * must be one the application holds.
      * @param subject a user naming the identity id of one of the application's users or machines
-     * @param roleId a built-in role's id, such as invoice.editor or tenant.admin
+     * @param roleId a built-in role's id, such as entity_definition.editor or tenant.admin
      */
     grant(applicationId: string, subject: Subject, roleId: string, resource: Resource): Promise<Grant>
 
@@ -41,7 +46,7 @@ export interface IApplicationAccessService {
     /**
      * Whether a user or a machine of the application holds a permission on a resource, and the grants it holds
      * the permission through.
-     * @param permission the permission's model name, such as invoice_can_read
+     * @param permission the permission's model name, such as entity_definition_can_read
      */
     explain(applicationId: string, subject: Subject, permission: string, resource: Resource): Promise<AccessExplanation>
 

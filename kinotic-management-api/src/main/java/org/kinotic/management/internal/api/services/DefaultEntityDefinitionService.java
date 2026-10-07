@@ -24,7 +24,6 @@ import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.security.PermissionService;
-import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -48,7 +47,6 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final EntityDefinitionProperties entityDefinitionProperties;
     private final DomainPersistenceProperties domainPersistenceProperties;
     private final RelationshipService relationships;
-    private final AuthzStoreRepository stores;
     private final PermissionService permissions;
 
     public DefaultEntityDefinitionService(ApplicationEventPublisher eventPublisher,
@@ -59,11 +57,9 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                           DomainPersistenceProperties domainPersistenceProperties,
                                           SecurityContext securityContext,
                                           RelationshipService relationships,
-                                          AuthzStoreRepository stores,
                                           PermissionService permissions) {
         super(entityDefinitionRepository, securityContext);
         this.relationships = relationships;
-        this.stores = stores;
         this.permissions = permissions;
         this.eventPublisher = eventPublisher;
         this.crudServiceTemplate = crudServiceTemplate;
@@ -137,20 +133,21 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     }
 
     // The definition's place in the graph, written once the record is, so a write that fails leaves a
-    // definition nobody can reach rather than one nobody stores
+    // definition nobody can reach rather than one nobody stores: in the platform's store, where the
+    // organization's members hold it, and in the application's, where its rows are reached through it
     private Future<EntityDefinition> contained(EntityDefinition entityDefinition) {
-        return relationships.ensure(AuthzStoreService.PLATFORM, List.of(containment(entityDefinition))).map(entityDefinition);
+        return relationships.ensure(AuthzStoreService.PLATFORM, List.of(containment(entityDefinition)))
+                            .compose(v -> relationships.ensure(storeOf(entityDefinition), List.of(containment(entityDefinition))))
+                            .map(entityDefinition);
     }
 
-    // The application's store runs a model with one type per published definition, so a change of the published
-    // set asks its worker for the model again; an application whose store is not provisioned yet gets it with
-    // the definitions as they are then
-    private Future<Void> regenerated(EntityDefinition entityDefinition, String change) {
-        String store = DomainUtil.authzApplicationId(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId());
-        return stores.findById(store)
-                     .compose(record -> record == null
-                             ? Future.succeededFuture()
-                             : stores.renewDesired(store, "entity definition " + entityDefinition.getId() + " " + change));
+    private Future<Void> removed(EntityDefinition entityDefinition) {
+        return relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(entityDefinition)))
+                            .compose(v -> relationships.remove(storeOf(entityDefinition), List.of(containment(entityDefinition))));
+    }
+
+    private static String storeOf(EntityDefinition entityDefinition) {
+        return DomainUtil.authzApplicationId(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId());
     }
 
     private static RelationshipTuple containment(EntityDefinition entityDefinition) {
@@ -192,7 +189,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     return super.deleteByIdSync(entityDefinitionId)
                                 .compose(v -> {
                                     this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.applicationKey(), entityDefinition.getId()));
-                                    return relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(entityDefinition)));
+                                    return removed(entityDefinition);
                                 });
                 });
     }
@@ -260,7 +257,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         return super.saveSync(entityDefinition)
                                     .compose(entityDefinition1 -> {
                                         this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.applicationKey(), entityDefinition1.getId()));
-                                        return regenerated(entityDefinition1, "published");
+                                        return Future.<Void>succeededFuture();
                                     });
                     });
                 });
@@ -404,7 +401,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         return super.saveSync(entityDefinition)
                                     .compose(entityDefinition1 -> {
                                         this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.applicationKey(), entityDefinition1.getId()));
-                                        return regenerated(entityDefinition1, "unpublished");
+                                        return Future.<Void>succeededFuture();
                                     });
                     });
                 });

@@ -2,8 +2,6 @@ package org.kinotic.authz.internal.api.services;
 
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.AuthzStoreKind;
-import org.kinotic.authz.api.model.EntityResource;
-import org.kinotic.authz.api.model.EntityScope;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
@@ -42,19 +40,19 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     static final String GRANT = AuthzUtil.GRANT_RELATION;
 
     private static final String SCHEMA_VERSION = "1.1";
-    private static final String CAN_READ = "can_read";
-    private static final String CAN_CREATE = "can_create";
-    private static final String CAN_SEARCH = "can_search";
+    private static final String ENTITY_DEFINITION = AuthzUtil.ENTITY_DEFINITION_TYPE;
+    private static final String TENANT_DEFINITION = AuthzUtil.TENANT_DEFINITION_TYPE;
+    private static final String DEFINITION = AuthzUtil.DEFINITION_RELATION;
+    // whether a definition within a tenant is placed in the application the tenant belongs to
+    private static final String PLACED = "placed";
 
     @Override
     public AuthzModel platformModel(Collection<ServiceDefinition> services) {
-        return generate(AuthzStoreKind.PLATFORM, services, List.of());
+        return generate(AuthzStoreKind.PLATFORM, services);
     }
 
     @Override
-    public AuthzModel applicationModel(Collection<ServiceDefinition> platformServices,
-                                       Collection<ServiceDefinition> services,
-                                       Collection<EntityResource> entities) {
+    public AuthzModel applicationModel(Collection<ServiceDefinition> platformServices, Collection<ServiceDefinition> services) {
         List<ServiceDefinition> all = new ArrayList<>();
         for (ServiceDefinition service : platformServices) {
             AuthzResourceC3Decorator resource = service.findDecorator(AuthzResourceC3Decorator.class);
@@ -63,15 +61,12 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             }
         }
         all.addAll(services);
-        return generate(AuthzStoreKind.APPLICATION, all, entities);
+        return generate(AuthzStoreKind.APPLICATION, all);
     }
 
-    private AuthzModel generate(AuthzStoreKind kind,
-                                Collection<ServiceDefinition> services,
-                                Collection<EntityResource> entities) {
+    private AuthzModel generate(AuthzStoreKind kind, Collection<ServiceDefinition> services) {
         Map<String, ResourceType> types = kernelTypes(kind);
         declareServiceTypes(services, types);
-        declareEntityTypes(entities, types);
         declarePermissions(services, types);
         deriveLattice(types);
         validate(types);
@@ -109,6 +104,9 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         typeDefinitions.add(roleBindingType(kind, allPermissions));
         for (ResourceType type : new TreeMap<>(types).values()) {
             typeDefinitions.add(resourceType(type, types, carried.get(type.name)));
+        }
+        if (kind == AuthzStoreKind.APPLICATION) {
+            typeDefinitions.add(tenantDefinitionType(types.get(ENTITY_DEFINITION)));
         }
 
         Map<String, Set<String>> catalog = new TreeMap<>();
@@ -219,6 +217,17 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             ResourceType application = new ResourceType(APPLICATION, null);
             application.memberships.put(END_USER, Set.of(USER));
             ret.put(APPLICATION, application);
+            // every definition's rows have the one set of permissions, on the definition the request names
+            ResourceType definition = new ResourceType(ENTITY_DEFINITION, APPLICATION);
+            definition.addPermission(AuthzUtil.CAN_SEARCH, List.of());
+            definition.addPermission(AuthzUtil.CAN_READ, List.of(AuthzUtil.CAN_SEARCH));
+            definition.addPermission(AuthzUtil.CAN_CREATE, List.of());
+            definition.addPermission(AuthzUtil.CAN_EDIT, List.of(AuthzUtil.CAN_READ));
+            definition.addPermission(AuthzUtil.CAN_DELETE, List.of(AuthzUtil.CAN_EDIT));
+            // the end users of the application the definition is placed in, which a definition placed nowhere
+            // in this store has none of
+            definition.inherited.put(END_USER, APPLICATION);
+            ret.put(ENTITY_DEFINITION, definition);
         }
         ResourceType tenant = new ResourceType(TENANT, APPLICATION);
         tenant.memberships.put(MEMBER, Set.of(USER));
@@ -229,8 +238,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     private static void declareServiceTypes(Collection<ServiceDefinition> services, Map<String, ResourceType> types) {
         for (ServiceDefinition service : services) {
             AuthzResourceC3Decorator resource = service.findDecorator(AuthzResourceC3Decorator.class);
-            // a service whose type each request names acts on the entity types, declared with the entities
-            if (resource != null && !AuthzUtil.isTemplate(resource.getResourceType())) {
+            if (resource != null) {
                 ResourceType type = types.get(resource.getResourceType());
                 if (type == null) {
                     type = new ResourceType(resource.getResourceType(), resource.getParent());
@@ -255,33 +263,11 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         }
     }
 
-    private static void declareEntityTypes(Collection<EntityResource> entities, Map<String, ResourceType> types) {
-        for (EntityResource entity : entities) {
-            if (!AuthzUtil.isIdentifier(entity.typeName())) {
-                throw new IllegalArgumentException("Entity definition '" + entity.typeName()
-                                                           + "' is not a lowercase identifier and cannot be a resource type");
-            }
-            if (types.containsKey(entity.typeName())) {
-                throw new IllegalArgumentException("Entity definition '" + entity.typeName()
-                                                           + "' collides with a resource type of the same name");
-            }
-            ResourceType type = new ResourceType(entity.typeName(),
-                                                 entity.scope() == EntityScope.TENANT ? TENANT : APPLICATION);
-            type.addPermission(CAN_SEARCH, List.of());
-            type.addPermission(CAN_READ, List.of(CAN_SEARCH));
-            type.addPermission(CAN_CREATE, List.of());
-            type.addPermission(AuthzUtil.CAN_EDIT, List.of(CAN_READ));
-            type.addPermission(AuthzUtil.CAN_DELETE, List.of(AuthzUtil.CAN_EDIT));
-            types.put(type.name, type);
-        }
-    }
-
     private static void declarePermissions(Collection<ServiceDefinition> services, Map<String, ResourceType> types) {
         for (ServiceDefinition service : services) {
             for (FunctionDefinition function : service.getFunctions()) {
                 AuthzCheckC3Decorator check = function.findDecorator(AuthzCheckC3Decorator.class);
-                // a permission about a type the request names is the entity type's own, declared with the entity
-                if (check != null && !AuthzUtil.isTemplate(check.getPermissionResource())) {
+                if (check != null) {
                     ResourceType type = types.get(check.getPermissionResource());
                     if (type == null) {
                         throw new IllegalArgumentException("Function " + function.getName() + " of " + service.getQualifiedName()
@@ -386,6 +372,9 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         for (Map.Entry<String, Set<String>> membership : new TreeMap<>(type.memberships).entrySet()) {
             relations.put(membership.getKey(), direct(new ArrayList<>(membership.getValue())));
         }
+        for (Map.Entry<String, String> inherited : type.inherited.entrySet()) {
+            relations.put(inherited.getKey(), tupleToUserset(inherited.getValue(), inherited.getKey()));
+        }
         relations.put(ROLE_BINDING, direct(List.of(ROLE_BINDING)));
         for (String carried : carriedTypes) {
             ResourceType about = types.get(carried);
@@ -406,6 +395,34 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             }
         }
         return typeDefinition(type.name, relations);
+    }
+
+    /**
+     * A definition's rows within one tenant: the object a tenant's user is checked on, and a grant is made on to
+     * reach that tenant's rows of that definition alone. It carries the definition's permissions, each held
+     * through a binding on it, through the definition, or through the tenant when the definition is placed in
+     * the application, so a definition this store does not hold is reached by no grant on the tenant.
+     */
+    private static ObjectNode tenantDefinitionType(ResourceType definition) {
+        Map<String, ObjectNode> relations = new LinkedHashMap<>();
+        relations.put(DEFINITION, direct(List.of(ENTITY_DEFINITION)));
+        relations.put(TENANT, direct(List.of(TENANT)));
+        relations.put(ROLE_BINDING, direct(List.of(ROLE_BINDING)));
+        relations.put(PLACED, tupleToUserset(DEFINITION, END_USER));
+        for (Map.Entry<String, Set<String>> permission : new TreeMap<>(definition.permissions).entrySet()) {
+            String name = AuthzUtil.permissionName(definition.name, permission.getKey());
+            List<ObjectNode> sources = new ArrayList<>();
+            sources.add(tupleToUserset(ROLE_BINDING, name));
+            for (Map.Entry<String, Set<String>> other : new TreeMap<>(definition.permissions).entrySet()) {
+                if (other.getValue().contains(permission.getKey())) {
+                    sources.add(computed(AuthzUtil.permissionName(definition.name, other.getKey())));
+                }
+            }
+            sources.add(tupleToUserset(DEFINITION, name));
+            sources.add(intersection(List.of(tupleToUserset(TENANT, name), computed(PLACED))));
+            relations.put(name, union(sources));
+        }
+        return typeDefinition(TENANT_DEFINITION, relations);
     }
 
     private static ObjectNode typeDefinition(String name, Map<String, ObjectNode> relations) {

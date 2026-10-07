@@ -25,6 +25,7 @@ import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.domain.api.services.security.RequestAuthorizer;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.FunctionSpec;
+import org.kinotic.domain.internal.api.model.Locator;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
@@ -36,6 +37,7 @@ import tools.jackson.core.JsonToken;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -50,8 +52,10 @@ import static org.kinotic.authz.api.services.AuthzStoreService.PLATFORM;
  * organization's members and the platform's own staff, and from the application's store for an application's
  * users. A platform operator or one of the platform's machines, whose scope names no organization, is checked
  * on the platform itself wherever a check names the caller's scope, and an application's user on its tenant,
- * or on the application when it has none. What is kept of a contract is dropped when the directory announces
- * the contract written again.
+ * or on the application when it has none. A definition's rows are checked on the definition a request names: a
+ * tenant's user on the definition within its tenant, an organization's member on the definition in the
+ * platform's store. What is kept of a contract is dropped when the directory announces the contract written
+ * again.
  */
 @Slf4j
 @Component
@@ -136,39 +140,65 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                 log.debug("No definition covers {}; its functions are served unchecked", entryId);
             } else {
                 for (FunctionDefinition function : entry.getServiceDefinition().getFunctions()) {
-                    ret.put(function.getName(),
-                            new FunctionSpec(function.findDecorator(AuthzCheckC3Decorator.class),
-                                             function.getParameters().stream().map(ParameterDefinition::getName).toList()));
+                    AuthzCheckC3Decorator check = function.findDecorator(AuthzCheckC3Decorator.class);
+                    List<String> parameters = function.getParameters().stream().map(ParameterDefinition::getName).toList();
+                    ret.put(function.getName(), check == null
+                            ? FunctionSpec.UNCHECKED
+                            : new FunctionSpec(check, locatorsOf(check, parameters, entryId + "/" + function.getName())));
                 }
             }
             return Map.copyOf(ret);
         });
     }
 
+    // Where each parameter reference of the check's id is read from, resolved once per contract rather than per
+    // request; a reference to the caller's scope needs no locator
+    private static List<Locator> locatorsOf(AuthzCheckC3Decorator check, List<String> parameters, String function) {
+        List<Locator> ret = new ArrayList<>();
+        for (String reference : AuthzUtil.templateReferences(check.getResourceId())) {
+            String parameter = AuthzUtil.referencedParameter(reference);
+            if (parameter != null) {
+                int position = parameters.indexOf(parameter);
+                // the derivation refuses a contract referencing a parameter the function lacks, so a stored one
+                // that does is corrupt, and its service is refused rather than served with a check that cannot be made
+                if (position < 0) {
+                    throw new IllegalStateException("The contract of " + function + " references the parameter " + parameter
+                                                            + ", which the function does not carry");
+                }
+                List<String> path = reference.length() > parameter.length()
+                        ? Arrays.asList(reference.substring(parameter.length() + 1).split("\\."))
+                        : List.of();
+                ret.add(new Locator(reference, parameter, position, path));
+            }
+        }
+        return ret;
+    }
+
     private Future<Void> check(FunctionSpec spec, ScopedParticipant participant, String store, String contentType, byte[] body) {
         AuthzCheckC3Decorator check = spec.check();
+        ParticipantScope scope = participant.getScope();
         Future<Void> ret;
         try {
-            Resource checked = scopeLevelOf(check, participant.getScope());
-            String permissionResource = check.getPermissionResource();
-            String permission = check.getPermission();
-            // An application's rows are typed in its own store. A caller above every application, an organization's
-            // member or a platform operator, holds the definition itself on the platform, so a reading permission
-            // of its rows is the definition's can_view and any other its can_edit
-            if (AuthzUtil.isTemplate(permissionResource) && participant.getScope().applicationId() == null) {
-                checked = new Resource(AuthzUtil.ENTITY_DEFINITION_TYPE, permissionResource);
-                permissionResource = AuthzUtil.ENTITY_DEFINITION_TYPE;
-                permission = AuthzUtil.isReading(permission) ? AuthzUtil.CAN_VIEW : AuthzUtil.CAN_EDIT;
+            Resource checked = scopeLevelOf(check, scope);
+            String resourceId = authzIdOf(checked.type(), resolve(checked.id(), spec, scope, contentType, body), scope);
+            if (!AuthzUtil.isObjectId(resourceId)) {
+                throw new AuthorizationException("The request names the " + checked.type() + " '" + resourceId + "', which names no resource");
             }
-            String resource = typeOf(checked.type(), spec, participant, contentType, body);
-            String resourceId = authzIdOf(resource, resolve(checked.id(), spec, participant, contentType, body), participant.getScope());
-            String permissionType = typeOf(permissionResource, spec, participant, contentType, body);
+            // A tenant's user is checked on the definition within its tenant, an object no store holds tuples for:
+            // its two edges come with the check, the tenant's from the caller's scope and the definition's from the
+            // request, and the model reaches it through a grant on the tenant only for a definition placed in the
+            // application
+            boolean withinTenant = AuthzUtil.ENTITY_DEFINITION_TYPE.equals(checked.type()) && scope.tenantId() != null;
+            String object = withinTenant
+                    ? AuthzUtil.object(AuthzUtil.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(resourceId, scope.tenantId()))
+                    : AuthzUtil.object(checked.type(), resourceId);
+            List<RelationshipTuple> edges = withinTenant ? DomainUtil.tenantDefinitionEdges(resourceId, scope.tenantId()) : List.of();
             RelationshipTuple relationship = new RelationshipTuple(DomainUtil.authzUser(participant),
-                                                                   AuthzUtil.permissionName(permissionType, permission),
-                                                                   AuthzUtil.object(resource, resourceId));
+                                                                   AuthzUtil.permissionName(check.getPermissionResource(), check.getPermission()),
+                                                                   object);
             Consistency consistency = check.isConsistent() ? Consistency.HIGHER_CONSISTENCY : Consistency.MINIMIZE_LATENCY;
             ret = stores.modelId(store)
-                        .compose(modelId -> relationships.check(store, modelId, relationship, consistency))
+                        .compose(modelId -> relationships.check(store, modelId, relationship, consistency, edges))
                         .compose(allowed -> allowed
                                 ? Future.succeededFuture()
                                 : Future.failedFuture(new AuthorizationException("Not authorized: " + relationship.relation()
@@ -209,38 +239,17 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         }
     }
 
-    // A type a request names is an entity definition's id, whose rows are typed by the definition's name
-    private String typeOf(String template, FunctionSpec spec, ScopedParticipant participant, String contentType, byte[] body) {
-        String ret = resolve(template, spec, participant, contentType, body);
-        return AuthzUtil.isTemplate(template) ? DomainUtil.entityTypeOf(ret) : ret;
-    }
-
-    private String resolve(String template, FunctionSpec spec, ScopedParticipant participant, String contentType, byte[] body) {
+    private String resolve(String template, FunctionSpec spec, ParticipantScope scope, String contentType, byte[] body) {
         String ret = template;
         for (String reference : AuthzUtil.templateReferences(template)) {
-            String value = valueOf(reference, spec, participant, contentType, body);
+            Locator locator = spec.locator(reference);
+            String value = locator == null
+                    ? scopeValue(reference, scope)
+                    : locate(contentType, body, locator.parameter(), locator.position(), locator.path());
             if (value == null || value.isEmpty()) {
                 throw new AuthorizationException("The request names no " + reference + ", which its check needs");
             }
             ret = ret.replace("{" + reference + "}", value);
-        }
-        return ret;
-    }
-
-    private String valueOf(String reference, FunctionSpec spec, ScopedParticipant participant, String contentType, byte[] body) {
-        String parameter = AuthzUtil.referencedParameter(reference);
-        String ret;
-        if (parameter == null) {
-            ret = scopeValue(reference, participant.getScope());
-        } else {
-            int position = spec.parameters().indexOf(parameter);
-            if (position < 0) {
-                throw new AuthorizationException("The check names the parameter " + parameter + ", which the function does not have");
-            }
-            List<String> path = reference.length() > parameter.length()
-                    ? Arrays.asList(reference.substring(parameter.length() + 1).split("\\."))
-                    : List.of();
-            ret = locate(contentType, body, parameter, position, path);
         }
         return ret;
     }

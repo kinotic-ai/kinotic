@@ -28,10 +28,10 @@ const APP_ID = 'e2e-end-user-access'
 
 /**
  * Covers enforcement of an application's grants on its end users, in the application's own store: the fixture
- * user, granted nothing, is refused the rows of a definition; granted the editor role of the definition's rows on
- * its tenant, it reads and writes them and is still refused another definition's rows; revoked, it is refused
- * again. The organization's administrator grants and revokes through ApplicationAccessService; the user acts
- * through its own connection.
+ * user, granted nothing, is refused the rows of a definition; granted the editor role of a definition's rows on
+ * the definition within its tenant, it reads and writes them and is still refused another definition's rows;
+ * revoked, it is refused again. The organization's administrator grants and revokes through
+ * ApplicationAccessService; the user acts through its own connection.
  */
 describe('Kinotic JS', () => {
 
@@ -41,7 +41,9 @@ describe('Kinotic JS', () => {
     let subject: Subject
     let people: IEntityRepository<Person>
     let vehicles: IEntityRepository<Vehicle>
-    const tenant: Resource = {type: 'tenant', id: APP_TENANT}
+    // a definition's rows within the fixture user's tenant, the place a grant on them alone is made
+    let personRows: Resource
+    let vehicleRows: Resource
 
     beforeAll(async () => {
         await allure.suite('e2e-tests/native')
@@ -55,6 +57,8 @@ describe('Kinotic JS', () => {
         appKinotic = await connectAppClient(APP_ID, APP_TENANT)
         people = new EntityRepository(TEST_ORG_ID, APP_ID, person.name, new EntitiesRepository(appKinotic))
         vehicles = new EntityRepository(TEST_ORG_ID, APP_ID, vehicle.name, new EntitiesRepository(appKinotic))
+        personRows = {type: 'tenant_definition', id: `${person.id}@${APP_TENANT}`}
+        vehicleRows = {type: 'tenant_definition', id: `${vehicle.id}@${APP_TENANT}`}
     }, 300000)
 
     afterAll(async () => {
@@ -74,19 +78,19 @@ describe('Kinotic JS', () => {
     }, 120000)
 
     it('refuses an end user granted nothing', async () => {
-        // the store holds the definition's roles once its worker has written the model the definition implies
-        await until(async () => (await Kinotic.applicationAccess.findRoles(APP_ID)).some(role => role.id === 'person.editor'))
-        expect((await Kinotic.applicationAccess.findGrants(APP_ID, tenant))).toHaveLength(0)
-        await expect(people.findAll(Pageable.create(0, 10))).rejects.toThrowError(/person_can_search/)
-        await expect(people.save(createTestPerson())).rejects.toThrowError(/person_can_create/)
-        expect((await Kinotic.applicationAccess.explain(APP_ID, subject, 'person_can_read', tenant)).allowed).toBe(false)
+        // the store holds the roles of a definition's rows once its worker has written the model
+        await until(async () => (await Kinotic.applicationAccess.findRoles(APP_ID)).some(role => role.id === 'entity_definition.editor'))
+        expect((await Kinotic.applicationAccess.findGrants(APP_ID, personRows))).toHaveLength(0)
+        await expect(people.findAll(Pageable.create(0, 10))).rejects.toThrowError(/entity_definition_can_search/)
+        await expect(people.save(createTestPerson())).rejects.toThrowError(/entity_definition_can_create/)
+        expect((await Kinotic.applicationAccess.explain(APP_ID, subject, 'entity_definition_can_read', personRows)).allowed).toBe(false)
     }, 60000)
 
-    it('admits the rows of a definition granted on the tenant and no other', async () => {
-        const grant = await Kinotic.applicationAccess.grant(APP_ID, subject, 'person.editor', tenant)
+    it('admits the rows of a definition granted within the tenant and no other', async () => {
+        const grant = await Kinotic.applicationAccess.grant(APP_ID, subject, 'entity_definition.editor', personRows)
         expect(grant.id).toBeTruthy()
-        expect(grant.resource).toEqual(tenant)
-        await until(async () => (await Kinotic.applicationAccess.explain(APP_ID, subject, 'person_can_read', tenant)).allowed)
+        expect(grant.resource).toEqual(personRows)
+        await until(async () => (await Kinotic.applicationAccess.explain(APP_ID, subject, 'entity_definition_can_read', personRows)).allowed)
 
         const saved = await untilAdmitted(() => people.save(createTestPerson()))
         expect(saved.id).toBeTruthy()
@@ -94,28 +98,28 @@ describe('Kinotic JS', () => {
         expect(found?.firstName).toBe(saved.firstName)
         expect(await people.count()).toBeGreaterThan(0)
         // an editor does not delete, and holds nothing on another definition's rows
-        await expect(people.deleteById(saved.id as string)).rejects.toThrowError(/person_can_delete/)
-        await expect(vehicles.findAll(Pageable.create(0, 10))).rejects.toThrowError(/vehicle_can_search/)
+        await expect(people.deleteById(saved.id as string)).rejects.toThrowError(/entity_definition_can_delete/)
+        await expect(vehicles.findAll(Pageable.create(0, 10))).rejects.toThrowError(`entity_definition_can_search on tenant_definition:${vehicleRows.id}`)
 
         // the grant is listed where it was made and explains the access
-        const grants = await Kinotic.applicationAccess.findGrants(APP_ID, tenant)
+        const grants = await Kinotic.applicationAccess.findGrants(APP_ID, personRows)
         expect(grants.map(g => g.id)).toEqual([grant.id])
-        const explained = await Kinotic.applicationAccess.explain(APP_ID, subject, 'person_can_edit', tenant)
+        const explained = await Kinotic.applicationAccess.explain(APP_ID, subject, 'entity_definition_can_edit', personRows)
         expect(explained.allowed).toBe(true)
         expect(explained.through.map(g => g.id)).toEqual([grant.id])
 
-        await Kinotic.applicationAccess.revoke(APP_ID, tenant, grant.id)
-        await until(async () => !(await Kinotic.applicationAccess.explain(APP_ID, subject, 'person_can_read', tenant)).allowed)
-        await untilRefused(() => people.findById(saved.id as string), /person_can_read/)
-        expect(await Kinotic.applicationAccess.findGrants(APP_ID, tenant)).toHaveLength(0)
+        await Kinotic.applicationAccess.revoke(APP_ID, personRows, grant.id)
+        await until(async () => !(await Kinotic.applicationAccess.explain(APP_ID, subject, 'entity_definition_can_read', personRows)).allowed)
+        await untilRefused(() => people.findById(saved.id as string), /entity_definition_can_read/)
+        expect(await Kinotic.applicationAccess.findGrants(APP_ID, personRows)).toHaveLength(0)
     }, 60000)
 
-    it('lists the roles the application defines, one set per definition', async () => {
+    it('lists the roles the application defines, the same for every definition', async () => {
         const roles = await Kinotic.applicationAccess.findRoles(APP_ID)
         const ids = roles.map(role => role.id)
-        expect(ids).toEqual(expect.arrayContaining(['person.viewer', 'person.editor', 'person.admin', 'vehicle.admin', 'tenant.admin', 'application.admin']))
+        expect(ids).toEqual(expect.arrayContaining(['entity_definition.viewer', 'entity_definition.editor', 'entity_definition.admin', 'tenant.admin', 'application.admin']))
         const tenantAdmin = roles.find(role => role.id === 'tenant.admin')
         expect(tenantAdmin?.builtIn).toBe(true)
-        expect(tenantAdmin?.permissions).toEqual(expect.arrayContaining(['person_can_delete', 'vehicle_can_delete']))
+        expect(tenantAdmin?.permissions).toEqual(expect.arrayContaining(['entity_definition_can_delete']))
     })
 })

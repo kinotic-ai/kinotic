@@ -62,21 +62,15 @@ final class AuthzDecorators {
      *
      * @param declarer the service, named in errors
      * @param declared what it declares
-     * @throws IllegalStateException when the declared type is neither an identifier nor a template, the parent
-     *                               or permission is not an identifier, or a declared role is not named after
-     *                               the type, bundles nothing, or is declared for a type a request names
+     * @throws IllegalStateException when the declared type, parent or permission is not an identifier, or a
+     *                               declared role is not named after the type or bundles nothing
      */
     static AuthzResourceC3Decorator resourceOf(String declarer, AuthzResourceC3Decorator declared) {
         String where = "@AuthzResource on " + declarer;
         String type = declared.getResourceType();
         List<AuthzRoleDeclaration> declaredRoles = declared.getRoles() == null ? List.of() : declared.getRoles();
-        if (type == null || (!AuthzUtil.isIdentifier(type) && !AuthzUtil.isTemplate(type))) {
-            throw new IllegalStateException(where + " names the type '" + type
-                                                    + "', which is neither a lowercase identifier nor a template");
-        }
-        if (AuthzUtil.isTemplate(type) && !declaredRoles.isEmpty()) {
-            throw new IllegalStateException(where + " declares roles of '" + type
-                                                    + "', a type each request names, which has none to declare");
+        if (!AuthzUtil.isIdentifier(type)) {
+            throw new IllegalStateException(where + " names the type '" + type + "', which is not a lowercase identifier");
         }
         String parent = present(declared.getParent());
         if (parent != null && !AuthzUtil.isIdentifier(parent)) {
@@ -262,19 +256,22 @@ final class AuthzDecorators {
                                                     + " declare one with @AuthzCheck(resourceId = ...)");
         }
 
-        for (String template : List.of(checkedResource, resourceId)) {
-            for (String reference : AuthzUtil.templateReferences(template)) {
-                String parameterName = AuthzUtil.referencedParameter(reference);
-                if (parameterName == null) {
-                    if (!SCOPE_REFERENCES.contains(reference)) {
-                        throw new IllegalStateException("The template '" + template + "' of " + where
-                                                                + " references the unknown scope value '" + reference + "'");
-                    }
-                } else if (parameter(parameters, parameterName) == null) {
-                    throw new IllegalStateException("The template '" + template + "' of " + where
-                                                            + " references '" + parameterName
-                                                            + "', which is not a parameter the request carries");
+        // a type is a constant: which resource of it a function acts on is named by the id alone
+        if (!AuthzUtil.isIdentifier(checkedResource)) {
+            throw new IllegalStateException("The checked resource's type '" + checkedResource + "' of " + where
+                                                    + " is not a lowercase identifier");
+        }
+        for (String reference : AuthzUtil.templateReferences(resourceId)) {
+            String parameterName = AuthzUtil.referencedParameter(reference);
+            if (parameterName == null) {
+                if (!SCOPE_REFERENCES.contains(reference)) {
+                    throw new IllegalStateException("The template '" + resourceId + "' of " + where
+                                                            + " references the unknown scope value '" + reference + "'");
                 }
+            } else if (parameter(parameters, parameterName) == null) {
+                throw new IllegalStateException("The template '" + resourceId + "' of " + where
+                                                        + " references '" + parameterName
+                                                        + "', which is not a parameter the request carries");
             }
         }
 

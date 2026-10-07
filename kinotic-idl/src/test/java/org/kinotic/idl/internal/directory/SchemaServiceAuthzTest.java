@@ -36,7 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Verifies the authorization declarations a {@link SchemaService} derives while converting a resource service:
  * the resource decorator on the service, one check per function from its name, parameters and
  * {@code @AuthzCheck}, the object a service names for functions naming none, the unchecked and consistent
- * declarations, and the rejection of a function whose check does not resolve.
+ * declarations, and the rejections: a function whose check does not resolve, and a type named by a template,
+ * which only a resource id may be.
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -70,7 +71,7 @@ public class SchemaServiceAuthzTest {
 
         assertEquals("project", resource.getResourceType());
         assertEquals("application", resource.getParent());
-        assertNull(convert(TestEntityService.class).findDecorator(AuthzResourceC3Decorator.class).getParent());
+        assertNull(convert(TestMemberService.class).findDecorator(AuthzResourceC3Decorator.class).getParent());
     }
 
     @Test
@@ -143,26 +144,19 @@ public class SchemaServiceAuthzTest {
     }
 
     @Test
-    public void templatedResourceIsKeptAsDeclared() {
-        AuthzCheckC3Decorator findById = check(convert(TestEntityService.class), "findById");
+    public void aTemplateOnTheCheckedResourcesTypeRejectsTheService() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestEntityService.class));
 
-        assertEquals("{entityDefinitionId}", findById.getResource());
-        assertEquals("{id}", findById.getResourceId());
-        assertEquals("{entityDefinitionId}", findById.getPermissionResource());
-        assertEquals("can_view", findById.getPermission());
+        assertTrue(e.getMessage().contains("{entityDefinitionId}"), e.getMessage());
+        assertTrue(e.getMessage().contains("findById"), e.getMessage());
     }
 
     @Test
-    public void aServiceWhoseTypeEachRequestNamesIsCheckedOnTheCallersTenant() {
-        ServiceDefinition service = convert(TestRowsService.class);
+    public void aTemplateOnTheServicesTypeRejectsTheService() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestRowsService.class));
 
-        assertEquals("{entityDefinitionId}", service.findDecorator(AuthzResourceC3Decorator.class).getResourceType());
-        AuthzCheckC3Decorator findById = check(service, "findById");
-        assertEquals("tenant", findById.getResource());
-        assertEquals("{@tenantId}", findById.getResourceId());
-        assertEquals("{entityDefinitionId}", findById.getPermissionResource());
-        assertEquals("can_read", findById.getPermission());
-        assertEquals("can_search", check(service, "count").getPermission());
+        assertTrue(e.getMessage().contains("{entityDefinitionId}"), e.getMessage());
+        assertTrue(e.getMessage().contains("TestRowsService"), e.getMessage());
     }
 
     @Test

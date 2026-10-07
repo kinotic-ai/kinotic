@@ -72,8 +72,8 @@ export interface AuthzCheckDeclaration {
      */
     permission?: string | null
     /**
-     * The type of the resource the check is made on, when it is not the service's own type: the parent for a
-     * create, or a template such as `{definitionId}` for a function whose type is an argument.
+     * The type of the resource the check is made on, when it is not the service's own type, such as the parent for a
+     * create. A type name, never a template.
      */
     resource?: string | null
     /**
