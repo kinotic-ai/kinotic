@@ -19,10 +19,10 @@ export class AuthzResourceDecorator extends C3Decorator {
     public parent: string | null = null
 
     /**
-     * The object every function of the service is checked on, as a template over the caller's scope, unless the
-     * function declares its own; null when each function's object is derived from what it names.
+     * The resource every function of the service is checked on, as a template over the caller's scope, unless the
+     * function declares its own; null when each function's resource is derived from what it names.
      */
-    public objectId: string | null = null
+    public resourceId: string | null = null
 
     /**
      * The permission every function of the service requires unless it declares its own; null when each

@@ -115,7 +115,7 @@ public class PlatformModelSyncTests extends KinoticTestBase {
     private static ServiceDirectoryEntry probe(String permission) {
         FunctionDefinition function = new FunctionDefinition().setName("probe");
         function.setDecorators(List.of(new AuthzCheckC3Decorator().setResource(PROBE_TYPE)
-                                                                  .setObjectId("{id}")
+                                                                  .setResourceId("{id}")
                                                                   .setPermissionResource(PROBE_TYPE)
                                                                   .setPermission(permission)));
         ServiceDefinition definition = new ServiceDefinition().setNamespace(PROBE_NAMESPACE).setName(PROBE_NAME);

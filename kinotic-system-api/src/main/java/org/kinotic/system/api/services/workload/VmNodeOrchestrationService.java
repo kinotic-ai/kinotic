@@ -64,7 +64,7 @@ public interface VmNodeOrchestrationService {
      * @param problems what the node can no longer guarantee, empty when it is fit
      * @return a future that will complete with the updated node, or fail if the node is not registered
      */
-    @AuthzCheck(permission = "can_report", objectId = "{nodeId}")
+    @AuthzCheck(permission = "can_report", resourceId = "{nodeId}")
     Future<VmNode> heartbeat(String nodeId, List<String> problems);
 
     /**
@@ -81,7 +81,7 @@ public interface VmNodeOrchestrationService {
      * @param reports one report per workload
      * @return a future that will complete when the reports have been applied
      */
-    @AuthzCheck(permission = "can_report", objectId = "{nodeId}")
+    @AuthzCheck(permission = "can_report", resourceId = "{nodeId}")
     Future<Void> reportWorkloadStatus(String nodeId, List<WorkloadStatusReport> reports);
 
     /**
@@ -94,7 +94,7 @@ public interface VmNodeOrchestrationService {
      * @return a future that will complete when the removal has been asked for, or fail if the node is
      *         not registered or still runs workloads
      */
-    @AuthzCheck(permission = "can_report", objectId = "{nodeId}")
+    @AuthzCheck(permission = "can_report", resourceId = "{nodeId}")
     Future<Void> deregisterNode(String nodeId);
 
     /**
@@ -104,7 +104,7 @@ public interface VmNodeOrchestrationService {
      * @param nodeId the id of the node to check
      * @return a future that completes when the check has been applied
      */
-    @AuthzCheck(permission = AuthzUtil.CAN_EDIT, objectId = "{nodeId}")
+    @AuthzCheck(permission = AuthzUtil.CAN_EDIT, resourceId = "{nodeId}")
     Future<Void> verifyNode(String nodeId);
 
     /**

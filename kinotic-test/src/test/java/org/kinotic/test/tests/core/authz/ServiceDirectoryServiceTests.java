@@ -116,7 +116,7 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
                                               .filter(function -> function.getName().equals("generate"))
                                               .findFirst().orElseThrow()
                                               .findDecorator(AuthzCheckC3Decorator.class);
-        assertEquals("tenant:{@tenantId}", generate.getResource() + ":" + generate.getObjectId());
+        assertEquals("tenant:{@tenantId}", generate.getResource() + ":" + generate.getResourceId());
         assertEquals(type + "_can_generate", generate.getPermissionResource() + "_" + generate.getPermission());
         // the application's store takes the service up: a viewer of its type, and the role it declares
         assertTrue(awaitUntil(() -> roleIds().containsAll(List.of(AuthzUtil.roleId(type, AuthzUtil.VIEWER), type + ".generator"))),

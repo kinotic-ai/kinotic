@@ -12,7 +12,7 @@ import org.kinotic.idl.api.utils.AuthzUtil;
  * request before it reaches this service, which checks nothing about the caller.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, objectId = AuthzUtil.PLATFORM_OBJECT_ID, permission = "can_manage_workloads")
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, resourceId = AuthzUtil.PLATFORM_OBJECT_ID, permission = "can_manage_workloads")
 public interface DeploymentOperationsService {
 
     /**

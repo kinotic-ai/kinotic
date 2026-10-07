@@ -109,7 +109,7 @@ public class CheckDerivationTest {
 
     @Test
     public void aTemplateNamingAnUnknownParameterIsRefused() {
-        AuthzCheckC3Decorator check = new AuthzCheckC3Decorator().setPermission("can_generate").setObjectId("{missing}");
+        AuthzCheckC3Decorator check = new AuthzCheckC3Decorator().setPermission("can_generate").setResourceId("{missing}");
         IllegalStateException e = assertThrows(IllegalStateException.class,
                                                () -> schemaService.deriveChecks(reports(function("generate", check, "reportId"))));
 
@@ -177,7 +177,7 @@ public class CheckDerivationTest {
     }
 
     private static String at(AuthzCheckC3Decorator check) {
-        return check.getResource() + ":" + check.getObjectId();
+        return check.getResource() + ":" + check.getResourceId();
     }
 
     private static String permission(AuthzCheckC3Decorator check) {

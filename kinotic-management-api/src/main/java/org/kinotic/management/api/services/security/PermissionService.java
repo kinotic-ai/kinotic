@@ -27,7 +27,7 @@ import java.util.Set;
  * and a role, a group, a user or a resource named must belong to that organization.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, objectId = "{@organizationId}")
+@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, resourceId = "{@organizationId}")
 public interface PermissionService {
 
     /**

@@ -22,7 +22,7 @@ public interface MigrationService {
      * @param migrationRequest the request containing migrations and project information
      * @return a future that completes with the migration result
      */
-    @AuthzCheck(permission = AuthzUtil.CAN_EDIT, objectId = "{migrationRequest.projectId}")
+    @AuthzCheck(permission = AuthzUtil.CAN_EDIT, resourceId = "{migrationRequest.projectId}")
     Future<MigrationResult> executeMigrations(MigrationRequest migrationRequest);
 
     /**

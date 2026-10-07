@@ -141,11 +141,11 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                 permission = AuthzUtil.isReading(permission) ? AuthzUtil.CAN_VIEW : AuthzUtil.CAN_EDIT;
             }
             String resource = typeOf(checked.type(), spec, participant, contentType, body);
-            String objectId = resolve(checked.id(), spec, participant, contentType, body);
+            String resourceId = resolve(checked.id(), spec, participant, contentType, body);
             String permissionType = typeOf(permissionResource, spec, participant, contentType, body);
             RelationshipTuple relationship = new RelationshipTuple(DomainUtil.authzUser(participant),
                                                                    AuthzUtil.permissionName(permissionType, permission),
-                                                                   AuthzUtil.object(resource, objectId));
+                                                                   AuthzUtil.object(resource, resourceId));
             Consistency consistency = check.isConsistent() ? Consistency.HIGHER_CONSISTENCY : Consistency.MINIMIZE_LATENCY;
             ret = stores.modelId(store)
                         .compose(modelId -> relationships.check(store, modelId, relationship, consistency))
@@ -167,7 +167,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
      * check on anything but a scope level is kept as declared.
      */
     private static Resource scopeLevelOf(AuthzCheckC3Decorator check, ParticipantScope scope) {
-        Resource ret = new Resource(check.getResource(), check.getObjectId());
+        Resource ret = new Resource(check.getResource(), check.getResourceId());
         int level = SCOPE_LEVELS.indexOf(ret);
         if (level >= 0) {
             while (level < SCOPE_LEVELS.size()

@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
 /**
  * Marks a function of an {@link AuthzResource} service that is served with no authorization check: any caller
  * the service's zone admits may call it, and the service itself is responsible for answering only what the
- * caller may see or do. It is for a function that has no object to check, such as a listing of the caller's
+ * caller may see or do. It is for a function that has no resource to check, such as a listing of the caller's
  * own grants. A function carrying this and {@link AuthzCheck} fails the service's registration.
  */
 @Target(ElementType.METHOD)

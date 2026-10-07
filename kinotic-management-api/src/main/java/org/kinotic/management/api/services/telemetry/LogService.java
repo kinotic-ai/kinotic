@@ -19,7 +19,7 @@ import reactor.core.publisher.Flux;
  * parses Loki's wire format.
  */
 @Publish //FIXME: figure out how to provide an McpTool that returns a flux, or add an exclusion to the McpTool annotation.
-@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, objectId = "{@organizationId}")
+@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, resourceId = "{@organizationId}")
 public interface LogService {
 
     /**

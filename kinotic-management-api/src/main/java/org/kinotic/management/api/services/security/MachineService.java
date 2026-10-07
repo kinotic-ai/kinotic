@@ -24,7 +24,7 @@ import java.util.List;
  * organization, and only its machines are visible or mutable.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, objectId = "{@organizationId}")
+@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, resourceId = "{@organizationId}")
 public interface MachineService {
 
     /**

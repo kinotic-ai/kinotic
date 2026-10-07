@@ -153,7 +153,7 @@ export function convertPrecisionToC3Type(decorator: Decorator): C3Type {
     }
 }
 
-// @AuthzResource('report') or @AuthzResource({value, parent, objectId, permission, roles}), as the runtime's
+// @AuthzResource('report') or @AuthzResource({value, parent, resourceId, permission, roles}), as the runtime's
 // decorator declares it
 function authzResourceDecorator(decorator: Decorator): AuthzResourceDecorator {
     const argument = decorator.getArguments()[0]
@@ -167,13 +167,13 @@ function authzResourceDecorator(decorator: Decorator): AuthzResourceDecorator {
     }
     const ret = new AuthzResourceDecorator(declared.value)
     ret.parent = declared.parent ?? null
-    ret.objectId = declared.objectId ?? null
+    ret.resourceId = declared.resourceId ?? null
     ret.permission = declared.permission ?? null
     ret.roles = (declared.roles ?? []).map((role: any) => new AuthzRoleDeclaration(role.id, role.permissions ?? []))
     return ret
 }
 
-// @AuthzCheck({permission, resource, objectId, implies, consistent}), as the runtime's decorator declares it
+// @AuthzCheck({permission, resource, resourceId, implies, consistent}), as the runtime's decorator declares it
 function authzCheckDecorator(decorator: Decorator): AuthzCheckDecorator {
     const argument = decorator.getArguments()[0]
     if (!argument) {
@@ -183,7 +183,7 @@ function authzCheckDecorator(decorator: Decorator): AuthzCheckDecorator {
     const ret = new AuthzCheckDecorator()
     ret.permission = declared.permission ?? null
     ret.resource = declared.resource ?? null
-    ret.objectId = declared.objectId ?? null
+    ret.resourceId = declared.resourceId ?? null
     ret.implies = declared.implies ?? []
     ret.consistent = declared.consistent === true
     return ret

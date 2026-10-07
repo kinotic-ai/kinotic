@@ -11,7 +11,7 @@ import java.util.concurrent.CompletableFuture;
 @AuthzResource("entity")
 public interface TestEntityService {
 
-    @AuthzCheck(resource = "{entityDefinitionId}", objectId = "{id}")
+    @AuthzCheck(resource = "{entityDefinitionId}", resourceId = "{id}")
     CompletableFuture<String> findById(String entityDefinitionId, String id);
 
 }

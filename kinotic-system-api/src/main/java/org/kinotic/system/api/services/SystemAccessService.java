@@ -19,7 +19,7 @@ import java.util.List;
  * machines.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, objectId = AuthzUtil.PLATFORM_OBJECT_ID)
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, resourceId = AuthzUtil.PLATFORM_OBJECT_ID)
 public interface SystemAccessService {
 
     /**

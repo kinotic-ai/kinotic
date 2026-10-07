@@ -21,16 +21,16 @@ public final class AuthzCheckC3Decorator extends C3Decorator {
     public static final String type = "AuthzCheck";
 
     /**
-     * The type of the object the check is made on: a literal such as {@code application}, or a template such
+     * The type of the resource the check is made on: a literal such as {@code application}, or a template such
      * as {@code {entityDefinitionId}} when the type is an argument of the call.
      */
     private String resource;
 
     /**
-     * The id of the object the check is made on, as a template over the function's parameters and the
+     * The id of the resource the check is made on, as a template over the function's parameters and the
      * caller's scope, such as {@code {projectId}}, {@code {registration.id}} or {@code {@organizationId}}.
      */
-    private String objectId;
+    private String resourceId;
 
     /**
      * The type the permission is named for: the service's own type for a check on one of its resources, and

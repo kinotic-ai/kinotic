@@ -327,9 +327,9 @@ class DefaultRequestAuthorizerTest {
         return ret;
     }
 
-    private static AuthzCheckC3Decorator check(String resource, String objectId, String permissionResource, String permission, boolean consistent) {
+    private static AuthzCheckC3Decorator check(String resource, String resourceId, String permissionResource, String permission, boolean consistent) {
         return new AuthzCheckC3Decorator().setResource(resource)
-                                          .setObjectId(objectId)
+                                          .setResourceId(resourceId)
                                           .setPermissionResource(permissionResource)
                                           .setPermission(permission)
                                           .setImplies(List.of())
