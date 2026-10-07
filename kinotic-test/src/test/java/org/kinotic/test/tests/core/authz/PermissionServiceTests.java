@@ -27,6 +27,7 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.services.ApplicationService;
@@ -219,7 +220,7 @@ public class PermissionServiceTests extends KinoticTestBase {
     private boolean held(UserParticipantIdentity member, String permission, Resource resource) throws Exception {
         return await(relationships.check(AuthzStoreService.PLATFORM, modelId,
                                          new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, member.getId()), permission,
-                                                               AuthzUtil.object(resource.type(), resource.id())),
+                                                               DomainUtil.authzObject(TEST_ORG_ID, resource)),
                                          Consistency.HIGHER_CONSISTENCY));
     }
 

@@ -158,9 +158,11 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     }
 
     private static RelationshipTuple containment(Project project) {
-        return new RelationshipTuple(AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, project.getApplicationId()),
+        return new RelationshipTuple(AuthzUtil.object(AuthzUtil.APPLICATION_TYPE,
+                                                      DomainUtil.authzApplicationId(project.getOrganizationId(), project.getApplicationId())),
                                      AuthzUtil.APPLICATION_TYPE,
-                                     AuthzUtil.object(ProjectService.RESOURCE_TYPE, project.getId()));
+                                     AuthzUtil.object(ProjectService.RESOURCE_TYPE,
+                                                      DomainUtil.authzId(ProjectService.RESOURCE_TYPE, project.getOrganizationId(), project.getId())));
     }
 
     @Override

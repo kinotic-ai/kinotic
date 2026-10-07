@@ -3,6 +3,8 @@ package org.kinotic.domain.api.utils;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.Grant;
+import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
@@ -36,6 +38,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -100,6 +103,8 @@ public class DomainUtil {
     private static final Pattern EntityDefinitionNamePattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
     private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    // The authorization types whose ids are unique only within an organization, qualified by it in the stores
+    private static final Set<String> ORGANIZATION_LOCAL_TYPES = Set.of(AuthzUtil.APPLICATION_TYPE, AuthzUtil.PROJECT_TYPE);
     // Dash separator, not underscore: slugified ids become zone labels, and underscores are
     // illegal in a URI host (CRIs are valid URIs by convention)
     private static final Slugify SLUGIFY = Slugify.builder().build();
@@ -395,6 +400,74 @@ public class DomainUtil {
         Map<String, String> metadata = participant.getMetadata();
         String owner = metadata != null ? metadata.get(ON_BEHALF_OF_METADATA_KEY) : null;
         return AuthzUtil.object(AuthzUtil.USER_TYPE, owner != null ? owner : participant.getId());
+    }
+
+    /**
+     * The id an object of the type has in the authorization stores. An application's and a project's id is unique
+     * only within its organization, so theirs is qualified as {@code <organizationId>.<id>}; every other type's id
+     * is unique on its own and kept as it is.
+     *
+     * @param type           the object's type
+     * @param organizationId the organization the object belongs to; required for an application or a project
+     * @param id             the object's id as its organization knows it
+     * @return the object's id in the stores
+     * @throws IllegalArgumentException when an application or a project is named without an organization
+     */
+    public static String authzId(String type, String organizationId, String id) {
+        Validate.notBlank(id, "id cannot be blank");
+        String ret = id;
+        if (ORGANIZATION_LOCAL_TYPES.contains(type)) {
+            Validate.isTrue(StringUtils.isNotBlank(organizationId), "an organization is required to name the %s %s", type, id);
+            ret = organizationId + "." + id;
+        }
+        return ret;
+    }
+
+    /**
+     * The id an organization knows an object of the type by, given its id in the authorization stores: the
+     * inverse of {@link #authzId}.
+     *
+     * @param type    the object's type
+     * @param authzId the object's id in the stores
+     * @return the object's id within its organization
+     */
+    public static String localId(String type, String authzId) {
+        // an organization id holds no '.', so the first one ends it
+        return ORGANIZATION_LOCAL_TYPES.contains(type) ? authzId.substring(authzId.indexOf('.') + 1) : authzId;
+    }
+
+    /**
+     * The id an application has in the authorization stores, which also names the application's own store.
+     *
+     * @param organizationId the application's organization
+     * @param applicationId  the application's id within it
+     * @return {@code <organizationId>.<applicationId>}
+     */
+    public static String authzApplicationId(String organizationId, String applicationId) {
+        return authzId(AuthzUtil.APPLICATION_TYPE, organizationId, applicationId);
+    }
+
+    /**
+     * The object a resource named as its organization knows it is in the authorization stores, in {@code type:id}
+     * form.
+     *
+     * @param organizationId the organization the resource belongs to
+     * @param resource       the resource
+     * @return the object
+     */
+    public static String authzObject(String organizationId, Resource resource) {
+        return AuthzUtil.object(resource.type(), authzId(resource.type(), organizationId, resource.id()));
+    }
+
+    /**
+     * A grant read from the authorization stores, its resource named as the resource's organization knows it.
+     *
+     * @param grant the grant as the stores hold it
+     * @return the grant with the resource's local id
+     */
+    public static Grant localGrant(Grant grant) {
+        Resource resource = grant.resource();
+        return new Grant(grant.id(), grant.roleId(), grant.subject(), new Resource(resource.type(), localId(resource.type(), resource.id())));
     }
 
     /**

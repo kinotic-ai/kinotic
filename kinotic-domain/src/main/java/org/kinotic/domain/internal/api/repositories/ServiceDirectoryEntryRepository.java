@@ -130,7 +130,8 @@ public class ServiceDirectoryEntryRepository extends AbstractWatchedRepository<S
     private static WatchedParent storeOf(ServiceDirectoryEntry entry) {
         return entry.getApplicationId() == null
                 ? new WatchedParent(WatchedType.AUTHZ_STORE, null, AuthzStore.PLATFORM)
-                : new WatchedParent(WatchedType.AUTHZ_STORE, entry.getOrganizationId(), entry.getApplicationId());
+                : new WatchedParent(WatchedType.AUTHZ_STORE, entry.getOrganizationId(),
+                                    DomainUtil.authzApplicationId(entry.getOrganizationId(), entry.getApplicationId()));
     }
 
     // SHA-256 of the contract with its keys sorted at every level, so two writes of one contract hash the same

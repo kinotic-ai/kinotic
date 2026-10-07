@@ -12,6 +12,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.openhft.hashing.LongTupleHashFunction;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzStoreService;
@@ -21,7 +22,9 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -33,7 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DefaultAuthzStoreService implements AuthzStoreService, InitializingBean {
 
     static final String PLATFORM_STORE_NAME = "kinotic-platform";
-    static final String APPLICATION_STORE_PREFIX = "kinotic-app-";
+    private static final String APPLICATION_STORE_PREFIX = "kinotic-app-";
     // the SDK's model classes bind by their own wire names, so the application's mapper customizations stay
     // out of the conversion in both directions
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
@@ -210,8 +213,17 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     }
 
     // The engine's name of a store: the platform's fixed one, or an application's prefixed by what it is
+    // The engine caps a store's name at 64 characters, which an application's id need not fit, so an application's
+    // store is named by the id's 128-bit digest
     private static String storeNameOf(String store) {
-        return PLATFORM.equals(store) ? PLATFORM_STORE_NAME : APPLICATION_STORE_PREFIX + store;
+        String ret;
+        if (PLATFORM.equals(store)) {
+            ret = PLATFORM_STORE_NAME;
+        } else {
+            long[] hash = LongTupleHashFunction.xx128().hashChars(store);
+            ret = APPLICATION_STORE_PREFIX + HexFormat.of().formatHex(ByteBuffer.allocate(Long.BYTES * 2).putLong(hash[0]).putLong(hash[1]).array());
+        }
+        return ret;
     }
 
     private Future<String> requireStore(String store) {

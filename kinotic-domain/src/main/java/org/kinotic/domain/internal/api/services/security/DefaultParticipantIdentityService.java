@@ -260,7 +260,8 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         Future<Void> written;
         if (user.getApplicationId() != null) {
             String me = AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId());
-            String application = AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, user.getApplicationId());
+            String store = DomainUtil.authzApplicationId(user.getOrganizationId(), user.getApplicationId());
+            String application = AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, store);
             RelationshipTuple endUser = new RelationshipTuple(me, AuthzUtil.END_USER_RELATION, application);
             List<RelationshipTuple> inApplication = new ArrayList<>(List.of(endUser));
             if (user.getTenantId() != null) {
@@ -269,7 +270,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                 inApplication.add(new RelationshipTuple(me, AuthzUtil.MEMBER_RELATION, tenant));
             }
             written = relationships.ensure(AuthzStoreService.PLATFORM, List.of(endUser))
-                                   .compose(v -> relationships.ensure(user.getApplicationId(), inApplication));
+                                   .compose(v -> relationships.ensure(store, inApplication));
         } else if (user.getOrganizationId() != null) {
             written = relationships.ensure(AuthzStoreService.PLATFORM,
                                            List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId()),
@@ -399,7 +400,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                         if (tenant.getSsoRoleId() == null) {
                             granted = Future.succeededFuture(created);
                         } else {
-                            granted = relationships.bind(applicationId, tenant.getSsoRoleId(),
+                            granted = relationships.bind(DomainUtil.authzApplicationId(organizationId, applicationId), tenant.getSsoRoleId(),
                                                          AuthzUtil.object(AuthzUtil.USER_TYPE, created.getId()),
                                                          AuthzUtil.object(AuthzUtil.TENANT_TYPE, tenantId))
                                                    .map(created);

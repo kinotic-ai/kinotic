@@ -24,7 +24,8 @@ public class AuthzStore implements Reconcilable<AuthzModelRevision> {
     public static final String PLATFORM = AuthzStoreService.PLATFORM;
 
     /**
-     * {@link #PLATFORM} for the platform's store, or the application's id.
+     * {@link #PLATFORM} for the platform's store, or the application's id in the stores,
+     * {@link org.kinotic.domain.api.utils.DomainUtil#authzApplicationId}.
      */
     private String id;
     /**

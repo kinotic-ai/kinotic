@@ -178,10 +178,12 @@ class OpenFgaIntegrationTest {
         await(relationshipService.ensure(store, List.of(new RelationshipTuple("user:bob", "end_user", "application:" + store))));
         assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:bob", "end_user", "application:" + store))));
 
+        String name = await(fga.getStore(storeId)).getName();
+
         await(storeService.deleteStore(store));
 
         assertThrows(ExecutionException.class, () -> await(storeService.modelId(store)));
-        assertTrue(await(fga.listStores(1, null, DefaultAuthzStoreService.APPLICATION_STORE_PREFIX + store)).getStores().isEmpty());
+        assertTrue(await(fga.listStores(1, null, name)).getStores().isEmpty());
         // a store already gone leaves nothing to delete
         await(storeService.deleteStore(store));
     }

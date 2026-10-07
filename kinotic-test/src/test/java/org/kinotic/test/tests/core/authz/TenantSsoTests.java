@@ -16,6 +16,7 @@ import org.kinotic.domain.api.model.security.participant.DefaultApplicationParti
 import org.kinotic.app.api.services.TenantService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
@@ -69,7 +70,7 @@ public class TenantSsoTests extends KinoticTestBase {
                                                                                     EnumSet.of(OnboardingMechanism.TENANT_PER_USER))));
         UserParticipantIdentity admin = endUser(appId, "Tenant Admin");
         String tenantId = admin.getTenantId();
-        await(relationships.bind(appId, AuthzUtil.roleId(AuthzUtil.TENANT_TYPE, AuthzUtil.ADMIN),
+        await(relationships.bind(DomainUtil.authzApplicationId(TEST_ORG_ID, appId), AuthzUtil.roleId(AuthzUtil.TENANT_TYPE, AuthzUtil.ADMIN),
                                  AuthzUtil.object(AuthzUtil.USER_TYPE, admin.getId()), AuthzUtil.object(AuthzUtil.TENANT_TYPE, tenantId)));
         Participant caller = participant(appId, tenantId, admin.getId());
         String viewer = AuthzUtil.roleId(AuthzUtil.TENANT_TYPE, AuthzUtil.VIEWER);
@@ -108,7 +109,7 @@ public class TenantSsoTests extends KinoticTestBase {
         assertEquals(config.getId(), colleague.getOidcConfigId());
         assertEquals(email, colleague.getEmail());
         assertEquals("Colleague", colleague.getDisplayName());
-        assertTrue(await(relationships.findGrants(appId, AuthzUtil.object(AuthzUtil.TENANT_TYPE, tenantId))).stream()
+        assertTrue(await(relationships.findGrants(DomainUtil.authzApplicationId(TEST_ORG_ID, appId), AuthzUtil.object(AuthzUtil.TENANT_TYPE, tenantId))).stream()
                         .anyMatch(grant -> grant.roleId().equals(viewer) && grant.subject().id().equals(colleague.getId())),
                    "the provider's user was not granted the tenant's role");
         // signed in again, the same user

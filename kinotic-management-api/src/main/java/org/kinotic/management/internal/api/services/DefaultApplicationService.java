@@ -178,15 +178,17 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     // an application created under the same id afterwards starts from an empty store rather than inheriting
     // this one's grants
     private Future<Void> released(String applicationId) {
+        String store = DomainUtil.authzApplicationId(requireOrganizationId(), applicationId);
         return relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(applicationId)))
-                            .compose(v -> storeService.deleteStore(applicationId))
-                            .compose(v -> stores.deleteByIdSync(applicationId));
+                            .compose(v -> storeService.deleteStore(store))
+                            .compose(v -> stores.deleteByIdSync(store));
     }
 
     private RelationshipTuple containment(String applicationId) {
-        return new RelationshipTuple(AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, requireOrganizationId()),
+        String organizationId = requireOrganizationId();
+        return new RelationshipTuple(AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, organizationId),
                                      AuthzUtil.ORGANIZATION_TYPE,
-                                     AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, applicationId));
+                                     AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, DomainUtil.authzApplicationId(organizationId, applicationId)));
     }
 
     // The caller supplied a name, not the derived id an AlreadyExistsException would reference

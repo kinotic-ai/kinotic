@@ -12,6 +12,7 @@ import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -72,7 +73,7 @@ public class ApplicationStoreBootstrap {
                            .compose(page -> {
                                Future<Integer> ret = Future.succeededFuture(provisioned);
                                for (Application application : page.getContent()) {
-                                   ret = ret.compose(count -> records.findById(application.getId())
+                                   ret = ret.compose(count -> records.findById(DomainUtil.authzApplicationId(application.getOrganizationId(), application.getId()))
                                                                      .compose(record -> record != null
                                                                              ? Future.succeededFuture(count)
                                                                              : provisioner.provision(application).map(count + 1)));

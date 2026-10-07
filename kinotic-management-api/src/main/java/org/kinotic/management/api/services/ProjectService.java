@@ -28,7 +28,7 @@ import java.util.List;
 public interface ProjectService extends ApplicationScopedCrudService<Project, String> {
 
     /** The resource type a project is in the authorization model. */
-    String RESOURCE_TYPE = "project";
+    String RESOURCE_TYPE = AuthzUtil.PROJECT_TYPE;
 
     /**
      * Returns the project with the given id when the caller may see it: a project the caller may view, or one

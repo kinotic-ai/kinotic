@@ -146,7 +146,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     // set asks its worker for the model again; an application whose store is not provisioned yet gets it with
     // the definitions as they are then
     private Future<Void> regenerated(EntityDefinition entityDefinition, String change) {
-        String store = entityDefinition.getApplicationId();
+        String store = DomainUtil.authzApplicationId(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId());
         return stores.findById(store)
                      .compose(record -> record == null
                              ? Future.succeededFuture()
@@ -154,7 +154,8 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     }
 
     private static RelationshipTuple containment(EntityDefinition entityDefinition) {
-        return new RelationshipTuple(AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, entityDefinition.getApplicationId()),
+        return new RelationshipTuple(AuthzUtil.object(AuthzUtil.APPLICATION_TYPE,
+                                                      DomainUtil.authzApplicationId(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId())),
                                      AuthzUtil.APPLICATION_TYPE,
                                      AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinition.getId()));
     }

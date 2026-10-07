@@ -12,6 +12,7 @@ import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -40,7 +41,7 @@ public class ApplicationStoreProvisioner {
     }
 
     private Future<Void> provision(Application application, AuthzModel kernel) {
-        String store = application.getId();
+        String store = DomainUtil.authzApplicationId(application.getOrganizationId(), application.getId());
         return stores.ensureStore(store)
                      // the kernel model and its roles admit the membership tuples written at user creation and the
                      // grants made before the first definition is published; a store already running a model keeps
@@ -54,7 +55,7 @@ public class ApplicationStoreProvisioner {
                          } else {
                              AuthzStore created = new AuthzStore().setId(store)
                                                                   .setOrganizationId(application.getOrganizationId())
-                                                                  .setApplicationId(store);
+                                                                  .setApplicationId(application.getId());
                              // created with the kernel model as its intent, so a definition published before the
                              // worker's first run renews an intent that exists, and the master reconciles the
                              // record to the model the definitions imply on its next look
