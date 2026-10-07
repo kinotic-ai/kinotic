@@ -69,11 +69,22 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
         AuthzModelRevision revision = new AuthzModelRevision(model.hash());
         String store = current.getId();
         return stores.updateDesired(store, revision, null, "service directory")
-                     .compose(intended -> storeService.ensureStore(store)
-                             .compose(id -> relationships.ensureModelWithRoles(store, model))
-                             .compose(version -> stores.reportObserved(store, revision,
-                                                                       intended.getState().getGeneration(),
-                                                                       "engine version " + version)))
-                     .onSuccess(v -> log.debug("Store '{}' reconciled to model {}", store, revision.hash()));
+                     .compose(intended -> {
+                         Future<Void> ret;
+                         // updateDesired answers null when the intent was already in place and the record was
+                         // deleted before it was read back: its application was deleted, the store with it, and
+                         // ensuring the store here would create it again
+                         if (intended == null) {
+                             ret = Future.succeededFuture();
+                         } else {
+                             ret = storeService.ensureStore(store)
+                                               .compose(id -> relationships.ensureModelWithRoles(store, model))
+                                               .compose(version -> stores.reportObserved(store, revision,
+                                                                                         intended.getState().getGeneration(),
+                                                                                         "engine version " + version))
+                                               .onSuccess(v -> log.debug("Store '{}' reconciled to model {}", store, revision.hash()));
+                         }
+                         return ret;
+                     });
     }
 }
