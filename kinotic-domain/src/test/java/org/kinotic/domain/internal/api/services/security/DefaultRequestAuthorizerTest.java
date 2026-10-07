@@ -1,25 +1,23 @@
 package org.kinotic.domain.internal.api.services.security;
 
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import io.vertx.core.Future;
 import java.util.concurrent.Callable;
 import org.junit.jupiter.api.AfterEach;
 import io.vertx.core.Vertx;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
@@ -29,7 +27,6 @@ import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.mockito.ArgumentCaptor;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -66,7 +63,8 @@ import static org.mockito.Mockito.when;
  * refusals: a denied check, a request naming no object, a body no id can be read from or naming a property
  * twice, and the requests no
  * contract covers, of a service the directory holds no definition for, a function the definition leaves out or
- * marks neither way, and a node running no directory, each answered "Not authorized" with its reason logged.
+ * marks neither way, and a node running no directory. The authorizer runs in debug mode, so each refusal names
+ * its reason.
  */
 class DefaultRequestAuthorizerTest {
 
@@ -75,13 +73,12 @@ class DefaultRequestAuthorizerTest {
     private static final String MODEL_ID = "model-1";
     private static final String CRM_MODEL_ID = "crm-model-1";
 
+    private final SecurityExceptionFactory securityExceptions = new SecurityExceptionFactory(new KinoticProperties().setDebug(true));
     private ServiceDirectory directory;
     private RelationshipService relationships;
     private DefaultRequestAuthorizer authorizer;
     private ServiceDirectoryEntry entry;
     private Vertx vertx;
-    private final Logger authorizerLog = (Logger) LoggerFactory.getLogger(DefaultRequestAuthorizer.class);
-    private final ListAppender<ILoggingEvent> logged = new ListAppender<>();
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -96,9 +93,7 @@ class DefaultRequestAuthorizerTest {
         when(relationships.check(eq(PLATFORM), eq(MODEL_ID), any(), any(), any())).thenReturn(Future.succeededFuture(true));
         when(relationships.check(eq("acme.crm"), eq(CRM_MODEL_ID), any(), any(), any())).thenReturn(Future.succeededFuture(true));
         vertx = Vertx.vertx();
-        logged.start();
-        authorizerLog.addAppender(logged);
-        authorizer = new DefaultRequestAuthorizer(provider, stores, relationships, JsonMapper.builder().build(), vertx);
+        authorizer = new DefaultRequestAuthorizer(provider, stores, relationships, JsonMapper.builder().build(), vertx, securityExceptions);
         authorizer.listenForContractChanges();
 
         ServiceDefinition service = new ServiceDefinition().setNamespace("org.kinotic.management.api.services").setName("ProjectService");
@@ -122,7 +117,6 @@ class DefaultRequestAuthorizerTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        authorizerLog.detachAppender(logged);
         vertx.close().toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
     }
 
@@ -203,23 +197,24 @@ class DefaultRequestAuthorizerTest {
     void aDeniedCheckRefusesTheRequest() {
         when(relationships.check(eq(PLATFORM), eq(MODEL_ID), any(), any(), any())).thenReturn(Future.succeededFuture(false));
 
-        String reason = refused("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-b\"}]");
+        AuthorizationException refused = refused("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-b\"}]");
 
-        assertTrue(reason.contains("project_can_edit on project:acme.proj-b to user:sally"), reason);
+        assertTrue(refused.getMessage().contains("project_can_edit"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("project:acme.proj-b"), refused.getMessage());
     }
 
     @Test
     void aRequestNamingNoObjectIsRefusedWithoutTheEngine() {
-        String reason = refused("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"name\":\"A\"}]");
+        AuthorizationException refused = refused("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"name\":\"A\"}]");
 
-        assertTrue(reason.contains("entity.id"), reason);
+        assertTrue(refused.getMessage().contains("entity.id"), refused.getMessage());
         verify(relationships, never()).check(any(), any(), any(), any(), any());
     }
 
     @Test
     void aBodyNoIdCanBeReadFromIsRefused() {
-        assertTrue(refused("save", sally(), "application/octet-stream", "[{\"id\":\"proj-a\"}]").contains("octet-stream"));
-        assertTrue(refused("save", sally(), EventConstants.CONTENT_TYPE_JSON, "").contains("no body"));
+        assertTrue(refused("save", sally(), "application/octet-stream", "[{\"id\":\"proj-a\"}]").getMessage().contains("octet-stream"));
+        assertTrue(refused("save", sally(), EventConstants.CONTENT_TYPE_JSON, "").getMessage().contains("no body"));
         verify(relationships, never()).check(any(), any(), any(), any(), any());
     }
 
@@ -227,9 +222,9 @@ class DefaultRequestAuthorizerTest {
     void aBodyNamingAPropertyTwiceIsRefusedWithoutTheEngine() {
         // a service binds the last of a repeated name, so the first is never the object checked
         assertTrue(refused("save", sally(), EventConstants.CONTENT_TYPE_NAMED_JSON,
-                           "{\"entity\":{\"id\":\"proj-a\"},\"entity\":{\"id\":\"proj-b\"}}").contains("entity"));
+                           "{\"entity\":{\"id\":\"proj-a\"},\"entity\":{\"id\":\"proj-b\"}}").getMessage().contains("entity"));
         assertTrue(refused("save", sally(), EventConstants.CONTENT_TYPE_JSON,
-                           "[{\"id\":\"proj-a\",\"name\":\"A\",\"id\":\"proj-b\"}]").contains("id"));
+                           "[{\"id\":\"proj-a\",\"name\":\"A\",\"id\":\"proj-b\"}]").getMessage().contains("id"));
         // a repeated name after the object read is refused as well
         refused("deploy", sally(), EventConstants.CONTENT_TYPE_JSON, "[\"proj-a\",{\"tag\":1,\"tag\":2}]");
         verify(relationships, never()).check(any(), any(), any(), any(), any());
@@ -246,27 +241,29 @@ class DefaultRequestAuthorizerTest {
     void aServiceWithoutAContractIsRefused() {
         when(directory.findEntry("app.acme.crm~OrderService")).thenReturn(Future.succeededFuture(null));
 
-        String reason = refused(() -> authorizer.authorize(CRI.create("srv://app.acme.crm~OrderService/create#1.0.0"), sally(),
-                                                           EventConstants.CONTENT_TYPE_JSON, bytes("[{}]"))
-                                                .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
+        ExecutionException failure = assertThrows(ExecutionException.class,
+                                                  () -> authorizer.authorize(CRI.create("srv://app.acme.crm~OrderService/create#1.0.0"), sally(),
+                                                                             EventConstants.CONTENT_TYPE_JSON, bytes("[{}]"))
+                                                                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
 
-        assertTrue(reason.contains("No contract covers create"), reason);
+        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
+        assertTrue(refused.getMessage().contains("No contract covers create"), refused.getMessage());
         verify(relationships, never()).check(any(), any(), any(), any(), any());
     }
 
     @Test
     void aFunctionTheContractLeavesOutIsRefused() {
-        String reason = refused("render", sally(), EventConstants.CONTENT_TYPE_JSON, "[]");
+        AuthorizationException refused = refused("render", sally(), EventConstants.CONTENT_TYPE_JSON, "[]");
 
-        assertTrue(reason.contains("No contract covers render"), reason);
+        assertTrue(refused.getMessage().contains("No contract covers render"), refused.getMessage());
         verify(relationships, never()).check(any(), any(), any(), any(), any());
     }
 
     @Test
     void aFunctionMarkedNeitherCheckedNorUncheckedIsRefused() {
-        String reason = refused("describe", sally(), EventConstants.CONTENT_TYPE_JSON, "[\"proj-a\"]");
+        AuthorizationException refused = refused("describe", sally(), EventConstants.CONTENT_TYPE_JSON, "[\"proj-a\"]");
 
-        assertTrue(reason.contains("No contract covers describe"), reason);
+        assertTrue(refused.getMessage().contains("No contract covers describe"), refused.getMessage());
         verify(relationships, never()).check(any(), any(), any(), any(), any());
     }
 
@@ -275,12 +272,14 @@ class DefaultRequestAuthorizerTest {
     void aNodeWithoutADirectoryRefusesEveryRequest() {
         ObjectProvider<ServiceDirectory> none = mock(ObjectProvider.class);
         when(none.getIfAvailable()).thenReturn(null);
-        DefaultRequestAuthorizer alone = new DefaultRequestAuthorizer(none, mock(AuthzStoreService.class), relationships, JsonMapper.builder().build(), vertx);
+        DefaultRequestAuthorizer alone = new DefaultRequestAuthorizer(none, mock(AuthzStoreService.class), relationships, JsonMapper.builder().build(), vertx, securityExceptions);
 
-        String reason = refused(() -> alone.authorize(cri("listAccessible"), sally(), EventConstants.CONTENT_TYPE_JSON, bytes("[]"))
-                                           .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
+        ExecutionException failure = assertThrows(ExecutionException.class,
+                                                  () -> alone.authorize(cri("listAccessible"), sally(), EventConstants.CONTENT_TYPE_JSON, bytes("[]"))
+                                                             .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
 
-        assertTrue(reason.contains("No service directory"), reason);
+        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
+        assertTrue(refused.getMessage().contains("No service directory"), refused.getMessage());
     }
 
     @Test
@@ -323,11 +322,13 @@ class DefaultRequestAuthorizerTest {
 
     @Test
     void aValueThatCanNameNoResourceIsRefusedBeforeTheEngineIsAsked() {
-        String reason = refused(() -> authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/findById#1.0.0"), bob("t1"),
-                                                           EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person#definition\",\"row-1\"]"))
-                                                .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
+        ExecutionException failure = assertThrows(ExecutionException.class,
+                                                  () -> authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/findById#1.0.0"), bob("t1"),
+                                                                             EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person#definition\",\"row-1\"]"))
+                                                                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
 
-        assertTrue(reason.contains("names no resource"), reason);
+        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
+        assertTrue(refused.getMessage().contains("names no resource"), refused.getMessage());
         verify(relationships, never()).check(any(), any(), any(), any(), any());
     }
 
@@ -335,11 +336,13 @@ class DefaultRequestAuthorizerTest {
     void anApplicationParticipantIsRefusedWhatItsStoreDenies() {
         when(relationships.check(eq("acme.crm"), eq(CRM_MODEL_ID), any(), any(), any())).thenReturn(Future.succeededFuture(false));
 
-        String reason = refused(() -> authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/findById#1.0.0"), bob("t1"),
-                                                           EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",\"row-1\"]"))
-                                                .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
+        ExecutionException failure = assertThrows(ExecutionException.class,
+                                                  () -> authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/findById#1.0.0"), bob("t1"),
+                                                                             EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",\"row-1\"]"))
+                                                                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
 
-        assertTrue(reason.contains("entity_definition_can_read on tenant_definition:acme.crm.person@t1"), reason);
+        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
+        assertTrue(refused.getMessage().contains("entity_definition_can_read on tenant_definition:acme.crm.person@t1"), refused.getMessage());
     }
 
     @Test
@@ -347,8 +350,8 @@ class DefaultRequestAuthorizerTest {
         Participant operator = DefaultSystemParticipant.builder().id("ops").metadata(Map.of()).roles(List.of()).build();
 
         // a project is named within an organization, which an operator has none of
-        String reason = refused("save", operator, EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-b\"}]");
-        assertTrue(reason.contains("project proj-b"), reason);
+        AuthorizationException refused = refused("save", operator, EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-b\"}]");
+        assertTrue(refused.getMessage().contains("project proj-b"), refused.getMessage());
 
         // a check on the caller's organization is made on the platform
         authorize("findMembers", operator, EventConstants.CONTENT_TYPE_JSON, "[]");
@@ -379,17 +382,9 @@ class DefaultRequestAuthorizerTest {
                   .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
     }
 
-    private String refused(String function, Participant participant, String contentType, String body) {
-        return refused(() -> authorize(function, participant, contentType, body));
-    }
-
-    // asserts the request is answered with the refusal every reason shares, and returns the reason logged for it
-    private String refused(Executable request) {
-        logged.list.clear();
-        ExecutionException failure = assertThrows(ExecutionException.class, request);
-        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
-        assertEquals("Not authorized", refused.getMessage());
-        return logged.list.getLast().getFormattedMessage();
+    private AuthorizationException refused(String function, Participant participant, String contentType, String body) {
+        ExecutionException failure = assertThrows(ExecutionException.class, () -> authorize(function, participant, contentType, body));
+        return assertInstanceOf(AuthorizationException.class, failure.getCause());
     }
 
     // polls every 20 ms for up to 5 s

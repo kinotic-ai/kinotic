@@ -18,8 +18,9 @@ public interface RequestAuthorizer {
      * @param contentType the body's content type
      * @param body        the body, read only as far as the id the check names
      * @return completes when the request may proceed; fails with an {@link AuthorizationException} reading
-     *         "Not authorized" when the caller holds no permission for it, the request names no object to check,
-     *         or no contract covers the function, and with the engine's failure when the check cannot be made
+     *         "Not authorized", followed by the reason when {@code kinotic.debug} is on, when the caller holds no
+     *         permission for it, the request names no object to check, or no contract covers the function, and
+     *         with the engine's failure when the check cannot be made
      */
     Future<Void> authorize(CRI cri, Participant participant, String contentType, byte[] body);
 }
