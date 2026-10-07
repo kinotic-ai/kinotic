@@ -5,9 +5,9 @@
     "": {
       "name": "@kinotic-ai/workload-runner",
       "dependencies": {
-        "@kinotic-ai/core": "^5.0.0-beta.22",
-        "@kinotic-ai/kinotic-cli": "5.2.0-beta.25",
-        "@kinotic-ai/management-api": "5.0.0-beta.51",
+        "@kinotic-ai/core": "^5.0.0-beta.23",
+        "@kinotic-ai/kinotic-cli": "5.2.0-beta.26",
+        "@kinotic-ai/management-api": "5.0.0-beta.52",
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/sdk-node": "^0.221.0",
       },
@@ -56,13 +56,13 @@
 
     "@js-sdsl/ordered-map": ["@js-sdsl/ordered-map@4.4.2", "", {}, "sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw=="],
 
-    "@kinotic-ai/core": ["@kinotic-ai/core@5.0.0-beta.22", "", { "dependencies": { "@kinotic-ai/idl": "^5.0.0-beta.4", "@opentelemetry/api": "^1.9.1", "@opentelemetry/semantic-conventions": "^1.40.0", "@stomp/rx-stomp": "^2.4.0", "@stomp/stompjs": "^7.3.0", "debug": "^4.4.3", "p-tap": "^4.0.0", "rxjs": "^7.8.2", "typescript-optional": "3.0.0-alpha.3", "uuid": "^13.0.0", "ws": "^8.21.0" } }, "sha512-i4v0K40K6WH7mS6jcY3F9q8yJmJQUYKgBQCOKzIaG54KETxQTr2Gx/lXvSPFTdLD/glC+XzQykAtJnWYz+5mIQ=="],
+    "@kinotic-ai/core": ["@kinotic-ai/core@5.0.0-beta.23", "", { "dependencies": { "@kinotic-ai/idl": "^5.0.0-beta.4", "@opentelemetry/api": "^1.9.1", "@opentelemetry/semantic-conventions": "^1.40.0", "@stomp/rx-stomp": "^2.4.0", "@stomp/stompjs": "^7.3.0", "debug": "^4.4.3", "p-tap": "^4.0.0", "rxjs": "^7.8.2", "typescript-optional": "3.0.0-alpha.3", "uuid": "^13.0.0", "ws": "^8.21.0" } }, "sha512-RYjJRoNL0NgIYyRuOeBTFUtchcb9hVtAg3nOCI8CUMpMEOGAHLu2Gstu+GcwOPC53XM8KXvWWI9EDjuJiYhfYQ=="],
 
     "@kinotic-ai/idl": ["@kinotic-ai/idl@5.0.0-beta.4", "", {}, "sha512-YZZhQX2vkQ74oRgeONT/lLxeIbAnhWTfyTHHXkviZlbamC7UILtOIIGP1xlLNYpRQliQYIrnIT0TbyLNi88Btw=="],
 
-    "@kinotic-ai/kinotic-cli": ["@kinotic-ai/kinotic-cli@5.2.0-beta.25", "", { "dependencies": { "@inquirer/prompts": "^8.5.2", "@kinotic-ai/core": "5.0.0-beta.22", "@kinotic-ai/idl": "5.0.0-beta.4", "@kinotic-ai/management-api": "5.0.0-beta.51", "@kinotic-ai/persistence": "5.0.0-beta.14", "@kinotic-ai/spawn": "5.0.0-beta.1", "@oclif/core": "^4.13.3", "c12": "^3.3.4", "chalk": "^5.6.2", "liquidjs": "10.28.0", "open": "^11.0.0", "p-timeout": "^7.0.1", "radash": "^12.1.1", "simple-git": "3.36.0", "ts-morph": "^27.0.2" }, "bin": { "kinotic": "./bin/run.js" } }, "sha512-ZAh32I8tX+QXoUsB/sl1RJh7jWhm2/lWjHkV7VPTRHFEOdgiTVjq7vm3GOQS95Op9uZgs21PYF5d3NcSWoEE1Q=="],
+    "@kinotic-ai/kinotic-cli": ["@kinotic-ai/kinotic-cli@5.2.0-beta.26", "", { "dependencies": { "@inquirer/prompts": "^8.5.2", "@kinotic-ai/core": "5.0.0-beta.23", "@kinotic-ai/idl": "5.0.0-beta.4", "@kinotic-ai/management-api": "5.0.0-beta.52", "@kinotic-ai/persistence": "5.0.0-beta.14", "@kinotic-ai/spawn": "5.0.0-beta.1", "@oclif/core": "^4.13.3", "c12": "^3.3.4", "chalk": "^5.6.2", "liquidjs": "10.28.0", "open": "^11.0.0", "p-timeout": "^7.0.1", "radash": "^12.1.1", "simple-git": "3.36.0", "ts-morph": "^27.0.2" }, "bin": { "kinotic": "./bin/run.js" } }, "sha512-9DOrMr1nJbxzyXRAKNM90tB4dhdW9s+NwQKgx5zx3NyT+GjfTt9XeV+jG+Lqew28gwW6j9VQbqNQM37QESph4w=="],
 
-    "@kinotic-ai/management-api": ["@kinotic-ai/management-api@5.0.0-beta.51", "", { "dependencies": { "@kinotic-ai/idl": "^5.0.0-beta.4", "@kinotic-ai/persistence": "^5.0.0-beta.14", "rxjs": "^7.8.2" }, "peerDependencies": { "@kinotic-ai/core": "^5.0.0-beta.22" } }, "sha512-1tzEXjeDMjWDI4eagbdGQ+MLdMgqHjBQGfyZ+T84CNiIBwV3AKh6rBESfoGj1RkFch8oPD9T/EhPetcw3chIqQ=="],
+    "@kinotic-ai/management-api": ["@kinotic-ai/management-api@5.0.0-beta.52", "", { "dependencies": { "@kinotic-ai/idl": "^5.0.0-beta.4", "@kinotic-ai/persistence": "^5.0.0-beta.14", "rxjs": "^7.8.2" }, "peerDependencies": { "@kinotic-ai/core": "^5.0.0-beta.23" } }, "sha512-qZqDH3Ntrbn/wzXyr0uqMhNvNBZJLyzoi93/vwLivl4qJDFIMnVnZWSVqAci0jUMRhtQ1tFUdx/Xe38RWOVj9Q=="],
 
     "@kinotic-ai/persistence": ["@kinotic-ai/persistence@5.0.0-beta.14", "", { "dependencies": { "@kinotic-ai/idl": "^5.0.0-beta.4", "rxjs": "^7.8.2" }, "peerDependencies": { "@kinotic-ai/core": "^5.0.0-beta.22" } }, "sha512-6ciQqutlgLbdkpkH3UfFmv1J+mrOlxsMtEtQ5MLOSyv4yuylygQjmg6c7Gnp17z4kGC7fUaXdi7ud7k2fBWIwA=="],
 
