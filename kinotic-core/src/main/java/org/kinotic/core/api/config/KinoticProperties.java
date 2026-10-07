@@ -24,7 +24,8 @@ public class KinoticProperties {
 
     /**
      * If true, additional information will be provided to clients,
-     * including server information and information about errors occurring when invoking services
+     * including server information, information about errors occurring when invoking services,
+     * and the reason a request is refused.
      * This is off by default since this could reveal server implementation details
      */
     private boolean debug = false;

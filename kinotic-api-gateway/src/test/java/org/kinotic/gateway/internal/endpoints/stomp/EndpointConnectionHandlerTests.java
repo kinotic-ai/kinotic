@@ -180,7 +180,6 @@ public class EndpointConnectionHandlerTests {
         Event<byte[]> errorReply = sent.getValue();
         Assertions.assertEquals(replyTo, errorReply.cri().raw());
         Assertions.assertEquals("corr-0", errorReply.metadata().get(EventConstants.CORRELATION_ID_HEADER));
-        Assertions.assertTrue(errorReply.metadata().get(EventConstants.ERROR_HEADER).contains("Not authorized"));
         Assertions.assertTrue(new String(errorReply.data(), StandardCharsets.UTF_8).contains("AuthorizationException"));
     }
 

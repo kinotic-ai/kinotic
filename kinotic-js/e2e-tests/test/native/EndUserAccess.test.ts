@@ -81,8 +81,8 @@ describe('Kinotic JS', () => {
         // the store holds the roles of a definition's rows once its worker has written the model
         await until(async () => (await Kinotic.applicationAccess.findRoles(APP_ID)).some(role => role.id === 'entity_definition.editor'))
         expect((await Kinotic.applicationAccess.findGrants(APP_ID, personRows))).toHaveLength(0)
-        await expect(people.findAll(Pageable.create(0, 10))).rejects.toThrowError(/Not authorized/)
-        await expect(people.save(createTestPerson())).rejects.toThrowError(/Not authorized/)
+        await expect(people.findAll(Pageable.create(0, 10))).rejects.toThrowError(/entity_definition_can_search/)
+        await expect(people.save(createTestPerson())).rejects.toThrowError(/entity_definition_can_create/)
         expect((await Kinotic.applicationAccess.explain(APP_ID, subject, 'entity_definition_can_read', personRows)).allowed).toBe(false)
     }, 60000)
 
@@ -98,8 +98,8 @@ describe('Kinotic JS', () => {
         expect(found?.firstName).toBe(saved.firstName)
         expect(await people.count()).toBeGreaterThan(0)
         // an editor does not delete, and holds nothing on another definition's rows
-        await expect(people.deleteById(saved.id as string)).rejects.toThrowError(/Not authorized/)
-        await expect(vehicles.findAll(Pageable.create(0, 10))).rejects.toThrowError(/Not authorized/)
+        await expect(people.deleteById(saved.id as string)).rejects.toThrowError(/entity_definition_can_delete/)
+        await expect(vehicles.findAll(Pageable.create(0, 10))).rejects.toThrowError(`entity_definition_can_search on tenant_definition:${vehicleRows.id}`)
 
         // the grant is listed where it was made and explains the access
         const grants = await Kinotic.applicationAccess.findGrants(APP_ID, personRows)
@@ -110,7 +110,7 @@ describe('Kinotic JS', () => {
 
         await Kinotic.applicationAccess.revoke(APP_ID, personRows, grant.id)
         await until(async () => !(await Kinotic.applicationAccess.explain(APP_ID, subject, 'entity_definition_can_read', personRows)).allowed)
-        await untilRefused(() => people.findById(saved.id as string), /Not authorized/)
+        await untilRefused(() => people.findById(saved.id as string), /entity_definition_can_read/)
         expect(await Kinotic.applicationAccess.findGrants(APP_ID, personRows)).toHaveLength(0)
     }, 60000)
 

@@ -29,6 +29,8 @@ x-kinotic-server-e2e-environment: &kinotic-server-e2e-environment
   # The emailed links' base, read before the send is skipped as disabled: every server invites, the app
   # server into an application's tenants
   KINOTIC_DOMAIN_EMAIL_LINKBASEURL: http://localhost:9090
+  # A refusal carries its reason, which the suites assert on, only in debug mode
+  KINOTIC_DEBUG: "true"
 
 # Placeholder GitHub App config for the servers that load management-api: GithubProperties validates
 # these @NotBlank at boot even though no e2e test calls GitHub. disableProvisioner swaps in

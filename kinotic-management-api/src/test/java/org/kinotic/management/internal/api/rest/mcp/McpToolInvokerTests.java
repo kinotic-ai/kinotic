@@ -101,7 +101,6 @@ class McpToolInvokerTests {
                                           .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
         assertTrue(result.isError());
-        assertEquals("Not authorized", result.getContent().getFirst().getText());
         verify(eventBusService, never()).sendWithAck(any());
     }
 

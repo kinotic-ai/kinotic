@@ -1,8 +1,5 @@
 package org.kinotic.test.support.kinotic;
 
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -26,9 +23,7 @@ import org.kinotic.domain.api.model.security.participant.OrganizationParticipant
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.domain.api.model.security.participant.SystemParticipant;
 import org.kinotic.domain.api.services.security.RequestAuthorizer;
-import org.kinotic.domain.internal.api.services.security.DefaultRequestAuthorizer;
 import org.kinotic.test.support.sample.TestDataService;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
@@ -43,7 +38,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -234,8 +228,8 @@ public abstract class KinoticTestBase {
     }
 
     /**
-     * Asserts {@link #authorize(String, String, Participant, Object)} refuses the request, answering it "Not
-     * authorized" and logging a reason containing {@code naming}, the permission or object the refusal names.
+     * Asserts {@link #authorize(String, String, Participant, Object)} refuses the request with a message
+     * containing {@code naming}, the permission or object the refusal names.
      */
     protected void assertRefused(String service, String function, Participant caller, Object arguments, String naming) throws Exception {
         assertRefused(service, function, caller, EventConstants.CONTENT_TYPE_JSON, arguments, naming);
@@ -246,20 +240,9 @@ public abstract class KinoticTestBase {
      * request whose body has the given content type.
      */
     protected void assertRefused(String service, String function, Participant caller, String contentType, Object arguments, String naming) throws Exception {
-        Logger authorizerLog = (Logger) LoggerFactory.getLogger(DefaultRequestAuthorizer.class);
-        ListAppender<ILoggingEvent> logged = new ListAppender<>();
-        logged.start();
-        authorizerLog.addAppender(logged);
-        ExecutionException failure;
-        try {
-            failure = assertThrows(ExecutionException.class, () -> authorize(service, function, caller, contentType, arguments));
-        } finally {
-            authorizerLog.detachAppender(logged);
-        }
+        ExecutionException failure = assertThrows(ExecutionException.class, () -> authorize(service, function, caller, contentType, arguments));
         AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
-        assertEquals("Not authorized", refused.getMessage());
-        List<String> reasons = logged.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
-        assertTrue(reasons.stream().anyMatch(reason -> reason.contains(naming)), reasons.toString());
+        assertTrue(refused.getMessage().contains(naming), refused.getMessage());
     }
 
     /**
