@@ -1,12 +1,6 @@
 package org.kinotic.persistence.api.services;
 
 import io.vertx.core.Future;
-import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.annotations.Zone;
-import org.kinotic.idl.api.annotations.AuthzCheck;
-import org.kinotic.idl.api.annotations.AuthzResource;
-import org.kinotic.idl.api.utils.AuthzUtil;
-import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
@@ -20,9 +14,6 @@ import java.util.List;
 /**
  * Created by Navíd Mitchell 🤪 on 4/23/24.
  */
-@Publish
-@Zone(DomainUtil.APP_API_ZONE)
-@AuthzResource(value = AuthzUtil.ENTITY_DEFINITION_TYPE, parent = AuthzUtil.APPLICATION_TYPE)
 public interface NamedQueriesService {
 
     /**
@@ -35,7 +26,6 @@ public interface NamedQueriesService {
      * @param context         the context for this operation
      * @return {@link Future} with the result of the query
      */
-    @AuthzCheck(permission = AuthzUtil.CAN_SEARCH, resourceId = "{entityDescriptor.id}")
     <T> Future<List<T>> executeNamedQuery(EntityDescriptor entityDescriptor,
                                           String queryName,
                                           ParameterHolder parameterHolder,
@@ -53,7 +43,6 @@ public interface NamedQueriesService {
      * @param context         the context for this operation
      * @return {@link Future} with the result of the query
      */
-    @AuthzCheck(permission = AuthzUtil.CAN_SEARCH, resourceId = "{entityDescriptor.id}")
     <T> Future<Page<T>> executeNamedQueryPage(EntityDescriptor entityDescriptor,
                                               String queryName,
                                               ParameterHolder parameterHolder,
