@@ -35,7 +35,7 @@ public interface TenantMemberService {
     /**
      * The users of the tenant.
      */
-    @AuthzCheck(permission = "can_view_members")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MEMBERS)
     Future<Page<UserParticipantIdentity>> findMembers(Pageable pageable);
 
     /**
@@ -46,39 +46,39 @@ public interface TenantMemberService {
      * @param email       where to send the invitation
      * @param displayName optional display name for the invitee
      */
-    @AuthzCheck(permission = "can_manage_members")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MEMBERS)
     Future<PendingInviteSummary> inviteMember(String email, String displayName);
 
     /**
      * The live (unexpired) invitations into the tenant.
      */
-    @AuthzCheck(permission = "can_view_members")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MEMBERS)
     Future<Page<PendingInviteSummary>> findPendingInvites(Pageable pageable);
 
     /**
      * Cancels an invitation into the tenant.
      */
-    @AuthzCheck(permission = "can_manage_members")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MEMBERS)
     Future<Void> cancelInvite(String inviteId);
 
     /**
      * Permanently removes a user of the tenant, including any stored credential. Callers cannot remove
      * themselves.
      */
-    @AuthzCheck(permission = "can_manage_members", consistent = true)
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MEMBERS, consistent = true)
     Future<Void> removeMember(String identityId);
 
     /**
      * Every role a grant on the tenant can name: the built-in roles of the tenant and of the rows of each entity
      * definition inside it, each with the permissions it bundles.
      */
-    @AuthzCheck(permission = "can_view_access")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_ACCESS)
     Future<List<RoleDefinition>> findRoles();
 
     /**
      * The grants made on the tenant.
      */
-    @AuthzCheck(permission = "can_view_access")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_ACCESS)
     Future<List<Grant>> findGrants();
 
     /**
@@ -89,7 +89,7 @@ public interface TenantMemberService {
      * @param roleId  the role granted, one {@link #findRoles} lists
      * @return the grant
      */
-    @AuthzCheck(permission = "can_manage_access")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_ACCESS)
     Future<Grant> grant(Subject subject, String roleId);
 
     /**
@@ -97,7 +97,7 @@ public interface TenantMemberService {
      *
      * @param grantId the grant
      */
-    @AuthzCheck(permission = "can_manage_access")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_ACCESS)
     Future<Void> revoke(String grantId);
 
 }

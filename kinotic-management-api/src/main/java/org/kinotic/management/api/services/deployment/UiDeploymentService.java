@@ -60,7 +60,7 @@ public interface UiDeploymentService {
      * @return a future emitting a page of ledger entries, empty when nothing has happened to the deployment
      */
     @McpTool
-    @AuthzCheck(permission = "can_view_deployments")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_DEPLOYMENTS)
     Future<Page<WatchEvent>> findHistory(String deploymentId, Pageable pageable);
 
     /**
@@ -71,7 +71,7 @@ public interface UiDeploymentService {
      * @param deploymentId the deployment of a UI of one of the caller's organization's projects
      * @return a future completing when the removal is asked for
      */
-    @AuthzCheck(permission = "can_manage_deployments")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_DEPLOYMENTS)
     Future<Void> remove(String deploymentId);
 
 }

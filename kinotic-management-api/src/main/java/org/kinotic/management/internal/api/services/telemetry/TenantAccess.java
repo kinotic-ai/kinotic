@@ -33,7 +33,7 @@ public class TenantAccess {
 
     // the permission a platform grant must carry to read any tenant: the one the telemetry services require
     // of an organization's members, held on the platform, which every organization is on
-    private static final String READS_TELEMETRY = AuthzUtil.permissionName(AuthzUtil.ORGANIZATION_TYPE, "can_view_telemetry");
+    private static final String READS_TELEMETRY = AuthzUtil.permissionName(AuthzUtil.ORGANIZATION_TYPE, AuthzUtil.CAN_VIEW_TELEMETRY);
 
     private final SecurityContext securityContext;
     private final AuthzStoreService stores;

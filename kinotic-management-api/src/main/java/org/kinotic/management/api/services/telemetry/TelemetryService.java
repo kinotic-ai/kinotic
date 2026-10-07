@@ -25,7 +25,7 @@ public interface TelemetryService {
      * @param query the {@link TraceQuery} naming the organization, query, time range, and limit
      * @return a {@link Future} emitting the raw Tempo {@code search} response
      */
-    @AuthzCheck(permission = "can_view_telemetry")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_TELEMETRY)
     Future<Buffer> searchTraces(TraceQuery query);
 
     /**
@@ -36,7 +36,7 @@ public interface TelemetryService {
      * @param traceId        the hex trace id
      * @return a {@link Future} emitting the raw Tempo trace response, OTLP JSON
      */
-    @AuthzCheck(permission = "can_view_telemetry")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_TELEMETRY)
     Future<Buffer> findTrace(String organizationId, String traceId);
 
     /**
@@ -45,6 +45,6 @@ public interface TelemetryService {
      * @param query the {@link MetricQuery} naming the organization, expression, time range, and step
      * @return a {@link Future} emitting the raw Prometheus {@code query_range} response
      */
-    @AuthzCheck(permission = "can_view_telemetry")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_TELEMETRY)
     Future<Buffer> queryMetrics(MetricQuery query);
 }

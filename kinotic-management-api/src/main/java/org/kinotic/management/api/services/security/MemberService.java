@@ -22,14 +22,14 @@ import org.kinotic.domain.api.model.security.PendingInviteSummary;
 public interface MemberService {
 
     /** Lists the members of the scope. */
-    @AuthzCheck(permission = "can_view_members")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MEMBERS)
     Future<Page<UserParticipantIdentity>> findMembers(String applicationId, Pageable pageable);
 
     /**
      * Searches the scope's members by free text over email and display name. Blank
      * {@code searchText} is equivalent to {@link #findMembers}.
      */
-    @AuthzCheck(permission = "can_view_members")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MEMBERS)
     Future<Page<UserParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable);
 
     /**
@@ -43,28 +43,28 @@ public interface MemberService {
      * @param tenantId      the tenant of the application the invitee joins, which must exist, or null for an
      *                      org-member invite or an application invite into no tenant
      */
-    @AuthzCheck(permission = "can_manage_members")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MEMBERS)
     Future<PendingInviteSummary> inviteMember(String email, String displayName, String applicationId, String tenantId);
 
     /**
      * Enables or disables a member of the caller's organization. Disabling gates future
      * logins; established sessions last until they expire. Callers cannot disable themselves.
      */
-    @AuthzCheck(permission = "can_manage_members", consistent = true)
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MEMBERS, consistent = true)
     Future<Void> setMemberEnabled(String identityId, boolean enabled);
 
     /**
      * Permanently removes a member of the caller's organization, including any stored
      * credential. Callers cannot remove themselves.
      */
-    @AuthzCheck(permission = "can_manage_members", consistent = true)
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MEMBERS, consistent = true)
     Future<Void> removeMember(String identityId);
 
     /** Lists the scope's live (unexpired) pending invitations. */
-    @AuthzCheck(permission = "can_view_members")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MEMBERS)
     Future<Page<PendingInviteSummary>> findPendingInvites(String applicationId, Pageable pageable);
 
     /** Cancels a pending invitation belonging to the caller's organization. */
-    @AuthzCheck(permission = "can_manage_members")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MEMBERS)
     Future<Void> cancelInvite(String inviteId);
 }
