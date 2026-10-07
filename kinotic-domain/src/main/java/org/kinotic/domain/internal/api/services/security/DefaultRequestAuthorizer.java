@@ -34,6 +34,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
+import tools.jackson.core.StreamReadFeature;
+import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
@@ -47,8 +49,8 @@ import static org.kinotic.authz.api.services.AuthzStoreService.PLATFORM;
 
 /**
  * The {@link RequestAuthorizer} over the stores: a function's check is read from its contract in the service
- * directory and kept, the object it names is read from the request with a parse that stops at it, and the
- * engine answers for the caller. A function is served without the engine only when its contract marks it
+ * directory and kept, the object it names is read from the request, which is refused when its body names a
+ * property twice, and the engine answers for the caller. A function is served without the engine only when its contract marks it
  * unchecked; a function no contract covers, of a service the directory holds no definition for or one the
  * definition leaves out, is refused. The engine answers for the caller, or for the owner a delegate acts for, from the platform's store for an
  * organization's members and the platform's own staff, and from the application's store for an application's
@@ -283,8 +285,10 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
     }
 
     /**
-     * The scalar at a parameter, or at a property path inside it, read from the body with a parse that stops
-     * there: the element at the parameter's position of a positional body, the field of its name of a named one.
+     * The scalar at a parameter, or at a property path inside it, read from the body: the element at the
+     * parameter's position of a positional body, the field of its name of a named one.
+     *
+     * @throws AuthorizationException when the body names a property twice
      */
     private String locate(String contentType, byte[] body, String parameter, int position, List<String> path) {
         if (body == null || body.length == 0) {
@@ -294,7 +298,10 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         if (!named && !EventConstants.CONTENT_TYPE_JSON.equals(contentType)) {
             throw new AuthorizationException("The request's body is " + contentType + ", in which no id can be located");
         }
-        try (JsonParser parser = jsonMapper.createParser(body)) {
+        String ret;
+        // the services bind the last of a property named twice, which need not be the one read here, so the
+        // parser refuses a repeated name and the whole body is read before the value is trusted
+        try (JsonParser parser = jsonMapper.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION).createParser(body)) {
             JsonToken start = parser.nextToken();
             boolean found = named
                     ? start == JsonToken.START_OBJECT && field(parser, parameter)
@@ -302,10 +309,17 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
             for (int i = 0; found && i < path.size(); i++) {
                 found = parser.currentToken() == JsonToken.START_OBJECT && field(parser, path.get(i));
             }
-            return found && parser.currentToken() != null && parser.currentToken().isScalarValue()
+            ret = found && parser.currentToken() != null && parser.currentToken().isScalarValue()
                     ? parser.getValueAsString()
                     : null;
+            JsonToken token = parser.currentToken();
+            while (token != null) {
+                token = parser.nextToken();
+            }
+        } catch (StreamReadException e) {
+            throw new AuthorizationException("The request's body cannot be read for its check: " + e.getOriginalMessage());
         }
+        return ret;
     }
 
     // Leaves the parser on the value of the named field of the object it has just entered, false when there is none

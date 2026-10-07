@@ -58,7 +58,8 @@ import static org.mockito.Mockito.when;
  * in the platform's store for an organization member; an application or a project named within the caller's
  * organization, which a system participant cannot name; a
  * delegate checked as its owner; a function its contract marks unchecked passing without the engine; and the
- * refusals: a denied check, a request naming no object, a body no id can be read from, and the requests no
+ * refusals: a denied check, a request naming no object, a body no id can be read from or naming a property
+ * twice, and the requests no
  * contract covers, of a service the directory holds no definition for, a function the definition leaves out or
  * marks neither way, and a node running no directory.
  */
@@ -210,6 +211,18 @@ class DefaultRequestAuthorizerTest {
     void aBodyNoIdCanBeReadFromIsRefused() {
         assertTrue(refused("save", sally(), "application/octet-stream", "[{\"id\":\"proj-a\"}]").getMessage().contains("octet-stream"));
         assertTrue(refused("save", sally(), EventConstants.CONTENT_TYPE_JSON, "").getMessage().contains("no body"));
+        verify(relationships, never()).check(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aBodyNamingAPropertyTwiceIsRefusedWithoutTheEngine() {
+        // a service binds the last of a repeated name, so the first is never the object checked
+        assertTrue(refused("save", sally(), EventConstants.CONTENT_TYPE_NAMED_JSON,
+                           "{\"entity\":{\"id\":\"proj-a\"},\"entity\":{\"id\":\"proj-b\"}}").getMessage().contains("entity"));
+        assertTrue(refused("save", sally(), EventConstants.CONTENT_TYPE_JSON,
+                           "[{\"id\":\"proj-a\",\"name\":\"A\",\"id\":\"proj-b\"}]").getMessage().contains("id"));
+        // a repeated name after the object read is refused as well
+        refused("deploy", sally(), EventConstants.CONTENT_TYPE_JSON, "[\"proj-a\",{\"tag\":1,\"tag\":2}]");
         verify(relationships, never()).check(any(), any(), any(), any(), any());
     }
 
