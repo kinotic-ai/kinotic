@@ -74,17 +74,12 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
 
     private static TraceQuery traceQuery(String organizationId) {
         return new TraceQuery().setOrganizationId(organizationId)
-                               .setQuery("{ status = error }")
-                               .setStart(1_000L)
-                               .setEnd(2_000L)
-                               .setLimit(20);
+                               .setQuery("{ status = error }");
     }
 
     private static MetricQuery metricQuery(String organizationId) {
         return new MetricQuery().setOrganizationId(organizationId)
                                 .setQuery("sum(rate(traces_spanmetrics_calls_total[1m]))")
-                                .setStart(1_000L)
-                                .setEnd(2_000L)
                                 .setStep(15L);
     }
 

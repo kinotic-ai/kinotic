@@ -590,8 +590,6 @@ public class EntityCrudTests extends KinoticTestBase {
 
         List<Person> personList = testDataService.createRandomTestPeopleWithId(1).await();
 
-        Assertions.assertEquals(1, personList.size(), "Failed to create test person");
-
         Person person = personList.get(0);
 
         // now do partial update

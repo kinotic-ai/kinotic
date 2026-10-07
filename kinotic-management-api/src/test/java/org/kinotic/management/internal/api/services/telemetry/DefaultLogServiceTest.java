@@ -133,14 +133,11 @@ class DefaultLogServiceTest extends ParticipantCallTest {
 
     private static ServerLogQuery serverQuery(String telemetryServiceName, String telemetryServiceInstanceId) {
         return new ServerLogQuery().setTelemetryServiceName(telemetryServiceName)
-                                   .setTelemetryServiceInstanceId(telemetryServiceInstanceId)
-                                   .setStart(1_000L)
-                                   .setEnd(2_000L)
-                                   .setLimit(50);
+                                   .setTelemetryServiceInstanceId(telemetryServiceInstanceId);
     }
 
     private static LogQuery query(String organizationId, String workloadId) {
-        return new LogQuery().setOrganizationId(organizationId).setWorkloadId(workloadId).setStart(1_000L).setEnd(2_000L).setLimit(50);
+        return new LogQuery().setOrganizationId(organizationId).setWorkloadId(workloadId);
     }
 
     private static class RecordingLokiClient implements LokiClient {

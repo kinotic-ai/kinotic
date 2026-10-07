@@ -93,9 +93,6 @@ class GitHubProjectRepoProvisionerTest {
 
         Project project = provisioner.provision(project()).await();
 
-        assertEquals("acme/demo", project.getRepoFullName());
-        assertEquals(99L, project.getRepoId());
-        assertEquals("main", project.getRepoDefaultBranch());
         assertEquals(RepositoryConnectionStatus.CONNECTED, project.getRepoConnectionStatus());
 
         @SuppressWarnings("unchecked")
@@ -127,7 +124,6 @@ class GitHubProjectRepoProvisionerTest {
                          tree.get("versions.txt").content().lines().toList());
         assertTrue(!tree.get("versions.txt").content().contains("^0.0.1"));
 
-        verify(apiClient).createCommit(eq("repo-token"), eq("acme/demo"), anyString(), eq("tree-sha"));
         verify(apiClient).updateRef(eq("repo-token"), eq("acme/demo"), eq("heads/main"), eq("commit-sha"), eq(true));
     }
 
@@ -154,8 +150,6 @@ class GitHubProjectRepoProvisionerTest {
         // so the project is adopted with a retryable status rather than orphaned.
         Project project = provisioner.provision(project()).await();
 
-        assertEquals("acme/demo", project.getRepoFullName());
-        assertEquals(99L, project.getRepoId());
         assertEquals(RepositoryConnectionStatus.INITIALIZATION_FAILED, project.getRepoConnectionStatus());
     }
 

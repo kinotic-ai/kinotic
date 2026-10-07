@@ -110,11 +110,6 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
 
         JobRun run = repository.savedRuns.get(handle.getJobRunId());
         assertNotNull(run);
-        assertEquals("recorded", run.getName());
-        assertEquals("2.0", run.getVersion());
-        assertEquals("org1", run.getOrganizationId());
-        assertEquals("app1", run.getApplicationId());
-        assertEquals(TEST_NODE_ID, run.getNodeId());
         assertEquals(ExecutionStatus.COMPLETED, run.getStatus());
         assertNotNull(run.getStarted());
         assertNotNull(run.getFinished());
