@@ -27,8 +27,9 @@ public class SecurityExceptionFactory {
      * @return the refusal, reading "Not authorized", or "Not authorized: " and the reason in debug mode
      */
     public AuthorizationException notAuthorized(String reason, Object... arguments) {
-        String formatted = MessageFormatter.basicArrayFormat(reason, arguments);
-        log.warn("{}", formatted);
-        return new AuthorizationException(properties.isDebug() ? NOT_AUTHORIZED + ": " + formatted : NOT_AUTHORIZED);
+        log.warn(reason, arguments);
+        return new AuthorizationException(properties.isDebug()
+                                                  ? NOT_AUTHORIZED + ": " + MessageFormatter.basicArrayFormat(reason, arguments)
+                                                  : NOT_AUTHORIZED);
     }
 }
