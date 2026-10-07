@@ -70,10 +70,12 @@ public class PlatformAdminBootstrap {
 
     private Future<Integer> bindStaff() {
         Pageable page = Pageable.create(0, PAGE_SIZE, null);
-        return identities.findUsersByScope(null, null, page)
-                         .compose(users -> bindEach(users.getContent(), AuthzUtil.PLATFORM_ADMIN_ROLE))
-                         .compose(bound -> identities.findMachinesByScope(null, null, page)
-                                                     .compose(machines -> bindEach(machines.getContent(), VmNodeOrchestrationService.REGISTRAR_ROLE))
+        // an administrator ends the sweep for every server, so the machines are bound before it: a sweep cut short
+        // between the two leaves no administrator, and the next sweep binds both again
+        return identities.findMachinesByScope(null, null, page)
+                         .compose(machines -> bindEach(machines.getContent(), VmNodeOrchestrationService.REGISTRAR_ROLE))
+                         .compose(bound -> identities.findUsersByScope(null, null, page)
+                                                     .compose(users -> bindEach(users.getContent(), AuthzUtil.PLATFORM_ADMIN_ROLE))
                                                      .map(more -> bound + more));
     }
 
