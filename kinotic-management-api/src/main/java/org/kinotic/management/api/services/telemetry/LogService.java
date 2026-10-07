@@ -34,7 +34,7 @@ public interface LogService {
      * @param start the moment to follow from, epoch milliseconds (inclusive)
      * @return a {@link Flux} emitting raw Loki tail frames
      */
-    @AuthzCheck(permission = "can_view_telemetry")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_TELEMETRY)
     Flux<Buffer> tail(String organizationId, String workloadId, long start);
 
     /**
@@ -43,7 +43,7 @@ public interface LogService {
      * @param query the {@link LogQuery} naming the organization, workload, time range, and limit
      * @return a {@link Future} emitting the raw Loki {@code query_range} response
      */
-    @AuthzCheck(permission = "can_view_telemetry")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_TELEMETRY)
     Future<Buffer> history(LogQuery query);
 
     /**
@@ -59,7 +59,7 @@ public interface LogService {
      * @param start the moment to follow from, epoch milliseconds (inclusive)
      * @return a {@link Flux} emitting raw Loki tail frames
      */
-    @AuthzCheck(permission = "can_view_telemetry")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_TELEMETRY)
     Flux<Buffer> tailServer(String telemetryServiceName, String telemetryServiceInstanceId, long start);
 
     /**
@@ -69,6 +69,6 @@ public interface LogService {
      * @param query the {@link ServerLogQuery} naming the server, the node, the time range, and the limit
      * @return a {@link Future} emitting the raw Loki {@code query_range} response
      */
-    @AuthzCheck(permission = "can_view_telemetry")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_TELEMETRY)
     Future<Buffer> serverHistory(ServerLogQuery query);
 }

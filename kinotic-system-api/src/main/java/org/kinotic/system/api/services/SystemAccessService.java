@@ -26,13 +26,13 @@ public interface SystemAccessService {
      * Every role a grant on the platform can name: the built-in roles the model defines, each with the
      * permissions it bundles.
      */
-    @AuthzCheck(permission = "can_view_access")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_ACCESS)
     Future<List<RoleDefinition>> findRoles();
 
     /**
      * The grants made on the platform.
      */
-    @AuthzCheck(permission = "can_view_access")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_ACCESS)
     Future<List<Grant>> findGrants();
 
     /**
@@ -43,7 +43,7 @@ public interface SystemAccessService {
      * @param roleId  the role granted, a built-in role's id
      * @return the grant
      */
-    @AuthzCheck(permission = "can_manage_access")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_ACCESS)
     Future<Grant> grant(Subject subject, String roleId);
 
     /**
@@ -51,7 +51,7 @@ public interface SystemAccessService {
      *
      * @param grantId the grant
      */
-    @AuthzCheck(permission = "can_manage_access")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_ACCESS)
     Future<Void> revoke(String grantId);
 
     /**
@@ -61,7 +61,7 @@ public interface SystemAccessService {
      * @param subject    the operator or machine
      * @param permission the permission's short name, such as {@code can_manage_workloads}
      */
-    @AuthzCheck(permission = "can_view_access")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_ACCESS)
     Future<AccessExplanation> explain(Subject subject, String permission);
 
 }

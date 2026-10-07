@@ -24,13 +24,8 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 @Zone(DomainUtil.APP_API_ZONE)
 @AuthzResource(value = AuthzUtil.APPLICATION_TYPE,
                parent = AuthzUtil.ORGANIZATION_TYPE,
-               roles = @AuthzRole(id = AuthzUtil.APPLICATION_RUNTIME_ROLE, permissions = ServiceDirectoryService.CAN_REGISTER_SERVICES))
+               roles = @AuthzRole(id = AuthzUtil.APPLICATION_RUNTIME_ROLE, permissions = AuthzUtil.CAN_REGISTER_SERVICES))
 public interface ServiceDirectoryService {
-
-    /**
-     * The permission to register a service of an application in the directory, on the application.
-     */
-    String CAN_REGISTER_SERVICES = "can_register_services";
 
     /**
      * Registers a service a runtime of the application serves, replacing the entry stored for the service when
@@ -41,7 +36,7 @@ public interface ServiceDirectoryService {
      * @param entry the service to register, in the application's zone
      * @return a future that completes once the entry is in the directory
      */
-    @AuthzCheck(permission = CAN_REGISTER_SERVICES, resourceId = "{entry.applicationId}")
+    @AuthzCheck(permission = AuthzUtil.CAN_REGISTER_SERVICES, resourceId = "{entry.applicationId}")
     Future<Void> register(ServiceDirectoryEntry entry);
 
 }

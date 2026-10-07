@@ -18,28 +18,28 @@ import org.kinotic.management.api.model.workload.Workload;
  * writing one {@code can_manage_workloads}.
  */
 @Publish
-@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, resourceId = AuthzUtil.PLATFORM_OBJECT_ID, permission = "can_manage_workloads")
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, resourceId = AuthzUtil.PLATFORM_OBJECT_ID, permission = AuthzUtil.CAN_MANAGE_WORKLOADS)
 public interface WorkloadService extends IdentifiableCrudService<Workload, String> {
 
     @Override
-    @AuthzCheck(permission = "can_view_workloads")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_WORKLOADS)
     Future<Workload> findById(String id);
 
     @Override
-    @AuthzCheck(permission = "can_view_workloads")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_WORKLOADS)
     Future<Long> count();
 
     @Override
-    @AuthzCheck(permission = "can_view_workloads")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_WORKLOADS)
     Future<Page<Workload>> findAll(Pageable pageable);
 
     @Override
-    @AuthzCheck(permission = "can_view_workloads")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_WORKLOADS)
     Future<Page<Workload>> search(String searchText, Pageable pageable);
 
     // CrudService declares syncIndex an edit, which only a redeclaration overrides
     @Override
-    @AuthzCheck(permission = "can_manage_workloads")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_WORKLOADS)
     Future<Void> syncIndex();
 
     /**
@@ -48,7 +48,7 @@ public interface WorkloadService extends IdentifiableCrudService<Workload, Strin
      * @param pageable the page to return
      * @return a future that will complete with a page of workloads
      */
-    @AuthzCheck(permission = "can_view_workloads")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_WORKLOADS)
     Future<Page<Workload>> findAllForNode(String nodeId, Pageable pageable);
 
     /**
@@ -59,7 +59,7 @@ public interface WorkloadService extends IdentifiableCrudService<Workload, Strin
      * @return a future that will complete with a page of ledger entries, empty when the workload does
      * not exist
      */
-    @AuthzCheck(permission = "can_view_workloads")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_WORKLOADS)
     Future<Page<WatchEvent>> findHistory(String workloadId, Pageable pageable);
 
 }

@@ -24,7 +24,7 @@ public interface WatchEventService {
      * @param pageable the page to return
      * @return a future that will complete with a page of ledger entries
      */
-    @AuthzCheck(permission = "can_view_cluster")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_CLUSTER)
     Future<Page<WatchEvent>> findAll(Pageable pageable);
 
 }

@@ -46,7 +46,7 @@ public interface JobMonitoringService {
      * @return a future that will complete with the page of runs
      */
     @ScopeOptional
-    @AuthzCheck(permission = "can_view_jobs")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_JOBS)
     Future<Page<JobRun>> findJobRuns(Pageable pageable);
 
     /**
@@ -57,7 +57,7 @@ public interface JobMonitoringService {
      *         or belongs to another organization
      */
     @ScopeOptional
-    @AuthzCheck(permission = "can_view_jobs")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_JOBS)
     Future<JobRun> findJobRun(String jobRunId);
 
     /**
@@ -69,7 +69,7 @@ public interface JobMonitoringService {
      *         not exist or belongs to another organization
      */
     @ScopeOptional
-    @AuthzCheck(permission = "can_view_jobs")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_JOBS)
     Future<Page<TaskRecord>> findTasks(String jobRunId, Pageable pageable);
 
     /**
@@ -82,7 +82,7 @@ public interface JobMonitoringService {
      * @return the run's event stream, empty when the run is not currently executing on this
      *         node
      */
-    @AuthzCheck(permission = "can_view_jobs")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_JOBS)
     Flux<JobRunEvent> watch(String jobRunId);
 
 }

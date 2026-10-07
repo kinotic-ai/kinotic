@@ -28,8 +28,8 @@ import java.util.List;
  */
 @Publish
 @AuthzResource(value = VmNodeService.RESOURCE_TYPE, parent = AuthzUtil.PLATFORM_TYPE,
-               roles = {@AuthzRole(id = VmNodeOrchestrationService.REGISTRAR_ROLE, permissions = "can_register_node"),
-                        @AuthzRole(id = VmNodeOrchestrationService.AGENT_ROLE, permissions = {"can_report", AuthzUtil.CAN_VIEW})})
+               roles = {@AuthzRole(id = VmNodeOrchestrationService.REGISTRAR_ROLE, permissions = AuthzUtil.CAN_REGISTER_NODE),
+                        @AuthzRole(id = VmNodeOrchestrationService.AGENT_ROLE, permissions = {AuthzUtil.CAN_REPORT, AuthzUtil.CAN_VIEW})})
 public interface VmNodeOrchestrationService {
 
     /** The role a platform machine registers nodes with, granted on the platform. */
@@ -47,7 +47,7 @@ public interface VmNodeOrchestrationService {
      * @param registration the node registration info
      * @return a future that will complete with the registered node
      */
-    @AuthzCheck(resource = AuthzUtil.PLATFORM_TYPE, permission = "can_register_node")
+    @AuthzCheck(resource = AuthzUtil.PLATFORM_TYPE, permission = AuthzUtil.CAN_REGISTER_NODE)
     Future<VmNode> registerNode(VmNodeRegistration registration);
 
     /**
@@ -64,7 +64,7 @@ public interface VmNodeOrchestrationService {
      * @param problems what the node can no longer guarantee, empty when it is fit
      * @return a future that will complete with the updated node, or fail if the node is not registered
      */
-    @AuthzCheck(permission = "can_report", resourceId = "{nodeId}")
+    @AuthzCheck(permission = AuthzUtil.CAN_REPORT, resourceId = "{nodeId}")
     Future<VmNode> heartbeat(String nodeId, List<String> problems);
 
     /**
@@ -81,7 +81,7 @@ public interface VmNodeOrchestrationService {
      * @param reports one report per workload
      * @return a future that will complete when the reports have been applied
      */
-    @AuthzCheck(permission = "can_report", resourceId = "{nodeId}")
+    @AuthzCheck(permission = AuthzUtil.CAN_REPORT, resourceId = "{nodeId}")
     Future<Void> reportWorkloadStatus(String nodeId, List<WorkloadStatusReport> reports);
 
     /**
@@ -94,7 +94,7 @@ public interface VmNodeOrchestrationService {
      * @return a future that will complete when the removal has been asked for, or fail if the node is
      *         not registered or still runs workloads
      */
-    @AuthzCheck(permission = "can_report", resourceId = "{nodeId}")
+    @AuthzCheck(permission = AuthzUtil.CAN_REPORT, resourceId = "{nodeId}")
     Future<Void> deregisterNode(String nodeId);
 
     /**

@@ -83,7 +83,7 @@ public interface SystemOrganizationService {
      * @param pageable the page settings to use
      * @return a page of matching {@link UserParticipantIdentity}s
      */
-    @AuthzCheck(permission = "can_view_members")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MEMBERS)
     Future<Page<UserParticipantIdentity>> findMembers(String organizationId,
                                                                  String applicationId,
                                                                  Pageable pageable);
@@ -98,7 +98,7 @@ public interface SystemOrganizationService {
      * @param pageable the page settings to use
      * @return a page of matching {@link UserParticipantIdentity}s
      */
-    @AuthzCheck(permission = "can_view_members")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MEMBERS)
     Future<Page<UserParticipantIdentity>> searchMembers(String searchText,
                                                                    String organizationId,
                                                                    String applicationId,
@@ -113,7 +113,7 @@ public interface SystemOrganizationService {
      * @param pageable the page settings to use
      * @return a page of {@link PendingInviteSummary}s
      */
-    @AuthzCheck(permission = "can_view_members")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MEMBERS)
     Future<Page<PendingInviteSummary>> findPendingInvites(String organizationId,
                                                                      String applicationId,
                                                                      Pageable pageable);

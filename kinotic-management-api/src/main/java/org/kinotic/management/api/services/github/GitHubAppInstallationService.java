@@ -45,7 +45,7 @@ public interface GitHubAppInstallationService {
      *                 May carry query params (e.g. {@code /projects?openNewProject=1})
      *                 to signal "what to do on arrival" to the destination page. May be null.
      */
-    @AuthzCheck(permission = "can_manage_integrations")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_INTEGRATIONS)
     Future<String> startInstall(String returnTo);
 
     /**
@@ -69,7 +69,7 @@ public interface GitHubAppInstallationService {
      *         doesn't match the caller's org, or when the authorizing GitHub user cannot
      *         access the claimed installation
      */
-    @AuthzCheck(permission = "can_manage_integrations")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_INTEGRATIONS)
     Future<GitHubInstallCompletion> completeInstall(long installationId, String state, String code);
 
     /**
@@ -77,7 +77,7 @@ public interface GitHubAppInstallationService {
      * GitHub is not yet linked. Drives the "linked / not linked" indicator in the
      * org-settings UI.
      */
-    @AuthzCheck(permission = "can_view_integrations")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_INTEGRATIONS)
     Future<GitHubAppInstallation> findForCurrentOrg();
 
     /**
@@ -85,6 +85,6 @@ public interface GitHubAppInstallationService {
      * to {@link #findForCurrentOrg()} before completing. No-op when nothing is linked. The
      * organization can link again through {@link #startInstall(String)}.
      */
-    @AuthzCheck(permission = "can_manage_integrations")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_INTEGRATIONS)
     Future<Void> unlink();
 }

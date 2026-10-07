@@ -100,6 +100,29 @@ public final class AuthzUtil {
     public static final String CAN_READ = "can_read";
     public static final String CAN_SEARCH = "can_search";
     public static final String CAN_CREATE = "can_create";
+    /**
+     * The permissions the platform's own services declare, beside the derived verbs: each named once here, so a
+     * declaration, a grant, a check and a test name one thing.
+     */
+    public static final String CAN_MANAGE_ACCESS = "can_manage_access";
+    public static final String CAN_MANAGE_CLUSTER = "can_manage_cluster";
+    public static final String CAN_MANAGE_DEPLOYMENTS = "can_manage_deployments";
+    public static final String CAN_MANAGE_INTEGRATIONS = "can_manage_integrations";
+    public static final String CAN_MANAGE_MACHINES = "can_manage_machines";
+    public static final String CAN_MANAGE_MEMBERS = "can_manage_members";
+    public static final String CAN_MANAGE_WORKLOADS = "can_manage_workloads";
+    public static final String CAN_REGISTER_NODE = "can_register_node";
+    public static final String CAN_REGISTER_SERVICES = "can_register_services";
+    public static final String CAN_REPORT = "can_report";
+    public static final String CAN_VIEW_ACCESS = "can_view_access";
+    public static final String CAN_VIEW_CLUSTER = "can_view_cluster";
+    public static final String CAN_VIEW_DEPLOYMENTS = "can_view_deployments";
+    public static final String CAN_VIEW_INTEGRATIONS = "can_view_integrations";
+    public static final String CAN_VIEW_JOBS = "can_view_jobs";
+    public static final String CAN_VIEW_MACHINES = "can_view_machines";
+    public static final String CAN_VIEW_MEMBERS = "can_view_members";
+    public static final String CAN_VIEW_TELEMETRY = "can_view_telemetry";
+    public static final String CAN_VIEW_WORKLOADS = "can_view_workloads";
     /** The permissions that only read, beside every {@code can_view_<something>}. */
     private static final Set<String> READING = Set.of(CAN_VIEW, CAN_READ, CAN_SEARCH);
 

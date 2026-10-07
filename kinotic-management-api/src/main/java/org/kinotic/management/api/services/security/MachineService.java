@@ -36,11 +36,11 @@ public interface MachineService {
      * @param applicationId the application whose API the machine calls; must belong to the
      *                      caller's organization
      */
-    @AuthzCheck(permission = "can_manage_machines")
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MACHINES)
     Future<MachineProvisionResult> createMachine(String displayName, String applicationId);
 
     /** Lists the machines of the given application of the caller's organization, disabled ones included. */
-    @AuthzCheck(permission = "can_view_machines")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MACHINES)
     Future<Page<MachineParticipantIdentity>> findMachines(String applicationId, Pageable pageable);
 
     /**
@@ -52,7 +52,7 @@ public interface MachineService {
      *
      * @param projectId a project belonging to the caller's organization
      */
-    @AuthzCheck(permission = "can_view_machines")
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MACHINES)
     Future<List<MachineParticipantIdentity>> findProjectMachines(String projectId);
 
     /**
@@ -62,7 +62,7 @@ public interface MachineService {
      *
      * @param machineId a machine belonging to the caller's organization
      */
-    @AuthzCheck(permission = "can_manage_machines", consistent = true)
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MACHINES, consistent = true)
     Future<String> rotateSecret(String machineId);
 
     /**
@@ -72,7 +72,7 @@ public interface MachineService {
      *
      * @param machineId a machine belonging to the caller's organization
      */
-    @AuthzCheck(permission = "can_manage_machines", consistent = true)
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MACHINES, consistent = true)
     Future<Void> setMachineEnabled(String machineId, boolean enabled);
 
     /**
@@ -81,6 +81,6 @@ public interface MachineService {
      *
      * @param machineId a machine belonging to the caller's organization
      */
-    @AuthzCheck(permission = "can_manage_machines", consistent = true)
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MACHINES, consistent = true)
     Future<Void> removeMachine(String machineId);
 }
