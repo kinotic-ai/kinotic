@@ -158,7 +158,37 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
                 .setServiceDefinition(definition);
     }
 
+    @Test
+    public void aContractWrittenAgainUnderTheSameVersionIsCheckedAsItIsNow() throws Exception {
+        await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(TEST_APP_ID, "Sample application", null)));
+        MachineParticipantIdentity runtime = runtime();
+        Participant runtimeCaller = machine(runtime.getId());
+        await(relationships.bind(AuthzStoreService.PLATFORM, AuthzUtil.APPLICATION_RUNTIME_ROLE,
+                                 AuthzUtil.object(AuthzUtil.USER_TYPE, runtime.getId()), AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, DomainUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID))));
+        String type = "report" + suffix();
+        String name = "ReportService" + suffix();
+        String service = ZONE + "~" + NAMESPACE + "." + name;
+        assertTrue(awaitUntil(() -> admitted(DIRECTORY_SERVICE, "register", runtimeCaller, List.of(entry(TEST_APP_ID, ZONE, reports(name, type))))),
+                   "the runtime was never admitted");
+        await(runAs(runtimeCaller, () -> directoryService.register(entry(TEST_APP_ID, ZONE, reports(name, type)))));
+        assertTrue(awaitUntil(() -> roleIds().contains(AuthzUtil.roleId(type, AuthzUtil.VIEWER))), "the store never ran a model carrying the service");
+        String tenantId = "tenant-" + suffix();
+        UserParticipantIdentity bob = endUser(tenantId);
+        Participant caller = applicationParticipant(tenantId, bob.getId());
+        // the authorizer reads the contract and keeps it: generate is checked
+        assertRefused(service, "generate", caller, List.of("q1"), type + "_can_generate on tenant:" + tenantId);
+
+        // the runtime registers the service again at the same version, serving generate unchecked
+        await(runAs(runtimeCaller, () -> directoryService.register(entry(TEST_APP_ID, ZONE, reports(name, type, false)))));
+        assertTrue(awaitUntil(() -> admitted(service, "generate", caller, List.of("q1"))), "the contract written again was checked as before");
+    }
+
     private static ServiceDefinition reports(String name, String type) {
+        return reports(name, type, true);
+    }
+
+    // The reports service of the given type: generate checked for the declared permission, or served unchecked
+    private static ServiceDefinition reports(String name, String type, boolean generateChecked) {
         AuthzResourceC3Decorator resource = new AuthzResourceC3Decorator()
                 .setResourceType(type)
                 .setParent(AuthzUtil.TENANT_TYPE)
@@ -166,7 +196,9 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
         ServiceDefinition ret = new ServiceDefinition().setNamespace(NAMESPACE).setName(name);
         ret.setDecorators(List.of(resource));
         ret.addFunction(function("findReports", null));
-        ret.addFunction(function("generate", new AuthzCheckC3Decorator().setPermission("can_generate").setResource(AuthzUtil.TENANT_TYPE), "name"));
+        ret.addFunction(function("generate", generateChecked
+                ? new AuthzCheckC3Decorator().setPermission("can_generate").setResource(AuthzUtil.TENANT_TYPE)
+                : new AuthzCheckC3Decorator().setUnchecked(true), "name"));
         ret.addFunction(function("ping", new AuthzCheckC3Decorator().setUnchecked(true)));
         return ret;
     }
