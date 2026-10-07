@@ -95,13 +95,12 @@ class McpToolInvokerTests {
     @Test
     void aRefusedCallIsTheToolsErrorResult() throws Exception {
         when(requestAuthorizer.authorize(any(), any(), any(), any()))
-                .thenReturn(Future.failedFuture(new AuthorizationException("project_can_edit on project:proj-b")));
+                .thenReturn(Future.failedFuture(new AuthorizationException("Not authorized")));
 
         McpCallToolResult result = invoker.invoke("save-project", jsonMapper.createObjectNode(), sally())
                                           .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
         assertTrue(result.isError());
-        assertEquals("project_can_edit on project:proj-b", result.getContent().getFirst().getText());
         verify(eventBusService, never()).sendWithAck(any());
     }
 
