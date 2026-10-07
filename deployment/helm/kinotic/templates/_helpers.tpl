@@ -69,7 +69,7 @@ Takes (dict "name" <server key> "server" <server values> "root" $).
 # ── JVM / Buildpack ───────────────────────────────────────
 SPRING_PROFILES_ACTIVE: "{{ $root.Values.properties.springActiveProfiles }}"
 # The OpenTelemetry Java agent every server image embeds
-JAVA_TOOL_OPTIONS: "{{ $root.Values.properties.javaToolOptions }} -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar {{ $root.Values.properties.javaModuleAccess }}"
+JAVA_TOOL_OPTIONS: "{{ $root.Values.properties.javaToolOptions }} -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar"
 BPL_JVM_HEAD_ROOM: "{{ $root.Values.properties.bplJvmHeadRoom }}"
 BPL_JAVA_NMT_ENABLED: "{{ $root.Values.properties.enableNmt }}"
 BPL_JMX_ENABLED: "{{ $root.Values.properties.enableJmx }}"

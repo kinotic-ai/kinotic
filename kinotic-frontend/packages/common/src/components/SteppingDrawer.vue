@@ -35,6 +35,7 @@ import { onBeforeUnmount, watch } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import Drawer from 'primevue/drawer'
 import { ChevronDown, ChevronUp, Maximize2, X } from '@lucide/vue'
+import '../styles/modal-mask.css'
 
 /**
  * A drawer showing one item of a list beside it: the item's place in the list, arrows and the
@@ -64,7 +65,7 @@ const STEPS = [
   { delta: 1, label: 'Next', icon: ChevronDown }
 ]
 const DRAWER_PT = {
-  mask: { class: '!bg-surface-950/20 dark:!bg-white/25 backdrop-blur-[3px]' },
+  mask: { class: 'modal-mask' },
   header: { class: 'border-b border-surface-200 dark:border-surface-800' },
   pcCloseButton: {
     root: {

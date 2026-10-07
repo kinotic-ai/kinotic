@@ -29,6 +29,7 @@
 import type { Component } from 'vue'
 import Dialog from 'primevue/dialog'
 import { X } from '@lucide/vue'
+import '../styles/modal-mask.css'
 
 /**
  * A modal form: an icon tile, title and description over the fields, with the footer's buttons
@@ -49,6 +50,6 @@ const emit = defineEmits<{
 const DIALOG_PT = {
   root: { class: '!w-[min(480px,calc(100vw-2rem))] !rounded-2xl !border-surface-200 !p-0 overflow-hidden dark:!border-surface-800' },
   content: { class: '!p-0' },
-  mask: { class: '!bg-surface-950/20 dark:!bg-white/25 backdrop-blur-[3px]' }
+  mask: { class: 'modal-mask' }
 }
 </script>
