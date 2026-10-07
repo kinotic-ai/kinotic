@@ -13,8 +13,8 @@ import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
-import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
@@ -86,6 +86,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
      */
     @PostConstruct
     void listenForContractChanges() {
+        // TODO: remove this and similar cache eviction logic infavor of more advanced cache eviction done in the kinotic-persistence module
         vertx.eventBus().<String>consumer(ServiceDirectory.CONTRACT_CHANGED_ADDRESS, message -> forget(message.body()));
     }
 
@@ -107,7 +108,8 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                     ? Future.succeededFuture()
                     : check(spec, scoped, store, contentType, body));
         } else {
-            ret = Future.failedFuture(new AuthorizationException("No store answers for participant " + participant.getId()));
+            log.warn("No store answers for participant of type {} with id {}", participant.getClass().getSimpleName(), participant.getId());
+            ret = Future.failedFuture(new AuthorizationException("Not authorized"));
         }
         return ret;
     }
