@@ -36,4 +36,7 @@ export function e2eConfig(test: NonNullable<ViteUserConfig['test']>): ViteUserCo
 export default defineConfig(e2eConfig({
     globalSetup: './test/setup.ts',
     include: ['test/native/**/*.test.ts'],
+    // A hook that grants an application's user polls, for up to 30s per wait, until the application's store
+    // answers for the grant, which lags the store's reconcile of its model
+    hookTimeout: 120_000,
 }))
