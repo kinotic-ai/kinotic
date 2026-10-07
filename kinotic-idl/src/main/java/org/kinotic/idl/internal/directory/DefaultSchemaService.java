@@ -139,6 +139,10 @@ public class DefaultSchemaService implements SchemaService {
                                                 declaredCheck,
                                                 parameters,
                                                 conversionContext);
+            } else if (declaredCheck != null && declaredCheck.isUnchecked()) {
+                // a service declaring no resource is marked unchecked as a whole, which its definition carries on
+                // each function
+                check = AuthzDecorators.uncheckedOf(function.getName() + " on " + declarer, declaredCheck);
             } else if (declaredCheck != null) {
                 throw new IllegalStateException("The function " + function.getName() + " on " + declarer
                                                         + " declares a check, but the service declares no resource");
@@ -186,6 +190,7 @@ public class DefaultSchemaService implements SchemaService {
         // a type-level @McpTool marks every function a tool, and supplies their shared title and description
         McpTool typeLevelMcpTool = AnnotationUtils.findAnnotation(serviceInterface, McpTool.class);
         AuthzResourceC3Decorator authzResource = AuthzDecorators.resourceOf(serviceInterface);
+        boolean unchecked = AuthzDecorators.uncheckedService(serviceInterface);
         if (authzResource != null) {
             serviceDefinition.setDecorators(List.of(authzResource));
         }
@@ -230,15 +235,18 @@ public class DefaultSchemaService implements SchemaService {
                 decorators.add(mcpTool);
             }
             if (authzResource != null) {
-                AuthzCheckC3Decorator check = AuthzDecorators.checkOf(serviceInterface,
-                                                                      authzResource,
-                                                                      function.getKey(),
-                                                                      function.getValue(),
-                                                                      functionDefinition.getParameters(),
-                                                                      conversionContext);
-                if (check != null) {
-                    decorators.add(check);
-                }
+                decorators.add(AuthzDecorators.checkOf(serviceInterface,
+                                                       authzResource,
+                                                       function.getKey(),
+                                                       function.getValue(),
+                                                       functionDefinition.getParameters(),
+                                                       conversionContext));
+            } else if (AuthzDecorators.declaresCheck(function.getValue())) {
+                throw new IllegalStateException("The function " + function.getKey() + " on " + serviceInterface.getName()
+                                                        + " declares a check, but the service declares no resource;"
+                                                        + " declare one with @AuthzResource, or mark the service @AuthzUnchecked");
+            } else if (unchecked) {
+                decorators.add(AuthzDecorators.unchecked());
             }
             if (!decorators.isEmpty()) {
                 functionDefinition.setDecorators(decorators);

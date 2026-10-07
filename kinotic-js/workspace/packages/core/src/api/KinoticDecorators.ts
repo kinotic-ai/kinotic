@@ -16,6 +16,7 @@ const zonesRegistry = new WeakMap<Function, string>()
 const advertisedRegistry = new WeakMap<Function, boolean>()
 const contextMarkedFunctions = new WeakSet<Function>()
 const authzResourceClasses = new WeakSet<Function>()
+const authzUncheckedClasses = new WeakSet<Function>()
 
 /**
  * A role a service declares for its resource type beside the built-in `viewer`, `editor` and `admin`: a bundle
@@ -72,8 +73,8 @@ export interface AuthzCheckDeclaration {
      */
     permission?: string | null
     /**
-     * The type of the resource the check is made on, when it is not the service's own type: the parent for a
-     * create, or a template such as `{definitionId}` for a function whose type is an argument.
+     * The type of the resource the check is made on, when it is not the service's own type, such as the parent for a
+     * create. A type name, never a template.
      */
     resource?: string | null
     /**
@@ -299,24 +300,30 @@ export function AuthzCheck(declaration: AuthzCheckDeclaration) {
 }
 
 /**
- * Marks a function of an {@link AuthzResource} service that is served with no authorization check, which
- * `kinotic sync` reads into the service's definition: any caller the service's zone admits may call it, and the
- * service itself is responsible for answering only what the caller may see or do. It is for a function that has
- * no resource to check, such as a listing of the caller's own grants. A function carrying this and
- * {@link AuthzCheck} fails the service's registration.
+ * Marks a function of an {@link AuthzResource} service, or a whole class declaring no resource, as served with
+ * no authorization check, which `kinotic sync` reads into the service's definition: any caller the service's
+ * zone admits may call it, and the service itself is responsible for answering only what the caller may see or
+ * do. It is for a function that has no resource to check, such as a listing of the caller's own grants, and for a
+ * service whose every function answers for the caller alone. The mark is the only way a function is served
+ * unchecked: a function the definition neither checks nor marks is refused. A function carrying this and
+ * {@link AuthzCheck} fails the service's registration, as does a class carrying this and {@link AuthzResource}.
  */
-export function AuthzUnchecked(_value: Function, _context: ClassMethodDecoratorContext): void {
+export function AuthzUnchecked(value: Function, context: ClassDecoratorContext<any> | ClassMethodDecoratorContext): void {
+    if (context.kind === 'class') {
+        authzUncheckedClasses.add(value)
+    }
 }
 
 /**
- * Returns whether the given service instance's class, or a class it extends, declares an {@link AuthzResource}.
+ * Returns whether the given service instance's class, or a class it extends, declares an {@link AuthzResource} or
+ * is marked {@link AuthzUnchecked}: either way the service's definition carries what the platform serves it by.
  * @param serviceInstance the service instance to inspect
  */
-export function declaresAuthzResource(serviceInstance: object): boolean {
+export function declaresAuthz(serviceInstance: object): boolean {
     let ret = false
     let current: Function | null = serviceInstance.constructor
     while (current && !ret) {
-        ret = authzResourceClasses.has(current)
+        ret = authzResourceClasses.has(current) || authzUncheckedClasses.has(current)
         current = Object.getPrototypeOf(current)
     }
     return ret

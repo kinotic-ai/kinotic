@@ -4,6 +4,7 @@ import com.github.slugify.Slugify;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.Grant;
+import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -179,17 +180,6 @@ public class DomainUtil {
             throw new IllegalArgumentException("Kinotic Project Id Invalid, first character must be a " +
                                                        "letter or number. And contain only letters, numbers, periods or dashes. Got "+ projectId);
         }
-    }
-
-    /**
-     * The type an entity definition's rows are in its application's authorization store: the definition's name
-     * lowercased, the last segment of the id {@link #createEntityDefinitionId} makes.
-     *
-     * @param entityDefinitionId the definition's id
-     * @return the rows' type
-     */
-    public static String entityTypeOf(String entityDefinitionId) {
-        return entityDefinitionId.substring(entityDefinitionId.lastIndexOf('.') + 1);
     }
 
     /**
@@ -445,6 +435,21 @@ public class DomainUtil {
      */
     public static String authzApplicationId(String organizationId, String applicationId) {
         return authzId(AuthzUtil.APPLICATION_TYPE, organizationId, applicationId);
+    }
+
+    /**
+     * The two edges of a definition within a tenant, the object a tenant's user is checked on for the definition's
+     * rows: the definition's, and the tenant's. No store holds tuples for the object, so a check on it is given
+     * the edges.
+     *
+     * @param definitionId the definition's id
+     * @param tenantId     the tenant's id within its application
+     * @return the edges to give the check
+     */
+    public static List<RelationshipTuple> tenantDefinitionEdges(String definitionId, String tenantId) {
+        String object = AuthzUtil.object(AuthzUtil.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(definitionId, tenantId));
+        return List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.ENTITY_DEFINITION_TYPE, definitionId), AuthzUtil.DEFINITION_RELATION, object),
+                       new RelationshipTuple(AuthzUtil.object(AuthzUtil.TENANT_TYPE, tenantId), AuthzUtil.TENANT_TYPE, object));
     }
 
     /**

@@ -12,15 +12,16 @@ import java.lang.annotation.Target;
  * {@link AuthzResource}, so a function states only the part derivation misses. Derivation is described on
  * {@link AuthzResource}; a function served with no check is marked {@link AuthzUnchecked} instead.
  *
- * <p>{@link #resource()} and {@link #resourceId()} are templates over the function's parameters: {@code {nodeId}}
- * is a parameter's value, {@code {registration.id}} a property of an object parameter, and
- * {@code {@organizationId}}, {@code {@applicationId}} or {@code {@tenantId}} the matching id of the caller's
- * scope.
+ * <p>{@link #resourceId()} is a template over the function's parameters: {@code {nodeId}} is a parameter's value,
+ * {@code {registration.id}} a property of an object parameter, and {@code {@organizationId}},
+ * {@code {@applicationId}} or {@code {@tenantId}} the matching id of the caller's scope. {@link #resource()}
+ * names a type and takes no template: what a request names is always an id.
  *
  * <p>Examples: {@code @AuthzCheck(permission = "can_report", resourceId = "{registration.id}")} on
  * {@code heartbeat(Registration registration)}, whose name derives no permission and whose id is inside the
- * body; {@code @AuthzCheck(resource = "tenant", permission = "can_create")} on a function of a service typed by
- * its request, checked on the caller's tenant for a permission of the request's type.
+ * body; {@code @AuthzCheck(resource = "platform", permission = "can_register_node")} on {@code registerNode} of
+ * the service typed {@code vm_node}, checked on the platform, where the node is not yet, for a permission of the
+ * node type.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
@@ -35,8 +36,8 @@ public @interface AuthzCheck {
     String permission() default "";
 
     /**
-     * The type of the resource the check is made on, when it is not the service's own type: the parent for a
-     * create, or a template such as {@code {definitionId}} for a function whose type is an argument.
+     * The type of the resource the check is made on, when it is not the service's own type, such as the parent
+     * for a create. A type name, never a template.
      */
     String resource() default "";
 

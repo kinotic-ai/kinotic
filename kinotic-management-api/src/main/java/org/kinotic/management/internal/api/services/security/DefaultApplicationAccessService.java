@@ -18,6 +18,7 @@ import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
+import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzUtil;
@@ -36,6 +37,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     private final ParticipantIdentityService identities;
     private final AuthzStoreService stores;
     private final RelationshipService relationships;
+    private final EntityDefinitionRepository entityDefinitions;
 
     @Override
     public Future<List<RoleDefinition>> findRoles(String applicationId) {
@@ -82,7 +84,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
                     .compose(v -> grantsOn(application, resource))
                     .compose(grants -> stores.modelId(store).compose(modelId -> {
                         // an administrator asks after changing access, so the answer must not predate the change
-                        Future<Boolean> allowed = relationships.check(store, modelId, holds, Consistency.HIGHER_CONSISTENCY);
+                        Future<Boolean> allowed = relationships.check(store, modelId, holds, Consistency.HIGHER_CONSISTENCY, edgesOf(resource));
                         List<Future<Boolean>> explains = grants.stream()
                                                                .map(grant -> relationships.explains(store, modelId, grant, subject, permission))
                                                                .toList();
@@ -99,33 +101,72 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         });
     }
 
-    // The grants made on the resource, then on the application above a tenant, as the store holds them
+    // The grants made on the resource, then on each resource above it, as the store holds them
     private Future<List<Grant>> grantsOn(Application application, Resource resource) {
         String store = storeOf(application);
-        Future<List<Grant>> ret = relationships.findGrants(store, objectOf(application, resource));
+        Future<List<Grant>> ret = Future.succeededFuture(new ArrayList<>());
+        for (Resource reached : reaching(application, resource)) {
+            ret = ret.compose(all -> relationships.findGrants(store, objectOf(application, reached)).map(grants -> {
+                all.addAll(grants);
+                return all;
+            }));
+        }
+        return ret;
+    }
+
+    // The resource and every resource a grant reaches it from: a definition within a tenant from the definition,
+    // the tenant and the application, a tenant or a definition from the application
+    private static List<Resource> reaching(Application application, Resource resource) {
+        List<Resource> ret = new ArrayList<>();
+        ret.add(resource);
+        if (AuthzUtil.TENANT_DEFINITION_TYPE.equals(resource.type())) {
+            ret.add(new Resource(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.definitionOf(resource.id())));
+            ret.add(new Resource(AuthzUtil.TENANT_TYPE, AuthzUtil.tenantOf(resource.id())));
+        }
+        if (!AuthzUtil.APPLICATION_TYPE.equals(resource.type())) {
+            ret.add(new Resource(AuthzUtil.APPLICATION_TYPE, application.getId()));
+        }
+        return ret;
+    }
+
+    // A grant is made on a tenant placed under the application, on a definition the application holds, or on both
+    private Future<Void> contained(Application application, Resource resource) {
+        Future<Void> ret;
         if (AuthzUtil.TENANT_TYPE.equals(resource.type())) {
-            ret = ret.compose(own -> relationships.findGrants(store, applicationObjectOf(application))
-                                                  .map(above -> {
-                                                      List<Grant> all = new ArrayList<>(own);
-                                                      all.addAll(above);
-                                                      return all;
-                                                  }));
+            ret = placed(application, resource.id());
+        } else if (AuthzUtil.ENTITY_DEFINITION_TYPE.equals(resource.type())) {
+            ret = requireDefinition(application, resource.id());
+        } else if (AuthzUtil.TENANT_DEFINITION_TYPE.equals(resource.type())) {
+            ret = requireDefinition(application, AuthzUtil.definitionOf(resource.id()))
+                    .compose(v -> placed(application, AuthzUtil.tenantOf(resource.id())));
+        } else {
+            ret = Future.succeededFuture();
         }
         return ret;
     }
 
     // A tenant is placed under its application when it is first granted on, so the grant and every one made on
     // the application reach it; the application itself is where the graph starts
-    private Future<Void> contained(Application application, Resource resource) {
-        Future<Void> ret;
-        if (AuthzUtil.TENANT_TYPE.equals(resource.type())) {
-            ret = relationships.ensure(storeOf(application), List.of(new RelationshipTuple(applicationObjectOf(application),
-                                                                                           AuthzUtil.APPLICATION_TYPE,
-                                                                                           objectOf(application, resource))));
-        } else {
-            ret = Future.succeededFuture();
-        }
-        return ret;
+    private Future<Void> placed(Application application, String tenantId) {
+        return relationships.ensure(storeOf(application), List.of(new RelationshipTuple(applicationObjectOf(application),
+                                                                                        AuthzUtil.APPLICATION_TYPE,
+                                                                                        AuthzUtil.object(AuthzUtil.TENANT_TYPE, tenantId))));
+    }
+
+    // A grant on a definition is made on one the application holds, which placed it in the store when it was created
+    private Future<Void> requireDefinition(Application application, String definitionId) {
+        return entityDefinitions.findById(definitionId, application.getOrganizationId()).map(definition -> {
+            if (definition == null || !application.getId().equals(definition.getApplicationId())) {
+                throw new IllegalArgumentException("No entity definition of the application has id " + definitionId);
+            }
+            return null;
+        });
+    }
+
+    private static List<RelationshipTuple> edgesOf(Resource resource) {
+        return AuthzUtil.TENANT_DEFINITION_TYPE.equals(resource.type())
+                ? DomainUtil.tenantDefinitionEdges(AuthzUtil.definitionOf(resource.id()), AuthzUtil.tenantOf(resource.id()))
+                : List.of();
     }
 
     private Future<Application> requireApplication(String applicationId) {
@@ -176,8 +217,12 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         Validate.notNull(resource, "resource cannot be null");
         Validate.notBlank(resource.id(), "resource id cannot be blank");
         boolean theApplication = AuthzUtil.APPLICATION_TYPE.equals(resource.type()) && applicationId.equals(resource.id());
-        Validate.isTrue(theApplication || AuthzUtil.TENANT_TYPE.equals(resource.type()),
-                        "a grant in an application is made on the application itself or on one of its tenants, not on %s", resource);
+        boolean pair = AuthzUtil.TENANT_DEFINITION_TYPE.equals(resource.type());
+        Validate.isTrue(theApplication || AuthzUtil.TENANT_TYPE.equals(resource.type()) || AuthzUtil.ENTITY_DEFINITION_TYPE.equals(resource.type()) || pair,
+                        "a grant in an application is made on the application itself, one of its tenants, one of its entity definitions"
+                                + " or a definition within a tenant, not on %s", resource);
+        Validate.isTrue(!pair || resource.id().indexOf('@') > 0,
+                        "a definition within a tenant is named <definition id>@<tenant id>, not %s", resource.id());
     }
 
     // An application's store has no groups, so a subject is one of its identities

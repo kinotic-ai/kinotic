@@ -2,8 +2,6 @@ package org.kinotic.authz.internal.api.services;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AuthzModel;
-import org.kinotic.authz.api.model.EntityResource;
-import org.kinotic.authz.api.model.EntityScope;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.utils.AuthzUtil;
@@ -33,8 +31,28 @@ public class AuthzModelGeneratorTest {
 
     private final DefaultAuthzModelGenerator generator = new DefaultAuthzModelGenerator();
 
+    @Test
+    public void aFunctionMarkedUncheckedAddsNoPermission() {
+        FunctionDefinition ping = new FunctionDefinition().setName("ping");
+        ping.setDecorators(List.of(new AuthzCheckC3Decorator().setUnchecked(true)));
+        AuthzModel model = generator.platformModel(List.of(service("ReportService", "report", "organization",
+                                                                   function("findReports", "report", "report", "can_view"), ping)));
+
+        assertEquals(Set.of("can_view"), model.permissions().get("report"));
+    }
+
     private static ServiceDefinition service(String name, String type, String parent, FunctionDefinition... functions) {
         return service(name, type, parent, List.of(), functions);
+    }
+
+    // the platform's entities repository as the directory holds it: the rows' permissions, a ladder but for creating
+    private static ServiceDefinition entitiesRepository() {
+        return service("JsonEntitiesRepository", "entity_definition", "application",
+                       function("count", "entity_definition", "entity_definition", "can_search"),
+                       function("findById", "entity_definition", "entity_definition", "can_read", "can_search"),
+                       function("save", "entity_definition", "entity_definition", "can_create"),
+                       function("update", "entity_definition", "entity_definition", "can_edit", "can_read"),
+                       function("deleteById", "entity_definition", "entity_definition", "can_delete", "can_edit"));
     }
 
     private static ServiceDefinition service(String name,
@@ -131,13 +149,26 @@ public class AuthzModelGeneratorTest {
     private static List<String> children(JsonNode type, String relation, String operator) {
         List<String> ret = new ArrayList<>();
         for (JsonNode child : type.get("relations").get(relation).get(operator).get("child")) {
-            if (child.has("tupleToUserset")) {
-                JsonNode ttu = child.get("tupleToUserset");
-                ret.add("ttu:" + ttu.get("tupleset").get("relation").asString() + "->"
-                                + ttu.get("computedUserset").get("relation").asString());
-            } else {
-                ret.add("computed:" + child.get("computedUserset").get("relation").asString());
+            ret.add(source(child));
+        }
+        return ret;
+    }
+
+    // One source of a relation: a tuple-to-userset, a computed userset, or a nested set of them
+    private static String source(JsonNode node) {
+        String ret;
+        if (node.has("tupleToUserset")) {
+            JsonNode ttu = node.get("tupleToUserset");
+            ret = "ttu:" + ttu.get("tupleset").get("relation").asString() + "->" + ttu.get("computedUserset").get("relation").asString();
+        } else if (node.has("computedUserset")) {
+            ret = "computed:" + node.get("computedUserset").get("relation").asString();
+        } else {
+            String operator = node.has("union") ? "union" : "intersection";
+            List<String> nested = new ArrayList<>();
+            for (JsonNode child : node.get(operator).get("child")) {
+                nested.add(source(child));
             }
+            ret = operator + ":" + nested;
         }
         return ret;
     }
@@ -315,28 +346,42 @@ public class AuthzModelGeneratorTest {
     }
 
     @Test
-    public void applicationModelRootsAtTheApplicationAndAddsEntityTypes() {
-        AuthzModel model = generator.applicationModel(List.of(), List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT),
-                                                                         new EntityResource("catalog", EntityScope.APPLICATION)));
+    public void applicationModelRootsAtTheApplicationWithTheFixedEntityTypes() {
+        AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), List.of());
 
-        assertEquals(Set.of("user", "group", "role", "role_binding", "application", "catalog", "invoice", "tenant"),
+        assertEquals(Set.of("user", "group", "role", "role_binding", "application", "entity_definition", "tenant", "tenant_definition"),
                      typeNames(model));
         assertFalse(type(model, "application").get("relations").has("organization"));
         assertEquals(List.of("user", "group#member", "application#end_user", "tenant#member"),
                      directTypes(type(model, "role_binding"), "member"));
-        assertEquals(List.of("tenant"), directTypes(type(model, "invoice"), "tenant"));
-        assertEquals(List.of("application"), directTypes(type(model, "catalog"), "application"));
-        assertEquals(List.of("ttu:role_binding->invoice_can_edit", "computed:invoice_can_delete", "ttu:application->invoice_can_edit"),
-                     children(type(model, "tenant"), "invoice_can_edit", "union"));
-        assertEquals(List.of("ttu:role_binding->invoice_can_edit", "computed:invoice_can_delete"),
-                     children(type(model, "application"), "invoice_can_edit", "union"));
-        assertEquals(List.of("ttu:role_binding->invoice_can_search", "computed:invoice_can_read", "ttu:tenant->invoice_can_search"),
-                     children(type(model, "invoice"), "invoice_can_search", "union"));
-        assertEquals(Set.of("can_create", "can_delete", "can_edit", "can_read", "can_search"), model.permissions().get("invoice"));
-        // a tenant carries the application's own entity types too, answered through the application above it
-        assertEquals(List.of("ttu:role_binding->catalog_can_read", "computed:catalog_can_edit", "ttu:application->catalog_can_read"),
-                     children(type(model, "tenant"), "catalog_can_read", "union"));
-        assertTrue(model.roles().get("tenant.admin").containsAll(Set.of("invoice_can_delete", "catalog_can_delete")));
+        // the application is placed in its own store by a wildcard tuple, and a definition under it is placed through it
+        assertEquals(List.of("user:*"), directTypes(type(model, "application"), "placed"));
+        assertEquals(List.of("application"), directTypes(type(model, "entity_definition"), "application"));
+        assertEquals("ttu:application->placed", source(type(model, "entity_definition").get("relations").get("placed")));
+        assertEquals(List.of("ttu:role_binding->entity_definition_can_edit", "computed:entity_definition_can_delete", "ttu:application->entity_definition_can_edit"),
+                     children(type(model, "entity_definition"), "entity_definition_can_edit", "union"));
+        assertEquals(Set.of("can_create", "can_delete", "can_edit", "can_read", "can_search"), model.permissions().get("entity_definition"));
+        // the tenant and the application carry the rows' permissions, so a grant on either reaches every definition
+        assertEquals(List.of("ttu:role_binding->entity_definition_can_read", "computed:entity_definition_can_edit", "ttu:application->entity_definition_can_read"),
+                     children(type(model, "tenant"), "entity_definition_can_read", "union"));
+        assertEquals(List.of("ttu:role_binding->entity_definition_can_read", "computed:entity_definition_can_edit"),
+                     children(type(model, "application"), "entity_definition_can_read", "union"));
+        // a definition within a tenant is reached from a binding on it, from the definition, and from the tenant
+        // for a definition placed in the application
+        JsonNode pair = type(model, "tenant_definition");
+        assertEquals(List.of("entity_definition"), directTypes(pair, "definition"));
+        assertEquals(List.of("tenant"), directTypes(pair, "tenant"));
+        assertEquals("ttu:definition->placed", source(pair.get("relations").get("placed")));
+        assertEquals(List.of("ttu:role_binding->entity_definition_can_search", "computed:entity_definition_can_read",
+                             "ttu:definition->entity_definition_can_search", "intersection:[ttu:tenant->entity_definition_can_search, computed:placed]"),
+                     children(pair, "entity_definition_can_search", "union"));
+        // the rows' permissions are the repository's, with the ladder it declares
+        assertEquals(Set.of("entity_definition_can_read", "entity_definition_can_search"), model.roles().get("entity_definition.viewer"));
+        assertEquals(Set.of("entity_definition_can_create", "entity_definition_can_edit", "entity_definition_can_read", "entity_definition_can_search"),
+                     model.roles().get("entity_definition.editor"));
+        assertTrue(model.roles().get("tenant.admin").contains("entity_definition_can_delete"));
+        assertTrue(model.roles().get("application.admin").contains("entity_definition_can_delete"));
+        assertFalse(model.roles().containsKey("tenant_definition.viewer"));
     }
 
     @Test
@@ -346,23 +391,29 @@ public class AuthzModelGeneratorTest {
                                                    service("ApplicationService", "application", "organization",
                                                            function("findById", "application", "application", "can_view")),
                                                    service("ProjectService", "project", "application",
-                                                           function("findById", "project", "project", "can_view")));
-        AuthzModel model = generator.applicationModel(platform, List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT)));
+                                                           function("findById", "project", "project", "can_view")),
+                                                   entitiesRepository());
+        AuthzModel model = generator.applicationModel(platform, List.of());
 
-        assertEquals(Set.of("user", "group", "role", "role_binding", "application", "invoice", "tenant"), typeNames(model));
+        assertEquals(Set.of("user", "group", "role", "role_binding", "application", "entity_definition", "tenant", "tenant_definition"), typeNames(model));
         assertEquals(Set.of("can_view_members"), model.permissions().get("tenant"));
+        assertEquals(Set.of("can_create", "can_delete", "can_edit", "can_read", "can_search"), model.permissions().get("entity_definition"));
         assertFalse(model.permissions().containsKey("application"));
         assertEquals(Set.of("tenant_can_view_members"), model.roles().get("tenant.viewer"));
-        assertTrue(model.roles().get("tenant.admin").containsAll(Set.of("tenant_can_view_members", "invoice_can_delete")));
+        assertTrue(model.roles().get("tenant.admin").containsAll(Set.of("tenant_can_view_members", "entity_definition_can_delete")));
     }
 
     @Test
-    public void aServiceWhoseTypeEachRequestNamesDeclaresNoType() {
-        ServiceDefinition entities = service("JsonEntitiesRepository", "{entityDefinitionId}", "tenant",
-                                             function("findById", "tenant", "{entityDefinitionId}", "can_read"));
-        AuthzModel model = generator.applicationModel(List.of(), List.of(entities), List.of(new EntityResource("invoice", EntityScope.TENANT)));
+    public void aServiceOnTheDefinitionTypeAddsItsPermissionsToThePlatformsDefinition() {
+        ServiceDefinition entities = service("JsonEntitiesRepository", "entity_definition", "application",
+                                             function("findById", "entity_definition", "entity_definition", "can_read"));
+        List<ServiceDefinition> platform = new ArrayList<>(platformServices());
+        platform.add(entities);
+        AuthzModel model = generator.platformModel(platform);
 
-        assertEquals(Set.of("user", "group", "role", "role_binding", "application", "invoice", "tenant"), typeNames(model));
+        assertTrue(type(model, "entity_definition").get("relations").has("entity_definition_can_read"));
+        assertTrue(type(model, "organization").get("relations").has("entity_definition_can_read"));
+        assertTrue(model.roles().get("entity_definition.viewer").contains("entity_definition_can_read"));
     }
 
     @Test
@@ -393,16 +444,6 @@ public class AuthzModelGeneratorTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.platformModel(services));
 
         assertTrue(e.getMessage().contains("ledger"));
-    }
-
-    @Test
-    public void anEntityNamedLikeAServiceTypeFails() {
-        List<ServiceDefinition> services = List.of(service("ProjectService", "project", "application"));
-
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-                                                  () -> generator.applicationModel(List.of(), services, List.of(new EntityResource("project", EntityScope.APPLICATION))));
-
-        assertTrue(e.getMessage().contains("project"));
     }
 
     @Test

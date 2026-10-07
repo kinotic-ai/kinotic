@@ -6,7 +6,7 @@ import org.kinotic.idl.api.annotations.AuthzResource;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * A service acting on the rows of whichever entity definition each request names, checked on the caller's tenant.
+ * A service whose own type is a template, which the conversion refuses.
  */
 @AuthzResource(value = "{entityDefinitionId}", parent = "tenant")
 public interface TestRowsService {

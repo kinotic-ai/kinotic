@@ -1,6 +1,6 @@
 <template>
   <FormDialog :visible="visible" :icon="UserPlus" title="Grant access"
-              description="Give one of this application's users or machines a role on the whole application or on one tenant."
+              description="Give one of this application's users or machines a role on the whole application, on one tenant, on one definition's rows, or on those rows in one tenant."
               @update:visible="emit('update:visible', $event)" @submit="submit">
     <div class="flex flex-col gap-5">
       <div>
@@ -22,9 +22,13 @@
         <SelectButton v-model="scope" :options="SCOPES" :allow-empty="false" class="mb-3" />
         <Select v-if="scope === 'One tenant'" v-model="tenantId" :options="tenants" editable placeholder="Tenant id" class="w-full"
                 empty-message="No tenant known yet; type its id" />
-        <p class="mt-1.5 text-[0.8125rem] text-muted-color">
-          {{ scope === 'One tenant' ? 'The role reaches the rows of that tenant alone.' : 'The role reaches the rows of every tenant, including ones created later.' }}
-        </p>
+      </div>
+      <div>
+        <span class="mb-2 block text-sm font-medium">Which rows</span>
+        <SelectButton v-model="rows" :options="ROWS" :allow-empty="false" class="mb-3" />
+        <Select v-if="rows === 'One definition'" v-model="definitionId" :options="definitions" option-label="name" option-value="id" filter
+                placeholder="Choose a definition" class="w-full" empty-message="No published definition yet" />
+        <p class="mt-1.5 text-[0.8125rem] text-muted-color">{{ reach }}</p>
       </div>
       <div>
         <label for="end-user-grant-role" class="mb-2 block text-sm font-medium">Role</label>
@@ -57,11 +61,13 @@ import { UserPlus } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
 import { type Grant, type Resource, type RoleDefinition, SubjectKind } from '@kinotic-ai/management-api'
 import { FormDialog, permissionLabel, showErrorToast, splitPermission, typeLabel } from '@kinotic-ai/frontend-common'
+import { type DefinitionOption, definitionOf, resourceOf, tenantOf } from './applicationResources'
 import type { SubjectOption } from './useSubjects'
 
 /**
- * Grants a role in the application's own store to one of its users or machines, on the application, which
- * reaches every tenant, or on one tenant: the subject holds every permission the role bundles on the rows there.
+ * Grants a role in the application's own store to one of its users or machines, on the application, on one
+ * tenant, on one definition's rows in every tenant, or on those rows in one tenant: the subject holds every
+ * permission the role bundles on the rows there.
  */
 const props = defineProps<{
   visible: boolean
@@ -72,6 +78,8 @@ const props = defineProps<{
   machines: SubjectOption[]
   /** The tenants known so far, offered in the picker; any other id can be typed. */
   tenants: string[]
+  /** The application's published definitions. */
+  definitions: DefinitionOption[]
   /** Where the dialog starts: the resource the page is looking at. */
   initialResource: Resource
 }>()
@@ -83,22 +91,34 @@ const emit = defineEmits<{
 
 const KINDS = ['User', 'Machine']
 const SCOPES = ['Whole application', 'One tenant']
+const ROWS = ['Every definition', 'One definition']
 
 const toast = useToast()
 const kind = ref<'User' | 'Machine'>('User')
 const scope = ref<'Whole application' | 'One tenant'>('Whole application')
+const rows = ref<'Every definition' | 'One definition'>('Every definition')
 const subjectId = ref<string | null>(null)
 const tenantId = ref<string | null>(null)
+const definitionId = ref<string | null>(null)
 const roleId = ref<string | null>(null)
 const granting = ref(false)
 
+/** The resource the grant is made on, or null while a tenant or a definition chosen is not named yet. */
 const resource = computed<Resource | null>(() => {
-  let ret: Resource | null
-  if (scope.value === 'Whole application') {
-    ret = { type: 'application', id: props.applicationId }
+  const tenant = scope.value === 'One tenant' ? tenantId.value?.trim() ?? '' : ''
+  const definition = rows.value === 'One definition' ? definitionId.value ?? '' : ''
+  const named = (scope.value !== 'One tenant' || tenant.length > 0) && (rows.value !== 'One definition' || definition.length > 0)
+  return named ? resourceOf(props.applicationId, tenant, definition) : null
+})
+
+const reach = computed(() => {
+  let ret: string
+  if (scope.value === 'One tenant') {
+    ret = rows.value === 'One definition' ? 'The role reaches those rows in that tenant alone.' : 'The role reaches the rows of every definition in that tenant.'
   } else {
-    const id = tenantId.value?.trim() ?? ''
-    ret = id.length > 0 ? { type: 'tenant', id } : null
+    ret = rows.value === 'One definition'
+        ? 'The role reaches those rows in every tenant, including ones created later.'
+        : 'The role reaches the rows of every definition in every tenant, including ones created later.'
   }
   return ret
 })
@@ -108,8 +128,12 @@ watch(() => props.visible, visible => {
     kind.value = 'User'
     subjectId.value = null
     roleId.value = null
-    scope.value = props.initialResource.type === 'tenant' ? 'One tenant' : 'Whole application'
-    tenantId.value = props.initialResource.type === 'tenant' ? props.initialResource.id : null
+    const tenant = tenantOf(props.initialResource)
+    const definition = definitionOf(props.initialResource)
+    scope.value = tenant ? 'One tenant' : 'Whole application'
+    tenantId.value = tenant
+    rows.value = definition ? 'One definition' : 'Every definition'
+    definitionId.value = definition
   }
 })
 

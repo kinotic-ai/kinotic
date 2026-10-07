@@ -13,8 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
-import org.kinotic.authz.api.model.EntityResource;
-import org.kinotic.authz.api.model.EntityScope;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
@@ -167,7 +165,7 @@ class OpenFgaIntegrationTest {
     @Test
     void anApplicationsStoreIsCreatedOnceFoundByNameAndDeletedWithEverythingInIt() throws Exception {
         String store = "lifecycle-" + System.nanoTime();
-        AuthzModel model = generator.applicationModel(List.of(), List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT)));
+        AuthzModel model = generator.applicationModel(List.of(), List.of());
 
         String storeId = await(storeService.ensureStore(store));
 
@@ -192,22 +190,21 @@ class OpenFgaIntegrationTest {
     @Test
     void aModelIsWrittenOnlyOnceTheRolesItGrantsThroughAreInStep() throws Exception {
         String store = "roles-first-" + System.nanoTime();
-        AuthzModel invoices = generator.applicationModel(List.of(), List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT)));
-        AuthzModel grown = generator.applicationModel(List.of(), List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT),
-                                                                         new EntityResource("receipt", EntityScope.TENANT)));
+        AuthzModel kernel = generator.applicationModel(List.of(entitiesRepository()), List.of());
+        AuthzModel grown = generator.applicationModel(List.of(entitiesRepository()), List.of(reportService()));
         String storeId = await(storeService.ensureStore(store));
-        await(relationshipService.ensureModelWithRoles(store, invoices));
+        await(relationshipService.ensureModelWithRoles(store, kernel));
 
         String grownModelId = await(relationshipService.ensureModelWithRoles(store, grown));
 
-        // the version before the grown one carries the receipt's role relations, and no type grants through them
+        // the version before the grown one carries the report's role relations, and no type grants through them
         List<AuthorizationModel> versions = await(fga.readAuthorizationModels(storeId, 10, null)).getAuthorizationModels();
         assertEquals(grownModelId, versions.getFirst().getId());
         AuthorizationModel bridge = versions.get(1);
-        assertTrue(relationsOf(bridge, "role").contains("receipt_can_read"));
-        assertFalse(relationsOf(bridge, "tenant").contains("receipt_can_read"));
-        assertTrue(relationsOf(bridge, "tenant").contains("invoice_can_read"));
-        assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:*", "receipt_can_read", "role:tenant.admin"))));
+        assertTrue(relationsOf(bridge, "role").contains("report_can_view"));
+        assertFalse(relationsOf(bridge, "tenant").contains("report_can_view"));
+        assertTrue(relationsOf(bridge, "tenant").contains("entity_definition_can_read"));
+        assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:*", "report_can_view", "role:tenant.admin"))));
         // a model in step writes nothing more
         assertEquals(grownModelId, await(relationshipService.ensureModelWithRoles(store, grown)));
         assertEquals(versions.size(), await(fga.readAuthorizationModels(storeId, 10, null)).getAuthorizationModels().size());
@@ -225,7 +222,7 @@ class OpenFgaIntegrationTest {
     @Test
     void aStoreCreatedAgainUnderItsNameIsResolvedAgainByEveryNodeWithinTheRetention() throws Exception {
         String store = "recreated-" + System.nanoTime();
-        AuthzModel model = generator.applicationModel(List.of(), List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT)));
+        AuthzModel model = generator.applicationModel(List.of(), List.of());
         RelationshipTuple bob = new RelationshipTuple("user:bob", "end_user", "application:" + store);
         DefaultAuthzStoreService elsewhere = new DefaultAuthzStoreService(fga, properties, vertx);
         DefaultRelationshipService relationshipsElsewhere = new DefaultRelationshipService(fga, elsewhere);
@@ -238,11 +235,10 @@ class OpenFgaIntegrationTest {
         await(storeService.deleteStore(store));
 
         String recreated = await(storeService.ensureStore(store));
-        AuthzModel grown = generator.applicationModel(List.of(), List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT),
-                                                                         new EntityResource("receipt", EntityScope.TENANT)));
+        AuthzModel grown = generator.applicationModel(List.of(), List.of(reportService()));
         String grownModelId = await(storeService.ensureModel(store, grown));
         await(relationshipService.ensureRoles(store, grown.roles()));
-        await(relationshipService.bind(store, "receipt.viewer", "user:bob", "tenant:t1"));
+        await(relationshipService.bind(store, "report.viewer", "user:bob", "tenant:t1"));
 
         assertNotEquals(storeId, recreated);
         // the engine keeps answering for the deleted store, so the other node answers from it until the retention
@@ -255,7 +251,7 @@ class OpenFgaIntegrationTest {
         assertEquals(grownModelId, await(elsewhere.modelId(store)));
         // a check naming the version the node read before is answered by the newest, as is one naming a relation
         // the version it kept lacked
-        RelationshipTuple reads = new RelationshipTuple("user:bob", "receipt_can_read", "tenant:t1");
+        RelationshipTuple reads = new RelationshipTuple("user:bob", "report_can_view", "tenant:t1");
         assertTrue(await(relationshipsElsewhere.check(store, modelId, reads, Consistency.HIGHER_CONSISTENCY)));
         assertTrue(await(relationshipService.check(store, await(storeService.modelId(store)), reads, Consistency.HIGHER_CONSISTENCY)));
         // a relation no version has fails as the engine refuses it
@@ -414,6 +410,18 @@ class OpenFgaIntegrationTest {
                        function("findById", "project", "project", "can_view"),
                        function("save", "project", "project", "can_edit"),
                        function("deleteById", "project", "project", "can_delete"));
+    }
+
+    // an application's own service, declared on the tenant, so the tenant carries its permission
+    private static ServiceDefinition reportService() {
+        return service("ReportService", "report", "tenant",
+                       function("findById", "report", "report", "can_view"));
+    }
+
+    // the platform's entities repository, whose declaration gives a definition's rows their permissions
+    private static ServiceDefinition entitiesRepository() {
+        return service("JsonEntitiesRepository", "entity_definition", "application",
+                       function("findById", "entity_definition", "entity_definition", "can_read"));
     }
 
     private static ServiceDefinition vmNodeService() {

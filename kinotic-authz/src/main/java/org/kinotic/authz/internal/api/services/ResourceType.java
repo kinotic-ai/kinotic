@@ -19,6 +19,8 @@ final class ResourceType {
     final Map<String, Set<String>> permissions = new LinkedHashMap<>();
     /** The roles the type's services declare, each id to the short names of the permissions it bundles. */
     final Map<String, Set<String>> declaredRoles = new LinkedHashMap<>();
+    /** Structural relations reached through the parent, each to the relation of the parent it is read from. */
+    final Map<String, String> inherited = new LinkedHashMap<>();
 
     ResourceType(String name, String parent) {
         this.name = name;

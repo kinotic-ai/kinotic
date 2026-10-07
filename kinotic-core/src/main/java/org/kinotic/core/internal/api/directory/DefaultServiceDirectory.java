@@ -25,6 +25,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.annotations.AuthzUnchecked;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
@@ -517,12 +518,13 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     }
 
     // Directory inclusion is opt-in via @Publish(advertise = true); an @McpTool function is already
-    // explicit intent to expose the service, so it implies inclusion, and an @AuthzResource service must be
-    // in the directory for the gateway to find its checks
+    // explicit intent to expose the service, so it implies inclusion, and an @AuthzResource or @AuthzUnchecked
+    // service must be in the directory for the gateway to find its checks or its mark
     private boolean shouldPublishToDirectory(ServiceDeclaration registration) {
         return isAdvertised(registration.serviceInterface())
                 || hasMcpToolFunction(registration)
-                || AnnotationUtils.findAnnotation(registration.serviceInterface(), AuthzResource.class) != null;
+                || AnnotationUtils.findAnnotation(registration.serviceInterface(), AuthzResource.class) != null
+                || AnnotationUtils.findAnnotation(registration.serviceInterface(), AuthzUnchecked.class) != null;
     }
 
     private boolean isAdvertised(Class<?> serviceInterface) {

@@ -13,6 +13,7 @@ import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.Application;
+import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
@@ -45,12 +46,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies an application's authorization store from creation to deletion: the sample application's store runs
- * the model its published definitions imply, with a role for each definition's rows, brought in step by the
- * store's worker as a definition is published; an end user is refused the rows of a definition until granted on
- * its tenant, admitted after, through the authorizer the gateway calls, refused another definition's rows and
- * another tenant's, and refused again once the grant is revoked, while a grant made on the application reaches
- * every tenant; the organization's administrator manages the grants through {@code ApplicationAccessService},
- * which refuses a grant on anything but the application or a tenant and to anyone but the application's own
+ * the fixed model, with the roles of a definition's rows, and holds each definition the application creates;
+ * an end user is refused the rows of a definition until granted on the definition within its tenant, admitted
+ * after, through the authorizer the gateway calls, refused another definition's rows and another tenant's, and
+ * refused again once the grant is revoked, while a grant made on the definition reaches it in every tenant and
+ * one made on the application reaches every definition; the organization's administrator manages the grants
+ * through {@code ApplicationAccessService}, which refuses a grant on anything but the application, a tenant, a
+ * definition the application holds or a definition within a tenant, and to anyone but the application's own
  * users; and deleting an application deletes its store with everything in it.
  */
 @SpringBootTest
@@ -80,97 +82,116 @@ public class ApplicationStoreTests extends KinoticTestBase {
     private TestDataService testData;
 
     @Test
-    public void theStoreRunsTheModelItsPublishedDefinitionsImply() throws Exception {
+    public void theStoreRunsTheFixedModelAndHoldsTheDefinitionsCreated() throws Exception {
         EntityDefinition person = await(runAsOrganization(() -> testData.createPersonEntityDefinitionIfNotExists())).getLeft();
-        // a definition published now, so the worker is seen bringing the store in step with it
+        // a definition created now, so the store is seen taking it as it is created
         EntityDefinition car = await(runAsOrganization(() -> testData.createCarEntityDefinitionIfNotExists("Store" + suffix()))).getLeft();
-        String personType = DomainUtil.entityTypeOf(person.getId());
-        String carType = DomainUtil.entityTypeOf(car.getId());
+        String store = DomainUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID);
 
-        assertTrue(awaitUntil(() -> roleIds().contains(AuthzUtil.roleId(carType, AuthzUtil.ADMIN))),
-                   "the store never ran a model carrying the definition published");
-        AuthzStore record = await(stores.findById(DomainUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID)));
+        AuthzStore record = await(stores.findById(store));
         assertEquals(TEST_ORG_ID, record.getOrganizationId());
         assertEquals(TEST_APP_ID, record.getApplicationId());
-        assertTrue(awaitUntil(() -> await(stores.findById(DomainUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID))).getState().isReconciled()), "the record never reconciled");
+        assertTrue(awaitUntil(() -> await(stores.findById(store)).getState().isReconciled()), "the record never reconciled");
 
+        // the roles of a definition's rows are the model's, whatever definitions the application holds
         Set<String> roles = roleIds();
-        assertTrue(roles.containsAll(List.of(AuthzUtil.roleId(personType, AuthzUtil.VIEWER), AuthzUtil.roleId(personType, AuthzUtil.EDITOR),
-                                             AuthzUtil.roleId(personType, AuthzUtil.ADMIN), AuthzUtil.roleId(carType, AuthzUtil.ADMIN),
+        assertTrue(roles.containsAll(List.of(AuthzUtil.roleId(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.VIEWER),
+                                             AuthzUtil.roleId(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.EDITOR),
+                                             AuthzUtil.roleId(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.ADMIN),
                                              AuthzUtil.roleId(AuthzUtil.TENANT_TYPE, AuthzUtil.ADMIN), AuthzUtil.roleId(AuthzUtil.APPLICATION_TYPE, AuthzUtil.ADMIN))),
                    roles.toString());
-        // a shared definition's rows sit in the tenant, so the tenant's admin holds everything of both
+        // a shared definition's rows sit in the tenant, so the tenant's admin holds everything of them
         RoleDefinition tenantAdmin = role(AuthzUtil.roleId(AuthzUtil.TENANT_TYPE, AuthzUtil.ADMIN));
         assertTrue(tenantAdmin.builtIn());
-        assertTrue(tenantAdmin.permissions().containsAll(List.of(AuthzUtil.permissionName(personType, AuthzUtil.CAN_DELETE),
-                                                                 AuthzUtil.permissionName(carType, AuthzUtil.CAN_DELETE))),
+        assertTrue(tenantAdmin.permissions().contains(AuthzUtil.permissionName(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.CAN_DELETE)),
                    tenantAdmin.permissions().toString());
+        // the application is placed in its own store, and each definition created is placed under it, which is what
+        // lets a grant on the tenant reach the definition's rows there
+        String application = AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, store);
+        assertTrue(await(relationships.holds(store, new RelationshipTuple(AuthzUtil.EVERYONE, AuthzUtil.PLACED_RELATION, application))));
+        assertTrue(await(relationships.holds(store, new RelationshipTuple(application, AuthzUtil.APPLICATION_TYPE, AuthzUtil.object(AuthzUtil.ENTITY_DEFINITION_TYPE, person.getId())))));
+        assertTrue(await(relationships.holds(store, new RelationshipTuple(application, AuthzUtil.APPLICATION_TYPE, AuthzUtil.object(AuthzUtil.ENTITY_DEFINITION_TYPE, car.getId())))));
     }
 
     @Test
     public void anEndUserIsAdmittedToItsTenantsRowsByAGrantAndRefusedWithout() throws Exception {
         EntityDefinition person = await(runAsOrganization(() -> testData.createPersonEntityDefinitionIfNotExists())).getLeft();
         EntityDefinition car = await(runAsOrganization(() -> testData.createCarEntityDefinitionIfNotExists(null))).getLeft();
-        String personType = DomainUtil.entityTypeOf(person.getId());
-        String carType = DomainUtil.entityTypeOf(car.getId());
-        assertTrue(awaitUntil(() -> roleIds().contains(AuthzUtil.roleId(carType, AuthzUtil.ADMIN))), "the store never ran the definitions' model");
         String tenantId = "tenant-" + suffix();
         UserParticipantIdentity bob = endUser(TEST_APP_ID, tenantId);
         Participant caller = applicationParticipant(tenantId, bob.getId());
         Subject subject = new Subject(SubjectKind.USER, bob.getId());
-        Resource tenant = new Resource(AuthzUtil.TENANT_TYPE, tenantId);
+        Resource personHere = new Resource(AuthzUtil.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), tenantId));
+        Resource carHere = new Resource(AuthzUtil.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(car.getId(), tenantId));
         List<Object> readRow = List.of(person.getId(), "row-1");
         // the contract carries the arguments a client sends; the participant is stamped on by the gateway
-        assertRefused(ENTITIES_SERVICE, "findById", caller, readRow, AuthzUtil.permissionName(personType, "can_read") + " on tenant:" + tenantId);
-        assertRefused(ENTITIES_SERVICE, "count", caller, List.of(person.getId()), AuthzUtil.permissionName(personType, "can_search"));
+        assertRefused(ENTITIES_SERVICE, "findById", caller, readRow, AuthzUtil.permissionName(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.CAN_READ)
+                + " on " + AuthzUtil.object(AuthzUtil.TENANT_DEFINITION_TYPE, personHere.id()));
+        assertRefused(ENTITIES_SERVICE, "count", caller, List.of(person.getId()), AuthzUtil.permissionName(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.CAN_SEARCH));
 
-        Grant grant = await(runAsOrganization(() -> access.grant(TEST_APP_ID, subject, AuthzUtil.roleId(personType, AuthzUtil.EDITOR), tenant)));
+        Grant grant = await(runAsOrganization(() -> access.grant(TEST_APP_ID, subject, AuthzUtil.roleId(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.EDITOR), personHere)));
 
         assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "findById", caller, readRow)), "the editor was never admitted to the rows");
         authorize(ENTITIES_SERVICE, "count", caller, List.of(person.getId()));
         authorize(ENTITIES_SERVICE, "bulkUpdate", caller, List.of(person.getId(), List.of(Map.of("id", "row-1"))));
         // an editor neither deletes nor reads another definition's rows, and another tenant's user holds nothing
-        assertRefused(ENTITIES_SERVICE, "deleteById", caller, readRow, AuthzUtil.permissionName(personType, "can_delete"));
-        assertRefused(ENTITIES_SERVICE, "findById", caller, List.of(car.getId(), "row-1"), AuthzUtil.permissionName(carType, "can_read"));
+        assertRefused(ENTITIES_SERVICE, "deleteById", caller, readRow, AuthzUtil.permissionName(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.CAN_DELETE));
+        assertRefused(ENTITIES_SERVICE, "findById", caller, List.of(car.getId(), "row-1"), AuthzUtil.object(AuthzUtil.TENANT_DEFINITION_TYPE, carHere.id()));
         String otherTenant = "tenant-" + suffix();
         UserParticipantIdentity alice = endUser(TEST_APP_ID, otherTenant);
         Participant other = applicationParticipant(otherTenant, alice.getId());
-        assertRefused(ENTITIES_SERVICE, "findById", other, readRow, "tenant:" + otherTenant);
+        assertRefused(ENTITIES_SERVICE, "findById", other, readRow, "@" + otherTenant);
 
         // the administrator sees the grant where it was made and what it explains
-        List<Grant> grants = await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, tenant)));
+        List<Grant> grants = await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, personHere)));
         assertEquals(List.of(grant), grants);
-        AccessExplanation explained = await(runAsOrganization(() -> access.explain(TEST_APP_ID, subject, AuthzUtil.permissionName(personType, "can_read"), tenant)));
+        AccessExplanation explained = await(runAsOrganization(() -> access.explain(TEST_APP_ID, subject, AuthzUtil.permissionName(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.CAN_READ), personHere)));
         assertTrue(explained.allowed());
         assertEquals(List.of(grant), explained.through());
-        assertFalse(await(runAsOrganization(() -> access.explain(TEST_APP_ID, subject, AuthzUtil.permissionName(carType, "can_read"), tenant))).allowed());
+        assertFalse(await(runAsOrganization(() -> access.explain(TEST_APP_ID, subject, AuthzUtil.permissionName(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.CAN_READ), carHere))).allowed());
 
-        // a grant on the application reaches every tenant, including one no grant was made on
+        // a grant on the definition reaches it in every tenant, including one no grant was made in
+        Resource personEverywhere = new Resource(AuthzUtil.ENTITY_DEFINITION_TYPE, person.getId());
+        Grant everyTenant = await(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectKind.USER, alice.getId()),
+                                                                       AuthzUtil.roleId(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.VIEWER), personEverywhere)));
+        assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "findById", other, readRow)), "the viewer granted on the definition was never admitted");
+        assertRefused(ENTITIES_SERVICE, "bulkUpdate", other, List.of(person.getId(), List.of()), AuthzUtil.permissionName(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.CAN_EDIT));
+        assertRefused(ENTITIES_SERVICE, "findById", other, List.of(car.getId(), "row-1"), AuthzUtil.object(AuthzUtil.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(car.getId(), otherTenant)));
+        Resource personThere = new Resource(AuthzUtil.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), otherTenant));
+        assertEquals(List.of(everyTenant), await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, personThere))));
+
+        // a grant on the application reaches every definition in every tenant
         Grant everywhere = await(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectKind.USER, alice.getId()),
-                                                                      AuthzUtil.roleId(personType, AuthzUtil.VIEWER),
+                                                                      AuthzUtil.roleId(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.VIEWER),
                                                                       new Resource(AuthzUtil.APPLICATION_TYPE, TEST_APP_ID))));
-        assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "findById", other, readRow)), "the viewer granted on the application was never admitted");
-        assertRefused(ENTITIES_SERVICE, "bulkUpdate", other, List.of(person.getId(), List.of()), AuthzUtil.permissionName(personType, "can_edit"));
-        assertEquals(List.of(everywhere), await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, new Resource(AuthzUtil.TENANT_TYPE, otherTenant)))));
+        assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "findById", other, List.of(car.getId(), "row-1"))), "the viewer granted on the application was never admitted");
+        assertEquals(List.of(everyTenant, everywhere), await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, personThere))));
 
-        await(runAsOrganization(() -> access.revoke(TEST_APP_ID, tenant, grant.id())));
-        assertTrue(awaitUntil(() -> !admitted(ENTITIES_SERVICE, "findById", caller, readRow)), "the revoked editor was still admitted");
-        // the grant made on the application still reaches the tenant, and is all that does
-        assertEquals(List.of(everywhere), await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, tenant))));
+        await(runAsOrganization(() -> access.revoke(TEST_APP_ID, personHere, grant.id())));
+        assertTrue(awaitUntil(() -> !admitted(ENTITIES_SERVICE, "bulkUpdate", caller, List.of(person.getId(), List.of()))), "the revoked editor was still admitted");
+        // the grants made on the definition and the application still reach it in the tenant, and are all that do
+        assertEquals(List.of(everyTenant, everywhere), await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, personHere))));
+        await(runAsOrganization(() -> access.revoke(TEST_APP_ID, personEverywhere, everyTenant.id())));
         await(runAsOrganization(() -> access.revoke(TEST_APP_ID, new Resource(AuthzUtil.APPLICATION_TYPE, TEST_APP_ID), everywhere.id())));
     }
 
     @Test
-    public void aGrantIsMadeOnTheApplicationOrATenantToOneOfItsOwnUsers() throws Exception {
+    public void aGrantIsMadeOnWhatTheApplicationHoldsToOneOfItsOwnUsers() throws Exception {
         EntityDefinition person = await(runAsOrganization(() -> testData.createPersonEntityDefinitionIfNotExists())).getLeft();
-        String editor = AuthzUtil.roleId(DomainUtil.entityTypeOf(person.getId()), AuthzUtil.EDITOR);
-        assertTrue(awaitUntil(() -> roleIds().contains(editor)), "the store never ran the definition's model");
+        String editor = AuthzUtil.roleId(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.EDITOR);
         UserParticipantIdentity bob = endUser(TEST_APP_ID, "tenant-" + suffix());
         Subject subject = new Subject(SubjectKind.USER, bob.getId());
         Resource tenant = new Resource(AuthzUtil.TENANT_TYPE, bob.getTenantId());
 
         // a grant on a project, which the application's store knows nothing of
         assertInstanceOf(IllegalArgumentException.class, failure(() -> access.grant(TEST_APP_ID, subject, editor, new Resource("project", "p"))));
+        // a grant on a definition the application does not hold, alone or within a tenant
+        String theirs = DomainUtil.createEntityDefinitionId(new ApplicationKey(TEST_ORG_ID, "another-app"), person.getName());
+        assertInstanceOf(IllegalArgumentException.class, failure(() -> access.grant(TEST_APP_ID, subject, editor, new Resource(AuthzUtil.ENTITY_DEFINITION_TYPE, theirs))));
+        assertInstanceOf(IllegalArgumentException.class,
+                         failure(() -> access.grant(TEST_APP_ID, subject, editor, new Resource(AuthzUtil.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(theirs, bob.getTenantId())))));
+        // a definition within a tenant named without the tenant
+        assertInstanceOf(IllegalArgumentException.class, failure(() -> access.grant(TEST_APP_ID, subject, editor, new Resource(AuthzUtil.TENANT_DEFINITION_TYPE, person.getId()))));
         // a grant to the organization's member, who is not one of the application's users
         assertInstanceOf(IllegalArgumentException.class,
                          failure(() -> access.grant(TEST_APP_ID, new Subject(SubjectKind.USER, TEST_ORGANIZATION_PARTICIPANT.getId()), editor, tenant)));

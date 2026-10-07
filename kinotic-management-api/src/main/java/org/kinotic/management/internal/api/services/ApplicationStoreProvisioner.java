@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.directory.ServiceDirectory;
@@ -13,6 +14,7 @@ import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -36,7 +38,7 @@ public class ApplicationStoreProvisioner {
 
     public Future<Void> provision(Application application) {
         return directory.findSystemDefinitions()
-                     .map(platform -> generator.applicationModel(platform, List.of(), List.of()))
+                     .map(platform -> generator.applicationModel(platform, List.of()))
                      .compose(kernel -> provision(application, kernel));
     }
 
@@ -44,8 +46,8 @@ public class ApplicationStoreProvisioner {
         String store = DomainUtil.authzApplicationId(application.getOrganizationId(), application.getId());
         return stores.ensureStore(store)
                      // the kernel model and its roles admit the membership tuples written at user creation and the
-                     // grants made before the first definition is published; a store already running a model keeps
-                     // it, since the reconciler's carries the application's definitions
+                     // grants made before any service of the application registers; a store already running a
+                     // model keeps it, since the reconciler's carries the application's services
                      .compose(id -> stores.modelId(store).recover(none -> kernel(store, kernel)))
                      .compose(version -> records.findById(store))
                      .compose(record -> {
@@ -56,9 +58,9 @@ public class ApplicationStoreProvisioner {
                              AuthzStore created = new AuthzStore().setId(store)
                                                                   .setOrganizationId(application.getOrganizationId())
                                                                   .setApplicationId(application.getId());
-                             // created with the kernel model as its intent, so a definition published before the
-                             // worker's first run renews an intent that exists, and the master reconciles the
-                             // record to the model the definitions imply on its next look
+                             // created with the kernel model as its intent, so a service registered before the
+                             // worker's first run stamps a record that exists, and the master reconciles the
+                             // record to the model the services imply on its next look
                              ret = records.updateDesired(store, new AuthzModelRevision(kernel.hash()), created, "application created")
                                           .onSuccess(v -> log.info("Provisioned the authorization store of application {}", store))
                                           .mapEmpty();
@@ -67,7 +69,11 @@ public class ApplicationStoreProvisioner {
                      });
     }
 
+    // The kernel model, its roles, and the one tuple the application holds in its own store: everyone is placed
+    // on it, which the placement of each definition under it is read through
     private Future<String> kernel(String store, AuthzModel model) {
-        return relationships.ensureModelWithRoles(store, model);
+        RelationshipTuple placed = new RelationshipTuple(AuthzUtil.EVERYONE, AuthzUtil.PLACED_RELATION, AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, store));
+        return relationships.ensureModelWithRoles(store, model)
+                            .compose(version -> relationships.ensure(store, List.of(placed)).map(version));
     }
 }

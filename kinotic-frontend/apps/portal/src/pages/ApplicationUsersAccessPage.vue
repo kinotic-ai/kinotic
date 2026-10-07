@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col">
     <PageHeader title="End-user access"
-                description="Who may read and write this application's data: the grants in the application's own store, on the whole application or on one tenant.">
+                description="Who may read and write this application's data: the grants in the application's own store, on the whole application, on one tenant, on one definition's rows, or on those rows in one tenant.">
       <template #actions>
         <Button label="Users" icon="pi pi-arrow-left" size="small" severity="secondary" text @click="router.push({ name: 'application-users', params: { applicationId } })" />
       </template>
@@ -16,6 +16,8 @@
         <template #actions>
           <Select v-model="where" :options="whereOptions" option-label="label" option-value="id" editable size="small"
                   placeholder="Whole application or a tenant id" class="w-64" />
+          <Select v-model="definition" :options="definitionOptions" option-label="label" option-value="id" size="small"
+                  placeholder="Every definition or one" class="w-56" />
           <Button v-if="subjectFilter" label="Show everyone" icon="pi pi-filter-slash" size="small" severity="secondary" outlined @click="clearSubject" />
           <Button v-if="canManageAccess" label="Grant access" icon="pi pi-plus" size="small" @click="grantDialogVisible = true" />
         </template>
@@ -35,7 +37,7 @@
           </Column>
           <Column header="Where" style="width: 20%">
             <template #body="{ data }">
-              <TableChip :icon="MapPin">{{ placeLabel(data.resource) }}</TableChip>
+              <TableChip :icon="MapPin">{{ resourceLabel(data.resource, definitions) }}</TableChip>
             </template>
           </Column>
           <Column style="width: 15%">
@@ -49,10 +51,11 @@
       </DashboardSection>
 
       <EndUserAccessCheckPanel v-if="!loading" :tint="TINTS.blue" :application-id="applicationId" :users="members" :machines="machines" :roles="roles"
-                               :catalog="catalog" :tenants="tenants" :label-of="labelOf" :initial-subject-id="subjectFilter?.id" :initial-resource="resource" />
+                               :catalog="catalog" :tenants="tenants" :definitions="definitions" :label-of="labelOf" :initial-subject-id="subjectFilter?.id"
+                               :initial-resource="resource" />
 
       <EndUserGrantDialog v-model:visible="grantDialogVisible" :application-id="applicationId" :roles="roles" :users="members" :machines="machines"
-                          :tenants="tenants" :initial-resource="resource" @granted="onGranted" />
+                          :tenants="tenants" :definitions="definitions" :initial-resource="resource" @granted="onGranted" />
     </div>
   </div>
 </template>
@@ -69,24 +72,30 @@ import Skeleton from 'primevue/skeleton'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { KeyRound, MapPin } from '@lucide/vue'
-import { Kinotic } from '@kinotic-ai/core'
+import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { type Grant, type Resource, type RoleDefinition, type Subject, SubjectKind } from '@kinotic-ai/management-api'
 import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, RoleCell, SubjectCell, TINTS, TableChip,
-         errorMessage, isAuthorizationError, showErrorToast, typeLabel } from '@kinotic-ai/frontend-common'
+         errorMessage, isAuthorizationError, showErrorToast } from '@kinotic-ai/frontend-common'
 import EndUserAccessCheckPanel from '@/components/access/EndUserAccessCheckPanel.vue'
 import EndUserGrantDialog from '@/components/access/EndUserGrantDialog.vue'
+import { type DefinitionOption, resourceLabel, resourceOf, reaches, tenantOf } from '@/components/access/applicationResources'
 import { useSubjects } from '@/components/access/useSubjects'
 
 /**
  * The end-user access page of one application: the grants in the application's own store that reach the whole
- * application or one tenant, a grant of a role to one of the application's users or machines, and a check that
- * explains anyone's access. Opened for one user from the Users page, it shows that user's grants alone.
+ * application, one tenant, one definition's rows in every tenant or those rows in one tenant, a grant of a role
+ * to one of the application's users or machines, and a check that explains anyone's access. Opened for one user
+ * from the Users page, it shows that user's grants alone.
  */
 const props = defineProps<{
   applicationId: string
 }>()
 
 const WHOLE_APPLICATION = ''
+const EVERY_DEFINITION = ''
+// the pickers list the first page of the application's published definitions, which covers an application of
+// a few hundred; a definition beyond them is shown by its id
+const DEFINITION_PAGE_SIZE = 500
 
 const route = useRoute()
 const router = useRouter()
@@ -96,12 +105,14 @@ const { members, machines, load: loadSubjects, labelOf } = useSubjects(props.app
 
 const grants = ref<Grant[]>([])
 const roles = ref<RoleDefinition[]>([])
+const definitions = ref<DefinitionOption[]>([])
 const canManageAccess = ref(false)
 const loading = ref(true)
 const refused = ref(false)
 const error = ref<string | null>(null)
 const grantDialogVisible = ref(false)
 const where = ref<string>(typeof route.query.tenant === 'string' ? route.query.tenant : WHOLE_APPLICATION)
+const definition = ref<string>(EVERY_DEFINITION)
 
 /** The subject the page was opened for, from its query, or null for everyone's grants. */
 const subjectFilter = computed<Subject | null>(() => {
@@ -109,20 +120,29 @@ const subjectFilter = computed<Subject | null>(() => {
   return typeof id === 'string' && id.length > 0 ? { kind: SubjectKind.USER, id } : null
 })
 
-/** The place the page is looking at: the whole application, or the tenant typed or picked. */
-const resource = computed<Resource>(() => {
-  const tenant = where.value.trim()
-  return tenant.length > 0 ? { type: 'tenant', id: tenant } : { type: 'application', id: props.applicationId }
-})
+/** The resource the page is looking at: the whole application, the tenant typed or picked, the definition picked, or both. */
+const resource = computed<Resource>(() => resourceOf(props.applicationId, where.value.trim(), definition.value))
 
 const shown = computed(() => subjectFilter.value
     ? grants.value.filter(grant => grant.subject.id === subjectFilter.value?.id)
     : grants.value)
 
-const whereTitle = computed(() => resource.value.type === 'tenant' ? `Grants reaching tenant ${resource.value.id}` : 'Grants on the whole application')
-const whereDescription = computed(() => resource.value.type === 'tenant'
-    ? 'Who holds a role on this tenant, and who holds one on the whole application, which reaches it too.'
-    : 'Who holds a role on the application, and so on the rows of every tenant.')
+const whereTitle = computed(() => resource.value.type === 'application'
+    ? 'Grants on the whole application'
+    : `Grants reaching ${resourceLabel(resource.value, definitions.value)}`)
+const whereDescription = computed(() => {
+  let ret: string
+  if (resource.value.type === 'tenant') {
+    ret = 'Who holds a role on this tenant, and who holds one on the whole application, which reaches it too.'
+  } else if (resource.value.type === 'entity_definition') {
+    ret = 'Who holds a role on these rows in every tenant, and who holds one on the whole application, which reaches them too.'
+  } else if (resource.value.type === 'tenant_definition') {
+    ret = 'Who holds a role on these rows alone, and who holds one on the tenant, on the definition or on the whole application, which reach them too.'
+  } else {
+    ret = 'Who holds a role on the application, and so on the rows of every definition in every tenant.'
+  }
+  return ret
+})
 
 /** The tenants seen so far: those the application's users belong to and those a grant was made on. */
 const tenants = computed(() => {
@@ -133,8 +153,9 @@ const tenants = computed(() => {
     }
   }
   for (const grant of grants.value) {
-    if (grant.resource.type === 'tenant') {
-      ids.add(grant.resource.id)
+    const tenant = tenantOf(grant.resource)
+    if (tenant) {
+      ids.add(tenant)
     }
   }
   return [...ids].sort()
@@ -143,6 +164,11 @@ const tenants = computed(() => {
 const whereOptions = computed(() => [
   { label: 'Whole application', id: WHOLE_APPLICATION },
   ...tenants.value.map(id => ({ label: `Tenant ${id}`, id }))
+])
+
+const definitionOptions = computed(() => [
+  { label: 'Every definition', id: EVERY_DEFINITION },
+  ...definitions.value.map(option => ({ label: option.name, id: option.id }))
 ])
 
 /** The permissions the application's store defines, read from the roles that bundle them. */
@@ -162,14 +188,16 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    const [found, defined, managed] = await Promise.all([
+    const [found, defined, managed, published] = await Promise.all([
       Kinotic.applicationAccess.findGrants(props.applicationId, resource.value),
       Kinotic.applicationAccess.findRoles(props.applicationId),
       Kinotic.permissions.listAccessible('application', 'can_manage_access'),
+      Kinotic.entityDefinitions.findAllPublishedForApplication(props.applicationId, Pageable.create(0, DEFINITION_PAGE_SIZE)),
       loadSubjects()
     ])
     grants.value = found
     roles.value = defined
+    definitions.value = (published.content ?? []).flatMap(entity => entity.id ? [{ id: entity.id, name: entity.name }] : [])
     canManageAccess.value = managed.includes(props.applicationId)
     refused.value = false
   } catch (err) {
@@ -184,17 +212,12 @@ function roleOf(roleId: string): RoleDefinition | undefined {
   return roles.value.find(role => role.id === roleId)
 }
 
-function placeLabel(place: Resource): string {
-  return place.type === 'application' ? 'Whole application' : `${typeLabel(place.type)} ${place.id}`
-}
-
 function clearSubject(): void {
   router.replace({ name: 'application-users-access', params: { applicationId: props.applicationId } })
 }
 
 function onGranted(grant: Grant): void {
-  // a grant made elsewhere than the place shown reaches it only when made on the application
-  if (grant.resource.type === resource.value.type && grant.resource.id === resource.value.id || grant.resource.type === 'application') {
+  if (reaches(grant.resource, resource.value)) {
     grants.value = [...grants.value, grant]
   }
 }
@@ -202,7 +225,7 @@ function onGranted(grant: Grant): void {
 function confirmRevoke(grant: Grant): void {
   confirm.require({
     header: 'Revoke access',
-    message: `Revoke ${roleOf(grant.roleId)?.name ?? grant.roleId} from ${labelOf.value(grant.subject)} on ${placeLabel(grant.resource).toLowerCase()}? They keep whatever other grants reach them.`,
+    message: `Revoke ${roleOf(grant.roleId)?.name ?? grant.roleId} from ${labelOf.value(grant.subject)} on ${resourceLabel(grant.resource, definitions.value)}? They keep whatever other grants reach them.`,
     icon: 'pi pi-exclamation-triangle',
     acceptProps: { label: 'Revoke', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },

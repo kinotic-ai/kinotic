@@ -6,7 +6,7 @@ import org.kinotic.idl.api.annotations.AuthzResource;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * A service whose resource type is an argument of the call.
+ * A service whose check names its resource's type by a template, which the conversion refuses.
  */
 @AuthzResource("entity")
 public interface TestEntityService {

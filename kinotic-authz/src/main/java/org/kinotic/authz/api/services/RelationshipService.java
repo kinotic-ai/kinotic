@@ -191,7 +191,22 @@ public interface RelationshipService {
      * @param consistency  how current the answer must be
      * @return true when the relation is held
      */
-    Future<Boolean> check(String store, String modelId, RelationshipTuple relationship, Consistency consistency);
+    default Future<Boolean> check(String store, String modelId, RelationshipTuple relationship, Consistency consistency) {
+        return check(store, modelId, relationship, consistency, List.of());
+    }
+
+    /**
+     * Whether the user holds the relation on the object, with the given tuples taken as held for this check
+     * alone, beside the store's: the edges of an object the store keeps no tuples for.
+     *
+     * @param store        the store, named as its record is
+     * @param modelId      the model version to evaluate against
+     * @param relationship the user, relation and object to check
+     * @param consistency  how current the answer must be
+     * @param context      tuples held for this check only
+     * @return true when the relation is held
+     */
+    Future<Boolean> check(String store, String modelId, RelationshipTuple relationship, Consistency consistency, List<RelationshipTuple> context);
 
     /**
      * The objects of a type on which the user holds the relation.
