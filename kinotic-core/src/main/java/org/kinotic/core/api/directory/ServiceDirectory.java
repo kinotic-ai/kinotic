@@ -59,7 +59,8 @@ public interface ServiceDirectory {
 
     /**
      * The entry of one service, by the id a registration gives it: the service's qualified name with its zone,
-     * {@code <zone>~<namespace>.<Name>}.
+     * {@code <zone>~<namespace>.<Name>}, or {@code <zone>~<Name>} for an application's service published in no
+     * namespace.
      * @param entryId the entry's id
      * @return the entry, or null when no service of that id has registered
      */
@@ -73,14 +74,15 @@ public interface ServiceDirectory {
      * {@link SchemaService#deriveChecks} does, derives the MCP tools its functions declare, and owns the
      * entry's id, address and liveness, which follows the service's registrations on the event bus. The
      * application's store reconciles to a model carrying the service, and an entry equal to the one stored
-     * leaves it as it is.
+     * leaves it as it is. A definition naming no namespace, a service published in none, is in its zone's
+     * namespace and addressed {@code <zone>~<Name>}, as the runtime serves it.
      *
      * @param entry the service to register, as the runtime declares it
      * @return a future that completes once the entry is stored
      * @throws IllegalStateException    when the definition does not derive, as {@link SchemaService#deriveChecks} says,
      *                                  or a function's tool declaration is one MCP cannot serve
      * @throws IllegalArgumentException when the entry names no organization, application or zone, carries no
-     *                                  definition, or the definition names no namespace or no name
+     *                                  definition, or the definition names no name
      */
     Future<Void> register(ServiceDirectoryEntry entry);
 
