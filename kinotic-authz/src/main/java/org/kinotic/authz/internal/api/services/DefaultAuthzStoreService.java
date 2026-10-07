@@ -12,16 +12,22 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.openhft.hashing.LongTupleHashFunction;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.core.api.utils.KinoticUtil;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -33,7 +39,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DefaultAuthzStoreService implements AuthzStoreService, InitializingBean {
 
     static final String PLATFORM_STORE_NAME = "kinotic-platform";
-    static final String APPLICATION_STORE_PREFIX = "kinotic-app-";
+    private static final String APPLICATION_STORE_PREFIX = "kinotic-app-";
     // the SDK's model classes bind by their own wire names, so the application's mapper customizations stay
     // out of the conversion in both directions
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
@@ -152,6 +158,80 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     }
 
     /**
+     * Makes the store's current version hold every relation of the given model's role type, writing the current
+     * version with the missing ones added, so the roles the model implies can be written before the model that
+     * grants through them is the store's current one. A store with no model yet gets a version of the model's
+     * identities and roles alone.
+     *
+     * @param store the store, named as its record is
+     * @param model the model whose roles are about to be written
+     * @return completes when the store's current version holds the model's role relations
+     */
+    Future<Void> ensureRoleRelations(String store, AuthzModel model) {
+        return storeIdOf(store).compose(storeId -> latestModel(storeId).compose(latest -> {
+            ObjectNode bridge = bridgeOf(latest == null ? null : definitionOf(latest), model.definition());
+            Future<Void> ret;
+            if (bridge == null) {
+                ret = Future.succeededFuture();
+            } else {
+                ret = fga.writeAuthorizationModel(storeId, MAPPER.treeToValue(bridge, WriteAuthorizationModelRequest.class))
+                         .onSuccess(response -> log.info("Wrote authorization model {} to store {} with the role relations of the next",
+                                                         response.getAuthorizationModelId(), storeId))
+                         .mapEmpty();
+            }
+            return ret;
+        }));
+    }
+
+    // The current definition with the target's role relations it lacks added, the identities and the roles of the
+    // target for a store with none; null when the current one holds them all. No other type of the current one
+    // reaches a role relation it lacked, so no check can traverse one before its roles are written
+    private static ObjectNode bridgeOf(ObjectNode current, ObjectNode target) {
+        ObjectNode targetRole = typeDefinition(target, AuthzUtil.ROLE_TYPE);
+        ObjectNode ret = null;
+        if (current == null) {
+            ret = MAPPER.createObjectNode();
+            ret.set("schema_version", target.get("schema_version"));
+            ret.putArray("type_definitions")
+               .add(typeDefinition(target, AuthzUtil.USER_TYPE).deepCopy())
+               .add(targetRole.deepCopy());
+        } else {
+            ObjectNode currentRole = typeDefinition(current, AuthzUtil.ROLE_TYPE);
+            List<String> missing = new ArrayList<>();
+            for (String relation : targetRole.get("relations").propertyNames()) {
+                if (currentRole == null || !currentRole.path("relations").has(relation)) {
+                    missing.add(relation);
+                }
+            }
+            if (!missing.isEmpty()) {
+                ret = current.deepCopy();
+                ObjectNode role = typeDefinition(ret, AuthzUtil.ROLE_TYPE);
+                if (role == null) {
+                    ((ArrayNode) ret.get("type_definitions")).add(targetRole.deepCopy());
+                } else {
+                    ObjectNode relations = role.withObjectProperty("relations");
+                    ObjectNode metadata = role.withObjectProperty("metadata").withObjectProperty("relations");
+                    for (String relation : missing) {
+                        relations.set(relation, targetRole.get("relations").get(relation).deepCopy());
+                        metadata.set(relation, targetRole.get("metadata").get("relations").get(relation).deepCopy());
+                    }
+                }
+            }
+        }
+        return ret;
+    }
+
+    private static ObjectNode typeDefinition(ObjectNode definition, String type) {
+        ObjectNode ret = null;
+        for (JsonNode typeDefinition : definition.path("type_definitions")) {
+            if (type.equals(typeDefinition.path("type").asString())) {
+                ret = (ObjectNode) typeDefinition;
+            }
+        }
+        return ret;
+    }
+
+    /**
      * The engine's id of the store named as its record is, resolved once and kept. The engine keeps answering
      * for a deleted store's tuples and models, so a kept id is confirmed with it once the retention has passed,
      * and one of a store deleted since, as an application's is when the application is deleted and created
@@ -210,8 +290,17 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     }
 
     // The engine's name of a store: the platform's fixed one, or an application's prefixed by what it is
+    // The engine caps a store's name at 64 characters, which an application's id need not fit, so an application's
+    // store is named by the id's 128-bit digest
     private static String storeNameOf(String store) {
-        return PLATFORM.equals(store) ? PLATFORM_STORE_NAME : APPLICATION_STORE_PREFIX + store;
+        String ret;
+        if (PLATFORM.equals(store)) {
+            ret = PLATFORM_STORE_NAME;
+        } else {
+            long[] hash = LongTupleHashFunction.xx128().hashChars(store);
+            ret = APPLICATION_STORE_PREFIX + HexFormat.of().formatHex(ByteBuffer.allocate(Long.BYTES * 2).putLong(hash[0]).putLong(hash[1]).array());
+        }
+        return ret;
     }
 
     private Future<String> requireStore(String store) {

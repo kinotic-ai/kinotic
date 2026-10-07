@@ -82,7 +82,9 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         Validate.notNull(participant, "participant cannot be null");
         Future<Void> ret;
         if (participant instanceof ScopedParticipant scoped) {
-            String store = participant instanceof ApplicationParticipant application ? application.getApplicationId() : PLATFORM;
+            String store = participant instanceof ApplicationParticipant application
+                    ? DomainUtil.authzApplicationId(application.getOrganizationId(), application.getApplicationId())
+                    : PLATFORM;
             ret = spec(cri).compose(spec -> spec.check() == null
                     ? Future.succeededFuture()
                     : check(spec, scoped, store, contentType, body));
@@ -141,7 +143,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                 permission = AuthzUtil.isReading(permission) ? AuthzUtil.CAN_VIEW : AuthzUtil.CAN_EDIT;
             }
             String resource = typeOf(checked.type(), spec, participant, contentType, body);
-            String resourceId = resolve(checked.id(), spec, participant, contentType, body);
+            String resourceId = authzIdOf(resource, resolve(checked.id(), spec, participant, contentType, body), participant.getScope());
             String permissionType = typeOf(permissionResource, spec, participant, contentType, body);
             RelationshipTuple relationship = new RelationshipTuple(DomainUtil.authzUser(participant),
                                                                    AuthzUtil.permissionName(permissionType, permission),
@@ -177,6 +179,16 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
             ret = level < SCOPE_LEVELS.size() ? SCOPE_LEVELS.get(level) : PLATFORM_LEVEL;
         }
         return ret;
+    }
+
+    // An application or a project is named within the caller's organization, so a caller outside every
+    // organization names none
+    private static String authzIdOf(String type, String id, ParticipantScope scope) {
+        try {
+            return DomainUtil.authzId(type, scope.organizationId(), id);
+        } catch (IllegalArgumentException e) {
+            throw new AuthorizationException("The check names " + type + " " + id + ", which only a caller in an organization addresses");
+        }
     }
 
     // A type a request names is an entity definition's id, whose rows are typed by the definition's name

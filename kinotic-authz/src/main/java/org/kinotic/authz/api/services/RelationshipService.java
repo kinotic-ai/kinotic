@@ -1,6 +1,7 @@
 package org.kinotic.authz.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RoleDefinition;
@@ -87,6 +88,17 @@ public interface RelationshipService {
      * @return completes when every role is in step
      */
     Future<Void> ensureRoles(String store, Map<String, Set<String>> roles);
+
+    /**
+     * Makes the store run the given model with the built-in roles it implies bundling exactly what the model has.
+     * The roles are brought in step before the model becomes the store's current version, so a check against
+     * the model reads every role it grants through as the model needs it.
+     *
+     * @param store the store, named as its record is
+     * @param model the model the store must run
+     * @return the id of the version the store now runs, the one every check names
+     */
+    Future<String> ensureModelWithRoles(String store, AuthzModel model);
 
     /**
      * The built-in roles the store's model defines, as the store's worker wrote them for the model the store

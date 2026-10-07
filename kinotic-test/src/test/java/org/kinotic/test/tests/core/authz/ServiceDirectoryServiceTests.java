@@ -97,9 +97,9 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
 
         // the gateway refuses a runtime the application has not granted the role to
         assertRefused(DIRECTORY_SERVICE, "register", runtimeCaller, List.of(entry),
-                      AuthzUtil.permissionName(AuthzUtil.APPLICATION_TYPE, ServiceDirectoryService.CAN_REGISTER_SERVICES) + " on application:" + TEST_APP_ID);
+                      AuthzUtil.permissionName(AuthzUtil.APPLICATION_TYPE, ServiceDirectoryService.CAN_REGISTER_SERVICES) + " on application:" + DomainUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID));
         await(relationships.bind(AuthzStoreService.PLATFORM, AuthzUtil.APPLICATION_RUNTIME_ROLE,
-                                 AuthzUtil.object(AuthzUtil.USER_TYPE, runtime.getId()), AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, TEST_APP_ID)));
+                                 AuthzUtil.object(AuthzUtil.USER_TYPE, runtime.getId()), AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, DomainUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID))));
         assertTrue(awaitUntil(() -> admitted(DIRECTORY_SERVICE, "register", runtimeCaller, List.of(entry))), "the runtime was never admitted");
 
         await(runAs(runtimeCaller, () -> directoryService.register(entry)));

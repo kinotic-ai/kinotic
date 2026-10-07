@@ -34,6 +34,9 @@ public final class AuthzUtil {
     /** The type an entity definition is in the platform store, under its application. */
     public static final String ENTITY_DEFINITION_TYPE = "entity_definition";
 
+    /** The type a project is in the platform store, under its application. */
+    public static final String PROJECT_TYPE = "project";
+
     /** The kernel types of the identity scopes, each contained in the one before it. */
     public static final String ORGANIZATION_TYPE = "organization";
     public static final String APPLICATION_TYPE = "application";

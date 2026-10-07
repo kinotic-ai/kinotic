@@ -89,10 +89,10 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
         assertTrue(awaitUntil(() -> roleIds().contains(AuthzUtil.roleId(carType, AuthzUtil.ADMIN))),
                    "the store never ran a model carrying the definition published");
-        AuthzStore record = await(stores.findById(TEST_APP_ID));
+        AuthzStore record = await(stores.findById(DomainUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID)));
         assertEquals(TEST_ORG_ID, record.getOrganizationId());
         assertEquals(TEST_APP_ID, record.getApplicationId());
-        assertTrue(awaitUntil(() -> await(stores.findById(TEST_APP_ID)).getState().isReconciled()), "the record never reconciled");
+        assertTrue(awaitUntil(() -> await(stores.findById(DomainUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID))).getState().isReconciled()), "the record never reconciled");
 
         Set<String> roles = roleIds();
         assertTrue(roles.containsAll(List.of(AuthzUtil.roleId(personType, AuthzUtil.VIEWER), AuthzUtil.roleId(personType, AuthzUtil.EDITOR),
@@ -183,20 +183,20 @@ public class ApplicationStoreTests extends KinoticTestBase {
     @Test
     public void deletingAnApplicationDeletesItsStoreWithEverythingInIt() throws Exception {
         Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Store " + suffix(), "lifecycle", null)));
-        String store = application.getId();
+        String store = DomainUtil.authzApplicationId(TEST_ORG_ID, application.getId());
 
         // created with its store, running the kernel model, and the record the worker keeps in step
         AuthzStore record = await(stores.findById(store));
         assertNotNull(record);
         assertEquals(TEST_ORG_ID, record.getOrganizationId());
         assertNotNull(await(storeService.modelId(store)));
-        UserParticipantIdentity bob = endUser(store, "tenant-" + suffix());
+        UserParticipantIdentity bob = endUser(application.getId(), "tenant-" + suffix());
         String me = AuthzUtil.object(AuthzUtil.USER_TYPE, bob.getId());
         assertTrue(await(relationships.holds(store, new RelationshipTuple(me, AuthzUtil.END_USER_RELATION, AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, store)))));
         assertTrue(await(relationships.holds(store, new RelationshipTuple(me, AuthzUtil.MEMBER_RELATION, AuthzUtil.object(AuthzUtil.TENANT_TYPE, bob.getTenantId())))));
         assertTrue(await(relationships.holds(AuthzStoreService.PLATFORM, new RelationshipTuple(me, AuthzUtil.END_USER_RELATION, AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, store)))));
 
-        await(runAsOrganization(() -> applicationService.deleteById(store)));
+        await(runAsOrganization(() -> applicationService.deleteById(application.getId())));
 
         assertNull(await(stores.findById(store)));
         assertThrows(ExecutionException.class, () -> await(storeService.modelId(store)));

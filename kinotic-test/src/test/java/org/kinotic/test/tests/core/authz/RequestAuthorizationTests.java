@@ -111,8 +111,8 @@ public class RequestAuthorizationTests extends KinoticTestBase {
         // a STOMP request carries the arguments in order, a tool call by name; both name the project the same way
         authorize(PROJECT_SERVICE, "save", caller, EventConstants.CONTENT_TYPE_JSON, List.of(a));
         authorize(PROJECT_SERVICE, "save", caller, EventConstants.CONTENT_TYPE_NAMED_JSON, Map.of("entity", a));
-        assertRefused(PROJECT_SERVICE, "save", caller, EventConstants.CONTENT_TYPE_JSON, List.of(b), "project:" + b.getId());
-        assertRefused(PROJECT_SERVICE, "save", caller, EventConstants.CONTENT_TYPE_NAMED_JSON, Map.of("entity", b), "project:" + b.getId());
+        assertRefused(PROJECT_SERVICE, "save", caller, EventConstants.CONTENT_TYPE_JSON, List.of(b), "project:" + DomainUtil.authzId(ProjectService.RESOURCE_TYPE, TEST_ORG_ID, b.getId()));
+        assertRefused(PROJECT_SERVICE, "save", caller, EventConstants.CONTENT_TYPE_NAMED_JSON, Map.of("entity", b), "project:" + DomainUtil.authzId(ProjectService.RESOURCE_TYPE, TEST_ORG_ID, b.getId()));
 
         // editing implies viewing, and a declared permission is checked on the project the argument names
         authorize(PROJECT_SERVICE, "findDependencies", caller, EventConstants.CONTENT_TYPE_JSON, List.of(a.getId()));

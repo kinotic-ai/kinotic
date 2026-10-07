@@ -93,15 +93,14 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
 
     // The directory's and the definitions' word is the record's intent, written here because only a read of
     // them says what it is; the engine's version follows, with the built-in roles the model implies brought in
-    // step behind it, so the record is reconciled exactly when the engine runs the model they imply and its roles
+    // step ahead of it, so the record is reconciled exactly when the engine runs the model they imply and its roles
     // bundle what that model has, and any of the writes failing leaves it for the master to retry
     private Future<Void> run(AuthzStore current, AuthzModel model) {
         AuthzModelRevision revision = new AuthzModelRevision(model.hash());
         String store = current.getId();
         return stores.updateDesired(store, revision, null, "service directory")
                      .compose(intended -> storeService.ensureStore(store)
-                             .compose(id -> storeService.ensureModel(store, model))
-                             .compose(version -> relationships.ensureRoles(store, model.roles()).map(version))
+                             .compose(id -> relationships.ensureModelWithRoles(store, model))
                              .compose(version -> stores.reportObserved(store, revision,
                                                                        intended.getState().getGeneration(),
                                                                        "engine version " + version)))

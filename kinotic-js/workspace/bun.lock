@@ -28,7 +28,7 @@
       "name": "@kinotic-ai/core",
       "version": "5.0.0-beta.22",
       "dependencies": {
-        "@kinotic-ai/idl": "workspace:*",
+        "@kinotic-ai/idl": "workspace:^",
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/semantic-conventions": "^1.40.0",
         "@stomp/rx-stomp": "^2.4.0",
@@ -77,7 +77,7 @@
       "version": "5.0.0-beta.51",
       "dependencies": {
         "@kinotic-ai/idl": "workspace:^",
-        "@kinotic-ai/persistence": "workspace:*",
+        "@kinotic-ai/persistence": "workspace:^",
         "rxjs": "^7.8.2",
       },
       "devDependencies": {

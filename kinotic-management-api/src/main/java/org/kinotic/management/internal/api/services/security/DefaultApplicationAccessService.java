@@ -39,13 +39,14 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
 
     @Override
     public Future<List<RoleDefinition>> findRoles(String applicationId) {
-        return requireApplication(applicationId).compose(application -> relationships.findRoles(applicationId));
+        return requireApplication(applicationId).compose(application -> relationships.findRoles(storeOf(application)));
     }
 
     @Override
     public Future<List<Grant>> findGrants(String applicationId, Resource resource) {
         validate(applicationId, resource);
-        return requireApplication(applicationId).compose(application -> grantsOn(applicationId, resource));
+        return requireApplication(applicationId).compose(application -> grantsOn(application, resource))
+                                                .map(grants -> grants.stream().map(DomainUtil::localGrant).toList());
     }
 
     @Override
@@ -54,10 +55,10 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         validate(subject);
         Validate.notBlank(roleId, "roleId cannot be blank");
         return requireApplication(applicationId)
-                .compose(application -> requireRole(applicationId, roleId))
-                .compose(v -> requireSubject(applicationId, subject))
-                .compose(v -> contained(applicationId, resource))
-                .compose(v -> relationships.bind(applicationId, roleId, userOf(subject), objectOf(resource)))
+                .compose(application -> requireRole(application, roleId)
+                        .compose(v -> requireSubject(application, subject))
+                        .compose(v -> contained(application, resource))
+                        .compose(v -> relationships.bind(storeOf(application), roleId, userOf(subject), objectOf(application, resource))))
                 .map(bindingId -> new Grant(bindingId, roleId, subject, resource));
     }
 
@@ -65,7 +66,8 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     public Future<Void> revoke(String applicationId, Resource resource, String grantId) {
         validate(applicationId, resource);
         Validate.notBlank(grantId, "grantId cannot be blank");
-        return requireApplication(applicationId).compose(application -> relationships.revoke(applicationId, grantId, objectOf(resource)));
+        return requireApplication(applicationId).compose(application -> relationships.revoke(storeOf(application), grantId,
+                                                                                             objectOf(application, resource)));
     }
 
     @Override
@@ -73,33 +75,36 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         validate(applicationId, resource);
         validate(subject);
         Validate.notBlank(permission, "permission cannot be blank");
-        RelationshipTuple holds = new RelationshipTuple(userOf(subject), permission, objectOf(resource));
-        return requireApplication(applicationId)
-                .compose(application -> requireSubject(applicationId, subject))
-                .compose(v -> grantsOn(applicationId, resource))
-                .compose(grants -> stores.modelId(applicationId).compose(modelId -> {
-                    // an administrator asks after changing access, so the answer must not predate the change
-                    Future<Boolean> allowed = relationships.check(applicationId, modelId, holds, Consistency.HIGHER_CONSISTENCY);
-                    List<Future<Boolean>> explains = grants.stream()
-                                                           .map(grant -> relationships.explains(applicationId, modelId, grant, subject, permission))
-                                                           .toList();
-                    return Future.all(explains).compose(results -> allowed.map(held -> {
-                        List<Grant> through = new ArrayList<>();
-                        for (int i = 0; i < grants.size(); i++) {
-                            if (results.<Boolean>resultAt(i)) {
-                                through.add(grants.get(i));
+        return requireApplication(applicationId).compose(application -> {
+            String store = storeOf(application);
+            RelationshipTuple holds = new RelationshipTuple(userOf(subject), permission, objectOf(application, resource));
+            return requireSubject(application, subject)
+                    .compose(v -> grantsOn(application, resource))
+                    .compose(grants -> stores.modelId(store).compose(modelId -> {
+                        // an administrator asks after changing access, so the answer must not predate the change
+                        Future<Boolean> allowed = relationships.check(store, modelId, holds, Consistency.HIGHER_CONSISTENCY);
+                        List<Future<Boolean>> explains = grants.stream()
+                                                               .map(grant -> relationships.explains(store, modelId, grant, subject, permission))
+                                                               .toList();
+                        return Future.all(explains).compose(results -> allowed.map(held -> {
+                            List<Grant> through = new ArrayList<>();
+                            for (int i = 0; i < grants.size(); i++) {
+                                if (results.<Boolean>resultAt(i)) {
+                                    through.add(DomainUtil.localGrant(grants.get(i)));
+                                }
                             }
-                        }
-                        return new AccessExplanation(held, through);
+                            return new AccessExplanation(held, through);
+                        }));
                     }));
-                }));
+        });
     }
 
-    // The grants made on the resource, then on the application above a tenant
-    private Future<List<Grant>> grantsOn(String applicationId, Resource resource) {
-        Future<List<Grant>> ret = relationships.findGrants(applicationId, objectOf(resource));
+    // The grants made on the resource, then on the application above a tenant, as the store holds them
+    private Future<List<Grant>> grantsOn(Application application, Resource resource) {
+        String store = storeOf(application);
+        Future<List<Grant>> ret = relationships.findGrants(store, objectOf(application, resource));
         if (AuthzUtil.TENANT_TYPE.equals(resource.type())) {
-            ret = ret.compose(own -> relationships.findGrants(applicationId, AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, applicationId))
+            ret = ret.compose(own -> relationships.findGrants(store, applicationObjectOf(application))
                                                   .map(above -> {
                                                       List<Grant> all = new ArrayList<>(own);
                                                       all.addAll(above);
@@ -111,12 +116,12 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
 
     // A tenant is placed under its application when it is first granted on, so the grant and every one made on
     // the application reach it; the application itself is where the graph starts
-    private Future<Void> contained(String applicationId, Resource resource) {
+    private Future<Void> contained(Application application, Resource resource) {
         Future<Void> ret;
         if (AuthzUtil.TENANT_TYPE.equals(resource.type())) {
-            ret = relationships.ensure(applicationId, List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, applicationId),
-                                                                                    AuthzUtil.APPLICATION_TYPE,
-                                                                                    objectOf(resource))));
+            ret = relationships.ensure(storeOf(application), List.of(new RelationshipTuple(applicationObjectOf(application),
+                                                                                           AuthzUtil.APPLICATION_TYPE,
+                                                                                           objectOf(application, resource))));
         } else {
             ret = Future.succeededFuture();
         }
@@ -129,8 +134,8 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
                            .map(application -> DomainUtil.requireOwned(application, organizationId, "No application of the organization has id " + applicationId));
     }
 
-    private Future<Void> requireRole(String applicationId, String roleId) {
-        return relationships.read(applicationId, AuthzUtil.object(AuthzUtil.ROLE_TYPE, roleId)).map(held -> {
+    private Future<Void> requireRole(Application application, String roleId) {
+        return relationships.read(storeOf(application), AuthzUtil.object(AuthzUtil.ROLE_TYPE, roleId)).map(held -> {
             if (held.isEmpty()) {
                 throw new IllegalArgumentException("No role of the application has id " + roleId);
             }
@@ -139,17 +144,31 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     }
 
     // A grant in an application's store is made to one of its own users or machines
-    private Future<Void> requireSubject(String applicationId, Subject subject) {
+    private Future<Void> requireSubject(Application application, Subject subject) {
         return identities.findById(subject.id()).map(identity -> {
-            if (!belongs(identity, applicationId)) {
+            if (!belongs(identity, application)) {
                 throw new IllegalArgumentException("No user or machine of the application has id " + subject.id());
             }
             return null;
         });
     }
 
-    private static boolean belongs(ParticipantIdentity identity, String applicationId) {
-        return identity != null && applicationId.equals(identity.getApplicationId());
+    private static boolean belongs(ParticipantIdentity identity, Application application) {
+        return identity != null
+                && application.getOrganizationId().equals(identity.getOrganizationId())
+                && application.getId().equals(identity.getApplicationId());
+    }
+
+    private static String storeOf(Application application) {
+        return DomainUtil.authzApplicationId(application.getOrganizationId(), application.getId());
+    }
+
+    private static String applicationObjectOf(Application application) {
+        return AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, DomainUtil.authzApplicationId(application.getOrganizationId(), application.getId()));
+    }
+
+    private static String objectOf(Application application, Resource resource) {
+        return DomainUtil.authzObject(application.getOrganizationId(), resource);
     }
 
     private static void validate(String applicationId, Resource resource) {
@@ -166,10 +185,6 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         Validate.notNull(subject, "subject cannot be null");
         Validate.isTrue(subject.kind() == SubjectKind.USER, "a grant in an application is made to a user or a machine");
         Validate.notBlank(subject.id(), "subject id cannot be blank");
-    }
-
-    private static String objectOf(Resource resource) {
-        return AuthzUtil.object(resource.type(), resource.id());
     }
 
     private static String userOf(Subject subject) {

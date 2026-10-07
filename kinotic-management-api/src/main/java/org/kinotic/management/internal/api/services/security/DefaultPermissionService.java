@@ -28,6 +28,7 @@ import org.kinotic.domain.api.model.security.participant.OrganizationParticipant
 import org.kinotic.domain.api.repositories.GroupRepository;
 import org.kinotic.domain.api.repositories.RoleRepository;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.security.PermissionService;
 import org.springframework.stereotype.Component;
@@ -215,7 +216,7 @@ public class DefaultPermissionService implements PermissionService {
         return requireGrantable(roleId, organizationId)
                 .compose(v -> requireSubject(subject, organizationId))
                 .compose(v -> requireInOrganization(resource, organizationId))
-                .compose(lineage -> relationships.bind(PLATFORM, roleId, userOf(subject), objectOf(resource)))
+                .compose(lineage -> relationships.bind(PLATFORM, roleId, userOf(subject), DomainUtil.authzObject(organizationId, resource)))
                 .map(bindingId -> new Grant(bindingId, roleId, subject, resource));
     }
 
@@ -225,14 +226,15 @@ public class DefaultPermissionService implements PermissionService {
         Validate.notBlank(grantId, "grantId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
         return requireInOrganization(resource, organizationId)
-                .compose(lineage -> relationships.revoke(PLATFORM, grantId, objectOf(resource)));
+                .compose(lineage -> relationships.revoke(PLATFORM, grantId, DomainUtil.authzObject(organizationId, resource)));
     }
 
     @Override
     public Future<List<Grant>> findGrants(Resource resource) {
         validate(resource);
         String organizationId = requireOrgParticipant().getOrganizationId();
-        return requireInOrganization(resource, organizationId).compose(this::grantsOn);
+        return requireInOrganization(resource, organizationId).compose(this::grantsOn)
+                                                              .map(grants -> grants.stream().map(DomainUtil::localGrant).toList());
     }
 
     @Override
@@ -245,7 +247,7 @@ public class DefaultPermissionService implements PermissionService {
                                                                    AuthzUtil.object(AuthzUtil.USER_TYPE, participant.getId()),
                                                                    AuthzUtil.permissionName(type, permission), type,
                                                                    Consistency.MINIMIZE_LATENCY))
-                     .map(objects -> objects.stream().map(AuthzUtil::idOf).toList());
+                     .map(objects -> objects.stream().map(object -> DomainUtil.localId(type, AuthzUtil.idOf(object))).toList());
     }
 
     @Override
@@ -261,14 +263,15 @@ public class DefaultPermissionService implements PermissionService {
                 .compose(this::grantsOn)
                 .compose(grants -> stores.modelId(PLATFORM).compose(modelId -> {
                     // an admin asks after changing access, so the answer must not predate the change
-                    Future<Boolean> allowed = relationships.check(PLATFORM, modelId, new RelationshipTuple(user, name, objectOf(resource)),
+                    Future<Boolean> allowed = relationships.check(PLATFORM, modelId,
+                                                                  new RelationshipTuple(user, name, DomainUtil.authzObject(organizationId, resource)),
                                                                   Consistency.HIGHER_CONSISTENCY);
                     List<Future<Boolean>> explains = grants.stream().map(grant -> relationships.explains(PLATFORM, modelId, grant, subject, name)).toList();
                     return Future.all(explains).compose(results -> allowed.map(held -> {
                         List<Grant> through = new ArrayList<>();
                         for (int i = 0; i < grants.size(); i++) {
                             if (results.<Boolean>resultAt(i)) {
-                                through.add(grants.get(i));
+                                through.add(DomainUtil.localGrant(grants.get(i)));
                             }
                         }
                         return new AccessExplanation(held, through);
@@ -294,10 +297,10 @@ public class DefaultPermissionService implements PermissionService {
      */
     private Future<List<String>> requireInOrganization(Resource resource, String organizationId) {
         String organization = AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, organizationId);
-        return lineage(objectOf(resource), new ArrayList<>()).map(lineage -> {
+        return lineage(DomainUtil.authzObject(organizationId, resource), new ArrayList<>()).map(lineage -> {
             int within = lineage.indexOf(organization);
             if (within < 0) {
-                throw new IllegalArgumentException(objectOf(resource) + " is not in organization " + organizationId);
+                throw new IllegalArgumentException(AuthzUtil.object(resource.type(), resource.id()) + " is not in organization " + organizationId);
             }
             return lineage.subList(0, within + 1);
         });
@@ -416,10 +419,6 @@ public class DefaultPermissionService implements PermissionService {
         Validate.notNull(resource, "resource cannot be null");
         Validate.notBlank(resource.type(), "resource type cannot be blank");
         Validate.notBlank(resource.id(), "resource id cannot be blank");
-    }
-
-    private static String objectOf(Resource resource) {
-        return AuthzUtil.object(resource.type(), resource.id());
     }
 
     private static String userOf(Subject subject) {

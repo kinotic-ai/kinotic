@@ -27,6 +27,7 @@ import org.kinotic.domain.api.services.security.SignUpService;
 import org.kinotic.domain.internal.api.repositories.PendingSignUpRepository;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.services.ApplicationService;
@@ -102,7 +103,7 @@ public class GraphSyncTests extends KinoticTestBase {
         Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Sync " + suffix, "graph sync", null)));
         RelationshipTuple applicationInOrganization = new RelationshipTuple(AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID),
                                                                             AuthzUtil.ORGANIZATION_TYPE,
-                                                                            AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, application.getId()));
+                                                                            AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, DomainUtil.authzApplicationId(application.getOrganizationId(), application.getId())));
         assertTrue(holds(applicationInOrganization), "the application is in its organization");
         // ensuring an application that exists writes nothing twice and fails on nothing
         await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Sync " + suffix, "graph sync", null)));
@@ -112,14 +113,14 @@ public class GraphSyncTests extends KinoticTestBase {
         project.setApplicationId(application.getId());
         project.setName("graph-sync-project");
         Project created = await(runAsOrganization(() -> projectService.createProjectIfNotExist(project)));
-        RelationshipTuple projectInApplication = new RelationshipTuple(AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, application.getId()),
+        RelationshipTuple projectInApplication = new RelationshipTuple(AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, DomainUtil.authzApplicationId(application.getOrganizationId(), application.getId())),
                                                                        AuthzUtil.APPLICATION_TYPE,
-                                                                       AuthzUtil.object(ProjectService.RESOURCE_TYPE, created.getId()));
+                                                                       AuthzUtil.object(ProjectService.RESOURCE_TYPE, DomainUtil.authzId(ProjectService.RESOURCE_TYPE, TEST_ORG_ID, created.getId())));
         assertTrue(holds(projectInApplication), "the project is in its application");
 
         EntityDefinition definition = definition(application.getId(), created.getId(), suffix);
         EntityDefinition saved = await(runAsOrganization(() -> entityDefinitionService.create(definition)));
-        RelationshipTuple definitionInApplication = new RelationshipTuple(AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, application.getId()),
+        RelationshipTuple definitionInApplication = new RelationshipTuple(AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, DomainUtil.authzApplicationId(application.getOrganizationId(), application.getId())),
                                                                           AuthzUtil.APPLICATION_TYPE,
                                                                           AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, saved.getId()));
         assertTrue(holds(definitionInApplication), "the entity definition is in its application");
@@ -143,7 +144,7 @@ public class GraphSyncTests extends KinoticTestBase {
         UserParticipantIdentity endUser = await(identityService.createUser(user(TEST_ORG_ID, application.getId()), "Graph-sync-1"));
         assertTrue(holds(new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, endUser.getId()),
                                                AuthzUtil.END_USER_RELATION,
-                                               AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, application.getId()))),
+                                               AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, DomainUtil.authzApplicationId(application.getOrganizationId(), application.getId())))),
                    "an application user is an end user of its application");
     }
 
@@ -198,7 +199,7 @@ public class GraphSyncTests extends KinoticTestBase {
                                                                                            ParticipantConstants.PARTICIPANT_TYPE_USER),
                                                                                     List.of("ADMIN"));
         Application application = await(runAs(creator, () -> applicationService.createApplicationIfNotExist("Graph Admin App", "graph sync", null)));
-        String applicationObject = AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, application.getId());
+        String applicationObject = AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, DomainUtil.authzApplicationId(application.getOrganizationId(), application.getId()));
         assertTrue(await(relationships.check(AuthzStoreService.PLATFORM, modelId, new RelationshipTuple(user, "application_can_edit", applicationObject), Consistency.HIGHER_CONSISTENCY)));
         assertTrue(await(relationships.check(AuthzStoreService.PLATFORM, modelId, new RelationshipTuple(user, "project_can_delete", applicationObject), Consistency.HIGHER_CONSISTENCY)));
         // and nothing outside the organization

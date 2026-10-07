@@ -95,7 +95,7 @@ public class DefaultTenantMemberService implements TenantMemberService {
     public Future<List<RoleDefinition>> findRoles() {
         ApplicationParticipant caller = caller();
         // a grant on a tenant confers nothing of the application's own, so the application's roles are not offered
-        return relationships.findRoles(caller.getApplicationId())
+        return relationships.findRoles(storeOf(caller))
                             .map(roles -> roles.stream()
                                                .filter(role -> !role.id().startsWith(AuthzUtil.APPLICATION_TYPE + "."))
                                                .toList());
@@ -104,7 +104,7 @@ public class DefaultTenantMemberService implements TenantMemberService {
     @Override
     public Future<List<Grant>> findGrants() {
         ApplicationParticipant caller = caller();
-        return relationships.findGrants(caller.getApplicationId(), tenantObject(caller));
+        return relationships.findGrants(storeOf(caller), tenantObject(caller));
     }
 
     @Override
@@ -122,7 +122,7 @@ public class DefaultTenantMemberService implements TenantMemberService {
                               if (!(identity instanceof UserParticipantIdentity user) || !inTenant(user, caller)) {
                                   throw new IllegalArgumentException("No user of the tenant has id " + subject.id());
                               }
-                              return relationships.bind(caller.getApplicationId(), roleId,
+                              return relationships.bind(storeOf(caller), roleId,
                                                         AuthzUtil.object(AuthzUtil.USER_TYPE, subject.id()), tenantObject(caller));
                           })
                           .map(bindingId -> new Grant(bindingId, roleId, subject, new Resource(AuthzUtil.TENANT_TYPE, caller.getTenantId())));
@@ -132,7 +132,7 @@ public class DefaultTenantMemberService implements TenantMemberService {
     public Future<Void> revoke(String grantId) {
         Validate.notBlank(grantId, "grantId cannot be blank");
         ApplicationParticipant caller = caller();
-        return relationships.revoke(caller.getApplicationId(), grantId, tenantObject(caller));
+        return relationships.revoke(storeOf(caller), grantId, tenantObject(caller));
     }
 
     // The gateway checks a caller outside every tenant on its application, so the tenant is required here too
@@ -143,7 +143,13 @@ public class DefaultTenantMemberService implements TenantMemberService {
     }
 
     private static boolean inTenant(UserParticipantIdentity user, ApplicationParticipant caller) {
-        return caller.getApplicationId().equals(user.getApplicationId()) && caller.getTenantId().equals(user.getTenantId());
+        return caller.getOrganizationId().equals(user.getOrganizationId())
+                && caller.getApplicationId().equals(user.getApplicationId())
+                && caller.getTenantId().equals(user.getTenantId());
+    }
+
+    private static String storeOf(ApplicationParticipant caller) {
+        return DomainUtil.authzApplicationId(caller.getOrganizationId(), caller.getApplicationId());
     }
 
     private static String tenantObject(ApplicationParticipant caller) {

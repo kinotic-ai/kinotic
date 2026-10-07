@@ -40,8 +40,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 /**
@@ -49,7 +49,8 @@ import static org.mockito.Mockito.when;
  * named body, at the parameter's position or by its name and down a property path; the caller's scope for a
  * scope reference, at the caller's own level when the check names one below it, and on the platform for a
  * system participant, and on its own application's store for an application participant, on its tenant, or on
- * the application when it has none, with the entity type a request names resolved from the definition's id; a
+ * the application when it has none, with the entity type a request names resolved from the definition's id; an
+ * application or a project named within the caller's organization, which a system participant cannot name; a
  * delegate checked as its owner; an unchecked function and a service with no entry passing without the engine;
  * and the refusals: a denied check, a request naming no object, a body no id can be read from.
  */
@@ -73,10 +74,10 @@ class DefaultRequestAuthorizerTest {
         when(provider.getIfAvailable()).thenReturn(directory);
         AuthzStoreService stores = mock(AuthzStoreService.class);
         when(stores.modelId(PLATFORM)).thenReturn(Future.succeededFuture(MODEL_ID));
-        when(stores.modelId("crm")).thenReturn(Future.succeededFuture(CRM_MODEL_ID));
+        when(stores.modelId("acme.crm")).thenReturn(Future.succeededFuture(CRM_MODEL_ID));
         relationships = mock(RelationshipService.class);
         when(relationships.check(eq(PLATFORM), eq(MODEL_ID), any(), any())).thenReturn(Future.succeededFuture(true));
-        when(relationships.check(eq("crm"), eq(CRM_MODEL_ID), any(), any())).thenReturn(Future.succeededFuture(true));
+        when(relationships.check(eq("acme.crm"), eq(CRM_MODEL_ID), any(), any())).thenReturn(Future.succeededFuture(true));
         authorizer = new DefaultRequestAuthorizer(provider, stores, relationships, JsonMapper.builder().build());
 
         ServiceDefinition service = new ServiceDefinition().setNamespace("org.kinotic.management.api.services").setName("ProjectService");
@@ -101,7 +102,7 @@ class DefaultRequestAuthorizerTest {
         authorize("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"name\":\"A\",\"id\":\"proj-a\"}]");
 
         RelationshipTuple checked = checked(Consistency.MINIMIZE_LATENCY);
-        assertEquals(new RelationshipTuple("user:sally", "project_can_edit", "project:proj-a"), checked);
+        assertEquals(new RelationshipTuple("user:sally", "project_can_edit", "project:acme.proj-a"), checked);
     }
 
     @Test
@@ -109,14 +110,14 @@ class DefaultRequestAuthorizerTest {
         authorize("save", sally(), EventConstants.CONTENT_TYPE_NAMED_JSON,
                   "{\"other\":{\"id\":\"not-this\"},\"entity\":{\"tags\":[1,{\"id\":\"nor-this\"}],\"id\":\"proj-a\"}}");
 
-        assertEquals("project:proj-a", checked(Consistency.MINIMIZE_LATENCY).object());
+        assertEquals("project:acme.proj-a", checked(Consistency.MINIMIZE_LATENCY).object());
     }
 
     @Test
     void aConsistentCheckAsksTheEngineForAConsistentAnswer() throws Exception {
         authorize("deploy", sally(), EventConstants.CONTENT_TYPE_JSON, "[\"proj-a\"]");
 
-        assertEquals(new RelationshipTuple("user:sally", "project_can_deploy", "project:proj-a"), checked(Consistency.HIGHER_CONSISTENCY));
+        assertEquals(new RelationshipTuple("user:sally", "project_can_deploy", "project:acme.proj-a"), checked(Consistency.HIGHER_CONSISTENCY));
     }
 
     @Test
@@ -155,7 +156,7 @@ class DefaultRequestAuthorizerTest {
         AuthorizationException refused = refused("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-b\"}]");
 
         assertTrue(refused.getMessage().contains("project_can_edit"), refused.getMessage());
-        assertTrue(refused.getMessage().contains("project:proj-b"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("project:acme.proj-b"), refused.getMessage());
     }
 
     @Test
@@ -198,7 +199,7 @@ class DefaultRequestAuthorizerTest {
                   .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
         // the definition's rows are typed by the last segment of its id
-        assertEquals(new RelationshipTuple("user:bob", "person_can_read", "tenant:t1"), checked("crm", CRM_MODEL_ID, Consistency.MINIMIZE_LATENCY));
+        assertEquals(new RelationshipTuple("user:bob", "person_can_read", "tenant:t1"), checked("acme.crm", CRM_MODEL_ID, Consistency.MINIMIZE_LATENCY));
         verify(relationships, never()).check(eq(PLATFORM), any(), any(), any());
     }
 
@@ -208,7 +209,7 @@ class DefaultRequestAuthorizerTest {
                              EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",\"row-1\"]"))
                   .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
-        assertEquals(new RelationshipTuple("user:bob", "person_can_read", "application:crm"), checked("crm", CRM_MODEL_ID, Consistency.MINIMIZE_LATENCY));
+        assertEquals(new RelationshipTuple("user:bob", "person_can_read", "application:acme.crm"), checked("acme.crm", CRM_MODEL_ID, Consistency.MINIMIZE_LATENCY));
     }
 
     @Test
@@ -234,7 +235,7 @@ class DefaultRequestAuthorizerTest {
 
     @Test
     void anApplicationParticipantIsRefusedWhatItsStoreDenies() {
-        when(relationships.check(eq("crm"), eq(CRM_MODEL_ID), any(), any())).thenReturn(Future.succeededFuture(false));
+        when(relationships.check(eq("acme.crm"), eq(CRM_MODEL_ID), any(), any())).thenReturn(Future.succeededFuture(false));
 
         ExecutionException failure = assertThrows(ExecutionException.class,
                                                   () -> authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/findById#1.0.0"), bob("t1"),
@@ -246,17 +247,16 @@ class DefaultRequestAuthorizerTest {
     }
 
     @Test
-    void aSystemParticipantIsCheckedAndItsScopeIsThePlatform() throws Exception {
+    void aSystemParticipantIsCheckedOnThePlatformAndNamesNoProject() throws Exception {
         Participant operator = DefaultSystemParticipant.builder().id("ops").metadata(Map.of()).roles(List.of()).build();
 
-        authorize("save", operator, EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-b\"}]");
-        assertEquals(new RelationshipTuple("user:ops", "project_can_edit", "project:proj-b"), checked(Consistency.MINIMIZE_LATENCY));
+        // a project is named within an organization, which an operator has none of
+        AuthorizationException refused = refused("save", operator, EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-b\"}]");
+        assertTrue(refused.getMessage().contains("project proj-b"), refused.getMessage());
 
-        // a check on the caller's organization, which an operator has none of, is made on the platform
+        // a check on the caller's organization is made on the platform
         authorize("findMembers", operator, EventConstants.CONTENT_TYPE_JSON, "[]");
-        ArgumentCaptor<RelationshipTuple> tuples = ArgumentCaptor.forClass(RelationshipTuple.class);
-        verify(relationships, times(2)).check(eq(PLATFORM), eq(MODEL_ID), tuples.capture(), eq(Consistency.MINIMIZE_LATENCY));
-        assertEquals(new RelationshipTuple("user:ops", "organization_can_view_members", "platform:kinotic"), tuples.getValue());
+        assertEquals(new RelationshipTuple("user:ops", "organization_can_view_members", "platform:kinotic"), checked(Consistency.MINIMIZE_LATENCY));
     }
 
     @Test

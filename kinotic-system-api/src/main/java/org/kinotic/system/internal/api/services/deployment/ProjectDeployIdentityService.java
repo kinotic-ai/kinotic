@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
@@ -126,13 +127,18 @@ public class ProjectDeployIdentityService {
                                          .compose(v -> relationships.bind(AuthzStoreService.PLATFORM,
                                                                           AuthzUtil.roleId(ProjectService.RESOURCE_TYPE, AuthzUtil.EDITOR),
                                                                           machine,
-                                                                          AuthzUtil.object(ProjectService.RESOURCE_TYPE, project.getId())))
+                                                                          AuthzUtil.object(ProjectService.RESOURCE_TYPE,
+                                                                                           DomainUtil.authzId(ProjectService.RESOURCE_TYPE,
+                                                                                                              project.getOrganizationId(),
+                                                                                                              project.getId()))))
                                          // the runtime also publishes the contracts of the application's services
                                          .compose(v -> unsaved.getMachineKind() == MachineKind.APP_RUNTIME
                                                  ? relationships.bind(AuthzStoreService.PLATFORM,
                                                                       AuthzUtil.APPLICATION_RUNTIME_ROLE,
                                                                       machine,
-                                                                      AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, project.getApplicationId()))
+                                                                      AuthzUtil.object(AuthzUtil.APPLICATION_TYPE,
+                                                                                       DomainUtil.authzApplicationId(project.getOrganizationId(),
+                                                                                                                     project.getApplicationId())))
                                                  : Future.succeededFuture())
                                          .map(provisioned);
                 });

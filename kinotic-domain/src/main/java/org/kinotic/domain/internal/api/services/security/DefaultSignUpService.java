@@ -209,7 +209,8 @@ public class DefaultSignUpService implements SignUpService {
                                       // the customer administers the tenant: a binding of the tenant admin role on the tenant,
                                       // which reaches every row of every definition in it
                                       return tenants.save(savedTenant, applicationKey.organizationId())
-                                              .compose(v -> relationships.bind(applicationKey.applicationId(),
+                                              .compose(v -> relationships.bind(DomainUtil.authzApplicationId(applicationKey.organizationId(),
+                                                                                                             applicationKey.applicationId()),
                                                                                AuthzUtil.roleId(AuthzUtil.TENANT_TYPE, AuthzUtil.ADMIN),
                                                                                AuthzUtil.object(AuthzUtil.USER_TYPE, savedAdmin.getId()),
                                                                                AuthzUtil.object(AuthzUtil.TENANT_TYPE, savedTenant.getTenantId())))
