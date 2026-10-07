@@ -255,8 +255,11 @@ locals {
     OTEL_EXPORTER_OTLP_HEADERS          = "X-Scope-OrgID=kinotic-system"
     # jvm.buffer.* and jvm.system.cpu.*, which the agent gates behind this flag
     OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY = "true"
-    # Names the bare transport spans under each Elasticsearch call
-    OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING = join(",", [for ip in local.es_ips : "${ip}:9200=elasticsearch"])
+    # Names the bare transport spans under each Elasticsearch call and each Loki, Tempo and Mimir query
+    OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING = join(",", concat(
+      [for ip in local.es_ips : "${ip}:9200=elasticsearch"],
+      ["${local.loki_ip}:3100=loki", "${local.tempo_ip}:3200=tempo", "${local.mimir_ip}:9009=mimir"]
+    ))
   })
 
   server_containers = { for name, server in local.servers : name => {

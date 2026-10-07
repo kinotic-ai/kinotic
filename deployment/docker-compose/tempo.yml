@@ -62,6 +62,9 @@ metrics_generator:
         # of one application or workload can be selected within its organization's tenant
         - application_id
         - workload_id
+        # The backend a client span called, as the servers' peer-service mapping names it, so a
+        # query can select or leave out the Elasticsearch, Loki, Tempo and Mimir calls
+        - peer.service
       # Adds the job/instance labels, so span metrics join against the OTLP metrics Mimir
       # stores (where service.name becomes job) instead of living in a separate label space.
       enable_target_info: true
