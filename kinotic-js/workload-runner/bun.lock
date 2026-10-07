@@ -6,7 +6,7 @@
       "name": "@kinotic-ai/workload-runner",
       "dependencies": {
         "@kinotic-ai/core": "^5.0.0-beta.22",
-        "@kinotic-ai/kinotic-cli": "5.2.0-beta.24",
+        "@kinotic-ai/kinotic-cli": "5.2.0-beta.25",
         "@kinotic-ai/management-api": "5.0.0-beta.51",
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/sdk-node": "^0.221.0",
@@ -60,11 +60,11 @@
 
     "@kinotic-ai/idl": ["@kinotic-ai/idl@5.0.0-beta.4", "", {}, "sha512-YZZhQX2vkQ74oRgeONT/lLxeIbAnhWTfyTHHXkviZlbamC7UILtOIIGP1xlLNYpRQliQYIrnIT0TbyLNi88Btw=="],
 
-    "@kinotic-ai/kinotic-cli": ["@kinotic-ai/kinotic-cli@5.2.0-beta.24", "", { "dependencies": { "@inquirer/prompts": "^8.5.2", "@kinotic-ai/core": "5.0.0-beta.22", "@kinotic-ai/idl": "5.0.0-beta.4", "@kinotic-ai/management-api": "5.0.0-beta.50", "@kinotic-ai/persistence": "5.0.0-beta.13", "@kinotic-ai/spawn": "5.0.0-beta.1", "@oclif/core": "^4.13.3", "c12": "^3.3.4", "chalk": "^5.6.2", "liquidjs": "10.28.0", "open": "^11.0.0", "p-timeout": "^7.0.1", "radash": "^12.1.1", "simple-git": "3.36.0", "ts-morph": "^27.0.2" }, "bin": { "kinotic": "./bin/run.js" } }, "sha512-SOpFQ1Qb/roi9vXzkN2tlRICcywbOL6LFDn8l8AyPQZveL8IxEGPeh53Cy4lHF3OPi2iht9KB11h3Pc0xFtZjw=="],
+    "@kinotic-ai/kinotic-cli": ["@kinotic-ai/kinotic-cli@5.2.0-beta.25", "", { "dependencies": { "@inquirer/prompts": "^8.5.2", "@kinotic-ai/core": "5.0.0-beta.22", "@kinotic-ai/idl": "5.0.0-beta.4", "@kinotic-ai/management-api": "5.0.0-beta.51", "@kinotic-ai/persistence": "5.0.0-beta.14", "@kinotic-ai/spawn": "5.0.0-beta.1", "@oclif/core": "^4.13.3", "c12": "^3.3.4", "chalk": "^5.6.2", "liquidjs": "10.28.0", "open": "^11.0.0", "p-timeout": "^7.0.1", "radash": "^12.1.1", "simple-git": "3.36.0", "ts-morph": "^27.0.2" }, "bin": { "kinotic": "./bin/run.js" } }, "sha512-ZAh32I8tX+QXoUsB/sl1RJh7jWhm2/lWjHkV7VPTRHFEOdgiTVjq7vm3GOQS95Op9uZgs21PYF5d3NcSWoEE1Q=="],
 
     "@kinotic-ai/management-api": ["@kinotic-ai/management-api@5.0.0-beta.51", "", { "dependencies": { "@kinotic-ai/idl": "^5.0.0-beta.4", "@kinotic-ai/persistence": "^5.0.0-beta.14", "rxjs": "^7.8.2" }, "peerDependencies": { "@kinotic-ai/core": "^5.0.0-beta.22" } }, "sha512-1tzEXjeDMjWDI4eagbdGQ+MLdMgqHjBQGfyZ+T84CNiIBwV3AKh6rBESfoGj1RkFch8oPD9T/EhPetcw3chIqQ=="],
 
-    "@kinotic-ai/persistence": ["@kinotic-ai/persistence@5.0.0-beta.13", "", { "dependencies": { "@kinotic-ai/idl": "5.0.0-beta.2", "rxjs": "^7.8.2" }, "peerDependencies": { "@kinotic-ai/core": "^5.0.0-beta.20" } }, "sha512-Gwc0HksPrl8dbfog1kYriVkVTkrd/1ZAbBVmR0gDlfat+tpkURJmI8Kzq3UtgwiNTMsInrrOzU0hiiUusHq/OQ=="],
+    "@kinotic-ai/persistence": ["@kinotic-ai/persistence@5.0.0-beta.14", "", { "dependencies": { "@kinotic-ai/idl": "^5.0.0-beta.4", "rxjs": "^7.8.2" }, "peerDependencies": { "@kinotic-ai/core": "^5.0.0-beta.22" } }, "sha512-6ciQqutlgLbdkpkH3UfFmv1J+mrOlxsMtEtQ5MLOSyv4yuylygQjmg6c7Gnp17z4kGC7fUaXdi7ud7k2fBWIwA=="],
 
     "@kinotic-ai/spawn": ["@kinotic-ai/spawn@5.0.0-beta.1", "", { "dependencies": { "liquidjs": "10.28.0", "zod": "4.4.3" } }, "sha512-54l4rcIo3Z6kYxWCqfpagNm4KZXvDbOdlK6D9Kg9XdImH731nEhiws6OJ/EDHFnEU0ykUJU0vekmaw2Khs/EDw=="],
 
@@ -372,17 +372,9 @@
 
     "zod": ["zod@4.4.3", "", {}, "sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ=="],
 
-    "@kinotic-ai/kinotic-cli/@kinotic-ai/management-api": ["@kinotic-ai/management-api@5.0.0-beta.50", "", { "dependencies": { "@kinotic-ai/idl": "5.0.0-beta.2", "@kinotic-ai/persistence": "5.0.0-beta.13", "rxjs": "^7.8.2" }, "peerDependencies": { "@kinotic-ai/core": "^5.0.0-beta.20" } }, "sha512-xpWH5kwcFgRXezd7d7FbvVWq4cMGYc6rs71jOpFJF1wp0u8PA1JdR8dLLn3PlyLhY7GCIQZInnymX/Yj8grWgA=="],
-
-    "@kinotic-ai/management-api/@kinotic-ai/persistence": ["@kinotic-ai/persistence@5.0.0-beta.14", "", { "dependencies": { "@kinotic-ai/idl": "^5.0.0-beta.4", "rxjs": "^7.8.2" }, "peerDependencies": { "@kinotic-ai/core": "^5.0.0-beta.22" } }, "sha512-6ciQqutlgLbdkpkH3UfFmv1J+mrOlxsMtEtQ5MLOSyv4yuylygQjmg6c7Gnp17z4kGC7fUaXdi7ud7k2fBWIwA=="],
-
-    "@kinotic-ai/persistence/@kinotic-ai/idl": ["@kinotic-ai/idl@5.0.0-beta.2", "", {}, "sha512-hvQqyRB3P1WoOtNkPbDbiGL0+K0AMZrt77BdQFdhLlIUJyscmKrOYj24SuPQWL/O/RB7HrDrnamLiE0fZY7adg=="],
-
     "open/wsl-utils": ["wsl-utils@1.0.0", "", { "dependencies": { "is-wsl": "^3.1.0", "powershell-utils": "^0.1.0" } }, "sha512-Hl0ZOAs672vg+06kfujwRhoS6/jehvULrlFkuF2dRu6pHgA8U06h3xqNIqNNU1LTXPcedxByAR4GS6pwQK0mgA=="],
 
     "wsl-utils/powershell-utils": ["powershell-utils@0.1.0", "", {}, "sha512-dM0jVuXJPsDN6DvRpea484tCUaMiXWjuCn++HGTqUWzGDjv5tZkEZldAJ/UMlqRYGFrD/etByo4/xOuC/snX2A=="],
-
-    "@kinotic-ai/kinotic-cli/@kinotic-ai/management-api/@kinotic-ai/idl": ["@kinotic-ai/idl@5.0.0-beta.2", "", {}, "sha512-hvQqyRB3P1WoOtNkPbDbiGL0+K0AMZrt77BdQFdhLlIUJyscmKrOYj24SuPQWL/O/RB7HrDrnamLiE0fZY7adg=="],
 
     "open/wsl-utils/powershell-utils": ["powershell-utils@0.1.0", "", {}, "sha512-dM0jVuXJPsDN6DvRpea484tCUaMiXWjuCn++HGTqUWzGDjv5tZkEZldAJ/UMlqRYGFrD/etByo4/xOuC/snX2A=="],
   }
