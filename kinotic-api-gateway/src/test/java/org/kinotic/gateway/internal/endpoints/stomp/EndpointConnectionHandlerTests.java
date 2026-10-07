@@ -165,7 +165,7 @@ public class EndpointConnectionHandlerTests {
     @Test
     public void testRefusedRequestIsAnsweredOnTheReplyDestination() throws Exception {
         when(services.requestAuthorizer.authorize(any(), any(), any(), any()))
-                .thenReturn(Future.failedFuture(new AuthorizationException("Not authorized: project_can_edit on project:b")));
+                .thenReturn(Future.failedFuture(new AuthorizationException("Not authorized")));
         EndpointConnectionHandler handler = connect(Map.of());
         String replyTo = subscribeReplies(handler);
 
@@ -180,7 +180,7 @@ public class EndpointConnectionHandlerTests {
         Event<byte[]> errorReply = sent.getValue();
         Assertions.assertEquals(replyTo, errorReply.cri().raw());
         Assertions.assertEquals("corr-0", errorReply.metadata().get(EventConstants.CORRELATION_ID_HEADER));
-        Assertions.assertTrue(errorReply.metadata().get(EventConstants.ERROR_HEADER).contains("project:b"));
+        Assertions.assertTrue(errorReply.metadata().get(EventConstants.ERROR_HEADER).contains("Not authorized"));
         Assertions.assertTrue(new String(errorReply.data(), StandardCharsets.UTF_8).contains("AuthorizationException"));
     }
 

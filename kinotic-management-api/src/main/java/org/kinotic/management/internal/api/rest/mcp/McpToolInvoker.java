@@ -125,7 +125,7 @@ public class McpToolInvoker {
         return requestAuthorizer.authorize(requestCri, participant, EventConstants.CONTENT_TYPE_NAMED_JSON, body)
                                 .compose(v -> send(tool, requestCri, body, participant),
                                          error -> error instanceof AuthorizationException
-                                                 ? Future.succeededFuture(McpCallToolResult.error("Not authorized: " + error.getMessage()))
+                                                 ? Future.succeededFuture(McpCallToolResult.error(error.getMessage()))
                                                  : Future.failedFuture(error));
     }
 
