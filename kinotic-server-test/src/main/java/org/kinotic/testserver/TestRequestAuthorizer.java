@@ -5,6 +5,7 @@ import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.services.security.RequestAuthorizer;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * {@link RequestAuthorizer} of the test server, which runs without the domain module's services and so
@@ -16,6 +17,11 @@ public class TestRequestAuthorizer implements RequestAuthorizer {
 
     @Override
     public Future<Void> authorize(CRI cri, Participant participant, String contentType, byte[] body) {
+        return Future.succeededFuture();
+    }
+
+    @Override
+    public Future<Void> authorize(CRI cri, Participant participant, ObjectNode arguments) {
         return Future.succeededFuture();
     }
 }

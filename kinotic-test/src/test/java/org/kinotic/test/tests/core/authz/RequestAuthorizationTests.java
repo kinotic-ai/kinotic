@@ -13,7 +13,6 @@ import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.directory.ServiceDirectory;
-import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.Application;
@@ -109,25 +108,25 @@ public class RequestAuthorizationTests extends KinoticTestBase {
         Participant caller = participant(sally.getId(), Map.of());
 
         // a STOMP request carries the arguments in order, a tool call by name; both name the project the same way
-        authorize(PROJECT_SERVICE, "save", caller, EventConstants.CONTENT_TYPE_JSON, List.of(a));
-        authorize(PROJECT_SERVICE, "save", caller, EventConstants.CONTENT_TYPE_NAMED_JSON, Map.of("entity", a));
-        assertRefused(PROJECT_SERVICE, "save", caller, EventConstants.CONTENT_TYPE_JSON, List.of(b), "project:" + DomainUtil.authzId(ProjectService.RESOURCE_TYPE, TEST_ORG_ID, b.getId()));
-        assertRefused(PROJECT_SERVICE, "save", caller, EventConstants.CONTENT_TYPE_NAMED_JSON, Map.of("entity", b), "project:" + DomainUtil.authzId(ProjectService.RESOURCE_TYPE, TEST_ORG_ID, b.getId()));
+        authorize(PROJECT_SERVICE, "save", caller, List.of(a));
+        authorizeToolCall(PROJECT_SERVICE, "save", caller, Map.of("entity", a));
+        assertRefused(PROJECT_SERVICE, "save", caller, List.of(b), "project:" + DomainUtil.authzId(ProjectService.RESOURCE_TYPE, TEST_ORG_ID, b.getId()));
+        assertToolCallRefused(PROJECT_SERVICE, "save", caller, Map.of("entity", b), "project:" + DomainUtil.authzId(ProjectService.RESOURCE_TYPE, TEST_ORG_ID, b.getId()));
 
         // editing implies viewing, and a declared permission is checked on the project the argument names
-        authorize(PROJECT_SERVICE, "findDependencies", caller, EventConstants.CONTENT_TYPE_JSON, List.of(a.getId()));
-        authorize(PROJECT_SERVICE, "retryRepoInitialization", caller, EventConstants.CONTENT_TYPE_JSON, List.of(a.getId()));
-        assertRefused(PROJECT_SERVICE, "findDependencies", caller, EventConstants.CONTENT_TYPE_JSON, List.of(b.getId()), "project_can_view");
+        authorize(PROJECT_SERVICE, "findDependencies", caller, List.of(a.getId()));
+        authorize(PROJECT_SERVICE, "retryRepoInitialization", caller, List.of(a.getId()));
+        assertRefused(PROJECT_SERVICE, "findDependencies", caller, List.of(b.getId()), "project_can_view");
         // a read by id is admitted unchecked: the service answers it by what the caller may see
-        authorize(PROJECT_SERVICE, "findById", caller, EventConstants.CONTENT_TYPE_JSON, List.of(b.getId()));
+        authorize(PROJECT_SERVICE, "findById", caller, List.of(b.getId()));
         // an editor does not delete
-        assertRefused(PROJECT_SERVICE, "deleteById", caller, EventConstants.CONTENT_TYPE_JSON, List.of(a.getId()), "project_can_delete");
+        assertRefused(PROJECT_SERVICE, "deleteById", caller, List.of(a.getId()), "project_can_delete");
         // a request naming no project is refused before the engine is asked
         Project nameless = new Project();
         nameless.setName("nameless");
-        assertRefused(PROJECT_SERVICE, "save", caller, EventConstants.CONTENT_TYPE_JSON, List.of(nameless), "entity.id");
+        assertRefused(PROJECT_SERVICE, "save", caller, List.of(nameless), "entity.id");
         // a listing across the organization is admitted by the zone alone and filtered to what the caller may see
-        authorize(PROJECT_SERVICE, "findAll", caller, EventConstants.CONTENT_TYPE_JSON, List.of(Map.of("pageNumber", 0, "pageSize", 10)));
+        authorize(PROJECT_SERVICE, "findAll", caller, List.of(Map.of("pageNumber", 0, "pageSize", 10)));
     }
 
     @Test
@@ -138,8 +137,8 @@ public class RequestAuthorizationTests extends KinoticTestBase {
                                                         new Resource(ProjectService.RESOURCE_TYPE, a.getId()))));
         Participant delegate = participant("cli-" + suffix(), Map.of(DomainUtil.ON_BEHALF_OF_METADATA_KEY, sally.getId()));
 
-        authorize(PROJECT_SERVICE, "save", delegate, EventConstants.CONTENT_TYPE_JSON, List.of(a));
-        assertRefused(PROJECT_SERVICE, "save", participant("cli-" + suffix(), Map.of()), EventConstants.CONTENT_TYPE_JSON, List.of(a), "project_can_edit");
+        authorize(PROJECT_SERVICE, "save", delegate, List.of(a));
+        assertRefused(PROJECT_SERVICE, "save", participant("cli-" + suffix(), Map.of()), List.of(a), "project_can_edit");
     }
 
     @Test
@@ -149,20 +148,20 @@ public class RequestAuthorizationTests extends KinoticTestBase {
         // every application's members: a null application id, then the page
         List<Object> listing = Arrays.asList(null, Map.of("pageNumber", 0, "pageSize", 10));
 
-        assertRefused(MEMBER_SERVICE, "findMembers", caller, EventConstants.CONTENT_TYPE_JSON, listing, "organization:" + TEST_ORG_ID);
+        assertRefused(MEMBER_SERVICE, "findMembers", caller, listing, "organization:" + TEST_ORG_ID);
 
         // a listing of the caller's own access is admitted by the zone alone
-        authorize(PERMISSION_SERVICE, "listAccessible", caller, EventConstants.CONTENT_TYPE_JSON, List.of(ProjectService.RESOURCE_TYPE, AuthzUtil.CAN_VIEW));
+        authorize(PERMISSION_SERVICE, "listAccessible", caller, List.of(ProjectService.RESOURCE_TYPE, AuthzUtil.CAN_VIEW));
 
         await(runAsOrganization(() -> permissions.grant(new Subject(SubjectKind.USER, member.getId()), "organization.viewer",
                                                         new Resource(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID))));
         assertTrue(awaitUntil(() -> admitted(MEMBER_SERVICE, "findMembers", caller, listing)), "the viewer never saw the members");
-        assertRefused(MEMBER_SERVICE, "removeMember", caller, EventConstants.CONTENT_TYPE_JSON, List.of(member.getId()), "organization_can_manage_members");
+        assertRefused(MEMBER_SERVICE, "removeMember", caller, List.of(member.getId()), "organization_can_manage_members");
 
         // re-syncing the projects' index names no application, so the check is made on the organization, which
         // the organization's viewer holds no project permission on; an editor of projects granted on the
         // organization holds every project's
-        assertRefused(PROJECT_SERVICE, "syncIndex", caller, EventConstants.CONTENT_TYPE_JSON, List.of(), "project_can_edit on organization:" + TEST_ORG_ID);
+        assertRefused(PROJECT_SERVICE, "syncIndex", caller, List.of(), "project_can_edit on organization:" + TEST_ORG_ID);
         await(runAsOrganization(() -> permissions.grant(new Subject(SubjectKind.USER, member.getId()), "project.editor",
                                                         new Resource(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID))));
         assertTrue(awaitUntil(() -> admitted(PROJECT_SERVICE, "syncIndex", caller, List.of())), "the editor of projects never re-synced them");

@@ -37,7 +37,9 @@ import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.core.exc.StreamReadException;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -45,13 +47,15 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import static org.kinotic.authz.api.services.AuthzStoreService.PLATFORM;
 
 /**
  * The {@link RequestAuthorizer} over the stores: a function's check is read from its contract in the service
- * directory and kept, the object it names is read from the request, which is refused when its body names a
- * property twice, and the engine answers for the caller. A function is served without the engine only when its contract marks it
+ * directory and kept, the object it names is read from the request, from a client's positional body with a parse
+ * that stops once it has read the object, or from a tool call's arguments by name, and the engine answers for the
+ * caller. A function is served without the engine only when its contract marks it
  * unchecked; a function no contract covers, of a service the directory holds no definition for or one the
  * definition leaves out, is refused. The engine answers for the caller, or for the owner a delegate acts for, from the platform's store for an
  * organization's members and the platform's own staff, and from the application's store for an application's
@@ -107,6 +111,17 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
 
     @Override
     public Future<Void> authorize(CRI cri, Participant participant, String contentType, byte[] body) {
+        return authorize(cri, participant, reference -> located(contentType, body, reference));
+    }
+
+    @Override
+    public Future<Void> authorize(CRI cri, Participant participant, ObjectNode arguments) {
+        Validate.notNull(arguments, "arguments cannot be null");
+        return authorize(cri, participant, reference -> named(arguments, reference));
+    }
+
+    // Authorizes the request, reading a parameter the check names with the given function
+    private Future<Void> authorize(CRI cri, Participant participant, Function<ParameterReference, String> arguments) {
         Validate.notNull(cri, "cri cannot be null");
         Validate.notNull(participant, "participant cannot be null");
         Future<Void> ret;
@@ -116,7 +131,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                     : PLATFORM;
             ret = spec(cri).compose(spec -> spec.check() == null
                     ? Future.succeededFuture()
-                    : check(spec, scoped, store, contentType, body));
+                    : check(spec, scoped, store, arguments));
         } else {
             ret = Future.failedFuture(securityExceptions.notAuthorized("No store answers for participant of type {} with id {}",
                                                                        participant.getClass().getSimpleName(), participant.getId()));
@@ -197,13 +212,13 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         return ret;
     }
 
-    private Future<Void> check(FunctionSpec spec, ScopedParticipant participant, String store, String contentType, byte[] body) {
+    private Future<Void> check(FunctionSpec spec, ScopedParticipant participant, String store, Function<ParameterReference, String> arguments) {
         AuthzCheckC3Decorator check = spec.check();
         ParticipantScope scope = participant.getScope();
         Future<Void> ret;
         try {
             Resource checked = scopeLevelOf(check, scope);
-            String resourceId = authzIdOf(checked.type(), resolve(checked.id(), spec, scope, contentType, body), scope);
+            String resourceId = authzIdOf(checked.type(), resolve(checked.id(), spec, scope, arguments), scope);
             if (!AuthzUtil.isObjectId(resourceId)) {
                 throw securityExceptions.notAuthorized("The request names the {} '{}', which names no resource", checked.type(), resourceId);
             }
@@ -263,13 +278,13 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         }
     }
 
-    private String resolve(String template, FunctionSpec spec, ParticipantScope scope, String contentType, byte[] body) {
+    private String resolve(String template, FunctionSpec spec, ParticipantScope scope, Function<ParameterReference, String> arguments) {
         String ret = template;
         for (String reference : AuthzUtil.templateReferences(template)) {
             ParameterReference parameter = spec.reference(reference);
             String value = parameter == null
                     ? scopeValue(reference, scope)
-                    : locate(contentType, body, parameter.parameter(), parameter.position(), parameter.path());
+                    : arguments.apply(parameter);
             if (value == null || value.isEmpty()) {
                 throw securityExceptions.notAuthorized("The request names no {}, which its check needs", reference);
             }
@@ -288,41 +303,62 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
     }
 
     /**
-     * The scalar at a parameter, or at a property path inside it, read from the body: the element at the
-     * parameter's position of a positional body, the field of its name of a named one.
+     * The scalar at a parameter, or at a property path inside it, read from a positional body with a parse that
+     * stops once it has read the parameter: the element at the parameter's position, and the objects the path
+     * descends into.
      *
-     * @throws AuthorizationException when the body names a property twice
+     * @throws AuthorizationException when the body is not a positional JSON body, or an object the path descends
+     *                                into names a property twice
      */
-    private String locate(String contentType, byte[] body, String parameter, int position, List<String> path) {
+    private String located(String contentType, byte[] body, ParameterReference reference) {
         if (body == null || body.length == 0) {
-            throw securityExceptions.notAuthorized("The request carries no body, in which its check names {}", parameter);
+            throw securityExceptions.notAuthorized("The request carries no body, in which its check names {}", reference.parameter());
         }
-        boolean named = EventConstants.CONTENT_TYPE_NAMED_JSON.equals(contentType);
-        if (!named && !EventConstants.CONTENT_TYPE_JSON.equals(contentType)) {
+        if (!EventConstants.CONTENT_TYPE_JSON.equals(contentType)) {
             throw securityExceptions.notAuthorized("The request's body is {}, in which no id can be located", contentType);
         }
         String ret;
-        // the services bind the last of a property named twice, which need not be the one read here, so the
-        // parser refuses a repeated name and the whole body is read before the value is trusted
+        // a service binds the last of a property named twice, which need not be the one read here, so the parser
+        // refuses a repeated name and each object the path descends into is read to its end
         try (JsonParser parser = jsonMapper.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION).createParser(body)) {
-            JsonToken start = parser.nextToken();
-            boolean found = named
-                    ? start == JsonToken.START_OBJECT && field(parser, parameter)
-                    : start == JsonToken.START_ARRAY && element(parser, position);
+            boolean found = parser.nextToken() == JsonToken.START_ARRAY && element(parser, reference.position());
+            List<String> path = reference.path();
             for (int i = 0; found && i < path.size(); i++) {
                 found = parser.currentToken() == JsonToken.START_OBJECT && field(parser, path.get(i));
             }
             ret = found && parser.currentToken() != null && parser.currentToken().isScalarValue()
                     ? parser.getValueAsString()
                     : null;
-            JsonToken token = parser.currentToken();
-            while (token != null) {
-                token = parser.nextToken();
+            if (ret != null) {
+                finish(parser, path.size());
             }
         } catch (StreamReadException e) {
             throw securityExceptions.notAuthorized("The request's body cannot be read for its check: {}", e.getOriginalMessage());
         }
         return ret;
+    }
+
+    // Reads past the end of the given number of objects the parser is inside, the innermost first
+    private static void finish(JsonParser parser, int objects) {
+        int open = objects;
+        JsonToken token = parser.currentToken();
+        while (open > 0 && token != null) {
+            token = parser.nextToken();
+            if (token == JsonToken.END_OBJECT) {
+                open--;
+            } else if (token == JsonToken.START_OBJECT || token == JsonToken.START_ARRAY) {
+                parser.skipChildren();
+            }
+        }
+    }
+
+    // The scalar at a parameter, or at a property path inside it, of a tool call's arguments
+    private static String named(ObjectNode arguments, ParameterReference reference) {
+        JsonNode node = arguments.get(reference.parameter());
+        for (int i = 0; node != null && i < reference.path().size(); i++) {
+            node = node.isObject() ? node.get(reference.path().get(i)) : null;
+        }
+        return node != null && node.isValueNode() && !node.isNull() ? node.asString() : null;
     }
 
     // Leaves the parser on the value of the named field of the object it has just entered, false when there is none

@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -76,25 +75,24 @@ class McpToolInvokerTests {
 
     @Test
     void anAdmittedCallIsDispatchedWithTheArgumentsItWasCheckedWith() throws Exception {
-        when(requestAuthorizer.authorize(any(), any(), any(), any())).thenReturn(Future.succeededFuture());
+        when(requestAuthorizer.authorize(any(), any(), any())).thenReturn(Future.succeededFuture());
         ObjectNode arguments = jsonMapper.createObjectNode();
         arguments.putObject("entity").put("id", "proj-a");
 
         // the call completes with the service's reply, which never comes here; the dispatch is what is pinned
         invoker.invoke("save-project", arguments, sally());
 
-        ArgumentCaptor<byte[]> checkedBody = ArgumentCaptor.forClass(byte[].class);
-        verify(requestAuthorizer).authorize(eq(CRI.create(TOOL_CRI)), eq(sally()),
-                                            eq(EventConstants.CONTENT_TYPE_NAMED_JSON), checkedBody.capture());
+        ArgumentCaptor<ObjectNode> checked = ArgumentCaptor.forClass(ObjectNode.class);
+        verify(requestAuthorizer).authorize(eq(CRI.create(TOOL_CRI)), eq(sally()), checked.capture());
         ArgumentCaptor<Event<byte[]>> sent = ArgumentCaptor.forClass(Event.class);
         verify(eventBusService).sendWithAck(sent.capture());
-        assertArrayEquals(checkedBody.getValue(), sent.getValue().data());
+        assertEquals(checked.getValue(), jsonMapper.readTree(sent.getValue().data()));
         assertEquals(EventConstants.CONTENT_TYPE_NAMED_JSON, sent.getValue().metadata().get(EventConstants.CONTENT_TYPE_HEADER));
     }
 
     @Test
     void aRefusedCallIsTheToolsErrorResult() throws Exception {
-        when(requestAuthorizer.authorize(any(), any(), any(), any()))
+        when(requestAuthorizer.authorize(any(), any(), any()))
                 .thenReturn(Future.failedFuture(new AuthorizationException("Not authorized")));
 
         McpCallToolResult result = invoker.invoke("save-project", jsonMapper.createObjectNode(), sally())
@@ -107,7 +105,7 @@ class McpToolInvokerTests {
     @Test
     void aCheckThatCannotBeMadeFailsTheCall() {
         IllegalStateException down = new IllegalStateException("engine unreachable");
-        when(requestAuthorizer.authorize(any(), any(), any(), any())).thenReturn(Future.failedFuture(down));
+        when(requestAuthorizer.authorize(any(), any(), any())).thenReturn(Future.failedFuture(down));
 
         ExecutionException failure = assertThrows(ExecutionException.class,
                                                   () -> invoker.invoke("save-project", jsonMapper.createObjectNode(), sally())

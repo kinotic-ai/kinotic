@@ -23,12 +23,14 @@ import org.kinotic.domain.api.model.security.participant.OrganizationParticipant
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.domain.api.model.security.participant.SystemParticipant;
 import org.kinotic.domain.api.services.security.RequestAuthorizer;
+import org.junit.jupiter.api.function.Executable;
 import org.kinotic.test.support.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -197,17 +199,18 @@ public abstract class KinoticTestBase {
      * @throws ExecutionException caused by an {@link AuthorizationException} when the caller is refused
      */
     protected void authorize(String service, String function, Participant caller, Object arguments) throws Exception {
-        authorize(service, function, caller, EventConstants.CONTENT_TYPE_JSON, arguments);
+        requestAuthorizer.authorize(cri(service, function, caller), caller, EventConstants.CONTENT_TYPE_JSON,
+                                    jsonMapper.writeValueAsString(arguments).getBytes(StandardCharsets.UTF_8))
+                         .toCompletionStage().toCompletableFuture().get(30, TimeUnit.SECONDS);
     }
 
     /**
-     * Authorizes a request as {@link #authorize(String, String, Participant, Object)} does, with a body of the
-     * given content type: the arguments in order for {@link EventConstants#CONTENT_TYPE_JSON}, by parameter name
-     * for {@link EventConstants#CONTENT_TYPE_NAMED_JSON}.
+     * Authorizes a tool call as the MCP endpoint does, with the function's arguments by parameter name.
+     *
+     * @throws ExecutionException caused by an {@link AuthorizationException} when the caller is refused
      */
-    protected void authorize(String service, String function, Participant caller, String contentType, Object arguments) throws Exception {
-        requestAuthorizer.authorize(cri(service, function, caller), caller, contentType,
-                                    jsonMapper.writeValueAsString(arguments).getBytes(StandardCharsets.UTF_8))
+    protected void authorizeToolCall(String service, String function, Participant caller, Map<String, ?> arguments) throws Exception {
+        requestAuthorizer.authorize(cri(service, function, caller), caller, jsonMapper.<ObjectNode>valueToTree(arguments))
                          .toCompletionStage().toCompletableFuture().get(30, TimeUnit.SECONDS);
     }
 
@@ -232,15 +235,19 @@ public abstract class KinoticTestBase {
      * containing {@code naming}, the permission or object the refusal names.
      */
     protected void assertRefused(String service, String function, Participant caller, Object arguments, String naming) throws Exception {
-        assertRefused(service, function, caller, EventConstants.CONTENT_TYPE_JSON, arguments, naming);
+        assertRefusal(() -> authorize(service, function, caller, arguments), naming);
     }
 
     /**
-     * Asserts a refusal as {@link #assertRefused(String, String, Participant, Object, String)} does, of a
-     * request whose body has the given content type.
+     * Asserts {@link #authorizeToolCall(String, String, Participant, Map)} refuses the call as
+     * {@link #assertRefused(String, String, Participant, Object, String)} asserts of a request.
      */
-    protected void assertRefused(String service, String function, Participant caller, String contentType, Object arguments, String naming) throws Exception {
-        ExecutionException failure = assertThrows(ExecutionException.class, () -> authorize(service, function, caller, contentType, arguments));
+    protected void assertToolCallRefused(String service, String function, Participant caller, Map<String, ?> arguments, String naming) throws Exception {
+        assertRefusal(() -> authorizeToolCall(service, function, caller, arguments), naming);
+    }
+
+    private static void assertRefusal(Executable authorization, String naming) {
+        ExecutionException failure = assertThrows(ExecutionException.class, authorization);
         AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
         assertTrue(refused.getMessage().contains(naming), refused.getMessage());
     }

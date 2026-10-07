@@ -119,11 +119,10 @@ public class McpToolInvoker {
             return Future.failedFuture(new IllegalArgumentException("Unknown tool: " + tool.getName()));
         }
 
-        byte[] body = jsonMapper.writeValueAsBytes(arguments);
         // the zone admitted the tool; the function's own check decides the caller may invoke it, and a refusal
         // is the tool's answer rather than a failed call
-        return requestAuthorizer.authorize(requestCri, participant, EventConstants.CONTENT_TYPE_NAMED_JSON, body)
-                                .compose(v -> send(tool, requestCri, body, participant),
+        return requestAuthorizer.authorize(requestCri, participant, arguments)
+                                .compose(v -> send(tool, requestCri, jsonMapper.writeValueAsBytes(arguments), participant),
                                          error -> error instanceof AuthorizationException
                                                  ? Future.succeededFuture(McpCallToolResult.error(error.getMessage()))
                                                  : Future.failedFuture(error));

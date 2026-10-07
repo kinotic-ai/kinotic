@@ -29,6 +29,7 @@ import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -51,8 +52,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 /**
- * Pins how a request is resolved against its function's contract: the object read from a positional or a
- * named body, at the parameter's position or by its name and down a property path; the caller's scope for a
+ * Pins how a request is resolved against its function's contract: the object read from a client's positional
+ * body, at the parameter's position and down a property path with a parse that stops there, or from a tool
+ * call's arguments by the parameter's name; the caller's scope for a
  * scope reference, at the caller's own level when the check names one below it, and on the platform for a
  * system participant, and on its own application's store for an application participant, on its tenant, or on
  * the application when it has none; a definition's rows checked on the definition a request names, within the
@@ -60,8 +62,8 @@ import static org.mockito.Mockito.when;
  * in the platform's store for an organization member; an application or a project named within the caller's
  * organization, which a system participant cannot name; a
  * delegate checked as its owner; a function its contract marks unchecked passing without the engine; and the
- * refusals: a denied check, a request naming no object, a body no id can be read from or naming a property
- * twice, and the requests no
+ * refusals: a denied check, a request naming no object, a body no id can be read from or whose object the check
+ * reads names a property twice, and the requests no
  * contract covers, of a service the directory holds no definition for, a function the definition leaves out or
  * marks neither way, and a node running no directory. The authorizer runs in debug mode, so each refusal names
  * its reason.
@@ -79,6 +81,7 @@ class DefaultRequestAuthorizerTest {
     private DefaultRequestAuthorizer authorizer;
     private ServiceDirectoryEntry entry;
     private Vertx vertx;
+    private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -93,7 +96,7 @@ class DefaultRequestAuthorizerTest {
         when(relationships.check(eq(PLATFORM), eq(MODEL_ID), any(), any(), any())).thenReturn(Future.succeededFuture(true));
         when(relationships.check(eq("acme.crm"), eq(CRM_MODEL_ID), any(), any(), any())).thenReturn(Future.succeededFuture(true));
         vertx = Vertx.vertx();
-        authorizer = new DefaultRequestAuthorizer(provider, stores, relationships, JsonMapper.builder().build(), vertx, securityExceptions);
+        authorizer = new DefaultRequestAuthorizer(provider, stores, relationships, jsonMapper, vertx, securityExceptions);
         authorizer.listenForContractChanges();
 
         ServiceDefinition service = new ServiceDefinition().setNamespace("org.kinotic.management.api.services").setName("ProjectService");
@@ -150,9 +153,17 @@ class DefaultRequestAuthorizerTest {
     }
 
     @Test
-    void aNamedBodyNamesTheObjectByTheParametersName() throws Exception {
-        authorize("save", sally(), EventConstants.CONTENT_TYPE_NAMED_JSON,
-                  "{\"other\":{\"id\":\"not-this\"},\"entity\":{\"tags\":[1,{\"id\":\"nor-this\"}],\"id\":\"proj-a\"}}");
+    void aPositionalBodyIsReadNoFurtherThanTheObjectTheCheckNames() throws Exception {
+        // what follows the project's id is never parsed, so it is not refused for what it holds
+        authorize("deploy", sally(), EventConstants.CONTENT_TYPE_JSON, "[\"proj-a\",{\"tag\":1,\"tag\":2}, not json");
+
+        assertEquals("project:acme.proj-a", checked(Consistency.HIGHER_CONSISTENCY).object());
+    }
+
+    @Test
+    void aToolCallNamesTheObjectByTheParametersName() throws Exception {
+        ObjectNode arguments = (ObjectNode) jsonMapper.readTree("{\"other\":{\"id\":\"not-this\"},\"entity\":{\"tags\":[1,{\"id\":\"nor-this\"}],\"id\":\"proj-a\"}}");
+        authorizer.authorize(cri("save"), sally(), arguments).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
         assertEquals("project:acme.proj-a", checked(Consistency.MINIMIZE_LATENCY).object());
     }
@@ -215,18 +226,17 @@ class DefaultRequestAuthorizerTest {
     void aBodyNoIdCanBeReadFromIsRefused() {
         assertTrue(refused("save", sally(), "application/octet-stream", "[{\"id\":\"proj-a\"}]").getMessage().contains("octet-stream"));
         assertTrue(refused("save", sally(), EventConstants.CONTENT_TYPE_JSON, "").getMessage().contains("no body"));
+        // a client's arguments are positional; only a tool call names them
+        assertTrue(refused("save", sally(), EventConstants.CONTENT_TYPE_NAMED_JSON, "{\"entity\":{\"id\":\"proj-a\"}}")
+                           .getMessage().contains(EventConstants.CONTENT_TYPE_NAMED_JSON));
         verify(relationships, never()).check(any(), any(), any(), any(), any());
     }
 
     @Test
-    void aBodyNamingAPropertyTwiceIsRefusedWithoutTheEngine() {
+    void aRepeatedNameInTheObjectTheCheckReadsIsRefusedWithoutTheEngine() {
         // a service binds the last of a repeated name, so the first is never the object checked
-        assertTrue(refused("save", sally(), EventConstants.CONTENT_TYPE_NAMED_JSON,
-                           "{\"entity\":{\"id\":\"proj-a\"},\"entity\":{\"id\":\"proj-b\"}}").getMessage().contains("entity"));
         assertTrue(refused("save", sally(), EventConstants.CONTENT_TYPE_JSON,
                            "[{\"id\":\"proj-a\",\"name\":\"A\",\"id\":\"proj-b\"}]").getMessage().contains("id"));
-        // a repeated name after the object read is refused as well
-        refused("deploy", sally(), EventConstants.CONTENT_TYPE_JSON, "[\"proj-a\",{\"tag\":1,\"tag\":2}]");
         verify(relationships, never()).check(any(), any(), any(), any(), any());
     }
 
