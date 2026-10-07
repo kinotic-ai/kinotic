@@ -167,6 +167,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                 registered.add(serviceIdentifier);
             }
             strategy.upsertEntry(entry)
+                    .onSuccess(v -> announce(entry.getId()))
                     .compose(v -> refreshOnline(serviceIdentifier))
                     .onFailure(throwable -> log.error("Failed to register service {} in the directory", serviceIdentifier, throwable));
         }
