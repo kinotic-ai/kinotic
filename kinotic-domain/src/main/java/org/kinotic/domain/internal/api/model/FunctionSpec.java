@@ -8,11 +8,11 @@ import java.util.List;
  * What the authorizer keeps of a function's contract: its check, and the names of the parameters a request
  * carries, in the order a positional body lists them.
  *
- * @param check      the function's check, or null for a function its zone alone admits
+ * @param check      the function's check, or null for an unchecked function
  * @param parameters the parameter names in body order
  */
 public record FunctionSpec(AuthzCheckC3Decorator check, List<String> parameters) {
 
-    /** The spec of a function with no contract or no check. */
-    public static final FunctionSpec ZONE_ONLY = new FunctionSpec(null, List.of());
+    /** The spec of an unchecked function: one declared with no check, or one no contract covers. */
+    public static final FunctionSpec UNCHECKED = new FunctionSpec(null, List.of());
 }
