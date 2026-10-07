@@ -14,6 +14,7 @@ import dev.openfga.sdk.errors.FgaApiValidationError;
 import dev.openfga.sdk.errors.ApiException;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
@@ -106,6 +107,16 @@ public class DefaultRelationshipService implements RelationshipService {
     @Override
     public Future<Void> ensureRoles(String store, Map<String, Set<String>> roles) {
         return converging(() -> reconcileRoles(store, roles));
+    }
+
+    @Override
+    public Future<String> ensureModelWithRoles(String store, AuthzModel model) {
+        // A check that runs while a role's tuples are being written can cache the role's answer from before the
+        // write, valid for the engine's cache lifetime; the roles are written while no version yet grants through
+        // their new relations, so no check against the model can read them before they are in step
+        return stores.ensureRoleRelations(store, model)
+                     .compose(v -> ensureRoles(store, model.roles()))
+                     .compose(v -> stores.ensureModel(store, model));
     }
 
     private Future<Void> reconcileRoles(String store, Map<String, Set<String>> roles) {

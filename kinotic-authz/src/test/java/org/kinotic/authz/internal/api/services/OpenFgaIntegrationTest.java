@@ -1,5 +1,6 @@
 package org.kinotic.authz.internal.api.services;
 
+import dev.openfga.sdk.api.model.AuthorizationModel;
 import dev.openfga.sdk.api.model.CreateStoreRequest;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
@@ -186,6 +187,39 @@ class OpenFgaIntegrationTest {
         assertTrue(await(fga.listStores(1, null, name)).getStores().isEmpty());
         // a store already gone leaves nothing to delete
         await(storeService.deleteStore(store));
+    }
+
+    @Test
+    void aModelIsWrittenOnlyOnceTheRolesItGrantsThroughAreInStep() throws Exception {
+        String store = "roles-first-" + System.nanoTime();
+        AuthzModel invoices = generator.applicationModel(List.of(), List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT)));
+        AuthzModel grown = generator.applicationModel(List.of(), List.of(), List.of(new EntityResource("invoice", EntityScope.TENANT),
+                                                                         new EntityResource("receipt", EntityScope.TENANT)));
+        String storeId = await(storeService.ensureStore(store));
+        await(relationshipService.ensureModelWithRoles(store, invoices));
+
+        String grownModelId = await(relationshipService.ensureModelWithRoles(store, grown));
+
+        // the version before the grown one carries the receipt's role relations, and no type grants through them
+        List<AuthorizationModel> versions = await(fga.readAuthorizationModels(storeId, 10, null)).getAuthorizationModels();
+        assertEquals(grownModelId, versions.getFirst().getId());
+        AuthorizationModel bridge = versions.get(1);
+        assertTrue(relationsOf(bridge, "role").contains("receipt_can_read"));
+        assertFalse(relationsOf(bridge, "tenant").contains("receipt_can_read"));
+        assertTrue(relationsOf(bridge, "tenant").contains("invoice_can_read"));
+        assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:*", "receipt_can_read", "role:tenant.admin"))));
+        // a model in step writes nothing more
+        assertEquals(grownModelId, await(relationshipService.ensureModelWithRoles(store, grown)));
+        assertEquals(versions.size(), await(fga.readAuthorizationModels(storeId, 10, null)).getAuthorizationModels().size());
+        await(storeService.deleteStore(store));
+    }
+
+    private static Set<String> relationsOf(AuthorizationModel model, String type) {
+        return model.getTypeDefinitions().stream()
+                    .filter(definition -> type.equals(definition.getType()))
+                    .findFirst()
+                    .map(definition -> definition.getRelations().keySet())
+                    .orElse(Set.of());
     }
 
     @Test

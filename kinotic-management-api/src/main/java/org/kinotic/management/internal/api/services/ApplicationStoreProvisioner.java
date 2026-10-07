@@ -68,7 +68,6 @@ public class ApplicationStoreProvisioner {
     }
 
     private Future<String> kernel(String store, AuthzModel model) {
-        return stores.ensureModel(store, model)
-                     .compose(version -> relationships.ensureRoles(store, model.roles()).map(version));
+        return relationships.ensureModelWithRoles(store, model);
     }
 }
