@@ -7,6 +7,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
@@ -24,11 +25,14 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
 
     protected final AbstractOrganizationScopedRepository<T> scopedRepository;
     protected final SecurityContext securityContext;
+    protected final SecurityExceptionFactory securityExceptions;
 
     public AbstractOrganizationScopedService(AbstractOrganizationScopedRepository<T> repository,
-                                             SecurityContext securityContext) {
+                                             SecurityContext securityContext,
+                                             SecurityExceptionFactory securityExceptions) {
         this.scopedRepository = repository;
         this.securityContext = securityContext;
+        this.securityExceptions = securityExceptions;
     }
 
     @Override
@@ -145,10 +149,8 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
         Validate.notBlank(entityOrgId, "Organization id must be set on " + scopedRepository.getType().getSimpleName());
 
         if (!orgId.equals(entityOrgId)) {
-            throw new AuthorizationException(
-                    "Cannot save " + scopedRepository.getType().getSimpleName()
-                    + " with organizationId '" + entityOrgId
-                    + "' while authenticated as organization '" + orgId + "'");
+            throw securityExceptions.notAuthorized("Cannot save {} with organizationId '{}' while authenticated as organization '{}'",
+                                                   scopedRepository.getType().getSimpleName(), entityOrgId, orgId);
         }
     }
 }

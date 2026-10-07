@@ -10,6 +10,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.Application;
@@ -59,11 +60,12 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                                      OidcConfigurationService oidcConfigurationService,
                                      UiDeploymentRepository uiDeploymentRepository,
                                      SecurityContext securityContext,
+                                     SecurityExceptionFactory securityExceptions,
                                      RelationshipService relationships,
                                      ApplicationStoreProvisioner storeProvisioner,
                                      AuthzStoreService storeService,
                                      AuthzStoreRepository stores) {
-        super(repository, securityContext);
+        super(repository, securityContext, securityExceptions);
         this.projectRepository = projectRepository;
         this.entityDefinitionRepository = entityDefinitionRepository;
         this.permissions = permissions;

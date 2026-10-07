@@ -3,6 +3,7 @@ package org.kinotic.management.internal.api.services;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.InviteEmailTemplate;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.InviteEmailTemplateRepository;
@@ -24,9 +25,10 @@ public class DefaultInviteEmailTemplateService extends AbstractApplicationScoped
 
     public DefaultInviteEmailTemplateService(InviteEmailTemplateRepository repository,
                                              SecurityContext securityContext,
+                                             SecurityExceptionFactory securityExceptions,
                                              ApplicationRepository applicationRepository,
                                              EmailService emailService) {
-        super(repository, securityContext);
+        super(repository, securityContext, securityExceptions);
         this.inviteEmailTemplateRepository = repository;
         this.applicationRepository = applicationRepository;
         this.emailService = emailService;

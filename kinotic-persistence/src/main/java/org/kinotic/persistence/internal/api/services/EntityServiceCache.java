@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
@@ -48,6 +49,7 @@ public class EntityServiceCache {
     private final ReadPostProcessor readPostProcessor;
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final DomainPersistenceProperties domainPersistenceProperties;
+    private final SecurityExceptionFactory securityExceptions;
     private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
     private final AsyncLoadingCache<CacheKey, EntityService> cache;
 
@@ -61,7 +63,8 @@ public class EntityServiceCache {
                                     PersistenceProperties persistenceProperties,
                                     DomainPersistenceProperties domainPersistenceProperties,
                                     List<UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors,
-                                    DefaultCaffeineCacheFactory cacheFactory) {
+                                    DefaultCaffeineCacheFactory cacheFactory,
+                                    SecurityExceptionFactory securityExceptions) {
         this.crudServiceTemplate = crudServiceTemplate;
         this.esAsyncClient = esAsyncClient;
         this.namedQueriesService = namedQueriesService;
@@ -70,6 +73,7 @@ public class EntityServiceCache {
         this.readPostProcessor = readPostProcessor;
         this.entityDefinitionRepository = entityDefinitionRepository;
         this.domainPersistenceProperties = domainPersistenceProperties;
+        this.securityExceptions = securityExceptions;
 
         this.upsertFieldPreProcessors = PersistenceUtil.listToMap(upsertFieldPreProcessors,
                                                                  p -> p.implementsDecorator().getName());
@@ -146,7 +150,8 @@ public class EntityServiceCache {
                                          readPreProcessor,
                                          readPostProcessor,
                                          entityDescriptor,
-                                         domainPersistenceProperties));
+                                         domainPersistenceProperties,
+                                         securityExceptions));
     }
 
     private record CacheKey(String organizationId, String entityDefinitionId) {}

@@ -11,6 +11,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.WatchEventKind;
 import org.kinotic.management.api.model.Project;
@@ -53,11 +54,12 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                                  EntityDefinitionRepository entityDefinitionRepository,
                                  PermissionService permissions,
                                  SecurityContext securityContext,
+                                 SecurityExceptionFactory securityExceptions,
                                  ProjectDeploymentRepository projectDeploymentRepository,
                                  ProjectDependenciesRepository projectDependenciesRepository,
                                  ProjectRepoProvisioner repoProvisioner,
                                  RelationshipService relationships) {
-        super(repository, securityContext);
+        super(repository, securityContext, securityExceptions);
         this.projectRepository = repository;
         this.entityDefinitionRepository = entityDefinitionRepository;
         this.permissions = permissions;

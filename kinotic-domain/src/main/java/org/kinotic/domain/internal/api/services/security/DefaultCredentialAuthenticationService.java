@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
@@ -57,6 +58,7 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
     private final ParticipantIdentityService identityService;
     private final LocalAuthenticationService localAuthenticationService;
     private final KinoticJwtIssuer jwtIssuer;
+    private final SecurityExceptionFactory securityExceptions;
 
     @Override
     public Future<Participant> authenticate(Map<String, String> authenticationInfo,
@@ -213,13 +215,12 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
                                   } else if (!Objects.equals(identity.getOrganizationId(), jwtOrgId)
                                           || !Objects.equals(identity.getApplicationId(), jwtAppId)) {
                                       // the user was moved or re-scoped after the token was minted, so the
-                                      // signed claims no longer describe the authority the record grants.
-                                      // The scopes stay in the log; the caller gets no ids back.
-                                      log.warn("JWT scope {} does not match scope {} of user {}",
-                                               DomainUtil.describeScope(jwtOrgId, jwtAppId),
-                                               DomainUtil.describeScope(identity.getOrganizationId(), identity.getApplicationId()),
-                                               sub);
-                                      ret = Future.failedFuture(new AuthenticationException("JWT scope does not match user scope"));
+                                      // signed claims no longer describe the authority the record grants
+                                      ret = Future.failedFuture(securityExceptions.notAuthenticated(
+                                              "JWT scope {} does not match scope {} of user {}",
+                                              DomainUtil.describeScope(jwtOrgId, jwtAppId),
+                                              DomainUtil.describeScope(identity.getOrganizationId(), identity.getApplicationId()),
+                                              sub));
                                   } else if (identity instanceof DelegatingParticipantIdentity delegate) {
                                       // a delegate wields its owner's authority, so revoking the owner
                                       // revokes every delegate on the next request, with no cascade to miss
@@ -238,9 +239,9 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
                               .compose(owner -> {
                                   Future<Void> ret;
                                   if (owner == null || !owner.isEnabled()) {
-                                      log.warn("Delegate {} rejected: owner {} is missing or disabled",
-                                               delegate.getId(), delegate.getOwnerId());
-                                      ret = Future.failedFuture(new AuthenticationException("Delegate owner is not available"));
+                                      ret = Future.failedFuture(securityExceptions.notAuthenticated(
+                                              "Delegate {} rejected: owner {} is missing or disabled",
+                                              delegate.getId(), delegate.getOwnerId()));
                                   } else {
                                       ret = Future.succeededFuture();
                                   }
