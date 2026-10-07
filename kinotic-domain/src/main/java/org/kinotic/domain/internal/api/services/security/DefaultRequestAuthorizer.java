@@ -116,14 +116,14 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         ServiceDirectory directory = directoryProvider.getIfAvailable();
         Future<FunctionSpec> ret;
         if (directory == null) {
-            ret = Future.succeededFuture(FunctionSpec.ZONE_ONLY);
+            ret = Future.succeededFuture(FunctionSpec.UNCHECKED);
         } else {
             // an entry is keyed as a registration keys it: the zone and the qualified name, never the scope
             String entryId = cri.hasZone() ? cri.zone() + "~" + cri.resourceName() : cri.resourceName();
             String key = entryId + "|" + cri.version();
             ret = KinoticUtil.toFuture(definitions.get(key, (k, executor) -> load(directory, entryId).toCompletionStage().toCompletableFuture()))
-                             .map(functions -> cri.hasPath() ? functions.getOrDefault(cri.path().substring(1), FunctionSpec.ZONE_ONLY)
-                                                             : FunctionSpec.ZONE_ONLY);
+                             .map(functions -> cri.hasPath() ? functions.getOrDefault(cri.path().substring(1), FunctionSpec.UNCHECKED)
+                                                             : FunctionSpec.UNCHECKED);
         }
         return ret;
     }
@@ -133,7 +133,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         return directory.findEntry(entryId).map(entry -> {
             Map<String, FunctionSpec> ret = new HashMap<>();
             if (entry == null || entry.getServiceDefinition() == null) {
-                log.debug("No definition covers {}; its zone alone admits requests to it", entryId);
+                log.debug("No definition covers {}; its functions are served unchecked", entryId);
             } else {
                 for (FunctionDefinition function : entry.getServiceDefinition().getFunctions()) {
                     ret.put(function.getName(),
