@@ -3,6 +3,8 @@ package org.kinotic.domain.internal.api.services.security;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -48,7 +50,8 @@ import static org.kinotic.authz.api.services.AuthzStoreService.PLATFORM;
  * organization's members and the platform's own staff, and from the application's store for an application's
  * users. A platform operator or one of the platform's machines, whose scope names no organization, is checked
  * on the platform itself wherever a check names the caller's scope, and an application's user on its tenant,
- * or on the application when it has none.
+ * or on the application when it has none. What is kept of a contract is dropped when the directory announces
+ * the contract written again.
  */
 @Slf4j
 @Component
@@ -71,10 +74,25 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
     private final AuthzStoreService stores;
     private final RelationshipService relationships;
     private final JsonMapper jsonMapper;
+    private final Vertx vertx;
     private final AsyncCache<String, Map<String, FunctionSpec>> definitions = Caffeine.newBuilder()
                                                                                     .maximumSize(DEFINITION_CAPACITY)
                                                                                     .expireAfterWrite(DEFINITION_RETENTION)
                                                                                     .buildAsync();
+
+    /**
+     * Listens for the directory announcing a contract written, and drops what is kept of it, so a function's
+     * check changes for this node as soon as the directory holds the change.
+     */
+    @PostConstruct
+    void listenForContractChanges() {
+        vertx.eventBus().<String>consumer(ServiceDirectory.CONTRACT_CHANGED_ADDRESS, message -> forget(message.body()));
+    }
+
+    // every version of the entry is kept under its own key; a contract written again changes all of them
+    private void forget(String entryId) {
+        definitions.asMap().keySet().removeIf(key -> key.startsWith(entryId + "|"));
+    }
 
     @Override
     public Future<Void> authorize(CRI cri, Participant participant, String contentType, byte[] body) {

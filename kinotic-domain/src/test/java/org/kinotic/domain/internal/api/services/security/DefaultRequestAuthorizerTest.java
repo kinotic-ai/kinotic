@@ -1,6 +1,9 @@
 package org.kinotic.domain.internal.api.services.security;
 
 import io.vertx.core.Future;
+import java.util.concurrent.Callable;
+import org.junit.jupiter.api.AfterEach;
+import io.vertx.core.Vertx;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.Consistency;
@@ -41,6 +44,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
@@ -65,6 +69,7 @@ class DefaultRequestAuthorizerTest {
     private RelationshipService relationships;
     private DefaultRequestAuthorizer authorizer;
     private ServiceDirectoryEntry entry;
+    private Vertx vertx;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -78,7 +83,9 @@ class DefaultRequestAuthorizerTest {
         relationships = mock(RelationshipService.class);
         when(relationships.check(eq(PLATFORM), eq(MODEL_ID), any(), any())).thenReturn(Future.succeededFuture(true));
         when(relationships.check(eq("acme.crm"), eq(CRM_MODEL_ID), any(), any())).thenReturn(Future.succeededFuture(true));
-        authorizer = new DefaultRequestAuthorizer(provider, stores, relationships, JsonMapper.builder().build());
+        vertx = Vertx.vertx();
+        authorizer = new DefaultRequestAuthorizer(provider, stores, relationships, JsonMapper.builder().build(), vertx);
+        authorizer.listenForContractChanges();
 
         ServiceDefinition service = new ServiceDefinition().setNamespace("org.kinotic.management.api.services").setName("ProjectService");
         service.addFunction(function("save", check("project", "{entity.id}", "project", "can_edit", false), "entity"));
@@ -95,6 +102,32 @@ class DefaultRequestAuthorizerTest {
         entities.addFunction(function("findById", check("tenant", "{@tenantId}", "{entityDefinitionId}", "can_read", false), "entityDefinitionId", "id"));
         entities.addFunction(function("save", check("tenant", "{@tenantId}", "{entityDefinitionId}", "can_create", false), "entityDefinitionId", "entity"));
         when(directory.findEntry(ENTITIES)).thenReturn(Future.succeededFuture(new ServiceDirectoryEntry().setId(ENTITIES).setServiceDefinition(entities)));
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        vertx.close().toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+    }
+
+    @Test
+    void aContractAnnouncedWrittenIsReadAgain() throws Exception {
+        authorize("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-a\"}]");
+        verify(directory, times(1)).findEntry(SERVICE);
+        verify(relationships, times(1)).check(any(), any(), any(), any());
+
+        // the contract written again serves save unchecked
+        ServiceDefinition changed = new ServiceDefinition().setNamespace("org.kinotic.management.api.services").setName("ProjectService");
+        changed.addFunction(function("save", null, "entity"));
+        when(directory.findEntry(SERVICE)).thenReturn(Future.succeededFuture(new ServiceDirectoryEntry().setId(SERVICE).setServiceDefinition(changed)));
+        vertx.eventBus().publish(ServiceDirectory.CONTRACT_CHANGED_ADDRESS, SERVICE);
+
+        // the announcement lands on the event loop; from then on a request reads the contract again and asks nothing
+        assertTrue(awaitUntil(() -> {
+            int checks = mockingDetails(relationships).getInvocations().size();
+            authorize("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-a\"}]");
+            return mockingDetails(relationships).getInvocations().size() == checks
+                    && mockingDetails(directory).getInvocations().size() == 2;
+        }), "the contract announced written was never read again");
     }
 
     @Test
@@ -286,6 +319,15 @@ class DefaultRequestAuthorizerTest {
     private AuthorizationException refused(String function, Participant participant, String contentType, String body) {
         ExecutionException failure = assertThrows(ExecutionException.class, () -> authorize(function, participant, contentType, body));
         return assertInstanceOf(AuthorizationException.class, failure.getCause());
+    }
+
+    // polls every 20 ms for up to 5 s
+    private static boolean awaitUntil(Callable<Boolean> condition) throws Exception {
+        long deadline = System.currentTimeMillis() + 5_000;
+        while (!condition.call() && System.currentTimeMillis() < deadline) {
+            Thread.sleep(20);
+        }
+        return condition.call();
     }
 
     private RelationshipTuple checked(Consistency consistency) {

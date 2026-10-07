@@ -23,6 +23,12 @@ import java.util.List;
 public interface ServiceDirectory {
 
     /**
+     * The event bus address the directory publishes an entry's id on whenever it writes the entry's contract,
+     * so a node holding anything read from the contract drops it and reads the contract again.
+     */
+    String CONTRACT_CHANGED_ADDRESS = "kinotic.directory.contract-changed";
+
+    /**
      * Returns the entries scoped to the given organization/application. System (OS) entries are system-scoped, so
      * they never match a non-null scope — an organization or application only ever sees what it provides. A system
      * scope (both ids null) returns all entries.

@@ -17,6 +17,7 @@ import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
@@ -87,6 +88,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     private final SchemaService schemaService;
     private final McpJsonSchemaGenerator schemaGenerator;
     private final Ignite ignite;
+    private final Vertx vertx;
 
     // Registrations arriving while singletons are created are held here and converted in ONE conversion
     // session once all of them exist, so model types shared between services are converted once per node
@@ -109,7 +111,8 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                                    EventBusService eventBusService,
                                    SchemaServiceFactory schemaServiceFactory,
                                    IdlConverterFactory idlConverterFactory,
-                                   Ignite ignite) {
+                                   Ignite ignite,
+                                   Vertx vertx) {
         this.strategy = strategy;
         this.eventBusService = eventBusService;
         // a Participant is bound from the security context, never from the request, the rule
@@ -117,6 +120,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
         this.schemaService = schemaServiceFactory.create(Set.of(Participant.class));
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
         this.ignite = ignite;
+        this.vertx = vertx;
     }
 
     @Override
@@ -248,9 +252,15 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     private Future<Void> upsertAll(Collection<ServiceDirectoryEntry> entries) {
         List<Future<Void>> writes = new ArrayList<>();
         for (ServiceDirectoryEntry entry : entries) {
-            writes.add(strategy.upsertEntry(entry));
+            writes.add(strategy.upsertEntry(entry).onSuccess(v -> announce(entry.getId())));
         }
         return Future.all(writes).mapEmpty();
+    }
+
+    // The entry's write is refreshed before it returns, so a node reading the contract on this announcement
+    // reads the one written
+    private void announce(String entryId) {
+        vertx.eventBus().publish(ServiceDirectory.CONTRACT_CHANGED_ADDRESS, entryId);
     }
 
     @Override
@@ -293,7 +303,9 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                 .setAdvertised(entry.isAdvertised())
                 .setMcpExposed(!tools.isEmpty())
                 .setMcpTools(tools.isEmpty() ? null : tools);
-        return strategy.upsertEntry(stored).compose(v -> refreshOnline(entryId, serviceAddress));
+        return strategy.upsertEntry(stored)
+                       .onSuccess(v -> announce(entryId))
+                       .compose(v -> refreshOnline(entryId, serviceAddress));
     }
 
     @Override
