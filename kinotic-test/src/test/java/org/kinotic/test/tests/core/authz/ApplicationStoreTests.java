@@ -3,14 +3,17 @@ package org.kinotic.test.tests.core.authz;
 import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AccessExplanation;
+import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectKind;
+import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.ApplicationKey;
@@ -53,7 +56,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * one made on the application reaches every definition; the organization's administrator manages the grants
  * through {@code ApplicationAccessService}, which refuses a grant on anything but the application, a tenant, a
  * definition the application holds or a definition within a tenant, and to anyone but the application's own
- * users; and deleting an application deletes its store with everything in it.
+ * users; deleting an application deletes its store with everything in it; and an application created again under
+ * the same id is placed in its store whatever model the store was left running.
  */
 @SpringBootTest
 public class ApplicationStoreTests extends KinoticTestBase {
@@ -80,6 +84,12 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
     @Autowired
     private TestDataService testData;
+
+    @Autowired
+    private ServiceDirectory directory;
+
+    @Autowired
+    private AuthzModelGenerator generator;
 
     @Test
     public void theStoreRunsTheFixedModelAndHoldsTheDefinitionsCreated() throws Exception {
@@ -222,6 +232,29 @@ public class ApplicationStoreTests extends KinoticTestBase {
         assertNull(await(stores.findById(store)));
         assertThrows(ExecutionException.class, () -> await(storeService.modelId(store)));
         assertThrows(ExecutionException.class, () -> await(relationships.read(store, AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, store))));
+    }
+
+    @Test
+    public void anApplicationCreatedAgainIsPlacedInTheStoreItsNameWasLeft() throws Exception {
+        String name = "Store " + suffix();
+        Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(name, "lifecycle", null)));
+        String store = DomainUtil.authzApplicationId(TEST_ORG_ID, application.getId());
+        RelationshipTuple placed = new RelationshipTuple(AuthzUtil.EVERYONE, AuthzUtil.PLACED_RELATION, AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, store));
+        await(runAsOrganization(() -> applicationService.deleteById(application.getId())));
+
+        // a reconcile of the store's record that runs while the application is deleted creates the store again,
+        // running the application's model and holding nothing
+        AuthzModel model = await(directory.findSystemDefinitions().map(platform -> generator.applicationModel(platform, List.of())));
+        await(storeService.ensureStore(store).compose(id -> relationships.ensureModelWithRoles(store, model)));
+        assertFalse(await(relationships.holds(store, placed)));
+
+        Application again = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(name, "lifecycle", null)));
+        try {
+            assertEquals(application.getId(), again.getId());
+            assertTrue(await(relationships.holds(store, placed)));
+        } finally {
+            await(runAsOrganization(() -> applicationService.deleteById(again.getId())));
+        }
     }
 
     private Set<String> roleIds() throws Exception {

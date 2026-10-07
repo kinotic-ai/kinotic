@@ -23,7 +23,8 @@ import java.util.List;
  * Gives an application its authorization store: the store in the engine, running the kernel model, the
  * platform's tenant services included, with its roles so the application's users and tenants can be placed in
  * it and granted on at once, and the store's record, which the reconciler keeps in step with the application's
- * entity definitions and registered services from then on. Provisioning an application that has its store is a no-op.
+ * entity definitions and registered services from then on. Provisioning is idempotent: an application that has its
+ * store keeps it, and is placed in it if it is not.
  */
 @Slf4j
 @Component
@@ -48,8 +49,11 @@ public class ApplicationStoreProvisioner {
                      // the kernel model and its roles admit the membership tuples written at user creation and the
                      // grants made before any service of the application registers; a store already running a
                      // model keeps it, since the reconciler's carries the application's services
-                     .compose(id -> stores.modelId(store).recover(none -> kernel(store, kernel)))
-                     .compose(version -> records.findById(store))
+                     .compose(id -> stores.modelId(store).recover(none -> relationships.ensureModelWithRoles(store, kernel)))
+                     // the placement is ensured whatever model the store runs: a reconcile that ran while an
+                     // application of the same id was deleted creates the store again with a model and nothing else
+                     .compose(version -> relationships.ensure(store, List.of(placement(store))))
+                     .compose(v -> records.findById(store))
                      .compose(record -> {
                          Future<Void> ret;
                          if (record != null) {
@@ -69,11 +73,9 @@ public class ApplicationStoreProvisioner {
                      });
     }
 
-    // The kernel model, its roles, and the one tuple the application holds in its own store: everyone is placed
-    // on it, which the placement of each definition under it is read through
-    private Future<String> kernel(String store, AuthzModel model) {
-        RelationshipTuple placed = new RelationshipTuple(AuthzUtil.EVERYONE, AuthzUtil.PLACED_RELATION, AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, store));
-        return relationships.ensureModelWithRoles(store, model)
-                            .compose(version -> relationships.ensure(store, List.of(placed)).map(version));
+    // The one tuple the application holds in its own store: everyone is placed on it, which the placement of each
+    // definition under it is read through
+    private static RelationshipTuple placement(String store) {
+        return new RelationshipTuple(AuthzUtil.EVERYONE, AuthzUtil.PLACED_RELATION, AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, store));
     }
 }
