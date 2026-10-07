@@ -36,10 +36,10 @@
             <li v-for="grant in explanation.through" :key="grant.id" class="flex flex-wrap items-center gap-2 text-surface-800 dark:text-surface-100">
               <span>{{ roleName(grant.roleId) }}</span>
               <span class="text-muted-color">granted to {{ labelOf(grant.subject) }} on</span>
-              <TableChip :icon="MapPin">{{ placeLabel(grant.resource, definitions) }}</TableChip>
+              <TableChip :icon="MapPin">{{ resourceLabel(grant.resource, definitions) }}</TableChip>
             </li>
           </ul>
-          <p v-else class="mt-1 text-muted-color">No grant reaching the place gives the permission.</p>
+          <p v-else class="mt-1 text-muted-color">No grant reaching the resource gives the permission.</p>
         </div>
       </div>
     </div>
@@ -55,7 +55,7 @@ import { CircleCheck, CircleX, MapPin, SearchCheck } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
 import { type AccessExplanation, type Resource, type RoleDefinition, type Subject, SubjectKind } from '@kinotic-ai/management-api'
 import { DashboardSection, TableChip, permissionLabel, showErrorToast, splitPermission, typeLabel } from '@kinotic-ai/frontend-common'
-import { type DefinitionOption, definitionName, definitionOf, placeLabel, placeOf, tenantOf } from './places'
+import { type DefinitionOption, definitionName, definitionOf, resourceLabel, resourceOf, tenantOf } from './applicationResources'
 import type { SubjectOption } from './useSubjects'
 
 /**
@@ -78,7 +78,7 @@ const props = defineProps<{
   labelOf: (subject: Subject) => string
   /** The subject to start with picked, such as the one the page was opened for. */
   initialSubjectId?: string
-  /** The place to start with, the resource the page is looking at. */
+  /** The resource to start with, the one the page is looking at. */
   initialResource: Resource
 }>()
 
@@ -122,9 +122,9 @@ function roleName(roleId: string): string {
 
 // where the permission was asked about, as the answer reads: across the application, in a tenant, or for a
 // definition's rows there or in every tenant
-function whereLabel(place: Resource): string {
-  const tenant = tenantOf(place)
-  const definition = definitionOf(place)
+function whereLabel(resource: Resource): string {
+  const tenant = tenantOf(resource)
+  const definition = definitionOf(resource)
   let ret: string
   if (definition) {
     const name = definitionName(definition, props.definitions)
@@ -140,7 +140,7 @@ async function check(): Promise<void> {
   if (!picked || !permission.value) {
     return
   }
-  const resource = placeOf(props.applicationId, where.value.trim(), definitionId.value)
+  const resource = resourceOf(props.applicationId, where.value.trim(), definitionId.value)
   checking.value = true
   try {
     explanation.value = await Kinotic.applicationAccess.explain(props.applicationId, { kind: SubjectKind.USER, id: picked.subject.id }, permission.value, resource)

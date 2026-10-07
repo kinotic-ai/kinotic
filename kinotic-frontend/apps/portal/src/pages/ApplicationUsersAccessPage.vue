@@ -37,7 +37,7 @@
           </Column>
           <Column header="Where" style="width: 20%">
             <template #body="{ data }">
-              <TableChip :icon="MapPin">{{ placeLabel(data.resource, definitions) }}</TableChip>
+              <TableChip :icon="MapPin">{{ resourceLabel(data.resource, definitions) }}</TableChip>
             </template>
           </Column>
           <Column style="width: 15%">
@@ -78,7 +78,7 @@ import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, RoleC
          errorMessage, isAuthorizationError, showErrorToast } from '@kinotic-ai/frontend-common'
 import EndUserAccessCheckPanel from '@/components/access/EndUserAccessCheckPanel.vue'
 import EndUserGrantDialog from '@/components/access/EndUserGrantDialog.vue'
-import { type DefinitionOption, placeLabel, placeOf, reaches, tenantOf } from '@/components/access/places'
+import { type DefinitionOption, resourceLabel, resourceOf, reaches, tenantOf } from '@/components/access/applicationResources'
 import { useSubjects } from '@/components/access/useSubjects'
 
 /**
@@ -120,8 +120,8 @@ const subjectFilter = computed<Subject | null>(() => {
   return typeof id === 'string' && id.length > 0 ? { kind: SubjectKind.USER, id } : null
 })
 
-/** The place the page is looking at: the whole application, the tenant typed or picked, the definition picked, or both. */
-const resource = computed<Resource>(() => placeOf(props.applicationId, where.value.trim(), definition.value))
+/** The resource the page is looking at: the whole application, the tenant typed or picked, the definition picked, or both. */
+const resource = computed<Resource>(() => resourceOf(props.applicationId, where.value.trim(), definition.value))
 
 const shown = computed(() => subjectFilter.value
     ? grants.value.filter(grant => grant.subject.id === subjectFilter.value?.id)
@@ -129,7 +129,7 @@ const shown = computed(() => subjectFilter.value
 
 const whereTitle = computed(() => resource.value.type === 'application'
     ? 'Grants on the whole application'
-    : `Grants reaching ${placeLabel(resource.value, definitions.value)}`)
+    : `Grants reaching ${resourceLabel(resource.value, definitions.value)}`)
 const whereDescription = computed(() => {
   let ret: string
   if (resource.value.type === 'tenant') {
@@ -225,7 +225,7 @@ function onGranted(grant: Grant): void {
 function confirmRevoke(grant: Grant): void {
   confirm.require({
     header: 'Revoke access',
-    message: `Revoke ${roleOf(grant.roleId)?.name ?? grant.roleId} from ${labelOf.value(grant.subject)} on ${placeLabel(grant.resource, definitions.value)}? They keep whatever other grants reach them.`,
+    message: `Revoke ${roleOf(grant.roleId)?.name ?? grant.roleId} from ${labelOf.value(grant.subject)} on ${resourceLabel(grant.resource, definitions.value)}? They keep whatever other grants reach them.`,
     icon: 'pi pi-exclamation-triangle',
     acceptProps: { label: 'Revoke', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },

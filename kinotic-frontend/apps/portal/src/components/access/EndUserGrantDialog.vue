@@ -61,7 +61,7 @@ import { UserPlus } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
 import { type Grant, type Resource, type RoleDefinition, SubjectKind } from '@kinotic-ai/management-api'
 import { FormDialog, permissionLabel, showErrorToast, splitPermission, typeLabel } from '@kinotic-ai/frontend-common'
-import { type DefinitionOption, definitionOf, placeOf, tenantOf } from './places'
+import { type DefinitionOption, definitionOf, resourceOf, tenantOf } from './applicationResources'
 import type { SubjectOption } from './useSubjects'
 
 /**
@@ -103,12 +103,12 @@ const definitionId = ref<string | null>(null)
 const roleId = ref<string | null>(null)
 const granting = ref(false)
 
-/** The place the grant is made on, or null while a tenant or a definition chosen is not named yet. */
+/** The resource the grant is made on, or null while a tenant or a definition chosen is not named yet. */
 const resource = computed<Resource | null>(() => {
   const tenant = scope.value === 'One tenant' ? tenantId.value?.trim() ?? '' : ''
   const definition = rows.value === 'One definition' ? definitionId.value ?? '' : ''
   const named = (scope.value !== 'One tenant' || tenant.length > 0) && (rows.value !== 'One definition' || definition.length > 0)
-  return named ? placeOf(props.applicationId, tenant, definition) : null
+  return named ? resourceOf(props.applicationId, tenant, definition) : null
 })
 
 const reach = computed(() => {
