@@ -45,6 +45,16 @@ public class AuthzModelGeneratorTest {
         return service(name, type, parent, List.of(), functions);
     }
 
+    // the platform's entities repository as the directory holds it: the rows' permissions, a ladder but for creating
+    private static ServiceDefinition entitiesRepository() {
+        return service("JsonEntitiesRepository", "entity_definition", "application",
+                       function("count", "entity_definition", "entity_definition", "can_search"),
+                       function("findById", "entity_definition", "entity_definition", "can_read", "can_search"),
+                       function("save", "entity_definition", "entity_definition", "can_create"),
+                       function("update", "entity_definition", "entity_definition", "can_edit", "can_read"),
+                       function("deleteById", "entity_definition", "entity_definition", "can_delete", "can_edit"));
+    }
+
     private static ServiceDefinition service(String name,
                                              String type,
                                              String parent,
@@ -337,7 +347,7 @@ public class AuthzModelGeneratorTest {
 
     @Test
     public void applicationModelRootsAtTheApplicationWithTheFixedEntityTypes() {
-        AuthzModel model = generator.applicationModel(List.of(), List.of());
+        AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), List.of());
 
         assertEquals(Set.of("user", "group", "role", "role_binding", "application", "entity_definition", "tenant", "tenant_definition"),
                      typeNames(model));
@@ -365,7 +375,7 @@ public class AuthzModelGeneratorTest {
         assertEquals(List.of("ttu:role_binding->entity_definition_can_search", "computed:entity_definition_can_read",
                              "ttu:definition->entity_definition_can_search", "intersection:[ttu:tenant->entity_definition_can_search, computed:placed]"),
                      children(pair, "entity_definition_can_search", "union"));
-        // the fixed roles of the rows; the pair has none of its own
+        // the rows' permissions are the repository's, with the ladder it declares
         assertEquals(Set.of("entity_definition_can_read", "entity_definition_can_search"), model.roles().get("entity_definition.viewer"));
         assertEquals(Set.of("entity_definition_can_create", "entity_definition_can_edit", "entity_definition_can_read", "entity_definition_can_search"),
                      model.roles().get("entity_definition.editor"));
@@ -381,11 +391,13 @@ public class AuthzModelGeneratorTest {
                                                    service("ApplicationService", "application", "organization",
                                                            function("findById", "application", "application", "can_view")),
                                                    service("ProjectService", "project", "application",
-                                                           function("findById", "project", "project", "can_view")));
+                                                           function("findById", "project", "project", "can_view")),
+                                                   entitiesRepository());
         AuthzModel model = generator.applicationModel(platform, List.of());
 
         assertEquals(Set.of("user", "group", "role", "role_binding", "application", "entity_definition", "tenant", "tenant_definition"), typeNames(model));
         assertEquals(Set.of("can_view_members"), model.permissions().get("tenant"));
+        assertEquals(Set.of("can_create", "can_delete", "can_edit", "can_read", "can_search"), model.permissions().get("entity_definition"));
         assertFalse(model.permissions().containsKey("application"));
         assertEquals(Set.of("tenant_can_view_members"), model.roles().get("tenant.viewer"));
         assertTrue(model.roles().get("tenant.admin").containsAll(Set.of("tenant_can_view_members", "entity_definition_can_delete")));

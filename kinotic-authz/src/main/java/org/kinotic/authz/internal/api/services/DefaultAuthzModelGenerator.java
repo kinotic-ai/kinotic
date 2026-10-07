@@ -55,7 +55,9 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         List<ServiceDefinition> all = new ArrayList<>();
         for (ServiceDefinition service : platformServices) {
             AuthzResourceC3Decorator resource = service.findDecorator(AuthzResourceC3Decorator.class);
-            if (resource != null && TENANT.equals(resource.getResourceType())) {
+            // the platform's services an application's users call: the tenant's, and the entities repository
+            // declared on the definition, whose permissions are the rows'
+            if (resource != null && (TENANT.equals(resource.getResourceType()) || ENTITY_DEFINITION.equals(resource.getResourceType()))) {
                 all.add(service);
             }
         }
@@ -219,14 +221,9 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             // under the application is told from one of another application by reading it through the definition
             application.memberships.put(PLACED, Set.of(AuthzUtil.EVERYONE));
             ret.put(APPLICATION, application);
-            // every definition's rows have the one set of permissions, on the definition the request names
+            // the definition the request names, whose permissions the entities repository declares; placed is held
+            // by everyone for a definition under the application, by no one for one this store does not hold
             ResourceType definition = new ResourceType(ENTITY_DEFINITION, APPLICATION);
-            definition.addPermission(AuthzUtil.CAN_SEARCH, List.of());
-            definition.addPermission(AuthzUtil.CAN_READ, List.of(AuthzUtil.CAN_SEARCH));
-            definition.addPermission(AuthzUtil.CAN_CREATE, List.of());
-            definition.addPermission(AuthzUtil.CAN_EDIT, List.of(AuthzUtil.CAN_READ));
-            definition.addPermission(AuthzUtil.CAN_DELETE, List.of(AuthzUtil.CAN_EDIT));
-            // everyone for a definition placed under the application, no one for a definition this store does not hold
             definition.inherited.put(PLACED, APPLICATION);
             ret.put(ENTITY_DEFINITION, definition);
         }

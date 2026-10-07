@@ -190,8 +190,8 @@ class OpenFgaIntegrationTest {
     @Test
     void aModelIsWrittenOnlyOnceTheRolesItGrantsThroughAreInStep() throws Exception {
         String store = "roles-first-" + System.nanoTime();
-        AuthzModel kernel = generator.applicationModel(List.of(), List.of());
-        AuthzModel grown = generator.applicationModel(List.of(), List.of(reportService()));
+        AuthzModel kernel = generator.applicationModel(List.of(entitiesRepository()), List.of());
+        AuthzModel grown = generator.applicationModel(List.of(entitiesRepository()), List.of(reportService()));
         String storeId = await(storeService.ensureStore(store));
         await(relationshipService.ensureModelWithRoles(store, kernel));
 
@@ -416,6 +416,12 @@ class OpenFgaIntegrationTest {
     private static ServiceDefinition reportService() {
         return service("ReportService", "report", "tenant",
                        function("findById", "report", "report", "can_view"));
+    }
+
+    // the platform's entities repository, whose declaration gives a definition's rows their permissions
+    private static ServiceDefinition entitiesRepository() {
+        return service("JsonEntitiesRepository", "entity_definition", "application",
+                       function("findById", "entity_definition", "entity_definition", "can_read"));
     }
 
     private static ServiceDefinition vmNodeService() {
