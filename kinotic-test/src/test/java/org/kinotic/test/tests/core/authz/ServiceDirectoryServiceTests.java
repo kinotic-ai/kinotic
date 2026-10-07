@@ -54,9 +54,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * service in the application's zone, which the directory stores for the application with its checks derived;
  * the application's store reconciles to a model carrying the service's type and roles; and an end user is
  * refused the service until granted the type's viewer role on its tenant, admitted after, and refused the
- * function needing the declared permission until granted the declared role. A service outside the
- * application's zone, one of an application the organization has none of, and one whose definition does not
- * derive are refused.
+ * function needing the declared permission until granted the declared role. A service published in no
+ * namespace is in its zone's namespace, addressed by its name in the zone as the runtime serves it. A service
+ * outside the application's zone, one of an application the organization has none of, and one whose definition
+ * does not derive are refused.
  */
 @SpringBootTest
 public class ServiceDirectoryServiceTests extends KinoticTestBase {
@@ -181,6 +182,34 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
         // the runtime registers the service again at the same version, serving generate unchecked
         await(runAs(runtimeCaller, () -> directoryService.register(entry(TEST_APP_ID, ZONE, reports(name, type, false)))));
         assertTrue(awaitUntil(() -> admitted(service, "generate", caller, List.of("q1"))), "the contract written again was checked as before");
+    }
+
+    @Test
+    public void aServicePublishedInNoNamespaceIsInItsZonesNamespace() throws Exception {
+        await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(TEST_APP_ID, "Sample application", null)));
+        MachineParticipantIdentity runtime = runtime();
+        Participant runtimeCaller = machine(runtime.getId());
+        await(relationships.bind(AuthzStoreService.PLATFORM, AuthzUtil.APPLICATION_RUNTIME_ROLE,
+                                 AuthzUtil.object(AuthzUtil.USER_TYPE, runtime.getId()), AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, DomainUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID))));
+        String type = "report" + suffix();
+        String name = "ReportService" + suffix();
+        // the address @Publish() serves at: the zone and the name, no namespace between them
+        String service = ZONE + "~" + name;
+        ServiceDefinition definition = reports(name, type);
+        definition.setNamespace(null);
+        ServiceDirectoryEntry entry = entry(TEST_APP_ID, ZONE, definition);
+        assertTrue(awaitUntil(() -> admitted(DIRECTORY_SERVICE, "register", runtimeCaller, List.of(entry))), "the runtime was never admitted");
+
+        await(runAs(runtimeCaller, () -> directoryService.register(entry)));
+
+        ServiceDirectoryEntry stored = await(serviceDirectory.findEntry(service));
+        assertNotNull(stored, "the service was not stored at the address it is served at");
+        assertEquals(ZONE + "." + name, stored.getServiceDefinition().getQualifiedName());
+        // the gateway finds the contract at the address and checks the declared permission
+        assertTrue(awaitUntil(() -> roleIds().contains(AuthzUtil.roleId(type, AuthzUtil.VIEWER))), "the store never ran a model carrying the service");
+        String tenantId = "tenant-" + suffix();
+        Participant caller = applicationParticipant(tenantId, endUser(tenantId).getId());
+        assertRefused(service, "generate", caller, List.of("q1"), type + "_can_generate on tenant:" + tenantId);
     }
 
     private static ServiceDefinition reports(String name, String type) {

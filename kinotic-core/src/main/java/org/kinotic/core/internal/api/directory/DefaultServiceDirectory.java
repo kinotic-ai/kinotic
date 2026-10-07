@@ -284,9 +284,17 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
         Validate.notBlank(entry.getApplicationId(), "The entry names no application");
         Validate.notBlank(entry.getZone(), "The entry names no zone");
         Validate.notNull(entry.getServiceDefinition(), "The entry carries no service definition");
-        ServiceDefinition definition = schemaService.deriveChecks(entry.getServiceDefinition());
-        // addressed as the runtime registers it: the zone and the qualified name, no scope, whatever its version
-        String entryId = entry.getZone() + ZoneUtil.ZONE_DELIMITER + definition.getQualifiedName();
+        ServiceDefinition declared = entry.getServiceDefinition();
+        // a runtime serves a service published in no namespace at <zone>~<Name>, so the zone is its namespace,
+        // which keeps its qualified name apart from every other application's
+        boolean inZoneNamespace = declared.getNamespace() == null || declared.getNamespace().isBlank();
+        if (inZoneNamespace) {
+            declared.setNamespace(entry.getZone());
+        }
+        ServiceDefinition definition = schemaService.deriveChecks(declared);
+        // addressed as the runtime registers it: the zone and the qualified name, no scope, whatever its version,
+        // with the zone written once for a service in the zone's namespace
+        String entryId = entry.getZone() + ZoneUtil.ZONE_DELIMITER + (inZoneNamespace ? definition.getName() : definition.getQualifiedName());
         String serviceAddress = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, null, entryId, null, null).baseResource();
         // the runtime declares its types inline, so no reference resolves
         List<McpToolDefinition> tools = toolsOf(entryId, null, definition, Map.of());
