@@ -17,10 +17,7 @@ import java.util.Set;
  *                    bundles: a viewer, an editor and an admin of every type with permissions, the admin holding
  *                    the type's own and everything inside it, the roles the type's services declare, and for a
  *                    platform store the application developer and the platform operator and support
- * @param carried     for each resource type, the types whose permissions a grant on it confers: itself and every
- *                    type inside it
  * Created by Navíd Mitchell 🤪on 10/4/26
  */
-public record AuthzModel(ObjectNode definition, String hash, Map<String, Set<String>> permissions, Map<String, Set<String>> roles,
-                         Map<String, Set<String>> carried) {
+public record AuthzModel(ObjectNode definition, String hash, Map<String, Set<String>> permissions, Map<String, Set<String>> roles) {
 }

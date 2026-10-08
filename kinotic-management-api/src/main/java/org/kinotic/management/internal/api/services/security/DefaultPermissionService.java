@@ -64,7 +64,17 @@ public class DefaultPermissionService implements PermissionService {
     @Override
     public Future<Map<String, Set<String>>> findPermissions() {
         requireOrgParticipant();
-        return model().map(DefaultPermissionService::catalog);
+        return model().map(model -> {
+            Map<String, Set<String>> ret = new TreeMap<>();
+            model.permissions().forEach((type, permissions) -> {
+                Set<String> names = new TreeSet<>();
+                for (String permission : permissions) {
+                    names.add(AuthzUtil.permissionName(type, permission));
+                }
+                ret.put(type, names);
+            });
+            return ret;
+        });
     }
 
     @Override
@@ -72,7 +82,7 @@ public class DefaultPermissionService implements PermissionService {
         String organizationId = requireOrgParticipant().getOrganizationId();
         return model().compose(model -> {
             List<RoleDefinition> ret = new ArrayList<>();
-            builtInRoles(model).forEach((id, permissions) -> ret.add(new RoleDefinition(id, AuthzUtil.builtInRoleName(id), null, true, permissions)));
+            model.roles().forEach((id, permissions) -> ret.add(new RoleDefinition(id, AuthzUtil.builtInRoleName(id), null, true, permissions)));
             return roles.findAll(organizationId, Pageable.create(0, ROLE_PAGE_SIZE, Sort.by("name")))
                         .compose(page -> Future.all(page.getContent().stream().map(this::defined).toList()))
                         .map(defined -> {
@@ -92,7 +102,8 @@ public class DefaultPermissionService implements PermissionService {
             if (role.id() != null && model.roles().containsKey(role.id())) {
                 throw new IllegalArgumentException("Role " + role.id() + " is built in and defined by the model");
             }
-            Set<String> catalog = conferred(model);
+            Set<String> catalog = new HashSet<>();
+            model.permissions().forEach((type, permissions) -> permissions.forEach(permission -> catalog.add(AuthzUtil.permissionName(type, permission))));
             for (String permission : role.permissions()) {
                 if (!catalog.contains(permission)) {
                     throw new IllegalArgumentException("No permission is named '" + permission + "'");
@@ -313,7 +324,7 @@ public class DefaultPermissionService implements PermissionService {
     }
 
     private Future<Void> requireGrantable(String roleId, String organizationId) {
-        return model().compose(model -> builtInRoles(model).containsKey(roleId)
+        return model().compose(model -> model.roles().containsKey(roleId)
                 ? Future.succeededFuture()
                 : requireRole(roleId, organizationId).mapEmpty());
     }
@@ -392,41 +403,6 @@ public class DefaultPermissionService implements PermissionService {
 
     private Future<AuthzModel> model() {
         return directory.findSystemDefinitions().map(generator::platformModel);
-    }
-
-    // The model names of the permissions a grant on the organization confers, by resource type: the organization's
-    // own and those of every type inside it, which leaves out the platform's types
-    private static Map<String, Set<String>> catalog(AuthzModel model) {
-        Map<String, Set<String>> ret = new TreeMap<>();
-        for (String type : model.carried().get(AuthzUtil.ORGANIZATION_TYPE)) {
-            Set<String> permissions = model.permissions().get(type);
-            if (permissions != null) {
-                Set<String> names = new TreeSet<>();
-                for (String permission : permissions) {
-                    names.add(AuthzUtil.permissionName(type, permission));
-                }
-                ret.put(type, names);
-            }
-        }
-        return ret;
-    }
-
-    private static Set<String> conferred(AuthzModel model) {
-        Set<String> ret = new HashSet<>();
-        catalog(model).values().forEach(ret::addAll);
-        return ret;
-    }
-
-    // The built-in roles an organization can grant: those bundling only permissions a grant on it confers
-    private static Map<String, Set<String>> builtInRoles(AuthzModel model) {
-        Set<String> conferred = conferred(model);
-        Map<String, Set<String>> ret = new TreeMap<>();
-        model.roles().forEach((id, permissions) -> {
-            if (conferred.containsAll(permissions)) {
-                ret.put(id, permissions);
-            }
-        });
-        return ret;
     }
 
     private OrganizationParticipant requireOrgParticipant() {

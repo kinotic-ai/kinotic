@@ -116,7 +116,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                 catalog.put(type.name, new TreeSet<>(type.permissions.keySet()));
             }
         }
-        return new AuthzModel(definition, ModelHash.of(definition), catalog, builtInRoles(kind, types, carried), carried);
+        return new AuthzModel(definition, ModelHash.of(definition), catalog, builtInRoles(kind, types, carried));
     }
 
     /**

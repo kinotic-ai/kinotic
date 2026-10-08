@@ -33,7 +33,6 @@ import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.management.api.services.security.PermissionService;
-import org.kinotic.system.api.services.workload.VmNodeService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -44,7 +43,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -55,8 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Verifies the console's access control over the platform store: custom roles defined from the model's catalog
  * and deleted once unused, grants reaching down the containment tree and stopping when revoked, groups granting
- * through their members, the caller's own access listed and explained, and the platform's own roles and
- * permissions kept from every organization.
+ * through their members, and the caller's own access listed and explained.
  */
 @SpringBootTest
 public class PermissionServiceTests extends KinoticTestBase {
@@ -136,29 +133,6 @@ public class PermissionServiceTests extends KinoticTestBase {
         await(runAsOrganization(() -> permissions.deleteRole(saved.id())));
         assertTrue(bundled(saved.id()).isEmpty());
         assertFalse(await(runAsOrganization(permissions::findRoles)).stream().anyMatch(role -> role.id().equals(saved.id())));
-    }
-
-    @Test
-    public void thePlatformsRolesAndPermissionsAreReservedToItsOperators() throws Exception {
-        Map<String, Set<String>> catalog = await(runAsOrganization(permissions::findPermissions));
-        assertTrue(catalog.containsKey(AuthzUtil.ORGANIZATION_TYPE), catalog.keySet().toString());
-        assertFalse(catalog.containsKey(AuthzUtil.PLATFORM_TYPE), catalog.keySet().toString());
-        assertFalse(catalog.containsKey(VmNodeService.RESOURCE_TYPE), catalog.keySet().toString());
-
-        Set<String> roles = await(runAsOrganization(permissions::findRoles)).stream().map(RoleDefinition::id).collect(Collectors.toSet());
-        assertTrue(roles.contains(AuthzUtil.ORGANIZATION_ADMIN_ROLE), roles.toString());
-        assertTrue(roles.contains(AuthzUtil.APPLICATION_DEVELOPER_ROLE), roles.toString());
-        for (String reserved : List.of(AuthzUtil.PLATFORM_ADMIN_ROLE, AuthzUtil.PLATFORM_OPERATOR_ROLE, AuthzUtil.PLATFORM_SUPPORT_ROLE,
-                                       "vm_node.registrar", "vm_node.agent", "vm_node.viewer")) {
-            assertFalse(roles.contains(reserved), reserved + " is listed to an organization");
-        }
-
-        Resource onOrganization = new Resource(AuthzUtil.ORGANIZATION_TYPE, TEST_ORG_ID);
-        Subject subject = user(member());
-        assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.grant(
-                subject, AuthzUtil.PLATFORM_SUPPORT_ROLE, onOrganization))));
-        assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.saveRole(
-                new RoleDefinition(null, "Cluster " + suffix(), null, false, Set.of("platform_can_view_cluster"))))));
     }
 
     @Test

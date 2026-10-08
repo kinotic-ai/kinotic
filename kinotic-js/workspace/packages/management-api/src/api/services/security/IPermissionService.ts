@@ -17,19 +17,18 @@ import { UserParticipantIdentity } from '@/api/model/security/UserParticipantIde
 export interface IPermissionService {
 
     /**
-     * The catalog a custom role is defined from: the model names of the permissions of the organization and of
-     * the types inside it, such as project_can_edit, grouped by the resource type they are about. The platform's
-     * own types, such as platform and vm_node, are reserved to its operators.
+     * The catalog a custom role is defined from: the model names of the permissions, such as project_can_edit,
+     * grouped by the resource type they are about.
      */
     findPermissions(): Promise<Record<string, string[]>>
 
-    /** The built-in roles bundling only permissions findPermissions lists, and the custom roles the organization has defined. */
+    /** The built-in roles the model defines and the custom roles the organization has defined. */
     findRoles(): Promise<RoleDefinition[]>
 
     /**
      * Defines a custom role, or reshapes one: with no id a new role is created, with the id of a custom role
      * its name, description and permissions are replaced, which changes every grant of it at once. A built-in
-     * role cannot be saved, and a permission findPermissions does not list is refused.
+     * role cannot be saved, and a permission the model does not have is refused.
      */
     saveRole(role: RoleDefinition): Promise<RoleDefinition>
 
