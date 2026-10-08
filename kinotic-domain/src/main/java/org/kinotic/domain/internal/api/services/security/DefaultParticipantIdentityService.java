@@ -1,6 +1,7 @@
 package org.kinotic.domain.internal.api.services.security;
 
 import io.vertx.core.Future;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
@@ -37,6 +38,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Component
 public class DefaultParticipantIdentityService extends AbstractCrudService<ParticipantIdentity> implements ParticipantIdentityService {
 
@@ -241,15 +243,27 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         }
 
         return applyTenantPolicy(user)
-                .compose(this::save)
-                .map(UserParticipantIdentity.class::cast)
-                .compose(savedUser -> {
-                    if (password != null) {
-                        return saveCredential(savedUser.getId(), password).map(savedUser);
-                    }
-                    return Future.succeededFuture(savedUser);
-                })
-                .compose(this::member);
+                .compose(own -> save(user)
+                        .map(UserParticipantIdentity.class::cast)
+                        .compose(savedUser -> {
+                            if (password != null) {
+                                return saveCredential(savedUser.getId(), password).map(savedUser);
+                            }
+                            return Future.succeededFuture(savedUser);
+                        })
+                        .compose(this::member)
+                        .compose(savedUser -> own == null ? Future.succeededFuture(savedUser) : administer(savedUser)));
+    }
+
+    // A tenant created for one user is that user's alone, so the user administers it: the binding tenant sign-up
+    // makes for a customer, made once the membership is written so the graph never holds a binding for a user it
+    // does not
+    private Future<UserParticipantIdentity> administer(UserParticipantIdentity user) {
+        return relationships.bind(DomainUtil.authzApplicationId(user.getOrganizationId(), user.getApplicationId()),
+                                  AuthzUtil.roleId(AuthzUtil.TENANT_TYPE, AuthzUtil.ADMIN),
+                                  AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId()),
+                                  AuthzUtil.object(AuthzUtil.TENANT_TYPE, user.getTenantId()))
+                            .map(user);
     }
 
     // The user's membership in the graph, written once the record is: an organization user is a member of its
@@ -284,15 +298,16 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
     /**
      * Applies the owning application's onboarding to a new APPLICATION-scope user: when the application isolates
-     * each user in a tenant of its own and no tenantId was supplied, a tenant is created for the user, named for
-     * them, and its id set on the user. The tenant's id is a fresh UUID, deliberately not the user's id: the
+     * each user in a tenant of its own, a tenant is created for the user, named for them, under the tenantId
+     * supplied or a fresh one, and its id set on the user. Emits that tenant, or null for an application whose
+     * users keep the tenant they came with or none. A fresh id is a UUID, deliberately not the user's id: the
      * tenantId is an ES routing key and part of the immutable _id of every SHARED entity the user writes, while
      * createUser accepts caller-supplied ids of any shape, so a dedicated UUID keeps tenant identity decoupled
      * from id semantics.
      */
-    private Future<UserParticipantIdentity> applyTenantPolicy(UserParticipantIdentity user) {
-        if (user.getApplicationId() == null || user.getTenantId() != null) {
-            return Future.succeededFuture(user);
+    private Future<Tenant> applyTenantPolicy(UserParticipantIdentity user) {
+        if (user.getApplicationId() == null) {
+            return Future.succeededFuture(null);
         }
         return applicationRepository.findById(user.getApplicationId(), user.getOrganizationId())
                 .compose(app -> {
@@ -301,21 +316,41 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                                 "Application " + user.getApplicationId() + " not found in organization "
                                 + user.getOrganizationId());
                     }
-                    Future<UserParticipantIdentity> ret;
+                    Future<Tenant> ret;
                     if (app.getOnboarding().contains(OnboardingMechanism.TENANT_PER_USER)) {
-                        Tenant tenant = DomainUtil.createTenant(new ApplicationKey(user.getOrganizationId(), user.getApplicationId()),
-                                                               UUID.randomUUID().toString(),
-                                                               StringUtils.isNotBlank(user.getDisplayName()) ? user.getDisplayName() : user.getEmail())
-                                                 .setCreatedBy(user.getId());
-                        ret = tenants.save(tenant, user.getOrganizationId()).map(saved -> {
-                            user.setTenantId(saved.getTenantId());
-                            return user;
-                        });
+                        ret = ownTenant(user);
                     } else {
-                        ret = Future.succeededFuture(user);
+                        ret = Future.succeededFuture(null);
                     }
                     return ret;
                 });
+    }
+
+    // The application holds one user per tenant, so the tenant's document, whose id is the application's and the
+    // tenant's, must not exist: the repository's create refuses one that does, and the refusal is a broken
+    // invariant, logged as a server fault and failing the creation
+    private Future<Tenant> ownTenant(UserParticipantIdentity user) {
+        ApplicationKey key = new ApplicationKey(user.getOrganizationId(), user.getApplicationId());
+        String tenantId = user.getTenantId() != null ? user.getTenantId() : UUID.randomUUID().toString();
+        Tenant tenant = DomainUtil.createTenant(key, tenantId, StringUtils.isNotBlank(user.getDisplayName()) ? user.getDisplayName() : user.getEmail())
+                                  .setCreatedBy(user.getId());
+        return tenants.create(tenant, key.organizationId())
+                      .map(saved -> {
+                          user.setTenantId(saved.getTenantId());
+                          return saved;
+                      })
+                      .recover(e -> {
+                          Future<Tenant> ret;
+                          if (e instanceof AlreadyExistsException) {
+                              log.error("Application {} isolates each user in a tenant of its own, but tenant {} exists already for the user {} being created",
+                                        key, tenantId, user.getEmail());
+                              ret = Future.failedFuture(new IllegalStateException("Tenant " + tenantId + " exists already in application "
+                                                                                          + key.applicationId() + ", which holds one user per tenant"));
+                          } else {
+                              ret = Future.failedFuture(e);
+                          }
+                          return ret;
+                      });
     }
 
 //    @Override // commented off the interface — kept for the eventual user-management UI
