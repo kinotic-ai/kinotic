@@ -31,23 +31,24 @@ import java.util.Set;
 public interface PermissionService {
 
     /**
-     * The permissions a role may bundle, by resource type: the model names of every permission the platform's
-     * services declare, such as {@code project_can_edit} under {@code project}.
+     * The permissions a role may bundle, by resource type: the model names of every permission of the
+     * organization and of the types inside it, such as {@code project_can_edit} under {@code project}. The
+     * platform's own types, such as {@code platform} and {@code vm_node}, are reserved to its operators.
      */
     @AuthzCheck(permission = AuthzUtil.CAN_VIEW_ACCESS)
     Future<Map<String, Set<String>>> findPermissions();
 
     /**
-     * Every role a grant can name: the built-in roles the model defines, then the organization's custom roles,
-     * each with the permissions it bundles.
+     * Every role a grant can name: the built-in roles bundling only permissions {@link #findPermissions} lists,
+     * then the organization's custom roles, each with the permissions it bundles.
      */
     @AuthzCheck(permission = AuthzUtil.CAN_VIEW_ACCESS)
     Future<List<RoleDefinition>> findRoles();
 
     /**
      * Creates or updates a custom role: its name, its description and the permissions it bundles, which take
-     * effect on every grant of the role at once. Fails for a built-in role, for a permission the model does not
-     * have, and for an id that names no role of the organization.
+     * effect on every grant of the role at once. Fails for a built-in role, for a permission {@link #findPermissions}
+     * does not list, and for an id that names no role of the organization.
      *
      * @param role the role, with a null id for a new one
      * @return the role as saved
@@ -122,7 +123,7 @@ public interface PermissionService {
      * everything inside it.
      *
      * @param subject  who holds the grant
-     * @param roleId   the role granted, a built-in role's id or a custom role's
+     * @param roleId   the role granted, one {@link #findRoles} lists
      * @param resource where the grant is made
      * @return the grant
      */
