@@ -12,8 +12,8 @@ import { ProjectDependencies } from '@kinotic-ai/management-api'
 /** The lockfile the SBOM is read from, at the root of the checkout. */
 const LOCKFILE = 'bun.lock'
 
-/** The bun.lock format this reader reads. */
-const LOCKFILE_VERSION = 1
+/** The bun.lock formats this reader reads. */
+const LOCKFILE_VERSIONS = [1, 2]
 
 /**
  * The version of the tree this reader derives from a lockfile, part of every dependency hash; bump
@@ -77,8 +77,9 @@ export function dependencyHashOf(workspaceDir: string): string | null {
  */
 export function readDependencies(workspaceDir: string): ProjectDependencies {
     const lockfile = Bun.JSONC.parse(readFileSync(join(workspaceDir, LOCKFILE), 'utf-8')) as Lockfile
-    if (lockfile.lockfileVersion !== LOCKFILE_VERSION) {
-        throw new Error(`${LOCKFILE} is lockfile version ${lockfile.lockfileVersion}, and the SBOM is read from version ${LOCKFILE_VERSION}`)
+    // version 2 lays the lockfile out as version 1 does, adding only integrity checks bun runs when it parses one
+    if (!LOCKFILE_VERSIONS.includes(lockfile.lockfileVersion)) {
+        throw new Error(`${LOCKFILE} is lockfile version ${lockfile.lockfileVersion}, and the SBOM is read from versions ${LOCKFILE_VERSIONS.join(' and ')}`)
     }
     const purls = new Map<string, string>()
     const loads = new Map<string, Resolved[]>()

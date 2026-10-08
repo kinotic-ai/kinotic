@@ -1,14 +1,3 @@
-import { seriesColor } from '../../charts/chartTheme'
-
-/** A stable accent per service name, so the same service reads the same across a trace. */
-export function serviceColor(service: string, dark: boolean): string {
-    let hash = 0
-    for (const char of service) {
-        hash = (hash * 31 + char.charCodeAt(0)) >>> 0
-    }
-    return seriesColor(hash, dark)
-}
-
 export function formatDuration(ms: number): string {
     let ret: string
     if (ms < 1) {
