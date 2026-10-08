@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { ProjectDependencies } from '@kinotic-ai/management-api'
@@ -170,10 +170,17 @@ describe('project SBOM', () => {
             expect(edges(tree)).toEqual([`${tarball} -> pkg:npm/is-number@6.0.0`])
         })
 
-        it('refuses a lockfile version it does not read', () => {
-            writeFileSync(join(workspaceDir, 'bun.lock'), LOCKFILE.replace('"lockfileVersion": 1', '"lockfileVersion": 2'))
+        it('reads the lockfile version 2 bun 1.4 writes as it reads version 1', () => {
+            const tree = locked('scopes.bun.lock')
+            writeFileSync(join(workspaceDir, 'bun.lock'), readFileSync(join(FIXTURES, 'scopes-v2.bun.lock')))
 
-            expect(() => readDependencies(workspaceDir)).toThrow('bun.lock is lockfile version 2')
+            expect(readDependencies(workspaceDir)).toEqual(tree)
+        })
+
+        it('refuses a lockfile version it does not read', () => {
+            writeFileSync(join(workspaceDir, 'bun.lock'), LOCKFILE.replace('"lockfileVersion": 1', '"lockfileVersion": 3'))
+
+            expect(() => readDependencies(workspaceDir)).toThrow('bun.lock is lockfile version 3')
         })
     })
 })
