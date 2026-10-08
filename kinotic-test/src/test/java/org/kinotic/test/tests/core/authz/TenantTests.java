@@ -61,7 +61,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * store, so the gateway admits the customer to the tenant services; the customer reads and renames the tenant,
  * invites a colleague, who accepts into the tenant, lists the tenant's users, grants the colleague a role and
  * revokes it, and removes the colleague; the colleague granted nothing is refused by the gateway. An application
- * isolating each user creates a tenant per user and offers nothing else. And what is refused: sign-up to an
+ * isolating each user creates a tenant per user, which the user administers, and offers nothing else. And what
+ * is refused: sign-up to an
  * application not offering it, a tenant name already taken, an invitation from an application not offering
  * invitations, a grant of an application's role, a grant to a user outside the tenant, and removing oneself.
  */
@@ -202,7 +203,7 @@ public class TenantTests extends KinoticTestBase {
     }
 
     @Test
-    public void anApplicationIsolatingEachUserCreatesATenantPerUserAndOffersNothingElse() throws Exception {
+    public void anApplicationIsolatingEachUserCreatesATenantPerUserItsUserAdministers() throws Exception {
         String appId = "isolated-app-" + suffix();
         Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(
                 appId, "Isolating application", EnumSet.of(OnboardingMechanism.TENANT_PER_USER))));
@@ -213,6 +214,24 @@ public class TenantTests extends KinoticTestBase {
         assertNotNull(tenant, "the user's tenant was not created");
         assertEquals(user.getId(), tenant.getCreatedBy());
         assertEquals("Isolated User", tenant.getName());
+
+        // the tenant is the user's alone, so the user administers it from the start: admitted to the tenant's
+        // services, holding the tenant admin grant on it
+        Participant owner = participant(TEST_ORG_ID, appId, user.getTenantId(), user.getId());
+        assertTrue(awaitUntil(() -> admitted(MEMBER_SERVICE, "findMembers", owner, List.of(FIRST_PAGE))), "the user was never admitted to its tenant");
+        assertEquals(Set.of(user.getId()), memberIds(owner));
+        List<Grant> grants = await(runAs(owner, tenantMembers::findGrants));
+        String admin = AuthzUtil.roleId(AuthzUtil.TENANT_TYPE, AuthzUtil.ADMIN);
+        assertTrue(grants.stream().anyMatch(grant -> grant.roleId().equals(admin)
+                                                     && grant.subject().equals(new Subject(SubjectKind.USER, user.getId()))
+                                                     && grant.resource().equals(new Resource(AuthzUtil.TENANT_TYPE, user.getTenantId()))),
+                   grants.toString());
+
+        // a user created into a tenant that exists keeps what it was given, which is nothing
+        UserParticipantIdentity guest = endUser(appId, user.getTenantId());
+        assertEquals(user.getTenantId(), guest.getTenantId());
+        assertRefused(MEMBER_SERVICE, "findMembers", participant(TEST_ORG_ID, appId, user.getTenantId(), guest.getId()), List.of(FIRST_PAGE),
+                      "tenant_can_view_members on tenant:" + user.getTenantId());
 
         application.getOnboarding().add(OnboardingMechanism.TENANT_SIGN_UP);
         assertInstanceOf(IllegalArgumentException.class, failure(TEST_ORGANIZATION_PARTICIPANT, () -> applicationService.save(application)));

@@ -93,7 +93,8 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      * password presence (LOCAL when given, OIDC otherwise — a LOCAL credential is created
      * alongside). Enforces one user per email within the scope. For APPLICATION-scope users
      * whose application isolates each user ({@code OnboardingMechanism.TENANT_PER_USER}), a tenant of
-     * their own is created and its id set unless one was supplied.
+     * their own is created and its id set unless one was supplied, and the user is bound as the tenant's
+     * administrator, holding every permission in it.
      *
      * @param user     the unsaved user carrying email, scope, and optional display name / OIDC identity
      * @param password the password for a LOCAL user, or null for an OIDC user

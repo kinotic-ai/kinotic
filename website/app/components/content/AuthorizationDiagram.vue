@@ -508,7 +508,7 @@ defineProps<{
 
       <text class="d" x="590" y="520" text-anchor="middle">a binding may name organization:o#member, application:a#end_user or tenant:t#member as its member, reaching everyone in it</text>
     </svg>
-    <svg v-else-if="view === 'grants'" class="authz-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1210 530" role="img" aria-label="The two store trees with every writer of a grant drawn beside the object it binds on: in the platform store the bootstraps, sign-up, node registration, deployment and the two access services; in the application's store the tenant sign-up, the first SSO sign-in and the two access services. Dashed regions mark the objects an access service may bind on.">
+    <svg v-else-if="view === 'grants'" class="authz-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1210 530" role="img" aria-label="The two store trees with every writer of a grant drawn beside the object it binds on: in the platform store the bootstraps, sign-up, node registration, deployment and the two access services; in the application's store the tenant sign-up, the tenant created for a user, the first SSO sign-in and the two access services. Dashed regions mark the objects an access service may bind on.">
       <defs>
         <marker id="f8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>
         <marker id="f8-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="ah acc" d="M0,0 L10,5 L0,10 z"/></marker>
@@ -567,9 +567,9 @@ defineProps<{
       <text class="rl" x="760" y="496">to an end user or a machine of the application</text>
       <path class="e acc" marker-end="url(#f8-acc)" d="M930,470 H1010 V456"/>
       <g class="box req"><rect x="752" y="440" width="178" height="32" rx="16"/><text class="pl" x="841" y="460" text-anchor="middle">ApplicationAccessService</text></g>
-      <g class="box req"><rect x="760" y="130" width="150" height="32" rx="16"/><text class="pl" x="835" y="150" text-anchor="middle">tenant sign-up</text></g>
+      <g class="box req"><rect x="752" y="130" width="178" height="32" rx="16"/><text class="pl" x="841" y="150" text-anchor="middle">sign-up · tenant per user</text></g>
       <text class="lbl m grant" x="760" y="180">tenant.admin</text>
-      <path class="e acc" marker-end="url(#f8-acc)" d="M910,146 H950 V200 H990"/>
+      <path class="e acc" marker-end="url(#f8-acc)" d="M930,146 H950 V200 H990"/>
       <g class="box req"><rect x="760" y="200" width="150" height="32" rx="16"/><text class="pl" x="835" y="220" text-anchor="middle">first SSO sign-in</text></g>
       <text class="lbl m grant" x="760" y="250">the role the tenant chose</text>
       <path class="e acc" marker-end="url(#f8-acc)" d="M910,216 H990"/>
@@ -661,7 +661,7 @@ defineProps<{
       <g class="box engine"><rect x="980" y="220" width="200" height="64" rx="4"/><text class="t" x="990" y="244">The application's store</text><text class="dm" x="990" y="266">tuples and the model</text></g>
       <path class="e acc" marker-end="url(#f10-acc)" d="M1080,104 V220"/>
       <text class="lbl acc" x="1072" y="166" text-anchor="end">model, then roles</text>
-      <g class="box grant"><rect x="500" y="130" width="200" height="56" rx="4"/><text class="t" x="510" y="154">tenant.admin</text><text class="dm" x="510" y="176">at the tenant's sign-up</text></g>
+      <g class="box grant"><rect x="500" y="130" width="200" height="56" rx="4"/><text class="t" x="510" y="154">tenant.admin</text><text class="dm" x="510" y="176">at sign-up, per-user tenant</text></g>
       <g class="box grant"><rect x="500" y="200" width="200" height="56" rx="4"/><text class="t" x="510" y="224">ApplicationAccessService</text><text class="dm" x="510" y="246">the portal, four places</text></g>
       <g class="box grant"><rect x="500" y="270" width="200" height="56" rx="4"/><text class="t" x="510" y="294">TenantMemberService</text><text class="dm" x="510" y="316">the app's own pages</text></g>
       <path class="e acc" marker-end="url(#f10-acc)" d="M700,158 H940 L980,252"/>
