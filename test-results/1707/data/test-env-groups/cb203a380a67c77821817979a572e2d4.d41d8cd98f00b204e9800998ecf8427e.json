@@ -1,0 +1,1 @@
+{"id":"cb203a380a67c77821817979a572e2d4.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenParameterReference_thenNamedParameterInValues","name":"whenParameterReference_thenNamedParameterInValues()","status":"passed","testResultsByEnv":{"default":"8e3ddd44acf142d80d0d19c8b217f02e"}}

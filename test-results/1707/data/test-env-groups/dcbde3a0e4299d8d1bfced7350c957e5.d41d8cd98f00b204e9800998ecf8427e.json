@@ -1,0 +1,1 @@
+{"id":"dcbde3a0e4299d8d1bfced7350c957e5.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testLostNodeFailsTheRequestOnTheReplyDestination","name":"testLostNodeFailsTheRequestOnTheReplyDestination()","status":"passed","testResultsByEnv":{"default":"6856416d5ae778f01f28b81e1d9cad04"}}
