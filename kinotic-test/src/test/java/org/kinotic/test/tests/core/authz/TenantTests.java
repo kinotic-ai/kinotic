@@ -61,8 +61,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * store, so the gateway admits the customer to the tenant services; the customer reads and renames the tenant,
  * invites a colleague, who accepts into the tenant, lists the tenant's users, grants the colleague a role and
  * revokes it, and removes the colleague; the colleague granted nothing is refused by the gateway. An application
- * isolating each user creates a tenant per user, which the user administers, and offers nothing else. And what
- * is refused: sign-up to an
+ * isolating each user creates a tenant per user, which the user administers, and refuses a user created into a
+ * tenant that exists. And what is refused: sign-up to an
  * application not offering it, a tenant name already taken, an invitation from an application not offering
  * invitations, a grant of an application's role, a grant to a user outside the tenant, and removing oneself.
  */
@@ -227,11 +227,14 @@ public class TenantTests extends KinoticTestBase {
                                                      && grant.resource().equals(new Resource(AuthzUtil.TENANT_TYPE, user.getTenantId()))),
                    grants.toString());
 
-        // a user created into a tenant that exists keeps what it was given, which is nothing
-        UserParticipantIdentity guest = endUser(appId, user.getTenantId());
-        assertEquals(user.getTenantId(), guest.getTenantId());
-        assertRefused(MEMBER_SERVICE, "findMembers", participant(TEST_ORG_ID, appId, user.getTenantId(), guest.getId()), List.of(FIRST_PAGE),
-                      "tenant_can_view_members on tenant:" + user.getTenantId());
+        // the application holds one user per tenant: a user created into the tenant that exists is a broken invariant
+        UserParticipantIdentity second = new UserParticipantIdentity();
+        second.setEmail("second-" + suffix() + "@acme.test");
+        second.setOrganizationId(TEST_ORG_ID);
+        second.setApplicationId(appId);
+        second.setTenantId(user.getTenantId());
+        assertInstanceOf(IllegalStateException.class, failure(() -> identityService.createUser(second, "Second-1")));
+        assertEquals(Set.of(user.getId()), memberIds(owner));
 
         application.getOnboarding().add(OnboardingMechanism.TENANT_SIGN_UP);
         assertInstanceOf(IllegalArgumentException.class, failure(TEST_ORGANIZATION_PARTICIPANT, () -> applicationService.save(application)));
