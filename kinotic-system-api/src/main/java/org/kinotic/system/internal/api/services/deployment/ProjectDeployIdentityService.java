@@ -18,6 +18,9 @@ import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 /**
@@ -90,7 +93,7 @@ public class ProjectDeployIdentityService {
                                                  Function<String, Future<Void>> recordIdentity) {
         Future<MachineProvisionResult> ret;
         if (identityId == null) {
-            ret = createAndRecord(unsaved, project, recordIdentity);
+            ret = createAndRecord(unsaved, recordIdentity);
         } else {
             ret = identityService.findById(identityId)
                     .compose(identity -> {
@@ -102,46 +105,54 @@ public class ProjectDeployIdentityService {
                             // an org member may remove a project's machine from the console; the
                             // recorded id then points at nothing and the deployment provisions
                             // a replacement rather than failing
-                            issued = createAndRecord(unsaved, project, recordIdentity);
+                            issued = createAndRecord(unsaved, recordIdentity);
                         }
                         return issued;
                     });
         }
-        return ret;
+        return ret.compose(result -> bind(result.machine().getId(), unsaved.getMachineKind(), project).map(result));
     }
 
     /**
      * Records the new machine's id before returning it, so a run that fails after this point
-     * leaves an identity the next deployment reuses instead of orphaning it, and binds the machine
-     * as an editor of its project, and a runtime as a runtime of its application.
+     * leaves an identity the next deployment reuses instead of orphaning it.
      */
     private Future<MachineProvisionResult> createAndRecord(MachineParticipantIdentity unsaved,
-                                                           Project project,
                                                            Function<String, Future<Void>> recordIdentity) {
         return identityService.createMachine(unsaved)
-                .compose(provisioned -> {
-                    String machine = AuthzUtil.object(AuthzUtil.USER_TYPE, provisioned.machine().getId());
-                    return recordIdentity.apply(provisioned.machine().getId())
-                                         // the sync workload records artifacts and runs migrations, and the runtime
-                                         // publishes services, all of which the project's editor may do
-                                         .compose(v -> relationships.bind(AuthzStoreService.PLATFORM,
-                                                                          AuthzUtil.roleId(ProjectService.RESOURCE_TYPE, AuthzUtil.EDITOR),
-                                                                          machine,
-                                                                          AuthzUtil.object(ProjectService.RESOURCE_TYPE,
-                                                                                           DomainUtil.authzId(ProjectService.RESOURCE_TYPE,
-                                                                                                              project.getOrganizationId(),
-                                                                                                              project.getId()))))
-                                         // the runtime also publishes the contracts of the application's services
-                                         .compose(v -> unsaved.getMachineKind() == MachineKind.APP_RUNTIME
-                                                 ? relationships.bind(AuthzStoreService.PLATFORM,
-                                                                      AuthzUtil.APPLICATION_RUNTIME_ROLE,
-                                                                      machine,
-                                                                      AuthzUtil.object(AuthzUtil.APPLICATION_TYPE,
-                                                                                       DomainUtil.authzApplicationId(project.getOrganizationId(),
-                                                                                                                     project.getApplicationId())))
-                                                 : Future.succeededFuture())
-                                         .map(provisioned);
-                });
+                .compose(provisioned -> recordIdentity.apply(provisioned.machine().getId()).map(provisioned));
+    }
+
+    /**
+     * Binds the machine to what its workload does, each role under a binding id of the machine's own, so issuing
+     * credentials binds a machine recorded before as well as a new one, and binds each role once. Both workloads
+     * act as an editor of the project, which records its artifacts and runs its migrations. The sync workload
+     * creates, saves and publishes the application's entity definitions and their named queries, as
+     * {@code entity_definition.editor} on the application may. A runtime registers the application's services, as
+     * {@code application.runtime} may, and works on the rows of every definition of the application, as
+     * {@code entity_definition.admin} on the application may.
+     */
+    private Future<Void> bind(String machineId, MachineKind kind, Project project) {
+        String machine = AuthzUtil.object(AuthzUtil.USER_TYPE, machineId);
+        String projectObject = AuthzUtil.object(ProjectService.RESOURCE_TYPE,
+                                                DomainUtil.authzId(ProjectService.RESOURCE_TYPE, project.getOrganizationId(), project.getId()));
+        String application = AuthzUtil.object(AuthzUtil.APPLICATION_TYPE,
+                                              DomainUtil.authzApplicationId(project.getOrganizationId(), project.getApplicationId()));
+        List<Map.Entry<String, String>> grants = new ArrayList<>();
+        grants.add(Map.entry(AuthzUtil.roleId(ProjectService.RESOURCE_TYPE, AuthzUtil.EDITOR), projectObject));
+        if (kind == MachineKind.APP_RUNTIME) {
+            grants.add(Map.entry(AuthzUtil.APPLICATION_RUNTIME_ROLE, application));
+            grants.add(Map.entry(AuthzUtil.roleId(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.ADMIN), application));
+        } else {
+            grants.add(Map.entry(AuthzUtil.roleId(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.EDITOR), application));
+        }
+        Future<Void> ret = Future.succeededFuture();
+        for (Map.Entry<String, String> grant : grants) {
+            String roleId = grant.getKey();
+            ret = ret.compose(v -> relationships.ensureBound(AuthzStoreService.PLATFORM, roleId + "-of-" + machineId,
+                                                             roleId, machine, grant.getValue()));
+        }
+        return ret;
     }
 
     /**
