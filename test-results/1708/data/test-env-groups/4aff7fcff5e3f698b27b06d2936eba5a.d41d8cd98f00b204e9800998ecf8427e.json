@@ -1,0 +1,1 @@
+{"id":"4aff7fcff5e3f698b27b06d2936eba5a.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.SelectStatementParserTest.whenFromNamesAnythingButOneName_thenParseFails","name":"whenFromNamesAnythingButOneName_thenParseFails()","status":"passed","testResultsByEnv":{"default":"a3b317ec6275ccc6a7fd0bedc57fb761"}}
