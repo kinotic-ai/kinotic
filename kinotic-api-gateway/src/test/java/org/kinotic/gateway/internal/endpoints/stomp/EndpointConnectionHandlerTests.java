@@ -29,6 +29,7 @@ import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.event.ZonePartitioningService;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.internal.api.service.json.JacksonExceptionConverter;
@@ -132,6 +133,7 @@ public class EndpointConnectionHandlerTests {
         services.jsonMapper = jsonMapper;
         services.exceptionConverter = new JacksonExceptionConverter(new KinoticProperties(), jsonMapper);
         services.stompAuthorizerFactory = new StompAuthorizerFactory(ZonePartitioningService.everyZone("test"));
+        services.securityExceptions = new SecurityExceptionFactory(new KinoticProperties());
         services.securityService = mock(SecurityService.class);
         when(services.securityService.authenticate(any())).thenReturn(Future.succeededFuture(participant()));
         services.requestAuthorizer = mock(RequestAuthorizer.class);

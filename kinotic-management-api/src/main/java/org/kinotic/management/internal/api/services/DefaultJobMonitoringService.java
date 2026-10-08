@@ -2,14 +2,13 @@ package org.kinotic.management.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.grind.api.model.JobOwner;
@@ -21,6 +20,7 @@ import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.repositories.TaskRecordRepository;
 import org.kinotic.grind.api.services.JobService;
 import org.kinotic.management.api.services.JobMonitoringService;
+import org.slf4j.event.Level;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -30,7 +30,6 @@ import reactor.core.publisher.Mono;
  * views from {@link JobService#watchRun(String)}, with access authorized through the run's
  * recorded owner.
  */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DefaultJobMonitoringService implements JobMonitoringService {
@@ -40,6 +39,7 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
     private final TaskRecordRepository taskRecordRepository;
     private final JobService jobService;
     private final SecurityContext securityContext;
+    private final SecurityExceptionFactory securityExceptions;
 
     @Override
     public String nodeId() {
@@ -113,10 +113,8 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
             }
             // a null organizationId is a SYSTEM-scoped caller, who may view any run
             if(organizationId != null && !organizationId.equals(run.getOrganizationId())){
-                // Log the mismatch server-side; surface only a generic message to the caller
-                log.error("Participant {} may not view job run {} (run org={})",
-                          participant.getId(), jobRunId, run.getOrganizationId());
-                throw new AuthorizationException("Access denied");
+                throw securityExceptions.notAuthorized(Level.ERROR, "Participant {} may not view job run {} (run org={})",
+                                                       participant.getId(), jobRunId, run.getOrganizationId());
             }
             return run;
         });
@@ -129,7 +127,8 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
         }
         if(!(participant instanceof ScopedParticipant scoped)){
             // only a hierarchy-scoped participant can be matched against a run's owner
-            throw new AuthorizationException("Access denied");
+            throw securityExceptions.notAuthorized("Participant {} of type {} is not scoped to an organization",
+                                                   participant.getId(), participant.getClass().getSimpleName());
         }
         return scoped;
     }

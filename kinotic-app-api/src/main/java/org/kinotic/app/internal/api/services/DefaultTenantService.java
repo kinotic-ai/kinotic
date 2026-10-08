@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
@@ -21,6 +22,7 @@ import java.util.Date;
 public class DefaultTenantService implements TenantService {
 
     private final SecurityContext securityContext;
+    private final SecurityExceptionFactory securityExceptions;
     private final TenantRepository tenants;
     private final OidcConfigurationService oidcConfigurations;
     private final TenantMemberService tenantMembers;
@@ -100,7 +102,7 @@ public class DefaultTenantService implements TenantService {
     // The caller's tenant record, which the application must have
     private Future<Tenant> tenantOfCaller() {
         ApplicationParticipant caller = securityContext.requireParticipant(ApplicationParticipant.class);
-        String tenantId = DomainUtil.requireTenant(caller);
+        String tenantId = DomainUtil.requireTenant(caller, securityExceptions);
         return tenants.findByTenantId(caller.getOrganizationId(), caller.getApplicationId(), tenantId).map(tenant -> {
             if (tenant == null) {
                 throw new IllegalStateException("No tenant of the application has id " + tenantId);

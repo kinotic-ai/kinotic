@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.ProjectScoped;
 import org.kinotic.domain.api.services.ProjectScopedCrudService;
 import org.kinotic.domain.internal.api.repositories.AbstractProjectScopedRepository;
@@ -15,8 +16,9 @@ public abstract class AbstractProjectScopedService<T extends ProjectScoped<Strin
     protected final AbstractProjectScopedRepository<T> projectRepository;
 
     public AbstractProjectScopedService(AbstractProjectScopedRepository<T> repository,
-                                        SecurityContext securityContext) {
-        super(repository, securityContext);
+                                        SecurityContext securityContext,
+                                        SecurityExceptionFactory securityExceptions) {
+        super(repository, securityContext, securityExceptions);
         this.projectRepository = repository;
     }
 

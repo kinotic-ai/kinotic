@@ -2,6 +2,7 @@ package org.kinotic.persistence.internal.api.services.sql;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
@@ -48,6 +49,7 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
     private final ReadPreProcessor readPreProcessor;
     private final ReadPostProcessor readPostProcessor;
     private final JsonMapper jsonMapper;
+    private final SecurityExceptionFactory securityExceptions;
 
     public QueryExecutor createQueryExecutor(EntityDescriptor entityDescriptor,
                                              String queryName,
@@ -73,7 +75,7 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
         QueryExecutor queryExecutor = createQueryExecutorForStatement(entityDescriptor, queryName, queryDecorator.getStatements());
         return new ParameterProcessorExecutor(entityDescriptor,
                                               namedQuery,
-                                              new EntityContextValidationExecutor(entityDescriptor, queryExecutor));
+                                              new EntityContextValidationExecutor(entityDescriptor, queryExecutor, securityExceptions));
     }
 
     private QueryExecutor createQueryExecutorForStatement(EntityDescriptor entityDescriptor,

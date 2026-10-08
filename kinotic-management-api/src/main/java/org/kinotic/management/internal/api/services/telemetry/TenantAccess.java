@@ -2,7 +2,6 @@ package org.kinotic.management.internal.api.services.telemetry;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
@@ -10,11 +9,13 @@ import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.SystemParticipant;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.telemetry.TelemetryTenant;
+import org.slf4j.event.Level;
 import org.springframework.stereotype.Component;
 
 import static org.kinotic.authz.api.services.AuthzStoreService.PLATFORM;
@@ -26,7 +27,6 @@ import static org.kinotic.authz.api.services.AuthzStoreService.PLATFORM;
  * tenant alone, a platform participant any tenant once granted the telemetry of organizations on
  * the platform.
  */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class TenantAccess {
@@ -38,6 +38,7 @@ public class TenantAccess {
     private final SecurityContext securityContext;
     private final AuthzStoreService stores;
     private final RelationshipService relationships;
+    private final SecurityExceptionFactory securityExceptions;
 
     /**
      * The participant making the current call.
@@ -82,9 +83,8 @@ public class TenantAccess {
         return ret;
     }
 
-    // The mismatch is logged server-side; the caller gets a generic message
-    private static AuthorizationException denied(Participant participant, String organizationId) {
-        log.error("Participant {} may not read the telemetry of organization {}", participant.getId(), organizationId);
-        return new AuthorizationException("Access denied");
+    private AuthorizationException denied(Participant participant, String organizationId) {
+        return securityExceptions.notAuthorized(Level.ERROR, "Participant {} may not read the telemetry of organization {}",
+                                                participant.getId(), organizationId);
     }
 }

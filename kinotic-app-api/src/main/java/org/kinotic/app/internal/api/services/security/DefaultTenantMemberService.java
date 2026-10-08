@@ -12,6 +12,7 @@ import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.OnboardingMechanism;
 import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.api.model.security.PendingInviteSummary;
@@ -32,6 +33,7 @@ import java.util.List;
 public class DefaultTenantMemberService implements TenantMemberService {
 
     private final SecurityContext securityContext;
+    private final SecurityExceptionFactory securityExceptions;
     private final ApplicationRepository applications;
     private final ParticipantIdentityService identities;
     private final InviteService invites;
@@ -138,7 +140,7 @@ public class DefaultTenantMemberService implements TenantMemberService {
     // The gateway checks a caller outside every tenant on its application, so the tenant is required here too
     private ApplicationParticipant caller() {
         ApplicationParticipant ret = securityContext.requireParticipant(ApplicationParticipant.class);
-        DomainUtil.requireTenant(ret);
+        DomainUtil.requireTenant(ret, securityExceptions);
         return ret;
     }
 

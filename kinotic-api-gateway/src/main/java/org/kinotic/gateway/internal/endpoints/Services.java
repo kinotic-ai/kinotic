@@ -7,6 +7,7 @@ import io.vertx.ext.web.sstore.SessionStore;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventStreamService;
 import org.kinotic.core.api.event.TraceLogFilter;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
@@ -37,6 +38,8 @@ public class Services {
     public ExceptionConverter exceptionConverter;
     @Autowired
     public JsonMapper jsonMapper;
+    @Autowired
+    public SecurityExceptionFactory securityExceptions;
     @Autowired
     public SecurityService securityService;
     @Autowired

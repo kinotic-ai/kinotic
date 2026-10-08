@@ -11,11 +11,13 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.security.OidcProviderKind;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
@@ -119,6 +121,7 @@ class DefaultGitHubAppInstallationServiceTest {
 
         service = new DefaultGitHubAppInstallationService(repository,
                                                           securityContext,
+                                                          new SecurityExceptionFactory(new KinoticProperties()),
                                                           githubProperties,
                                                           stateService,
                                                           apiClient,

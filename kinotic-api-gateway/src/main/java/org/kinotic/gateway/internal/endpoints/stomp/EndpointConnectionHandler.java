@@ -10,7 +10,6 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthenticationException;
-import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
@@ -175,7 +174,9 @@ public class EndpointConnectionHandler {
         }
 
         if (!stompAuthorizer.sendAllowed(incomingEvent.cri())) {
-            return Future.failedFuture(new AuthorizationException("Not Authorized to send to " + incomingEvent.cri()));
+            return Future.failedFuture(services.securityExceptions.notAuthorized("Participant {} may not send to {}",
+                                                                                 connectedInfo.getParticipant().getId(),
+                                                                                 incomingEvent.cri()));
         }
 
         if (incomingEvent.cri().scheme().equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
@@ -269,7 +270,8 @@ public class EndpointConnectionHandler {
         signalActivity();
 
         if (!stompAuthorizer.subscribeAllowed(cri)) {
-            throw new AuthorizationException("Not Authorized to subscribe to " + cri);
+            throw services.securityExceptions.notAuthorized("Participant {} may not subscribe to {}",
+                                                            connectedInfo.getParticipant().getId(), cri);
         }
 
         if (cri.scheme().equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {

@@ -10,6 +10,7 @@ import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.OrganizationScoped;
@@ -507,13 +508,14 @@ public class DomainUtil {
     /**
      * The tenant an application participant belongs to, for a function acting on the caller's own tenant.
      *
-     * @param participant the calling participant
+     * @param participant        the calling participant
+     * @param securityExceptions builds the {@link AuthorizationException} the participant is refused with
      * @return the tenant's id
      * @throws AuthorizationException when the participant belongs to no tenant
      */
-    public static String requireTenant(ApplicationParticipant participant) {
+    public static String requireTenant(ApplicationParticipant participant, SecurityExceptionFactory securityExceptions) {
         if (participant.getTenantId() == null) {
-            throw new AuthorizationException("Access denied");
+            throw securityExceptions.notAuthorized("Participant {} belongs to no tenant", participant.getId());
         }
         return participant.getTenantId();
     }
