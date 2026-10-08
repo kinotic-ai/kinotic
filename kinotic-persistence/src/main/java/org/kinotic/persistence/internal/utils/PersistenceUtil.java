@@ -37,6 +37,7 @@ public class PersistenceUtil {
         }else if(entityDescriptor.multiTenancyType() != MultiTenancyType.SHARED){
             ret = Future.succeededFuture();
         }else if(context.getTenantId() != null){
+            // FIXME: this was a hack closed by claude to fix a security gap, but makes this functionality worthless.
             // A participant that belongs to a tenant is confined to it, whatever selection it asks for
             if(context.hasTenantSelection()
                     && !List.of(context.getTenantId()).equals(context.getTenantSelection())){
