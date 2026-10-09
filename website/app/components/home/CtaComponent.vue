@@ -69,7 +69,6 @@ async function joinWaitlist() {
           <span>KINOTIC OS CLOUD · EARLY ACCESS</span>
         </div>
         <h2 id="cloud-waitlist-title" class="k-heading cta__title">Be first to build on Kinotic OS Cloud</h2>
-        <p class="cta__description">Get early access to the cloud release.</p>
 
         <div class="cta__signup">
           <div v-if="successTitle" class="cta__success" role="status" aria-live="polite">
@@ -77,7 +76,7 @@ async function joinWaitlist() {
             <p>{{ successMessage }}</p>
           </div>
           <form v-else :action="WAITLIST_URL" method="post" :aria-busy="loading" @submit.prevent="joinWaitlist">
-            <label for="cloud-waitlist-email" class="cta__label">Get notified when cloud access opens</label>
+            <label for="cloud-waitlist-email" class="cta__label">Email address</label>
             <div class="cta__form-row">
               <input
                 id="cloud-waitlist-email"
@@ -171,12 +170,6 @@ async function joinWaitlist() {
   line-height: 1.1;
   letter-spacing: -0.02em;
   max-width: 480px;
-}
-
-.cta__description {
-  margin: 18px 0 0;
-  color: var(--color-k-body);
-  font-size: 16px;
 }
 
 .cta__signup {
