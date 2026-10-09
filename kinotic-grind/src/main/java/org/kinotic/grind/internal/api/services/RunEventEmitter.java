@@ -4,7 +4,9 @@ import org.kinotic.grind.internal.model.SerializedState;
 import org.kinotic.grind.api.model.events.JobRunEvent;
 import org.kinotic.grind.api.model.events.TaskCompletedEvent;
 import org.kinotic.grind.api.model.events.TaskFailedEvent;
+import org.kinotic.grind.api.model.events.TaskLogEvent;
 import org.kinotic.grind.api.model.events.TaskProgressEvent;
+import org.kinotic.grind.api.model.TaskLogEntry;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.events.TaskStartedEvent;
 import org.kinotic.grind.api.model.events.TasksDiscoveredEvent;
@@ -45,6 +47,11 @@ public class RunEventEmitter implements RunListener {
     @Override
     public void taskProgress(String taskPath, int percentageComplete, String message) {
         sink.next(new TaskProgressEvent(taskPath, percentageComplete, message));
+    }
+
+    @Override
+    public void taskLog(String taskPath, TaskLogEntry entry) {
+        sink.next(new TaskLogEvent(taskPath, entry));
     }
 
     @Override

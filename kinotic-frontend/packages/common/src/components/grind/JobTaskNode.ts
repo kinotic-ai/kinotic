@@ -1,4 +1,4 @@
-import type { ExecutionStatus } from '@kinotic-ai/management-api'
+import type { ExecutionStatus, TaskLogEntry } from '@kinotic-ai/management-api'
 import type { JobTaskProgress } from './JobTaskProgress'
 
 /**
@@ -29,5 +29,7 @@ export interface JobTaskNode {
    * published nor recorded.
    */
   storedValue: unknown
+  /** The lines the task wrote to its log, oldest first: live while the run is watched, recorded once the task finished. */
+  logs: TaskLogEntry[]
   children: JobTaskNode[]
 }

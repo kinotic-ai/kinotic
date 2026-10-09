@@ -5,6 +5,7 @@ export enum JobRunEventType {
     TASKS_DISCOVERED = 'tasksDiscovered',
     TASK_STARTED = 'taskStarted',
     TASK_PROGRESS = 'taskProgress',
+    TASK_LOG = 'taskLog',
     TASK_COMPLETED = 'taskCompleted',
     TASK_FAILED = 'taskFailed'
 }

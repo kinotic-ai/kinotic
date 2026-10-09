@@ -3,16 +3,20 @@ package org.kinotic.grind;
 import org.junit.jupiter.api.Test;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.StoreType;
+import org.kinotic.grind.api.model.TaskLogEntry;
+import org.kinotic.grind.api.model.TaskLogLevel;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.events.JobRunEvent;
 import org.kinotic.grind.api.model.events.TaskCompletedEvent;
 import org.kinotic.grind.api.model.events.TaskFailedEvent;
+import org.kinotic.grind.api.model.events.TaskLogEvent;
 import org.kinotic.grind.api.model.events.TaskProgressEvent;
 import org.kinotic.grind.api.model.events.TaskStartedEvent;
 import org.kinotic.grind.api.model.events.TasksDiscoveredEvent;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.StringNode;
 
+import java.util.Date;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,6 +37,7 @@ public class JobRunEventJsonTest {
         assertEquals("tasksDiscovered", typeOf(new TasksDiscoveredEvent("0", List.of(), false)));
         assertEquals("taskStarted", typeOf(new TaskStartedEvent("0/1", "work")));
         assertEquals("taskProgress", typeOf(new TaskProgressEvent("0/1", 40, "halfway")));
+        assertEquals("taskLog", typeOf(new TaskLogEvent("0/1", new TaskLogEntry(new Date(), TaskLogLevel.INFO, "swept"))));
         assertEquals("taskCompleted", typeOf(new TaskCompletedEvent("0/1", StoreType.NONE, null, null, null)));
         assertEquals("taskFailed", typeOf(new TaskFailedEvent("0/1", "boom")));
     }
@@ -50,6 +55,16 @@ public class JobRunEventJsonTest {
         assertEquals("runtimeWorkloadId", event.storedName());
         assertEquals("wl-8f21", event.wireValue().stringValue());
         assertNull(event.storedValue());
+    }
+
+    @Test
+    public void aLogLineRoundTripsItsEntry() {
+        TaskLogEntry entry = new TaskLogEntry(new Date(1_700_000_000_000L), TaskLogLevel.WARN, "Workload wl-1 is still running");
+
+        JobRunEvent restored = objectMapper.readValue(objectMapper.writeValueAsString(new TaskLogEvent("0/2", entry)),
+                                                      JobRunEvent.class);
+
+        assertEquals(new TaskLogEvent("0/2", entry), restored);
     }
 
     @Test

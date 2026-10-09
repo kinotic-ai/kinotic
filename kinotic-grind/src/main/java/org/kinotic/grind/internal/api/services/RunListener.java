@@ -1,6 +1,7 @@
 package org.kinotic.grind.internal.api.services;
 
 import org.kinotic.grind.internal.model.SerializedState;
+import org.kinotic.grind.api.model.TaskLogEntry;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.StoreType;
@@ -44,6 +45,13 @@ public interface RunListener {
      * @param message what the task is currently doing, or null
      */
     void taskProgress(String taskPath, int percentageComplete, String message);
+
+    /**
+     * A running task wrote a line to its log.
+     * @param taskPath the task's position in the run's task tree
+     * @param entry the line the task wrote
+     */
+    void taskLog(String taskPath, TaskLogEntry entry);
 
     /**
      * A task finished successfully.

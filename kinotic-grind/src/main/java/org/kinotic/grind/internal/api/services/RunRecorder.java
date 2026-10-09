@@ -12,6 +12,8 @@ import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.repositories.JobRunRepository;
+import org.kinotic.grind.api.model.TaskLogEntry;
+import org.kinotic.grind.api.model.TaskLogger;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.StoreType;
@@ -121,6 +123,22 @@ public class RunRecorder implements RunListener {
     public void taskProgress(String taskPath, int percentageComplete, String message) {
         // progress is transient stream data: persisting every tick would cost a store round
         // trip per report, and a resumed or reloaded run has no use for a stale percentage
+    }
+
+    @Override
+    public void taskLog(String taskPath, TaskLogEntry entry) {
+        // Held on the record and written with its terminal status rather than per line, which would
+        // cost a store round trip for every line the task writes
+        TaskRecord record = recordsByPath.get(taskPath);
+        if (record == null) {
+            log.warn("Task log for unknown task path {} in run {}", taskPath, jobRunId);
+        } else {
+            List<TaskLogEntry> logs = record.getLogs();
+            logs.add(entry);
+            if (logs.size() > TaskLogger.MAX_RECORDED_ENTRIES) {
+                logs.removeFirst();
+            }
+        }
     }
 
     @Override
