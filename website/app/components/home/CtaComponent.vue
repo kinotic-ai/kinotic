@@ -77,7 +77,6 @@ async function joinWaitlist() {
             <p>{{ successMessage }}</p>
           </div>
           <form v-else :action="WAITLIST_URL" method="post" :aria-busy="loading" @submit.prevent="joinWaitlist">
-            <label for="cloud-waitlist-email" class="cta__label">Email address</label>
             <div class="cta__form-row">
               <input
                 id="cloud-waitlist-email"
@@ -85,6 +84,7 @@ async function joinWaitlist() {
                 class="cta__email"
                 name="email"
                 type="email"
+                aria-label="Email address"
                 placeholder="you@company.com"
                 autocomplete="email"
                 autocapitalize="none"
@@ -237,13 +237,6 @@ async function joinWaitlist() {
 @keyframes cta-tumble {
   0%, 100% { transform: translateY(0) rotate(-2deg); }
   50% { transform: translateY(-22px) rotate(2deg); }
-}
-
-.cta__label {
-  display: block;
-  margin-bottom: 12px;
-  font-size: 14px;
-  color: var(--color-k-text);
 }
 
 .cta__form-row {
