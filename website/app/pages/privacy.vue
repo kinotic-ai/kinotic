@@ -11,14 +11,14 @@ useHead({ title: 'Privacy Policy' })
           Privacy Policy
         </h1>
         <p class="mt-4 text-[14px] text-[#8A8A90]">
-          Last updated: April 13, 2026
+          Last updated: October 8, 2026
         </p>
 
         <div class="mt-10 space-y-8 font-[InterRegular] text-[16px] leading-[160%]">
           <section>
             <h2 class="font-[InterBold] text-[22px] text-white">Our Commitment</h2>
             <p class="mt-3">
-              At Kinotic, we respect your privacy. <strong class="text-white">We do not sell or share your data with third parties for marketing.</strong> This policy describes the limited information we handle when you visit our website or use our open source software, including the analytics we use to improve the site.
+              At Kinotic, we respect your privacy. <strong class="text-white">We do not sell or share your data with third parties for marketing.</strong> This policy describes the limited information we handle when you visit our website, join our cloud waitlist, or use our open source software, including the analytics we use to improve the site.
             </p>
           </section>
 
@@ -33,6 +33,13 @@ useHead({ title: 'Privacy Policy' })
             <h2 class="font-[InterBold] text-[22px] text-white">Information You Provide</h2>
             <p class="mt-3">
               If you voluntarily contact us, open an issue on GitHub, or contribute to the project, any information you provide (such as your name, email, or GitHub handle) is used solely to respond to your communication or manage contributions. It is not shared with any third party.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="font-[InterBold] text-[22px] text-white">Kinotic OS Cloud Waitlist</h2>
+            <p class="mt-3">
+              When you join the Kinotic OS Cloud waitlist, your email address is sent to Waitlister, the service we use to manage signups and notify you when cloud access opens. We use this information to manage your waitlist subscription and communicate about the cloud release.
             </p>
           </section>
 

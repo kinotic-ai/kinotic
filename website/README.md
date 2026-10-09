@@ -4,6 +4,16 @@
 
 This is the default Docus starter template that provides everything you need to build beautiful documentation sites with Markdown and Vue components.
 
+## Kinotic OS Cloud waitlist
+
+The homepage announcement links to the closing signup form in `app/components/home/CtaComponent.vue`. The form posts directly to Waitlister, keeping the site compatible with static GitHub Pages hosting. Its `WAITLIST_URL` constant contains the public waitlist key; it is not a private account API credential.
+
+Before publishing, add `kinotic.ai` to **Settings → Whitelisted domains** in the Waitlister dashboard. Add `localhost` if you want to submit signups during local development, and whitelist any other host where the form will run. No deployment secret or backend route is required.
+
+The form requests JSON responses and distinguishes new signups, existing subscribers, and pending email confirmation. It retains the email on failure so visitors can retry. Without JavaScript, the native form submits to the same endpoint and uses Waitlister's redirect flow.
+
+See [Waitlister's form action documentation](https://waitlister.me/docs/form-action-endpoint) for domain setup and response details.
+
 > [!TIP]
 > If you're looking for i18n support, check out the [i18n starter](https://github.com/nuxt-themes/docus/tree/main/.starters/i18n).
 
@@ -79,4 +89,4 @@ The built files will be in the `.output` directory, ready for deployment to any 
 
 ## 📄 License
 
-[MIT License](https://opensource.org/licenses/MIT) 
+[MIT License](https://opensource.org/licenses/MIT)

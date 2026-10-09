@@ -125,7 +125,7 @@ onBeforeUnmount(() => {
           enterprise software at internet scale.
         </p>
         <div class="hero__actions" data-reveal>
-          <a href="#cta" class="k-btn k-btn--mint">Get Started</a>
+          <NuxtLink to="/apps/quick-start" class="k-btn k-btn--mint">Get Started</NuxtLink>
           <a
             href="https://github.com/kinotic-ai/kinotic"
             target="_blank"

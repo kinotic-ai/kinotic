@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const route = useRoute()
+const showCloudAnnouncement = computed(() => route.path === '/')
 
 const scrolled = ref(false)
 const menuOpen = ref(false)
@@ -26,6 +27,10 @@ watch(() => route.fullPath, () => {
 
 <template>
   <header class="knav" :class="{ 'knav--solid': scrolled }">
+    <div v-if="showCloudAnnouncement" class="knav__announcement">
+      <span>Kinotic OS Cloud is coming.</span>
+      <a href="#cloud-waitlist">Join cloud waitlist ↗</a>
+    </div>
     <div class="k-wrap knav__bar">
       <NuxtLink to="/" class="knav__brand" aria-label="Kinotic home">
         <KinoticLogo :height="24" />
@@ -71,11 +76,37 @@ watch(() => route.fullPath, () => {
   left: 0;
   right: 0;
   z-index: 60;
-  height: 76px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   border-bottom: 1px solid transparent;
   transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.knav__announcement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  width: 100%;
+  padding: 10px 22px;
+  background: #0D2019;
+  border-bottom: 1px solid #244136;
+  color: var(--color-k-text);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.knav__announcement a {
+  color: var(--color-k-mint);
+  font-family: var(--font-k-mono);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.knav__announcement a:hover {
+  color: var(--color-k-mint-hover);
 }
 
 .knav--solid {
@@ -88,6 +119,7 @@ watch(() => route.fullPath, () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-height: 76px;
 }
 
 .knav__brand {
@@ -151,10 +183,7 @@ watch(() => route.fullPath, () => {
 }
 
 .knav__menu {
-  position: fixed;
-  top: 76px;
-  left: 0;
-  right: 0;
+  width: 100%;
   z-index: 59;
   display: flex;
   flex-direction: column;

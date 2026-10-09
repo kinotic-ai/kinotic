@@ -82,7 +82,7 @@
       </div>
 
       <div class="builtfor__cta" data-reveal>
-        <a href="#cta" class="k-btn k-btn--red">Get Started ↗</a>
+        <NuxtLink to="/apps/quick-start" class="k-btn k-btn--red">Get Started ↗</NuxtLink>
       </div>
     </div>
   </section>
