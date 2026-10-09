@@ -58,7 +58,7 @@ async function joinWaitlist() {
 <template>
   <section id="cloud-waitlist" class="cta" aria-labelledby="cloud-waitlist-title">
     <div id="cta" class="k-wrap cta__grid">
-      <div class="cta__copy" data-reveal>
+      <div class="cta__copy">
         <div class="k-eyebrow cta__eyebrow">
           <span>KINOTIC OS CLOUD · EARLY ACCESS</span>
         </div>
@@ -66,7 +66,7 @@ async function joinWaitlist() {
         <p class="cta__description">Get early access to the cloud release.</p>
       </div>
 
-      <div class="cta__signup" data-reveal>
+      <div class="cta__signup">
         <div v-if="successTitle" class="cta__success" role="status" aria-live="polite">
           <h3>{{ successTitle }}</h3>
           <p>{{ successMessage }}</p>
