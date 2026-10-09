@@ -1,0 +1,1 @@
+{"id":"c9aa8265495082ef8109ed5ca1f6f68b.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenAlterTableAddNestedColumn_thenMappingUpdated","name":"whenAlterTableAddNestedColumn_thenMappingUpdated()","status":"passed","testResultsByEnv":{"default":"fe4e63e58e5c97b0a5fbeb104d7b31b8"}}

@@ -1,1 +1,0 @@
-{"id":"b855fc7c52b7c3cc6336f374ff6d9402.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.sql.NamedParameterQueryTest.whenParameterSuppliesAnObject_thenMergedLikeALiteral","name":"whenParameterSuppliesAnObject_thenMergedLikeALiteral()","status":"passed","testResultsByEnv":{"default":"0d539641da0c6d804522689f5f3be280"}}
