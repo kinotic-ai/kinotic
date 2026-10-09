@@ -70,40 +70,67 @@ async function joinWaitlist() {
         </div>
         <h2 id="cloud-waitlist-title" class="k-heading cta__title">Be first to build on Kinotic OS Cloud</h2>
         <p class="cta__description">Get early access to the cloud release.</p>
+
+        <div class="cta__signup">
+          <div v-if="successTitle" class="cta__success" role="status" aria-live="polite">
+            <h3>{{ successTitle }}</h3>
+            <p>{{ successMessage }}</p>
+          </div>
+          <form v-else :action="WAITLIST_URL" method="post" :aria-busy="loading" @submit.prevent="joinWaitlist">
+            <div class="cta__form-row">
+              <input
+                id="cloud-waitlist-email"
+                v-model.trim="email"
+                class="cta__email"
+                name="email"
+                type="email"
+                aria-label="Email address"
+                placeholder="you@company.com"
+                autocomplete="email"
+                autocapitalize="none"
+                :disabled="loading"
+                :aria-invalid="error ? true : undefined"
+                :aria-describedby="error ? 'cloud-waitlist-note cloud-waitlist-error' : 'cloud-waitlist-note'"
+                required
+              >
+              <button type="submit" class="k-btn k-btn--mint cta__submit" :disabled="loading">
+                {{ loading ? 'Joining…' : 'Join cloud waitlist ↗' }}
+              </button>
+            </div>
+            <p v-if="error" id="cloud-waitlist-error" class="cta__error" role="alert">{{ error }}</p>
+            <p id="cloud-waitlist-note" class="cta__note">
+              We’ll email you when cloud access opens.
+              <NuxtLink to="/privacy">Privacy policy</NuxtLink>
+            </p>
+          </form>
+        </div>
       </div>
 
-      <div class="cta__signup">
-        <div v-if="successTitle" class="cta__success" role="status" aria-live="polite">
-          <h3>{{ successTitle }}</h3>
-          <p>{{ successMessage }}</p>
-        </div>
-        <form v-else :action="WAITLIST_URL" method="post" :aria-busy="loading" @submit.prevent="joinWaitlist">
-          <label for="cloud-waitlist-email" class="cta__label">Get notified when cloud access opens</label>
-          <div class="cta__form-row">
-            <input
-              id="cloud-waitlist-email"
-              v-model.trim="email"
-              class="cta__email"
-              name="email"
-              type="email"
-              placeholder="you@company.com"
-              autocomplete="email"
-              autocapitalize="none"
-              :disabled="loading"
-              :aria-invalid="error ? true : undefined"
-              :aria-describedby="error ? 'cloud-waitlist-note cloud-waitlist-error' : 'cloud-waitlist-note'"
-              required
-            >
-            <button type="submit" class="k-btn k-btn--mint cta__submit" :disabled="loading">
-              {{ loading ? 'Joining…' : 'Join cloud waitlist ↗' }}
-            </button>
-          </div>
-          <p v-if="error" id="cloud-waitlist-error" class="cta__error" role="alert">{{ error }}</p>
-          <p id="cloud-waitlist-note" class="cta__note">
-            We’ll email you when cloud access opens.
-            <NuxtLink to="/privacy">Privacy policy</NuxtLink>
-          </p>
-        </form>
+      <div class="cta__visual" data-reveal>
+        <div class="cta__glow cta__glow--red" />
+        <div class="cta__glow cta__glow--mint" />
+        <svg class="cta__cubes" viewBox="0 0 560 470" fill="none" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <g class="cube cube--fast">
+            <path d="M 96 92 L 141 71 L 186 92 L 141 113 Z" fill="#B0324C" />
+            <path d="M 96 92 L 96 142 L 141 163 L 141 113 Z" fill="#7A1D33" />
+            <path d="M 186 92 L 186 142 L 141 163 L 141 113 Z" fill="#96263F" />
+          </g>
+          <g class="cube cube--fast" style="animation-delay: -3s;">
+            <path d="M 428 122 L 466 104 L 504 122 L 466 140 Z" fill="#4BF2B0" />
+            <path d="M 428 122 L 428 164 L 466 182 L 466 140 Z" fill="#0E9E68" />
+            <path d="M 504 122 L 504 164 L 466 182 L 466 140 Z" fill="#17B87C" />
+          </g>
+          <g class="cube">
+            <path d="M 168 236 L 258 194 L 348 236 L 258 278 Z" fill="#C6455C" />
+            <path d="M 168 236 L 168 336 L 258 378 L 258 278 Z" fill="#8E2038" />
+            <path d="M 348 236 L 348 336 L 258 378 L 258 278 Z" fill="#A62B44" />
+          </g>
+          <g class="cube" style="animation-delay: -2s;">
+            <path d="M 448 344 L 480 329 L 512 344 L 480 359 Z" fill="#8E3247" />
+            <path d="M 448 344 L 448 378 L 480 393 L 480 359 Z" fill="#5E1A29" />
+            <path d="M 512 344 L 512 378 L 480 393 L 480 359 Z" fill="#752338" />
+          </g>
+        </svg>
       </div>
     </div>
   </section>
@@ -152,11 +179,64 @@ async function joinWaitlist() {
   font-size: 16px;
 }
 
-.cta__label {
-  display: block;
-  margin-bottom: 12px;
-  font-size: 14px;
-  color: var(--color-k-text);
+.cta__signup {
+  margin-top: 32px;
+}
+
+.cta__visual {
+  position: relative;
+  height: 415px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cta__glow {
+  position: absolute;
+  filter: blur(6px);
+}
+
+.cta__glow--red {
+  left: 12%;
+  top: 18%;
+  width: 520px;
+  height: 420px;
+  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(236, 31, 82, 0.22), transparent 70%);
+}
+
+.cta__glow--mint {
+  right: -6%;
+  bottom: 2%;
+  width: 460px;
+  height: 400px;
+  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(40, 254, 180, 0.12), transparent 70%);
+}
+
+.cta__cubes {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.cube {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cta-float 7s ease-in-out infinite;
+}
+
+.cube--fast {
+  animation: cta-tumble 9s ease-in-out infinite;
+}
+
+@keyframes cta-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+@keyframes cta-tumble {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-22px) rotate(2deg); }
 }
 
 .cta__form-row {
@@ -250,6 +330,10 @@ async function joinWaitlist() {
   .cta__grid {
     grid-template-columns: 1fr;
     gap: 32px;
+  }
+
+  .cta__visual {
+    height: 330px;
   }
 }
 
