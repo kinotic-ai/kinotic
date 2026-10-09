@@ -1,0 +1,1 @@
+{"id":"4075045cc7150168b7c3de0d9cf04933.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenFieldNameQuoted_thenUsedVerbatim","name":"whenFieldNameQuoted_thenUsedVerbatim()","status":"passed","testResultsByEnv":{"default":"1e18af9f41b7d695e3a60f4385a37884"}}

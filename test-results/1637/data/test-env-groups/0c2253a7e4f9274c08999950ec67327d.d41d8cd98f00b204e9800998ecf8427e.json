@@ -1,1 +1,0 @@
-{"id":"0c2253a7e4f9274c08999950ec67327d.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.core.internal.api.event.DefaultEventBusServiceTests.prefersLocalDeliveryWhenThisNodeHostsTheService","name":"prefersLocalDeliveryWhenThisNodeHostsTheService()","status":"passed","testResultsByEnv":{"default":"6f6da6fc7832f60b0653fc9c903eefc9"}}

@@ -1,1 +1,0 @@
-{"id":"f592c4372538e09e87fd59d38e26b73e.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.MigrationParserSyntaxErrorTest.whenDoubleEqualsUsedInComparison_thenParseFailsNamingTheOperator","name":"whenDoubleEqualsUsedInComparison_thenParseFailsNamingTheOperator()","status":"passed","testResultsByEnv":{"default":"0cfd54bca47a3dd57cdbc121f765168f"}}
