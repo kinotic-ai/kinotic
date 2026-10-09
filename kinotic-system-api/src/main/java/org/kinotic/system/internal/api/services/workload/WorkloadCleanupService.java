@@ -43,8 +43,7 @@ public class WorkloadCleanupService implements Service {
     }
 
     private void sweep() {
-        int retentionDays = sweeper.getRetentionDays();
-        sweeper.sweep(deleted -> log.info("Deleted {} workloads whose runs ended more than {} days ago", deleted, retentionDays))
+        sweeper.sweep()
                .onFailure(error -> log.error("Workload cleanup failed; what it left is taken by the next run", error));
     }
 }

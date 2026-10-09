@@ -7,9 +7,7 @@ import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
 import tools.jackson.databind.JsonNode;
 
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 
 /**
  * The persistent record of one task's execution within a {@link JobRun} - a {@code Task} or a
@@ -84,12 +82,6 @@ public class TaskRecord implements Identifiable<String> {
      * The failure message when {@link #status} is {@link ExecutionStatus#FAILED}.
      */
     private String error;
-
-    /**
-     * The lines the task wrote through its {@link TaskLogger}, oldest first: its last
-     * {@value TaskLogger#MAX_RECORDED_ENTRIES}, recorded once the task finishes.
-     */
-    private List<TaskLogEntry> logs = new ArrayList<>();
 
     /**
      * When the task started executing.

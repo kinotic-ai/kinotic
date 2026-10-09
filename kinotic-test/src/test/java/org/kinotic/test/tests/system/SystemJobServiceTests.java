@@ -5,8 +5,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobRun;
-import org.kinotic.grind.api.model.TaskLogEntry;
-import org.kinotic.grind.api.model.TaskLogLevel;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.repositories.TaskRecordRepository;
@@ -26,11 +24,10 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The system jobs as the console's System jobs page drives them: listed, started on behalf of the
- * platform, and recorded with the lines each task wrote to its log.
+ * The system jobs as the console's System jobs page drives them: listed, and started on behalf of
+ * the platform as recorded job runs.
  */
 @SpringBootTest
 public class SystemJobServiceTests extends KinoticTestBase {
@@ -71,7 +68,7 @@ public class SystemJobServiceTests extends KinoticTestBase {
     }
 
     @Test
-    public void aStartedJobIsRecordedForThePlatformWithItsTaskLog() throws Exception {
+    public void aStartedJobRunsForThePlatform() throws Exception {
         JobRun run = await(systemJobs.startSystemJob(RETENTION_SWEEP));
         started.add(run.getId());
 
@@ -86,11 +83,6 @@ public class SystemJobServiceTests extends KinoticTestBase {
                                                                 .findFirst()
                                                                 .orElseThrow();
         assertEquals(ExecutionStatus.COMPLETED, sweep.getStatus());
-        TaskLogEntry last = sweep.getLogs().getLast();
-        assertEquals(TaskLogLevel.INFO, last.getLevel());
-        assertTrue(last.getMessage().matches("Deleted \\d+ workloads in all whose runs ended more than \\d+ days ago"),
-                   last.getMessage());
-        assertNotNull(last.getTimestamp());
     }
 
     @Test

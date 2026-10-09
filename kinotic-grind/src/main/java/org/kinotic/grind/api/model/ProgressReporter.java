@@ -5,9 +5,8 @@ import org.kinotic.grind.api.model.events.TaskProgressEvent;
 /**
  * Reports a task's progress to watchers of the run as {@link TaskProgressEvent}s. Available
  * in every job scope, so a task injects it like any other dependency - an {@code @Autowired}
- * field, or a parameter of an annotated task method. Reports attach to the task in flight on the
- * calling thread's Vert.x context - the run's own, where the task body and the callbacks of futures
- * bound to it execute - so a report made from a thread the task spawned is dropped.
+ * field, or a parameter of an annotated task method. Reports attach to the task executing on
+ * the calling thread: a report made from a thread the task spawned is dropped.
  */
 public interface ProgressReporter {
 

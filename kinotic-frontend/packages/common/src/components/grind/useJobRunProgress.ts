@@ -65,7 +65,6 @@ export function useJobRunProgress(jobRunId: string) {
         progress: null,
         storedName: null,
         storedValue: null,
-        logs: [],
         children: []
       })
       nodesByPath.set(taskPath, node)
@@ -94,10 +93,6 @@ export function useJobRunProgress(jobRunId: string) {
     if (record.stateValue !== null && record.stateValue !== undefined) {
       node.storedValue = record.stateValue
     }
-    // a record holds a task's lines from when it finished; discovered and running records hold none yet
-    if (record.logs && record.logs.length > 0) {
-      node.logs = record.logs
-    }
     if (record.status !== ExecutionStatus.RUNNING) {
       node.progress = null
     }
@@ -111,12 +106,6 @@ export function useJobRunProgress(jobRunId: string) {
         node.status = ExecutionStatus.RUNNING
         // records carry the durable timestamps; the local clock only bridges until the next record load
         node.started = node.started ?? Date.now()
-        // the stream replays the task's lines after its start, so lines a record already gave are not kept twice
-        node.logs = []
-        break
-      }
-      case JobRunEventType.TASK_LOG: {
-        nodeAt(event.taskPath).logs.push(event.entry)
         break
       }
       case JobRunEventType.TASK_COMPLETED: {

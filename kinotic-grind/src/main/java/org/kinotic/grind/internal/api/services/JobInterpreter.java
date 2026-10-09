@@ -8,37 +8,27 @@ import org.kinotic.grind.internal.model.RunCancelledException;
 import org.kinotic.grind.internal.model.SerializedState;
 import org.kinotic.grind.internal.model.JobNode;
 import org.kinotic.grind.internal.model.TaskNode;
-import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
-import io.vertx.core.internal.ContextInternal;
 import lombok.SneakyThrows;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobScope;
 import org.kinotic.grind.api.model.ProgressReporter;
-import org.kinotic.grind.api.model.TaskLogEntry;
-import org.kinotic.grind.api.model.TaskLogLevel;
-import org.kinotic.grind.api.model.TaskLogger;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.StoreType;
 import org.kinotic.grind.api.model.Task;
 import org.reactivestreams.Publisher;
-import org.slf4j.helpers.FormattingTuple;
-import org.slf4j.helpers.MessageFormatter;
 import org.springframework.context.ConfigurableApplicationContext;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -60,10 +50,9 @@ public class JobInterpreter {
     private final RunThreadFactory runThreads;
     // Serializes listener dispatch so parallel definitions cannot interleave callbacks
     private final Object dispatchLock = new Object();
-    // The task path in flight on each run context, from Task.execute until its result is awaited, so
-    // the scope's ProgressReporter and TaskLogger can attribute what they receive, including from
-    // callbacks of futures bound to the context; parallel children run on contexts of their own
-    private final Map<Context, String> executingTaskPaths = new ConcurrentHashMap<>();
+    // The task path executing on each thread, stamped around Task.execute so the scope's
+    // ProgressReporter can attribute reports; parallel children stamp their own threads
+    private final ThreadLocal<String> executingTaskPath = new ThreadLocal<>();
 
     public JobInterpreter(ConfigurableApplicationContext applicationContext,
                           String runId,
@@ -93,7 +82,6 @@ public class JobInterpreter {
             collectRecords("", new DefinitionNode(0, rootDefinition), staticTree);
             notifyTasksDiscovered("0", staticTree, false);
             rootScope.storeBean("progressReporter", progressReporter());
-            rootScope.storeBean("taskLogger", taskLogger());
             seedInputs(rootScope);
             executeDefinition("0", rootScope, rootDefinition);
             notifyRunCompleted();
@@ -171,102 +159,47 @@ public class JobInterpreter {
                 ? node.store().getReloadTask() : node.task();
         notifyTaskStarted(path, node.description());
         try {
-            Object result = executeOnPath(path, taskToRun, scope);
-            if (result instanceof Task<?> dynamicTask) {
+            Object raw = executeOnPath(path, taskToRun, scope);
+            if (raw instanceof Task<?> dynamicTask) {
                 // The dynamic task carries this task's store, so it stores the value
                 TaskNode dynamicNode = new TaskNode(1, dynamicTask, node.store());
                 discoverDynamic(path, dynamicNode);
                 executeTask(path + "/1", scope, dynamicNode);
                 notifyTaskCompleted(path, Store.none(), null, null, null);
-            } else if (result instanceof JobDefinition dynamicDefinition) {
+            } else if (raw instanceof JobDefinition dynamicDefinition) {
                 DefinitionNode dynamicNode = new DefinitionNode(1, (DefaultJobDefinition) dynamicDefinition);
                 discoverDynamic(path, dynamicNode);
                 executeDefinition(path + "/1", scope, dynamicNode.definition());
                 notifyTaskCompleted(path, Store.none(), null, null, null);
             } else {
-                String storedName = ScopeWriter.store(scope, node.store().getType(), node.store().getName(), result);
-                notifyTaskCompleted(path, node.store(), storedName, result, serializeIfNeeded(node, result));
+                Object value = awaitValue(raw);
+                String storedName = ScopeWriter.store(scope, node.store().getType(), node.store().getName(), value);
+                notifyTaskCompleted(path, node.store(), storedName, value, serializeIfNeeded(node, value));
             }
         } catch (Throwable t) {
             handleTaskFailure(path, t);
         }
     }
 
-    /**
-     * Executes the task with its path in flight on the run context, returning a dynamic
-     * {@link Task} or {@link JobDefinition} as it is and awaiting any other result.
-     */
     private Object executeOnPath(String path, Task<?> task, DefaultJobContext scope) throws Exception {
-        Context context = runContext();
-        executingTaskPaths.put(context, path);
+        executingTaskPath.set(path);
         try {
-            Object raw = task.execute(scope);
-            return raw instanceof Task<?> || raw instanceof JobDefinition ? raw : awaitValue(raw);
+            return task.execute(scope);
         } finally {
-            executingTaskPaths.remove(context);
+            executingTaskPath.remove();
         }
     }
 
     /**
-     * The path of the task in flight on the calling thread's run context, or null when the caller is
-     * on no run context - a thread the task spawned, or a library's own.
-     */
-    private String executingTaskPath() {
-        Context context = runContext();
-        return context != null ? executingTaskPaths.get(context) : null;
-    }
-
-    // A duplicate of the run context shares the run's task, so it resolves to the context it wraps
-    private Context runContext() {
-        Context current = Vertx.currentContext();
-        return current instanceof ContextInternal internal ? internal.unwrap() : current;
-    }
-
-    /**
-     * The {@link ProgressReporter} every job scope carries: reports attach to the task in flight
-     * on the calling thread's run context, and a report from no run context - a thread the task
-     * spawned itself - is dropped.
+     * The {@link ProgressReporter} every job scope carries: reports attach to the task
+     * executing on the calling thread, and a report from a thread no task is executing on -
+     * one the task spawned itself - is dropped.
      */
     private ProgressReporter progressReporter() {
         return (percentageComplete, message) -> {
-            String path = executingTaskPath();
+            String path = executingTaskPath.get();
             if (path != null) {
                 notifyTaskProgress(path, percentageComplete, message);
-            }
-        };
-    }
-
-    /**
-     * The {@link TaskLogger} every job scope carries: lines attach to the task in flight on the
-     * calling thread's run context, and a line from no run context - a thread the task spawned
-     * itself - is dropped.
-     */
-    private TaskLogger taskLogger() {
-        return new TaskLogger() {
-            @Override
-            public void info(String format, Object... arguments) {
-                write(TaskLogLevel.INFO, format, arguments);
-            }
-
-            @Override
-            public void warn(String format, Object... arguments) {
-                write(TaskLogLevel.WARN, format, arguments);
-            }
-
-            @Override
-            public void error(String format, Object... arguments) {
-                write(TaskLogLevel.ERROR, format, arguments);
-            }
-
-            private void write(TaskLogLevel level, String format, Object[] arguments) {
-                String path = executingTaskPath();
-                if (path != null) {
-                    FormattingTuple formatted = MessageFormatter.arrayFormat(format, arguments);
-                    String message = formatted.getThrowable() == null
-                            ? formatted.getMessage()
-                            : formatted.getMessage() + ": " + formatted.getThrowable();
-                    notifyTaskLog(path, new TaskLogEntry(new Date(), level, message));
-                }
             }
         };
     }
@@ -458,12 +391,6 @@ public class JobInterpreter {
     private void notifyTaskProgress(String taskPath, int percentageComplete, String message) {
         synchronized (dispatchLock) {
             listeners.forEach(listener -> listener.taskProgress(taskPath, percentageComplete, message));
-        }
-    }
-
-    private void notifyTaskLog(String taskPath, TaskLogEntry entry) {
-        synchronized (dispatchLock) {
-            listeners.forEach(listener -> listener.taskLog(taskPath, entry));
         }
     }
 

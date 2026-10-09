@@ -478,7 +478,6 @@ CREATE TABLE IF NOT EXISTS kinotic_task_record (
     stateValueType KEYWORD,
     stateValue JSON NOT INDEXED,
     error TEXT,
-    logs OBJECT (timestamp DATE, level KEYWORD, message TEXT) NOT INDEXED,
     started DATE,
     finished DATE
 );

@@ -1,6 +1,5 @@
 import type { TaskCompletedEvent } from '@/api/model/grind/events/TaskCompletedEvent'
 import type { TaskFailedEvent } from '@/api/model/grind/events/TaskFailedEvent'
-import type { TaskLogEvent } from '@/api/model/grind/events/TaskLogEvent'
 import type { TaskProgressEvent } from '@/api/model/grind/events/TaskProgressEvent'
 import type { TaskStartedEvent } from '@/api/model/grind/events/TaskStartedEvent'
 import type { TasksDiscoveredEvent } from '@/api/model/grind/events/TasksDiscoveredEvent'
@@ -17,6 +16,5 @@ export type JobRunEvent =
     | TasksDiscoveredEvent
     | TaskStartedEvent
     | TaskProgressEvent
-    | TaskLogEvent
     | TaskCompletedEvent
     | TaskFailedEvent

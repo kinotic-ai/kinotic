@@ -1,7 +1,6 @@
 import type { Identifiable } from '@kinotic-ai/core'
 import { ExecutionStatus } from '@/api/model/grind/ExecutionStatus'
 import { StoreType } from '@/api/model/grind/StoreType'
-import type { TaskLogEntry } from '@/api/model/grind/TaskLogEntry'
 
 /**
  * The persistent record of one task within a JobRun. Every discovered task has a record,
@@ -68,12 +67,6 @@ export class TaskRecord implements Identifiable<string> {
      * The failure message when status is FAILED.
      */
     public error: string | null = null
-
-    /**
-     * The lines the task wrote to its log, oldest first: its last 1,000, recorded once the task
-     * finishes.
-     */
-    public logs: TaskLogEntry[] = []
 
     /**
      * When the task started executing, as an ISO-8601 timestamp.

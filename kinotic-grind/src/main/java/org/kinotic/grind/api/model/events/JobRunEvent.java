@@ -17,11 +17,10 @@ import org.kinotic.grind.api.model.TaskRecord;
         @JsonSubTypes.Type(value = TasksDiscoveredEvent.class, name = "tasksDiscovered"),
         @JsonSubTypes.Type(value = TaskStartedEvent.class, name = "taskStarted"),
         @JsonSubTypes.Type(value = TaskProgressEvent.class, name = "taskProgress"),
-        @JsonSubTypes.Type(value = TaskLogEvent.class, name = "taskLog"),
         @JsonSubTypes.Type(value = TaskCompletedEvent.class, name = "taskCompleted"),
         @JsonSubTypes.Type(value = TaskFailedEvent.class, name = "taskFailed")
 })
-public sealed interface JobRunEvent permits TaskStartedEvent, TaskProgressEvent, TaskLogEvent, TaskCompletedEvent, TaskFailedEvent, TasksDiscoveredEvent {
+public sealed interface JobRunEvent permits TaskStartedEvent, TaskProgressEvent, TaskCompletedEvent, TaskFailedEvent, TasksDiscoveredEvent {
 
     /**
      * The position of the task this event concerns, as the {@code /} separated sequence path
