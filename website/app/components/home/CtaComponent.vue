@@ -69,6 +69,7 @@ async function joinWaitlist() {
           <span>KINOTIC OS CLOUD · EARLY ACCESS</span>
         </div>
         <h2 id="cloud-waitlist-title" class="k-heading cta__title">Be first to build on Kinotic OS Cloud</h2>
+        <p class="cta__description">Get early access to the cloud release.</p>
 
         <div class="cta__signup">
           <div v-if="successTitle" class="cta__success" role="status" aria-live="polite">
@@ -170,6 +171,12 @@ async function joinWaitlist() {
   line-height: 1.1;
   letter-spacing: -0.02em;
   max-width: 480px;
+}
+
+.cta__description {
+  margin: 18px 0 0;
+  color: var(--color-k-body);
+  font-size: 16px;
 }
 
 .cta__signup {
