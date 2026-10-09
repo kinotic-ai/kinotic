@@ -19,10 +19,11 @@ async function joinWaitlist() {
     const response = await fetch(WAITLIST_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        // JSON selects an inline response; form-encoded requests return a redirect.
+        'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body: new URLSearchParams({ email: email.value.trim() }),
+      body: JSON.stringify({ email: email.value.trim() }),
       signal: controller.signal,
     })
 
@@ -36,11 +37,16 @@ async function joinWaitlist() {
     const result = await response.json()
     if (result.success !== true) throw new Error('Signup was not accepted')
 
-    if (result.is_pending_confirmation) {
+    const redirectUrl = result.redirect_url ?? result.redirectUrl
+    const pendingConfirmation = result.is_pending_confirmation
+      || (typeof redirectUrl === 'string'
+        && new URL(redirectUrl, WAITLIST_URL).pathname.startsWith('/confirm-pending/'))
+
+    if (pendingConfirmation) {
       successTitle.value = 'Check your inbox.'
       successMessage.value = 'Confirm your email to join the Kinotic OS Cloud waitlist.'
     } else {
-      successTitle.value = result.is_new_sign_up === false
+      successTitle.value = result.is_new_sign_up === false || result.message === 'Already signed up'
         ? 'You’re already on the cloud waitlist.'
         : 'You’re on the cloud waitlist.'
       successMessage.value = 'We’ll email you when Kinotic OS Cloud access opens.'
