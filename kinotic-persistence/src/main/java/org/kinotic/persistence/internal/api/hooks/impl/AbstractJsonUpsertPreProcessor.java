@@ -27,7 +27,7 @@ import java.util.*;
  * This class was created to make the extraction of needed data as performant as possible
  * since elasticsearch already expects json there is not a need to convert to a java object.
  * For this reason the code below is a single loop limiting allocations as much as possible.
- * NOTE: this will all be removed in favor of the new {@link JsonStreamProcessor} I am working on.
+ * TODO: remove in favor of the new {@link JsonStreamProcessor} that needs to be finished.
  * Created by Navíd Mitchell 🤪 on 5/5/23.
  */
 public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProcessor<T, T, RawJson> {
