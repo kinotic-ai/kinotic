@@ -1,0 +1,1 @@
+{"id":"dd2d9c82f63f5a2358821c5d1a0121ee.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/e2e-tests:test/native/MigrationService.test.ts#Kinotic JS rejects a REINDEX SCRIPT that reaches beyond the row","name":"rejects a REINDEX SCRIPT that reaches beyond the row","status":"passed","testResultsByEnv":{"default":"6ed84f05afd58673fd3f1ae4e4fec21e"}}

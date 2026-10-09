@@ -1,1 +1,0 @@
-{"id":"45aee102e436fc21591478666380d7b6.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenInsertObjectAndNestedLiterals_thenSubDocumentsStored","name":"whenInsertObjectAndNestedLiterals_thenSubDocumentsStored()","status":"passed","testResultsByEnv":{"default":"17b6a207ac673a83673fe52a6d40f02a"}}
