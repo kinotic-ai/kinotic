@@ -24,6 +24,9 @@ const SERVER_PORTS = {
 /** A server of the e2e compose stack, by its compose service name. */
 export type KinoticServerName = keyof typeof SERVER_PORTS
 
+/** How long a server may take to answer /health, matching the start_period of its compose healthcheck. */
+const SERVER_STARTUP_TIMEOUT_MS = 120_000
+
 /** The host port compose.kinotic-e2e-test.yml publishes each server on, for a stack started by hand. */
 const PUBLISHED_PORTS: Record<KinoticServerName, number> = {
     'kinotic-server-management': 58503,
@@ -61,7 +64,8 @@ export function createGlobalSetup(serverNames: KinoticServerName[]): GlobalSetup
                     .withWaitStrategy('kinotic-elasticsearch', Wait.forHttp('/_cluster/health', 9200))
                     .withEnvironmentFile(path.resolve('../../', 'gradle.properties'))
                 for(const serverName of serverNames){
-                    compose = compose.withWaitStrategy(serverName, Wait.forHttp('/health', SERVER_PORTS[serverName]))
+                    compose = compose.withWaitStrategy(serverName, Wait.forHttp('/health', SERVER_PORTS[serverName])
+                                                                       .withStartupTimeout(SERVER_STARTUP_TIMEOUT_MS))
                 }
                 environment = await compose.up(['kinotic-elasticsearch', ...serverNames])
 
