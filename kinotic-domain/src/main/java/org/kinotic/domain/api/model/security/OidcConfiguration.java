@@ -18,6 +18,9 @@ import lombok.experimental.Accessors;
  *       org's single SSO config (when set).</li>
  *   <li>{@link Application#getOidcConfigurationIds()} lists the
  *       configs each application accepts for application-level login.</li>
+ *   <li>{@link org.kinotic.domain.api.model.Tenant#getSsoConfigId()} points at the single config a tenant
+ *       signs its own users in with; such a config also names its tenant, since the tenant's administrator
+ *       owns it.</li>
  * </ul>
  * The same config id may legitimately appear in both — e.g. an org uses the same Okta
  * tenant for org-admin SSO and for one of its customer-facing apps.
@@ -37,4 +40,12 @@ public class OidcConfiguration extends BaseOidcConfiguration implements Organiza
      * from the security context — callers don't set it directly outside elevated access.
      */
     private String organizationId;
+
+    /**
+     * The application and tenant that own the configuration, for a tenant's own SSO: one the tenant's
+     * administrator set up on the application's pages, which signs that tenant's users in and provisions the
+     * ones its identity provider vouches for. Both null for an organization's configuration.
+     */
+    private String applicationId;
+    private String tenantId;
 }

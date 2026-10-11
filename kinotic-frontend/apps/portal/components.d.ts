@@ -8,6 +8,8 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AccessCheckPanel: typeof import('./src/components/access/AccessCheckPanel.vue')['default']
+    AccessPanel: typeof import('./src/components/access/AccessPanel.vue')['default']
     ApplicationProjectsLink: typeof import('./src/components/ApplicationProjectsLink.vue')['default']
     ApplicationSidebar: typeof import('./src/components/ApplicationSidebar.vue')['default']
     Button: typeof import('primevue/button')['default']
@@ -15,6 +17,8 @@ declare module 'vue' {
     CreationStatus: typeof import('./src/components/CreationStatus.vue')['default']
     DeleteApplicationDialog: typeof import('./src/components/DeleteApplicationDialog.vue')['default']
     DeleteProjectDialog: typeof import('./src/components/DeleteProjectDialog.vue')['default']
+    EndUserAccessCheckPanel: typeof import('./src/components/access/EndUserAccessCheckPanel.vue')['default']
+    EndUserGrantDialog: typeof import('./src/components/access/EndUserGrantDialog.vue')['default']
     EntityDefinitionDiagram: typeof import('./src/components/entity-definitions/EntityDefinitionDiagram.vue')['default']
     EntityDefinitionNode: typeof import('./src/components/entity-definitions/flow-components/EntityDefinitionNode.vue')['default']
     EntityDefinitionSettings: typeof import('./src/components/entity-definitions/sidebar-dashboard/EntityDefinitionSettings.vue')['default']
@@ -30,6 +34,10 @@ declare module 'vue' {
     GitHubLinkStatus: typeof import('./src/components/GitHubLinkStatus.vue')['default']
     Glitch: typeof import('./src/components/Glitch.vue')['default']
     GlobalObjectNode: typeof import('./src/components/nodes/GlobalObjectNode.vue')['default']
+    GrantAccessDialog: typeof import('./src/components/access/GrantAccessDialog.vue')['default']
+    GroupDialog: typeof import('./src/components/access/GroupDialog.vue')['default']
+    GroupMembersDialog: typeof import('./src/components/access/GroupMembersDialog.vue')['default']
+    GroupsTab: typeof import('./src/components/access/GroupsTab.vue')['default']
     InviteEmailTemplateEditor: typeof import('./src/components/InviteEmailTemplateEditor.vue')['default']
     JobRunDetail: typeof import('./src/components/JobRunDetail.vue')['default']
     MicroserviceDeploymentsTable: typeof import('./src/components/MicroserviceDeploymentsTable.vue')['default']
@@ -38,6 +46,8 @@ declare module 'vue' {
     ProjectList: typeof import('./src/components/ProjectList.vue')['default']
     PropertyType: typeof import('./src/components/entity-definitions/flow-components/PropertyType.vue')['default']
     RadioButton: typeof import('primevue/radiobutton')['default']
+    RoleEditorDialog: typeof import('./src/components/access/RoleEditorDialog.vue')['default']
+    RolesTab: typeof import('./src/components/access/RolesTab.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SetPasswordFields: typeof import('./src/components/SetPasswordFields.vue')['default']

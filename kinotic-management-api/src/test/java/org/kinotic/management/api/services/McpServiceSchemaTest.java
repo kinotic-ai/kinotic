@@ -5,17 +5,38 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.ResolvableTypeConverter;
 import org.kinotic.management.api.services.deployment.MicroserviceDeploymentService;
+import org.kinotic.management.api.services.deployment.ProjectArtifactService;
 import org.kinotic.management.api.services.deployment.UiDeploymentService;
+import org.kinotic.management.api.services.github.GitHubAppInstallationService;
+import org.kinotic.management.api.services.security.MachineService;
+import org.kinotic.management.api.services.security.MemberService;
+import org.kinotic.management.api.services.security.ApplicationAccessService;
+import org.kinotic.management.api.services.security.PermissionService;
+import org.kinotic.management.api.services.telemetry.LogService;
+import org.kinotic.management.api.services.telemetry.TelemetryService;
 import org.kinotic.management.internal.api.services.DefaultApplicationService;
+import org.kinotic.management.internal.api.services.DefaultEntityDefinitionService;
+import org.kinotic.management.internal.api.services.DefaultJobMonitoringService;
+import org.kinotic.management.internal.api.services.DefaultMigrationService;
 import org.kinotic.management.internal.api.services.DefaultProjectService;
 import org.kinotic.management.internal.api.services.deployment.DefaultMicroserviceDeploymentService;
+import org.kinotic.management.internal.api.services.deployment.DefaultProjectArtifactService;
 import org.kinotic.management.internal.api.services.deployment.DefaultUiDeploymentService;
+import org.kinotic.management.internal.api.services.github.DefaultGitHubAppInstallationService;
+import org.kinotic.management.internal.api.services.security.DefaultMachineService;
+import org.kinotic.management.internal.api.services.security.DefaultMemberService;
+import org.kinotic.management.internal.api.services.security.DefaultApplicationAccessService;
+import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
+import org.kinotic.management.internal.api.services.telemetry.DefaultLogService;
+import org.kinotic.management.internal.api.services.telemetry.DefaultTelemetryService;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.kinotic.idl.internal.directory.DefaultResolvableTypeConverter;
-import org.kinotic.idl.internal.directory.DefaultSchemaFactory;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.idl.internal.directory.DefaultSchemaService;
+import org.kinotic.idl.internal.directory.C3SchemaToC3Type;
 import org.kinotic.idl.internal.directory.JsonNodeToC3Type;
 import org.kinotic.idl.internal.directory.ReactiveToC3Type;
 import org.kinotic.idl.internal.directory.TokenBufferToC3Type;
@@ -31,6 +52,7 @@ import org.kinotic.idl.internal.directory.jdk.IntegerToC3Type;
 import org.kinotic.idl.internal.directory.jdk.IterableToC3Type;
 import org.kinotic.idl.internal.directory.jdk.LongToC3Type;
 import org.kinotic.idl.internal.directory.jdk.MapToC3Type;
+import org.kinotic.idl.internal.directory.jdk.ObjectToC3Type;
 import org.kinotic.idl.internal.directory.jdk.OptionalToC3Type;
 import org.kinotic.idl.internal.directory.jdk.ShortToC3Type;
 import org.kinotic.idl.internal.directory.jdk.StringToC3Type;
@@ -43,25 +65,37 @@ import org.springframework.core.ReactiveTypeDescriptor;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * Verifies every MCP-exposed management-api service converts to a ServiceDefinition with the same converter set
- * the server wires at startup — an unconvertible type anywhere in a signature silently drops the whole
- * service from the directory, and with it every tool it provides.
+ * Verifies every management-api service the directory publishes, for its MCP tools or its authorization resource,
+ * converts to a ServiceDefinition with the same converter set
+ * the server wires at startup — an unconvertible type anywhere in a signature, or a function whose check
+ * cannot be derived, rejects the service's registration, and with it the server's startup.
  */
 public class McpServiceSchemaTest {
 
     @Test
-    public void mcpExposedServicesConvert() {
+    public void publishedServicesConvert() {
         NamespaceDefinition namespaceDefinition =
                 schemaFactory().createForServices(List.of(new ServiceDeclaration(ProjectService.class, DefaultProjectService.class),
                                                            new ServiceDeclaration(ApplicationService.class, DefaultApplicationService.class),
+                                                           new ServiceDeclaration(EntityDefinitionService.class, DefaultEntityDefinitionService.class),
                                                            new ServiceDeclaration(MicroserviceDeploymentService.class, DefaultMicroserviceDeploymentService.class),
-                                                           new ServiceDeclaration(UiDeploymentService.class, DefaultUiDeploymentService.class)));
+                                                           new ServiceDeclaration(UiDeploymentService.class, DefaultUiDeploymentService.class),
+                                                           new ServiceDeclaration(MemberService.class, DefaultMemberService.class),
+                                                           new ServiceDeclaration(MachineService.class, DefaultMachineService.class),
+                                                           new ServiceDeclaration(PermissionService.class, DefaultPermissionService.class),
+                                                           new ServiceDeclaration(ApplicationAccessService.class, DefaultApplicationAccessService.class),
+                                                           new ServiceDeclaration(GitHubAppInstallationService.class, DefaultGitHubAppInstallationService.class),
+                                                           new ServiceDeclaration(TelemetryService.class, DefaultTelemetryService.class),
+                                                           new ServiceDeclaration(LogService.class, DefaultLogService.class),
+                                                           new ServiceDeclaration(JobMonitoringService.class, DefaultJobMonitoringService.class),
+                                                           new ServiceDeclaration(MigrationService.class, DefaultMigrationService.class),
+                                                           new ServiceDeclaration(ProjectArtifactService.class, DefaultProjectArtifactService.class)));
 
-        // createForServices omits any service that fails conversion, so a shrunken count is the failure signal
-        Assertions.assertEquals(4, namespaceDefinition.getServices().size());
+        Assertions.assertEquals(15, namespaceDefinition.getServices().size());
     }
 
     @Test
@@ -154,7 +188,7 @@ public class McpServiceSchemaTest {
         return ret;
     }
 
-    private static DefaultSchemaFactory schemaFactory() {
+    private static DefaultSchemaService schemaFactory() {
         List<ResolvableTypeConverter> converters = List.of(new ArrayToC3Type(),
                                                            new BooleanToC3Type(),
                                                            new ByteToC3Type(),
@@ -167,6 +201,7 @@ public class McpServiceSchemaTest {
                                                            new IterableToC3Type(),
                                                            new LongToC3Type(),
                                                            new MapToC3Type(),
+                                                           new ObjectToC3Type(),
                                                            new OptionalToC3Type(),
                                                            new ShortToC3Type(),
                                                            new StringToC3Type(),
@@ -174,8 +209,9 @@ public class McpServiceSchemaTest {
                                                            new VoidToC3Type(),
                                                            new TokenBufferToC3Type(),
                                                            new JsonNodeToC3Type(),
+                                                           new C3SchemaToC3Type(),
                                                            new ReactiveToC3Type(registryProvider()));
-        return new DefaultSchemaFactory(new DefaultResolvableTypeConverter(converters));
+        return new DefaultSchemaService(new DefaultResolvableTypeConverter(converters), Set.of(Participant.class));
     }
 
     // a registry carrying the Vert.x Future adapter DefaultKinotic registers at startup, so the

@@ -1,3 +1,4 @@
+import {AppApiPlugin} from '@kinotic-ai/app-api'
 import {faker} from '@faker-js/faker/locale/en'
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
@@ -14,7 +15,10 @@ import {
     EntityDefinition,
     KinoticProjectConfig,
     NamedQueriesDefinition,
-    Project
+    Project,
+    type Resource,
+    type Subject,
+    SubjectKind
 } from '@kinotic-ai/management-api'
 import {
     IEntityRepository,
@@ -144,20 +148,124 @@ export async function shutdownKinoticClient(): Promise<void> {
 /**
  * Creates a fresh {@link KinoticSingleton} connected to the app server as the APPLICATION-scoped user
  * seeded for the given (applicationId, tenantId) pair by the V3__e2e_app_fixtures migration (email
- * convention app-<applicationId>-<tenantId>@test.local, password kinotic). The caller is
- * responsible for disconnecting it when done. The instance has {@code ManagementApiPlugin} and
- * {@code PersistencePlugin} installed so it can back an {@code EntityRepository} that acts on the
- * SHARED entity data of its own tenant.
+ * convention app-<applicationId>-<tenantId>@test.local, password kinotic), granted the tenant admin role
+ * on its tenant first, so it reads and writes every definition's rows there, and connected once the
+ * application's store answers for each entity named within the tenant. The caller is responsible for disconnecting it
+ * when done. The instance has {@code ManagementApiPlugin}, {@code PersistencePlugin} and {@code AppApiPlugin}
+ * installed so it can back an {@code EntityRepository} that acts on the SHARED entity data of its own tenant
+ * and call the tenant services for it.
+ *
+ * @param entityNames the names of the entity definitions the client will act on, each published already
  */
-export async function initKinoticAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
+export async function initKinoticAppClient(applicationId: string, tenantId: string, ...entityNames: string[]): Promise<KinoticSingleton> {
+    await grantTenantAdmin(applicationId, tenantId, entityNames)
+    return connectAppClient(applicationId, tenantId)
+}
+
+/**
+ * Connects a fresh {@link KinoticSingleton} to the app server as the fixture user of the (applicationId, tenantId)
+ * pair, holding whatever the application has granted it so far.
+ */
+export async function connectAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
     const appKinotic = new KinoticSingleton()
-    appKinotic.use(ManagementApiPlugin).use(PersistencePlugin)
+    appKinotic.use(ManagementApiPlugin).use(PersistencePlugin).use(AppApiPlugin)
 
     await appKinotic.connect(buildConnectOptions(
         new BasicCredentialsResolver(appFixtureEmail(applicationId, tenantId),
                                      E2E_FIXTURE_PASSWORD, E2E_ORGANIZATION_ID, applicationId),
         appServer()))
     return appKinotic
+}
+
+/**
+ * The fixture user of the (applicationId, tenantId) pair as a grant's subject, found among the application's users
+ * by its email.
+ */
+export async function appFixtureSubject(applicationId: string, tenantId: string): Promise<Subject> {
+    const email = appFixtureEmail(applicationId, tenantId)
+    const users = await Kinotic.members.findMembers(applicationId, Pageable.create(0, 100))
+    const user = users.content?.find(member => member.email === email)
+    if (!user?.id) {
+        throw new Error(`No user ${email} is seeded for application ${applicationId}`)
+    }
+    return {kind: SubjectKind.USER, id: user.id}
+}
+
+/**
+ * Grants the fixture user of the (applicationId, tenantId) pair the tenant admin role on its tenant, which reaches
+ * the rows of every definition of the application in that tenant; then waits until the store answers for each
+ * entity named within the tenant, which the definition's creation placed in the store. A user already holding the
+ * role is granted nothing again.
+ */
+export async function grantTenantAdmin(applicationId: string, tenantId: string, entityNames: string[]): Promise<void> {
+    const subject = await appFixtureSubject(applicationId, tenantId)
+    const tenant: Resource = {type: 'tenant', id: tenantId}
+    await until(async () => {
+        const grants = await Kinotic.applicationAccess.findGrants(applicationId, tenant)
+        if (!grants.some(grant => grant.roleId === 'tenant.admin' && grant.subject.id === subject.id)) {
+            await Kinotic.applicationAccess.grant(applicationId, subject, 'tenant.admin', tenant)
+        }
+        return true
+    })
+    for (const entityName of entityNames) {
+        const definitionId = `${E2E_ORGANIZATION_ID}.${applicationId}.${entityName}`.toLowerCase()
+        const rows: Resource = {type: 'tenant_definition', id: `${definitionId}@${tenantId}`}
+        await until(async () => (await Kinotic.applicationAccess.explain(applicationId, subject, 'entity_definition_can_read', rows)).allowed)
+    }
+}
+
+/**
+ * Polls the call until it is admitted, for up to the timeout, and returns what it answers: the gateway answers
+ * from the engine's caches, which lag a grant by a moment.
+ */
+export async function untilAdmitted<T>(call: () => Promise<T>, timeoutMs: number = 30000): Promise<T> {
+    let ret!: T
+    await until(async () => {
+        ret = await call()
+        return true
+    }, timeoutMs)
+    return ret
+}
+
+/**
+ * Polls the call until it is refused with a message matching the pattern, for up to the timeout: the gateway
+ * answers from the engine's caches, which lag a revocation by a moment. A refusal for any other reason fails
+ * the wait.
+ */
+export async function untilRefused(call: () => Promise<unknown>, pattern: RegExp, timeoutMs: number = 30000): Promise<void> {
+    await until(async () => {
+        let ret = false
+        try {
+            await call()
+        } catch (e) {
+            const message = e instanceof Error ? e.message : String(e)
+            if (!pattern.test(message)) {
+                throw e
+            }
+            ret = true
+        }
+        return ret
+    }, timeoutMs)
+}
+
+/**
+ * Polls the condition every quarter second until it holds, for up to the timeout; a condition that throws is
+ * polled again.
+ */
+export async function until(condition: () => Promise<boolean>, timeoutMs: number = 30000): Promise<void> {
+    const deadline = Date.now() + timeoutMs
+    let last: unknown
+    while (Date.now() < deadline) {
+        try {
+            if (await condition()) {
+                return
+            }
+        } catch (e) {
+            last = e
+        }
+        await new Promise(resolve => setTimeout(resolve, 250))
+    }
+    throw new Error(`Timed out after ${timeoutMs}ms waiting for ${condition}` + (last ? `; last failure: ${last}` : ''))
 }
 
 export async function createPersonSchema(organizationId: string, applicationId: string, projectId: string, withTenant: boolean = false): Promise<SchemaCreationResult> {

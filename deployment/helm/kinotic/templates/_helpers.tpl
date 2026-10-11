@@ -119,6 +119,9 @@ KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_HOST: "{{ $value.host }}"
 KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
 {{- end }}
 
+# ── Authorization engine ──────────────────────────────────
+KINOTIC_AUTHZ_APIURL: "{{ $root.Values.kinotic.authz.apiUrl }}"
+
 # ── Loki, Tempo, Mimir (LogService, TelemetryService) ─────
 KINOTIC_MANAGEMENTAPI_LOKIURL: "{{ $root.Values.kinotic.managementApi.lokiUrl }}"
 KINOTIC_MANAGEMENTAPI_TEMPOURL: "{{ $root.Values.kinotic.managementApi.tempoUrl }}"

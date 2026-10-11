@@ -111,6 +111,8 @@ dependencyManagement {
         dependency "commons-io:commons-io:${commonsIoVersion}"
 
         // JWT and OIDC dependencies
+        dependency "dev.openfga:openfga-sdk:${openfgaSdkVersion}"
+
         dependency "io.jsonwebtoken:jjwt-api:${jsonwebtokenVersion}"
         dependency "io.jsonwebtoken:jjwt-impl:${jsonwebtokenVersion}"
         dependency "io.jsonwebtoken:jjwt-jackson:${jsonwebtokenVersion}"

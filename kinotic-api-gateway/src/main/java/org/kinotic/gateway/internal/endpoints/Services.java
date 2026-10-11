@@ -14,6 +14,7 @@ import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.gateway.internal.endpoints.stomp.DefaultStompServerHandler;
 import org.kinotic.gateway.internal.endpoints.stomp.StompAuthorizerFactory;
+import org.kinotic.domain.api.services.security.RequestAuthorizer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -38,6 +39,9 @@ public class Services {
     public JsonMapper jsonMapper;
     @Autowired
     public SecurityService securityService;
+    @Autowired
+    public RequestAuthorizer requestAuthorizer;
+
     @Autowired
     public RequestLivenessWatcher requestLivenessWatcher;
     @Autowired

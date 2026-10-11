@@ -2,6 +2,9 @@ package org.kinotic.system.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
@@ -16,6 +19,7 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
  * manage through {@code MachineService}.
  */
 @Publish
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, resourceId = AuthzUtil.PLATFORM_OBJECT_ID)
 public interface SystemMemberService {
 
     /**
@@ -24,6 +28,7 @@ public interface SystemMemberService {
      * @param pageable the page settings to use
      * @return a page of SYSTEM-scope {@link UserParticipantIdentity}s
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MEMBERS)
     Future<Page<UserParticipantIdentity>> findUsers(Pageable pageable);
 
     /**
@@ -33,6 +38,7 @@ public interface SystemMemberService {
      * @param pageable the page settings to use
      * @return a page of matching SYSTEM-scope {@link UserParticipantIdentity}s
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MEMBERS)
     Future<Page<UserParticipantIdentity>> searchUsers(String searchText, Pageable pageable);
 
     /**
@@ -41,6 +47,7 @@ public interface SystemMemberService {
      * @param pageable the page settings to use
      * @return a page of SYSTEM-scope {@link MachineParticipantIdentity}s
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MACHINES)
     Future<Page<MachineParticipantIdentity>> findMachines(Pageable pageable);
 
     /**
@@ -51,6 +58,7 @@ public interface SystemMemberService {
      * @param displayName how the machine is listed wherever machines are shown
      * @return the provisioned machine and its one-time secret
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MACHINES)
     Future<MachineProvisionResult> createMachine(String displayName);
 
     /**
@@ -61,6 +69,7 @@ public interface SystemMemberService {
      * @param machineId a SYSTEM-scope machine
      * @return the new secret in plaintext, shown exactly once
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MACHINES, consistent = true)
     Future<String> rotateSecret(String machineId);
 
     /**
@@ -69,6 +78,7 @@ public interface SystemMemberService {
      *
      * @param machineId a SYSTEM-scope machine
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MACHINES, consistent = true)
     Future<Void> setMachineEnabled(String machineId, boolean enabled);
 
     /**
@@ -77,6 +87,7 @@ public interface SystemMemberService {
      *
      * @param machineId a SYSTEM-scope machine
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_MANAGE_MACHINES, consistent = true)
     Future<Void> removeMachine(String machineId);
 
 }

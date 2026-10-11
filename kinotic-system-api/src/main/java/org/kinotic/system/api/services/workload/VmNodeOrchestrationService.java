@@ -2,6 +2,10 @@ package org.kinotic.system.api.services.workload;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.annotations.AuthzRole;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
 import org.kinotic.system.api.model.workload.VmNodeRegistration;
@@ -16,10 +20,23 @@ import java.util.List;
  * carries {@link org.kinotic.domain.api.model.StatusConditionType#NODE_UNREACHABLE} on its
  * {@link VmNode#getState() state} until its next heartbeat, and takes no workloads meanwhile.
  * <p>
+ * A machine registers a node with the {@link #REGISTRAR_ROLE registrar} role granted on the
+ * platform, and reports for the node it registered with the {@link #AGENT_ROLE agent} role the
+ * registration grants it on that node.
+ * <p>
  * For querying nodes (findById, findAll, search) use {@link VmNodeService} directly.
  */
 @Publish
+@AuthzResource(value = VmNodeService.RESOURCE_TYPE, parent = AuthzUtil.PLATFORM_TYPE,
+               roles = {@AuthzRole(id = VmNodeOrchestrationService.REGISTRAR_ROLE, permissions = AuthzUtil.CAN_REGISTER_NODE),
+                        @AuthzRole(id = VmNodeOrchestrationService.AGENT_ROLE, permissions = {AuthzUtil.CAN_REPORT, AuthzUtil.CAN_VIEW})})
 public interface VmNodeOrchestrationService {
+
+    /** The role a platform machine registers nodes with, granted on the platform. */
+    String REGISTRAR_ROLE = VmNodeService.RESOURCE_TYPE + ".registrar";
+
+    /** The role a registered node's machine reports with, granted on the node by its registration. */
+    String AGENT_ROLE = VmNodeService.RESOURCE_TYPE + ".agent";
 
     /**
      * Registers a VmNode with the orchestrator so it can receive workload deployments. If a node with
@@ -30,6 +47,7 @@ public interface VmNodeOrchestrationService {
      * @param registration the node registration info
      * @return a future that will complete with the registered node
      */
+    @AuthzCheck(resource = AuthzUtil.PLATFORM_TYPE, permission = AuthzUtil.CAN_REGISTER_NODE)
     Future<VmNode> registerNode(VmNodeRegistration registration);
 
     /**
@@ -46,6 +64,7 @@ public interface VmNodeOrchestrationService {
      * @param problems what the node can no longer guarantee, empty when it is fit
      * @return a future that will complete with the updated node, or fail if the node is not registered
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_REPORT, resourceId = "{nodeId}")
     Future<VmNode> heartbeat(String nodeId, List<String> problems);
 
     /**
@@ -62,6 +81,7 @@ public interface VmNodeOrchestrationService {
      * @param reports one report per workload
      * @return a future that will complete when the reports have been applied
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_REPORT, resourceId = "{nodeId}")
     Future<Void> reportWorkloadStatus(String nodeId, List<WorkloadStatusReport> reports);
 
     /**
@@ -74,6 +94,7 @@ public interface VmNodeOrchestrationService {
      * @return a future that will complete when the removal has been asked for, or fail if the node is
      *         not registered or still runs workloads
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_REPORT, resourceId = "{nodeId}")
     Future<Void> deregisterNode(String nodeId);
 
     /**
@@ -83,6 +104,7 @@ public interface VmNodeOrchestrationService {
      * @param nodeId the id of the node to check
      * @return a future that completes when the check has been applied
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_EDIT, resourceId = "{nodeId}")
     Future<Void> verifyNode(String nodeId);
 
     /**

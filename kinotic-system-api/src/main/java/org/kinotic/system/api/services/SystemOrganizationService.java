@@ -2,20 +2,26 @@ package org.kinotic.system.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
-import org.kinotic.management.api.model.PendingInviteSummary;
+import org.kinotic.domain.api.model.security.PendingInviteSummary;
 
 /**
  * Cross-organization reads for platform operators. Published in the system zone, which only
  * SYSTEM participants may address, so every method takes the target organization explicitly
- * instead of resolving it from the caller's scope.
+ * instead of resolving it from the caller's scope. A read of one organization is checked on it,
+ * and a read across every organization on the platform, which a grant made on the platform reaches
+ * through every organization it contains.
  */
 @Publish
+@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, parent = AuthzUtil.PLATFORM_TYPE)
 public interface SystemOrganizationService {
 
     /**
@@ -77,6 +83,7 @@ public interface SystemOrganizationService {
      * @param pageable the page settings to use
      * @return a page of matching {@link UserParticipantIdentity}s
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MEMBERS)
     Future<Page<UserParticipantIdentity>> findMembers(String organizationId,
                                                                  String applicationId,
                                                                  Pageable pageable);
@@ -91,6 +98,7 @@ public interface SystemOrganizationService {
      * @param pageable the page settings to use
      * @return a page of matching {@link UserParticipantIdentity}s
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MEMBERS)
     Future<Page<UserParticipantIdentity>> searchMembers(String searchText,
                                                                    String organizationId,
                                                                    String applicationId,
@@ -105,6 +113,7 @@ public interface SystemOrganizationService {
      * @param pageable the page settings to use
      * @return a page of {@link PendingInviteSummary}s
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_MEMBERS)
     Future<Page<PendingInviteSummary>> findPendingInvites(String organizationId,
                                                                      String applicationId,
                                                                      Pageable pageable);

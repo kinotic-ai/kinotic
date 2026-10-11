@@ -2,6 +2,8 @@ package org.kinotic.system.api.services.workload;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 
@@ -17,6 +19,7 @@ import java.util.List;
  * For querying workloads (findById, findAll, search) use {@link WorkloadService} directly.
  */
 @Publish
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, resourceId = AuthzUtil.PLATFORM_OBJECT_ID, permission = AuthzUtil.CAN_MANAGE_WORKLOADS)
 public interface WorkloadOrchestrationService {
 
     /**

@@ -25,7 +25,7 @@ class ReflectiveServiceDescriptor implements ServiceDescriptor{
     public ReflectiveServiceDescriptor(ServiceIdentifier serviceIdentifier, Class<?> serviceClass) {
         this.serviceIdentifier = serviceIdentifier;
 
-        // IdlUtil.serviceFunctions is the same walk DefaultSchemaFactory converts, so the functions
+        // IdlUtil.serviceFunctions is the same walk DefaultSchemaService converts, so the functions
         // this descriptor registers are exactly the functions any published schema carries
         List<FunctionDescriptor> functions = new ArrayList<>();
         IdlUtil.serviceFunctions(serviceClass)

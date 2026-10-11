@@ -27,6 +27,20 @@ CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-core:compileJava \
 
 This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing and frontend support.
 
+### Running the kinotic-test suite in the cloud
+
+The suite starts `compose.kinotic-test.yml` through Testcontainers, which recreates the stack on every run. Two things in this environment stand in its way:
+
+- The proxy forbids `docker.elastic.co`, and the sandbox disk reads as over 90% used, so Elasticsearch's disk watermark leaves every shard unassigned and the migration fails with `no_shard_available_action_exception`. Docker Hub's official `elasticsearch` image is the same build, so derive a local image from it with the watermark disabled, under the name the compose file uses:
+
+  ```bash
+  docker pull docker.io/library/elasticsearch:9.5.1
+  printf 'FROM docker.io/library/elasticsearch:9.5.1\nENV cluster.routing.allocation.disk.threshold_enabled=false\n' > /tmp/es.Dockerfile
+  docker build -t docker.elastic.co/elasticsearch/elasticsearch:9.5.1 -f /tmp/es.Dockerfile /tmp
+  ```
+
+- Elasticsearch refuses to start with the default `vm.max_map_count`; raise it with `sysctl -w vm.max_map_count=262144`.
+
 ## Branch and pull request workflow
 
 A merged pull request is finished — never stack new commits onto its history, and never reuse
@@ -126,7 +140,7 @@ it a credential.
 
 While `kinoticVersion` in `gradle.properties` is a `-SNAPSHOT`, no released artifact depends on this code, so there is nothing to stay backwards-compatible with: rename fields, break APIs, and reshape wire contracts freely. Deprecation shims and compatibility fallbacks start when the first release exists — building them sooner is Speculative Generality.
 
-Migrations follow the same rule while the cluster can be rebuilt: a schema change edits the table in `V1__init.sql`, a change to seeded rows edits the environment file that seeds them (`V2__kinotic_test_users.development.test.sql`, `V3__e2e_app_fixtures.test.sql`, `V4__system_console.fixtures.sql`), and the cluster is rebuilt to take it. Append-only discipline starts with the first release, for the development server with the first peer sign-up (`website/content/02.platform/13.development-server.md`): from then on a change is a new versioned file, never an edit of one already applied, and since Elasticsearch cannot retype a mapped field, a column that changes type is a new column beside the old one, which stays mapped and unused.
+Migrations follow the same rule while the cluster can be rebuilt: a schema change edits the table in `V1__init.sql`, a change to seeded rows edits the environment file that seeds them (`V2__kinotic_test_users.development.test.sql`, `V3__e2e_app_fixtures.test.sql`, `V4__system_console.fixtures.sql`), and the cluster is rebuilt to take it. Append-only discipline starts with the first release, for the development server with the first peer sign-up (`website/content/02.platform/15.development-server.md`): from then on a change is a new versioned file, never an edit of one already applied, and since Elasticsearch cannot retype a mapped field, a column that changes type is a new column beside the old one, which stays mapped and unused.
 
 ## Keep migrations in sync with persisted entities
 

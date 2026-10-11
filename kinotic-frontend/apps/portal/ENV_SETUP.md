@@ -35,7 +35,7 @@ email links, and your own GitHub App carries the callback and webhook URLs. Both
 `bun dev-tools/github-app/dev-github-app.ts create --domain <you>.ngrok-free.dev`, which
 registers the App and writes `~/.kinotic/dev-environment/kinotic-server-management/application.yml`,
 which the management server imports whether it runs from the IDE or compose; see "Local development
-environment" in the contributing guide (`website/content/02.platform/09.contributing.md`).
+environment" in the contributing guide (`website/content/02.platform/11.contributing.md`).
 
 The tunnel host must be allowed in two places:
 

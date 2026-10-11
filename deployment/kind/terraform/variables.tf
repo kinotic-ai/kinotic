@@ -62,6 +62,20 @@ variable "keycloak_admin_password" {
   sensitive   = true
 }
 
+variable "openfga_db_username" {
+  description = "PostgreSQL username for OpenFGA, the authorization engine"
+  type        = string
+  default     = "openfga"
+  sensitive   = true
+}
+
+variable "openfga_db_password" {
+  description = "PostgreSQL password for OpenFGA"
+  type        = string
+  default     = "openfga"
+  sensitive   = true
+}
+
 # ── Timeouts ──────────────────────────────────────────────
 
 variable "deploy_timeout" {

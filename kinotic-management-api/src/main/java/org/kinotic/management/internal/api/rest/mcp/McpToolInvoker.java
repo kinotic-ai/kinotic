@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.*;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.security.Participant;
@@ -17,6 +18,7 @@ import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.domain.api.model.security.ZoneRules;
+import org.kinotic.domain.api.services.security.RequestAuthorizer;
 import org.kinotic.management.internal.api.rest.mcp.model.McpCallToolResult;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
@@ -43,6 +45,7 @@ public class McpToolInvoker {
                                             UUID.randomUUID().toString(),
                                             "org.kinotic.gateway.McpToolInvoker");
     private final ServiceDirectory serviceDirectory;
+    private final RequestAuthorizer requestAuthorizer;
     private final RequestLivenessWatcher requestLivenessWatcher;
     private final ZonePartitioningService zonePartitioningService;
     private volatile boolean ready = false;
@@ -116,6 +119,16 @@ public class McpToolInvoker {
             return Future.failedFuture(new IllegalArgumentException("Unknown tool: " + tool.getName()));
         }
 
+        // the zone admitted the tool; the function's own check decides the caller may invoke it, and a refusal
+        // is the tool's answer rather than a failed call
+        return requestAuthorizer.authorize(requestCri, participant, arguments)
+                                .compose(v -> send(tool, requestCri, jsonMapper.writeValueAsBytes(arguments), participant),
+                                         error -> error instanceof AuthorizationException
+                                                 ? Future.succeededFuture(McpCallToolResult.error(error.getMessage()))
+                                                 : Future.failedFuture(error));
+    }
+
+    private Future<McpCallToolResult> send(McpToolDefinition tool, CRI requestCri, byte[] body, Participant participant) {
         String correlationId = UUID.randomUUID().toString();
         Promise<McpCallToolResult> ret = Promise.promise();
         pendingCalls.put(correlationId, ret);
@@ -126,7 +139,7 @@ public class McpToolInvoker {
         metadata.put(EventConstants.CONTENT_TYPE_HEADER, EventConstants.CONTENT_TYPE_NAMED_JSON);
         Event<byte[]> event = Event.create(requestCri,
                                            metadata,
-                                           jsonMapper.writeValueAsBytes(arguments),
+                                           body,
                                            participant);
         eventBusService.sendWithAck(event)
                        .onComplete(ar -> {

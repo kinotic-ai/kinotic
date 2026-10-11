@@ -2,7 +2,10 @@ package org.kinotic.test.support.kinotic;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.command.InspectVolumeResponse;
 import com.github.dockerjava.api.exception.NotFoundException;
+import com.github.dockerjava.api.model.Container;
+import com.github.dockerjava.api.model.Network;
 import org.kinotic.test.support.ContainerHealthChecker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,16 +14,20 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.ComposeContainer;
 
 import java.io.File;
+import java.util.List;
 
 /**
- * Test configuration that starts the Kinotic stack (Elasticsearch, its test settings, and kinotic-migration)
- * via Docker Compose using compose.kinotic-test.yml.
+ * Test configuration that starts the Kinotic stack (Elasticsearch, its test settings, kinotic-migration, and
+ * OpenFGA with its platform store) via Docker Compose using compose.kinotic-test.yml.
  */
 @Component
 public class KinoticTestComposeBoostrap {
     private static final Logger log = LoggerFactory.getLogger(KinoticTestComposeBoostrap.class);
 
     private static final int ELASTICSEARCH_PORT = 9200;
+    private static final String PROJECT_NAME = "kinotic-test";
+    // the label compose puts on every container, volume and network of a project, valued with the project's name
+    private static final String COMPOSE_PROJECT_LABEL = "com.docker.compose.project";
 
     private static volatile boolean containersReady = false;
     private static final Object containerLock = new Object();
@@ -34,7 +41,7 @@ public class KinoticTestComposeBoostrap {
         File mainCompose = new File(composeDir, "compose.kinotic-test.yml");
 
         COMPOSE_CONTAINER = new ComposeContainer(mainCompose)
-                .withOptions("--project-name", "kinotic-test");
+                .withOptions("--project-name", PROJECT_NAME);
 
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -56,11 +63,35 @@ public class KinoticTestComposeBoostrap {
     public static void startContainersSynchronously() {
         log.info("Starting Kinotic Docker Compose...");
         try {
+            removeLeftovers();
             COMPOSE_CONTAINER.start();
             waitForContainersToBeReady();
         } catch (Exception e) {
             log.error("Failed to start Kinotic Compose", e);
             throw new RuntimeException("Failed to start Kinotic Compose", e);
+        }
+    }
+
+    /**
+     * Removes whatever a previous run of the project left behind, so the stack starts from empty state: a run
+     * killed before its shutdown hook leaves the project's containers, networks and named volumes, and an up
+     * over the Elasticsearch volume would serve the migration already applied to it and the directory entries
+     * another build wrote.
+     */
+    private static void removeLeftovers() {
+        DockerClient docker = DockerClientFactory.instance().client();
+        List<String> project = List.of(COMPOSE_PROJECT_LABEL + "=" + PROJECT_NAME);
+        for (Container container : docker.listContainersCmd().withShowAll(true).withLabelFilter(project).exec()) {
+            log.info("Removing the container {} a previous run left behind", container.getNames()[0]);
+            docker.removeContainerCmd(container.getId()).withForce(true).withRemoveVolumes(true).exec();
+        }
+        for (InspectVolumeResponse volume : docker.listVolumesCmd().withFilter("label", project).exec().getVolumes()) {
+            log.info("Removing the volume {} a previous run left behind", volume.getName());
+            docker.removeVolumeCmd(volume.getName()).exec();
+        }
+        for (Network network : docker.listNetworksCmd().withFilter("label", project).exec()) {
+            log.info("Removing the network {} a previous run left behind", network.getName());
+            docker.removeNetworkCmd(network.getId()).exec();
         }
     }
 
@@ -79,6 +110,8 @@ public class KinoticTestComposeBoostrap {
 
             waitForContainerToComplete("kinotic-elasticsearch-test-settings");
             waitForContainerToComplete("kinotic-migration");
+            // the platform store, which the authorization services look up by name and never create
+            waitForContainerToComplete("openfga-init");
 
             synchronized (containerLock) {
                 containersReady = true;

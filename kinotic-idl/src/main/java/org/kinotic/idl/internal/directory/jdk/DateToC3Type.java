@@ -9,6 +9,7 @@ import org.kinotic.idl.api.directory.SpecificTypeConverter;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.Date;
 
 /**
@@ -18,7 +19,8 @@ import java.util.Date;
 @Component
 public class DateToC3Type implements SpecificTypeConverter {
 
-    private static final Class<?>[] supports = {Date.class};
+    // an Instant travels as an ISO-8601 string, as a Date does
+    private static final Class<?>[] supports = {Date.class, Instant.class};
 
     @Override
     public Class<?>[] supports() {

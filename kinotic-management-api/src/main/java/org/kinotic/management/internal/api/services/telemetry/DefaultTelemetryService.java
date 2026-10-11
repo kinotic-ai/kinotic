@@ -29,17 +29,17 @@ public class DefaultTelemetryService implements TelemetryService {
     public Future<Buffer> searchTraces(TraceQuery query) {
         Validate.notNull(query, "TraceQuery cannot be null");
         Validate.notBlank(query.getQuery(), "query cannot be blank");
-        return tempoClient.search(readableTenant(query.getOrganizationId()),
-                                  query.getQuery(),
-                                  query.getStart(),
-                                  query.getEnd(),
-                                  query.getLimit());
+        return readableTenant(query.getOrganizationId()).compose(tenant -> tempoClient.search(tenant,
+                                                                                               query.getQuery(),
+                                                                                               query.getStart(),
+                                                                                               query.getEnd(),
+                                                                                               query.getLimit()));
     }
 
     @Override
     public Future<Buffer> findTrace(String organizationId, String traceId) {
         Validate.notBlank(traceId, "traceId cannot be blank");
-        return tempoClient.findTrace(readableTenant(organizationId), traceId);
+        return readableTenant(organizationId).compose(tenant -> tempoClient.findTrace(tenant, traceId));
     }
 
     @Override
@@ -47,14 +47,14 @@ public class DefaultTelemetryService implements TelemetryService {
         Validate.notNull(query, "MetricQuery cannot be null");
         Validate.notBlank(query.getQuery(), "query cannot be blank");
         Validate.isTrue(query.getStep() > 0, "step must be positive");
-        return mimirClient.queryRange(readableTenant(query.getOrganizationId()),
-                                      query.getQuery(),
-                                      query.getStart(),
-                                      query.getEnd(),
-                                      query.getStep());
+        return readableTenant(query.getOrganizationId()).compose(tenant -> mimirClient.queryRange(tenant,
+                                                                                                   query.getQuery(),
+                                                                                                   query.getStart(),
+                                                                                                   query.getEnd(),
+                                                                                                   query.getStep()));
     }
 
-    private String readableTenant(String organizationId) {
+    private Future<String> readableTenant(String organizationId) {
         return tenantAccess.readableTenant(tenantAccess.currentParticipant(), organizationId);
     }
 }

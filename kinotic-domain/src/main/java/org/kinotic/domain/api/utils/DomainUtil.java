@@ -3,11 +3,17 @@ package org.kinotic.domain.api.utils;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.Grant;
+import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.model.Resource;
+import org.kinotic.authz.api.model.RoleDefinition;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.OrganizationScoped;
+import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
@@ -15,9 +21,11 @@ import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentityType;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
@@ -25,11 +33,13 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -61,10 +71,27 @@ public class DomainUtil {
     public static final String APP_ZONE_PREFIX = "app";
 
     /**
+     * The zone an application's own services are addressed in, {@code app.<organizationId>.<applicationId>},
+     * which the application's runtimes and users reach and nothing outside the application does.
+     *
+     * @param organizationId the application's organization
+     * @param applicationId  the application
+     * @return the zone
+     */
+    public static String applicationZone(String organizationId, String applicationId) {
+        return APP_ZONE_PREFIX + "." + organizationId + "." + applicationId;
+    }
+
+    /**
      * The prefix of the Elasticsearch indices the platform creates, including the index that holds
      * the items of each published EntityDefinition
      */
     public static final String INDEX_PREFIX = "kinotic_";
+
+    /**
+     * The participant metadata key naming the owner a delegate acts for, whose authority the delegate holds.
+     */
+    public static final String ON_BEHALF_OF_METADATA_KEY = "onBehalfOf";
 
     // Organization ids beginning with this prefix belong to the platform, which needs an
     // organization wherever it is its own tenant — the owner of VM workloads the OS runs for
@@ -77,6 +104,8 @@ public class DomainUtil {
     private static final Pattern EntityDefinitionNamePattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*$");
     private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    // The authorization types whose ids are unique only within an organization, qualified by it in the stores
+    private static final Set<String> ORGANIZATION_LOCAL_TYPES = Set.of(AuthzUtil.APPLICATION_TYPE, AuthzUtil.PROJECT_TYPE);
     // Dash separator, not underscore: slugified ids become zone labels, and underscores are
     // illegal in a URI host (CRIs are valid URIs by convention)
     private static final Slugify SLUGIFY = Slugify.builder().build();
@@ -162,6 +191,37 @@ public class DomainUtil {
      */
     public static String createEntityDefinitionId(ApplicationKey applicationKey, String entityDefinitionName){
         return (applicationKey.organizationId() + "." + applicationKey.applicationId() + "." + entityDefinitionName).toLowerCase();
+    }
+
+    /**
+     * Creates the id of a {@link Tenant} record,
+     * {@code <organizationId>.<applicationId>.<tenantId>}, so a tenant id is unique within its application.
+     *
+     * @param applicationKey the application the tenant belongs to
+     * @param tenantId       the tenant's id within the application
+     * @return the record's id
+     */
+    public static String createTenantId(ApplicationKey applicationKey, String tenantId) {
+        return applicationKey.organizationId() + "." + applicationKey.applicationId() + "." + tenantId;
+    }
+
+    /**
+     * Creates an unsaved {@link Tenant} of an application, keyed by {@link #createTenantId}, created now.
+     *
+     * @param applicationKey the application the tenant belongs to
+     * @param tenantId       the tenant's id within the application
+     * @param name           the name the tenant's users know it by
+     * @return the tenant, to be saved
+     */
+    public static Tenant createTenant(ApplicationKey applicationKey, String tenantId, String name) {
+        Date now = new Date();
+        return new Tenant().setId(createTenantId(applicationKey, tenantId))
+                           .setTenantId(tenantId)
+                           .setOrganizationId(applicationKey.organizationId())
+                           .setApplicationId(applicationKey.applicationId())
+                           .setName(name)
+                           .setCreated(now)
+                           .setUpdated(now);
     }
 
     /**
@@ -320,6 +380,145 @@ public class DomainUtil {
     }
 
     /**
+     * The user a participant acts as in the authorization stores, in {@code user:id} form: the owner a delegate
+     * acts for, such as the member a CLI session holds, else the participant itself.
+     *
+     * @param participant the participant making a call
+     * @return the user whose grants answer for it
+     */
+    public static String authzUser(Participant participant) {
+        Map<String, String> metadata = participant.getMetadata();
+        String owner = metadata != null ? metadata.get(ON_BEHALF_OF_METADATA_KEY) : null;
+        return AuthzUtil.object(AuthzUtil.USER_TYPE, owner != null ? owner : participant.getId());
+    }
+
+    /**
+     * The id an object of the type has in the authorization stores. An application's and a project's id is unique
+     * only within its organization, so theirs is qualified as {@code <organizationId>.<id>}; every other type's id
+     * is unique on its own and kept as it is.
+     *
+     * @param type           the object's type
+     * @param organizationId the organization the object belongs to; required for an application or a project
+     * @param id             the object's id as its organization knows it
+     * @return the object's id in the stores
+     * @throws IllegalArgumentException when an application or a project is named without an organization
+     */
+    public static String authzId(String type, String organizationId, String id) {
+        Validate.notBlank(id, "id cannot be blank");
+        String ret = id;
+        if (ORGANIZATION_LOCAL_TYPES.contains(type)) {
+            Validate.isTrue(StringUtils.isNotBlank(organizationId), "an organization is required to name the %s %s", type, id);
+            ret = organizationId + "." + id;
+        }
+        return ret;
+    }
+
+    /**
+     * The id an organization knows an object of the type by, given its id in the authorization stores: the
+     * inverse of {@link #authzId}.
+     *
+     * @param type    the object's type
+     * @param authzId the object's id in the stores
+     * @return the object's id within its organization
+     */
+    public static String localId(String type, String authzId) {
+        // an organization id holds no '.', so the first one ends it
+        return ORGANIZATION_LOCAL_TYPES.contains(type) ? authzId.substring(authzId.indexOf('.') + 1) : authzId;
+    }
+
+    /**
+     * The id an application has in the authorization stores, which also names the application's own store.
+     *
+     * @param organizationId the application's organization
+     * @param applicationId  the application's id within it
+     * @return {@code <organizationId>.<applicationId>}
+     */
+    public static String authzApplicationId(String organizationId, String applicationId) {
+        return authzId(AuthzUtil.APPLICATION_TYPE, organizationId, applicationId);
+    }
+
+    /**
+     * The two edges of a definition within a tenant, the object a tenant's user is checked on for the definition's
+     * rows: the definition's, and the tenant's. No store holds tuples for the object, so a check on it is given
+     * the edges.
+     *
+     * @param definitionId the definition's id
+     * @param tenantId     the tenant's id within its application
+     * @return the edges to give the check
+     */
+    public static List<RelationshipTuple> tenantDefinitionEdges(String definitionId, String tenantId) {
+        String object = AuthzUtil.object(AuthzUtil.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(definitionId, tenantId));
+        return List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.ENTITY_DEFINITION_TYPE, definitionId), AuthzUtil.DEFINITION_RELATION, object),
+                       new RelationshipTuple(AuthzUtil.object(AuthzUtil.TENANT_TYPE, tenantId), AuthzUtil.TENANT_TYPE, object));
+    }
+
+    /**
+     * The object a resource named as its organization knows it is in the authorization stores, in {@code type:id}
+     * form.
+     *
+     * @param organizationId the organization the resource belongs to
+     * @param resource       the resource
+     * @return the object
+     */
+    public static String authzObject(String organizationId, Resource resource) {
+        return AuthzUtil.object(resource.type(), authzId(resource.type(), organizationId, resource.id()));
+    }
+
+    /**
+     * A grant read from the authorization stores, its resource named as the resource's organization knows it.
+     *
+     * @param grant the grant as the stores hold it
+     * @return the grant with the resource's local id
+     */
+    public static Grant localGrant(Grant grant) {
+        Resource resource = grant.resource();
+        return new Grant(grant.id(), grant.roleId(), grant.subject(), new Resource(resource.type(), localId(resource.type(), resource.id())));
+    }
+
+    /**
+     * The name a participant is shown by where it acts for others, such as the inviter named in an invitation:
+     * its display name, else its email, else its id.
+     *
+     * @param participant the participant making a call
+     * @return the name to show
+     */
+    public static String displayNameOf(Participant participant) {
+        Map<String, String> metadata = participant.getMetadata();
+        String ret = null;
+        if (metadata != null) {
+            ret = StringUtils.isNotBlank(metadata.get("displayName")) ? metadata.get("displayName") : metadata.get("email");
+        }
+        return StringUtils.isNotBlank(ret) ? ret : participant.getId();
+    }
+
+    /**
+     * Confirms a role is among those a grant can name.
+     *
+     * @param roles  the roles a grant can name
+     * @param roleId the role asked for
+     * @throws IllegalArgumentException when none of the roles has the id
+     */
+    public static void requireRole(List<RoleDefinition> roles, String roleId) {
+        if (roles.stream().noneMatch(role -> role.id().equals(roleId))) {
+            throw new IllegalArgumentException("No role a grant here can name has id " + roleId);
+        }
+    }
+
+    /**
+     * The tenant an application participant belongs to, for a function acting on the caller's own tenant.
+     *
+     * @param participant the calling participant
+     * @return the tenant's id
+     * @throws AuthorizationException when the participant belongs to no tenant
+     */
+    public static String requireTenant(ApplicationParticipant participant) {
+        if (participant.getTenantId() == null) {
+            throw new AuthorizationException("Access denied");
+        }
+        return participant.getTenantId();
+    }
+
+    /**
      * Builds the {@link Participant} security identity for an authenticated {@link ParticipantIdentity}.
      * Returns the typed subtype that matches the user's structural scope:
      * <ul>
@@ -435,7 +634,7 @@ public class DomainUtil {
                              user.getDisplayName() != null ? user.getDisplayName() : user.getEmail());
             }
             case DelegatingParticipantIdentity delegate -> {
-                metadata.put("onBehalfOf", delegate.getOwnerId());
+                metadata.put(ON_BEHALF_OF_METADATA_KEY, delegate.getOwnerId());
                 metadata.put("displayName",
                              delegate.getDisplayName() != null ? delegate.getDisplayName() : delegate.getId());
             }

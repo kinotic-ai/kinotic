@@ -5,7 +5,9 @@ plugins {
 
 dependencies {
 	implementation project(':kinotic-core')
+	implementation project(':kinotic-authz')
 	implementation project(':kinotic-domain')
+	implementation project(':kinotic-app-api')
 	implementation project(':kinotic-management-api')
 	implementation project(':kinotic-system-api')
 	implementation project(':kinotic-grind')

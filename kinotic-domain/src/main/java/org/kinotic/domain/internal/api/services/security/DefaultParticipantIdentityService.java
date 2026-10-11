@@ -1,27 +1,39 @@
 package org.kinotic.domain.internal.api.services.security;
 
 import io.vertx.core.Future;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
+import org.kinotic.domain.api.model.ApplicationKey;
+import org.kinotic.domain.api.model.OnboardingMechanism;
+import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.security.AuthType;
+import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.IdentityCredential;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.IdentityCredentialRepository;
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
-import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,14 +46,20 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     private final ParticipantIdentityRepository identityRepository;
     private final IdentityCredentialRepository credentialRepository;
     private final ApplicationRepository applicationRepository;
+    private final TenantRepository tenants;
+    private final RelationshipService relationships;
 
     public DefaultParticipantIdentityService(ParticipantIdentityRepository repository,
                                  IdentityCredentialRepository credentialRepository,
-                                 ApplicationRepository applicationRepository) {
+                                 ApplicationRepository applicationRepository,
+                                 RelationshipService relationships,
+                                 TenantRepository tenants) {
         super(repository);
         this.identityRepository = repository;
         this.credentialRepository = credentialRepository;
         this.applicationRepository = applicationRepository;
+        this.relationships = relationships;
+        this.tenants = tenants;
     }
 
     @Override
@@ -195,6 +213,16 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
+    public Future<Page<UserParticipantIdentity>> findUsersByTenant(String organizationId,
+                                                                   String applicationId,
+                                                                   String tenantId,
+                                                                   Pageable pageable) {
+        requireOrgWithApp(organizationId, applicationId);
+        Validate.notBlank(tenantId, "tenantId cannot be blank");
+        return identityRepository.findUsersByTenant(organizationId, applicationId, tenantId, pageable);
+    }
+
+    @Override
     public Future<UserParticipantIdentity> createUser(UserParticipantIdentity user, String password) {
         Validate.notNull(user.getEmail(), "UserParticipantIdentity email cannot be null");
         validateScopeFields(user);
@@ -220,32 +248,73 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                         return saveCredential(savedUser.getId(), password).map(savedUser);
                     }
                     return Future.succeededFuture(savedUser);
-                });
+                })
+                .compose(this::member);
+    }
+
+    // The user's membership in the graph, written once the record is: an organization user is a member of its
+    // organization, an application user an end user of its application, in the platform's store and in the
+    // application's own, where its tenant is also placed under the application, and a system user belongs to
+    // nothing until the platform's own resource grants it
+    private Future<UserParticipantIdentity> member(UserParticipantIdentity user) {
+        Future<Void> written;
+        if (user.getApplicationId() != null) {
+            String me = AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId());
+            String store = DomainUtil.authzApplicationId(user.getOrganizationId(), user.getApplicationId());
+            String application = AuthzUtil.object(AuthzUtil.APPLICATION_TYPE, store);
+            RelationshipTuple endUser = new RelationshipTuple(me, AuthzUtil.END_USER_RELATION, application);
+            List<RelationshipTuple> inApplication = new ArrayList<>(List.of(endUser));
+            if (user.getTenantId() != null) {
+                String tenant = AuthzUtil.object(AuthzUtil.TENANT_TYPE, user.getTenantId());
+                inApplication.add(new RelationshipTuple(application, AuthzUtil.APPLICATION_TYPE, tenant));
+                inApplication.add(new RelationshipTuple(me, AuthzUtil.MEMBER_RELATION, tenant));
+            }
+            written = relationships.ensure(AuthzStoreService.PLATFORM, List.of(endUser))
+                                   .compose(v -> relationships.ensure(store, inApplication));
+        } else if (user.getOrganizationId() != null) {
+            written = relationships.ensure(AuthzStoreService.PLATFORM,
+                                           List.of(new RelationshipTuple(AuthzUtil.object(AuthzUtil.USER_TYPE, user.getId()),
+                                                                         AuthzUtil.MEMBER_RELATION,
+                                                                         AuthzUtil.object(AuthzUtil.ORGANIZATION_TYPE, user.getOrganizationId()))));
+        } else {
+            written = Future.succeededFuture();
+        }
+        return written.map(user);
     }
 
     /**
-     * Applies the owning application's tenant policy to a new APPLICATION-scope user: when the
-     * app has {@code tenantPerUser} enabled and no explicit tenantId was supplied, a fresh UUID
-     * becomes the user's tenantId. Deliberately NOT the user's id — the tenantId is an ES
-     * routing key and part of the immutable _id of every SHARED entity the user writes, while
-     * createUser accepts caller-supplied ids of any shape; a dedicated UUID keeps tenant
-     * identity decoupled from id semantics.
+     * Applies the owning application's onboarding to a new APPLICATION-scope user: when the application isolates
+     * each user in a tenant of its own and no tenantId was supplied, a tenant is created for the user, named for
+     * them, and its id set on the user. The tenant's id is a fresh UUID, deliberately not the user's id: the
+     * tenantId is an ES routing key and part of the immutable _id of every SHARED entity the user writes, while
+     * createUser accepts caller-supplied ids of any shape, so a dedicated UUID keeps tenant identity decoupled
+     * from id semantics.
      */
     private Future<UserParticipantIdentity> applyTenantPolicy(UserParticipantIdentity user) {
         if (user.getApplicationId() == null || user.getTenantId() != null) {
             return Future.succeededFuture(user);
         }
         return applicationRepository.findById(user.getApplicationId(), user.getOrganizationId())
-                .map(app -> {
+                .compose(app -> {
                     if (app == null) {
                         throw new IllegalArgumentException(
                                 "Application " + user.getApplicationId() + " not found in organization "
                                 + user.getOrganizationId());
                     }
-                    if (app.isTenantPerUser()) {
-                        user.setTenantId(UUID.randomUUID().toString());
+                    Future<UserParticipantIdentity> ret;
+                    if (app.getOnboarding().contains(OnboardingMechanism.TENANT_PER_USER)) {
+                        Tenant tenant = DomainUtil.createTenant(new ApplicationKey(user.getOrganizationId(), user.getApplicationId()),
+                                                               UUID.randomUUID().toString(),
+                                                               StringUtils.isNotBlank(user.getDisplayName()) ? user.getDisplayName() : user.getEmail())
+                                                 .setCreatedBy(user.getId());
+                        ret = tenants.save(tenant, user.getOrganizationId()).map(saved -> {
+                            user.setTenantId(saved.getTenantId());
+                            return user;
+                        });
+                    } else {
+                        ret = Future.succeededFuture(user);
                     }
-                    return user;
+                    return ret;
                 });
     }
 
@@ -275,6 +344,70 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         Validate.notNull(newPassword, "newPassword cannot be null");
 
         return saveCredential(identityId, newPassword).mapEmpty();
+    }
+
+    @Override
+    public Future<UserParticipantIdentity> findOrCreateSsoUser(OidcConfiguration configuration,
+                                                               String oidcSubject,
+                                                               String email,
+                                                               String displayName) {
+        Validate.notNull(configuration, "configuration cannot be null");
+        Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
+        return findByOidcIdentity(oidcSubject, configuration.getId(), configuration.getOrganizationId(), configuration.getApplicationId())
+                .compose(found -> {
+                    Future<UserParticipantIdentity> ret;
+                    if (found != null || configuration.getTenantId() == null) {
+                        ret = Future.succeededFuture(found);
+                    } else {
+                        Validate.notBlank(email, "The identity provider asserted no email");
+                        ret = provisionSsoUser(configuration, oidcSubject, DomainUtil.normalizeEmail(email), displayName);
+                    }
+                    return ret;
+                });
+    }
+
+    // A tenant's provider vouches for whoever it signs in, so the user is created in the tenant and granted the
+    // role the tenant chose; an email already held in the application is refused rather than taken over
+    private Future<UserParticipantIdentity> provisionSsoUser(OidcConfiguration configuration,
+                                                             String oidcSubject,
+                                                             String email,
+                                                             String displayName) {
+        String organizationId = configuration.getOrganizationId();
+        String applicationId = configuration.getApplicationId();
+        String tenantId = configuration.getTenantId();
+        return findByEmail(email, organizationId, applicationId)
+                .compose(existing -> {
+                    if (existing != null) {
+                        throw new AlreadyExistsException("An account with this email already exists.");
+                    }
+                    return tenants.findByTenantId(organizationId, applicationId, tenantId);
+                })
+                .compose(tenant -> {
+                    if (tenant == null) {
+                        throw new IllegalStateException("No tenant of the application has id " + tenantId);
+                    }
+                    UserParticipantIdentity user = new UserParticipantIdentity();
+                    user.setEmail(email);
+                    user.setDisplayName(StringUtils.isNotBlank(displayName) ? displayName : email);
+                    user.setOrganizationId(organizationId);
+                    user.setApplicationId(applicationId);
+                    user.setTenantId(tenantId);
+                    user.setOidcSubject(oidcSubject);
+                    user.setOidcConfigId(configuration.getId());
+                    // refreshed at once, so a second sign-in moments later finds the user instead of refusing its email
+                    return createUser(user, null).compose(created -> syncIndex().map(created)).compose(created -> {
+                        Future<UserParticipantIdentity> granted;
+                        if (tenant.getSsoRoleId() == null) {
+                            granted = Future.succeededFuture(created);
+                        } else {
+                            granted = relationships.bind(DomainUtil.authzApplicationId(organizationId, applicationId), tenant.getSsoRoleId(),
+                                                         AuthzUtil.object(AuthzUtil.USER_TYPE, created.getId()),
+                                                         AuthzUtil.object(AuthzUtil.TENANT_TYPE, tenantId))
+                                                   .map(created);
+                        }
+                        return granted;
+                    });
+                });
     }
 
     @Override

@@ -97,13 +97,18 @@ export class KinoticSingleton implements IKinotic {
     }
 
     /**
-     * Connects to a Kinotic server. Every option is optional: absent server fields and
-     * credentials resolve from the environment — see {@link ConnectOptions}.
+     * Connects to a Kinotic server and registers the application services registered so far in the platform's
+     * service directory. Every option is optional: absent server fields and credentials resolve from the
+     * environment — see {@link ConnectOptions}.
      * @param options overrides for the resolved connection, or nothing to resolve everything
      * @return Promise containing the result of the initial connection attempt
      */
-    connect(options?: ConnectOptions): Promise<ConnectedInfo> {
-        return this._eventBus.connect(Util.resolveConnectOptions(options))
+    async connect(options?: ConnectOptions): Promise<ConnectedInfo> {
+        const ret = await this._eventBus.connect(Util.resolveConnectOptions(options))
+        // the application services registered before the connection register in the directory now, so the
+        // platform lists and checks them from the first; a service the platform refuses fails the connection
+        await this.serviceRegistry.registerEntries()
+        return ret
     }
 
     /**

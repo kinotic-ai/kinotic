@@ -3,17 +3,24 @@ package org.kinotic.system.internal.api.services.deployment;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
-import org.kinotic.management.api.model.deployment.ProjectDeployment;
+import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 /**
@@ -36,6 +43,7 @@ public class ProjectDeployIdentityService {
     private final ParticipantIdentityService identityService;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
+    private final RelationshipService relationships;
 
     /**
      * Issues credentials for the project's sync workload. The returned secret is disclosed only
@@ -53,7 +61,7 @@ public class ProjectDeployIdentityService {
                         ret = Future.failedFuture(new IllegalStateException(
                                 "No deployment record for project " + project.getId()));
                     } else {
-                        ret = issue(newMachine(project, MachineKind.PROJECT_SYNC, "deploy sync"), deployment.getSyncMachineIdentityId(),
+                        ret = issue(newMachine(project, MachineKind.PROJECT_SYNC, "deploy sync"), project, deployment.getSyncMachineIdentityId(),
                                     identityId -> projectDeploymentRepository.recordSyncMachine(project.getId(), project.getOrganizationId(), identityId));
                     }
                     return ret;
@@ -73,13 +81,14 @@ public class ProjectDeployIdentityService {
     public Future<MachineProvisionResult> issueRuntimeCredentials(Project project, MicroserviceDeployment deployment) {
         Validate.notNull(project, "project is required");
         Validate.notNull(deployment, "deployment is required");
-        return issue(newMachine(project, MachineKind.APP_RUNTIME, "runtime " + deployment.getName()), deployment.getMachineIdentityId(), identityId -> {
+        return issue(newMachine(project, MachineKind.APP_RUNTIME, "runtime " + deployment.getName()), project, deployment.getMachineIdentityId(), identityId -> {
             deployment.setMachineIdentityId(identityId);
             return microserviceDeploymentRepository.recordMachine(deployment.getId(), identityId);
         });
     }
 
     private Future<MachineProvisionResult> issue(MachineParticipantIdentity unsaved,
+                                                 Project project,
                                                  String identityId,
                                                  Function<String, Future<Void>> recordIdentity) {
         Future<MachineProvisionResult> ret;
@@ -101,7 +110,7 @@ public class ProjectDeployIdentityService {
                         return issued;
                     });
         }
-        return ret;
+        return ret.compose(result -> bind(result.machine().getId(), unsaved.getMachineKind(), project).map(result));
     }
 
     /**
@@ -111,8 +120,39 @@ public class ProjectDeployIdentityService {
     private Future<MachineProvisionResult> createAndRecord(MachineParticipantIdentity unsaved,
                                                            Function<String, Future<Void>> recordIdentity) {
         return identityService.createMachine(unsaved)
-                .compose(provisioned -> recordIdentity.apply(provisioned.machine().getId())
-                                                      .map(provisioned));
+                .compose(provisioned -> recordIdentity.apply(provisioned.machine().getId()).map(provisioned));
+    }
+
+    /**
+     * Binds the machine to what its workload does, each role under a binding id of the machine's own, so issuing
+     * credentials binds a machine recorded before as well as a new one, and binds each role once. Both workloads
+     * act as an editor of the project, which records its artifacts and runs its migrations. The sync workload
+     * creates, saves and publishes the application's entity definitions and their named queries, as
+     * {@code entity_definition.editor} on the application may. A runtime registers the application's services, as
+     * {@code application.runtime} may, and works on the rows of every definition of the application, as
+     * {@code entity_definition.admin} on the application may.
+     */
+    private Future<Void> bind(String machineId, MachineKind kind, Project project) {
+        String machine = AuthzUtil.object(AuthzUtil.USER_TYPE, machineId);
+        String projectObject = AuthzUtil.object(ProjectService.RESOURCE_TYPE,
+                                                DomainUtil.authzId(ProjectService.RESOURCE_TYPE, project.getOrganizationId(), project.getId()));
+        String application = AuthzUtil.object(AuthzUtil.APPLICATION_TYPE,
+                                              DomainUtil.authzApplicationId(project.getOrganizationId(), project.getApplicationId()));
+        List<Map.Entry<String, String>> grants = new ArrayList<>();
+        grants.add(Map.entry(AuthzUtil.roleId(ProjectService.RESOURCE_TYPE, AuthzUtil.EDITOR), projectObject));
+        if (kind == MachineKind.APP_RUNTIME) {
+            grants.add(Map.entry(AuthzUtil.APPLICATION_RUNTIME_ROLE, application));
+            grants.add(Map.entry(AuthzUtil.roleId(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.ADMIN), application));
+        } else {
+            grants.add(Map.entry(AuthzUtil.roleId(AuthzUtil.ENTITY_DEFINITION_TYPE, AuthzUtil.EDITOR), application));
+        }
+        Future<Void> ret = Future.succeededFuture();
+        for (Map.Entry<String, String> grant : grants) {
+            String roleId = grant.getKey();
+            ret = ret.compose(v -> relationships.ensureBound(AuthzStoreService.PLATFORM, roleId + "-of-" + machineId,
+                                                             roleId, machine, grant.getValue()));
+        }
+        return ret;
     }
 
     /**

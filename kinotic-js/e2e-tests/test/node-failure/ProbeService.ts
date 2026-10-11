@@ -1,4 +1,4 @@
-import {Publish} from '@kinotic-ai/core'
+import {AuthzUnchecked, Publish} from '@kinotic-ai/core'
 import {finalize, interval, Observable} from 'rxjs'
 
 /** What the {@link ProbeService} reports to the suite hosting it, as it happens on the serving side. */
@@ -6,9 +6,11 @@ export type ProbeEvent = 'hang-started' | 'ticks-started' | 'ticks-cancelled'
 
 /**
  * The service the node-failure suite hosts on a client, so a test can observe the serving side of a call
- * while the platform between it and the caller fails.
+ * while the platform between it and the caller fails. It is marked unchecked as a whole: what it serves is the
+ * platform's behaviour, not a resource.
  */
 @Publish('e2e.nodefailure')
+@AuthzUnchecked
 export class ProbeService {
 
     private readonly report: (event: ProbeEvent) => void

@@ -84,6 +84,21 @@ resource "azurerm_private_dns_zone_virtual_network_link" "blob" {
   tags                  = var.tags
 }
 
+# Resolves the managed Postgres servers reached through private endpoints, OpenFGA's among them
+resource "azurerm_private_dns_zone" "postgres" {
+  name                = "privatelink.postgres.database.azure.com"
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
+  name                  = "postgres-${var.name_prefix}"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = azurerm_private_dns_zone.postgres.name
+  virtual_network_id    = azurerm_virtual_network.main.id
+  tags                  = var.tags
+}
+
 # ── RBAC: kubelet identity needs Network Contributor to manage LBs ────────────
 
 resource "azurerm_role_assignment" "kubelet_network_contributor_subnet" {
@@ -118,6 +133,10 @@ output "private_endpoints_subnet_id" {
 
 output "blob_private_dns_zone_id" {
   value = azurerm_private_dns_zone.blob.id
+}
+
+output "postgres_private_dns_zone_id" {
+  value = azurerm_private_dns_zone.postgres.id
 }
 
 output "firecracker_subnet_id" {

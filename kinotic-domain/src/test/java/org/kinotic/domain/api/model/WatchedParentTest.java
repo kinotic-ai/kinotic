@@ -29,9 +29,18 @@ public class WatchedParentTest {
     }
 
     @Test
-    public void refusesAValueWithoutTypeAndScope() {
+    public void aParentWithoutScopeRendersAnEmptyScopeAndParsesBack() {
+        WatchedParent parent = new WatchedParent(WatchedType.AUTHZ_STORE, null, "platform");
+        assertEquals("AUTHZ_STORE::platform", parent.value());
+        assertEquals(parent, WatchedParent.parse(parent.value()));
+        assertEquals("AUTHZ_STORE::", WatchedParent.valuePrefix(WatchedType.AUTHZ_STORE, null));
+    }
+
+    @Test
+    public void refusesAValueWithoutTypeOrId() {
         assertThrows(IllegalArgumentException.class, () -> WatchedParent.parse("proj-9"));
         assertThrows(IllegalArgumentException.class, () -> WatchedParent.parse("WORKLOAD:proj-9"));
-        assertThrows(IllegalArgumentException.class, () -> WatchedParent.parse("WORKLOAD::proj-9"));
+        assertThrows(IllegalArgumentException.class, () -> WatchedParent.parse("WORKLOAD:org-1:"));
+        assertThrows(IllegalArgumentException.class, () -> new WatchedParent(WatchedType.WORKLOAD, " ", "proj-9"));
     }
 }

@@ -10,6 +10,8 @@ const config: KinoticProjectConfig = {
       mirrorFolderStructure: true
     }
   ],
+  servicesPaths: ["test/services", "test/node-failure"],
+  generatedPath: "test/generated",
   fileExtensionForImports: ".js",
   validate: false
 }

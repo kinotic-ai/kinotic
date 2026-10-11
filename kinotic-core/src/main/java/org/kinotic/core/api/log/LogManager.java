@@ -4,6 +4,9 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Scope;
 import org.kinotic.core.api.annotations.Version;
 import org.kinotic.core.api.config.TraceLogProperties;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 
 /**
  * Interface providing the ability to work with runtime logging configuration per node. Every server node
@@ -14,6 +17,7 @@ import org.kinotic.core.api.config.TraceLogProperties;
  */
 @Publish
 @Version("1.0.0")
+@AuthzResource(value = AuthzUtil.PLATFORM_TYPE, resourceId = AuthzUtil.PLATFORM_OBJECT_ID, permission = AuthzUtil.CAN_MANAGE_CLUSTER)
 public interface LogManager {
 
     @Scope
@@ -22,12 +26,14 @@ public interface LogManager {
     /**
      * @return a {@link LoggersDescriptor} containing all the loggers and their levels
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_CLUSTER)
     LoggersDescriptor loggers();
 
     /**
      * @param name the name of the logger to get
      * @return a {@link LoggerLevelsDescriptor} containing the logger and its levels
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_CLUSTER)
     LoggerLevelsDescriptor loggerLevels(String name);
 
     /**
@@ -40,6 +46,7 @@ public interface LogManager {
     /**
      * @return the CRI patterns currently deciding what this node trace logs
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_CLUSTER)
     TraceLogProperties traceLog();
 
     /**

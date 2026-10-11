@@ -3,6 +3,9 @@ package org.kinotic.management.api.services.telemetry;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.telemetry.MetricQuery;
 import org.kinotic.management.api.model.telemetry.TraceQuery;
 
@@ -13,6 +16,7 @@ import org.kinotic.management.api.model.telemetry.TraceQuery;
  * the caller parses Tempo's and Prometheus's wire formats.
  */
 @Publish
+@AuthzResource(value = AuthzUtil.ORGANIZATION_TYPE, resourceId = "{@organizationId}")
 public interface TelemetryService {
 
     /**
@@ -21,6 +25,7 @@ public interface TelemetryService {
      * @param query the {@link TraceQuery} naming the organization, query, time range, and limit
      * @return a {@link Future} emitting the raw Tempo {@code search} response
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_TELEMETRY)
     Future<Buffer> searchTraces(TraceQuery query);
 
     /**
@@ -31,6 +36,7 @@ public interface TelemetryService {
      * @param traceId        the hex trace id
      * @return a {@link Future} emitting the raw Tempo trace response, OTLP JSON
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_TELEMETRY)
     Future<Buffer> findTrace(String organizationId, String traceId);
 
     /**
@@ -39,5 +45,6 @@ public interface TelemetryService {
      * @param query the {@link MetricQuery} naming the organization, expression, time range, and step
      * @return a {@link Future} emitting the raw Prometheus {@code query_range} response
      */
+    @AuthzCheck(permission = AuthzUtil.CAN_VIEW_TELEMETRY)
     Future<Buffer> queryMetrics(MetricQuery query);
 }

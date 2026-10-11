@@ -9,6 +9,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.PendingInvite;
+import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.exceptions.InviteEmailMismatchException;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 @Slf4j
 @Component
@@ -33,6 +35,7 @@ public class DefaultInviteService implements InviteService {
     private final ParticipantIdentityService identityService;
     private final OrganizationService organizationService;
     private final EmailService emailService;
+    private final TenantRepository tenants;
 
     @Override
     public Future<PendingInvite> createInvite(PendingInvite invite) {
@@ -47,7 +50,7 @@ public class DefaultInviteService implements InviteService {
                         return Future.failedFuture(
                                 new IllegalArgumentException("Organization not found."));
                     }
-                    return checkEmailAvailable(invite).map(org);
+                    return requireTenant(invite).compose(v -> checkEmailAvailable(invite)).map(org);
                 })
                 .compose(org -> {
                     Date now = new Date();
@@ -63,6 +66,23 @@ public class DefaultInviteService implements InviteService {
                             .compose(saved -> emailService.sendInviteEmail(saved, org.getName())
                                                           .map(saved));
                 });
+    }
+
+    // An invite into a tenant names one of the application's tenants
+    private Future<Void> requireTenant(PendingInvite invite) {
+        Future<Void> ret;
+        if (invite.getTenantId() == null) {
+            ret = Future.succeededFuture();
+        } else {
+            Validate.notBlank(invite.getApplicationId(), "An invite into a tenant names the tenant's application");
+            ret = tenants.findByTenantId(invite.getOrganizationId(), invite.getApplicationId(), invite.getTenantId()).map(tenant -> {
+                if (tenant == null) {
+                    throw new IllegalArgumentException("No tenant of the application has id " + invite.getTenantId());
+                }
+                return null;
+            });
+        }
+        return ret;
     }
 
     /**
@@ -151,7 +171,8 @@ public class DefaultInviteService implements InviteService {
                                     ? displayNameOverride
                                     : invite.getDisplayName())
             .setOrganizationId(invite.getOrganizationId())
-            .setApplicationId(invite.getApplicationId());
+            .setApplicationId(invite.getApplicationId())
+            .setTenantId(invite.getTenantId());
         if (oidcSubject != null) {
             user.setOidcSubject(oidcSubject)
                 .setOidcConfigId(oidcConfigId);
@@ -170,18 +191,42 @@ public class DefaultInviteService implements InviteService {
     }
 
     @Override
+    public Future<Page<PendingInvite>> findPendingInvitesByTenant(String organizationId,
+                                                                  String applicationId,
+                                                                  String tenantId,
+                                                                  Pageable pageable) {
+        Validate.notBlank(organizationId, "organizationId is required");
+        Validate.notBlank(applicationId, "applicationId is required");
+        Validate.notBlank(tenantId, "tenantId is required");
+        return pendingInviteRepository.findByTenant(organizationId, applicationId, tenantId, pageable);
+    }
+
+    @Override
     public Future<Void> cancelInvite(String inviteId, String organizationId) {
         Validate.notBlank(inviteId, "inviteId is required");
         Validate.notBlank(organizationId, "organizationId is required");
+        return cancel(inviteId, invite -> organizationId.equals(invite.getOrganizationId()));
+    }
 
+    @Override
+    public Future<Void> cancelTenantInvite(String inviteId, String organizationId, String applicationId, String tenantId) {
+        Validate.notBlank(inviteId, "inviteId is required");
+        Validate.notBlank(organizationId, "organizationId is required");
+        Validate.notBlank(applicationId, "applicationId is required");
+        Validate.notBlank(tenantId, "tenantId is required");
+        return cancel(inviteId, invite -> organizationId.equals(invite.getOrganizationId())
+                && applicationId.equals(invite.getApplicationId())
+                && tenantId.equals(invite.getTenantId()));
+    }
+
+    // The repository's deleteById is unscoped, so this load-and-assert is the security boundary keeping one
+    // scope from cancelling another's invites; a missing and a foreign invite fail the same way, so there is
+    // no existence oracle
+    private Future<Void> cancel(String inviteId, Predicate<PendingInvite> ownedByCaller) {
         return pendingInviteRepository.findById(inviteId)
                 .compose(invite -> {
-                    // The repository deleteById is unscoped; this load-and-assert is the
-                    // security boundary keeping one org from cancelling another's invites.
-                    // Same message for missing and foreign — no existence oracle.
-                    if (invite == null || !organizationId.equals(invite.getOrganizationId())) {
-                        return Future.failedFuture(
-                                new IllegalArgumentException("Invitation not found."));
+                    if (invite == null || !ownedByCaller.test(invite)) {
+                        return Future.failedFuture(new IllegalArgumentException("Invitation not found."));
                     }
                     // Sync delete so the console's immediate re-query no longer sees the row.
                     return pendingInviteRepository.deleteByIdSync(inviteId);

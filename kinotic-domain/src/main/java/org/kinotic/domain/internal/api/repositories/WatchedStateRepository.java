@@ -184,10 +184,12 @@ public class WatchedStateRepository {
     public Future<Void> clearDirty(WatchedDocument document, WatchedState state) {
         Validate.notNull(document, "document cannot be null");
         Validate.notNull(state, "state cannot be null");
+        // the master's own scan is the only reader of the mark, and clearing it again is a no-op, so the
+        // clear waits for no refresh
         return enter(document, state.getUnrecorded())
-                .compose(v -> crudServiceTemplate.scriptedUpdateReturningSourceSync(document.index().name(), document.documentId(),
-                                                                                    CLEAR_DIRTY, Map.of("dirtyAt", state.getDirtyAt()),
-                                                                                    request(document, null)))
+                .compose(v -> crudServiceTemplate.scriptedUpdate(document.index().name(), document.documentId(),
+                                                                 CLEAR_DIRTY, Map.of("dirtyAt", state.getDirtyAt()),
+                                                                 request(document, null)))
                 .mapEmpty();
     }
 
@@ -300,8 +302,10 @@ public class WatchedStateRepository {
         stamped.put("event", new WatchEvent(null, document.index().type(), document.id(), null, null,
                                             change.kind(), change.source(), kinotic.serverInfo().getNodeId(), null,
                                             change.message(), crudServiceTemplate.getObjectMapper().valueToTree(change.value())));
-        return crudServiceTemplate.scriptedUpdateReturningSourceSync(document.index().name(), document.documentId(), script, stamped,
-                                                                     request(document, upsert))
+        // refreshed on the spot rather than at the index's next scheduled refresh, which is a second away: a
+        // control-plane record is written a few times per reconcile, so a refresh per write costs less than the wait
+        return crudServiceTemplate.scriptedUpdateReturningSource(document.index().name(), document.documentId(), script, stamped,
+                                                                 Refresh.True, request(document, upsert))
                                   .compose(written -> written == null
                                           ? Future.succeededFuture()
                                           : enterWritten(document, written).map(written));
@@ -321,7 +325,7 @@ public class WatchedStateRepository {
     }
 
     /**
-     * As {@link #delete(WatchedDocument)}, waiting for the deletion to be visible to search.
+     * As {@link #delete(WatchedDocument)}, with the deletion visible to search on completion.
      *
      * @param document the record
      * @return a future that completes once the record is gone, or fails when it kept being written
@@ -329,7 +333,7 @@ public class WatchedStateRepository {
      */
     public Future<Void> deleteSync(WatchedDocument document) {
         Validate.notNull(document, "document cannot be null");
-        return delete(document, Refresh.WaitFor, 1);
+        return delete(document, Refresh.True, 1);
     }
 
     // The delete is conditional on the record as read, so a write landing between the read and the

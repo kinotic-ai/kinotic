@@ -19,8 +19,14 @@ export default defineWorkspace(
 			root: 'packages/management-api'
 		},
 		{
+			name: 'app-api',
+			root: 'packages/app-api'
+		},
+		{
+			// Library (".") plus the Vite plugin ("./vite") that compiles the persistence decorators for browser bundles.
 			name: 'persistence',
-			root: 'packages/persistence'
+			root: 'packages/persistence',
+			config: { entry: ['src/index.ts', 'src/vite/index.ts'] }
 		},
 		{
 			name: 'system-api',

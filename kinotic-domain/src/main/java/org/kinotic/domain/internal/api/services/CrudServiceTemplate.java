@@ -84,8 +84,20 @@ public class CrudServiceTemplate {
      * on {@code if_seq_no}/{@code if_primary_term} that found the document changed.
      */
     public static boolean isVersionConflict(Throwable throwable) {
+        return isStatus(throwable, 409);
+    }
+
+    /**
+     * True when {@code throwable} or one of its causes is an Elasticsearch 404 — i.e. an update or a
+     * conditional delete that found no document under the id.
+     */
+    public static boolean isDocumentMissing(Throwable throwable) {
+        return isStatus(throwable, 404);
+    }
+
+    private static boolean isStatus(Throwable throwable, int status) {
         for (Throwable cause = throwable; cause != null; cause = cause.getCause()) {
-            if (cause instanceof ElasticsearchException esException && esException.status() == 409) {
+            if (cause instanceof ElasticsearchException esException && esException.status() == status) {
                 return true;
             }
         }
@@ -711,13 +723,38 @@ public class CrudServiceTemplate {
      * @return a {@link Future} that will complete with the updated document's source, or null when the
      * script left the document as it was
      */
-    @SuppressWarnings("unchecked")
     public Future<Map<String, Object>> scriptedUpdateReturningSourceSync(String indexName,
                                                                          String id,
                                                                          String source,
                                                                          Map<String, Object> params,
                                                                          Consumer<UpdateRequest.Builder<Map, Map<String, Object>>> builderConsumer) {
-        return scriptedUpdate(indexName, id, source, params, true, Refresh.WaitFor, builderConsumer)
+        return scriptedUpdateReturningSource(indexName, id, source, params, Refresh.WaitFor, builderConsumer);
+    }
+
+    /**
+     * As {@link #scriptedUpdateReturningSourceSync(String, String, String, Map, Consumer)}, with the refresh
+     * the request waits for: {@link Refresh#True} refreshes the shard before completing, so the change is
+     * visible to search on completion at the cost of a refresh per call; {@link Refresh#WaitFor} completes at
+     * the index's next scheduled refresh; {@link Refresh#False} completes at once, with the change visible to
+     * search after the index's next refresh.
+     *
+     * @param indexName       name of the index
+     * @param id              of the document to update
+     * @param source          the Painless source, reading its inputs from {@code params}
+     * @param params          the values the script reads as {@code params.<name>}
+     * @param refresh         the refresh the request waits for
+     * @param builderConsumer to customize the {@link UpdateRequest}, or null if no customization is needed
+     * @return a {@link Future} that will complete with the updated document's source, or null when the
+     * script left the document as it was
+     */
+    @SuppressWarnings("unchecked")
+    public Future<Map<String, Object>> scriptedUpdateReturningSource(String indexName,
+                                                                     String id,
+                                                                     String source,
+                                                                     Map<String, Object> params,
+                                                                     Refresh refresh,
+                                                                     Consumer<UpdateRequest.Builder<Map, Map<String, Object>>> builderConsumer) {
+        return scriptedUpdate(indexName, id, source, params, true, refresh, builderConsumer)
                 .map(response -> response.result() == Result.NoOp || response.get() == null
                         ? null
                         : (Map<String, Object>) response.get().source());

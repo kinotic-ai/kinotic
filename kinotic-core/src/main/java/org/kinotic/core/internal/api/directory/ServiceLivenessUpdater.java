@@ -1,5 +1,6 @@
 package org.kinotic.core.internal.api.directory;
 
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.resources.SpringResource;
@@ -12,6 +13,7 @@ import reactor.core.Disposable;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Supplier;
 
 /**
  * The single cluster-wide maintainer of the directory's {@code online} liveness flag, running as one HA cluster
@@ -42,6 +44,10 @@ public class ServiceLivenessUpdater implements Service {
     private transient long reconcileTimerId;
     // address -> the pending verify timer, so a burst of changes for one address collapses to a single verify
     private transient ConcurrentMap<String, Long> pendingVerifications;
+    // The liveness writes this node makes, one after another: a verify and a reconcile never interleave their
+    // reads of the cluster and their writes, so the one that started later is the one that lands later. Guarded
+    // by this, since the timers and the event stream deliver on different threads
+    private transient Future<Void> writes;
 
     @Override
     public void init() {
@@ -49,6 +55,7 @@ public class ServiceLivenessUpdater implements Service {
         // this instance was serialized to the hosting node, so runtime state is created here rather
         // than in field initializers, which do not run on deserialization
         pendingVerifications = new ConcurrentHashMap<>();
+        writes = Future.succeededFuture();
         // subscribe before snapshotting so a change between the two cannot be missed; verify is
         // idempotent, so changes arriving while the reconcile runs are harmless
         subscribeToEvents();
@@ -80,7 +87,9 @@ public class ServiceLivenessUpdater implements Service {
                                               // changes may have been missed while continuity was lost, and a
                                               // service that went offline during the gap will never emit another
                                               // change — so waiting for per-address changes cannot catch up;
-                                              // reconcile() corrects every entry against a fresh snapshot
+                                              // reconcile() corrects every entry against a fresh snapshot. The
+                                              // Ignite cluster manager never reports the loss, so the periodic
+                                              // reconcile is what covers a missed change there
                                               case ServiceListenerContinuityLost ignored -> reconcile();
                                           }
                                       },
@@ -99,13 +108,16 @@ public class ServiceLivenessUpdater implements Service {
     }
 
     private void verify(String address) {
-        serviceDirectory.verifyLiveness(address)
-                        .onFailure(throwable -> log.error("Failed to write verified liveness for {}", address, throwable));
+        write(() -> serviceDirectory.verifyLiveness(address), "Failed to write verified liveness for " + address);
     }
 
     private void reconcile() {
-        serviceDirectory.reconcileLiveness()
-                        .onFailure(throwable -> log.error("Liveness reconciliation failed", throwable));
+        write(serviceDirectory::reconcileLiveness, "Liveness reconciliation failed");
+    }
+
+    private synchronized void write(Supplier<Future<Void>> write, String failure) {
+        writes = writes.transform(previous -> write.get())
+                       .onFailure(throwable -> log.error(failure, throwable));
     }
 
 }

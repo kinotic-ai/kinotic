@@ -37,6 +37,9 @@ Estimated monthly costs for `centralus` (the `location` in `cluster/terraform.tf
 | Front Door Standard profile + endpoint (UI sites) | Azure Front Door | **~$35/mo** base, billed hourly; traffic ~$0.09/GB out, ~$0.01 per 10k requests; custom domains and managed certificates included |
 | Organization storage resource group + private-endpoints subnet | Resource Manager, VNet | Free |
 | Private DNS zone (`privatelink.blob.core.windows.net`) + VNet link | Azure Private DNS | **~$0.50/mo** |
+| OpenFGA database | Azure Database for PostgreSQL flexible server (B1ms burstable, 32 GB, 7-day backups) | **~$17/mo** |
+| OpenFGA database private endpoint | Private Endpoint (postgresqlServer) | **~$7.30/mo** + ~$0.01/GB |
+| Private DNS zone (`privatelink.postgres.database.azure.com`) + VNet link | Azure Private DNS | **~$0.50/mo** |
 | Per organization: storage account | Blob Storage (StorageV2, LRS, hot) | **~$0.02/GB/mo**; a published UI is a few MB, so cents |
 | Per organization: private endpoint | Private Link | **~$7.30/mo** each, plus ~$0.01/GB processed |
 | Per site: CNAME + TXT records, Front Door domain and route | Azure DNS, Front Door | Included |
@@ -48,6 +51,7 @@ Estimated monthly costs for `centralus` (the `location` in `cluster/terraform.tf
 | AKS Standard Tier | Uptime SLA (99.95%) | **$73/mo** |
 | ES Node Pool (3x VMs) | Virtual Machines (memory-optimized) | **Paid** |
 | ES OS Disks | Managed Disks | **Paid** |
+| OpenFGA database | Azure Database for PostgreSQL flexible server (D2ds_v5 general purpose with a zone-redundant standby, 35-day backups), replacing the beta B1ms | **~$280/mo** |
 
 ### Optional
 

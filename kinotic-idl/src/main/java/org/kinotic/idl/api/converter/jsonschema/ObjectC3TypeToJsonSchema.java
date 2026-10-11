@@ -12,7 +12,7 @@ import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Converts an {@link ObjectC3Type} to a JSON Schema object node.
- * Complex property types arrive as {@code ReferenceC3Type}s (see {@code SchemaFactory}) and are emitted as
+ * Complex property types arrive as {@code ReferenceC3Type}s (see {@code SchemaService}) and are emitted as
  * {@code $ref}s by {@link ReferenceC3TypeToJsonSchema}, so this converter simply iterates properties and delegates
  * each type back through the context.
  * Ported from the OpenAPI {@code ObjectC3TypeToOpenApi}.

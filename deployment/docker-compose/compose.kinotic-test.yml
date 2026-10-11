@@ -1,5 +1,5 @@
-# Minimal compose for the kinotic-test integration tests: Elasticsearch + migration (no Kibana, OTEL, or server),
-# with the test refresh interval of compose.elasticsearch-test-settings.yml.
+# Minimal compose for the kinotic-test integration tests: Elasticsearch + migration + OpenFGA with its platform
+# store (no Kibana, OTEL, or server), with the test refresh interval of compose.elasticsearch-test-settings.yml.
 # No service overrides here: redefining an included service ("conflicts with imported resource") fails on
 # older Docker Compose (the CI runner). The ES data volume is a named volume in compose.elasticsearch.yml,
 # cleared by `down -v` between runs.
@@ -7,3 +7,4 @@ include:
   - compose.elasticsearch.yml
   - compose.elasticsearch-test-settings.yml
   - compose.kinotic-migration.yml
+  - compose.openfga.yml

@@ -30,11 +30,12 @@ the commit under test rather than whatever the published tag currently holds.
 | `compose.kibana.yml` | Kibana (depends on Elasticsearch) | `kinotic-kibana:5601` |
 | `compose.kinotic-migration.yml` | Runs `kinotic-migration` once against ES, then exits | One-shot job — `service_completed_successfully` is what the servers wait on |
 | `compose.kinotic-servers.yml` | The three Kinotic servers, one Ignite cluster | `kinotic-server-management:9090/58503` (portal, REST and STOMP), `kinotic-server-system:58504`, `kinotic-server-app:58505` |
+| `compose.openfga.yml` | OpenFGA, the authorization engine, with its Postgres, its schema migration and `openfga-init`, which creates the platform store | `openfga:8080`; one-shot `openfga-init` — `service_completed_successfully` is what the servers wait on |
 | `compose-otel.yml` | OpenTelemetry collector + Grafana + Tempo + Loki + Mimir | `grafana:3000`, `loki:3100`, `tempo:3200`, `mimir:9009` |
 | `compose.gen-schemas.yml` | Load-generator container that pre-populates schemas | One-shot when `compose.yml` brings up the full stack |
 | `compose.keycloak.yml` | Local Keycloak as a platform OIDC provider (dev-only secret) | `keycloak:8888` — see `KEYCLOAK_HOSTS_SETUP.md` |
-| `compose.kinotic-test.yml` | Minimal: ES + migration only, no server | Backing services for the `kinotic-test` suite, which runs the server in-process |
-| `compose.kinotic-e2e-test.yml` | Elasticsearch + migration + the servers, on the `test,e2e-tests,compose` profiles | Used by e2e tests in CI |
+| `compose.kinotic-test.yml` | Minimal: ES + migration + OpenFGA, no server | Backing services for the `kinotic-test` suite, which runs the server in-process |
+| `compose.kinotic-e2e-test.yml` | Elasticsearch + migration + OpenFGA + the servers, on the `test,e2e-tests,compose` profiles | Used by e2e tests in CI |
 
 ## Common one-liners
 
@@ -70,6 +71,7 @@ docker compose down -v && docker compose up -d
 | System server | <http://localhost:58504> | REST, and STOMP at `ws://localhost:58504/v1`, for the system console |
 | App server | <http://localhost:58505> | REST, and STOMP at `ws://localhost:58505/v1`; each application's API host is `<organizationId>--<applicationId>.localhost:58505` |
 | Elasticsearch | <http://localhost:9200> | `xpack.security.enabled=false` — local only |
+| OpenFGA | <http://localhost:8080> | The authorization engine's HTTP API, unauthenticated — local only |
 | Kibana | <http://localhost:5601> | |
 | Grafana | <http://localhost:3000> | When `compose-otel.yml` is included. Anonymous auth with the Admin role — no login |
 | Keycloak | <http://keycloak:8888> | When `compose.keycloak.yml` is included; requires `127.0.0.1 keycloak` in `/etc/hosts` per `KEYCLOAK_HOSTS_SETUP.md` |
@@ -248,7 +250,7 @@ If you also run the Vite frontend (`pnpm dev` on `:5173`), it calls the server d
 `kinotic-frontend/apps/portal/ENV_SETUP.md`. For flows where the IdP or GitHub has to call back into
 your machine, use `pnpm dev:tunnel` behind your ngrok tunnel, with the tunnel origin in
 `~/.kinotic/dev-environment/kinotic-server-management/application.yml` — see "Local development
-environment" in the contributing guide (`website/content/02.platform/09.contributing.md`).
+environment" in the contributing guide (`website/content/02.platform/11.contributing.md`).
 
 ## Storage paths
 

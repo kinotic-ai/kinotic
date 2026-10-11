@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS kinotic_application (
     name KEYWORD,
     description TEXT,
     oidcConfigurationIds KEYWORD,
-    tenantPerUser BOOLEAN,
+    onboarding KEYWORD,
     primaryUiId KEYWORD,
     primaryUiUrl KEYWORD,
     updated DATE
@@ -192,7 +192,44 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
     ),
     online BOOLEAN,
     lastStatusChange DATE,
-    livenessVerifiedAt LONG
+    livenessVerifiedAt LONG,
+    contractHash KEYWORD,
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, unrecorded JSON NOT INDEXED)
+);
+
+-- The authorization store of each scope, the platform's and one per application, and the model it runs. A
+-- contract published to the service directory marks its entry, and the reconcile master tells the store the
+-- entry belongs to, which regenerates its model. The platform's row is seeded here because the master drops a
+-- parent it cannot read: the row exists before any server does, as the platform's store in the engine does.
+CREATE TABLE IF NOT EXISTS kinotic_authz_store (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, unrecorded JSON NOT INDEXED, desired OBJECT (hash KEYWORD), observed OBJECT (hash KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN)
+);
+
+INSERT INTO kinotic_authz_store (id) VALUES ('platform') WITH REFRESH, DOCUMENT_ID 'platform';
+
+-- A custom role of an organization (Role): a name and a description for the bundle of permissions the role
+-- is in the authorization engine, where its grants are made. The built-in roles have no row.
+CREATE TABLE IF NOT EXISTS kinotic_role (
+    id KEYWORD,
+    organizationId KEYWORD,
+    name KEYWORD,
+    description TEXT,
+    created DATE,
+    updated DATE
+);
+
+-- A group of an organization's members (Group): a name and a description for the membership the group has
+-- in the authorization engine, where a grant made to the group reaches its members.
+CREATE TABLE IF NOT EXISTS kinotic_group (
+    id KEYWORD,
+    organizationId KEYWORD,
+    name KEYWORD,
+    description TEXT,
+    created DATE,
+    updated DATE
 );
 
 -- Participant Identity: authenticated identities at each scope layer — a person (type=USER)
@@ -234,6 +271,8 @@ CREATE TABLE IF NOT EXISTS kinotic_identity_credential (
 CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     id KEYWORD,
     organizationId KEYWORD,
+    applicationId KEYWORD,
+    tenantId KEYWORD,
     name KEYWORD,
     provider KEYWORD,
     clientId KEYWORD NOT INDEXED,
@@ -296,7 +335,9 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_signup (
     displayName KEYWORD,
     authType KEYWORD,
     oidcSubject KEYWORD,
-    oidcConfigId KEYWORD
+    oidcConfigId KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD
 );
 
 -- Pending member invitations (PendingInvite) awaiting acceptance: the invitee's identity, the
@@ -312,8 +353,25 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_invite (
     displayName KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
+    tenantId KEYWORD,
     invitedById KEYWORD,
     invitedByName KEYWORD
+);
+
+-- A tenant of an application (Tenant): the slice of the application's shared rows a group of its users share,
+-- which kinotic_participant_identity.tenantId points into. The id is <organizationId>.<applicationId>.<tenantId>,
+-- routed and keyed by organization like every organization-scoped row.
+CREATE TABLE IF NOT EXISTS kinotic_tenant (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    tenantId KEYWORD,
+    name KEYWORD,
+    createdBy KEYWORD,
+    ssoConfigId KEYWORD,
+    ssoRoleId KEYWORD,
+    created DATE,
+    updated DATE
 );
 
 -- An application's customized invitation email (InviteEmailTemplate): Handlebars sources

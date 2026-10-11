@@ -51,7 +51,7 @@ describe('Kinotic JS', () => {
         // Entity data lives under an APPLICATION-scoped user inside the application just
         // created. A second Kinotic instance authenticates as that user; the entity repo
         // routes through it so participant.tenantId is non-null for SHARED entity ops.
-        context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
+        context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT, context.entityDefinition.name)
         context.entityService = new EntityRepository(
             context.entityDefinition.organizationId,
             context.entityDefinition.applicationId,

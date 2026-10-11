@@ -13,6 +13,8 @@
 
 A workspace package that another workspace package augments at runtime (`core`, which `management-api` and `system-api` extend; `management-api`, which `system-api` extends) is declared as a **peerDependency** with `workspace:^`, plus a `workspace:*` devDependency for local builds. `bun publish` rewrites both from the versions `bun install` recorded in `bun.lock`: the peer becomes `^<current version of that package>`, the devDependency its exact version. So the floor a published consumer resolves against always names the version the package was built against, with nothing to edit by hand.
 
+A workspace package another one only depends on (`idl`, which `core`, `persistence` and `management-api` depend on; `persistence`, which `management-api` depends on) is declared as a **dependency** with `workspace:^`, which `bun publish` rewrites to `^<current version>`. Never `workspace:*` in `dependencies`: it publishes as the exact version, so a consumer whose own floor resolves a newer release gets a second copy of the package.
+
 What still moves by hand is the dependent's own `version`: a package is published only when its version is not on the registry yet, so when a package starts using a new API of one it augments, bump its `version` in the same change, or the publish that carries the new floor never happens.
 
 ## Kinotic Service Registration

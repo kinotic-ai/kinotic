@@ -1,5 +1,9 @@
 package org.kinotic.management.internal.api.services;
 
+import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch.indices.DataStreamVisibility;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
@@ -19,6 +23,7 @@ import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.management.api.services.EntityDefinitionService;
+import org.kinotic.management.api.services.security.PermissionService;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -26,6 +31,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -40,6 +46,8 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final EntityDefinitionProperties entityDefinitionProperties;
     private final DomainPersistenceProperties domainPersistenceProperties;
+    private final RelationshipService relationships;
+    private final PermissionService permissions;
 
     public DefaultEntityDefinitionService(ApplicationEventPublisher eventPublisher,
                                           CrudServiceTemplate crudServiceTemplate,
@@ -47,8 +55,12 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                           EntityDefinitionRepository entityDefinitionRepository,
                                           ManagementApiProperties managementApiProperties,
                                           DomainPersistenceProperties domainPersistenceProperties,
-                                          SecurityContext securityContext) {
+                                          SecurityContext securityContext,
+                                          RelationshipService relationships,
+                                          PermissionService permissions) {
         super(entityDefinitionRepository, securityContext);
+        this.relationships = relationships;
+        this.permissions = permissions;
         this.eventPublisher = eventPublisher;
         this.crudServiceTemplate = crudServiceTemplate;
         this.entityDefinitionConversionService = entityDefinitionConversionService;
@@ -116,7 +128,33 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                        .recover(ex -> AlreadyExistsException.isCause(ex)
                                ? Future.failedFuture(new IllegalArgumentException(
                                "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
-                               : Future.failedFuture(ex));
+                               : Future.failedFuture(ex))
+                       .compose(this::contained);
+    }
+
+    // The definition's place in the graph, written once the record is, so a write that fails leaves a
+    // definition nobody can reach rather than one nobody stores: in the platform's store, where the
+    // organization's members hold it, and in the application's, where its rows are reached through it
+    private Future<EntityDefinition> contained(EntityDefinition entityDefinition) {
+        return relationships.ensure(AuthzStoreService.PLATFORM, List.of(containment(entityDefinition)))
+                            .compose(v -> relationships.ensure(storeOf(entityDefinition), List.of(containment(entityDefinition))))
+                            .map(entityDefinition);
+    }
+
+    private Future<Void> removed(EntityDefinition entityDefinition) {
+        return relationships.remove(AuthzStoreService.PLATFORM, List.of(containment(entityDefinition)))
+                            .compose(v -> relationships.remove(storeOf(entityDefinition), List.of(containment(entityDefinition))));
+    }
+
+    private static String storeOf(EntityDefinition entityDefinition) {
+        return DomainUtil.authzApplicationId(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId());
+    }
+
+    private static RelationshipTuple containment(EntityDefinition entityDefinition) {
+        return new RelationshipTuple(AuthzUtil.object(AuthzUtil.APPLICATION_TYPE,
+                                                      DomainUtil.authzApplicationId(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId())),
+                                     AuthzUtil.APPLICATION_TYPE,
+                                     AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinition.getId()));
     }
 
     @WithSpan
@@ -132,7 +170,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     }
 
     private Future<Void> deleteAndEvict(String entityDefinitionId) {
-        return findById(entityDefinitionId)
+        return super.findById(entityDefinitionId)
                 .compose(entityDefinition -> {
 
                     if (entityDefinition == null) {
@@ -151,9 +189,20 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     return super.deleteByIdSync(entityDefinitionId)
                                 .compose(v -> {
                                     this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.applicationKey(), entityDefinition.getId()));
-                                    return Future.succeededFuture();
+                                    return removed(entityDefinition);
                                 });
                 });
+    }
+
+    // Read before the engine is asked, so a missing id never leaves a denial in the engine's caches for the
+    // record's creation to outlive; the functions the gateway checked on the definition read it with
+    // super.findById
+    @Override
+    public Future<EntityDefinition> findById(String id) {
+        return super.findById(id).compose(entityDefinition -> entityDefinition == null
+                ? Future.succeededFuture(null)
+                : permissions.listAccessible(EntityDefinitionService.RESOURCE_TYPE, AuthzUtil.CAN_VIEW)
+                             .map(ids -> ids.contains(id) ? entityDefinition : null));
     }
 
     @WithSpan
@@ -166,7 +215,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     @WithSpan
     @Override
     public Future<Void> publish(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
-        return findById(entityDefinitionId)
+        return super.findById(entityDefinitionId)
                 .compose(entityDefinition -> {
                     if (entityDefinition == null) {
                         return Future.failedFuture(
@@ -208,7 +257,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         return super.saveSync(entityDefinition)
                                     .compose(entityDefinition1 -> {
                                         this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.applicationKey(), entityDefinition1.getId()));
-                                        return Future.succeededFuture();
+                                        return Future.<Void>succeededFuture();
                                     });
                     });
                 });
@@ -235,7 +284,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             return Future.failedFuture(e);
         }
 
-        return findById(entityDefinition.getId())
+        return super.findById(entityDefinition.getId())
                 .compose(existingEntityDefinition -> {
                     if (existingEntityDefinition == null) {
                         return Future.failedFuture(
@@ -318,7 +367,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     @WithSpan
     @Override
     public Future<Void> unPublish(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
-        return findById(entityDefinitionId)
+        return super.findById(entityDefinitionId)
                 .compose(entityDefinition -> {
                     if (entityDefinition == null) {
                         return Future.failedFuture(
@@ -352,7 +401,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         return super.saveSync(entityDefinition)
                                     .compose(entityDefinition1 -> {
                                         this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.applicationKey(), entityDefinition1.getId()));
-                                        return Future.succeededFuture();
+                                        return Future.<Void>succeededFuture();
                                     });
                     });
                 });

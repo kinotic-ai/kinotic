@@ -77,6 +77,7 @@ resource "helm_release" "kinotic" {
   depends_on = [
     helm_release.eck_stack,
     helm_release.es_secret_sync,
+    helm_release.openfga,
     terraform_data.tls_cert_ready,
     helm_release.reloader,
     azurerm_role_assignment.kinotic_server_kv_secrets,

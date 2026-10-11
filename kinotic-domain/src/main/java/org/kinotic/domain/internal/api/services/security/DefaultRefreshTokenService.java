@@ -15,6 +15,7 @@ import org.kinotic.domain.internal.api.repositories.RefreshTokenRepository;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -85,11 +86,7 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
 
         if (current.isRevoked()) {
             // Reuse of an already-rotated token — the lineage is compromised; revoke it entirely.
-            log.warn("Refresh token reuse detected for family {}; revoking the whole family", current.getFamilyId());
-
-            return revokeFamily(current.getFamilyId())
-                    .compose(v -> Future.failedFuture(
-                            new IllegalArgumentException("Refresh token reuse detected")));
+            return reuseDetected(current.getFamilyId());
         }
 
         if (current.getExpiresAt().before(new Date())) {
@@ -114,23 +111,30 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                     // never leaves the client without a usable token.
                     return mint(current.getIdentityId(), current.getFamilyId(), current.getAudience(),
                                 current.getLabel())
-                            .compose(minted -> {
-                                current.setRevoked(true)
-                                       .setLastUsedAt(new Date())
-                                       .setReplacedById(minted.record().getId());
-
-                                return refreshTokenRepository.saveSync(current)
-                                        .map(new RefreshTokenRotation(identity, minted.plaintext(),
-                                                                      current.getAudience()));
-                            });
+                            .compose(minted -> refreshTokenRepository.consume(current.getId(), minted.record().getId(), Instant.now())
+                                    .compose(consumed -> {
+                                        Future<RefreshTokenRotation> ret;
+                                        if (consumed) {
+                                            ret = Future.succeededFuture(new RefreshTokenRotation(identity, minted.plaintext(),
+                                                                                                  current.getAudience()));
+                                        } else {
+                                            // another rotation of the same token landed between the read above and this
+                                            // write: two presentations of one token, the compromise the revoked check
+                                            // catches when they are further apart, so the family dies, the replacement
+                                            // just minted with it
+                                            ret = reuseDetected(current.getFamilyId());
+                                        }
+                                        return ret;
+                                    }));
                 });
     }
 
     // unscoped by design: reuse detection already proved the lineage compromised, so the
     // whole family dies regardless of which identity its rows carry
-    private Future<Void> revokeFamily(String familyId) {
-        return revokeMatching(refreshTokenRepository.findByFamilyId(familyId),
-                              t -> true);
+    private Future<RefreshTokenRotation> reuseDetected(String familyId) {
+        log.warn("Refresh token reuse detected for family {}; revoking the whole family", familyId);
+        return revokeMatching(refreshTokenRepository.findByFamilyId(familyId), t -> true)
+                .compose(v -> Future.failedFuture(new IllegalArgumentException("Refresh token reuse detected")));
     }
 
     /**
@@ -141,11 +145,13 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
     private Future<Void> revokeMatching(Future<List<RefreshToken>> tokens,
                                         Predicate<RefreshToken> scope) {
         return tokens.compose(list -> {
-            List<Future<RefreshToken>> saves = list.stream()
+            // revoked in the shard operation, so a rotation consuming one of them at the same time loses
+            // nothing it wrote, and the family ends revoked either way
+            List<Future<Boolean>> revocations = list.stream()
                     .filter(t -> !t.isRevoked() && scope.test(t))
-                    .map(t -> refreshTokenRepository.saveSync(t.setRevoked(true)))
+                    .map(t -> refreshTokenRepository.revoke(t.getId()))
                     .toList();
-            return Future.all(saves).mapEmpty();
+            return Future.all(revocations).mapEmpty();
         });
     }
 

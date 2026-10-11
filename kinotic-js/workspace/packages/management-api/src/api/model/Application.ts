@@ -1,4 +1,5 @@
 import type { Identifiable } from '@kinotic-ai/core'
+import type { OnboardingMechanism } from '@/api/model/OnboardingMechanism'
 
 export class Application implements Identifiable<string> {
 
@@ -19,11 +20,11 @@ export class Application implements Identifiable<string> {
     public description: string
 
     /**
-     * When true, every APPLICATION-scope user created for this application receives an
-     * auto-generated unique tenantId, isolating each user's SHARED entity data in its own
-     * tenant. Applies only to users created after it is enabled.
+     * The ways a user comes to belong to a tenant of this application: the mechanisms it enables, none for an
+     * application whose users share one tenant-less set of data. TENANT_PER_USER applies to users created
+     * while it is enabled and excludes the other mechanisms; existing users are not backfilled.
      */
-    public tenantPerUser: boolean = false
+    public onboarding: OnboardingMechanism[] = []
 
     /**
      * Name of the UI whose site this application's browser flows return to, such as its OAuth

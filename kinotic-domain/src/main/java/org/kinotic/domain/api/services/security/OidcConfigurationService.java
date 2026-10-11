@@ -50,4 +50,31 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
      * @param applicationId the application within it, or {@code null} for the organization scope
      */
     Future<List<BaseOidcConfiguration>> findEnabledForScope(String organizationId, String applicationId);
+
+    /**
+     * The configuration a tenant signs its users in with, or null when the tenant has none, has one that is
+     * disabled, or does not exist. Serves the login lookup, which runs before a participant is bound.
+     *
+     * @param organizationId the application's organization
+     * @param applicationId  the application
+     * @param tenantId       the tenant's id within the application
+     */
+    Future<OidcConfiguration> findTenantLoginConfig(String organizationId, String applicationId, String tenantId);
+
+    /**
+     * Saves a tenant's SSO configuration, owned by the organization, application and tenant named on it, for
+     * the tenant services, which check the caller's tenant before calling. A new configuration is given its id
+     * and dates.
+     *
+     * @param configuration the configuration, naming its organization, application and tenant
+     * @return the configuration as saved
+     */
+    Future<OidcConfiguration> saveTenantConfig(OidcConfiguration configuration);
+
+    /**
+     * Deletes a tenant's SSO configuration.
+     *
+     * @param configuration the configuration, naming its organization and tenant
+     */
+    Future<Void> deleteTenantConfig(OidcConfiguration configuration);
 }

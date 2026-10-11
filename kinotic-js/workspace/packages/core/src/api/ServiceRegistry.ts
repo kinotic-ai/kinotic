@@ -13,6 +13,9 @@ import { Event } from './event/EventBus'
 import { EventConstants, type IEvent, type IEventBus } from './event/IEventBus'
 import type {IEventFactory, IServiceProxy, IServiceRegistry} from './IServiceRegistry'
 import type {ContextInterceptor, ServiceContext} from './ContextInterceptor'
+import type { ServiceDefinition } from '@kinotic-ai/idl'
+import { declaresAuthz, isAdvertised } from './KinoticDecorators'
+import type { ServiceDirectoryEntry } from './ServiceDirectoryEntry'
 
 /**
  * An implementation of a {@link IEventFactory} which uses JSON content
@@ -54,11 +57,95 @@ export class TextEventFactory implements IEventFactory {
 }
 
 /**
+ * The platform service a runtime registers its application services with, in the zone an organization's
+ * runtimes reach.
+ */
+const SERVICE_DIRECTORY_SERVICE = 'app-api~org.kinotic.app.api.services.ServiceDirectoryService'
+// an application's zone is app.<organizationId>.<applicationId>, with the service's own labels after it
+const APPLICATION_ZONE = /^app\.[^.]+\.([^.]+)(\.|$)/
+
+// the definitions declared for the project's published services, by qualified name
+const declaredDefinitions = new Map<string, ServiceDefinition>()
+
+/**
+ * Declares the definitions of the project's published services, as `kinotic sync` generates them into the
+ * project's ServiceDefinitions module, so every registry registers each service in the platform's service
+ * directory with its definition when the service comes online. A definition declared again for a qualified
+ * name replaces the one held.
+ * @param definitions the generated definitions
+ */
+export function declareServiceDefinitions(definitions: ServiceDefinition[]): void {
+    for (const definition of definitions) {
+        declaredDefinitions.set(qualifiedNameOf(definition.namespace, definition.name), definition)
+    }
+}
+
+// The namespace and name joined with '.', omitting an absent namespace, as the identifier qualifies them
+function qualifiedNameOf(namespace: string | null | undefined, name: string): string {
+    return namespace ? `${namespace}.${name}` : name
+}
+
+// The names of the methods an instance serves: the same prototype walk the invocation supervisor makes
+function servedFunctions(serviceInstance: object): string[] {
+    const ret = new Set<string>()
+    let proto = Object.getPrototypeOf(serviceInstance)
+    while (proto && proto !== Object.prototype) {
+        for (const key of Object.getOwnPropertyNames(proto)) {
+            const descriptor = Object.getOwnPropertyDescriptor(proto, key)
+            if (typeof descriptor?.value === 'function' && key !== 'constructor') {
+                ret.add(key)
+            }
+        }
+        proto = Object.getPrototypeOf(proto)
+    }
+    return [...ret].sort()
+}
+
+/**
+ * The directory entry of a service registered in an application's zone: the definition the project declared
+ * for it, which names exactly the functions the instance serves, with what the registration adds. Null for a
+ * service in no application's zone, or one the project declared no definition for, which the platform refuses
+ * to serve, since no contract says how.
+ * @throws when the definition declares other functions than the instance serves, or the service declares a
+ *         resource or is marked unchecked and the project declares no definition for it
+ */
+function directoryEntryOf(serviceInstance: object, serviceIdentifier: ServiceIdentifier): ServiceDirectoryEntry | null {
+    let ret: ServiceDirectoryEntry | null = null
+    const application = serviceIdentifier.zone ? APPLICATION_ZONE.exec(serviceIdentifier.zone) : null
+    if (application) {
+        const qualifiedName = qualifiedNameOf(serviceIdentifier.namespace, serviceIdentifier.name)
+        const definition = declaredDefinitions.get(qualifiedName)
+        if (definition) {
+            const declared = definition.functions.map(f => f.name).sort()
+            const served = servedFunctions(serviceInstance)
+            if (declared.join() !== served.join()) {
+                throw new Error(`${qualifiedName} serves the functions [${served}] but its definition declares [${declared}];`
+                                + ' run kinotic sync and import the generated ServiceDefinitions module')
+            }
+            ret = {
+                // the group is what the zone matched on
+                applicationId: application[1] as string,
+                zone: serviceIdentifier.zone as string,
+                version: serviceIdentifier.version ?? null,
+                advertised: isAdvertised(serviceInstance),
+                serviceDefinition: definition
+            }
+        } else if (declaresAuthz(serviceInstance)) {
+            throw new Error(`${qualifiedName} declares a resource or is marked unchecked, but the project declares no definition for it;`
+                            + ' run kinotic sync and import the generated ServiceDefinitions module')
+        }
+    }
+    return ret
+}
+
+/**
  * The default implementation of {@link IServiceRegistry}
  */
 export class ServiceRegistry implements IServiceRegistry {
     private _eventBus: IEventBus
     private supervisors: Map<string, ServiceInvocationSupervisor> = new Map()
+    // the directory entries of the application services registered, by CRI, registered once the connection is up
+    private entries: Map<string, ServiceDirectoryEntry> = new Map()
     private contextInterceptor: ContextInterceptor<any> | null = null
     private debugLogger = debug('kinotic:serviceRegistry')
 
@@ -86,6 +173,8 @@ export class ServiceRegistry implements IServiceRegistry {
         const criString = serviceIdentifier.cri().raw()
         if (!this.supervisors.has(criString)) {
             this.debugLogger(`Registering service for CRI: ${criString}`)
+            // resolved before the supervisor starts, so a service whose entry cannot be built never serves
+            const entry = directoryEntryOf(service, serviceIdentifier)
             const supervisor = new ServiceInvocationSupervisor(
                 serviceIdentifier,
                 service,
@@ -94,6 +183,12 @@ export class ServiceRegistry implements IServiceRegistry {
             )
             this.supervisors.set(criString, supervisor)
             supervisor.start()
+            if (entry) {
+                this.entries.set(criString, entry)
+                if (this.eventBus.isConnected()) {
+                    this.registerEntry(entry).catch(error => this.debugLogger(`Failed to register ${criString} in the directory`, error))
+                }
+            }
         }
     }
 
@@ -104,7 +199,25 @@ export class ServiceRegistry implements IServiceRegistry {
             this.debugLogger(`Unregistering service for CRI: ${criString}`)
             supervisor.stop()
             this.supervisors.delete(criString)
+            this.entries.delete(criString)
         }
+    }
+
+    /**
+     * Registers every application service registered so far in the platform's service directory, with the
+     * definition the project declared for it, so the directory lists the service and the platform checks
+     * requests to it; a service the platform refuses fails the registration. A service registered later is
+     * registered in the directory as it registers here.
+     */
+    public async registerEntries(): Promise<void> {
+        for (const entry of this.entries.values()) {
+            await this.registerEntry(entry)
+        }
+    }
+
+    private async registerEntry(entry: ServiceDirectoryEntry): Promise<void> {
+        this.debugLogger(`Registering ${entry.zone}~${qualifiedNameOf(entry.serviceDefinition.namespace, entry.serviceDefinition.name)} in the directory`)
+        await this.serviceProxy(SERVICE_DIRECTORY_SERVICE).invoke('register', [entry])
     }
 
     public registerContextInterceptor<T extends ServiceContext>(interceptor: ContextInterceptor<T> | null): void {
