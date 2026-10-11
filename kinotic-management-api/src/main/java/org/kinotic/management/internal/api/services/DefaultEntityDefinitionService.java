@@ -22,6 +22,7 @@ import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
@@ -42,7 +43,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final DomainPersistenceProperties domainPersistenceProperties;
 
     public DefaultEntityDefinitionService(ApplicationEventPublisher eventPublisher,
-                                          CrudServiceTemplate crudServiceTemplate,
+                                          @Qualifier(DomainUtil.ENTITY_DATA_CRUD_SERVICE_TEMPLATE) CrudServiceTemplate crudServiceTemplate,
                                           EntityDefinitionConversionService entityDefinitionConversionService,
                                           EntityDefinitionRepository entityDefinitionRepository,
                                           ManagementApiProperties managementApiProperties,

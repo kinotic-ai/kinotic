@@ -1,5 +1,7 @@
 package org.kinotic.sql.executor.executors;
 
+import org.kinotic.sql.KinoticSqlLibrary;
+import org.springframework.beans.factory.annotation.Qualifier;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -24,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 @Component
 @RequiredArgsConstructor
 public class CreateComponentTemplateStatementExecutor implements StatementExecutor<CreateComponentTemplateStatement, Void> {
+    @Qualifier(KinoticSqlLibrary.ELASTIC_CLIENT)
     private final ElasticsearchAsyncClient client;
 
     @Override

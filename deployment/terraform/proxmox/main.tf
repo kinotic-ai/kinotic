@@ -229,9 +229,12 @@ locals {
   # Azure root's outputs, and the addresses only this root knows. The secret half is merged on
   # the host.
   server_env = merge(local.azure.dev_server_env, merge([for i, ip in local.es_ips : {
-    "KINOTIC_DOMAIN_ELASTICCONNECTIONS_${i}_SCHEME" = "http"
-    "KINOTIC_DOMAIN_ELASTICCONNECTIONS_${i}_HOST"   = ip
-    "KINOTIC_DOMAIN_ELASTICCONNECTIONS_${i}_PORT"   = "9200"
+    "KINOTIC_DOMAIN_ELASTIC_CONNECTIONS_${i}_SCHEME"             = "http"
+    "KINOTIC_DOMAIN_ELASTIC_CONNECTIONS_${i}_HOST"               = ip
+    "KINOTIC_DOMAIN_ELASTIC_CONNECTIONS_${i}_PORT"               = "9200"
+    "KINOTIC_DOMAIN_PERSISTENCE_ELASTIC_CONNECTIONS_${i}_SCHEME" = "http"
+    "KINOTIC_DOMAIN_PERSISTENCE_ELASTIC_CONNECTIONS_${i}_HOST"   = ip
+    "KINOTIC_DOMAIN_PERSISTENCE_ELASTIC_CONNECTIONS_${i}_PORT"   = "9200"
     }]...), {
     SPRING_PROFILES_ACTIVE       = "production,dev-server"
     BPL_JVM_HEAD_ROOM            = "10"

@@ -35,9 +35,13 @@ x-kinotic-server-environment: &kinotic-server-environment
   # at about 10 MB whatever the connection count, and Ignite off-heap about 1 KB per connection
   JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=256m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
   KINOTIC_MAX_OFF_HEAP_MEMORY: 134217728
-  KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_SCHEME: http
-  KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_HOST: kinotic-elasticsearch
-  KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_PORT: 9200
+  # The domain objects and the entity data share the one Elasticsearch node
+  KINOTIC_DOMAIN_ELASTIC_CONNECTIONS_0_SCHEME: http
+  KINOTIC_DOMAIN_ELASTIC_CONNECTIONS_0_HOST: kinotic-elasticsearch
+  KINOTIC_DOMAIN_ELASTIC_CONNECTIONS_0_PORT: 9200
+  KINOTIC_DOMAIN_PERSISTENCE_ELASTIC_CONNECTIONS_0_SCHEME: http
+  KINOTIC_DOMAIN_PERSISTENCE_ELASTIC_CONNECTIONS_0_HOST: kinotic-elasticsearch
+  KINOTIC_DOMAIN_PERSISTENCE_ELASTIC_CONNECTIONS_0_PORT: 9200
   KINOTIC_DOMAIN_EMAIL_ENABLED: "false"
   # The servers find each other over this static address list and form one Ignite cluster
   KINOTIC_IGNITE_DISCOVERYTYPE: LOCAL

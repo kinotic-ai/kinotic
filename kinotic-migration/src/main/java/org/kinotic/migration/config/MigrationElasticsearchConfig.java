@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.message.BasicHeader;
+import org.kinotic.sql.KinoticSqlLibrary;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.databind.json.JsonMapper;
@@ -26,7 +27,7 @@ public class MigrationElasticsearchConfig {
 
     private final MirationProperties properties;
 
-    @Bean
+    @Bean(KinoticSqlLibrary.ELASTIC_CLIENT)
     public ElasticsearchAsyncClient elasticsearchAsyncClient(JsonpMapper jsonpMapper){
 
         var builder = Rest5Client.builder(new HttpHost(properties.getElasticScheme(),

@@ -28,10 +28,19 @@ kinotic:
       enabled: true
       endpoint: https://acs-kinotic.communication.azure.com
       sender-address: "DoNotReply@kinotic.ai"
-    elastic-connections:
-      - scheme: "http"
-        host: "localhost"
-        port: "9200"
+    # the cluster that stores the platform's domain objects
+    elastic:
+      connections:
+        - scheme: "http"
+          host: "localhost"
+          port: "9200"
+    # the cluster that stores entity data
+    persistence:
+      elastic:
+        connections:
+          - scheme: "http"
+            host: "localhost"
+            port: "9200"
     secretStorage:
       backend: ~
       # Base64-encoded 32-byte key used by SecretNameDeriver to derive opaque, deterministic

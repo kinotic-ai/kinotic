@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
@@ -22,6 +23,7 @@ import org.kinotic.domain.api.model.persistence.DecoratedProperty;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -54,8 +56,8 @@ public class EntityServiceCache {
     private final AsyncLoadingCache<CacheKey, EntityService> cache;
 
     public EntityServiceCache(AuthorizationServiceFactory authServiceFactory,
-                                    CrudServiceTemplate crudServiceTemplate,
-                                    ElasticsearchAsyncClient esAsyncClient,
+                                    @Qualifier(DomainUtil.ENTITY_DATA_CRUD_SERVICE_TEMPLATE) CrudServiceTemplate crudServiceTemplate,
+                                    @Qualifier(DomainUtil.ENTITY_DATA_ELASTIC_CLIENT) ElasticsearchAsyncClient esAsyncClient,
                                     NamedQueriesService namedQueriesService,
                                     JsonMapper jsonMapper,
                                     ReadPreProcessor readPreProcessor,
