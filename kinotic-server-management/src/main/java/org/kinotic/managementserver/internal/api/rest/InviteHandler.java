@@ -6,19 +6,18 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
+import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.exceptions.InviteEmailMismatchException;
 import org.kinotic.domain.api.services.security.InviteService;
-import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
+import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.api.rest.support.CallbackResult;
 import org.kinotic.domain.api.rest.support.OAuth2Util;
 import org.kinotic.domain.api.rest.support.OidcCallbackException;
 import org.kinotic.domain.api.rest.support.OidcErrorCodes;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
-import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.managementserver.api.config.ManagementServerProperties;
 import org.springframework.stereotype.Component;
@@ -45,7 +44,6 @@ public class InviteHandler implements SuppliesGatewayRoutes {
     private final InviteService inviteService;
     private final OrganizationService organizationService;
     private final OidcConfigurationService oidcConfigurationService;
-    private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
     private final ManagementServerProperties properties;
@@ -73,7 +71,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
               .compose(invite -> {
                   Future<String> orgName = organizationService.findById(invite.getOrganizationId())
                           .map(org -> org == null ? null : org.getName());
-                  Future<List<BaseOidcConfiguration>> providers =
+                  Future<List<OidcConfiguration>> providers =
                           oidcConfigurationService.findEnabledForScope(invite.getOrganizationId(),
                                                                       invite.getApplicationId());
                   return Future.all(orgName, providers)
@@ -156,7 +154,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
     private void handleOidcCallback(RoutingContext ctx) {
         String pathConfigId = ctx.pathParam("configId");
 
-        oidcFlowOrchestrator.<BaseOidcConfiguration>handleCallback(
+        oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
                 ctx, pathConfigId, inviteCallbackUrl(pathConfigId),
                 orgId -> resolveCallbackConfig(pathConfigId, orgId))
                 .onSuccess(result -> completeOidcAccept(ctx, result))
@@ -182,7 +180,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
      * lands in the web app; an application member is sent to the accept page's confirmation
      * state and signs in at the application's own UI.
      */
-    private void completeOidcAccept(RoutingContext ctx, CallbackResult<BaseOidcConfiguration> result) {
+    private void completeOidcAccept(RoutingContext ctx, CallbackResult<OidcConfiguration> result) {
         String token = result.inviteToken();
         Map<String, Object> claims = result.claims();
 
@@ -235,7 +233,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
         return oidcConfigurationService.findEnabledForScope(invite.getOrganizationId(),
                                                             invite.getApplicationId())
                      .compose(offered -> {
-                         BaseOidcConfiguration chosen = offered.stream()
+                         OidcConfiguration chosen = offered.stream()
                                                               .filter(c -> configId.equals(c.getId()))
                                                               .findFirst()
                                                               .orElse(null);
@@ -251,18 +249,17 @@ public class InviteHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * Resolves the callback's config, which may live in either table: platform social
-     * configs (unscoped) or org SSO / app configs (org-scoped by the flow session's orgId).
+     * Resolves the callback's config, which may be of either kind: a platform social config
+     * (unscoped) or an org SSO / app config (org-scoped by the flow session's orgId).
      */
-    private Future<BaseOidcConfiguration> resolveCallbackConfig(String configId, String orgId) {
-        // Searching both tables by bare id is safe: we only get here after the orchestrator
+    private Future<OidcConfiguration> resolveCallbackConfig(String configId, String orgId) {
+        // Looking both kinds up by bare id is safe: we only get here after the orchestrator
         // matched the path's configId against the flow session, and that session value was
         // written by handleOidcStart, which only accepts configs the invite's target scope
-        // offers. So whatever this finds is a config the start leg already approved (ids
-        // are per-row UUIDs, so the same id cannot exist in both tables).
-        return orgSignupOidcConfigurationService.findById(configId)
+        // offers. So whatever this finds is a config the start leg already approved.
+        return oidcConfigurationService.findPlatformById(configId)
                 .compose(social -> {
-                    Future<BaseOidcConfiguration> ret;
+                    Future<OidcConfiguration> ret;
                     if (social != null) {
                         ret = Future.succeededFuture(social);
                     } else if (orgId == null) {
@@ -272,7 +269,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                     } else {
                         // The cast widens the future's element type — Future is invariant.
                         ret = oidcConfigurationService.findById(configId, orgId)
-                                                      .map(c -> (BaseOidcConfiguration) c);
+                                                      .map(c -> (OidcConfiguration) c);
                     }
                     return ret;
                 });

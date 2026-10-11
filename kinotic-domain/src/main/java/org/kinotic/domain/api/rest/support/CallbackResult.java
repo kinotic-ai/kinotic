@@ -1,6 +1,6 @@
 package org.kinotic.domain.api.rest.support;
 
-import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
+import org.kinotic.domain.api.model.security.OidcConfiguration;
 
 import java.util.Map;
 
@@ -10,7 +10,7 @@ import java.util.Map;
  * {@code inviteToken} stashed on the flow session at start (flows that stashed neither
  * leave them {@code null}), and the {@code origin} of the page that started the flow.
  */
-public record CallbackResult<C extends BaseOidcConfiguration>(
+public record CallbackResult<C extends OidcConfiguration>(
         C config,
         Map<String, Object> claims,
         String orgId,

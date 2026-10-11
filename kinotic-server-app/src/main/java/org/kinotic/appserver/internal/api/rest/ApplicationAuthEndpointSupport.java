@@ -13,7 +13,7 @@ import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.services.security.KinoticJwtIssuer;
-import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
+import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.RefreshTokenService;
 import org.springframework.stereotype.Component;
@@ -32,11 +32,11 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
     public ApplicationAuthEndpointSupport(AppServerProperties properties,
                                           ApplicationRepository applicationRepository,
                                           KinoticJwtIssuer jwtIssuer,
-                                          OrgSignupOidcConfigurationService orgSignupOidcConfigurationService,
+                                          OidcConfigurationService oidcConfigurationService,
                                           OidcFlowOrchestrator oidcFlowOrchestrator,
                                           ParticipantIdentityService identityService,
                                           RefreshTokenService refreshTokenService) {
-        super(jwtIssuer, orgSignupOidcConfigurationService, oidcFlowOrchestrator, identityService, refreshTokenService);
+        super(jwtIssuer, oidcConfigurationService, oidcFlowOrchestrator, identityService, refreshTokenService);
         this.properties = properties;
         this.applicationRepository = applicationRepository;
     }

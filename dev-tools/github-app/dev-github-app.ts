@@ -34,7 +34,7 @@ const ENVIRONMENT_DIR = join(homedir(), '.kinotic', 'dev-environment')
 const MANAGEMENT_SERVER = 'kinotic-server-management'
 const SYSTEM_SERVER = 'kinotic-server-system'
 const APP_JSON = join(ENVIRONMENT_DIR, 'github-app.json')
-// The OrgSignupOidcConfiguration row id and secretNameRef seeded in V1__init.sql
+// The PlatformOidcConfiguration row id and secretNameRef seeded in V1__init.sql
 const SIGN_IN_CONFIG_ID = 'github-platform'
 // Organization the development migration seeds and its kinotic@kinotic.local user belongs to
 const DEFAULT_ORGANIZATION_ID = 'kinotic-test'
@@ -256,7 +256,7 @@ async function syncEs(app: CreatedApp) {
 }
 
 async function pointSignInRow(clientId: string) {
-    const resp = await fetch(`${values.es}/kinotic_org_signup_oidc_configuration/_update/${SIGN_IN_CONFIG_ID}?refresh=true`, {
+    const resp = await fetch(`${values.es}/kinotic_oidc_configuration/_update/${SIGN_IN_CONFIG_ID}?refresh=true`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         // updated is part of the server's OAuth client cache key, so the new client id takes effect

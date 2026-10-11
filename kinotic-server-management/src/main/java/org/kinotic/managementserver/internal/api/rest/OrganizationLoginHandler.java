@@ -12,12 +12,11 @@ import org.kinotic.domain.api.rest.support.CallbackResult;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.security.AuthType;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
-import org.kinotic.domain.api.model.security.OidcConfiguration;
-import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
+import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
+import org.kinotic.domain.api.model.security.PlatformOidcConfiguration;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
-import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.managementserver.api.config.ManagementServerProperties;
 import org.springframework.stereotype.Component;
@@ -42,7 +41,6 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcConfigurationService oidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
-    private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
 
     @Override
     public void mountRoutes(Router router) {
@@ -80,11 +78,11 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
      * even when several configs share a kind.
      */
     private void handleProviders(RoutingContext ctx) {
-        orgSignupOidcConfigurationService.findAllEnabled()
+        oidcConfigurationService.findEnabledPlatformProviders()
               .onSuccess(configs -> {
                   JsonArray providers = new JsonArray();
                   Set<String> seen = new LinkedHashSet<>();
-                  for (OrgSignupOidcConfiguration c : configs) {
+                  for (PlatformOidcConfiguration c : configs) {
                       if (c.getProvider() == null) continue;
                       String key = c.getProvider().key();
                       if (seen.add(key)) providers.add(key);
@@ -107,12 +105,12 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
         oidcFlowOrchestrator.handleCallback(ctx,
                                             pathConfigId,
                                             socialCallbackUrl(pathConfigId),
-                                            _ -> orgSignupOidcConfigurationService.findById(pathConfigId))
+                                            _ -> oidcConfigurationService.findPlatformById(pathConfigId))
                             .onSuccess(result -> completeSocialLogin(ctx, result))
                             .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
 
-    private void completeSocialLogin(RoutingContext ctx, CallbackResult<OrgSignupOidcConfiguration> result) {
+    private void completeSocialLogin(RoutingContext ctx, CallbackResult<PlatformOidcConfiguration> result) {
         authEndpointSupport.completeOidcLogin(ctx, result,
                 sub -> identityService.findOrgUserByOidcIdentity(sub, result.config().getId()));
     }
@@ -132,7 +130,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
     private void handleSsoCallback(RoutingContext ctx) {
         String pathConfigId = ctx.pathParam("configId");
 
-        // OidcConfiguration is OrganizationScoped; the pre-auth callback has no participant
+        // OrganizationOidcConfiguration is OrganizationScoped; the pre-auth callback has no participant
         // bound, so the lookup is scoped by the orgId stashed on the flow session at startFlow.
         // The configId is trusted — it came from the IdP redirect we issued ourselves.
         oidcFlowOrchestrator.handleCallback(ctx,
@@ -143,7 +141,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
                             .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
 
-    private void completeSsoLogin(RoutingContext ctx, CallbackResult<OidcConfiguration> result) {
+    private void completeSsoLogin(RoutingContext ctx, CallbackResult<OrganizationOidcConfiguration> result) {
         authEndpointSupport.completeOidcLogin(ctx, result,
                 sub -> identityService.findByOidcIdentity(sub, result.config().getId(), result.orgId(), null));
     }

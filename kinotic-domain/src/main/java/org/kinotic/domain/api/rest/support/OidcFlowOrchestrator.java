@@ -21,7 +21,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.kinotic.core.api.security.SessionBinding;
-import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
+import org.kinotic.domain.api.model.security.OidcConfiguration;
+import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
+import org.kinotic.domain.api.model.security.PlatformOidcConfiguration;
+import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 import org.kinotic.domain.internal.api.rest.support.OidcFlowSession;
@@ -57,6 +60,7 @@ public class OidcFlowOrchestrator {
                     .maximumSize(1_000)
                     .buildAsync();
     private final SecretReferenceResolver secretReferenceResolver;
+    private final OidcConfigurationService oidcConfigurationService;
     private final Vertx vertx;
     private WebClient webClient;
 
@@ -88,7 +92,7 @@ public class OidcFlowOrchestrator {
      *                       the config is unknown; a config that is no longer enabled is
      *                       rejected here, so the resolver need not check it.
      */
-    public <C extends BaseOidcConfiguration> Future<CallbackResult<C>> handleCallback(
+    public <C extends OidcConfiguration> Future<CallbackResult<C>> handleCallback(
             RoutingContext ctx,
             String pathConfigId,
             String callbackUrl,
@@ -135,7 +139,7 @@ public class OidcFlowOrchestrator {
      * against issuer, audience and nonce for OIDC providers, or claims fetched from the
      * provider's identity endpoint for rows that set {@code userInfoUri}.
      */
-    private Future<Map<String, Object>> verifiedClaims(BaseOidcConfiguration config, User user, OidcFlowSession flowSession) {
+    private Future<Map<String, Object>> verifiedClaims(OidcConfiguration config, User user, OidcFlowSession flowSession) {
         Future<Map<String, Object>> ret;
         if (config.getUserInfoUri() != null && !config.getUserInfoUri().isBlank()) {
             // A provider configured with an identity endpoint issues no id_token, so there is no
@@ -174,19 +178,19 @@ public class OidcFlowOrchestrator {
      *              config lookup by, or {@code null} for non-org-scoped flows.
      */
     public Future<String> startFlow(RoutingContext ctx,
-                                    BaseOidcConfiguration config,
+                                    OidcConfiguration config,
                                     String callbackUrl,
                                     String orgId) {
         return startFlow(ctx, config, callbackUrl, orgId, null);
     }
 
     /**
-     * {@link #startFlow(RoutingContext, BaseOidcConfiguration, String, String)} for an
+     * {@link #startFlow(RoutingContext, OidcConfiguration, String, String)} for an
      * invitation-accept flow: additionally stashes the invite's accept token on the session
      * so the callback can complete the acceptance.
      */
     public Future<String> startFlow(RoutingContext ctx,
-                                    BaseOidcConfiguration config,
+                                    OidcConfiguration config,
                                     String callbackUrl,
                                     String orgId,
                                     String inviteToken) {
@@ -221,7 +225,7 @@ public class OidcFlowOrchestrator {
      * @param config       the persisted OIDC configuration (must have authority set)
      * @param clientSecret resolved client secret, or null for public-client flows
      */
-    private Future<OAuth2Auth> createOAuth2Auth(BaseOidcConfiguration config, String clientSecret) {
+    private Future<OAuth2Auth> createOAuth2Auth(OidcConfiguration config, String clientSecret) {
         Future<OAuth2Auth> ret;
         if (config.getAuthorizationUri() != null || config.getTokenUri() != null) {
             if (config.getAuthorizationUri() == null || config.getTokenUri() == null) {
@@ -323,7 +327,7 @@ public class OidcFlowOrchestrator {
      * {@code email}; {@code userEmailsUri}, when set, supplies the definitive {@code email}
      * and {@code email_verified} from a GitHub-style emails array.
      */
-    private Future<Map<String, Object>> fetchApiClaims(BaseOidcConfiguration config, User user) {
+    private Future<Map<String, Object>> fetchApiClaims(OidcConfiguration config, User user) {
         String accessToken = user.principal().getString("access_token");
         return apiGet(accessToken, config.getUserInfoUri())
                 .map(response -> profileClaims(response.bodyAsJsonObject()))
@@ -433,21 +437,36 @@ public class OidcFlowOrchestrator {
      * configuration takes effect on the next flow. A discovery that fails is not cached, so the next
      * flow retries it.
      */
-    private Future<OAuth2Auth> getOAuth2Auth(BaseOidcConfiguration config) {
-        // Keying on updated as well as id is what picks up an edited clientId/authority/secretNameRef:
-        // both call sites pass a row read for this request, so a save misses the cache on every node
-        // without an invalidation message, and the superseded entry ages out on its own.
+    private Future<OAuth2Auth> getOAuth2Auth(OidcConfiguration config) {
+        // Keying on updated as well as id is what picks up an edited clientId/authority or a replaced
+        // client secret, which is saved along with the row: both call sites pass a row read for this
+        // request, so a save misses the cache on every node without an invalidation message, and the
+        // superseded entry ages out on its own.
         String key = config.getId() + ':' + (config.getUpdated() != null ? config.getUpdated().getTime() : 0);
         // AsyncCache evicts an entry whose future completes exceptionally, which is what keeps a
         // transient discovery failure from being cached — the loader must not touch the cache itself
         CompletableFuture<OAuth2Auth> cached =
                 oauth2AuthCache.get(key,
-                                    (id, executor) -> secretReferenceResolver.resolve(config.getSecretNameRef())
-                                                                             .compose(secret -> createOAuth2Auth(config, secret))
-                                                                             .toCompletionStage()
-                                                                             .toCompletableFuture());
+                                    (id, executor) -> clientSecretOf(config)
+                                            .compose(secret -> createOAuth2Auth(config, secret))
+                                            .toCompletionStage()
+                                            .toCompletableFuture());
         return Future.fromCompletionStage(cached, vertx.getOrCreateContext())
                      .onFailure(err -> log.error("Failed to initialize OAuth2Auth for config {}", config.getId(), err));
+    }
+
+    /**
+     * The client secret {@code config} sends its provider, or null for a public client, read from where
+     * its kind of configuration keeps it: the platform's secret storage, under the name the operator
+     * gave a curated provider, or the owning organization's scope of the secret storage for a
+     * configuration an organization saved.
+     */
+    private Future<String> clientSecretOf(OidcConfiguration config) {
+        return switch (config) {
+            case PlatformOidcConfiguration platform -> secretReferenceResolver.resolve(platform.getSecretNameRef());
+            // an organization's administrator controls this row, so nothing on it may name a platform secret
+            case OrganizationOidcConfiguration owned -> oidcConfigurationService.findClientSecret(owned);
+        };
     }
 
 }

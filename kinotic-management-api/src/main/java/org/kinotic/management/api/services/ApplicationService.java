@@ -4,7 +4,7 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.domain.api.model.Application;
-import org.kinotic.domain.api.model.security.OidcConfiguration;
+import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
 import org.kinotic.idl.api.annotations.McpTool;
 
 import java.util.List;
@@ -41,7 +41,7 @@ public interface ApplicationService extends IdentifiableCrudService<Application,
      *         configurations attached; fails when the id names no application in the
      *         caller's organization
      */
-    Future<List<OidcConfiguration>> getOidcConfigurations(String applicationId);
+    Future<List<OrganizationOidcConfiguration>> getOidcConfigurations(String applicationId);
 
 }
 

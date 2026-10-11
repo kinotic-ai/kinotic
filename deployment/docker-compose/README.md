@@ -127,7 +127,7 @@ What this gives you:
   The management server's container picks the secret up from the `KINOTIC_AKV_KEYCLOAK` env
   var via the dev-fallback `EnvVarSecretReferenceResolver`.
 - The **Continue with Keycloak** button isn't wired automatically — the social-button
-  list is sourced from `kinotic_org_signup_oidc_configuration` rows, and no migration
+  list is sourced from the `type=PLATFORM` rows of `kinotic_oidc_configuration`, and no migration
   ships a Keycloak entry. Seed one manually via the kinotic-migration tool if you want
   the button to appear.
 

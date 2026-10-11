@@ -56,7 +56,7 @@ kinotic:
   # OIDC client secrets resolve via SecretReferenceResolver — Azure Key Vault when
   # kinotic.domain.secretStorage.azure.vaultUrl is set, otherwise from KINOTIC_AKV_<name> properties
   # (uppercased, non-alphanumerics → "_"), set as an env var or a key in any loaded config file,
-  # matching the secret name on the seeded OrgSignupOidcConfiguration / OidcConfiguration row.
+  # matching the secretNameRef of the seeded PlatformOidcConfiguration row.
 
 logging:
   level:

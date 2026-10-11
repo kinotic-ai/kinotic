@@ -9,10 +9,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.rest.support.*;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
-import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
+import org.kinotic.domain.api.model.security.PlatformOidcConfiguration;
 import org.kinotic.domain.api.model.security.PendingSignUp;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
-import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
+import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.SignUpService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.managementserver.api.config.ManagementServerProperties;
@@ -33,7 +33,7 @@ import java.util.Map;
 public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
 
     private final ParticipantIdentityService identityService;
-    private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
+    private final OidcConfigurationService oidcConfigurationService;
     private final SignUpService signUpService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
@@ -132,7 +132,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
 
         oidcFlowOrchestrator.handleCallback(
                 ctx, pathConfigId, callbackUrl(pathConfigId),
-                _ -> orgSignupOidcConfigurationService.findById(pathConfigId))
+                _ -> oidcConfigurationService.findPlatformById(pathConfigId))
                 .onSuccess(result -> createPendingSignUp(ctx, result))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, ex));
     }
@@ -143,8 +143,8 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
      * {@link PendingSignUp} carrying the verified identity and redirects the browser to the
      * org-naming page that posts back to {@link #handleSocialCompleteOrg}.
      */
-    private void createPendingSignUp(RoutingContext ctx, CallbackResult<OrgSignupOidcConfiguration> result) {
-        OrgSignupOidcConfiguration config = result.config();
+    private void createPendingSignUp(RoutingContext ctx, CallbackResult<PlatformOidcConfiguration> result) {
+        PlatformOidcConfiguration config = result.config();
         Map<String, Object> claims = result.claims();
 
         String sub = OAuth2Util.stringClaim(claims, "sub");

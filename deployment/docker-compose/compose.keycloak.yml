@@ -9,7 +9,7 @@ services:
       # Resolves the Keycloak client secret via the env-var fallback in
       # EnvVarSecretReferenceResolver (KINOTIC_AKV_<sanitizedSecretName>).
       # Wiring Keycloak as a "Continue with Keycloak" social provider also requires a
-      # row in kinotic_org_signup_oidc_configuration (currently no migration ships one;
+      # PLATFORM row in kinotic_oidc_configuration (currently no migration ships one;
       # seed it manually via the kinotic-migration tool when iterating on this flow).
       - KINOTIC_AKV_KEYCLOAK=kinotic-secret
 

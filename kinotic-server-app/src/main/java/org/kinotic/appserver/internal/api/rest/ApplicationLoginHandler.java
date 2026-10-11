@@ -16,7 +16,7 @@ import org.kinotic.domain.api.rest.support.CallbackResult;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.security.AuthType;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
-import org.kinotic.domain.api.model.security.OidcConfiguration;
+import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
@@ -57,7 +57,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
 
     /**
      * {@code GET /api/auth/app/login/providers} — lists the enabled
-     * {@link OidcConfiguration} rows the app references via
+     * {@link OrganizationOidcConfiguration} rows the app references via
      * {@code Application.oidcConfigurationIds}.
      */
     private void handleProviders(RoutingContext ctx) {
@@ -132,7 +132,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
         ApplicationKey applicationKey = authEndpointSupport.applicationKey(ctx);
         String pathConfigId = ctx.pathParam("configId");
 
-        oidcFlowOrchestrator.<OidcConfiguration>handleCallback(
+        oidcFlowOrchestrator.<OrganizationOidcConfiguration>handleCallback(
                 ctx, pathConfigId, callbackUrl(applicationKey, pathConfigId),
                 _ -> oidcConfigurationService.findById(pathConfigId, applicationKey.organizationId()))
                 .onSuccess(result -> completeAppLogin(ctx, result, applicationKey))
@@ -140,7 +140,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     }
 
     private void completeAppLogin(RoutingContext ctx,
-                                  CallbackResult<OidcConfiguration> result,
+                                  CallbackResult<OrganizationOidcConfiguration> result,
                                   ApplicationKey applicationKey) {
         authEndpointSupport.completeOidcLogin(ctx, result,
                 sub -> identityService.findByOidcIdentity(sub, result.config().getId(),

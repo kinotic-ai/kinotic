@@ -227,12 +227,19 @@ CREATE TABLE IF NOT EXISTS kinotic_identity_credential (
     secretHash KEYWORD NOT INDEXED
 );
 
--- OIDC Configuration: per-org OIDC provider configs. Each row is owned by an organization
--- (organizationId enforced by AbstractCrudService). "Where can this config be used" is
--- expressed by inbound references — kinotic_organization.ssoConfigId for the org's SSO,
--- kinotic_application.oidcConfigurationIds for application-level logins.
+-- OIDC Configuration: every OIDC provider configuration (OidcConfiguration), discriminated by
+-- type the way kinotic_participant_identity is. type=PLATFORM is a Kinotic-curated social
+-- provider (Google, Microsoft, GitHub) that powers the "Continue with X" buttons on org signup
+-- and email-first org login, belongs to no organization, is seeded below, and names its client
+-- secret in the platform's secret storage with secretNameRef. type=ORGANIZATION is a provider an
+-- organization configured for itself (organizationId set, enforced by the service); "where can
+-- it be used" is expressed by inbound references — kinotic_organization.ssoConfigId for the org's
+-- SSO, kinotic_application.oidcConfigurationIds for application-level logins — and the row names
+-- no client secret: OidcConfigurationService.save(configuration, clientSecret) holds the secret in
+-- the organization's scope of the secret storage (SecretStorageService), keyed by the row's id.
 CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     id KEYWORD,
+    type KEYWORD,
     organizationId KEYWORD,
     name KEYWORD,
     provider KEYWORD,
@@ -250,30 +257,9 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     updated DATE
 );
 
--- Kinotic-curated social IdP configs (Google, Microsoft Live, etc.) that power the
--- "Continue with X" buttons on org signup and email-first org login. Seeded via SQL
--- migration; not editable through the org admin UI.
-CREATE TABLE IF NOT EXISTS kinotic_org_signup_oidc_configuration (
-    id KEYWORD,
-    name KEYWORD,
-    provider KEYWORD,
-    clientId KEYWORD NOT INDEXED,
-    secretNameRef KEYWORD NOT INDEXED,
-    authority KEYWORD,
-    authorizationUri KEYWORD NOT INDEXED,
-    tokenUri KEYWORD NOT INDEXED,
-    userInfoUri KEYWORD NOT INDEXED,
-    userEmailsUri KEYWORD NOT INDEXED,
-    scopes KEYWORD NOT INDEXED,
-    audience KEYWORD NOT INDEXED,
-    enabled BOOLEAN,
-    created DATE,
-    updated DATE
-);
-
 -- Organization: orgs developing applications on the platform.
--- ssoConfigId points at the org's single OidcConfiguration used as its SSO provider for
--- org-level Kinotic login (null when the org has no SSO). All other OidcConfigurations
+-- ssoConfigId points at the org's single OrganizationOidcConfiguration used as its SSO provider for
+-- org-level Kinotic login (null when the org has no SSO). All other OrganizationOidcConfigurations
 -- the org owns are referenced from the org's apps via kinotic_application.oidcConfigurationIds.
 CREATE TABLE IF NOT EXISTS kinotic_organization (
     id KEYWORD,
@@ -492,12 +478,13 @@ CREATE DATA STREAM kinotic_watch_event (type KEYWORD, id KEYWORD, scope KEYWORD,
 -- The OAuth client secret for each row is resolved at OAuth2-build time via
 -- SecretReferenceResolver — Azure Key Vault in prod (kinotic.domain.secretStorage.azure.vaultUrl)
 -- or KINOTIC_AKV_<uppercased,sanitized-secretNameRef> properties in dev. The secret name
--- here must match the AKV secret object name terraform creates.
+-- here must match the AKV secret object name terraform creates. Only PLATFORM rows carry a
+-- secretNameRef; an ORGANIZATION row has none and cannot name a platform secret.
 --
 -- audience is intentionally not set: for these social providers (Google, Microsoft Entra
 -- /common) the OAuth2 code-for-token exchange already pins the resulting id_token to our
 -- client_id, and the signature is verified against the IdP's JWKS. Validating aud against
--- a configured value would only be belt-and-suspenders here. Per-org OidcConfiguration
+-- a configured value would only be belt-and-suspenders here. Per-org ORGANIZATION
 -- rows used for SSO can populate audience when the org admin uses a custom audience
 -- identifier — the orchestrator + Vert.x validation kicks in automatically when the field
 -- is non-blank.
@@ -513,9 +500,9 @@ CREATE DATA STREAM kinotic_watch_event (type KEYWORD, id KEYWORD, scope KEYWORD,
 --   <apiBaseUrl>/api/auth/org/signup/social/callback/<id>
 --   <apiBaseUrl>/api/auth/invite/oidc/callback/<id>
 
-INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId, secretNameRef, authority, enabled, created, updated) VALUES ('entra-platform', 'Microsoft', 'azure-ad', 'f24706cc-55ff-4d17-b72c-11ddfa87966a', 'entra-platform', 'https://login.microsoftonline.com/common/v2.0', true, '2026-05-05', '2026-05-05') WITH REFRESH;
+INSERT INTO kinotic_oidc_configuration (id, type, name, provider, clientId, secretNameRef, authority, enabled, created, updated) VALUES ('entra-platform', 'PLATFORM', 'Microsoft', 'azure-ad', 'f24706cc-55ff-4d17-b72c-11ddfa87966a', 'entra-platform', 'https://login.microsoftonline.com/common/v2.0', true, '2026-05-05', '2026-05-05') WITH REFRESH;
 
-INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId, secretNameRef, authority, enabled, created, updated) VALUES ('google-platform', 'Google', 'google', '1018531658131-komame5nk0m59fkp4836b4hrci0r538r.apps.googleusercontent.com', 'google-platform', 'https://accounts.google.com', true, '2026-05-05', '2026-05-05') WITH REFRESH;
+INSERT INTO kinotic_oidc_configuration (id, type, name, provider, clientId, secretNameRef, authority, enabled, created, updated) VALUES ('google-platform', 'PLATFORM', 'Google', 'google', '1018531658131-komame5nk0m59fkp4836b4hrci0r538r.apps.googleusercontent.com', 'google-platform', 'https://accounts.google.com', true, '2026-05-05', '2026-05-05') WITH REFRESH;
 
 -- github-platform must be the kinotic-ai GitHub App's own OAuth credential — it signs
 -- users in AND verifies installation ownership at link time (see the Defense in Depth
@@ -525,4 +512,4 @@ INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId,
 -- (install redirects go to the first callback URL) plus the URLs above; the
 -- "Email addresses: read-only" account permission. Scopes are inert for GitHub Apps.
 
-INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId, secretNameRef, authority, authorizationUri, tokenUri, userInfoUri, userEmailsUri, scopes, enabled, created, updated) VALUES ('github-platform', 'GitHub', 'github', 'Iv23liN1suytxICfhtOz', 'github-platform', 'https://github.com/login', 'https://github.com/login/oauth/authorize', 'https://github.com/login/oauth/access_token', 'https://api.github.com/user', 'https://api.github.com/user/emails', 'read:user user:email', true, '2026-08-01', '2026-08-01') WITH REFRESH;
+INSERT INTO kinotic_oidc_configuration (id, type, name, provider, clientId, secretNameRef, authority, authorizationUri, tokenUri, userInfoUri, userEmailsUri, scopes, enabled, created, updated) VALUES ('github-platform', 'PLATFORM', 'GitHub', 'github', 'Iv23liN1suytxICfhtOz', 'github-platform', 'https://github.com/login', 'https://github.com/login/oauth/authorize', 'https://github.com/login/oauth/access_token', 'https://api.github.com/user', 'https://api.github.com/user/emails', 'read:user user:email', true, '2026-08-01', '2026-08-01') WITH REFRESH;

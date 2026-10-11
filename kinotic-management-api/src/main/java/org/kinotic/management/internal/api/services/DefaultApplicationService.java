@@ -7,7 +7,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.Application;
-import org.kinotic.domain.api.model.security.OidcConfiguration;
+import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -141,7 +141,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     }
 
     @Override
-    public Future<List<OidcConfiguration>> getOidcConfigurations(String applicationId) {
+    public Future<List<OrganizationOidcConfiguration>> getOidcConfigurations(String applicationId) {
         Validate.notNull(applicationId, "applicationId cannot be null");
         return findById(applicationId)
                 .compose(application -> {

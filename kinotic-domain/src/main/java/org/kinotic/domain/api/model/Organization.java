@@ -5,7 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
-import org.kinotic.domain.api.model.security.OidcConfiguration;
+import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
 
 import java.util.Date;
 
@@ -29,7 +29,7 @@ public class Organization implements Identifiable<String> {
     private String description;
 
     /**
-     * Id of the {@link OidcConfiguration} this organization
+     * Id of the {@link OrganizationOidcConfiguration} this organization
      * uses as its SSO provider for org-level Kinotic login. {@code null} when the org
      * has no SSO configured (members log in via password). Structurally enforces
      * "one SSO config per org" — there's just the one field.

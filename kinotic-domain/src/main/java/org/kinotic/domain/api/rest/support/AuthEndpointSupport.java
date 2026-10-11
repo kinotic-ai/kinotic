@@ -11,13 +11,13 @@ import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SessionBinding;
-import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
+import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.domain.api.model.security.OidcProviderKind;
-import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
+import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.RefreshTokenService;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -55,7 +55,7 @@ public abstract class AuthEndpointSupport {
     private static final String RETURN_PATH_SESSION_KEY = "loginReturnPath";
 
     private final KinoticJwtIssuer jwtIssuer;
-    private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
+    private final OidcConfigurationService oidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final ParticipantIdentityService identityService;
     private final RefreshTokenService refreshTokenService;
@@ -308,14 +308,14 @@ public abstract class AuthEndpointSupport {
     }
 
     /** Standard {@code [{id, name, provider}]} shape for "list of OIDC configs to choose from". */
-    public void respondProvidersList(RoutingContext ctx, List<? extends BaseOidcConfiguration> configs) {
+    public void respondProvidersList(RoutingContext ctx, List<? extends OidcConfiguration> configs) {
         ctx.response().putHeader("Content-Type", "application/json").end(providersJson(configs).encode());
     }
 
     /** The {@code [{id, name, provider}]} array behind {@link #respondProvidersList}, for embedding in larger payloads. */
-    public JsonArray providersJson(List<? extends BaseOidcConfiguration> configs) {
+    public JsonArray providersJson(List<? extends OidcConfiguration> configs) {
         JsonArray arr = new JsonArray();
-        for (BaseOidcConfiguration c : configs) {
+        for (OidcConfiguration c : configs) {
             arr.add(new JsonObject()
                     .put("id", c.getId())
                     .put("name", c.getName())
@@ -347,7 +347,7 @@ public abstract class AuthEndpointSupport {
 
         String returnPath = safeReturnPath(ctx.request().getParam("referer"));
 
-        orgSignupOidcConfigurationService.findEnabledByProvider(providerKind)
+        oidcConfigurationService.findEnabledPlatformByProvider(providerKind)
               .compose(config -> {
                   if (config == null) {
                       respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
@@ -414,7 +414,7 @@ public abstract class AuthEndpointSupport {
      * @param userLookup takes the OIDC {@code sub} claim and returns the UserParticipantIdentity (or null).
      */
     public void completeOidcLogin(RoutingContext ctx,
-                                  CallbackResult<? extends BaseOidcConfiguration> result,
+                                  CallbackResult<? extends OidcConfiguration> result,
                                   Function<String, Future<UserParticipantIdentity>> userLookup) {
         Map<String, Object> claims = result.claims();
         String sub = OAuth2Util.stringClaim(claims, "sub");

@@ -56,7 +56,7 @@ terraform output dev_server_env         # merged into every server's environment
 terraform output -raw secrets_env       # → kinotic-servers.env in the secrets directory, placed by sync-secrets.sh
 ```
 
-The social sign-in providers the migration seeds (`kinotic_org_signup_oidc_configuration`)
+The social sign-in providers the migration seeds (the `PLATFORM` rows of `kinotic_oidc_configuration`)
 resolve their client secrets from `kv-kinotic-dev` by name, so each provider's secret goes
 there once, and its registration lists the management server's callback URLs under `dev-api`:
 
