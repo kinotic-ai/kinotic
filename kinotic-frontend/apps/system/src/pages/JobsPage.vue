@@ -84,7 +84,7 @@ const scope = computed<Scope>(() => ({
 
 const description = computed(() => scope.value.organizationId
     ? `Job runs executed for ${scopeName(scope.value)}: its deployments.`
-    : 'Grind job runs across the platform: deployments, step by step.')
+    : 'Grind job runs across the platform: deployments and system jobs, step by step.')
 
 const counted = ref<JobRun[]>([])
 
