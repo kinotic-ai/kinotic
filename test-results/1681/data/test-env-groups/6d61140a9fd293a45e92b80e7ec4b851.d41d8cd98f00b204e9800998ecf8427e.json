@@ -1,1 +1,0 @@
-{"id":"6d61140a9fd293a45e92b80e7ec4b851.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.SelectStatementParserTest.whenFieldIsNamedLikeAKeyword_thenItIsAName","name":"whenFieldIsNamedLikeAKeyword_thenItIsAName()","status":"passed","testResultsByEnv":{"default":"899d70c40988966fd32c12a834b8ba36"}}

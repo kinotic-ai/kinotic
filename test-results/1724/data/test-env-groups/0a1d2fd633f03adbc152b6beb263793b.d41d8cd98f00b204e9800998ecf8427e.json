@@ -1,0 +1,1 @@
+{"id":"0a1d2fd633f03adbc152b6beb263793b.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.MigrationParserSyntaxErrorTest.whenEqualsUsedInAssignmentsAndComparisons_thenParses","name":"whenEqualsUsedInAssignmentsAndComparisons_thenParses()","status":"passed","testResultsByEnv":{"default":"1294976cffebb545a459b4e19bc7e317"}}

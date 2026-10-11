@@ -1,1 +1,0 @@
-{"id":"4a41e10dd1e711af7a58cbe69ff74244.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testEveryReplyOfAPendingInvocationIsAllowed","name":"testEveryReplyOfAPendingInvocationIsAllowed()","status":"passed","testResultsByEnv":{"default":"45702a80e391407ed7d0091a12ce12fa"}}

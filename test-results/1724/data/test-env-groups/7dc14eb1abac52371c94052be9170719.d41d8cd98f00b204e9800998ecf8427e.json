@@ -1,0 +1,1 @@
+{"id":"7dc14eb1abac52371c94052be9170719.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.MigrationParserSyntaxErrorTest.whenMigrationContainsUnrecognizedCharacter_thenParseFails","name":"whenMigrationContainsUnrecognizedCharacter_thenParseFails()","status":"passed","testResultsByEnv":{"default":"1773615a1b3c3c8d7f10f02c4262641b"}}

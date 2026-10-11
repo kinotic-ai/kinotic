@@ -1,1 +1,0 @@
-{"id":"11ed2182a774d533294b0d31fb90e95f.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.grind.VertxContextTest.tasksCanAwaitContextBoundFuturesCompletedOffTheRunThread","name":"tasksCanAwaitContextBoundFuturesCompletedOffTheRunThread()","status":"passed","testResultsByEnv":{"default":"78471cbbb4e9d477c4d7ab0e32922a5c"}}

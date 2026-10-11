@@ -1,1 +1,0 @@
-{"id":"ebc5b0a96c3bef856c366234fbb0fff0.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.SelectStatementParserTest.whenSelectStar_thenWholeDocumentWithNoCondition","name":"whenSelectStar_thenWholeDocumentWithNoCondition()","status":"passed","testResultsByEnv":{"default":"e0a82859b5da4847203a790501953e2d"}}
