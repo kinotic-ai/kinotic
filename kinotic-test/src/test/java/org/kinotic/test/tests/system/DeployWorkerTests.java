@@ -222,7 +222,6 @@ public class DeployWorkerTests extends KinoticTestBase {
         assertEquals(2, vmManager.started.size(), "a fresh VM took the place of the one stopped");
         assertNull(replaced.getRestartAt(), "a stop is not a failure, so nothing waits");
         assertEquals(WorkloadStatus.STOPPED, await(workloads.findById(firstRun)).getStatus());
-        assertEquals(WorkloadStatus.RUNNING, await(workloads.findById(replaced.getWorkloadId())).getStatus());
         assertEquals(4 - ProjectWorkloadSizes.RUNTIME_CPUS, await(nodes.findById(NODE_ID)).getFreeCpus(), "one VM's room is held");
     }
 

@@ -94,10 +94,9 @@ public class StubVmManager implements VmManager {
     /**
      * Settles {@link #pendingReply} with the node's final view of the run that just ended.
      */
-    public void completeRun(WorkloadStatus status, Integer exitCode) {
+    public void completeRun(WorkloadStatus status) {
         Workload finished = copy(lastStarted);
         finished.setStatus(status);
-        finished.setExitCode(exitCode);
         pendingReply.complete(finished);
     }
 

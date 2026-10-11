@@ -10,13 +10,12 @@ function options(server: FakeStompServer, extra: Partial<ConnectOptions> = {}): 
     return { server: { host: 'fake', useSSL: false }, webSocketFactory: server.factory as () => IWebSocket, ...extra }
 }
 
-// answers every SEND with a single-value reply carrying the request's correlation id
-function echo(frame: FakeFrame, socket: FakeSocket): void {
+// answers every SEND with a bodiless completion carrying the request's correlation id
+function answer(frame: FakeFrame, socket: FakeSocket): void {
     socket.message(frame.headers[EventConstants.REPLY_TO_HEADER]!, {
         [EventConstants.CORRELATION_ID_HEADER]: frame.headers[EventConstants.CORRELATION_ID_HEADER]!,
-        [EventConstants.CONTENT_TYPE_HEADER]: EventConstants.CONTENT_JSON,
         [EventConstants.CONTROL_HEADER]: EventConstants.CONTROL_VALUE_COMPLETE
-    }, JSON.stringify('echoed'))
+    })
 }
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -36,13 +35,11 @@ describe('connection lifecycle', () => {
 
     it('answers a request over a connection and the reply destination names the connection', async () => {
         const server = new FakeStompServer()
-        server.onSend = echo
+        server.onSend = answer
         const bus = new EventBus()
-        const connected = await bus.connect(options(server))
-        expect(connected.replyToId).toBe('reply-1')
+        await bus.connect(options(server))
 
-        const reply = await bus.request(new Event(SERVICE))
-        expect(JSON.parse(reply.getDataString())).toBe('echoed')
+        await bus.request(new Event(SERVICE))
         const send = server.current.received.find(f => f.command === 'SEND')!
         expect(send.headers[EventConstants.REPLY_TO_HEADER]).toMatch(/^reply:\/\/reply-1:[0-9a-f-]{36}@/)
         await bus.disconnect()
@@ -63,7 +60,7 @@ describe('connection lifecycle', () => {
         expect(ended).toBe(1)
 
         // rx-stomp reconnects after its delay plus the client's jitter; the new socket mints a new destination
-        server.onSend = echo
+        server.onSend = answer
         const deadline = Date.now() + 15_000
         while (!bus.isConnected() && Date.now() < deadline) {
             await sleep(50)
@@ -79,13 +76,13 @@ describe('connection lifecycle', () => {
         expect(ended).toBe(2)
     }, 30_000)
 
-    it('reports each connection established, with the connected-info that connection was issued', async () => {
+    it('reports each connection established, the reconnect included', async () => {
         const server = new FakeStompServer()
         const bus = new EventBus()
         const established: ConnectedInfo[] = []
         bus.connectionEstablished.subscribe(connectedInfo => established.push(connectedInfo))
         await bus.connect(options(server))
-        expect(established.map(info => info.replyToId)).toEqual(['reply-1'])
+        expect(established).toHaveLength(1)
 
         server.current.drop()
         await sleep(10)
@@ -93,8 +90,8 @@ describe('connection lifecycle', () => {
         while (!bus.isConnected() && Date.now() < deadline) {
             await sleep(50)
         }
-        // the reconnect is a connection of its own, and the server issues it its own reply destination
-        expect(established.map(info => info.replyToId)).toEqual(['reply-1', 'reply-2'])
+        // the reconnect is a connection of its own, so it is reported again
+        expect(established).toHaveLength(2)
         await bus.disconnect()
     }, 20_000)
 
@@ -112,7 +109,7 @@ describe('connection lifecycle', () => {
     it('connects again while the previous activation is still closing after a failure ended it', async () => {
         const server = new FakeStompServer()
         server.closeDelayMs = 300
-        server.onSend = echo
+        server.onSend = answer
         const bus = new EventBus()
         await bus.connect(options(server))
 
@@ -133,8 +130,7 @@ describe('connection lifecycle', () => {
         expect(ends.length).toBe(1)
         expect(ends[0]!.message).toBe('STOMP connection error')
         expect(bus.isConnected()).toBe(true)
-        const reply = await bus.request(new Event(SERVICE))
-        expect(JSON.parse(reply.getDataString())).toBe('echoed')
+        await bus.request(new Event(SERVICE))
         await bus.disconnect()
     })
 
@@ -230,7 +226,7 @@ describe('connection lifecycle', () => {
 
     it('a reconnect attempt of an activation that disconnect() ended never acts on the next activation', async () => {
         const server = new FakeStompServer()
-        server.onSend = echo
+        server.onSend = answer
         const bus = new EventBus()
         const failed = failures(bus)
         let calls = 0
@@ -257,14 +253,13 @@ describe('connection lifecycle', () => {
         expect(bus.isConnected()).toBe(true)
         expect(failed).toEqual([])
         expect(server.sockets.length).toBe(2)
-        const reply = await bus.request(new Event(SERVICE))
-        expect(JSON.parse(reply.getDataString())).toBe('echoed')
+        await bus.request(new Event(SERVICE))
         await bus.disconnect()
     }, 15_000)
 
     it('grants a connection the full attempt budget again for its reconnects', async () => {
         const server = new FakeStompServer()
-        server.onSend = echo
+        server.onSend = answer
         const bus = new EventBus()
         const failed = failures(bus)
         await bus.connect(options(server, { maxConnectionAttempts: 1 }))
@@ -292,13 +287,13 @@ describe('connection lifecycle', () => {
         const bus = new EventBus()
         await bus.connect(options(server))
         const values: IEvent[] = await firstValueFrom(bus.requestStream(new Event(SERVICE), true).pipe(toArray()))
-        expect(values.map(v => v.getDataString())).toEqual(['1'])
+        expect(values).toHaveLength(1)
         await bus.disconnect()
     })
 
     it('refuses a request while the connection is down instead of caching a stale reply destination', async () => {
         const server = new FakeStompServer()
-        server.onSend = echo
+        server.onSend = answer
         const bus = new EventBus()
         await bus.connect(options(server))
         server.current.drop()

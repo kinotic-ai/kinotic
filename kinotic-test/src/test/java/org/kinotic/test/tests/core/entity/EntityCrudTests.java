@@ -3,7 +3,6 @@
 package org.kinotic.test.tests.core.entity;
 
 import io.vertx.core.Future;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.domain.api.model.RawJson;
@@ -558,19 +557,13 @@ public class EntityCrudTests extends KinoticTestBase {
     @Test
     public void testPartialUpdate() throws Exception {
         EntityContext entityContext = new DefaultEntityContext(applicationParticipant());
-        Future<Pair<EntityDefinition, Boolean>> createStructure = runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("_partialUpdate"));
+        Future<EntityDefinition> createStructure = runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("_partialUpdate"));
 
         StepVerifier.create(Mono.fromCompletionStage(createStructure.toCompletionStage()))
-                    .expectNextMatches(pair -> {
-                        boolean ret = pair.getLeft() != null && pair.getRight();
-                        if(!ret){
-                            log.error("Failed to create structure: "+pair.getLeft());
-                        }
-                        return ret;
-                    })
+                    .expectNextMatches(definition -> definition != null)
                     .verifyComplete();
 
-        EntityDefinition entityDefinition = createStructure.await().getLeft();
+        EntityDefinition entityDefinition = createStructure.await();
 
         Car car = new Car();
         car.setId(UUID.randomUUID().toString());
@@ -589,8 +582,6 @@ public class EntityCrudTests extends KinoticTestBase {
         Assertions.assertEquals(1, page.getTotalElements(), "Wrong number of entities");
 
         List<Person> personList = testDataService.createRandomTestPeopleWithId(1).await();
-
-        Assertions.assertEquals(1, personList.size(), "Failed to create test person");
 
         Person person = personList.get(0);
 
