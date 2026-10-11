@@ -1,6 +1,9 @@
 package org.kinotic.persistence.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -18,6 +21,9 @@ import java.util.List;
  * Created by Navíd Mitchell 🤪 on 4/23/24.
  */
 @Publish
+@PermissionNamespace("queries")
+@ResourceTarget(type = "entity_definition", idArgument = "entityDescriptor.id")
+@RequirePermission(value = "execute", tenantDelegable = true)
 @Zone(DomainUtil.APP_API_ZONE)
 public interface NamedQueriesService {
 

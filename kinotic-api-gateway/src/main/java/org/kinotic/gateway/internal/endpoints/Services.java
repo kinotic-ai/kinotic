@@ -3,6 +3,9 @@
 package org.kinotic.gateway.internal.endpoints;
 
 import io.vertx.core.Vertx;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
+import org.kinotic.core.api.security.ServiceRequestAuthorizer;
 import io.vertx.ext.web.sstore.SessionStore;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventStreamService;
@@ -26,6 +29,16 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Component
 public class Services {
+    @Value("${kinotic.authorization.enabled:false}")
+    private boolean authorizationRequired;
+
+    @PostConstruct
+    public void verifyAuthorizationProvider() {
+        if (authorizationRequired && requestAuthorizerProvider.getIfAvailable() == null) {
+            throw new IllegalStateException("Gateway authorization is enabled but no request authorizer is installed");
+        }
+    }
+
     @Autowired
     public ApiGatewayProperties apiGatewayProperties;
     @Autowired
@@ -38,6 +51,8 @@ public class Services {
     public JsonMapper jsonMapper;
     @Autowired
     public SecurityService securityService;
+    @Autowired
+    public ObjectProvider<ServiceRequestAuthorizer> requestAuthorizerProvider;
     @Autowired
     public RequestLivenessWatcher requestLivenessWatcher;
     @Autowired

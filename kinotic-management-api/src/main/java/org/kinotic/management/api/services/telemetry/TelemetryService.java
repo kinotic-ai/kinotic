@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services.telemetry;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.annotations.Publish;
@@ -13,6 +16,9 @@ import org.kinotic.management.api.model.telemetry.TraceQuery;
  * the caller parses Tempo's and Prometheus's wire formats.
  */
 @Publish
+@PermissionNamespace("telemetry")
+@ResourceTarget(type = "scope")
+@RequirePermission
 public interface TelemetryService {
 
     /**

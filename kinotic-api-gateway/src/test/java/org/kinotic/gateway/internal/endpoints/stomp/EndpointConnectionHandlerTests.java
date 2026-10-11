@@ -30,6 +30,8 @@ import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.security.SecurityService;
+import org.kinotic.core.api.security.ServiceRequestAuthorizer;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.internal.api.service.json.JacksonExceptionConverter;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
@@ -135,7 +137,20 @@ public class EndpointConnectionHandlerTests {
         services.eventBusService = eventBusService;
         services.requestLivenessWatcher = requestLivenessWatcher;
         services.serviceDirectoryProvider = mock(ObjectProvider.class);
+        services.requestAuthorizerProvider = mock(ObjectProvider.class);
         services.sessionStore = ClusteredSessionStore.create(vertx);
+    }
+
+    @Test
+    public void permissionDenialNeverDispatchesTheServiceRequest() throws Exception {
+        var authorization = mock(ServiceRequestAuthorizer.class);
+        when(services.requestAuthorizerProvider.getIfAvailable()).thenReturn(authorization);
+        when(authorization.authorize(any())).thenReturn(Future.failedFuture(new AuthorizationException("Access denied")));
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        handler.send(request(replyTo, "denied")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        verify(eventBusService, org.mockito.Mockito.never()).sendWithAck(any());
+        verify(eventBusService).send(any());
     }
 
     @Test

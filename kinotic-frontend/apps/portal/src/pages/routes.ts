@@ -97,6 +97,10 @@ const pageRoutes: RouteRecordRaw[] = [
     }
   ]),
 
+  organizationPage('/access-control', organizationItem('Access control', Users, 45, 'People & access'), [
+    { name: 'organization-access-control', path: '', component: () => import('@/pages/AccessControlPage.vue') }
+  ]),
+
   organizationPage('/organization-settings', organizationItem('Organization settings', Settings, 50, 'Settings'), [
     {
       name: 'organization-settings',
@@ -136,6 +140,13 @@ const pageRoutes: RouteRecordRaw[] = [
         path: '',
         meta: { sidebar: applicationItem('Overview', LayoutDashboard, 10) } as RouteMeta,
         component: () => import('@/pages/ApplicationOverview.vue'),
+        props: true
+      },
+      {
+        name: 'application-access-control',
+        path: 'access-control',
+        meta: { sidebar: applicationItem('Access control', Users, 65, 'People & access') } as RouteMeta,
+        component: () => import('@/pages/AccessControlPage.vue'),
         props: true
       },
       {

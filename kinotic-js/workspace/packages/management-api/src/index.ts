@@ -134,3 +134,6 @@ import type { IManagementApiExtension } from '@/api/ManagementApiPlugin'
 declare module '@kinotic-ai/core' {
     interface KinoticSingleton extends IManagementApiExtension {}
 }
+
+export * from './api/model/security/AuthorizationPolicy'
+export * from './api/services/security/IAccessControlService'

@@ -8,10 +8,15 @@ import org.kinotic.idl.api.directory.GenericTypeConverter;
 
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.idl.api.annotations.McpTool;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.ResourceTarget;
+import org.kinotic.idl.api.schema.decorators.RequirePermissionC3Decorator;
 import org.kinotic.idl.api.annotations.McpToolInfo;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.C3Type;
+import org.kinotic.idl.api.schema.AnyC3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
@@ -30,6 +35,7 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
@@ -80,6 +86,23 @@ public class DefaultSchemaFactory implements SchemaFactory {
             throw new IllegalArgumentException("No schemaConverter can be found for "+ clazz.getName());
         }
         return ret;
+    }
+
+    @Override
+    public ServiceDefinition createPermissionContract(ServiceDeclaration service) {
+        Class<?> serviceInterface = service.serviceInterface();
+        var definition = new ServiceDefinition().setNamespace(serviceInterface.getPackageName()).setName(serviceInterface.getSimpleName());
+        for (var method : IdlUtil.serviceFunctions(serviceInterface).entrySet()) {
+            var function = new FunctionDefinition().setName(method.getKey()).setReturnType(new AnyC3Type());
+            for (int index = 0; index < method.getValue().getParameterCount(); index++) {
+                function.addParameter(IdlUtil.parameterName(new MethodParameter(method.getValue(), index)), new AnyC3Type());
+            }
+            var specific = BridgeMethodResolver.findBridgedMethod(ClassUtils.getMostSpecificMethod(method.getValue(), service.serviceImplementation()));
+            var permission = createPermissionDecorator(serviceInterface, specific, function);
+            if (permission != null) function.setDecorators(new ArrayList<>(List.of(permission)));
+            definition.addFunction(function);
+        }
+        return definition;
     }
 
     @Override
@@ -151,13 +174,41 @@ public class DefaultSchemaFactory implements SchemaFactory {
                                                                  specificMethod,
                                                                  typeLevelMcpTool);
             if (mcpTool != null) {
-                functionDefinition.setDecorators(List.of(mcpTool));
+                functionDefinition.setDecorators(new ArrayList<>(List.of(mcpTool)));
+            }
+
+            var permission = createPermissionDecorator(serviceInterface, specificMethod, functionDefinition);
+            if (permission != null) {
+                if (functionDefinition.getDecorators() == null) functionDefinition.setDecorators(new ArrayList<>());
+                functionDefinition.getDecorators().add(permission);
             }
 
             serviceDefinition.addFunction(functionDefinition);
         }
 
         return serviceDefinition;
+    }
+
+    private RequirePermissionC3Decorator createPermissionDecorator(Class<?> serviceInterface, Method method, FunctionDefinition function) {
+        var declaration = AnnotationUtils.findAnnotation(method, RequirePermission.class);
+        if (declaration == null) declaration = AnnotationUtils.findAnnotation(serviceInterface, RequirePermission.class);
+        if (declaration == null) return null;
+        var namespace = AnnotationUtils.findAnnotation(serviceInterface, PermissionNamespace.class);
+        var serviceTarget = AnnotationUtils.findAnnotation(serviceInterface, ResourceTarget.class);
+        var methodTarget = AnnotationUtils.findAnnotation(method, ResourceTarget.class);
+        String relative = declaration.value().isEmpty() ? function.getName() : declaration.value();
+        String key = namespace == null ? relative : namespace.value() + "." + relative;
+        String type = methodTarget != null && !methodTarget.type().isEmpty() ? methodTarget.type()
+                : serviceTarget != null && !serviceTarget.type().isEmpty() ? serviceTarget.type() : "scope";
+        String argument = methodTarget != null ? methodTarget.idArgument() : serviceTarget == null ? "" : serviceTarget.idArgument();
+        if (!key.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*") || !type.matches("[A-Za-z][A-Za-z0-9_]{0,62}")) throw new IllegalArgumentException("Invalid permission contract");
+        if (!argument.isEmpty()) {
+            String root = argument.split("\\.")[0];
+            if (!argument.matches("[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*")
+                    || function.getParameters().stream().noneMatch(parameter -> parameter.getName().equals(root))) throw new IllegalArgumentException("ResourceTarget names an unknown argument: " + argument);
+        }
+        return new RequirePermissionC3Decorator().setPermission(key).setResourceType(type).setIdArgument(argument)
+                .setLabel(declaration.label()).setTenantDelegable(declaration.tenantDelegable());
     }
 
     /**

@@ -1,6 +1,9 @@
 package org.kinotic.management.internal.api.rest.mcp;
 
 import io.vertx.core.Future;
+import org.kinotic.core.api.security.ServiceRequestAuthorizer;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import io.vertx.core.Promise;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -35,6 +38,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 @RequiredArgsConstructor
 public class McpToolInvoker {
+
+    @Autowired
+    private ObjectProvider<ServiceRequestAuthorizer> requestAuthorizerProvider;
 
     private final EventBusService eventBusService;
     private final JsonMapper jsonMapper;
@@ -128,7 +134,9 @@ public class McpToolInvoker {
                                            metadata,
                                            jsonMapper.writeValueAsBytes(arguments),
                                            participant);
-        eventBusService.sendWithAck(event)
+        var authorizer = requestAuthorizerProvider.getIfAvailable();
+        Future<Void> authorized = authorizer == null ? Future.succeededFuture() : authorizer.authorize(event);
+        authorized.compose(ignored -> eventBusService.sendWithAck(event))
                        .onComplete(ar -> {
                            if (ar.failed()) {
                                // only the party that removes the entry completes it: a reply can land before an
