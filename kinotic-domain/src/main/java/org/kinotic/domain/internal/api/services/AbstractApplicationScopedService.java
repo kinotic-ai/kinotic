@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.ApplicationScoped;
 import org.kinotic.domain.api.services.ApplicationScopedCrudService;
 import org.kinotic.domain.internal.api.repositories.AbstractApplicationScopedRepository;
@@ -15,8 +16,9 @@ public abstract class AbstractApplicationScopedService<T extends ApplicationScop
     protected final AbstractApplicationScopedRepository<T> applicationRepository;
 
     public AbstractApplicationScopedService(AbstractApplicationScopedRepository<T> repository,
-                                            SecurityContext securityContext) {
-        super(repository, securityContext);
+                                            SecurityContext securityContext,
+                                            SecurityExceptionFactory securityExceptions) {
+        super(repository, securityContext, securityExceptions);
         this.applicationRepository = repository;
     }
 

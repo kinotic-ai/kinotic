@@ -14,6 +14,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
@@ -56,9 +57,10 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                           ManagementApiProperties managementApiProperties,
                                           DomainPersistenceProperties domainPersistenceProperties,
                                           SecurityContext securityContext,
+                                          SecurityExceptionFactory securityExceptions,
                                           RelationshipService relationships,
                                           PermissionService permissions) {
-        super(entityDefinitionRepository, securityContext);
+        super(entityDefinitionRepository, securityContext, securityExceptions);
         this.relationships = relationships;
         this.permissions = permissions;
         this.eventPublisher = eventPublisher;

@@ -9,8 +9,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
 
@@ -47,14 +49,15 @@ abstract class ParticipantCallTest {
     static void startVertx() {
         // SecurityContext registers its ContextLocal at class load, which must happen
         // before any Vertx instance is created
-        securityContext = new SecurityContext();
+        SecurityExceptionFactory securityExceptions = new SecurityExceptionFactory(new KinoticProperties());
+        securityContext = new SecurityContext(securityExceptions);
         AuthzStoreService stores = mock(AuthzStoreService.class);
         when(stores.modelId(AuthzStoreService.PLATFORM)).thenReturn(Future.succeededFuture("model-1"));
         RelationshipService relationships = mock(RelationshipService.class);
         // the operator holds what it is asked about on the platform, the newcomer nothing
         when(relationships.check(eq(AuthzStoreService.PLATFORM), eq("model-1"), any(), any()))
                 .thenAnswer(call -> Future.succeededFuture(call.<RelationshipTuple>getArgument(2).user().equals("user:" + PLATFORM_OPERATOR.getId())));
-        tenantAccess = new TenantAccess(securityContext, stores, relationships);
+        tenantAccess = new TenantAccess(securityContext, stores, relationships, securityExceptions);
         vertx = Vertx.vertx();
     }
 

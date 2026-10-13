@@ -4,7 +4,9 @@ import io.vertx.core.Vertx;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.kinotic.core.api.ServerInfo;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.grind.api.model.events.JobRunEvent;
 import org.kinotic.grind.api.model.JobRunHandle;
 import org.kinotic.grind.internal.api.services.DefaultJobService;
@@ -32,7 +34,7 @@ public abstract class AbstractGrindTest {
 
     // Instantiated before the Vertx instance below: SecurityContext registers its
     // ContextLocal in a static initializer, which Vert.x requires to happen first
-    protected final SecurityContext securityContext = new SecurityContext();
+    protected final SecurityContext securityContext = new SecurityContext(new SecurityExceptionFactory(new KinoticProperties()));
 
     protected AnnotationConfigApplicationContext appCtx;
     protected Vertx vertx;

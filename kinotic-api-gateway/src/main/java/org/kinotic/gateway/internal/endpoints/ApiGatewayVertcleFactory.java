@@ -16,6 +16,7 @@ import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import io.vertx.ext.web.sstore.SessionStore;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.event.ZonePartitioningService;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.gateway.api.utils.ApiGatewayUtil;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
@@ -41,6 +42,7 @@ public class ApiGatewayVertcleFactory {
     private final Vertx vertx;
     private final SessionStore sessionStore;
     private final ZonePartitioningService zonePartitioningService;
+    private final SecurityExceptionFactory securityExceptions;
 
     public StompServerVerticle createApiGatewayVerticle(){
         // Router arrives pre-wired with CORS and the exception-converting failure handler, so an
@@ -77,7 +79,7 @@ public class ApiGatewayVertcleFactory {
 
         // Each login in the session is bound to the page that made it, so the binding is resolved right
         // behind the SessionHandler on every path it covers
-        Handler<RoutingContext> sessionBinding = SessionBinding.handler(sessionCookieName);
+        Handler<RoutingContext> sessionBinding = SessionBinding.handler(sessionCookieName, securityExceptions);
         router.route("/api/*").handler(sessionHandler).handler(sessionBinding);
 
         // REST endpoints under /api — every bean supplying gateway routes is collected and mounted

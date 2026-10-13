@@ -3,6 +3,7 @@ package org.kinotic.persistence.internal.utils;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthorizationException;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.model.EntityContext;
@@ -19,13 +20,16 @@ public class PersistenceUtil {
      * The tenant selection must already be applied to the context. A participant that belongs to a tenant may select
      * only that tenant, and a participant without one must select the tenants of a {@link MultiTenancyType#SHARED} entity.
      *
-     * @param entityDescriptor the entity the operation acts on
-     * @param context          the context of the operation
+     * @param entityDescriptor   the entity the operation acts on
+     * @param context            the context of the operation
+     * @param securityExceptions builds the {@link AuthorizationException} a participant is refused with
      * @return a {@link Future} that succeeds when the context is valid, and fails with an
      *         {@link AuthorizationException} when the participant selects a tenant other than its own, or an
      *         {@link IllegalArgumentException} when the entity does not accept the context
      */
-    public static Future<Void> validateEntityContext(EntityDescriptor entityDescriptor, EntityContext context){
+    public static Future<Void> validateEntityContext(EntityDescriptor entityDescriptor,
+                                                     EntityContext context,
+                                                     SecurityExceptionFactory securityExceptions){
         Future<Void> ret;
         // Kinotic allows any published service to be called, so the admin service can reach an
         // EntityDefinition that never enabled multi-tenant selection; the selection is refused here
@@ -40,7 +44,8 @@ public class PersistenceUtil {
             // A participant that belongs to a tenant is confined to it, whatever selection it asks for
             if(context.hasTenantSelection()
                     && !List.of(context.getTenantId()).equals(context.getTenantSelection())){
-                ret = Future.failedFuture(new AuthorizationException("Participant may only select its own tenant"));
+                ret = Future.failedFuture(securityExceptions.notAuthorized("Participant of tenant {} may only select its own tenant, not {}",
+                                                                           context.getTenantId(), context.getTenantSelection()));
             }else{
                 ret = Future.succeededFuture();
             }

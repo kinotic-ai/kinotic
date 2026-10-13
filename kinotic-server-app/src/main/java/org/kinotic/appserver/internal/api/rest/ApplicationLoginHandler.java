@@ -7,7 +7,7 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.kinotic.core.api.exceptions.AuthorizationException;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.appserver.api.config.AppServerProperties;
 import org.kinotic.domain.api.model.ApplicationKey;
@@ -48,6 +48,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final ApplicationAuthEndpointSupport authEndpointSupport;
     private final AppServerProperties properties;
+    private final SecurityExceptionFactory securityExceptions;
 
     @Override
     public void mountRoutes(Router router) {
@@ -167,7 +168,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
         // a login authenticates the page that made it, so a login made from another application's UI would
         // hand that UI this application's user; a request naming no page comes from a client outside a browser
         if (origin != null && !isApplicationUi(applicationKey, origin)) {
-            throw new AuthorizationException("The page is not a UI of this application");
+            throw securityExceptions.notAuthorized("The page {} is not a UI of application {}", origin, applicationKey);
         }
         return applicationKey;
     }

@@ -1,11 +1,10 @@
 package org.kinotic.management.internal.api.services.github;
 
 import io.vertx.core.Future;
-import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.security.OidcProviderKind;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
@@ -27,7 +26,6 @@ import java.util.List;
  * caller cannot read or mutate installations belonging to other orgs; only the operations
  * {@link GitHubAppInstallationService} declares are reachable remotely.
  */
-@Slf4j
 @Component
 public class DefaultGitHubAppInstallationService
         extends AbstractOrganizationScopedService<GitHubAppInstallation>
@@ -42,12 +40,13 @@ public class DefaultGitHubAppInstallationService
 
     public DefaultGitHubAppInstallationService(GitHubAppInstallationRepository repository,
                                                SecurityContext securityContext,
+                                               SecurityExceptionFactory securityExceptions,
                                                GithubProperties githubProperties,
                                                GitHubInstallStateService stateService,
                                                GitHubApiClient apiClient,
                                                OrgSignupOidcConfigurationService orgSignupOidcConfigurationService,
                                                SecretReferenceResolver secretReferenceResolver) {
-        super(repository, securityContext);
+        super(repository, securityContext, securityExceptions);
         this.installationRepository = repository;
         this.githubProperties = githubProperties;
         this.stateService = stateService;
@@ -77,8 +76,8 @@ public class DefaultGitHubAppInstallationService
                     "Install state is missing, expired, or already used. Please re-link GitHub."));
         }
         if (!callerOrgId.equals(staged.getOrganizationId())) {
-            return Future.failedFuture(new AuthorizationException(
-                    "Install state does not belong to the current organization."));
+            return Future.failedFuture(securityExceptions.notAuthorized("Install state of organization {} does not belong to organization {}",
+                                                                        staged.getOrganizationId(), callerOrgId));
         }
         if (code == null || code.isBlank()) {
             return Future.failedFuture(new IllegalStateException(
@@ -141,10 +140,8 @@ public class DefaultGitHubAppInstallationService
                                                  .orElse(null);
         Future<InstallationDetails> ret;
         if (match == null) {
-            log.warn("GitHub install verification failed: installation {} is not accessible to the authorizing user",
-                     installationId);
-            ret = Future.failedFuture(new AuthorizationException(
-                    "The GitHub account that authorized this install does not have access to the requested installation."));
+            ret = Future.failedFuture(securityExceptions.notAuthorized("GitHub install verification failed: installation {} is not accessible to the authorizing user",
+                                                                       installationId));
         } else {
             ret = Future.succeededFuture(match);
         }

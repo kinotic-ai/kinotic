@@ -12,6 +12,7 @@ import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.utils.KinoticUtil;
@@ -55,6 +56,7 @@ public class DefaultEntityService implements EntityService {
     private final ReadPostProcessor readPostProcessor;
     private final EntityDescriptor entityDescriptor;
     private final DomainPersistenceProperties domainPersistenceProperties;
+    private final SecurityExceptionFactory securityExceptions;
 
     @WithSpan
     @Override
@@ -131,7 +133,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public Future<Long> count(EntityContext context) {
-        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                 .compose(un -> crudServiceTemplate
                         .count(entityDescriptor.itemIndex(),
                                builder -> readPreProcessor.beforeCount(entityDescriptor, null, builder, context)));
@@ -140,7 +142,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public Future<Long> countByQuery(String query, EntityContext context) {
-        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                 .compose(un -> crudServiceTemplate
                         .count(entityDescriptor.itemIndex(),
                                builder -> readPreProcessor.beforeCount(entityDescriptor, query, builder, context)));
@@ -149,7 +151,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public Future<Void> deleteById(String id, EntityContext context) {
-        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                 .map(un -> composeId(id, context))
                 .compose(composedId -> crudServiceTemplate
                         .deleteById(entityDescriptor.itemIndex(),
@@ -164,7 +166,7 @@ public class DefaultEntityService implements EntityService {
         // We set the tenant selection so validation below will know that a tenant specific operation is being used
         context.setTenantSelection(List.of(id.tenantId()));
 
-        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                 .map(un -> composeId(id))
                 .compose(composedId -> crudServiceTemplate
                         .deleteById(entityDescriptor.itemIndex(),
@@ -176,7 +178,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public Future<Void> deleteByQuery(String query, EntityContext context) {
-        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                 .compose(un -> crudServiceTemplate
                         .deleteByQuery(entityDescriptor.itemIndex(),
                                        builder -> readPreProcessor.beforeDeleteByQuery(entityDescriptor, query, builder, context))
@@ -186,7 +188,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public <T> Future<Page<T>> findAll(Pageable pageable, Class<T> type, EntityContext context) {
-        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                 .compose(un -> {
 
                     if(FastestType.class.isAssignableFrom(type)){
@@ -235,7 +237,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public <T> Future<T> findById(String id, Class<T> type, EntityContext context) {
-        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                 .map(un -> composeId(id, context))
                 .compose(composedId -> doFindById(composedId, type, context));
     }
@@ -246,7 +248,7 @@ public class DefaultEntityService implements EntityService {
         // We set the tenant selection so validation below will know that a tenant specific operation is being used
         context.setTenantSelection(List.of(id.tenantId()));
 
-        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                 .map(un -> composeId(id))
                 .compose(composedId -> doFindById(composedId, type, context));
     }
@@ -254,7 +256,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public <T> Future<List<T>> findByIds(List<String> ids, Class<T> type, EntityContext context) {
-        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                 .map(un -> composeIds(ids, context))
                 .compose(composedIds -> doFindByIds(composedIds, type, context));
     }
@@ -335,7 +337,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public <T> Future<Page<T>> search(String searchText, Pageable pageable, Class<T> type, EntityContext context) {
-        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                 .compose(un -> {
 
                     if(FastestType.class.isAssignableFrom(type)){
@@ -563,10 +565,10 @@ public class DefaultEntityService implements EntityService {
 
             return delegatingUpsertPreProcessor.process(entity, context)
                     .compose(entityHolder ->
-                                         PersistenceUtil.validateEntityContext(entityDescriptor, context)
+                                         PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                                                  .compose(un -> persistLogic.apply(entityHolder)));
         }else{
-            return PersistenceUtil.validateEntityContext(entityDescriptor, context)
+            return PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                     .compose(un -> delegatingUpsertPreProcessor.process(entity, context))
                     .compose(persistLogic);
         }
@@ -581,11 +583,11 @@ public class DefaultEntityService implements EntityService {
 
             return delegatingUpsertPreProcessor.processArray(entities, context)
                     .compose(entityList ->
-                                         PersistenceUtil.validateEntityContext(entityDescriptor, context)
+                                         PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                                                  .compose(un -> doPersistBulkLogic(entityList, persistLogic)))
                     .mapEmpty();
         }else {
-            return PersistenceUtil.validateEntityContext(entityDescriptor, context)
+            return PersistenceUtil.validateEntityContext(entityDescriptor, context, securityExceptions)
                     .compose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
                     .compose(list -> doPersistBulkLogic(list, persistLogic))
                     .mapEmpty();
@@ -720,7 +722,7 @@ public class DefaultEntityService implements EntityService {
             tenants.add(id.tenantId());
         }
         entityContext.setTenantSelection(new ArrayList<>(tenants));
-        return PersistenceUtil.validateEntityContext(entityDescriptor, entityContext).map(ret);
+        return PersistenceUtil.validateEntityContext(entityDescriptor, entityContext, securityExceptions).map(ret);
     }
 
 }

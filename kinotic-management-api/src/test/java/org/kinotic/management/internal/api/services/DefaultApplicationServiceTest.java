@@ -1,7 +1,9 @@
 package org.kinotic.management.internal.api.services;
 
 import org.junit.jupiter.api.Test;
+import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 
@@ -25,7 +27,8 @@ class DefaultApplicationServiceTest {
 
     private static final String CALLER_ORG = "acme";
 
-    private final DefaultApplicationService service = new DefaultApplicationService(null, null, null, null, null, null, callerContext(), null, null, null, null);
+    private final DefaultApplicationService service = new DefaultApplicationService(null, null, null, null, null, null, callerContext(),
+                                                                                    new SecurityExceptionFactory(new KinoticProperties()), null, null, null, null);
 
     private static SecurityContext callerContext() {
         OrganizationParticipant participant = mock(OrganizationParticipant.class);

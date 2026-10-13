@@ -3,6 +3,7 @@ package org.kinotic.management.internal.api.services;
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
 import org.kinotic.management.api.services.NamedQueriesDefinitionService;
@@ -23,8 +24,9 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
 
     public DefaultNamedQueriesDefinitionService(NamedQueriesDefinitionRepository repository,
                                                 ApplicationEventPublisher eventPublisher,
-                                                SecurityContext securityContext) {
-        super(repository, securityContext);
+                                                SecurityContext securityContext,
+                                                SecurityExceptionFactory securityExceptions) {
+        super(repository, securityContext, securityExceptions);
         this.namedQueriesRepository = repository;
         this.eventPublisher = eventPublisher;
     }

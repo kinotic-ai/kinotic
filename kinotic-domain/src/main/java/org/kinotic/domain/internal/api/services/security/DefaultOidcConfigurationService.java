@@ -3,6 +3,7 @@ package org.kinotic.domain.internal.api.services.security;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.SecurityExceptionFactory;
 import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
@@ -35,8 +36,9 @@ public class DefaultOidcConfigurationService extends AbstractOrganizationScopedS
                                            ApplicationRepository applicationRepository,
                                            OrgSignupOidcConfigurationService orgSignupOidcConfigurationService,
                                            TenantRepository tenants,
-                                           SecurityContext securityContext) {
-        super(repository, securityContext);
+                                           SecurityContext securityContext,
+                                           SecurityExceptionFactory securityExceptions) {
+        super(repository, securityContext, securityExceptions);
         this.oidcRepository = repository;
         this.organizationService = organizationService;
         this.applicationRepository = applicationRepository;

@@ -3,8 +3,9 @@ package org.kinotic.core.api.security;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import io.vertx.core.spi.context.storage.ContextLocal;
-import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.exceptions.AuthorizationException;
+import org.slf4j.event.Level;
 import org.springframework.stereotype.Component;
 
 /**
@@ -15,11 +16,13 @@ import org.springframework.stereotype.Component;
  * registered before any {@link Vertx} instance is created, which is handled by the bean
  * definitions in {@code org.kinotic.core.internal.config.KinoticVertxConfig}.
  */
-@Slf4j
 @Component
+@RequiredArgsConstructor
 public class SecurityContext {
 
     private static final ContextLocal<Participant> PARTICIPANT_LOCAL = ContextLocal.registerLocal(Participant.class);
+
+    private final SecurityExceptionFactory securityExceptions;
 
     /**
      * Returns the {@link Participant} for the current Vert.x context, or null if none is set.
@@ -46,13 +49,8 @@ public class SecurityContext {
             throw new IllegalStateException("No Participant is bound to the current Vert.x context");
         }
         if (!type.isInstance(participant)) {
-            // Log the mismatch server-side for diagnostics; surface only a generic message
-            // to the caller so the response can't be probed to discover scope details.
-            log.error("Participant type mismatch: {} required, got {} (participant id={})",
-                      type.getSimpleName(),
-                      participant.getClass().getSimpleName(),
-                      participant.getId());
-            throw new AuthorizationException("Access denied");
+            throw securityExceptions.notAuthorized(Level.ERROR, "Participant type mismatch: {} required, got {} (participant id={})",
+                                                   type.getSimpleName(), participant.getClass().getSimpleName(), participant.getId());
         }
         return type.cast(participant);
     }
