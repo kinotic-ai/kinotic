@@ -40,4 +40,10 @@ public interface SchemaFactory {
      */
     NamespaceDefinition createForServices(Collection<ServiceDeclaration> services);
 
+    /**
+     * Creates a permission contract with function names, parameter names and permission decorators.
+     * Parameter and result types use {@code AnyC3Type}, so authorization metadata can describe arbitrary service payloads.
+     */
+    ServiceDefinition createPermissionContract(ServiceDeclaration service);
+
 }

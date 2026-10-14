@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services.security;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
@@ -15,6 +18,9 @@ import org.kinotic.management.api.model.PendingInviteSummary;
  * that application's members.
  */
 @Publish
+@PermissionNamespace("member")
+@ResourceTarget(type = "scope")
+@RequirePermission
 public interface MemberService {
 
     /** Lists the members of the scope. */

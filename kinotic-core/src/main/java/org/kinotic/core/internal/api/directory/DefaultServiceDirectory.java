@@ -20,7 +20,6 @@ import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
-import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
@@ -35,6 +34,10 @@ import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StreamC3Type;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
+import org.kinotic.idl.api.annotations.McpTool;
+import org.kinotic.idl.api.schema.decorators.RequirePermissionC3Decorator;
+import org.kinotic.core.api.security.Participant;
+import org.springframework.core.MethodParameter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -42,7 +45,6 @@ import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.ClassUtils;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Method;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -53,8 +55,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The {@link ServiceDirectory}: publishes the contracts of services that opt in with
- * {@code @Publish(advertise = true)} or expose an {@code @McpTool} function, keeps liveness verified against
+ * The {@link ServiceDirectory}: publishes all registered service contracts, keeps liveness verified against
  * cluster registrations, serves the directory queries, and deploys the {@link ServiceLivenessUpdater} as one HA
  * cluster singleton on startup. Storage is supplied by a {@link ServiceDirectoryStrategy}; the directory bean
  * exists only when a strategy bean does, so a deployment without one has no directory at all.
@@ -65,6 +66,11 @@ import java.util.Set;
 // scan runs — KinoticDomainAutoConfiguration declares before = KinoticCoreAutoConfiguration for this
 @ConditionalOnBean(ServiceDirectoryStrategy.class)
 public class DefaultServiceDirectory implements ServiceDirectory {
+
+    @Override
+    public Future<ServiceDirectoryEntry> findEntryById(String id) {
+        return strategy.findEntryById(id);
+    }
 
     private static final String LIVENESS_SINGLETON_NAME = "kinotic-service-liveness-updater";
 
@@ -111,9 +117,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation) {
         // the user class, so an AOP proxy never becomes the naming source
         ServiceDeclaration registration = new ServiceDeclaration(serviceInterface, ClassUtils.getUserClass(serviceImplementation));
-        if (!shouldPublishToDirectory(registration)) {
-            return;
-        }
         boolean queued;
         synchronized (registrationLock) {
             registered.add(serviceIdentifier);
@@ -177,7 +180,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
      * between services are converted once.
      */
     private Future<Void> publishAllToDirectory(Map<ServiceIdentifier, ServiceDeclaration> registrations) {
-        NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values());
+        NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values().stream().filter(this::requiresWireSchema).toList());
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
         Map<String, ServiceDefinition> definitionsByQualifiedName = new HashMap<>();
         for (ServiceDefinition definition : namespace.getServices()) {
@@ -193,9 +196,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 ServiceDefinition definition = definitionsByQualifiedName.get(
                         serviceInterface.getPackageName() + "." + serviceInterface.getSimpleName());
                 if (definition == null) {
-                    // conversion failed, SchemaFactory omitted the service and logged the cause
-                    continue;
+                    definition = schemaFactory.createPermissionContract(registration.getValue());
                 }
+                compileResourceIndexes(serviceInterface, definition);
                 writes.add(strategy.upsertEntry(buildEntry(registration.getKey(),
                                                            serviceInterface,
                                                            definition,
@@ -206,6 +209,14 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             }
         }
         return Future.all(writes).mapEmpty();
+    }
+
+    private boolean requiresWireSchema(ServiceDeclaration declaration) {
+        Class<?> serviceInterface = declaration.serviceInterface();
+        if (isAdvertised(serviceInterface) || AnnotationUtils.findAnnotation(serviceInterface, McpTool.class) != null
+                || AnnotationUtils.findAnnotation(declaration.serviceImplementation(), McpTool.class) != null) return true;
+        return IdlUtil.serviceFunctions(serviceInterface).values().stream().anyMatch(method ->
+                AnnotationUtils.findAnnotation(ClassUtils.getMostSpecificMethod(method, declaration.serviceImplementation()), McpTool.class) != null);
     }
 
     @Override
@@ -329,32 +340,27 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 .setMcpTools(tools.isEmpty() ? null : tools);
     }
 
-    // Directory inclusion is opt-in via @Publish(advertise = true); an @McpTool function is already
-    // explicit intent to expose the service, so it implies inclusion
-    private boolean shouldPublishToDirectory(ServiceDeclaration registration) {
-        return isAdvertised(registration.serviceInterface()) || hasMcpToolFunction(registration);
-    }
-
     private boolean isAdvertised(Class<?> serviceInterface) {
         Publish publish = AnnotationUtils.findAnnotation(serviceInterface, Publish.class);
         return publish != null && publish.advertise();
     }
 
-    private boolean hasMcpToolFunction(ServiceDeclaration registration) {
-        // a type-level @McpTool marks every function a tool, so the interface alone decides
-        boolean ret = AnnotationUtils.findAnnotation(registration.serviceInterface(), McpTool.class) != null;
-        if (!ret) {
-            for (Method method : IdlUtil.serviceFunctions(registration.serviceInterface()).values()) {
-                // findAnnotation on the most specific method honors @McpTool declared on the interface method
-                // or only on the implementation's override, matching DefaultSchemaFactory's discovery
-                Method specificMethod = ClassUtils.getMostSpecificMethod(method, registration.serviceImplementation());
-                if (AnnotationUtils.findAnnotation(specificMethod, McpTool.class) != null) {
-                    ret = true;
-                    break;
-                }
+    private void compileResourceIndexes(Class<?> serviceInterface, ServiceDefinition definition) {
+        var methods = IdlUtil.serviceFunctions(serviceInterface);
+        for (var function : definition.getFunctions()) {
+            var declaration = function.findDecorator(RequirePermissionC3Decorator.class);
+            if (declaration == null || declaration.getIdArgument().isEmpty()) continue;
+            String root = declaration.getIdArgument().split("\\.")[0];
+            var method = methods.get(function.getName());
+            int wireIndex = 0;
+            for (int index = 0; index < method.getParameterCount(); index++) {
+                var parameter = new MethodParameter(method, index);
+                if (Participant.class.isAssignableFrom(parameter.nestedIfOptional().getParameterType())) continue;
+                if (IdlUtil.parameterName(parameter).equals(root)) declaration.setArgumentIndex(wireIndex);
+                wireIndex++;
             }
+            if (declaration.getArgumentIndex() < 0) throw new IllegalArgumentException("ResourceTarget must name a caller-supplied argument");
         }
-        return ret;
     }
 
     private Map<String, ObjectC3Type> referenceResolver(Set<ComplexC3Type> referencedTypes) {

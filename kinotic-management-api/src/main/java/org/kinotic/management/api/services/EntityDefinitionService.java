@@ -1,6 +1,9 @@
 
 package org.kinotic.management.api.services;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
@@ -14,7 +17,30 @@ import org.kinotic.domain.api.model.persistence.EntityDefinition;
  * and project-scoped queries are inherited with automatic organization enforcement.
  */
 @Publish
+@PermissionNamespace("entityDefinitions")
+@ResourceTarget(type = "entity_definition")
+@RequirePermission
 public interface EntityDefinitionService extends ProjectScopedCrudService<EntityDefinition, String> {
+    @Override
+    @RequirePermission("read")
+    @ResourceTarget(idArgument = "id")
+    Future<EntityDefinition> findById(String id);
+
+    @Override
+    @RequirePermission("update")
+    @ResourceTarget(idArgument = "entity.id")
+    Future<EntityDefinition> save(EntityDefinition entity);
+
+    @Override
+    @RequirePermission("delete")
+    @ResourceTarget(idArgument = "id")
+    Future<Void> deleteById(String id);
+
+    @Override
+    @RequirePermission("delete")
+    @ResourceTarget(idArgument = "id")
+    Future<Void> deleteByIdSync(String id);
+
 
     /**
      * Creates a new {@link EntityDefinition}. Validates the definition, derives the logical
@@ -43,6 +69,7 @@ public interface EntityDefinitionService extends ProjectScopedCrudService<Entity
      * @param entityDefinitionId the id of the definition to publish
      * @return a {@link Future} that completes when the definition has been published
      */
+    @ResourceTarget(idArgument = "entityDefinitionId")
     Future<Void> publish(String entityDefinitionId);
 
     /**
@@ -60,6 +87,7 @@ public interface EntityDefinitionService extends ProjectScopedCrudService<Entity
      * @param entityDefinitionId the id of the definition to un-publish
      * @return a {@link Future} that completes when the definition has been un-published
      */
+    @ResourceTarget(idArgument = "entityDefinitionId")
     Future<Void> unPublish(String entityDefinitionId);
 
     /**
@@ -69,6 +97,9 @@ public interface EntityDefinitionService extends ProjectScopedCrudService<Entity
      * @param entity the definition to save
      * @return a {@link Future} emitting the saved definition
      */
+    @Override
+    @RequirePermission("update")
+    @ResourceTarget(idArgument = "entity.id")
     Future<EntityDefinition> saveSync(EntityDefinition entity);
 
 }

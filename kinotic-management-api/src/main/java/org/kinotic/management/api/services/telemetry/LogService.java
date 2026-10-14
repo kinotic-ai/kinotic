@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services.telemetry;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.annotations.Publish;
@@ -15,7 +18,10 @@ import reactor.core.publisher.Flux;
  * participant reads a server's logs. Every method returns the raw Loki response bytes; the caller
  * parses Loki's wire format.
  */
-@Publish //FIXME: figure out how to provide an McpTool that returns a flux, or add an exclusion to the McpTool annotation.
+@Publish
+@PermissionNamespace("log")
+@ResourceTarget(type = "scope")
+@RequirePermission //FIXME: figure out how to provide an McpTool that returns a flux, or add an exclusion to the McpTool annotation.
 public interface LogService {
 
     /**

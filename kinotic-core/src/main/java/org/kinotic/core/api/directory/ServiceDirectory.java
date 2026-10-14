@@ -17,6 +17,9 @@ import io.vertx.core.Future;
  */
 public interface ServiceDirectory {
 
+    /** Finds the contract registered under its exact qualified service name. */
+    Future<ServiceDirectoryEntry> findEntryById(String id);
+
     /**
      * Returns the entries scoped to the given organization/application. System (OS) entries are system-scoped, so
      * they never match a non-null scope — an organization or application only ever sees what it provides. A system

@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.domain.api.services.ProjectScopedCrudService;
@@ -10,6 +13,9 @@ import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
  * Created by Navíd Mitchell 🤪on 4/23/24.
  */
 @Publish
+@PermissionNamespace("namedQueries")
+@ResourceTarget(type = "scope")
+@RequirePermission
 public interface NamedQueriesDefinitionService extends ProjectScopedCrudService<NamedQueriesDefinition, String> {
 
     /**

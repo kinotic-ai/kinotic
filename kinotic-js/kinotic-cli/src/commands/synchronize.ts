@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import { ApplicationContractCompiler } from '@/internal/ApplicationContractCompiler'
 import {chdirToProjectRoot, isKinoticProject, loadKinoticProjectConfig} from '@/internal/state/KinoticProjectConfigUtil'
 import {FunctionDefinition, ObjectC3Type} from '@kinotic-ai/idl'
 import { Kinotic } from '@kinotic-ai/core'
@@ -92,6 +94,12 @@ export class Synchronize extends Command {
                                          }
                                      },
                                      flags.force)
+
+            if (kinoticProjectConfig.servicesPaths?.length) {
+                const contracts = new ApplicationContractCompiler().compile(kinoticProjectConfig.servicesPaths, JSON.parse(fs.readFileSync('package.json', 'utf8')).kinotic?.zone)
+                if (flags.dryRun) this.log(JSON.stringify(contracts, null, 2))
+                else await Kinotic.accessControl.publishContracts(kinoticProjectConfig.applicationId, contracts)
+            }
 
             // Apply migrations after entity synchronization
             if (!flags.dryRun) {

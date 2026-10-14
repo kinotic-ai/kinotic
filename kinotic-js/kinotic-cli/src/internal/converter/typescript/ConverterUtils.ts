@@ -1,5 +1,6 @@
 import {
     C3Decorator,
+    RequirePermissionDecorator,
     C3Type,
     DoubleC3Type,
     FloatC3Type,
@@ -127,6 +128,17 @@ export function tsDecoratorToC3Decorator(decorator: Decorator): C3Decorator | nu
                 throw new Error('statement must be set on Query Decorator')
             }
         }
+    } else if (decorator.getName() === 'RequirePermission') {
+        const args = decorator.getArguments()
+        const declaration = new RequirePermissionDecorator()
+        const permission = args[0] ? parseExpressionToJs(args[0]) : ''
+        if (typeof permission !== 'string' || !permission) throw new Error('Entity and query RequirePermission needs a literal permission name')
+        const options = args[1] ? parseExpressionToJs(args[1]) as Record<string, unknown> : {}
+        declaration.permission = permission
+        declaration.label = typeof options.label === 'string' ? options.label : ''
+        declaration.resourceType = typeof options.resourceType === 'string' ? options.resourceType : 'entity_definition'
+        declaration.tenantDelegable = options.tenantDelegable === true
+        ret = declaration
     } else if (decorator.getName() === 'Role') {
         const argument = decorator.getArguments()[0]
         if (argument?.getKind() === SyntaxKind.ArrayLiteralExpression) {

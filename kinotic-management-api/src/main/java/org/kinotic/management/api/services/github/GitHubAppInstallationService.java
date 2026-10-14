@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services.github;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.management.api.model.github.GitHubAppInstallation;
@@ -26,6 +29,9 @@ import org.kinotic.management.api.model.github.GitHubInstallCompletion;
  * organization without completing the round-trip below.
  */
 @Publish
+@PermissionNamespace("gitHubAppInstallation")
+@ResourceTarget(type = "scope")
+@RequirePermission
 public interface GitHubAppInstallationService {
 
     /**

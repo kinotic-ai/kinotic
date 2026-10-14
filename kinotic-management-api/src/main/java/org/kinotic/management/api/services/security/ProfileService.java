@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services.security;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.security.Participant;
@@ -11,6 +14,9 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
  * meant — and only a person (never a delegate) may call these at all.
  */
 @Publish
+@PermissionNamespace("profile")
+@ResourceTarget(type = "scope")
+@RequirePermission
 public interface ProfileService {
 
     /** Returns the calling user's identity. */

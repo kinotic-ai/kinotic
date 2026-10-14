@@ -22,6 +22,11 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy {
 
+    @Override
+    public Future<ServiceDirectoryEntry> findEntryById(String id) {
+        return repository.findById(id);
+    }
+
     private final ServiceDirectoryEntryRepository repository;
 
     @Override

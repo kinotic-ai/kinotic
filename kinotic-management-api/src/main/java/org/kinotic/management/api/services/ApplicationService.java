@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
@@ -15,8 +18,36 @@ import java.util.List;
  */
 // FIXME: add an OrganizationScopedServiceInterface
 @Publish
+@PermissionNamespace("applications")
+@ResourceTarget(type = "application")
+@RequirePermission
 @McpTool
 public interface ApplicationService extends IdentifiableCrudService<Application, String> {
+    @Override
+    @RequirePermission("read")
+    @ResourceTarget(idArgument = "id")
+    Future<Application> findById(String id);
+
+    @Override
+    @RequirePermission("update")
+    @ResourceTarget(idArgument = "entity.id")
+    Future<Application> save(Application entity);
+
+    @Override
+    @RequirePermission("update")
+    @ResourceTarget(idArgument = "entity.id")
+    Future<Application> saveSync(Application entity);
+
+    @Override
+    @RequirePermission("delete")
+    @ResourceTarget(idArgument = "id")
+    Future<Void> deleteById(String id);
+
+    @Override
+    @RequirePermission("delete")
+    @ResourceTarget(idArgument = "id")
+    Future<Void> deleteByIdSync(String id);
+
 
     /**
      * Creates a new application if it does not already exist, deriving its id from the slugified name.
@@ -41,6 +72,7 @@ public interface ApplicationService extends IdentifiableCrudService<Application,
      *         configurations attached; fails when the id names no application in the
      *         caller's organization
      */
+    @ResourceTarget(idArgument = "applicationId")
     Future<List<OidcConfiguration>> getOidcConfigurations(String applicationId);
 
 }

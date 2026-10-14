@@ -1,0 +1,40 @@
+# Local development authorization backend. Start with: docker compose -f compose.openfga.yml up -d
+services:
+  openfga-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: openfga
+      POSTGRES_PASSWORD: openfga-local
+      POSTGRES_DB: openfga
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openfga"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - openfga-data:/var/lib/postgresql/data
+  openfga-migrate:
+    image: openfga/openfga:v1.10.0
+    command: ["migrate"]
+    environment:
+      OPENFGA_DATASTORE_ENGINE: postgres
+      OPENFGA_DATASTORE_URI: postgres://openfga:openfga-local@openfga-postgres:5432/openfga?sslmode=disable
+    depends_on:
+      openfga-postgres:
+        condition: service_healthy
+  openfga:
+    image: openfga/openfga:v1.10.0
+    command: ["run"]
+    environment:
+      OPENFGA_DATASTORE_ENGINE: postgres
+      OPENFGA_DATASTORE_URI: postgres://openfga:openfga-local@openfga-postgres:5432/openfga?sslmode=disable
+      OPENFGA_AUTHN_METHOD: preshared
+      OPENFGA_AUTHN_PRESHARED_KEYS: kinotic-local-openfga
+      OPENFGA_PLAYGROUND_ENABLED: "false"
+    depends_on:
+      openfga-migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:8180:8080"
+volumes:
+  openfga-data:

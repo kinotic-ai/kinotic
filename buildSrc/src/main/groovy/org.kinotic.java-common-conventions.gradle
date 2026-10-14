@@ -230,7 +230,12 @@ test {
     // Module name consumed by ModuleSuiteListener to set the suite (middle) level of the Allure tree.
     systemProperty 'kinotic.allure.module', project.name
     outputs.dir(layout.buildDirectory.dir('allure-results')).withPropertyName('allureResults')
-    doFirst { delete layout.buildDirectory.dir('allure-results') }
+    doFirst {
+        delete layout.buildDirectory.dir('allure-results')
+        // Initialize Mockito instrumentation at JVM startup rather than attaching an agent during a test.
+        def mockito = classpath.files.find { it.name.startsWith('mockito-core-') }
+        if (mockito != null) jvmArgs "-javaagent:${mockito.absolutePath}"
+    }
     jvmArgs(
         "-javaagent:${configurations.agent.singleFile}",
         "--add-opens=java.base/java.nio=ALL-UNNAMED",
@@ -246,4 +251,3 @@ test {
         showStackTraces = true
     }
 }
-

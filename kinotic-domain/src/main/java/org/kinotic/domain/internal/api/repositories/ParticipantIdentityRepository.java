@@ -21,6 +21,14 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
         super("kinotic_participant_identity", ParticipantIdentity.class, crudServiceTemplate);
     }
 
+    public Future<Page<ParticipantIdentity>> findForAuthorizationScope(org.kinotic.domain.api.model.security.authorization.AuthorizationScope scope, Pageable pageable) {
+        Query tenant = scope.getTenantId() == null ? null : termFilter("tenantId", scope.getTenantId());
+        Query filter = tenant == null ? scopeFilter(scope.getOrganizationId(), scope.getApplicationId())
+                : composeFilter(scopeFilter(scope.getOrganizationId(), scope.getApplicationId()), tenant);
+        return findAll(pageable, builder -> builder.query(composeFilter(filter,
+                termFilter("enabled", true), termFilter("type", ParticipantIdentityType.USER.name()))));
+    }
+
     public Future<UserParticipantIdentity> findByEmail(String email, String organizationId, String applicationId) {
         Validate.notBlank(email, "email cannot be blank");
         if (applicationId != null) {

@@ -4,6 +4,7 @@ plugins {
 }
 
 dependencies {
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	implementation project(':kinotic-core')
 	implementation project(':kinotic-domain')
     implementation project(':kinotic-idl')

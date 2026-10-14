@@ -53,6 +53,36 @@ import java.util.function.Supplier;
 public class McpServiceSchemaTest {
 
     @Test
+    public void authorizationContractsCoverManagementServices() throws Exception {
+        var scanner = new org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider(false) {
+            @Override
+            protected boolean isCandidateComponent(org.springframework.beans.factory.annotation.AnnotatedBeanDefinition definition) {
+                return definition.getMetadata().isInterface();
+            }
+        };
+        scanner.addIncludeFilter(new org.springframework.core.type.filter.AnnotationTypeFilter(org.kinotic.idl.api.annotations.RequirePermission.class));
+        var declarations = new java.util.ArrayList<ServiceDeclaration>();
+        for (var bean : scanner.findCandidateComponents("org.kinotic.management.api.services")) {
+            Class<?> service = Class.forName(bean.getBeanClassName());
+            declarations.add(new ServiceDeclaration(service, service));
+        }
+        Assertions.assertTrue(declarations.size() >= 15);
+        var factory = schemaFactory();
+        for (var declaration : declarations) for (var function : factory.createPermissionContract(declaration).getFunctions()) {
+            String name = declaration.serviceInterface().getSimpleName();
+            var permission = function.findDecorator(org.kinotic.idl.api.schema.decorators.RequirePermissionC3Decorator.class);
+            Assertions.assertNotNull(permission, name + "." + function.getName());
+            Assertions.assertFalse(permission.getPermission().isBlank());
+            Assertions.assertFalse(permission.getResourceType().isBlank());
+            if (!permission.getIdArgument().isEmpty()) {
+                String argument = permission.getIdArgument().split("\\.")[0];
+                Assertions.assertTrue(function.getParameters().stream().anyMatch(parameter -> parameter.getName().equals(argument)),
+                                      name + "." + function.getName() + " targets a missing parameter");
+            }
+        }
+    }
+
+    @Test
     public void mcpExposedServicesConvert() {
         NamespaceDefinition namespaceDefinition =
                 schemaFactory().createForServices(List.of(new ServiceDeclaration(ProjectService.class, DefaultProjectService.class),

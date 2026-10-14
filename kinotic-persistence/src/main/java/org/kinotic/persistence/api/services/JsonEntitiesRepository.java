@@ -1,6 +1,9 @@
 package org.kinotic.persistence.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
@@ -21,6 +24,9 @@ import java.util.List;
  * Created by Nic Padilla 🤪on 6/18/23.
  */
 @Publish
+@PermissionNamespace("data")
+@ResourceTarget(type = "entity_definition", idArgument = "entityDefinitionId")
+@RequirePermission(tenantDelegable = true)
 @Zone(DomainUtil.APP_API_ZONE)
 public interface JsonEntitiesRepository {
 

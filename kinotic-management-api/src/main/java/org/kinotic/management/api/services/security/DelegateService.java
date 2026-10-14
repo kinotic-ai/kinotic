@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services.security;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
@@ -17,6 +20,9 @@ import java.util.List;
  * see or revoke it, and only a person (never a delegate) may call these at all.
  */
 @Publish
+@PermissionNamespace("delegate")
+@ResourceTarget(type = "scope")
+@RequirePermission
 public interface DelegateService {
 
     /**

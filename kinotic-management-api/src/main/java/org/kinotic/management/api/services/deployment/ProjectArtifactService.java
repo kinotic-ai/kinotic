@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services.deployment;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
@@ -13,6 +16,9 @@ import org.kinotic.management.api.model.deployment.ProjectDeployment;
  * organization can report on the project's behalf.
  */
 @Publish
+@PermissionNamespace("projectArtifact")
+@ResourceTarget(type = "scope")
+@RequirePermission
 public interface ProjectArtifactService {
 
     /**

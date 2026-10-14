@@ -1,5 +1,8 @@
 package org.kinotic.management.api.services.deployment;
 
+import org.kinotic.idl.api.annotations.PermissionNamespace;
+import org.kinotic.idl.api.annotations.RequirePermission;
+import org.kinotic.idl.api.annotations.ResourceTarget;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
@@ -17,6 +20,9 @@ import java.util.List;
  * removed here.
  */
 @Publish
+@PermissionNamespace("microserviceDeployment")
+@ResourceTarget(type = "scope")
+@RequirePermission
 public interface MicroserviceDeploymentService {
 
     /**

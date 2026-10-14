@@ -10,6 +10,10 @@
     "build": "pnpm -r build",
     "build:dev": "pnpm -r build:dev",
     "build:kind": "pnpm -r build:kind",
-    "dev:system": "pnpm --filter kinotic-system-console dev"
+    "dev:system": "pnpm --filter kinotic-system-console dev",
+    "test:access-control": "node --test tests/AccessControlEditor.test.mjs"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.14.5"
   }
 }
