@@ -61,6 +61,11 @@ public class KinoticProperties {
     private IgniteProperties ignite = new IgniteProperties();
 
     /**
+     * Mutual TLS between the platform's nodes, on the clustered event bus and on Ignite's discovery and communication.
+     */
+    private ClusterTlsProperties clusterTls = new ClusterTlsProperties();
+
+    /**
      * The largest event payload the platform accepts, in bytes. It bounds the STOMP body, the
      * WebSocket frame carrying it, and the JSON document the invoker will parse. A frame's payload is
      * allocated off heap in full as it arrives, so this also sets how much direct memory a single
