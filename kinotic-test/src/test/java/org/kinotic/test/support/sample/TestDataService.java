@@ -4,7 +4,6 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.CacheLoader;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import org.apache.commons.lang3.tuple.Pair;
 import org.jspecify.annotations.Nullable;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.model.ApplicationKey;
@@ -95,18 +94,18 @@ public class TestDataService {
 
     /**
      * Creates a {@link Car} {@link EntityDefinition} if it does not exist.
-     * @return a {@link Future} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
+     * @return a {@link Future} that will return the {@link EntityDefinition}
      */
-    public Future<Pair<EntityDefinition, Boolean>> createCarEntityDefinitionIfNotExists(String structureNameSuffix){
+    public Future<EntityDefinition> createCarEntityDefinitionIfNotExists(String structureNameSuffix){
         String structureId = DomainUtil.createEntityDefinitionId(new ApplicationKey(SAMPLE_ORG_ID, SAMPLE_APP_ID),
                                                                  "Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return entityDefinitionService.findById(structureId)
                                       .compose(structure -> {
-                                   Future<Pair<EntityDefinition, Boolean>> ret;
+                                   Future<EntityDefinition> ret;
                                    if(structure != null){
-                                       ret = Future.succeededFuture(Pair.of(structure, false));
+                                       ret = Future.succeededFuture(structure);
                                    }else{
-                                       ret = createCarEntityDefinition(structureNameSuffix).map(saved -> Pair.of(saved, true));
+                                       ret = createCarEntityDefinition(structureNameSuffix);
                                    }
                                    return ret;
                                });
@@ -176,24 +175,24 @@ public class TestDataService {
         return ret;
     }
 
-    public Future<Pair<EntityDefinition, Boolean>> createPersonEntityDefinitionIfNotExists(){
+    public Future<EntityDefinition> createPersonEntityDefinitionIfNotExists(){
         return createPersonEntityDefinitionIfNotExists(null);
     }
 
     /**
      * Creates a person structure if it does not exist.
-     * @return a {@link Future} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
+     * @return a {@link Future} that will return the {@link EntityDefinition}
      */
-    public Future<Pair<EntityDefinition, Boolean>> createPersonEntityDefinitionIfNotExists(String structureNameSuffix){
+    public Future<EntityDefinition> createPersonEntityDefinitionIfNotExists(String structureNameSuffix){
         String structureId = DomainUtil.createEntityDefinitionId(new ApplicationKey(SAMPLE_ORG_ID, SAMPLE_APP_ID),
                                                                  "Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return entityDefinitionService.findById(structureId)
                                       .compose(structure -> {
-                                   Future<Pair<EntityDefinition, Boolean>> ret;
+                                   Future<EntityDefinition> ret;
                                    if(structure != null){
-                                       ret = Future.succeededFuture(Pair.of(structure, false));
+                                       ret = Future.succeededFuture(structure);
                                    }else{
-                                       ret = createPersonEntityDefinition(structureNameSuffix).map(saved -> Pair.of(saved, true));
+                                       ret = createPersonEntityDefinition(structureNameSuffix);
                                    }
                                    return ret;
                                });

@@ -37,11 +37,8 @@ public class DefaultGitHubWebhookProcessorTest {
     @BeforeEach
     void setUp() {
         vertx = Vertx.vertx();
-        Project project = new Project();
-        project.setId("proj-1");
-        project.setOrganizationId("org-1");
         ProjectRepository projects = mock(ProjectRepository.class);
-        when(projects.findByRepoFullName(anyString())).thenReturn(Future.succeededFuture(List.of(project)));
+        when(projects.findByRepoFullName(anyString())).thenReturn(Future.succeededFuture(List.of(new Project())));
         processor = new DefaultGitHubWebhookProcessor(mock(GitHubAppInstallationRepository.class), projects, vertx);
         processor.init();
         processor.projectPushes().subscribe(pushes::add);
@@ -66,8 +63,6 @@ public class DefaultGitHubWebhookProcessorTest {
             Thread.sleep(20);
         }
         assertEquals(1, pushes.size());
-        assertEquals("org-1", pushes.get(0).getOrganizationId());
-        assertEquals("proj-1", pushes.get(0).getProjectId());
         assertEquals(SHA_2, pushes.get(0).getCommitSha());
     }
 

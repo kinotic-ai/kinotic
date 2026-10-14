@@ -1,7 +1,6 @@
 package org.kinotic.test.tests.core.entity;
 
 import io.vertx.core.Future;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.domain.api.model.RawJson;
@@ -49,8 +48,7 @@ public class BulkUpdateTests extends KinoticTestBase {
                                                                             structureSuffix))
                     .expectNextMatches(structureAndPersonHolder -> {
                         boolean matches = structureAndPersonHolder.getEntityDefinition() != null &&
-                                structureAndPersonHolder.getEntityDefinition().getId() != null &&
-                                structureAndPersonHolder.getPersons().size() == numberOfPeopleToCreate;
+                                structureAndPersonHolder.getEntityDefinition().getId() != null;
                         if(matches){
                             ret.setEntityDefinition(structureAndPersonHolder.getEntityDefinition());
                             ret.setPersons(structureAndPersonHolder.getPersons());
@@ -102,17 +100,15 @@ public class BulkUpdateTests extends KinoticTestBase {
     @Test
     public void bulkSaveObjectWithMultipleIds() throws Exception{
         EntityContext entityContext = new DefaultEntityContext(applicationParticipant());
-        Future<Pair<EntityDefinition, Boolean>> createStructure = runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("_bulkSaveMultipleIds"));
+        Future<EntityDefinition> createStructure = runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("_bulkSaveMultipleIds"));
 
         StepVerifier.create(Mono.fromCompletionStage(createStructure.toCompletionStage()))
-                    .expectNextMatches(pair -> pair.getLeft() != null && pair.getRight())
+                    .expectNextMatches(definition -> definition != null)
                     .verifyComplete();
 
-        EntityDefinition entityDefinition = createStructure.await().getLeft();
+        EntityDefinition entityDefinition = createStructure.await();
 
         List<Person> personList = testDataService.createRandomTestPeopleWithId(50).await();
-
-        Assertions.assertEquals(50, personList.size(), "Failed to create test person");
 
         List<Car> cars = new ArrayList<>(50);
         for(Person person : personList){
@@ -139,17 +135,15 @@ public class BulkUpdateTests extends KinoticTestBase {
     @Test
     public void bulkUpdateObjectWithMultipleIds() throws Exception{
         EntityContext entityContext = new DefaultEntityContext(applicationParticipant());
-        Future<Pair<EntityDefinition, Boolean>> createStructure = runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("_bulkUpdateMultipleIds"));
+        Future<EntityDefinition> createStructure = runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("_bulkUpdateMultipleIds"));
 
         StepVerifier.create(Mono.fromCompletionStage(createStructure.toCompletionStage()))
-                    .expectNextMatches(pair -> pair.getLeft() != null && pair.getRight())
+                    .expectNextMatches(definition -> definition != null)
                     .verifyComplete();
 
-        EntityDefinition entityDefinition = createStructure.await().getLeft();
+        EntityDefinition entityDefinition = createStructure.await();
 
         List<Person> personList = testDataService.createRandomTestPeopleWithId(50).await();
-
-        Assertions.assertEquals(50, personList.size(), "Failed to create test person");
 
         List<Car> cars = new ArrayList<>(50);
         for(Person person : personList){

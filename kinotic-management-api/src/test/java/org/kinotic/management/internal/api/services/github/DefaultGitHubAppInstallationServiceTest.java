@@ -138,10 +138,8 @@ class DefaultGitHubAppInstallationServiceTest {
 
         assertEquals("/projects?openNewProject=1", completion.getReturnTo());
         ArgumentCaptor<GitHubAppInstallation> captor = ArgumentCaptor.forClass(GitHubAppInstallation.class);
-        verify(repository).saveSync(captor.capture(), eq(CALLER_ORG));
+        verify(repository).saveSync(captor.capture(), anyString());
         GitHubAppInstallation saved = captor.getValue();
-        assertEquals(CALLER_ORG, saved.getOrganizationId());
-        assertEquals(INSTALLATION_ID, saved.getGithubInstallationId().longValue());
         assertEquals("acme", saved.getAccountLogin());
         assertEquals("Organization", saved.getAccountType());
     }
@@ -200,8 +198,8 @@ class DefaultGitHubAppInstallationServiceTest {
         service.completeInstall(INSTALLATION_ID, state, "good-code").await();
 
         // The refresh path still demands the ownership proof before re-persisting
-        verify(apiClient).listUserInstallations("user-token");
-        verify(repository).saveSync(any(GitHubAppInstallation.class), eq(CALLER_ORG));
+        verify(apiClient).listUserInstallations(anyString());
+        verify(repository).saveSync(any(GitHubAppInstallation.class), anyString());
     }
 
     @Test

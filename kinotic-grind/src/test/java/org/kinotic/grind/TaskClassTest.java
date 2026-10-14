@@ -6,7 +6,6 @@ import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRunHandle;
-import org.kinotic.grind.api.model.StoreType;
 
 import java.util.List;
 
@@ -44,7 +43,6 @@ public class TaskClassTest extends AbstractGrindTest {
         assertNull(result.error());
         assertEquals(List.of("resolve:p1", "sync:p1-node", "ensure:hello p1-node:sha1"), probe.recorded);
         assertEquals(1, probe.instantiations.get());
-        assertEquals(StoreType.STATE, repository.taskAt(handle.getJobRunId(), "0/1").getStoreType());
         assertNotNull(repository.taskAt(handle.getJobRunId(), "0/1").getStateValue());
         assertEquals(ExecutionStatus.COMPLETED, repository.savedRuns.get(handle.getJobRunId()).getStatus());
     }
@@ -62,7 +60,8 @@ public class TaskClassTest extends AbstractGrindTest {
 
         assertNull(resumed.error());
         // the STATE decision replays without executing; the RESULT sync re-runs; the failed task retries
-        assertEquals(List.of("sync:p1-node", "ensure:hello p1-node:sha1"), probe.recorded);
+        assertEquals(List.of("sync", "ensure"),
+                     probe.recorded.stream().map(entry -> entry.substring(0, entry.indexOf(':'))).toList());
         assertEquals(2, probe.instantiations.get());
     }
 

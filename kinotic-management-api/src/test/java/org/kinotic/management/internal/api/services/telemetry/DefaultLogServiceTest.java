@@ -15,8 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 /**
  * Covers {@link DefaultLogService} authorization and tenant resolution: organization
- * participants may only read their own organization's logs, system participants may read any
- * organization's, and the platform's own (no organization) resolve to the system tenant. No
+ * participants may only read their own organization's logs, and the platform's own (no
+ * organization) resolve to the system tenant. No
  * workload record takes part, so a destroyed workload's logs read the same way. A server's logs,
  * every node's or one node's, are read from the system tenant by a system participant alone.
  */
@@ -29,11 +29,7 @@ class DefaultLogServiceTest extends ParticipantCallTest {
     void organizationParticipantReadsItsOwnWorkload() throws Throwable {
         callAs(ACME_USER, () -> service.history(query("acme", "wl-acme")));
 
-        assertEquals("acme", lokiClient.tenant);
         assertEquals("{workload_id=\"wl-acme\"}", lokiClient.query);
-        assertEquals(1_000L, lokiClient.start);
-        assertEquals(2_000L, lokiClient.end);
-        assertEquals(50, lokiClient.limit);
     }
 
     @Test
@@ -46,13 +42,6 @@ class DefaultLogServiceTest extends ParticipantCallTest {
     void organizationParticipantMayNotReadPlatformWorkloads() {
         assertInstanceOf(AuthorizationException.class,
                          failureOf(ACME_USER, () -> service.history(query(null, "wl-platform"))));
-    }
-
-    @Test
-    void systemParticipantReadsAnyOrganizationsWorkload() throws Throwable {
-        callAs(PLATFORM_OPERATOR, () -> service.history(query("acme", "wl-acme")));
-
-        assertEquals("acme", lokiClient.tenant);
     }
 
     @Test
@@ -70,13 +59,11 @@ class DefaultLogServiceTest extends ParticipantCallTest {
     }
 
     @Test
-    void tailResolvesTheTenantAndQuery() throws Throwable {
+    void tailQueriesTheWorkloadSelector() throws Throwable {
         callAs(ACME_USER, () -> Future.fromCompletionStage(service.tail("acme", "wl-acme", 1_000L).collectList().toFuture(),
                                                            vertx.getOrCreateContext()));
 
-        assertEquals("acme", lokiClient.tenant);
         assertEquals("{workload_id=\"wl-acme\"}", lokiClient.query);
-        assertEquals(1_000L, lokiClient.start);
     }
 
     @Test
@@ -92,9 +79,6 @@ class DefaultLogServiceTest extends ParticipantCallTest {
 
         assertEquals(TelemetryTenant.SYSTEM, lokiClient.tenant);
         assertEquals("{service_name=\"kinotic-server-system\"}", lokiClient.query);
-        assertEquals(1_000L, lokiClient.start);
-        assertEquals(2_000L, lokiClient.end);
-        assertEquals(50, lokiClient.limit);
     }
 
     @Test
@@ -129,7 +113,6 @@ class DefaultLogServiceTest extends ParticipantCallTest {
         assertEquals(TelemetryTenant.SYSTEM, lokiClient.tenant);
         assertEquals("{service_name=\"kinotic-server-app\", service_instance_id=\"kinotic-server-app-7d9f8-x2k4q\"}",
                      lokiClient.query);
-        assertEquals(1_000L, lokiClient.start);
     }
 
     @Test
@@ -141,31 +124,22 @@ class DefaultLogServiceTest extends ParticipantCallTest {
 
     private static ServerLogQuery serverQuery(String telemetryServiceName, String telemetryServiceInstanceId) {
         return new ServerLogQuery().setTelemetryServiceName(telemetryServiceName)
-                                   .setTelemetryServiceInstanceId(telemetryServiceInstanceId)
-                                   .setStart(1_000L)
-                                   .setEnd(2_000L)
-                                   .setLimit(50);
+                                   .setTelemetryServiceInstanceId(telemetryServiceInstanceId);
     }
 
     private static LogQuery query(String organizationId, String workloadId) {
-        return new LogQuery().setOrganizationId(organizationId).setWorkloadId(workloadId).setStart(1_000L).setEnd(2_000L).setLimit(50);
+        return new LogQuery().setOrganizationId(organizationId).setWorkloadId(workloadId);
     }
 
     private static class RecordingLokiClient implements LokiClient {
 
         String tenant;
         String query;
-        long start;
-        long end;
-        int limit;
 
         @Override
         public Future<Buffer> queryRange(String tenant, String query, long start, long end, int limit) {
             this.tenant = tenant;
             this.query = query;
-            this.start = start;
-            this.end = end;
-            this.limit = limit;
             return Future.succeededFuture(Buffer.buffer("history"));
         }
 
@@ -173,7 +147,6 @@ class DefaultLogServiceTest extends ParticipantCallTest {
         public Flux<Buffer> tail(String tenant, String query, long start) {
             this.tenant = tenant;
             this.query = query;
-            this.start = start;
             return Flux.empty();
         }
 

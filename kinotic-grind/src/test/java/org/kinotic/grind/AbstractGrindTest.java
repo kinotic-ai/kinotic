@@ -28,8 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public abstract class AbstractGrindTest {
 
-    protected static final String TEST_NODE_ID = "test-node";
-
     // Instantiated before the Vertx instance below: SecurityContext registers its
     // ContextLocal in a static initializer, which Vert.x requires to happen first
     protected final SecurityContext securityContext = new SecurityContext();
@@ -46,7 +44,7 @@ public abstract class AbstractGrindTest {
         vertx = Vertx.vertx();
         repository = new InMemoryJobRunRepository();
         jobService = new DefaultJobService(repository, new ObjectMapper(), vertx,
-                                           () -> new ServerInfo(TEST_NODE_ID, "grind test node"));
+                                           () -> new ServerInfo("test-node", "grind test node"));
         jobService.setApplicationContext(appCtx);
     }
 
