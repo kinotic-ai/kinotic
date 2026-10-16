@@ -52,11 +52,11 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
                      discovered.tasks().stream().map(record -> record.getTaskPath()).toList());
         assertEquals(List.of(ExecutionStatus.PENDING, ExecutionStatus.PENDING, ExecutionStatus.PENDING),
                      discovered.tasks().stream().map(record -> record.getStatus()).toList());
-        assertEquals(new TaskStartedEvent("0", "two tasks"), events.get(1));
-        assertEquals(new TaskStartedEvent("0/1", "first"), events.get(2));
+        assertEquals(new TaskStartedEvent("0", "two tasks", null), events.get(1));
+        assertEquals(new TaskStartedEvent("0/1", "first", null), events.get(2));
         assertInstanceOf(TaskCompletedEvent.class, events.get(3));
         assertEquals("0/1", events.get(3).taskPath());
-        assertEquals(new TaskStartedEvent("0/2", "second"), events.get(4));
+        assertEquals(new TaskStartedEvent("0/2", "second", null), events.get(4));
         assertEquals("0/2", events.get(5).taskPath());
         TaskCompletedEvent rootCompleted = assertInstanceOf(TaskCompletedEvent.class, events.get(6));
         assertEquals("0", rootCompleted.taskPath());
@@ -67,8 +67,9 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
     public void discoveryCarriesTheDeclaredStoreName() throws Exception {
         JobDefinition job = JobDefinition.create("declared")
                 .name("declared").version("1")
-                .task(Tasks.fromValue("produce widget", new Widget("named")), Store.state("widgetOfRecord"))
-                .task(Tasks.fromValue("produce another", new Widget("derived")), Store.result());
+                .task(Tasks.fromValue("produce widget", new Widget("named"))
+                      .store(Store.state("widgetOfRecord")))
+                .task(Tasks.fromValue("produce another", new Widget("derived")).store(Store.result()));
 
         RunResult result = await(jobService.run(job, JobOwner.system()));
 
@@ -85,7 +86,7 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
     public void completionCarriesStoredValueInProcess() throws Exception {
         JobDefinition job = JobDefinition.create("carrying")
                 .name("carrying").version("1")
-                .task(Tasks.fromValue("produce widget", new Widget("carried")), Store.result());
+                .task(Tasks.fromValue("produce widget", new Widget("carried")).store(Store.result()));
 
         RunResult result = await(jobService.run(job, JobOwner.system()));
 
@@ -147,7 +148,7 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
                     firstStatusSeenBySecond.set(repository.taskAt(runId.get(), "0/1").getStatus());
                     ownStatusSeenBySecond.set(repository.taskAt(runId.get(), "0/2").getStatus());
                 }))
-                .task(Tasks.fromValue("third", new Widget("ahead")), Store.state("widgetOfRecord"));
+                .task(Tasks.fromValue("third", new Widget("ahead")).store(Store.state("widgetOfRecord")));
 
         JobRunHandle handle = jobService.run(job, JobOwner.system());
         runId.set(handle.getJobRunId());

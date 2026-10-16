@@ -43,6 +43,12 @@ public class TaskRecord implements Identifiable<String> {
     private String description;
 
     /**
+     * The key of the icon a console shows for the task, or null for its default. Recorded from
+     * discovery.
+     */
+    private String icon;
+
+    /**
      * Current status of the task.
      */
     private ExecutionStatus status = ExecutionStatus.RUNNING;
@@ -77,6 +83,18 @@ public class TaskRecord implements Identifiable<String> {
      * {@link #storeType} is {@link StoreType#STATE}.
      */
     private JsonNode stateValue;
+
+    /**
+     * The completed value serialized as JSON for watchers of the run. Only set when the task's
+     * {@link Store} declared {@link Store#wire()}, whatever its {@link #storeType}.
+     */
+    private JsonNode wireValue;
+
+    /**
+     * The latest {@link TaskView} the task showed, serialized as JSON, or null when it showed none.
+     * A failed task keeps the view it showed when it failed.
+     */
+    private JsonNode view;
 
     /**
      * The failure message when {@link #status} is {@link ExecutionStatus#FAILED}.

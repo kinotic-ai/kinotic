@@ -69,8 +69,8 @@ public class VertxContextTest extends AbstractGrindTest {
                 .task(Tasks.fromCallable("await a timer",
                                          // Future.await parks the run's virtual thread until the
                                          // event loop completes the timer
-                                         () -> new Widget(vertx.timer(20).map(v -> "ticked").await())),
-                      Store.result("widget"));
+                                         () -> new Widget(vertx.timer(20).map(v -> "ticked").await()))
+                      .store(Store.result("widget")));
 
         RunResult result = await(jobService.run(job, JobOwner.system()));
 
@@ -93,8 +93,8 @@ public class VertxContextTest extends AbstractGrindTest {
                           // what every platform repository and service hands back: a promise
                           // bound to the caller's context, completed by a foreign thread
                           return Future.fromCompletionStage(completedOffContext, Vertx.currentContext());
-                      }),
-                      Store.result("value"));
+                      })
+                      .store(Store.result("value")));
 
         RunResult result = await(jobService.run(job, JobOwner.system()));
 

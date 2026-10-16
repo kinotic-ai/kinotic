@@ -5,6 +5,8 @@ import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.StoreType;
 
+import tools.jackson.databind.JsonNode;
+
 import java.util.List;
 
 /**
@@ -34,8 +36,9 @@ public interface RunListener {
      * A task began executing.
      * @param taskPath the task's position in the run's task tree
      * @param description the task's description
+     * @param view the view the task shows from its start as JSON, or null when it declares none
      */
-    void taskStarted(String taskPath, String description);
+    void taskStarted(String taskPath, String description, JsonNode view);
 
     /**
      * A running task reported its progress.
@@ -44,6 +47,13 @@ public interface RunListener {
      * @param message what the task is currently doing, or null
      */
     void taskProgress(String taskPath, int percentageComplete, String message);
+
+    /**
+     * A running task replaced the view it shows.
+     * @param taskPath the task's position in the run's task tree
+     * @param view the view the task now shows, as JSON
+     */
+    void taskViewed(String taskPath, JsonNode view);
 
     /**
      * A task finished successfully.

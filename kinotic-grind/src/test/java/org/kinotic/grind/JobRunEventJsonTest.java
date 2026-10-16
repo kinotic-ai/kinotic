@@ -11,6 +11,7 @@ import org.kinotic.grind.api.model.events.TaskProgressEvent;
 import org.kinotic.grind.api.model.events.TaskStartedEvent;
 import org.kinotic.grind.api.model.events.TasksDiscoveredEvent;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.node.StringNode;
 
 import java.util.List;
@@ -31,8 +32,8 @@ public class JobRunEventJsonTest {
     @Test
     public void everyEventCarriesItsTypeDiscriminator() {
         assertEquals("tasksDiscovered", typeOf(new TasksDiscoveredEvent("0", List.of(), false)));
-        assertEquals("taskStarted", typeOf(new TaskStartedEvent("0/1", "work")));
-        assertEquals("taskProgress", typeOf(new TaskProgressEvent("0/1", 40, "halfway")));
+        assertEquals("taskStarted", typeOf(new TaskStartedEvent("0/1", "work", null)));
+        assertEquals("taskProgress", typeOf(new TaskProgressEvent("0/1", 40, "halfway", null)));
         assertEquals("taskCompleted", typeOf(new TaskCompletedEvent("0/1", StoreType.NONE, null, null, null)));
         assertEquals("taskFailed", typeOf(new TaskFailedEvent("0/1", "boom")));
     }
@@ -53,6 +54,19 @@ public class JobRunEventJsonTest {
     }
 
     @Test
+    public void aViewRoundTripsOnTheEventsThatCarryOne() {
+        ObjectNode view = objectMapper.createObjectNode().put("kind", "workloadLog");
+        view.putObject("data").put("workloadId", "wl-8f21");
+
+        TaskStartedEvent started = assertInstanceOf(TaskStartedEvent.class, roundTrip(new TaskStartedEvent("0/2", "sync", view)));
+        TaskProgressEvent progress = assertInstanceOf(TaskProgressEvent.class, roundTrip(new TaskProgressEvent("0/2", null, null, view)));
+
+        assertEquals(view, started.view());
+        assertEquals(view, progress.view());
+        assertNull(progress.percentageComplete());
+    }
+
+    @Test
     public void aDiscoveryRoundTripsItsPendingRecords() {
         TaskRecord record = new TaskRecord().setId("run:0/1")
                                             .setJobRunId("run")
@@ -68,6 +82,10 @@ public class JobRunEventJsonTest {
         assertEquals(List.of("0/1"), event.tasks().stream().map(TaskRecord::getTaskPath).toList());
         assertEquals(ExecutionStatus.PENDING, event.tasks().getFirst().getStatus());
         assertTrue(event.dynamic());
+    }
+
+    private JobRunEvent roundTrip(JobRunEvent event) {
+        return objectMapper.readValue(objectMapper.writeValueAsString(event), JobRunEvent.class);
     }
 
     private String typeOf(JobRunEvent event) {

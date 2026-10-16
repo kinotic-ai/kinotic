@@ -1,6 +1,7 @@
 package org.kinotic.grind.api.model;
 
 import org.apache.commons.lang3.Validate;
+import org.kinotic.grind.internal.api.model.DefaultTask;
 
 import java.util.concurrent.Callable;
 import java.util.function.Function;
@@ -8,7 +9,8 @@ import java.util.function.Supplier;
 
 /**
  * Static factories for the common {@link Task} shapes, so a single task does not require a
- * class of its own.
+ * class of its own. Each takes what every task needs, its description and its work; the rest is
+ * set with the returned task's fluent methods.
  */
 public class Tasks {
 
@@ -35,17 +37,7 @@ public class Tasks {
      */
     public static <R> Task<R> fromClass(String description, Class<? extends Callable<R>> taskClass) {
         Validate.notNull(taskClass, "taskClass cannot be null");
-        return new Task<>() {
-            @Override
-            public String getDescription() {
-                return description;
-            }
-
-            @Override
-            public R execute(JobContext context) throws Exception {
-                return context.instantiate(taskClass).call();
-            }
-        };
+        return DefaultTask.of(description, context -> context.instantiate(taskClass).call());
     }
 
     /**
@@ -58,18 +50,10 @@ public class Tasks {
      */
     public static <R> Task<R> fromCallable(String description, Callable<R> callable) {
         Validate.notNull(callable, "callable cannot be null");
-        return new Task<>() {
-            @Override
-            public String getDescription() {
-                return description;
-            }
-
-            @Override
-            public R execute(JobContext context) throws Exception {
-                context.autowire(callable);
-                return callable.call();
-            }
-        };
+        return DefaultTask.of(description, context -> {
+            context.autowire(callable);
+            return callable.call();
+        });
     }
 
     /**
@@ -82,18 +66,10 @@ public class Tasks {
      */
     public static <R> Task<R> fromSupplier(String description, Supplier<R> supplier) {
         Validate.notNull(supplier, "supplier cannot be null");
-        return new Task<>() {
-            @Override
-            public String getDescription() {
-                return description;
-            }
-
-            @Override
-            public R execute(JobContext context) {
-                context.autowire(supplier);
-                return supplier.get();
-            }
-        };
+        return DefaultTask.of(description, context -> {
+            context.autowire(supplier);
+            return supplier.get();
+        });
     }
 
     /**
@@ -105,19 +81,11 @@ public class Tasks {
      */
     public static Task<Void> fromRunnable(String description, Runnable runnable) {
         Validate.notNull(runnable, "runnable cannot be null");
-        return new Task<>() {
-            @Override
-            public String getDescription() {
-                return description;
-            }
-
-            @Override
-            public Void execute(JobContext context) {
-                context.autowire(runnable);
-                runnable.run();
-                return null;
-            }
-        };
+        return DefaultTask.of(description, context -> {
+            context.autowire(runnable);
+            runnable.run();
+            return null;
+        });
     }
 
     /**
@@ -128,17 +96,7 @@ public class Tasks {
      * @return the task
      */
     public static <R> Task<R> fromValue(String description, R value) {
-        return new Task<>() {
-            @Override
-            public String getDescription() {
-                return description;
-            }
-
-            @Override
-            public R execute(JobContext context) {
-                return value;
-            }
-        };
+        return DefaultTask.of(description, context -> value);
     }
 
     /**
@@ -160,17 +118,8 @@ public class Tasks {
      * @return the task
      */
     public static <T, R> Task<R> transformResult(Task<T> from, Function<T, R> transformer) {
-        return new Task<>() {
-            @Override
-            public String getDescription() {
-                return from.getDescription();
-            }
-
-            @Override
-            public R execute(JobContext context) throws Exception {
-                return transformer.apply(from.execute(context));
-            }
-        };
+        return DefaultTask.<R>of(from.getDescription(), context -> transformer.apply(from.execute(context)))
+                          .icon(from.getIcon());
     }
 
 }

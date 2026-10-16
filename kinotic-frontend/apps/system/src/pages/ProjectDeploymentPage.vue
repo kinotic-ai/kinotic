@@ -79,11 +79,7 @@
         <DashboardSection :icon="LaptopMinimalCheck" :tint="TINTS.purple" title="Latest deployment run"
                           description="Each step of the latest deploy run, live while it runs; open a step for its detail.">
           <div class="p-5">
-            <JobRunProgress :key="latestRun.id ?? ''" :job-run-id="latestRun.id ?? ''" :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf" :failure-of="ProjectDeployResultNames.failureOf">
-              <template #detail="{ node, root }">
-                <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
-              </template>
-            </JobRunProgress>
+            <JobRunProgress :key="latestRun.id ?? ''" :job-run-id="latestRun.id ?? ''" :failure-of="ProjectDeployResultNames.failureOf" />
           </div>
         </DashboardSection>
 
@@ -131,7 +127,7 @@ import { Activity, Ban, CircleCheck, CircleX, Clock, CloudUpload, GitCommitHoriz
 
 import { ExecutionStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DashboardSection, DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
+import { DashboardSection, DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployResultNames,
          StatCard, TimePill, TINTS, errorMessage, executionStatusSeverity, scanJobRuns, shortSha, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 
 import WorkloadsTable from '@/components/WorkloadsTable.vue'

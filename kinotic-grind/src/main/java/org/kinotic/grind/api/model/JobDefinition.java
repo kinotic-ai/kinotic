@@ -21,6 +21,12 @@ public interface JobDefinition {
     String getDescription();
 
     /**
+     * @return the key of the icon a console shows for this {@link JobDefinition} where it runs
+     *         as one task of another, see {@link Task#getIcon()}, or null for the default
+     */
+    String getIcon();
+
+    /**
      * The stable name identifying this job across runs, recorded with every execution.
      * Required by {@link JobService#run(JobDefinition, JobOwner)}, optional for definitions
      * that are only nested within others.
@@ -63,6 +69,12 @@ public interface JobDefinition {
     JobDefinition version(String version);
 
     /**
+     * @param icon the key of the icon a console shows for this definition, see {@link #getIcon()}
+     * @return this for fluent use
+     */
+    JobDefinition icon(String icon);
+
+    /**
      * Seeds the given values into the job scope before the first task runs, each stored as a
      * bean so tasks can inject it by type.
      * @param values to seed
@@ -71,21 +83,12 @@ public interface JobDefinition {
     JobDefinition input(Object... values);
 
     /**
-     * Adds a {@link Task} whose result is not kept.
+     * Adds a {@link Task}, its result kept as the task's {@link Task#getStore() Store} declares, or
+     * not kept when it declares none.
      * @param task to add
      * @return this for fluent use
      */
     JobDefinition task(Task<?> task);
-
-    /**
-     * Adds a {@link Task} whose result is kept as the given {@link Store} declares: its
-     * {@link StoreType} governs resume behavior, its name places the value in the job scope
-     * for later tasks, and its wire flag publishes the value to watchers of the run.
-     * @param task to add
-     * @param store how the result is kept
-     * @return this for fluent use
-     */
-    JobDefinition task(Task<?> task, Store store);
 
     /**
      * Adds a nested {@link JobDefinition} executed as one task of this definition.

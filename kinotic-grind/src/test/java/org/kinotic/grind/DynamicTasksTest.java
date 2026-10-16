@@ -5,6 +5,7 @@ import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRunHandle;
+import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.events.TasksDiscoveredEvent;
 import org.kinotic.grind.api.model.Tasks;
 
@@ -36,6 +37,35 @@ public class DynamicTasksTest extends AbstractGrindTest {
         assertEquals(List.of("decided"), seen);
         assertEquals(ExecutionStatus.COMPLETED, repository.taskAt(handle.getJobRunId(), "0/1/1").getStatus());
         assertTrue(repository.taskAt(handle.getJobRunId(), "0/1").isDynamicTasks());
+    }
+
+    @Test
+    public void dynamicTaskWithoutAStoreKeepsItsValueAsTheProducerDeclares() throws Exception {
+        JobDefinition job = JobDefinition.create("inherited store")
+                .name("inherited-store").version("1")
+                .task(Tasks.fromCallable("decide", () -> Tasks.fromValue("decided widget", new Widget("inherited")))
+                           .store(Store.result("producerWidget")));
+
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
+        RunResult result = await(handle);
+
+        assertNull(result.error());
+        assertEquals("producerWidget", repository.taskAt(handle.getJobRunId(), "0/1/1").getStoredName());
+    }
+
+    @Test
+    public void dynamicTaskWithItsOwnStoreKeepsItsValueThatWay() throws Exception {
+        JobDefinition job = JobDefinition.create("own store")
+                .name("own-store").version("1")
+                .task(Tasks.fromCallable("decide", () -> Tasks.fromValue("decided widget", new Widget("own"))
+                                                              .store(Store.result("dynamicWidget")))
+                           .store(Store.result("producerWidget")));
+
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
+        RunResult result = await(handle);
+
+        assertNull(result.error());
+        assertEquals("dynamicWidget", repository.taskAt(handle.getJobRunId(), "0/1/1").getStoredName());
     }
 
     @Test

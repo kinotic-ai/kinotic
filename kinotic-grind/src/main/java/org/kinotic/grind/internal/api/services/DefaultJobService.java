@@ -198,7 +198,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                             new SerializedState(record.getStateValueType(), record.getStateValue()));
                 }
                 StoreType storeType = record.getStoreType() != null ? record.getStoreType() : StoreType.NONE;
-                ret.put(record.getTaskPath(), new ReplayEntry(storeType, record.isDynamicTasks(), value));
+                ret.put(record.getTaskPath(), new ReplayEntry(storeType, record.isDynamicTasks(), value, record.getView()));
             }
         }
         return ret;

@@ -1,6 +1,7 @@
 import type { Identifiable } from '@kinotic-ai/core'
 import { ExecutionStatus } from '@/api/model/grind/ExecutionStatus'
 import { StoreType } from '@/api/model/grind/StoreType'
+import type { TaskView } from '@/api/model/grind/TaskView'
 
 /**
  * The persistent record of one task within a JobRun. Every discovered task has a record,
@@ -31,6 +32,12 @@ export class TaskRecord implements Identifiable<string> {
     public description: string | null = null
 
     /**
+     * The key of the icon a console shows for the task, one of TaskIcons, or null for its default.
+     * Recorded from discovery.
+     */
+    public icon: string | null = null
+
+    /**
      * Current status of the task.
      */
     public status: ExecutionStatus = ExecutionStatus.RUNNING
@@ -53,15 +60,16 @@ export class TaskRecord implements Identifiable<string> {
     public storedName: string | null = null
 
     /**
-     * The Java type of the durable state. Only set when storeType is STATE.
+     * The task's value as JSON, set when its store declared wire publication. The durable state a
+     * resume replays never leaves the server.
      */
-    public stateValueType: string | null = null
+    public wireValue: any = null
 
     /**
-     * The durable state as JSON, replayed when the run is resumed. Only set when storeType
-     * is STATE.
+     * The latest view the task showed, or null when it showed none. A failed task keeps the view it
+     * showed when it failed.
      */
-    public stateValue: any = null
+    public view: TaskView | null = null
 
     /**
      * The failure message when status is FAILED.

@@ -34,7 +34,7 @@
               :class="row.node.status === ExecutionStatus.RUNNING ? 'text-sky-600 dark:text-sky-300' : 'text-muted-color'">
           {{ formatDuration(row.node.started, row.node.finished, now) }}
         </span>
-        <button v-if="props.expandable?.(row.node)"
+        <button v-if="taskViewComponent(row.node)"
                 class="w-5 shrink-0 text-muted-color hover:text-color"
                 type="button"
                 :aria-expanded="detailOpen(row.node)"
@@ -43,10 +43,10 @@
         </button>
         <span v-else class="w-5 shrink-0" />
       </div>
-      <div v-if="props.expandable?.(row.node) && detailOpen(row.node)"
+      <div v-if="taskViewComponent(row.node) && detailOpen(row.node)"
            class="pb-2 pr-3"
            :style="{ paddingLeft: `${row.depth * 1.25 + 2.5}rem` }">
-        <slot name="detail" :node="row.node" />
+        <component :is="taskViewComponent(row.node)" :data="row.node.view!.data" :node="row.node" :run="run" />
       </div>
 
       <div v-if="row.node.progress && row.node.status === ExecutionStatus.RUNNING"
@@ -66,8 +66,9 @@
 import { computed, nextTick, ref } from 'vue'
 import ProgressBar from 'primevue/progressbar'
 import { ChevronDown, ChevronRight, ChevronUp } from '@lucide/vue'
-import { ExecutionStatus } from '@kinotic-ai/management-api'
+import { ExecutionStatus, type JobRun } from '@kinotic-ai/management-api'
 import type { JobTaskNode } from './JobTaskNode'
+import { taskViewComponent } from './taskPresentation'
 import DatetimeUtil from '../../util/DatetimeUtil'
 import { TASK_STATUS_STYLE } from './jobRunDisplay'
 import EmptyChartCharacter from '../EmptyChartCharacter.vue'
@@ -81,18 +82,14 @@ interface TreeRow {
 
 /**
  * The run's full task ledger as an indented, collapsible tree. Rows appear as tasks are
- * discovered, at any depth; now drives the running rows' elapsed time. A row expandable
- * per the given predicate carries the detail slot beneath it, open while the task runs
- * unless toggled shut, and closed otherwise unless toggled open.
+ * discovered, at any depth; now drives the running rows' elapsed time. A row whose task shows a
+ * view this console renders (see TASK_VIEWS) carries that view beneath it, open while the task
+ * runs unless toggled shut, and closed otherwise unless toggled open.
  */
 const props = defineProps<{
   root: JobTaskNode
+  run: JobRun
   now: number
-  expandable?: (node: JobTaskNode) => boolean
-}>()
-
-defineSlots<{
-  detail(props: { node: JobTaskNode }): unknown
 }>()
 
 const collapsed = ref(new Set<string>())
@@ -153,7 +150,7 @@ function reveal(taskPath: string): void {
     collapsed.value = next
   }
   const node = rows.value.find(row => row.node.taskPath === taskPath)?.node
-  if (node && props.expandable?.(node) && !detailOpen(node)) {
+  if (node && taskViewComponent(node) && !detailOpen(node)) {
     toggleDetail(taskPath)
   }
   nextTick(() => {

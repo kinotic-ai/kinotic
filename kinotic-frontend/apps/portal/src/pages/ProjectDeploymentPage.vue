@@ -51,12 +51,8 @@
           <div class="p-5">
           <JobRunProgress :key="deployment.lastJobRunId"
                           :job-run-id="deployment.lastJobRunId"
-                          :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf" :failure-of="ProjectDeployResultNames.failureOf"
-                          :next-step="ProjectDeployResultNames.RETRY_HINT">
-            <template #detail="{ node, root }">
-              <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
-            </template>
-          </JobRunProgress>
+                          :failure-of="ProjectDeployResultNames.failureOf"
+                          :next-step="ProjectDeployResultNames.RETRY_HINT" />
           </div>
         </DashboardSection>
 
@@ -157,7 +153,7 @@ import Tag from 'primevue/tag'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { Activity, ArrowDown, CircleAlert, Clock, GitCommitHorizontal, Globe, KeyRound, LaptopMinimalCheck, Server } from '@lucide/vue'
-import { DatetimeUtil, HeartbeatIcon, JobRunProgress, PageHeader, ProjectDeployResultNames, ProjectDeployTaskDetail,
+import { DatetimeUtil, HeartbeatIcon, JobRunProgress, PageHeader, ProjectDeployResultNames,
          WatchEventsTimeline, WorkloadLogsDialog, deploymentStatusSeverity, observedPhaseSeverity, shortSha, showErrorToast, EmptyChartCharacter, HEARTBEAT_TINTS, deploymentHeartbeat } from '@kinotic-ai/frontend-common'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DeploymentStatusType,
@@ -167,7 +163,6 @@ import { DeploymentStatusType,
          type UiDeployment,
          type WatchEvent } from '@kinotic-ai/management-api'
 import MicroserviceDeploymentsTable from '@/components/MicroserviceDeploymentsTable.vue'
-import { KinoticStates } from '@/states'
 import UiDeploymentsTable from '@/components/UiDeploymentsTable.vue'
 import { DashboardSection, StatCard, TINTS } from '@kinotic-ai/frontend-common'
 
@@ -194,7 +189,6 @@ const HISTORY_PAGE_SIZE = 50
 
 const toast = useToast()
 const confirm = useConfirm()
-const organizationId = KinoticStates.getUserState().getOrganizationId()
 const StatusType = DeploymentStatusType
 
 const deployment = ref<ProjectDeployment | null>(null)

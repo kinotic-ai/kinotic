@@ -14,10 +14,13 @@ import org.kinotic.management.api.model.deployment.DeploymentStatusType;
 import org.kinotic.management.api.model.deployment.MicroserviceArtifact;
 import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.TaskViews;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
+import org.kinotic.management.api.model.deployment.SbomGeneration;
 import org.kinotic.management.api.model.deployment.UiDeployment;
 import org.kinotic.management.api.model.workload.Workload;
+import org.kinotic.management.api.model.workload.WorkloadLog;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
@@ -26,6 +29,7 @@ import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.Store;
+import org.kinotic.grind.api.model.TaskIcons;
 import org.kinotic.grind.api.model.Tasks;
 import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
 import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
@@ -55,11 +59,10 @@ import java.util.stream.Collectors;
  * foreground sync workload, bind the artifacts that workload found into the run, ask for one
  * long-lived runtime workload per microservice of the commit and wait for the microservices'
  * workers to answer, upload its UIs and ask for their sites to serve them, and keep the
- * project's SBOM current with a foreground SBOM workload. The resolved {@link DeployTarget}, the
- * artifacts, the microservice deployments, the UI deployments and the SBOM are stored in the job
- * scope under their {@link ProjectDeployResultNames}, so the run's {@code TaskRecord}s carry them
- * to the console. The target is also recorded on the project's deployment as soon as it is
- * resolved.
+ * project's SBOM current with a foreground SBOM workload. The resolved {@link DeployTarget} and
+ * the artifacts are stored in the job scope under their {@link ProjectDeployResultNames} for the
+ * later tasks. Each step shows its icon, and the steps that run a workload show its log from their
+ * start; the target is also recorded on the project's deployment as soon as it is resolved.
  */
 @Slf4j
 @Component
@@ -98,16 +101,15 @@ public class ProjectDeployJobDefinitionFactory {
                 .name("project-deploy-" + projectId)
                 .version("1.0.0")
                 // Store.state: the target is a decision later effects are bound to - the sync
-                // checkout lives on this node, the sync workload is deployed under its id - so a
+                // checkout lives on this node, the run's workloads are deployed under its ids - so a
                 // resume must replay the recorded choice from the run's own records, never
                 // re-derive it and risk landing on a different node
                 .task(Tasks.fromCallable("Resolve deployment target",
                                          () -> resolveTarget(projectId, existing)
                                                  .compose(target -> recordTarget(project, target))
-                                                 .toCompletionStage().toCompletableFuture()),
-                      Store.state(ProjectDeployResultNames.DEPLOY_TARGET).wire())
-                // Store.state: a resume after a later failure replays the synced checkout
-                // rather than syncing it again
+                                                 .toCompletionStage().toCompletableFuture())
+                           .icon(TaskIcons.TARGET)
+                           .store(Store.state(ProjectDeployResultNames.DEPLOY_TARGET)))
                 .task(Tasks.fromCallable("Sync project source", new Callable<CompletableFuture<String>>() {
 
                     @Autowired
@@ -117,16 +119,17 @@ public class ProjectDeployJobDefinitionFactory {
                     public CompletableFuture<String> call() {
                         return syncSource(project, target, commitSha);
                     }
-                }), Store.state(ProjectDeployResultNames.SYNC_WORKLOAD_ID).wire())
-                // Store.state: what the sync workload found in the commit, bound to the run so a
-                // resume replays it alongside the replayed sync; wired so the console lists it
+                })
+                           .icon(TaskIcons.GIT)
+                           .startView(DeployTarget.class, target -> TaskViews.WORKLOAD_LOG.of(new WorkloadLog(target.syncWorkloadId()))))
+                // Store.state: what the sync workload found in the commit, injected by every later
+                // task, so a resume replays it alongside the skipped sync
                 .task(Tasks.fromCallable("Resolve artifacts",
                                          () -> resolveArtifacts(project, commitSha)
-                                                 .toCompletionStage().toCompletableFuture()),
-                      Store.state(ProjectDeployResultNames.ARTIFACTS).wire())
-                // Store.state: the rows carry what the pass left, so a resume keeps them rather
-                // than asking again; wired so the console lists each microservice's workload as
-                // soon as the pass ends
+                                                 .toCompletionStage().toCompletableFuture())
+                           .icon(TaskIcons.PACKAGE)
+                           .store(Store.state(ProjectDeployResultNames.ARTIFACTS))
+                           .resultView(TaskViews.PROJECT_ARTIFACTS::of))
                 .task(Tasks.fromCallable("Ensure runtime workloads", new Callable<CompletableFuture<MicroserviceDeployments>>() {
 
                     @Autowired
@@ -137,10 +140,8 @@ public class ProjectDeployJobDefinitionFactory {
                         return ensureRuntimeWorkloads(project, artifacts, commitSha)
                                 .toCompletionStage().toCompletableFuture();
                     }
-                }), Store.state(ProjectDeployResultNames.MICROSERVICE_DEPLOYMENTS).wire())
-                // Store.state: the rows carry what the pass published, so a resume keeps them;
-                // wired so the console lists each site as soon as the pass ends, and can tail the
-                // publish workload's logs before that through the target
+                })
+                           .icon(TaskIcons.SERVER))
                 .task(Tasks.fromCallable("Publish UIs", new Callable<CompletableFuture<UiDeployments>>() {
 
                     @Autowired
@@ -153,10 +154,9 @@ public class ProjectDeployJobDefinitionFactory {
                     public CompletableFuture<UiDeployments> call() {
                         return publishUis(project, target, artifacts, commitSha).toCompletionStage().toCompletableFuture();
                     }
-                }), Store.state(ProjectDeployResultNames.UI_DEPLOYMENTS).wire())
-                // Store.state: whether the run generated the SBOM, so a resume keeps the outcome rather
-                // than generating it again; wired so the console shows it, and can tail the SBOM
-                // workload's logs before that through the target
+                })
+                           .icon(TaskIcons.GLOBE)
+                           .startView(DeployTarget.class, target -> TaskViews.WORKLOAD_LOG.of(new WorkloadLog(target.uiPublishWorkloadId()))))
                 .task(Tasks.fromCallable("Generate SBOM", new Callable<CompletableFuture<Boolean>>() {
 
                     @Autowired
@@ -169,7 +169,12 @@ public class ProjectDeployJobDefinitionFactory {
                     public CompletableFuture<Boolean> call() {
                         return generateSbom(project, target, artifacts).toCompletionStage().toCompletableFuture();
                     }
-                }), Store.state(ProjectDeployResultNames.SBOM).wire());
+                })
+                           .icon(TaskIcons.SBOM)
+                           .startView(DeployTarget.class, target -> TaskViews.SBOM_GENERATION.of(
+                                   new SbomGeneration(target.sbomWorkloadId(), null)))
+                           .resultView(DeployTarget.class, (Boolean generated, DeployTarget target) -> TaskViews.SBOM_GENERATION.of(
+                                   new SbomGeneration(target.sbomWorkloadId(), generated))));
     }
 
     /**

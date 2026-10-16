@@ -22,7 +22,7 @@
                               `tile--${task.status.toLowerCase()}`,
                               task.status === ExecutionStatus.FAILED ? 'cursor-pointer transition-transform hover:scale-105' : '']"
                      @click="task.status === ExecutionStatus.FAILED && emit('select', task)">
-            <component :is="taskIcon?.(task) ?? Workflow" :size="20" :stroke-width="1.75" aria-hidden="true" />
+            <component :is="(task.icon && TASK_ICONS[task.icon]) ?? Workflow" :size="20" :stroke-width="1.75" aria-hidden="true" />
             <span v-if="TASK_STATUS_STYLE[task.status].badge"
                   class="absolute -top-3.5 left-1/2 flex h-[1.125rem] w-[1.125rem] -translate-x-1/2 items-center justify-center rounded-full ring-2 ring-surface-0 dark:ring-surface-900"
                   :class="TASK_STATUS_STYLE[task.status].badge">
@@ -58,11 +58,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, type Component } from 'vue'
+import { computed } from 'vue'
 import { Flag, Workflow } from '@lucide/vue'
 import { ExecutionStatus } from '@kinotic-ai/management-api'
 import type { JobTaskNode } from './JobTaskNode'
 import { TASK_STATUS_STYLE } from './jobRunDisplay'
+import { TASK_ICONS } from './taskPresentation'
 
 /**
  * The run's top-level tasks as a pipeline on a dotted canvas, from a start flag to a finish
@@ -72,8 +73,6 @@ import { TASK_STATUS_STYLE } from './jobRunDisplay'
  */
 const props = defineProps<{
   tasks: JobTaskNode[]
-  /** The icon of a task's tile, undefined for the default. */
-  taskIcon?: (node: JobTaskNode) => Component | undefined
 }>()
 
 const emit = defineEmits<{

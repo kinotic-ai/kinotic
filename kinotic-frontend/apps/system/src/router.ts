@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import {
-    Box, Building2, ChartLine, CloudUpload, Cpu, Gauge, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, ScrollText, Server, Users
+    Box, Building2, ChartLine, CloudUpload, Cpu, Gauge, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, ScrollText, Server, Users, Workflow
 } from '@lucide/vue'
 import { ConnectedAppsPage, OAuthConsentPage, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
@@ -144,6 +144,19 @@ const routes: RouteRecordRaw[] = [
             },
             // The platform's runtime sits in the Platform section rather than one of its own
             ...runtimeRoutes('', '', (label, icon, order) => consoleItem(label, icon, order, 'Platform'), 'console', 40, true),
+            {
+                name: 'system-jobs',
+                path: 'system-jobs',
+                component: () => import('./pages/SystemJobsPage.vue'),
+                meta: { sidebar: consoleItem('System jobs', Workflow, 55, 'Platform') }
+            },
+            {
+                name: 'system-job-run',
+                path: 'system-jobs/:jobRunId',
+                component: () => import('./pages/SystemJobRunPage.vue'),
+                props: true,
+                meta: { sidebarGroup: 'console' }
+            },
             {
                 name: 'change-log',
                 path: 'change-log',

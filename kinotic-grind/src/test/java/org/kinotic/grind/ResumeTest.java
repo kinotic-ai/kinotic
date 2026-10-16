@@ -110,7 +110,8 @@ public class ResumeTest extends AbstractGrindTest {
     public void genericStateValueFailsTheRun() throws Exception {
         JobDefinition job = JobDefinition.create("bad state")
                 .name("bad-state").version("1")
-                .task(Tasks.fromValue("produce list", new ArrayList<>(List.of("a"))), Store.state("values"));
+                .task(Tasks.fromValue("produce list", new ArrayList<>(List.of("a")))
+                      .store(Store.state("values")));
 
         JobRunHandle handle = jobService.run(job, JobOwner.system());
         RunResult result = await(handle);
@@ -208,8 +209,8 @@ public class ResumeTest extends AbstractGrindTest {
         return JobDefinition.create("result job")
                 .name("result-job").version("1")
                 .task(Tasks.fromCallable("produce widget",
-                                         () -> new Widget("w" + calls.incrementAndGet())),
-                      Store.result())
+                                         () -> new Widget("w" + calls.incrementAndGet()))
+                      .store(Store.result()))
                 .task(failGate(fail));
     }
 
@@ -217,9 +218,8 @@ public class ResumeTest extends AbstractGrindTest {
         return JobDefinition.create("reload job")
                 .name("reload-job").version("1")
                 .task(Tasks.fromCallable("create widget",
-                                         () -> new Widget("created " + creates.incrementAndGet())),
-                      Store.result().reload(Tasks.fromCallable("reload widget",
-                                                               () -> new Widget("reloaded " + reloads.incrementAndGet()))))
+                                         () -> new Widget("created " + creates.incrementAndGet()))
+                      .store(Store.result().reload(Tasks.fromCallable("reload widget", () -> new Widget("reloaded " + reloads.incrementAndGet())))))
                 .task(failGate(fail));
     }
 
@@ -230,7 +230,8 @@ public class ResumeTest extends AbstractGrindTest {
                 .task(Tasks.fromCallable("decide", () -> {
                     creates.incrementAndGet();
                     return new WidgetState("decided");
-                }), Store.state("widgetState"))
+                })
+                      .store(Store.state("widgetState")))
                 .task(Tasks.fromCallable("observe decision", new java.util.concurrent.Callable<Void>() {
 
                     @org.springframework.beans.factory.annotation.Autowired

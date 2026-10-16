@@ -1,6 +1,7 @@
 package org.kinotic.grind.internal.api.services;
 
 import org.kinotic.grind.internal.api.model.DefaultJobDefinition;
+import org.kinotic.grind.internal.api.model.DefaultTask;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.grind.api.model.JobContext;
@@ -52,8 +53,8 @@ public class TaskClassCompiler {
             org.kinotic.grind.api.annotations.Task meta = method.getAnnotation(org.kinotic.grind.api.annotations.Task.class);
             String description = meta.value().isEmpty() ? method.getName() : meta.value();
             Class<?> produced = producedType(method);
-            Task<Object> task = methodTask(taskClass, method, description);
-            ret.task(task, effectiveStore(taskClass, method, meta, produced));
+            Task<Object> task = methodTask(taskClass, method, description).store(effectiveStore(taskClass, method, meta, produced));
+            ret.task(meta.icon().isEmpty() ? task : task.icon(meta.icon()));
         }
         return ret;
     }
@@ -156,23 +157,15 @@ public class TaskClassCompiler {
 
     private static Task<Object> methodTask(Class<?> taskClass, Method method, String description) {
         method.trySetAccessible();
-        return new Task<>() {
-            @Override
-            public String getDescription() {
-                return description;
+        return DefaultTask.of(description, context -> {
+            Object instance = tasksInstance(context, taskClass);
+            Object[] arguments = resolveArguments(context, method, description);
+            try {
+                return method.invoke(instance, arguments);
+            } catch (InvocationTargetException e) {
+                throw e.getCause() instanceof Exception cause ? cause : e;
             }
-
-            @Override
-            public Object execute(JobContext context) throws Exception {
-                Object instance = tasksInstance(context, taskClass);
-                Object[] arguments = resolveArguments(context, method, description);
-                try {
-                    return method.invoke(instance, arguments);
-                } catch (InvocationTargetException e) {
-                    throw e.getCause() instanceof Exception cause ? cause : e;
-                }
-            }
-        };
+        });
     }
 
     /**

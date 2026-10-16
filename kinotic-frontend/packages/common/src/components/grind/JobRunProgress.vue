@@ -54,7 +54,7 @@
               <p v-if="nextStep" class="mt-1 text-sm text-surface-700 dark:text-surface-200">{{ nextStep }}</p>
 
               <div class="mt-3 flex flex-wrap items-center gap-2">
-                <Button v-if="failedStep" size="small" :label="expandable?.(failedStep) ? 'View step log' : 'Show step'"
+                <Button v-if="failedStep" size="small" :label="taskViewComponent(failedStep) ? 'View step detail' : 'Show step'"
                         icon="pi pi-arrow-down" @click="revealFailedStep" />
                 <Button v-if="run.id" size="small" severity="secondary" outlined
                         :label="copied ? 'Copied' : 'Copy reference ID'" :icon="copied ? 'pi pi-check' : 'pi pi-copy'"
@@ -76,16 +76,12 @@
         </div>
       </section>
 
-      <JobTaskPipeline v-if="root && root.children.length > 0" :tasks="root.children" :task-icon="taskIcon"
+      <JobTaskPipeline v-if="root && root.children.length > 0" :tasks="root.children"
                        @select="task => tree?.reveal(task.taskPath)" />
 
       <ProgressBar v-if="live" :value="percentComplete" :show-value="false" class="!h-2" />
 
-      <JobTaskTree v-if="root" ref="tree" :root="root" :now="now" :expandable="expandable">
-        <template #detail="{ node }">
-          <slot name="detail" :node="node" :root="root" />
-        </template>
-      </JobTaskTree>
+      <JobTaskTree v-if="root" ref="tree" :root="root" :run="run" :now="now" />
     </template>
 
     <div v-else-if="loading" class="p-6 text-sm text-muted-color">Loading job run…</div>
@@ -105,22 +101,18 @@ import JobTaskPipeline from './JobTaskPipeline.vue'
 import JobTaskTree from './JobTaskTree.vue'
 import { executionStatusSeverity, TASK_STATUS_STYLE } from './jobRunDisplay'
 import { useJobRunProgress } from './useJobRunProgress'
+import { taskViewComponent } from './taskPresentation'
 import type { JobTaskFailure } from './JobTaskFailure'
 import type { JobTaskNode } from './JobTaskNode'
 
 /**
  * The progress of one grind job run: header with status and timing, the top-level tasks as
  * a pipeline, and the full task ledger as a tree. Live-updates while the run executes and
- * renders the persisted history once it is terminal. A page that knows what a job's tasks
- * produce can give a task row a detail pane: expandable says which rows have one, and the
- * detail slot renders it, given the node and the root of the tree; taskIcon gives the pipeline's
- * steps their icons.
+ * renders the persisted history once it is terminal. Each task shows the icon and the view it
+ * declares, as TASK_ICONS and TASK_VIEWS render them.
  */
 const props = defineProps<{
   jobRunId: string
-  expandable?: (node: JobTaskNode) => boolean
-  /** The icon of a top-level task's step in the pipeline, undefined for the default. */
-  taskIcon?: (node: JobTaskNode) => Component | undefined
   /** How a failed top-level task reads to the user; without it a failure shows only its raw error. */
   failureOf?: (node: JobTaskNode) => JobTaskFailure
   /** What the user can do about a failed run, such as how to start another. */

@@ -10,6 +10,7 @@ import org.kinotic.grind.api.model.events.TaskStartedEvent;
 import org.kinotic.grind.api.model.events.TasksDiscoveredEvent;
 import org.kinotic.grind.api.model.Store;
 import reactor.core.publisher.FluxSink;
+import tools.jackson.databind.JsonNode;
 
 import java.util.List;
 
@@ -38,13 +39,18 @@ public class RunEventEmitter implements RunListener {
     }
 
     @Override
-    public void taskStarted(String taskPath, String description) {
-        sink.next(new TaskStartedEvent(taskPath, description));
+    public void taskStarted(String taskPath, String description, JsonNode view) {
+        sink.next(new TaskStartedEvent(taskPath, description, view));
     }
 
     @Override
     public void taskProgress(String taskPath, int percentageComplete, String message) {
-        sink.next(new TaskProgressEvent(taskPath, percentageComplete, message));
+        sink.next(new TaskProgressEvent(taskPath, percentageComplete, message, null));
+    }
+
+    @Override
+    public void taskViewed(String taskPath, JsonNode view) {
+        sink.next(new TaskProgressEvent(taskPath, null, null, view));
     }
 
     @Override
@@ -79,6 +85,7 @@ public class RunEventEmitter implements RunListener {
                                .setJobRunId(record.getJobRunId())
                                .setTaskPath(record.getTaskPath())
                                .setDescription(record.getDescription())
+                               .setIcon(record.getIcon())
                                .setStatus(record.getStatus())
                                .setStoreType(record.getStoreType())
                                .setStoredName(record.getStoredName());

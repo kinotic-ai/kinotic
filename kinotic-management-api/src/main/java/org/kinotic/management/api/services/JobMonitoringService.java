@@ -53,7 +53,9 @@ public interface JobMonitoringService {
     Future<JobRun> findJobRun(String jobRunId);
 
     /**
-     * Finds the task ledger of a job run the participant may view.
+     * Finds the task ledger of a job run the participant may view. A record carries a task's
+     * value only as its {@link TaskRecord#getWireValue() wireValue}, set when the task's store
+     * declared publication; the durable state a resume replays is never returned.
      *
      * @param jobRunId the id of the run
      * @param pageable the page of records to return

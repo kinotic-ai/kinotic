@@ -3,6 +3,8 @@ package org.kinotic.grind.internal.api.services;
 import org.kinotic.grind.internal.model.SerializedState;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.grind.api.model.StoreType;
+import org.kinotic.grind.api.model.TaskView;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -68,6 +70,27 @@ public class StateSerializer {
             } catch (Exception e) {
                 throw new IllegalStateException("Task '" + taskDescription + "' is declared wire but its value"
                         + " of type " + value.getClass().getName() + " is not serializable", e);
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * Serializes a task's view for watchers of the run. Like a wire value it is only ever
+     * rendered, so any serializable data is accepted.
+     * @param task names the task in failure messages
+     * @param view the view to serialize, or null
+     * @return the view as JSON, or null when the view is null
+     * @throws IllegalStateException if the view's data is not serializable
+     */
+    public JsonNode serializeView(String task, TaskView<?> view) {
+        JsonNode ret = null;
+        if (view != null) {
+            try {
+                ret = objectMapper.valueToTree(view);
+            } catch (Exception e) {
+                throw new IllegalStateException("Task '" + task + "' shows a " + view.kind() + " view whose data"
+                        + " is not serializable", e);
             }
         }
         return ret;

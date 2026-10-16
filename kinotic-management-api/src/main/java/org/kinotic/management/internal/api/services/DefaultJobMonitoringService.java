@@ -71,7 +71,8 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
     @Override
     public Future<Page<TaskRecord>> findTasks(String jobRunId, Pageable pageable) {
         Validate.notNull(pageable, "pageable cannot be null");
-        return authorizedJobRun(jobRunId).compose(run -> taskRecordRepository.findAllForJobRun(run.getId(), pageable));
+        return authorizedJobRun(jobRunId).compose(run -> taskRecordRepository.findAllForJobRun(run.getId(), pageable))
+                                         .map(page -> page.map(DefaultJobMonitoringService::toWireRecord));
     }
 
     @Override
@@ -101,6 +102,15 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
             ret = event;
         }
         return ret;
+    }
+
+    /**
+     * Clears the durable state a resume replays from a record the caller reads: a task's value
+     * reaches watchers only through its {@code wireValue}, when its store declared publication.
+     */
+    private static TaskRecord toWireRecord(TaskRecord record) {
+        return record.setStateValueType(null)
+                     .setStateValue(null);
     }
 
     private Future<JobRun> authorizedJobRun(String jobRunId) {

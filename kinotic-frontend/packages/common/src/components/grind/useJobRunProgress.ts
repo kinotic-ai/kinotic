@@ -57,6 +57,7 @@ export function useJobRunProgress(jobRunId: string) {
         taskPath,
         sequence: Number(taskPath.slice(separator + 1)),
         description: '',
+        icon: null,
         status: ExecutionStatus.PENDING,
         dynamicTasks: false,
         error: null,
@@ -65,6 +66,7 @@ export function useJobRunProgress(jobRunId: string) {
         progress: null,
         storedName: null,
         storedValue: null,
+        view: null,
         children: []
       })
       nodesByPath.set(taskPath, node)
@@ -83,6 +85,7 @@ export function useJobRunProgress(jobRunId: string) {
   function applyRecord(record: TaskRecord): void {
     const node = nodeAt(record.taskPath)
     node.description = record.description ?? node.description
+    node.icon = record.icon ?? node.icon
     node.status = record.status
     node.dynamicTasks = record.dynamicTasks
     node.error = record.error
@@ -90,8 +93,12 @@ export function useJobRunProgress(jobRunId: string) {
     node.started = DatetimeUtil.toEpochMillis(record.started)
     node.finished = DatetimeUtil.toEpochMillis(record.finished)
     node.storedName = record.storedName ?? node.storedName
-    if (record.stateValue !== null && record.stateValue !== undefined) {
-      node.storedValue = record.stateValue
+    if (record.wireValue !== null && record.wireValue !== undefined) {
+      node.storedValue = record.wireValue
+    }
+    // a discovered record holds no view yet, so it never clears one the stream has shown
+    if (record.view) {
+      node.view = record.view
     }
     if (record.status !== ExecutionStatus.RUNNING) {
       node.progress = null
@@ -106,6 +113,7 @@ export function useJobRunProgress(jobRunId: string) {
         node.status = ExecutionStatus.RUNNING
         // records carry the durable timestamps; the local clock only bridges until the next record load
         node.started = node.started ?? Date.now()
+        node.view = event.view ?? node.view
         break
       }
       case JobRunEventType.TASK_COMPLETED: {
@@ -127,10 +135,14 @@ export function useJobRunProgress(jobRunId: string) {
         break
       }
       case JobRunEventType.TASK_PROGRESS: {
-        nodeAt(event.taskPath).progress = {
-          percentageComplete: event.percentageComplete,
-          message: event.message
+        const node = nodeAt(event.taskPath)
+        if (event.percentageComplete !== null) {
+          node.progress = {
+            percentageComplete: event.percentageComplete,
+            message: event.message
+          }
         }
+        node.view = event.view ?? node.view
         break
       }
       case JobRunEventType.TASKS_DISCOVERED: {

@@ -16,6 +16,8 @@ import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.StoreType;
 
+import tools.jackson.databind.JsonNode;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -106,7 +108,7 @@ public class RunRecorder implements RunListener {
     }
 
     @Override
-    public void taskStarted(String taskPath, String description) {
+    public void taskStarted(String taskPath, String description, JsonNode view) {
         TaskRecord record = recordsByPath.computeIfAbsent(taskPath,
                                                           path -> new TaskRecord().setId(jobRunId + ":" + path)
                                                                                   .setJobRunId(jobRunId)
@@ -114,6 +116,9 @@ public class RunRecorder implements RunListener {
         record.setDescription(description)
               .setStatus(ExecutionStatus.RUNNING)
               .setStarted(new Date());
+        if (view != null) {
+            record.setView(view);
+        }
         awaitWrite(() -> saveTask(record));
     }
 
@@ -121,6 +126,19 @@ public class RunRecorder implements RunListener {
     public void taskProgress(String taskPath, int percentageComplete, String message) {
         // progress is transient stream data: persisting every tick would cost a store round
         // trip per report, and a resumed or reloaded run has no use for a stale percentage
+    }
+
+    @Override
+    public void taskViewed(String taskPath, JsonNode view) {
+        TaskRecord record = recordsByPath.get(taskPath);
+        if (record == null) {
+            log.warn("Task view for unknown task path {} in run {}", taskPath, jobRunId);
+        } else {
+            // written through, unlike progress: a view changes rarely, and a run whose node leaves
+            // mid-task still shows the view it was showing
+            record.setView(view);
+            awaitWrite(() -> saveTask(record));
+        }
     }
 
     @Override
@@ -134,11 +152,14 @@ public class RunRecorder implements RunListener {
                   .setFinished(new Date())
                   .setStoreType(store.getType())
                   .setStoredName(storedName);
-            // wire publication rides the event stream only; the record persists just the
-            // durable STATE the resume replays
+            // the resume replays the durable STATE; watchers read the wired value, so a finished
+            // run renders what the live stream showed
             if (store.getType() == StoreType.STATE && serializedState != null) {
                 record.setStateValueType(serializedState.valueType())
                       .setStateValue(serializedState.value());
+            }
+            if (store.isWire() && serializedState != null) {
+                record.setWireValue(serializedState.value());
             }
             awaitWrite(() -> saveTask(record));
         }

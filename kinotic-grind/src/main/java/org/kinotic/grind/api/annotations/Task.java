@@ -36,6 +36,12 @@ public @interface Task {
     String value() default "";
 
     /**
+     * The key of the icon a console shows for the task, see
+     * {@link org.kinotic.grind.api.model.Task#getIcon()}. Defaults to the console's own.
+     */
+    String icon() default "";
+
+    /**
      * How the task's return value is kept. Defaults to {@link StoreType#RESULT} for methods
      * that produce a value, so later tasks can inject it.
      */

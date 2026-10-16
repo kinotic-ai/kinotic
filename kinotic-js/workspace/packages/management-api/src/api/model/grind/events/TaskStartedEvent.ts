@@ -1,4 +1,5 @@
 import type { JobRunEventType } from '@/api/model/grind/events/JobRunEventType'
+import type { TaskView } from '@/api/model/grind/TaskView'
 
 /**
  * A task began executing.
@@ -16,5 +17,10 @@ export interface TaskStartedEvent {
      * The task's description.
      */
     readonly description: string | null
+
+    /**
+     * The view the task shows from its start, or null when it declares none.
+     */
+    readonly view: TaskView | null
 
 }

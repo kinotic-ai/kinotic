@@ -78,9 +78,10 @@ import { scanJobRuns, type JobRunFilter } from './jobRunScan'
  * is given: an organization's runs ({@code organizationId}, null for the runs with none), one
  * of its applications', one of its projects', or the runs in one status. Under each run's name
  * sits what the scope leaves unsaid — the organization, the application, or the project —
- * and nothing inside a project. A clicked run opens in a drawer beside the list, showing the
- * {@code run} slot (given the run's id), whose arrows step through the rows on the page; given
- * {@code runRoute}, the drawer links to the run's own page. refresh() reloads the table.
+ * and nothing inside a project or among the platform's own runs. A clicked run opens in a
+ * drawer beside the list, showing the {@code run} slot (given the run's id), whose arrows step
+ * through the rows on the page; given {@code runRoute}, the drawer links to the run's own page.
+ * refresh() reloads the table.
  */
 const props = defineProps<{
   organizationId?: string | null
@@ -112,7 +113,7 @@ const DEFAULT_SORT = [new Order('started', Direction.DESC)]
 
 const ownerHeader = computed<string | null>(() => {
   let ret: string | null
-  if (props.projectId !== undefined) {
+  if (props.projectId !== undefined || props.organizationId === null) {
     ret = null
   } else if (props.applicationId !== undefined) {
     ret = 'Project'

@@ -1,21 +1,17 @@
 <template>
-  <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf" :failure-of="ProjectDeployResultNames.failureOf">
-    <template #detail="{ node, root }">
-      <ProjectDeployTaskDetail :organization-id="organizationId ?? owningOrganizationId" :node="node" :root="root" />
-    </template>
-  </JobRunProgress>
+  <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :failure-of="ProjectDeployResultNames.failureOf" />
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { Kinotic } from '@kinotic-ai/core'
-import { JobRunProgress, ProjectDeployResultNames, ProjectDeployTaskDetail, createDebug } from '@kinotic-ai/frontend-common'
+import { JobRunProgress, ProjectDeployResultNames, createDebug } from '@kinotic-ai/frontend-common'
 
 const debug = createDebug('job-run-detail')
 
 /**
- * One job run's progress, step by step, with each step's detail, read in the given organization;
- * without one, in the organization the run belongs to, which it emits as organization once known.
+ * One job run's progress, step by step, with each step's detail. Without the organization the run
+ * belongs to, it looks the run up and emits that organization once known.
  */
 const props = defineProps<{
   jobRunId: string

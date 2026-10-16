@@ -1,17 +1,12 @@
 <template>
-  <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployResultNames.hasDetail" :task-icon="ProjectDeployResultNames.iconOf" :failure-of="ProjectDeployResultNames.failureOf"
-                  :next-step="projectDeploymentPath ? ProjectDeployResultNames.RETRY_HINT : undefined">
-    <template #detail="{ node, root }">
-      <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
-    </template>
-  </JobRunProgress>
+  <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :failure-of="ProjectDeployResultNames.failureOf"
+                  :next-step="projectDeploymentPath ? ProjectDeployResultNames.RETRY_HINT : undefined" />
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { Kinotic } from '@kinotic-ai/core'
-import { createDebug, JobRunProgress, ProjectDeployResultNames, ProjectDeployTaskDetail } from '@kinotic-ai/frontend-common'
-import { KinoticStates } from '@/states'
+import { createDebug, JobRunProgress, ProjectDeployResultNames } from '@kinotic-ai/frontend-common'
 
 const debug = createDebug('job-run-detail')
 
@@ -26,8 +21,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'project', deploymentPath: string | null): void
 }>()
-
-const organizationId = KinoticStates.getUserState().getOrganizationId()
 
 const projectDeploymentPath = ref<string | null>(null)
 
