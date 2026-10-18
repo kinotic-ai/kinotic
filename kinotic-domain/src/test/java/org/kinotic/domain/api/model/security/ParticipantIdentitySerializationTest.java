@@ -7,6 +7,7 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import tools.jackson.databind.json.JsonMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -24,12 +25,13 @@ class ParticipantIdentitySerializationTest {
         UserParticipantIdentity user = new UserParticipantIdentity();
         user.setEmail("jane@example.com")
             .setDisplayName("Jane")
-            .setAuthType(AuthType.LOCAL)
             .setOrganizationId("acme")
             .setId("user-1");
 
         String json = jsonMapper.writeValueAsString(user);
         assertTrue(json.contains("\"type\":\"USER\""), "document must carry the discriminator: " + json);
+        // the index mapping is strict, so a derived property must not reach the document
+        assertFalse(json.contains("\"account\""), "isAccount() is derived, not stored: " + json);
 
         ParticipantIdentity read = jsonMapper.readValue(json, ParticipantIdentity.class);
         UserParticipantIdentity readUser = assertInstanceOf(UserParticipantIdentity.class, read);

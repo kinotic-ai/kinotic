@@ -12,39 +12,65 @@
         <div class="login-divider"><span>or</span></div>
       </div>
 
-      <!-- Single-step email + password; POST /api/auth/org/login answers a generic 401,
-           so this form exposes no account-existence oracle. -->
-      <div class="login-form__step">
-        <IconField class="login-field">
-          <InputText
-            ref="emailInput"
-            v-model="email"
-            class="login-input"
-            placeholder="Email"
-            type="email"
-            @keyup.enter="focusPasswordInput"
-          />
-        </IconField>
+      <!-- The organizations a social sign-in found the identity a member of; the person picks one. -->
+      <div v-if="memberships.length > 0" class="login-memberships">
+        <p class="login-memberships__hint">Your account belongs to several organizations. Choose one to sign in to.</p>
+        <Button
+          v-for="membership in memberships"
+          :key="membership"
+          :label="membership"
+          class="login-submit login-memberships__choice"
+          severity="secondary"
+          @click="continueTo(membership)"
+        />
+        <div class="login-divider"><span>or</span></div>
+      </div>
 
+      <!-- A login is addressed to an organization: its page, /login/<organization>, offers the
+           methods that organization's login supports. -->
+      <div class="login-form__step">
         <IconField class="login-field login-field--last">
-          <Password
-            ref="passwordInput"
-            v-model="password"
-            input-class="login-password-input"
-            class="login-password"
-            placeholder="Password"
-            toggleMask
-            :feedback="false"
-            @keyup.enter="handleSubmit"
+          <InputText
+            ref="organizationInput"
+            v-model="organization"
+            class="login-input"
+            placeholder="Organization"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            @keyup.enter="continueToOrganization"
           />
         </IconField>
 
         <Button
-          label="Sign in"
+          label="Continue"
           class="login-submit"
-          :loading="loading"
-          @click="handleSubmit"
+          @click="continueToOrganization"
         />
+      </div>
+
+      <div class="login-find">
+        <a v-if="!finding" href="#" class="login-link" @click.prevent="finding = true">Don't know your organization?</a>
+        <template v-else>
+          <p class="login-find__hint">We'll email you the organizations this address can sign in to.</p>
+          <IconField class="login-field login-field--last">
+            <InputText
+              ref="emailInput"
+              v-model="email"
+              class="login-input"
+              placeholder="Email"
+              type="email"
+              @keyup.enter="findOrganizations"
+            />
+          </IconField>
+          <Button
+            label="Email me my organizations"
+            class="login-submit"
+            severity="secondary"
+            :loading="sending"
+            @click="findOrganizations"
+          />
+        </template>
       </div>
 
       <div class="login-signup-link">
@@ -56,47 +82,51 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import InputText from 'primevue/inputtext'
-import Password from 'primevue/password'
 import Button from 'primevue/button'
 import IconField from 'primevue/iconfield'
 import { useToast } from 'primevue/usetoast'
 
-import { KINOTIC_UI } from '@/IKinoticUI'
-import { KinoticStates } from '@/states'
-import { type IUserState } from '@/states/IUserState'
 import { createDebug } from '@kinotic-ai/frontend-common'
-import { apiUrl, postCredentials } from '@kinotic-ai/frontend-common'
+import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
 import loginArt from '@/assets/login-background.svg'
+import { LAST_ORGANIZATION_KEY, organizationLoginPath, organizationSlug } from '@/pages/login/organizationLogin'
 
 const debug = createDebug('login')
 
 /** Providers offered on this page; any other enabled provider is omitted. */
 const LOGIN_PROVIDERS = ['github']
 
+const organization = ref<string>('')
 const email = ref<string>('')
-const password = ref<string>('')
-const loading = ref<boolean>(false)
+const finding = ref<boolean>(false)
+const sending = ref<boolean>(false)
 const providers = ref<string[]>([])
+const memberships = ref<string[]>([])
 
+const organizationInput = ref<any>()
 const emailInput = ref<any>()
-const passwordInput = ref<any>()
 
 const toast = useToast()
-const userState: IUserState = KinoticStates.getUserState()
 
 const route = useRoute()
 const router = useRouter()
 
 onMounted(() => {
   consumeUrlError()
-  nextTick(() => focusEmailInput())
+  // the organization the browser last signed in to, so a returning member only confirms it
+  organization.value = localStorage.getItem(LAST_ORGANIZATION_KEY) ?? ''
+  nextTick(() => focus(organizationInput))
   // the buttons appear when the list arrives, so a server slow to answer does not hold up the form
   void loadProviders()
+})
+
+watch(finding, open => {
+  if (open) nextTick(() => focus(emailInput))
 })
 
 /**
@@ -110,34 +140,44 @@ function socialStartUrl(provider: string): string {
   return referer ? `${url}?referer=${encodeURIComponent(referer)}` : url
 }
 
-/** Every auth flow (login, signup, invite) redirects here with ?error=<code> on failure. */
+/**
+ * Every auth flow (login, signup, invite) redirects here with ?error=<code> on failure. A social sign-in
+ * that found the identity a member of several organizations names them in ?organizations=, and the page
+ * offers them instead of an error.
+ */
 function consumeUrlError() {
-  const error = (route.query.error as string | undefined)
-      ?? new URLSearchParams(window.location.search).get('error')
+  const search = new URLSearchParams(window.location.search)
+  const error = (route.query.error as string | undefined) ?? search.get('error')
   if (!error) return
 
-  displayError(errorCodeToMessage(error))
+  const organizations = (route.query.organizations as string | undefined) ?? search.get('organizations')
+  if (error === 'multiple_organizations' && organizations) {
+    memberships.value = organizations.split(',').filter(id => id.length > 0)
+  } else {
+    displayError(errorCodeToMessage(error))
+  }
 
   // Clean the query string so a refresh doesn't replay the error.
   const newQuery = { ...route.query }
   delete newQuery.error
+  delete newQuery.organizations
   router.replace({ query: newQuery })
 }
 
 function errorCodeToMessage(code: string): string {
   switch (code) {
-    case 'no_account':         return 'No account is linked to that identity. Please sign up first.'
-    case 'account_exists':     return 'An account already exists for this identity. Please sign in instead.'
-    case 'email_not_verified': return 'Your identity provider has not verified your email address.'
-    case 'state_mismatch':     return 'Login session expired or was tampered with. Please try again.'
-    case 'access_denied':      return 'You declined to authorize Kinotic. Please try again to continue.'
-    case 'signup_failed':      return 'Sign-up failed. Please try again.'
+    case 'no_account':             return 'No account is linked to that identity. Please sign up first.'
+    case 'account_exists':         return 'An account already exists for this email. Sign in the way you usually do, then connect this provider under Sign-in methods on your profile.'
+    case 'email_not_verified':     return 'Your identity provider has not verified your email address.'
+    case 'state_mismatch':         return 'Login session expired or was tampered with. Please try again.'
+    case 'access_denied':          return 'You declined to authorize Kinotic. Please try again to continue.'
+    case 'signup_failed':          return 'Sign-up failed. Please try again.'
     case 'exchange_failed':
     case 'provisioning_failed':
     case 'lookup_failed':
     case 'invalid_callback':
-    case 'invalid_token':      return 'Sign-in failed. Please try again.'
-    default:                   return `Sign-in failed: ${code}`
+    case 'invalid_token':          return 'Sign-in failed. Please try again.'
+    default:                       return `Sign-in failed: ${code}`
   }
 }
 
@@ -155,40 +195,46 @@ async function loadProviders() {
   }
 }
 
-async function handleSubmit() {
+function continueToOrganization() {
+  const slug = organizationSlug(organization.value)
+  if (!slug) {
+    displayError('Please enter your organization')
+    return
+  }
+  continueTo(slug)
+}
+
+function continueTo(organizationId: string) {
+  router.push({ path: organizationLoginPath(organizationId), query: route.query })
+}
+
+async function findOrganizations() {
   if (!email.value) {
     displayError('Please enter your email address')
     return
   }
-  if (!password.value) {
-    displayError('Please enter your password')
-    return
-  }
-  loading.value = true
+  sending.value = true
   try {
-    await postCredentials('/api/auth/org/login', email.value, password.value)
-    // Open the realtime connection, authenticated by the freshly set session cookie.
-    await userState.login()
-    const referer = (route.query.referer as string | undefined) || '/applications'
-    await KINOTIC_UI.navigate(referer)
+    const res = await fetch(apiUrl('/api/auth/org/login/find'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.value })
+    })
+    if (!res.ok) {
+      throw new Error(await readAuthError(res, 'Could not send the email'))
+    }
+    toast.add({ severity: 'success', summary: 'Email sent', detail: `Check ${email.value} for your organizations.`, life: 10000 })
+    finding.value = false
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Invalid credentials'
-    displayError(message)
-    password.value = ''
+    displayError(err instanceof Error ? err.message : 'Could not send the email')
   } finally {
-    loading.value = false
+    sending.value = false
   }
 }
 
-function focusEmailInput() {
-  const input = emailInput.value
-  input?.$el?.focus?.() ?? input?.focus?.()
-}
-
-function focusPasswordInput() {
-  const input = passwordInput.value
-  const inner = input?.$el?.querySelector('input[type="password"]') ?? input?.$el?.querySelector('input')
-  inner?.focus?.()
+function focus(input: { value?: any }) {
+  const el = input.value
+  el?.$el?.focus?.() ?? el?.focus?.()
 }
 
 function displayError(text: string) {
@@ -237,11 +283,39 @@ function displayError(text: string) {
   -webkit-text-fill-color: var(--lp-input-color);
 }
 
+.login-memberships {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2.25rem;
+}
+
+.login-memberships__hint {
+  margin: 0 0 0.5rem;
+  text-align: center;
+  color: var(--lp-text);
+}
+
+.login-memberships .login-divider {
+  margin-top: 1.5rem;
+}
+
+.login-find {
+  margin-top: 1.5rem;
+  font-size: 0.9375rem;
+  text-align: center;
+}
+
+.login-find__hint {
+  margin: 0 0 1rem;
+  color: var(--lp-text);
+}
+
 .login-signup-link {
   flex-direction: row;
   justify-content: center;
   gap: 0.375rem;
-  margin-top: 1rem;
+  margin-top: 1.5rem;
   font-size: 1rem;
   color: var(--lp-text);
 }

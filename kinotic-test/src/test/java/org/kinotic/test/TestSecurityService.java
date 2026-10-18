@@ -21,6 +21,6 @@ public class TestSecurityService implements SecurityService {
 
     @Override
     public Future<Participant> authenticate(Map<String, String> authenticationInfo) {
-        return credentialAuthenticationService.authenticate(authenticationInfo, identity -> true);
+        return credentialAuthenticationService.authenticate(authenticationInfo, (identity, participant) -> true);
     }
 }

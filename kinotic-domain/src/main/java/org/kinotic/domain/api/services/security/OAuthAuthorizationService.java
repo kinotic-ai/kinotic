@@ -1,6 +1,7 @@
 package org.kinotic.domain.api.services.security;
 
 import io.vertx.core.Future;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.CodeExchangeResult;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.PendingOAuthAuthorization;
@@ -54,11 +55,11 @@ public interface OAuthAuthorizationService {
      * @param issuer    OAuth issuer of the server serving the consent page; a request another
      *                  issuer began is unknown here
      * @param requestId the id returned by {@link #createAuthorizationRequest}
-     * @param identityId    the approving {@link UserParticipantIdentity}'s id
+     * @param approver  the signed-in participant approving the request, whose scope the issued delegate acts in
      * @return a {@link Future} emitting the full redirect URL, carrying the code and
      *         the client's {@code state}, that the browser must navigate to
      */
-    Future<String> approve(String issuer, String requestId, String identityId);
+    Future<String> approve(String issuer, String requestId, Participant approver);
 
     /**
      * Rejects the request and consumes it.

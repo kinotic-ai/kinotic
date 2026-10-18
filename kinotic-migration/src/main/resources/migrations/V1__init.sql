@@ -4,10 +4,24 @@ CREATE TABLE IF NOT EXISTS kinotic_application (
     organizationId KEYWORD,
     name KEYWORD,
     description TEXT,
-    oidcConfigurationIds KEYWORD,
-    tenantPerUser BOOLEAN,
+    tenantManagement KEYWORD,
     primaryUiId KEYWORD,
     primaryUiUrl KEYWORD,
+    socialProviders KEYWORD,
+    updated DATE
+);
+
+-- Tenant (Tenant): a tenant of an application whose tenants its administrators manage. Its id is the
+-- tenantId its users carry and the first name of the tenant's site labels,
+-- <id>--<applicationId>--<uiName>, where the tenant's users sign in. An application whose tenants the
+-- platform manages has no rows here.
+CREATE TABLE IF NOT EXISTS kinotic_tenant (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    name KEYWORD,
+    description TEXT,
+    created DATE,
     updated DATE
 );
 
@@ -195,20 +209,22 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
     livenessVerifiedAt LONG
 );
 
--- Participant Identity: authenticated identities at each scope layer — a person (type=USER)
--- or a client acting on a person's behalf (type=DELEGATE). Scope is encoded structurally by
--- which of organizationId / applicationId is set: both null = SYSTEM, organizationId only =
--- ORGANIZATION, both set = APPLICATION.
+-- Participant Identity: authenticated identities — a person (type=USER), a client acting on a
+-- person's behalf (type=DELEGATE), or a machine (type=MACHINE). Scope is encoded structurally by
+-- which of organizationId / applicationId is set: organizationId only = ORGANIZATION, both set =
+-- APPLICATION, both null = SYSTEM for a machine or delegate and, for a USER, an account: a person's
+-- single identity on the platform, which acts in the scopes its kinotic_membership rows name. A
+-- user's sign-in methods are its kinotic_identity_credential and its kinotic_oidc_binding rows, so
+-- a USER row carries no authType.
 -- Uniqueness rules (enforced in service layer): one USER per (email, organizationId,
--- applicationId); one DELEGATE per (ownerId, clientKey).
+-- applicationId), so one account per email; one DELEGATE per (ownerId, clientKey, organizationId,
+-- applicationId).
 CREATE TABLE IF NOT EXISTS kinotic_participant_identity (
     id KEYWORD,
     type KEYWORD,
     email KEYWORD,
     displayName KEYWORD,
     authType KEYWORD,
-    oidcSubject KEYWORD,
-    oidcConfigId KEYWORD,
     ownerId KEYWORD,
     clientKey KEYWORD,
     delegateKind KEYWORD,
@@ -227,34 +243,62 @@ CREATE TABLE IF NOT EXISTS kinotic_identity_credential (
     secretHash KEYWORD NOT INDEXED
 );
 
--- OIDC Configuration: per-org OIDC provider configs. Each row is owned by an organization
--- (organizationId enforced by AbstractCrudService). "Where can this config be used" is
--- expressed by inbound references — kinotic_organization.ssoConfigId for the org's SSO,
--- kinotic_application.oidcConfigurationIds for application-level logins.
-CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
+-- Membership: an account's membership of an organization, or of the platform when organizationId
+-- is null (a platform operator). id is <identityId>:<organizationId or "system">, so a login reads
+-- it by a get and an account is a member of a scope at most once. enabled is the account's standing
+-- in that scope alone.
+CREATE TABLE IF NOT EXISTS kinotic_membership (
     id KEYWORD,
+    identityId KEYWORD,
     organizationId KEYWORD,
-    name KEYWORD,
-    provider KEYWORD,
-    clientId KEYWORD NOT INDEXED,
-    secretNameRef KEYWORD NOT INDEXED,
-    authority KEYWORD,
-    authorizationUri KEYWORD NOT INDEXED,
-    tokenUri KEYWORD NOT INDEXED,
-    userInfoUri KEYWORD NOT INDEXED,
-    userEmailsUri KEYWORD NOT INDEXED,
-    scopes KEYWORD NOT INDEXED,
-    audience KEYWORD NOT INDEXED,
     enabled BOOLEAN,
     created DATE,
     updated DATE
 );
 
--- Kinotic-curated social IdP configs (Google, Microsoft Live, etc.) that power the
--- "Continue with X" buttons on org signup and email-first org login. Seeded via SQL
--- migration; not editable through the org admin UI.
-CREATE TABLE IF NOT EXISTS kinotic_org_signup_oidc_configuration (
+-- OIDC Binding: a user's sign-in method through a provider — the sub claim asserted under one OIDC
+-- configuration, bound to the user it signs in. id is <oidcConfigId>:<subject> for an account and
+-- <organizationId>/<applicationId>/<oidcConfigId>:<subject> for an application's user, so a callback
+-- reads the binding by a get and a provider identity signs in at most one account and one user of
+-- each application. organizationId and applicationId are the bound user's scope, null for an account.
+CREATE TABLE IF NOT EXISTS kinotic_oidc_binding (
     id KEYWORD,
+    identityId KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    oidcConfigId KEYWORD,
+    subject KEYWORD,
+    created DATE
+);
+
+-- OIDC Configuration: every OIDC provider configuration (OidcConfiguration), discriminated by
+-- type the way kinotic_participant_identity is. ORG_SIGNUP and APP_SOCIAL rows are the platform's
+-- managed registrations (ManagedOidcConfiguration): they belong to no organization, are seeded below,
+-- and name their client secret in the platform's secret storage with secretNameRef. type=ORG_SIGNUP
+-- (GitHub) powers the "Continue with X" buttons on org signup and org login; type=APP_SOCIAL
+-- (Google, Microsoft) is offered at an application's login when kinotic_application.socialProviders
+-- names its provider kind. type=ORGANIZATION, type=APPLICATION and type=TENANT are providers an
+-- organization configured for one of its own sign-in scopes (OwnedOidcConfiguration: organizationId set
+-- and enforced by the service, applicationId set for APPLICATION and TENANT, tenantId for TENANT): the
+-- organization's own login, that application's, or the login of that tenant of the application, which
+-- also offers what the application's does. A configuration is offered at its own scope only; an organization wanting the same
+-- provider at another scope copies it there (OidcConfigurationService.copy). createUserOnSignIn says
+-- whether an identity the provider verifies that no user of the scope is bound to becomes a user on
+-- first sign-in. The row names no client secret: OidcConfigurationService.save(configuration,
+-- clientSecret) holds the secret in the organization's scope of the secret storage
+-- (SecretStorageService), keyed by the row's id, and confidentialClient records that one is held. Nor
+-- does it name a URL: it names the organization's account at the provider (providerAccount), and the
+-- authority is derived from the provider kind's template on save. The endpoint overrides and scopes
+-- are columns of the managed kinds only.
+CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
+    id KEYWORD,
+    type KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    tenantId KEYWORD,
+    providerAccount KEYWORD NOT INDEXED,
+    confidentialClient BOOLEAN,
+    createUserOnSignIn BOOLEAN,
     name KEYWORD,
     provider KEYWORD,
     clientId KEYWORD NOT INDEXED,
@@ -272,14 +316,10 @@ CREATE TABLE IF NOT EXISTS kinotic_org_signup_oidc_configuration (
 );
 
 -- Organization: orgs developing applications on the platform.
--- ssoConfigId points at the org's single OidcConfiguration used as its SSO provider for
--- org-level Kinotic login (null when the org has no SSO). All other OidcConfigurations
--- the org owns are referenced from the org's apps via kinotic_application.oidcConfigurationIds.
 CREATE TABLE IF NOT EXISTS kinotic_organization (
     id KEYWORD,
     name KEYWORD,
     description TEXT,
-    ssoConfigId KEYWORD NOT INDEXED,
     createdBy KEYWORD,
     created DATE,
     updated DATE
@@ -339,6 +379,8 @@ CREATE TABLE IF NOT EXISTS kinotic_device_code_grant (
     deviceCodeHash KEYWORD,
     userCode KEYWORD,
     identityId KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
     deviceName KEYWORD NOT INDEXED,
     created DATE,
     expiresAt DATE,
@@ -386,6 +428,8 @@ CREATE TABLE IF NOT EXISTS kinotic_oauth_authorization_grant (
     resource KEYWORD NOT INDEXED,
     state KEYWORD NOT INDEXED,
     identityId KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
     codeHash KEYWORD,
     created DATE,
     expiresAt DATE
@@ -486,18 +530,20 @@ CREATE TABLE IF NOT EXISTS kinotic_task_record (
 -- The record says what it is now; its entries say how it got there. @timestamp is the write's time.
 CREATE DATA STREAM kinotic_watch_event (type KEYWORD, id KEYWORD, scope KEYWORD, parent KEYWORD, kind KEYWORD, source KEYWORD, serverNodeId KEYWORD, generation LONG, message TEXT, value JSON NOT INDEXED) WITH (DATA_RETENTION = '30d') ;
 
--- Kinotic-curated social IdP configurations powering the "Continue with X" buttons on
--- /api/login/providers and the org-signup flow.
+-- The platform's managed IdP registrations: github-platform (ORG_SIGNUP) powers the "Continue with
+-- GitHub" button on org signup and login; google-platform and entra-platform (APP_SOCIAL) are the
+-- social sign-in an organization may offer to its application's users.
 --
 -- The OAuth client secret for each row is resolved at OAuth2-build time via
 -- SecretReferenceResolver — Azure Key Vault in prod (kinotic.domain.secretStorage.azure.vaultUrl)
 -- or KINOTIC_AKV_<uppercased,sanitized-secretNameRef> properties in dev. The secret name
--- here must match the AKV secret object name terraform creates.
+-- here must match the AKV secret object name terraform creates. Only the managed kinds carry a
+-- secretNameRef; an ORGANIZATION row has none and cannot name a platform secret.
 --
 -- audience is intentionally not set: for these social providers (Google, Microsoft Entra
 -- /common) the OAuth2 code-for-token exchange already pins the resulting id_token to our
 -- client_id, and the signature is verified against the IdP's JWKS. Validating aud against
--- a configured value would only be belt-and-suspenders here. Per-org OidcConfiguration
+-- a configured value would only be belt-and-suspenders here. Per-org ORGANIZATION
 -- rows used for SSO can populate audience when the org admin uses a custom audience
 -- identifier — the orchestrator + Vert.x validation kicks in automatically when the field
 -- is non-blank.
@@ -508,21 +554,24 @@ CREATE DATA STREAM kinotic_watch_event (type KEYWORD, id KEYWORD, scope KEYWORD,
 -- flow, userInfoUri for identity, userEmailsUri for a GitHub-style verified-email lookup,
 -- and scopes as the space-delimited OAuth scope string.
 --
--- Each IdP application registration must list these redirect URIs, per environment origin:
---   <apiBaseUrl>/api/auth/org/login/social/callback/<id>
---   <apiBaseUrl>/api/auth/org/signup/social/callback/<id>
---   <apiBaseUrl>/api/auth/invite/oidc/callback/<id>
+-- Each IdP application registration must list its redirect URI, per environment origin: one per
+-- registration, which every flow through it (a login, a sign-up, an invitation, connecting a sign-in
+-- method) returns to, the flow's purpose riding on the session.
+-- An ORG_SIGNUP registration:
+--   <managementApiBaseUrl>/api/auth/org/login/social/callback/<id>
+-- An APP_SOCIAL registration (the app server's apex host answers the callback for every application):
+--   <appServerApiBaseUrl>/api/auth/app/login/social/callback/<id>
 
-INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId, secretNameRef, authority, enabled, created, updated) VALUES ('entra-platform', 'Microsoft', 'azure-ad', 'f24706cc-55ff-4d17-b72c-11ddfa87966a', 'entra-platform', 'https://login.microsoftonline.com/common/v2.0', true, '2026-05-05', '2026-05-05') WITH REFRESH;
+INSERT INTO kinotic_oidc_configuration (id, type, name, provider, clientId, secretNameRef, authority, enabled, created, updated) VALUES ('entra-platform', 'APP_SOCIAL', 'Microsoft', 'azure-ad', 'f24706cc-55ff-4d17-b72c-11ddfa87966a', 'entra-platform', 'https://login.microsoftonline.com/common/v2.0', true, '2026-05-05', '2026-05-05') WITH REFRESH;
 
-INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId, secretNameRef, authority, enabled, created, updated) VALUES ('google-platform', 'Google', 'google', '1018531658131-komame5nk0m59fkp4836b4hrci0r538r.apps.googleusercontent.com', 'google-platform', 'https://accounts.google.com', true, '2026-05-05', '2026-05-05') WITH REFRESH;
+INSERT INTO kinotic_oidc_configuration (id, type, name, provider, clientId, secretNameRef, authority, enabled, created, updated) VALUES ('google-platform', 'APP_SOCIAL', 'Google', 'google', '1018531658131-komame5nk0m59fkp4836b4hrci0r538r.apps.googleusercontent.com', 'google-platform', 'https://accounts.google.com', true, '2026-05-05', '2026-05-05') WITH REFRESH;
 
 -- github-platform must be the kinotic-ai GitHub App's own OAuth credential — it signs
 -- users in AND verifies installation ownership at link time (see the Defense in Depth
 -- doc). Required App settings: a client secret (AKV name = secretNameRef); "Request
 -- user authorization (OAuth) during installation" checked; callback URLs under
 -- "Identifying and authorizing users" = <portalBaseUrl>/github/install/callback FIRST
--- (install redirects go to the first callback URL) plus the URLs above; the
+-- (install redirects go to the first callback URL) plus the ORG_SIGNUP URL above; the
 -- "Email addresses: read-only" account permission. Scopes are inert for GitHub Apps.
 
-INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId, secretNameRef, authority, authorizationUri, tokenUri, userInfoUri, userEmailsUri, scopes, enabled, created, updated) VALUES ('github-platform', 'GitHub', 'github', 'Iv23liN1suytxICfhtOz', 'github-platform', 'https://github.com/login', 'https://github.com/login/oauth/authorize', 'https://github.com/login/oauth/access_token', 'https://api.github.com/user', 'https://api.github.com/user/emails', 'read:user user:email', true, '2026-08-01', '2026-08-01') WITH REFRESH;
+INSERT INTO kinotic_oidc_configuration (id, type, name, provider, clientId, secretNameRef, authority, authorizationUri, tokenUri, userInfoUri, userEmailsUri, scopes, enabled, created, updated) VALUES ('github-platform', 'ORG_SIGNUP', 'GitHub', 'github', 'Iv23liN1suytxICfhtOz', 'github-platform', 'https://github.com/login', 'https://github.com/login/oauth/authorize', 'https://github.com/login/oauth/access_token', 'https://api.github.com/user', 'https://api.github.com/user/emails', 'read:user user:email', true, '2026-08-01', '2026-08-01') WITH REFRESH;

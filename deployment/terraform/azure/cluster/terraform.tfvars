@@ -29,6 +29,14 @@ kinotic_version = "5.0.0-SNAPSHOT"
 # ── TLS ───────────────────────────────────────────────────────────────────────
 lets_encrypt_email = ""  # set in local.auto.tfvars
 
+# ── Cloudflare ────────────────────────────────────────────────────────────────
+# The customer domain: organizations' sites and the application API hosts
+cloudflare_zone_name     = "kinotic.io"
+cloudflare_zone_id       = ""  # set in local.auto.tfvars
+cloudflare_account_id    = ""  # set in local.auto.tfvars
+cloudflare_api_token     = ""  # set in local.auto.tfvars
+cloudflare_dns_api_token = ""  # set in local.auto.tfvars
+
 # ── Tags ──────────────────────────────────────────────────────────────────────
 tags = {
   environment = "production"

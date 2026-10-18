@@ -1,6 +1,7 @@
 package org.kinotic.domain.api.services.security;
 
 import io.vertx.core.Future;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.DeviceCodeGrantStart;
 import org.kinotic.domain.api.model.security.DeviceCodePollResult;
 import org.kinotic.domain.api.model.security.PollStatus;
@@ -41,7 +42,7 @@ public interface DeviceCodeGrantService {
      *
      * @param issuer   OAuth issuer of the server serving the device page
      * @param userCode the code the user entered in the browser
-     * @param identityId   id of the authenticated {@link UserParticipantIdentity} approving the grant
+     * @param approver the signed-in participant approving the grant, whose scope the issued delegate acts in
      */
-    Future<Void> approve(String issuer, String userCode, String identityId);
+    Future<Void> approve(String issuer, String userCode, Participant approver);
 }

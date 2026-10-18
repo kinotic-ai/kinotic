@@ -4,7 +4,7 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.Member;
 import org.kinotic.management.api.model.PendingInviteSummary;
 
 /**
@@ -17,14 +17,17 @@ import org.kinotic.management.api.model.PendingInviteSummary;
 @Publish
 public interface MemberService {
 
-    /** Lists the members of the scope. */
-    Future<Page<UserParticipantIdentity>> findMembers(String applicationId, Pageable pageable);
+    /**
+     * Lists the members of the scope: the accounts holding a membership of the caller's organization, or
+     * the users of one of its applications.
+     */
+    Future<Page<Member>> findMembers(String applicationId, Pageable pageable);
 
     /**
      * Searches the scope's members by free text over email and display name. Blank
      * {@code searchText} is equivalent to {@link #findMembers}.
      */
-    Future<Page<UserParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable);
+    Future<Page<Member>> searchMembers(String searchText, String applicationId, Pageable pageable);
 
     /**
      * Invites someone into the scope by email. Sends the invitation email and returns the
@@ -38,14 +41,20 @@ public interface MemberService {
     Future<PendingInviteSummary> inviteMember(String email, String displayName, String applicationId);
 
     /**
-     * Enables or disables a member of the caller's organization. Disabling gates future
-     * logins; established sessions last until they expire. Callers cannot disable themselves.
+     * Enables or disables a member of the caller's organization or of one of its applications: an account's
+     * membership of the organization, or an application user. Disabling gates future logins to that scope;
+     * established sessions last until they expire. Callers cannot disable themselves.
+     *
+     * @param identityId the member's id, as {@link Member#id()} names it
      */
     Future<Void> setMemberEnabled(String identityId, boolean enabled);
 
     /**
-     * Permanently removes a member of the caller's organization, including any stored
-     * credential. Callers cannot remove themselves.
+     * Removes a member: an account's membership of the caller's organization, leaving the account and its other
+     * memberships as they are, or an application user, with its stored credential. Callers cannot remove
+     * themselves.
+     *
+     * @param identityId the member's id, as {@link Member#id()} names it
      */
     Future<Void> removeMember(String identityId);
 

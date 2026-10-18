@@ -7,6 +7,8 @@ import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.repositories.AbstractRepository;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * Thin {@link IdentifiableCrudService} delegating to an {@link AbstractRepository}. Use this as
@@ -29,6 +31,11 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     @Override
     public Future<T> findById(String id) {
         return repository.findById(id);
+    }
+
+    /** The entities among {@code ids} that exist, in one read. */
+    public Future<List<T>> findAllById(Collection<String> ids) {
+        return repository.findAllById(ids);
     }
 
     @Override

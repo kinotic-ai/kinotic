@@ -247,6 +247,12 @@ const pageRoutes: RouteRecordRaw[] = [
     meta: { authenticationRequired: false } as RouteMeta
   },
   {
+    path: '/login/:organizationId',
+    component: () => import('@/pages/login/OrganizationLoginPage.vue'),
+    props: true,
+    meta: { authenticationRequired: false } as RouteMeta
+  },
+  {
     path: '/signup',
     component: () => import('@/pages/signup/GithubSignup.vue'),
     meta: { authenticationRequired: false } as RouteMeta

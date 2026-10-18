@@ -35,6 +35,9 @@ servers:
     # Mounts the platform GitHub App's private key and webhook secret, which a server loading
     # management-api requires
     githubApp: true
+    # Mounts the Cloudflare DNS token, with which this server creates an organization's sites
+    # record when an organization signs up
+    siteDomain: true
     service:
       type: ClusterIP
       nodePorts:
@@ -67,6 +70,8 @@ servers:
       appApiBaseUrl: "http://localhost:58505"
     tlsSecretName: kinotic-server-system-tls
     githubApp: true
+    # the system server creates an organization's sites record before its first site is published
+    siteDomain: true
     service:
       type: ClusterIP
       nodePorts:
@@ -89,6 +94,7 @@ servers:
       apiBaseUrl: "http://localhost:58505"
     tlsSecretName: kinotic-server-app-tls
     githubApp: false
+    siteDomain: false
     service:
       type: ClusterIP
       nodePorts:
@@ -192,6 +198,9 @@ platformSecrets:
     # kinotic.managementApi.github.appPrivateKey and webhookSecret, on a server with githubApp set
     githubAppPrivateKey: kinotic-github-app-private-key
     githubWebhookSecret: kinotic-github-webhook-secret
+    # kinotic.domain.siteDomain.cloudflare.apiToken, on a server with siteDomain set: the management
+    # server creates an organization's sites record at sign-up, the system server before its first publish
+    cloudflareDnsApiToken: kinotic-cloudflare-dns-api-token
 
 # OIDC client secrets are now resolved at runtime by SecretReferenceResolver — Azure Key
 # Vault in production (kinotic.domain.secretStorage.azure.vaultUrl) or KINOTIC_AKV_<sanitizedName>

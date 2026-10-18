@@ -46,13 +46,11 @@
               <div class="divide-y divide-surface-200 dark:divide-surface-700">
                 <div :class="ROW_CLASS">
                   <div>
-                    <label for="app-tenancy" :class="LABEL_CLASS">Tenant per user</label>
-                    <p :class="HELP_CLASS">Each user of this application gets their own isolated tenant. Applies to users created after enabling.</p>
+                    <label for="app-tenancy" :class="LABEL_CLASS">Tenants</label>
+                    <p :class="HELP_CLASS">Who creates and administers the application's tenants. The platform gives every user a tenant of their own at creation; otherwise a customer signing up, or you, creates a tenant and its administrator decides who joins. Applies to users created from then on.</p>
                   </div>
-                  <div class="flex items-center gap-3">
-                    <ToggleSwitch input-id="app-tenancy" v-model="tenantPerUser" />
-                    <span class="text-sm text-surface-700 dark:text-surface-200">{{ tenantPerUser ? 'On' : 'Off' }}</span>
-                  </div>
+                  <SelectButton input-id="app-tenancy" v-model="tenantManagement" :options="TENANT_MANAGEMENT_OPTIONS"
+                                option-label="label" option-value="value" :allow-empty="false" size="small" />
                 </div>
 
                 <div :class="ROW_CLASS">
@@ -99,8 +97,9 @@
 import { Info, Lock, Mail, SlidersHorizontal, UsersRound } from '@lucide/vue'
 import { ref, computed, watch } from 'vue'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
-import { Textarea, Button, ToggleSwitch } from 'primevue'
+import { Textarea, Button } from 'primevue'
 import Select from 'primevue/select'
+import SelectButton from 'primevue/selectbutton'
 import Tab from 'primevue/tab'
 import TabList from 'primevue/tablist'
 import TabPanel from 'primevue/tabpanel'
@@ -112,6 +111,7 @@ import { useQueryTab } from '@/composables/useQueryTab'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 import { Kinotic } from '@kinotic-ai/core'
+import { TenantManagement } from '@kinotic-ai/management-api'
 import { useToast } from 'primevue/usetoast'
 
 const props = defineProps({
@@ -124,7 +124,11 @@ const props = defineProps({
 const toast = useToast()
 const activeTab = useQueryTab(['general', 'invitation-email'] as const)
 const appDescription = ref('')
-const tenantPerUser = ref(false)
+const tenantManagement = ref<TenantManagement>(TenantManagement.TENANT_ADMINISTRATORS)
+const TENANT_MANAGEMENT_OPTIONS = [
+  { label: 'Tenant administrators', value: TenantManagement.TENANT_ADMINISTRATORS },
+  { label: 'Platform, one per user', value: TenantManagement.PLATFORM }
+]
 const primaryUiId = ref<string | null>(null)
 const publishedUiNames = ref<string[]>([])
 const loading = ref(false)
@@ -135,9 +139,9 @@ const LABEL_CLASS = 'block text-sm font-medium text-surface-950 dark:text-surfac
 const HELP_CLASS = 'mt-1 text-xs leading-5 text-muted-color'
 
 /** The values last loaded or saved, which the form compares against to know it has changes. */
-const saved = ref({ description: '', tenantPerUser: false, primaryUiId: null as string | null })
+const saved = ref({ description: '', tenantManagement: TenantManagement.TENANT_ADMINISTRATORS, primaryUiId: null as string | null })
 const dirty = computed(() => appDescription.value !== saved.value.description
-    || tenantPerUser.value !== saved.value.tenantPerUser
+    || tenantManagement.value !== saved.value.tenantManagement
     || primaryUiId.value !== saved.value.primaryUiId)
 
 // a primary UI whose deployment was removed stays designated, so it stays selectable
@@ -148,9 +152,9 @@ const uiOptions = computed(() => primaryUiId.value && !publishedUiNames.value.in
 watch(() => APPLICATION_STATE.currentApplication, (newApp) => {
   if (newApp) {
     appDescription.value = newApp.description || ''
-    tenantPerUser.value = Boolean(newApp.tenantPerUser)
+    tenantManagement.value = newApp.tenantManagement ?? TenantManagement.TENANT_ADMINISTRATORS
     primaryUiId.value = newApp.primaryUiId ?? null
-    saved.value = { description: appDescription.value, tenantPerUser: tenantPerUser.value, primaryUiId: primaryUiId.value }
+    saved.value = { description: appDescription.value, tenantManagement: tenantManagement.value, primaryUiId: primaryUiId.value }
   }
 }, { immediate: true })
 
@@ -175,7 +179,7 @@ async function copyId(): Promise<void> {
 
 function discard(): void {
   appDescription.value = saved.value.description
-  tenantPerUser.value = saved.value.tenantPerUser
+  tenantManagement.value = saved.value.tenantManagement
   primaryUiId.value = saved.value.primaryUiId
 }
 
@@ -200,7 +204,7 @@ const saveSettings = async () => {
       ...APPLICATION_STATE.currentApplication,
       organizationId: USER_STATE.getOrganizationId(),
       description: appDescription.value,
-      tenantPerUser: tenantPerUser.value,
+      tenantManagement: tenantManagement.value,
       primaryUiId: primaryUiId.value
     }
 

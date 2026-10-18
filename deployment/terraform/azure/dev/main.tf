@@ -1,9 +1,9 @@
 # ── Developer UI publishing ───────────────────────────────────────────────────
-# What the system server running on a developer machine needs to publish UIs to a real
-# subscription: the dev-environment module (a resource group, the Front Door profile and
-# endpoint under apps-<environment>.<zone>, the sites storage account and key vault, and a
-# service principal with the roles the servers need), plus the three lines in .env.local that
-# make the servers on this machine run as that principal.
+# What the system server running on a developer machine needs to publish UIs for real: the
+# dev-environment module (a resource group, the sites storage account, the sites Worker and
+# domain <environment>.<cloudflare zone>, and a service principal with the roles the servers
+# need), plus the lines in .env.local that make the servers on this machine run as that
+# principal and create organizations' sites records.
 #
 # State is kept locally, next to this file, because the root is per developer: each
 # developer picks an `environment` of their own and owns what it creates.
@@ -20,15 +20,14 @@ terraform {
       source  = "hashicorp/azuread"
       version = "~> 3.0"
     }
-    # The sites module: origin authentication at an API version azurerm lacks, and the
-    # wildcard certificate's issuance
+    # The sites module: origin authentication at an API version azurerm lacks
     azapi = {
       source  = "Azure/azapi"
       version = "~> 2.0"
     }
-    acme = {
-      source  = "vancluever/acme"
-      version = "~> 2.0"
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.0"
     }
   }
 }
@@ -47,8 +46,8 @@ provider "azuread" {}
 
 provider "azapi" {}
 
-provider "acme" {
-  server_url = "https://acme-v02.api.letsencrypt.org/directory"
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
 }
 
 # ── Read global state ─────────────────────────────────────────────────────────
@@ -79,30 +78,22 @@ locals {
 module "environment" {
   source = "../modules/dev-environment"
 
-  project            = var.project
-  environment        = var.environment
-  location           = var.location
-  tags               = local.common_tags
-  lets_encrypt_email = var.lets_encrypt_email
+  project     = var.project
+  environment = var.environment
+  location    = var.location
+  tags        = local.common_tags
 
   dns_zone_name                  = local.global.dns_zone_name
   dns_zone_id                    = local.global.dns_zone_id
   dns_zone_resource_group_name   = local.global.resource_group_name
-  dns_zone_subscription_id       = local.global.subscription_id
   email_communication_service_id = local.global.email_communication_service_id
-}
 
-# The resources predate the module and keep their identity: a developer's next apply moves
-# them in state instead of recreating them. The first two chain through the earlier move of
-# the profile and endpoint into the sites module.
-moved {
-  from = azurerm_cdn_frontdoor_profile.sites
-  to   = module.sites.azurerm_cdn_frontdoor_profile.sites
-}
-
-moved {
-  from = azurerm_cdn_frontdoor_endpoint.sites
-  to   = module.sites.azurerm_cdn_frontdoor_endpoint.sites
+  cloudflare_zone_name  = var.cloudflare_zone_name
+  cloudflare_zone_id    = var.cloudflare_zone_id
+  cloudflare_account_id = var.cloudflare_account_id
+  # a developer's app server is on their machine, so the published sites have no reachable API
+  app_server_address = null
+  portal_base_url    = "http://localhost:5173"
 }
 
 moved {
@@ -113,11 +104,6 @@ moved {
 moved {
   from = azurerm_resource_group.main
   to   = module.environment.azurerm_resource_group.main
-}
-
-moved {
-  from = azurerm_key_vault.sites
-  to   = module.environment.azurerm_key_vault.sites
 }
 
 moved {
@@ -154,21 +140,24 @@ locals {
     touch "$f"
     awk '
       /^# kinotic-server Azure identity/ { skip = 1 }
-      skip && /^AZURE_TENANT_ID=/ { skip = 0; next }
+      skip && /^KINOTIC_DOMAIN_SITEDOMAIN_CLOUDFLARE_APITOKEN=/ { skip = 0; next }
       skip { next }
       /^AZURE_(CLIENT_ID|CLIENT_SECRET|TENANT_ID)=/ { next }
+      /^KINOTIC_DOMAIN_SITEDOMAIN_CLOUDFLARE_APITOKEN=/ { next }
       { lines[++n] = $0; if ($0 !~ /^[[:space:]]*$/) last = n }
       END { for (i = 1; i <= last; i++) print lines[i] }
     ' "$f" > "$f.tmp"
     if [ -s "$f.tmp" ]; then printf '\n' >> "$f.tmp"; fi
     cat >> "$f.tmp" <<EOF
     # kinotic-server Azure identity: the ${var.project}-${var.environment}-server service principal, created by
-    # deployment/terraform/azure/dev with the roles the server needs to publish UIs and send email.
+    # deployment/terraform/azure/dev with the roles the server needs to publish UIs and send email,
+    # and the Cloudflare token the server creates organizations' sites records with.
     # DefaultAzureCredential reads these before anything else. Written by terraform apply there;
     # to write them again: terraform apply -replace=terraform_data.env_local
     AZURE_CLIENT_ID=$AZURE_CLIENT_ID
     AZURE_CLIENT_SECRET=$AZURE_CLIENT_SECRET
     AZURE_TENANT_ID=$AZURE_TENANT_ID
+    KINOTIC_DOMAIN_SITEDOMAIN_CLOUDFLARE_APITOKEN=$CLOUDFLARE_DNS_API_TOKEN
     EOF
     mv "$f.tmp" "$f"
   EOT
@@ -180,9 +169,10 @@ resource "terraform_data" "env_local" {
   provisioner "local-exec" {
     command = local.env_local_script
     environment = {
-      AZURE_CLIENT_ID     = module.environment.server_client_id
-      AZURE_CLIENT_SECRET = module.environment.server_client_secret
-      AZURE_TENANT_ID     = module.environment.tenant_id
+      AZURE_CLIENT_ID          = module.environment.server_client_id
+      AZURE_CLIENT_SECRET      = module.environment.server_client_secret
+      AZURE_TENANT_ID          = module.environment.tenant_id
+      CLOUDFLARE_DNS_API_TOKEN = var.cloudflare_dns_api_token
     }
   }
 }
@@ -190,7 +180,7 @@ resource "terraform_data" "env_local" {
 # ── Variables ─────────────────────────────────────────────────────────────────
 
 variable "environment" {
-  description = "Names everything this root creates and the apps-<environment> sites domain; one per developer, since a site hostname is bound to one Front Door profile in all of Azure"
+  description = "Names everything this root creates and the <environment>.<cloudflare zone> sites domain; one per developer"
   type        = string
   default     = "local"
 }
@@ -207,9 +197,32 @@ variable "location" {
   default     = "centralus"
 }
 
-variable "lets_encrypt_email" {
-  description = "Account email for the Let's Encrypt registration that issues the sites wildcard certificate; set it in local.auto.tfvars"
+variable "cloudflare_zone_name" {
+  description = "The Cloudflare zone the sites domain is a label under"
   type        = string
+  default     = "kinotic.io"
+}
+
+variable "cloudflare_zone_id" {
+  description = "The zone's id; set it in local.auto.tfvars"
+  type        = string
+}
+
+variable "cloudflare_account_id" {
+  description = "The Cloudflare account the sites Worker is deployed in; set it in local.auto.tfvars"
+  type        = string
+}
+
+variable "cloudflare_api_token" {
+  description = "The token this root applies the zone with: Workers Scripts edit on the account, DNS and zone settings edit on the zone; set it in local.auto.tfvars"
+  type        = string
+  sensitive   = true
+}
+
+variable "cloudflare_dns_api_token" {
+  description = "A token holding DNS edit on the zone and nothing else, written to .env.local for the servers to create organizations' sites records with; set it in local.auto.tfvars"
+  type        = string
+  sensitive   = true
 }
 
 # ── Outputs ─────────────────────────────────────────────────────────────────
@@ -224,10 +237,26 @@ output "server_client_id" {
   value       = module.environment.server_client_id
 }
 
+output "app_server_application_local_yml" {
+  description = "The `local` profile kinotic-server-app runs with, naming the sites domain its logins admit pages from: write it to kinotic-server-app/src/main/resources/application-local.yml"
+  value       = <<-EOT
+    kinotic:
+      domain:
+        siteDomain:
+          domain: ${module.environment.sites_domain}
+  EOT
+}
+
 output "application_local_yml" {
   description = "The `local` profile kinotic-server-system runs with: write it to kinotic-server-system/src/main/resources/application-local.yml"
   value       = <<-EOT
     kinotic:
+      domain:
+        siteDomain:
+          domain: ${module.environment.sites_domain}
+          cloudflare:
+            enabled: true
+            zoneId: ${var.cloudflare_zone_id}
       systemApi:
         disableAzureStorage: false
         uiDeployment:

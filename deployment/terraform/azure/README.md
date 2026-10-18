@@ -216,8 +216,8 @@ terraform apply -var="beta_mode=false"
 | Firecracker VMs | `cluster/` | Disposable |
 | Static Web App (SPA) | `frontend/` | Independent |
 | portal.kinotic.ai CNAME | `frontend/` | Independent |
-| Developer storage resource group + Front Door (apps-<environment>.kinotic.ai) | `dev/` | Per developer, local state |
-| Development server: Front Door (apps-dev.kinotic.ai), server key vault, snapshot storage, dev.kinotic.ai | `dev-server/` | One per zone, local state |
+| Developer sites account + Cloudflare sites Worker (<environment>.kinotic.io) | `dev/` | Per developer, local state |
+| Development server: sites account, Cloudflare sites Worker (dev.kinotic.io), server key vault, snapshot storage | `dev-server/` | One per zone, local state |
 
 ## Additional Docs
 

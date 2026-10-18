@@ -6,16 +6,30 @@ import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.internal.api.repositories.OrganizationRepository;
+import org.kinotic.domain.internal.api.repositories.MembershipRepository;
+import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
+import org.kinotic.domain.api.model.security.identity.Membership;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
 
 @Component
 public class DefaultOrganizationService extends AbstractCrudService<Organization> implements OrganizationService {
 
-    public DefaultOrganizationService(OrganizationRepository repository) {
+    private final ParticipantIdentityRepository identityRepository;
+    private final MembershipRepository membershipRepository;
+    private final EmailService emailService;
+
+    public DefaultOrganizationService(OrganizationRepository repository,
+                                      ParticipantIdentityRepository identityRepository,
+                                      MembershipRepository membershipRepository,
+                                      EmailService emailService) {
         super(repository);
+        this.identityRepository = identityRepository;
+        this.membershipRepository = membershipRepository;
+        this.emailService = emailService;
     }
 
     @Override
@@ -48,5 +62,19 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
                             ? Future.failedFuture(new AlreadyExistsException(
                                     "An organization named '" + entity.getName() + "' already exists"))
                             : Future.failedFuture(ex));
+    }
+
+    @Override
+    public Future<Void> sendMembershipsEmail(String email) {
+        Validate.notBlank(email, "email cannot be blank");
+        return identityRepository.findByEmail(email, null, null)
+                                 .compose(account -> account == null
+                                         ? Future.succeededFuture(List.<Membership>of())
+                                         : membershipRepository.findByIdentity(account.getId()))
+                                 .compose(memberships -> findAllById(memberships.stream()
+                                                                                .filter(membership -> membership.getOrganizationId() != null && membership.isEnabled())
+                                                                                .map(Membership::getOrganizationId)
+                                                                                .toList()))
+                                 .compose(organizations -> emailService.sendOrganizationsEmail(email, organizations));
     }
 }

@@ -173,11 +173,10 @@ function manifestPage(origin: string, name: string, redirectUrl: string, state: 
         redirect_url: redirectUrl,
         // With request_oauth_on_install GitHub sends the post-install redirect to the first
         // callback URL, carrying the user-authorization code completeInstall verifies
+        // every sign-in flow through the registration returns to its one login callback
         callback_urls: [
             `${origin}/github/install/callback`,
             `${origin}/api/auth/org/login/social/callback/${SIGN_IN_CONFIG_ID}`,
-            `${origin}/api/auth/org/signup/social/callback/${SIGN_IN_CONFIG_ID}`,
-            `${origin}/api/auth/invite/oidc/callback/${SIGN_IN_CONFIG_ID}`,
         ],
         request_oauth_on_install: true,
         // The installation-token scopes GitHubApiClient requests, and the sign-in email lookup.
@@ -256,7 +255,7 @@ async function syncEs(app: CreatedApp) {
 }
 
 async function pointSignInRow(clientId: string) {
-    const resp = await fetch(`${values.es}/kinotic_org_signup_oidc_configuration/_update/${SIGN_IN_CONFIG_ID}?refresh=true`, {
+    const resp = await fetch(`${values.es}/kinotic_oidc_configuration/_update/${SIGN_IN_CONFIG_ID}?refresh=true`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         // updated is part of the server's OAuth client cache key, so the new client id takes effect

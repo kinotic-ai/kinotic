@@ -64,12 +64,14 @@ resource "helm_release" "cert_manager" {
 # time before the cluster exists. Using kubectl apply instead.
 
 locals {
-  # The names the servers' certificate covers: the zone, the hosts under it, and every
-  # application's API host under apps-api
+  # The names the servers' certificate covers: the platform zone and the hosts under it, and in the
+  # Cloudflare zone the app server's shared host and every application's API host under it, which
+  # Cloudflare's Full (strict) mode validates when it proxies them
   tls_dns_names = [
     local.global.dns_zone_name,
     "*.${local.global.dns_zone_name}",
-    "*.apps-api.${local.global.dns_zone_name}",
+    local.apps_api_domain,
+    "*.${local.apps_api_domain}",
   ]
 }
 
@@ -114,6 +116,14 @@ resource "terraform_data" "cert_manager_issuer_and_cert" {
           privateKeySecretRef:
             name: letsencrypt-prod-account-key
           solvers:
+            - selector:
+                dnsZones:
+                  - ${var.cloudflare_zone_name}
+              dns01:
+                cloudflare:
+                  apiTokenSecretRef:
+                    name: ${kubernetes_secret.cloudflare_dns_api_token.metadata[0].name}
+                    key: api-token
             - dns01:
                 azureDNS:
                   subscriptionID: ${local.global.subscription_id}
@@ -146,6 +156,7 @@ resource "terraform_data" "cert_manager_issuer_and_cert" {
   depends_on = [
     helm_release.cert_manager,
     kubernetes_namespace.kinotic,
+    kubernetes_secret.cloudflare_dns_api_token,
   ]
 }
 

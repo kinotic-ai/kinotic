@@ -4,18 +4,18 @@ output "resource_group_name" {
 }
 
 output "sites_domain" {
-  description = "The domain every published UI is a label under"
-  value       = module.sites.sites_domain
+  description = "The domain every organization's sites are under: <app>--<ui>.<org>.<sites domain>"
+  value       = module.cloudflare_sites.sites_domain
+}
+
+output "apps_api_domain" {
+  description = "The domain every application's API host is a label under"
+  value       = module.cloudflare_sites.apps_api_domain
 }
 
 output "sites_storage_blob_endpoint" {
   description = "The blob endpoint the system server publishes sites into"
   value       = module.sites.storage_blob_endpoint
-}
-
-output "sites_endpoint_host_name" {
-  description = "The Front Door endpoint the wildcard record points at"
-  value       = module.sites.endpoint_host_name
 }
 
 output "server_client_id" {
@@ -55,7 +55,7 @@ output "sites_storage_account_id" {
 }
 
 output "sites_frontdoor_profile_name" {
-  description = "The Front Door profile serving the sites account"
+  description = "The Front Door profile serving the named hostnames, or null without any"
   value       = module.sites.frontdoor_profile_name
 }
 

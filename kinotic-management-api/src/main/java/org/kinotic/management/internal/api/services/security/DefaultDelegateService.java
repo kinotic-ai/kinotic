@@ -26,7 +26,7 @@ public class DefaultDelegateService implements DelegateService {
     @Override
     public Future<Page<DelegatingParticipantIdentity>> findMyDelegates(Pageable pageable, Participant participant) {
         DomainUtil.requireUserParticipant(participant);
-        return identityService.findDelegatesByOwner(participant.getId(), pageable);
+        return identityService.findDelegatesByOwner(participant, pageable);
     }
 
     @Override

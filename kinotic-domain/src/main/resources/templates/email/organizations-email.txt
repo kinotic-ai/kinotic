@@ -1,0 +1,17 @@
+Hi,
+
+{{#if organizations}}
+Someone asked which organizations on Kinotic this email address belongs to. You can sign in to:
+
+{{#each organizations}}
+- {{name}}: {{loginUrl}}
+{{/each}}
+{{else}}
+Someone asked which organizations on Kinotic this email address belongs to, but it
+is not a member of any. To use Kinotic, ask an organization administrator to invite
+you, or create an organization of your own.
+{{/if}}
+
+If you didn't ask for this, you can safely ignore this email.
+
+— The Kinotic Team

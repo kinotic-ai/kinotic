@@ -87,7 +87,7 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes, OAuthE
                       case SLOW_DOWN -> authEndpointSupport.respondError(ctx, 400, "slow_down");
                       case EXPIRED -> authEndpointSupport.respondError(ctx, 400, "expired_token");
                       case INVALID -> authEndpointSupport.respondError(ctx, 400, "invalid_grant");
-                      case APPROVED -> authEndpointSupport.issueDelegateTokens(ctx, result.user(), DelegateKind.CLI,
+                      case APPROVED -> authEndpointSupport.issueDelegateTokens(ctx, result.approver(), DelegateKind.CLI,
                                                                               CLI_CLIENT_ID, CLI_DISPLAY_NAME,
                                                                               result.deviceName())
                               .onFailure(err -> {
@@ -109,7 +109,7 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes, OAuthE
     private void handleApprove(RoutingContext ctx) {
         Participant approver = authEndpointSupport.requireSessionUser(ctx);
         String userCode = authEndpointSupport.readJsonBody(ctx).getString("userCode");
-        deviceCodeGrantService.approve(properties.resolveIssuerBaseUrl(), userCode, approver.getId())
+        deviceCodeGrantService.approve(properties.resolveIssuerBaseUrl(), userCode, approver)
               .onSuccess(v -> ctx.response().setStatusCode(204).end())
               .onFailure(err -> authEndpointSupport.respondError(ctx, 400, err.getMessage()));
     }

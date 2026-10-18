@@ -88,7 +88,7 @@ import type { CompleteOrgRequest } from '@kinotic-ai/management-api'
 import loginArt from '@/assets/login-background.svg'
 
 /**
- * Lands here after `/api/auth/org/signup/social/callback/:configId` redirects with `?token=<verificationToken>`
+ * Lands here after the GitHub registration's callback, `/api/auth/org/login/social/callback/:configId`, redirects with `?token=<verificationToken>`
  * (a {@code PendingRegistration}). The user supplies an org name; we POST to
  * `/api/auth/org/signup/social/complete`, the backend creates the Organization + admin ParticipantIdentity and
  * establishes the browser session, which we then use to open the realtime connection. A

@@ -21,5 +21,5 @@ kinotic:
   apiGateway:
     cors:
       # the UIs published under the sites domain, which sign in with the session cookie
-      allowedOriginPattern: "https:\\/\\/[a-z0-9-]+\\.apps\\.kinotic\\.ai"
+      allowedOriginPattern: "https:\\/\\/[a-z0-9-]+\\.[a-z0-9-]+\\.kinotic\\.io"
       allowCredentials: true

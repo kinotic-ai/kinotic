@@ -28,12 +28,6 @@ variable "system_api_label" {
   default     = "dev-system-api"
 }
 
-variable "apps_api_label" {
-  description = "The app server's label in the platform zone: dev-apps-api for dev-apps-api.kinotic.ai, the name runtime workloads dial, under which every application's API host is a label (<organizationId>--<applicationId>.dev-apps-api.kinotic.ai)"
-  type        = string
-  default     = "dev-apps-api"
-}
-
 variable "portal_label" {
   description = "The portal's label in the platform zone, served by Front Door from the sites account"
   type        = string
@@ -51,7 +45,30 @@ variable "public_ip" {
   type        = string
 }
 
-variable "lets_encrypt_email" {
-  description = "Account email for the Let's Encrypt registration that issues the sites wildcard certificate; set it in local.auto.tfvars"
+variable "cloudflare_zone_name" {
+  description = "The Cloudflare zone the sites domain <environment>.<zone> is under"
   type        = string
+  default     = "kinotic.io"
+}
+
+variable "cloudflare_zone_id" {
+  description = "The zone's id; set it in local.auto.tfvars"
+  type        = string
+}
+
+variable "cloudflare_account_id" {
+  description = "The Cloudflare account the sites Worker is deployed in; set it in local.auto.tfvars"
+  type        = string
+}
+
+variable "cloudflare_api_token" {
+  description = "The token this root applies the zone with: Workers Scripts edit on the account, DNS and zone settings edit on the zone; set it in local.auto.tfvars"
+  type        = string
+  sensitive   = true
+}
+
+variable "cloudflare_dns_api_token" {
+  description = "A token holding DNS edit on the zone and nothing else, placed on the host for the servers to create organizations' sites records with; set it in local.auto.tfvars"
+  type        = string
+  sensitive   = true
 }

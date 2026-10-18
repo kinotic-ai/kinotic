@@ -2,7 +2,7 @@ package org.kinotic.domain.internal.api.services;
 
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.crud.IdentifiableCrudService;
+import org.kinotic.domain.api.services.OrganizationScopedCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -20,7 +20,7 @@ import org.kinotic.domain.internal.api.repositories.AbstractOrganizationScopedRe
  * document id, and read filters.
  */
 public abstract class AbstractOrganizationScopedService<T extends OrganizationScoped<String>>
-        implements IdentifiableCrudService<T, String> {
+        implements OrganizationScopedCrudService<T, String> {
 
     protected final AbstractOrganizationScopedRepository<T> scopedRepository;
     protected final SecurityContext securityContext;

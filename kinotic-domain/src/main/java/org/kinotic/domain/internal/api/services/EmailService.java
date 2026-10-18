@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.InviteEmailTemplate;
+import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.internal.api.repositories.InviteEmailTemplateRepository;
 import org.springframework.stereotype.Component;
@@ -48,6 +49,8 @@ public class EmailService {
     private static final String VERIFICATION_SUBJECT = "Verify your Kinotic email";
     private static final String VERIFICATION_PATH = "/signup/verify?token=";
     private static final String INVITE_PATH = "/invite/accept?token=";
+    private static final String ORGANIZATIONS_SUBJECT = "Your organizations on Kinotic";
+    private static final String ORGANIZATION_LOGIN_PATH = "/login/";
 
     // Two engines differing by template suffix and escaping: HTML bodies HTML-escape
     // {{var}} by default (templates opt out with {{{var}}} for system-constructed URLs);
@@ -62,6 +65,8 @@ public class EmailService {
     private static final Template VERIFICATION_TEXT = compileTemplate(TEXT_TEMPLATES, "verification-email");
     private static final Template INVITE_HTML = compileTemplate(HTML_TEMPLATES, "invite-email");
     private static final Template INVITE_TEXT = compileTemplate(TEXT_TEMPLATES, "invite-email");
+    private static final Template ORGANIZATIONS_HTML = compileTemplate(HTML_TEMPLATES, "organizations-email");
+    private static final Template ORGANIZATIONS_TEXT = compileTemplate(TEXT_TEMPLATES, "organizations-email");
 
     private final KinoticDomainProperties properties;
     private final InviteEmailTemplateRepository inviteEmailTemplateRepository;
@@ -153,6 +158,40 @@ public class EmailService {
                                 renderInline(HTML_TEMPLATES, template.getHtmlBody(), variables),
                                 renderInline(TEXT_TEMPLATES, template.getTextBody(), variables));
                 });
+    }
+
+    /**
+     * Sends the person at {@code email} the list of organizations they are a member of, each with a link to
+     * that organization's login. An empty list sends an email saying the address belongs to no
+     * organization, so the request that asked for it reveals nothing about the address.
+     *
+     * @param email         the recipient's email address
+     * @param organizations the organizations the address is a member of, possibly none
+     * @return a future that completes once the send has finished (or fails if ACS rejects it)
+     */
+    public Future<Void> sendOrganizationsEmail(String email, List<Organization> organizations) {
+        List<Map<String, Object>> rows = organizations.stream()
+                .map(organization -> Map.<String, Object>of(
+                        "name", organization.getName(),
+                        "loginUrl", linkBaseUrl() + ORGANIZATION_LOGIN_PATH + organization.getId()))
+                .toList();
+
+        if (!properties.getDomain().getEmail().isEnabled()) {
+            log.warn("Email sending is disabled; organizations of <{}>: {}", email,
+                     rows.stream().map(row -> row.get("loginUrl")).toList());
+            return Future.succeededFuture();
+        }
+
+        // HashMap rather than Map.of: an empty list is omitted so the templates' {{#if organizations}} sees it as falsy
+        Map<String, Object> variables = new HashMap<>();
+        if (!rows.isEmpty()) {
+            variables.put("organizations", rows);
+        }
+        return send(email,
+                    email,
+                    ORGANIZATIONS_SUBJECT,
+                    render(ORGANIZATIONS_HTML, variables),
+                    render(ORGANIZATIONS_TEXT, variables));
     }
 
     // checked per send: a server that sends no mail leaves it unset

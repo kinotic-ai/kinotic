@@ -21,7 +21,7 @@ for machine-specific overrides.
 
 `pnpm dev:tunnel` serves the SPA and the backend from ONE origin, so external callbacks
 reach a local server through a single tunnel. `.env.tunnel` clears `VITE_KINOTIC_HOST`, and
-`server.proxy` in `vite.config.ts` forwards `/api`, `/v1` (STOMP WebSocket), `/.well-known`,
+`server.proxy` in `vite.config.ts` forwards `/api` (REST and the STOMP WebSocket at `/api/v1`), `/.well-known`,
 and `/mcp` to 58503.
 
 ```bash

@@ -16,7 +16,8 @@ import java.util.Map;
 public interface SecretStorageBackend {
 
     /**
-     * Stores a secret value under the given HKDF-derived name.
+     * Stores a secret value under the given HKDF-derived name, replacing the value the name held, and
+     * under a name whose secret was deleted as well.
      *
      * @param derivedName the opaque derived name (base64url, 43 chars)
      * @param value       the secret value to store

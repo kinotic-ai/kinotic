@@ -48,13 +48,6 @@
         <Tag :value="item.status" :severity="statusSeverity(item.status)" />
       </template>
 
-      <template #item.authType="{ item }">
-        <TableChip v-if="item.authType" :icon="item.authType === 'OIDC' ? ShieldCheck : KeyRound">
-          {{ authTypeLabel(item.authType) }}
-        </TableChip>
-        <span v-else class="text-muted-color">—</span>
-      </template>
-
       <template #item.created="{ item }">
         <TimePill :date="item.created" />
       </template>
@@ -72,7 +65,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { KeyRound, ShieldCheck, Users } from '@lucide/vue'
+import { Users } from '@lucide/vue'
 import Tag from 'primevue/tag'
 
 import {
@@ -82,18 +75,16 @@ import {
   type IterablePage,
   type Page
 } from '@kinotic-ai/core'
-import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/management-api'
+import type { Member, PendingInviteSummary } from '@kinotic-ai/management-api'
 import {
   CrudTable,
   InitialsTile,
   PageHeader,
-  TableChip,
   TimePill,
   pageNumberOf,
   statusSeverity,
   MemberDetail,
   SteppingDrawer,
-  authTypeLabel,
   useCrudTablePage,
   useSteppingDrawer,
   type MemberSummary,
@@ -121,8 +112,7 @@ const INVITE_PAGE_SIZE = 100
 const headers: CrudHeader[] = [
   { field: 'email', header: 'Person', sortable: false, width: '40%' },
   { field: 'status', header: 'Status', sortable: false, width: '16%' },
-  { field: 'authType', header: 'Signs in with', sortable: false, optional: true, width: '22%' },
-  { field: 'created', header: 'Created', sortable: false, optional: true, width: '22%' }
+  { field: 'created', header: 'Joined', sortable: false, optional: true, width: '22%' }
 ]
 
 // An organization's people are its members; an application's and the platform's are its users
@@ -220,20 +210,18 @@ function toInviteRow(invite: PendingInviteSummary): MemberSummary {
     email: invite.email,
     displayName: invite.displayName,
     status: 'Invited',
-    authType: null,
     created: invite.created,
     invite: true
   }
 }
 
-function toMemberSummary(user: UserParticipantIdentity): MemberSummary {
+function toMemberSummary(member: Member): MemberSummary {
   return {
-    id: user.id ?? '',
-    email: user.email,
-    displayName: user.displayName,
-    status: user.enabled ? 'Active' : 'Disabled',
-    authType: user.authType ?? null,
-    created: user.created
+    id: member.id ?? '',
+    email: member.email,
+    displayName: member.displayName,
+    status: member.enabled ? 'Active' : 'Disabled',
+    created: member.joined
   }
 }
 

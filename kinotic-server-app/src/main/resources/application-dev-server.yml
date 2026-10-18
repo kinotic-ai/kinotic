@@ -20,7 +20,7 @@ kinotic:
       keyPath: /etc/kinotic/certs/privkey.pem
     cors:
       # The UIs published under the sites domain
-      allowedOriginPattern: "https:\\/\\/[a-z0-9-]+\\.${KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN}"
+      allowedOriginPattern: "https:\\/\\/[a-z0-9-]+\\.[a-z0-9-]+\\.${KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN}"
       allowCredentials: true
   platformSecrets:
     # Generated once when the server is built (generate-secrets.sh in deployment/terraform/proxmox),

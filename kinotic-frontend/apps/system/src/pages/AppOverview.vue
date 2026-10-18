@@ -71,7 +71,7 @@ import Tag from 'primevue/tag'
 import { Boxes, Building2, CalendarClock, ChevronRight, Hash, LaptopMinimalCheck, LayoutGrid, Tag as TagIcon, Users, Waypoints } from '@lucide/vue'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { ExecutionStatus, RepositoryConnectionStatus, WorkloadStatus,
+import { ExecutionStatus, RepositoryConnectionStatus, TenantManagement, WorkloadStatus,
          type Application, type JobRun, type Project, type Workload } from '@kinotic-ai/management-api'
 import { DashboardSection, DatetimeUtil, FactList, InitialsTile, PageHeader, ProjectsIcon, StatCard, TINTS,
          errorMessage, executionStatusSeverity, scanJobRuns, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
@@ -136,10 +136,10 @@ const facts = computed(() => {
   let tenancy: string
   if (!app) {
     tenancy = '—'
-  } else if (app.tenantPerUser) {
-    tenancy = 'Tenant per user'
+  } else if (app.tenantManagement === TenantManagement.PLATFORM) {
+    tenancy = 'Platform, one per user'
   } else {
-    tenancy = 'Shared tenant'
+    tenancy = 'Tenant administrators'
   }
   return [
     { label: 'Name', icon: markRaw(TagIcon), value: app?.name ?? '—' },

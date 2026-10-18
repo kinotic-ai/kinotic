@@ -44,7 +44,7 @@ export class FakeStompServer {
 
 export class FakeSocket implements IWebSocket {
 
-    public url: string = 'ws://fake/v1'
+    public url: string = 'ws://fake/api/v1'
     public binaryType?: string
     public readyState: number = 0
     public onopen: ((ev?: any) => any) | undefined | null = null

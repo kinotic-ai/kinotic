@@ -19,7 +19,8 @@ import java.util.Date;
  * caller with its own credential — and carries the fields only that kind has. The scope
  * is encoded structurally by which of {@link #organizationId} / {@link #applicationId} is set:
  * <ul>
- *   <li>both null → SYSTEM (platform operators)</li>
+ *   <li>both null → SYSTEM for a machine or delegate (the platform's own); for a person, an account
+ *       with no scope of its own, which acts in the scopes its {@link Membership}s name</li>
  *   <li>{@code organizationId} set, {@code applicationId} null → ORGANIZATION</li>
  *   <li>both set → APPLICATION (a user of an Application owned by an Organization)</li>
  * </ul>
@@ -44,10 +45,10 @@ public abstract sealed class ParticipantIdentity implements Identifiable<String>
     private String displayName;
 
     /**
-     * Authentication method: {@link AuthType#LOCAL} or {@link AuthType#OIDC} for
-     * {@link UserParticipantIdentity}, always {@link AuthType#DELEGATED} for
-     * {@link DelegatingParticipantIdentity}, always {@link AuthType#CLIENT_CREDENTIALS} for
-     * {@link MachineParticipantIdentity}.
+     * Authentication method: always {@link AuthType#DELEGATED} for {@link DelegatingParticipantIdentity},
+     * always {@link AuthType#CLIENT_CREDENTIALS} for {@link MachineParticipantIdentity}, and {@code null}
+     * for a {@link UserParticipantIdentity}, whose sign-in methods are its credential and its
+     * {@link OidcBinding}s.
      */
     private AuthType authType;
 

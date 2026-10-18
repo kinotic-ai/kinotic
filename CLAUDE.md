@@ -151,6 +151,15 @@ column; the grammar reference explains what each nested element costs.
 
 When a change alters something the docs describe — a wire contract, public API signature, REST route, auth mechanism, configuration option, or user-facing behavior — update the affected docs in the same change. `website/content/**` must always reflect the correct and current shape of the system; stale docs are a defect, not a follow-up. Before finishing, grep `website/content` for the symbols, routes, and field names you changed and reconcile every hit. If a change is genuinely too large to document in the same pass, say so explicitly rather than leaving the docs silently wrong.
 
+## Docs follow features, never the other way round
+
+`website/content/**` describes what the code does; it never decides what the code should do. A
+request from the user drives a feature, and the docs are updated afterwards to match what was
+built. Never treat a sentence in the docs as the specification of a behaviour the code lacks, and
+never build, keep or refuse something because the docs say so. When a request contradicts the
+docs, or the docs claim a behaviour the code does not have, say so and ask which way to go; do not
+pick the docs' side on your own. The only authority a doc has is over the docs.
+
 ## Avoid these code smells
 
 These are the named smells from Martin Fowler and Kent Beck's catalog in *Refactoring: Improving the Design of Existing Code*, grouped by Mäntylä's taxonomy — decades of industry consensus on what makes code hard to change, not house style or one reviewer's taste. That is why they bind: each one is a pattern the field has repeatedly watched turn into maintenance cost. Check every diff against this list before presenting it. The bar for any new abstraction is YAGNI (Beck and Jeffries, Extreme Programming) and the Rule of Three (Don Roberts, in Refactoring): it must carry information or remove duplication **today** — not that it might someday.

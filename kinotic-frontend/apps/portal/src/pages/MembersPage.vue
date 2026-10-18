@@ -24,11 +24,6 @@
         <Tag :value="item.status" :severity="statusSeverity(item.status)" />
       </template>
 
-      <template #item.authType="{ item }">
-        <TableChip v-if="item.authType" :icon="item.authType === 'OIDC' ? ShieldCheck : KeyRound">{{ authTypeLabel(item.authType) }}</TableChip>
-        <span v-else class="text-muted-color">—</span>
-      </template>
-
       <template #item.created="{ item }">
         {{ formatDate(item.created) }}
       </template>
@@ -109,9 +104,9 @@ import {
   type IterablePage,
   type Page
 } from '@kinotic-ai/core'
-import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/management-api'
+import type { Member, PendingInviteSummary } from '@kinotic-ai/management-api'
 
-import { CrudTable, FormDialog, MemberDetail, SteppingDrawer, TableChip, TINTS, authTypeLabel, useSteppingDrawer,
+import { CrudTable, FormDialog, MemberDetail, SteppingDrawer, TINTS, useSteppingDrawer,
          type MemberSummary } from '@kinotic-ai/frontend-common'
 import { PageHeader } from '@kinotic-ai/frontend-common'
 import { statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
@@ -144,8 +139,7 @@ const headers: CrudHeader[] = [
   { field: 'email', header: 'Email', sortable: false, width: '30%' },
   { field: 'displayName', header: 'Name', sortable: false, width: '22%', optional: true },
   { field: 'status', header: 'Status', sortable: false, width: '14%' },
-  { field: 'authType', header: 'Auth type', sortable: false, width: '16%', optional: true },
-  { field: 'created', header: 'Created', sortable: false, width: '18%', optional: true }
+  { field: 'created', header: 'Joined', sortable: false, width: '18%', optional: true }
 ]
 
 /** One way an invitee can accept, with the provider's logo or, for the rest, an icon. */
@@ -261,21 +255,19 @@ function toInviteRow(invite: PendingInviteSummary): MemberRow {
     email: invite.email,
     displayName: invite.displayName,
     status: 'Invited',
-    authType: null,
     created: invite.created,
     invite: true
   }
 }
 
-function toMemberRow(user: UserParticipantIdentity): MemberRow {
+function toMemberRow(member: Member): MemberRow {
   return {
-    id: user.id ?? '',
-    email: user.email,
-    displayName: user.displayName,
-    status: user.enabled ? 'Active' : 'Disabled',
-    authType: user.authType,
-    created: user.created,
-    enabled: user.enabled
+    id: member.id ?? '',
+    email: member.email,
+    displayName: member.displayName,
+    status: member.enabled ? 'Active' : 'Disabled',
+    created: member.joined,
+    enabled: member.enabled
   }
 }
 

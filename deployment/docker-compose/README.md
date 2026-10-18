@@ -32,7 +32,7 @@ the commit under test rather than whatever the published tag currently holds.
 | `compose.kinotic-servers.yml` | The three Kinotic servers, one Ignite cluster | `kinotic-server-management:9090/58503` (portal, REST and STOMP), `kinotic-server-system:58504`, `kinotic-server-app:58505` |
 | `compose-otel.yml` | OpenTelemetry collector + Grafana + Tempo + Loki + Mimir | `grafana:3000`, `loki:3100`, `tempo:3200`, `mimir:9009` |
 | `compose.gen-schemas.yml` | Load-generator container that pre-populates schemas | One-shot when `compose.yml` brings up the full stack |
-| `compose.keycloak.yml` | Local Keycloak as a platform OIDC provider (dev-only secret) | `keycloak:8888` — see `KEYCLOAK_HOSTS_SETUP.md` |
+| `compose.keycloak.yml` | Local Keycloak as a social sign-in OIDC provider (dev-only secret) | `keycloak:8888` — see `KEYCLOAK_HOSTS_SETUP.md` |
 | `compose.kinotic-test.yml` | Minimal: ES + migration only, no server | Backing services for the `kinotic-test` suite, which runs the server in-process |
 | `compose.kinotic-e2e-test.yml` | Elasticsearch + migration + the servers, on the `test,e2e-tests,compose` profiles | Used by e2e tests in CI |
 
@@ -108,7 +108,7 @@ Steps in the SPA:
 
 ### Adding "Continue with Keycloak" (local OIDC, no internet)
 
-To exercise the platform-OIDC plumbing without needing a real IdP, layer in
+To exercise the social sign-in OIDC plumbing without needing a real IdP, layer in
 `compose.keycloak.yml`:
 
 ```bash
@@ -127,7 +127,7 @@ What this gives you:
   The management server's container picks the secret up from the `KINOTIC_AKV_KEYCLOAK` env
   var via the dev-fallback `EnvVarSecretReferenceResolver`.
 - The **Continue with Keycloak** button isn't wired automatically — the social-button
-  list is sourced from `kinotic_org_signup_oidc_configuration` rows, and no migration
+  list is sourced from the `type=ORG_SIGNUP` rows of `kinotic_oidc_configuration`, and no migration
   ships a Keycloak entry. Seed one manually via the kinotic-migration tool if you want
   the button to appear.
 

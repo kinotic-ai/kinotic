@@ -1,7 +1,7 @@
 import { SYSTEM_API_ZONE,
          type MachineParticipantIdentity,
          type MachineProvisionResult,
-         type UserParticipantIdentity } from '@kinotic-ai/management-api'
+         type Member } from '@kinotic-ai/management-api'
 import type { IKinotic, IServiceProxy, Page, Pageable } from '@kinotic-ai/core'
 
 /**
@@ -13,9 +13,9 @@ import type { IKinotic, IServiceProxy, Page, Pageable } from '@kinotic-ai/core'
  */
 export interface ISystemMemberService {
 
-    findUsers(pageable: Pageable): Promise<Page<UserParticipantIdentity>>
+    findUsers(pageable: Pageable): Promise<Page<Member>>
 
-    searchUsers(searchText: string, pageable: Pageable): Promise<Page<UserParticipantIdentity>>
+    searchUsers(searchText: string, pageable: Pageable): Promise<Page<Member>>
 
     /** Lists the platform's machines, disabled ones included. */
     findMachines(pageable: Pageable): Promise<Page<MachineParticipantIdentity>>
@@ -55,11 +55,11 @@ export class SystemMemberService implements ISystemMemberService {
         this.serviceProxy = kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.system.api.services.SystemMemberService`)
     }
 
-    public findUsers(pageable: Pageable): Promise<Page<UserParticipantIdentity>> {
+    public findUsers(pageable: Pageable): Promise<Page<Member>> {
         return this.serviceProxy.invoke('findUsers', [pageable])
     }
 
-    public searchUsers(searchText: string, pageable: Pageable): Promise<Page<UserParticipantIdentity>> {
+    public searchUsers(searchText: string, pageable: Pageable): Promise<Page<Member>> {
         return this.serviceProxy.invoke('searchUsers', [searchText, pageable])
     }
 

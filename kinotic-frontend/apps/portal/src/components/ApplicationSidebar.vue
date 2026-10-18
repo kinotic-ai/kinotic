@@ -6,7 +6,7 @@ import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@kinotic-ai/frontend-common'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
-import type {Application} from "@kinotic-ai/management-api";
+import {type Application, TenantManagement} from "@kinotic-ai/management-api";
 import {Kinotic} from "@kinotic-ai/core";
 import { USER_STATE } from '@/states/IUserState'
 import { FormDrawer } from '@kinotic-ai/frontend-common'
@@ -64,9 +64,10 @@ async function handleSubmit(): Promise<void> {
       name: form.name.trim(),
       organizationId: USER_STATE.getOrganizationId(),
       description: form.description,
-      tenantPerUser: false,
+      tenantManagement: TenantManagement.TENANT_ADMINISTRATORS,
       primaryUiId: null,
       primaryUiUrl: null,
+      socialProviders: [],
       updated: null
     }
 

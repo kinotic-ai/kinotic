@@ -82,6 +82,9 @@ directory is the only copy of the JWT signing keys and the master key. Keep it s
 out of the repository; they are carried to the cloud at migration. The two
 roots' state files hold the principal's secret and the storage keys, so keep them at mode 0600.
 
+The app server's names, `apps-api.dev.kinotic.io` and every application's host under it, are in
+the Cloudflare zone (the `dev-server` root), so its certificate needs the `certbot-dns-cloudflare`
+plugin with the DNS token that root takes, beside the Azure plugin the other two servers use.
 Each server's certificate is issued on the host by certbot with the DNS-01 plugin, as the
 servers' principal (the `dev-server` root granted it DNS Zone Contributor), and installed into
 the directory that server's container mounts — `cnb`, uid 1002 and gid 1001 in the container,

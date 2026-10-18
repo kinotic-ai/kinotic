@@ -5,12 +5,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.security.CodeExchangeResult;
-import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.participant.ParticipantScope;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.PendingOAuthAuthorization;
 import org.kinotic.domain.api.services.security.OAuthAuthorizationService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.OAuthAuthorizationGrant;
-import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.repositories.OAuthAuthorizationGrantRepository;
 import org.kinotic.domain.api.rest.support.OAuth2Util;
 import org.springframework.stereotype.Component;
@@ -39,7 +40,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
 
     private final ClientMetadataDocumentService clientMetadataDocumentService;
     private final OAuthAuthorizationGrantRepository grantRepository;
-    private final ParticipantIdentityRepository identityRepository;
+    private final ParticipantIdentityService identityService;
 
     @Override
     public Future<String> createAuthorizationRequest(String issuer,
@@ -86,12 +87,15 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     }
 
     @Override
-    public Future<String> approve(String issuer, String requestId, String identityId) {
-        Validate.notBlank(identityId, "identityId is required");
+    public Future<String> approve(String issuer, String requestId, Participant approver) {
+        Validate.notNull(approver, "approver is required");
+        ParticipantScope scope = DomainUtil.scopeOf(approver);
         return loadPendingGrant(issuer, requestId)
                 .compose(grant -> {
                     String code = DomainUtil.generateUrlSafeToken(TOKEN_BYTES);
-                    grant.setIdentityId(identityId)
+                    grant.setIdentityId(approver.getId())
+                         .setOrganizationId(scope.organizationId())
+                         .setApplicationId(scope.applicationId())
                          .setCodeHash(DomainUtil.sha256Hex(code))
                          // the code's own, shorter expiry replaces the consent window
                          .setExpiresAt(new Date(System.currentTimeMillis() + CODE_TTL_MS));
@@ -141,7 +145,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                         if (!OAuth2Util.s256Challenge(codeVerifier).equals(grant.getCodeChallenge())) {
                             return Future.failedFuture(new IllegalArgumentException("PKCE verification failed"));
                         }
-                        return loadEnabledUser(grant.getIdentityId())
+                        return loadApprover(grant)
                                 .map(approver -> new CodeExchangeResult(approver,
                                                                         grant.getClientId(),
                                                                         grant.getClientName()));
@@ -213,12 +217,12 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                 });
     }
 
-    private Future<UserParticipantIdentity> loadEnabledUser(String identityId) {
-        return identityRepository.findById(identityId)
-                .map(UserParticipantIdentity.class::cast)
-                .compose(user -> (user == null || !user.isEnabled())
+    // the approver in the scope it approved from; one that may no longer act there fails the exchange
+    private Future<Participant> loadApprover(OAuthAuthorizationGrant grant) {
+        return identityService.resolveParticipant(grant.getIdentityId(), grant.getOrganizationId(), grant.getApplicationId())
+                .compose(approver -> approver == null
                         ? Future.failedFuture(new IllegalArgumentException("User is not available"))
-                        : Future.succeededFuture(user));
+                        : Future.succeededFuture(approver));
     }
 
     private static String redirectUrl(OAuthAuthorizationGrant grant, String parameter, String value) {

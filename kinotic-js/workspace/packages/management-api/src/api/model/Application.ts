@@ -1,4 +1,6 @@
 import type { Identifiable } from '@kinotic-ai/core'
+import { TenantManagement } from '@/api/model/TenantManagement'
+import { OidcProviderKind } from '@/api/model/security/OidcProviderKind'
 
 export class Application implements Identifiable<string> {
 
@@ -19,11 +21,11 @@ export class Application implements Identifiable<string> {
     public description: string
 
     /**
-     * When true, every APPLICATION-scope user created for this application receives an
-     * auto-generated unique tenantId, isolating each user's SHARED entity data in its own
-     * tenant. Applies only to users created after it is enabled.
+     * Who creates and administers this application's tenants. Under PLATFORM every APPLICATION-scope
+     * user created for the application receives a tenant of its own; it applies to users created while
+     * it is in force, and existing users are not backfilled.
      */
-    public tenantPerUser: boolean = false
+    public tenantManagement: TenantManagement = TenantManagement.TENANT_ADMINISTRATORS
 
     /**
      * Name of the UI whose site this application's browser flows return to, such as its OAuth
@@ -36,6 +38,13 @@ export class Application implements Identifiable<string> {
      * platform when the owner designates the primary UI; a value a caller saves is replaced.
      */
     public primaryUiUrl: string | null = null
+
+    /**
+     * The platform's social registrations this application's login offers, by provider kind, in the
+     * order to present them: 'google', 'azure-ad'. The application's users sign in with Kinotic's
+     * registration at the provider, so the application registers nothing of its own. Empty offers none.
+     */
+    public socialProviders: OidcProviderKind[] = []
 
     public updated: string | null = null
 

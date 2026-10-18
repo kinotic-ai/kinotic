@@ -14,7 +14,8 @@ public class AppServerProperties {
     /**
      * Base URL every application's API host is a label under (scheme + domain + optional port, no trailing
      * slash): with {@code https://apps-api.kinotic.ai}, application {@code orders} of organization {@code acme}
-     * is served at {@code https://acme--orders.apps-api.kinotic.ai}, which is also its OAuth issuer.
+     * is served at {@code https://acme--orders.apps-api.kinotic.ai}, which is also its OAuth issuer. The base URL
+     * itself is the shared host a sign-in through one of the platform's social registrations returns to.
      */
     @NotBlank
     private String apiBaseUrl;

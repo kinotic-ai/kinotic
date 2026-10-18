@@ -3,7 +3,7 @@ import { Application,
          Project,
          SYSTEM_API_ZONE,
          type PendingInviteSummary,
-         type UserParticipantIdentity } from '@kinotic-ai/management-api'
+         type Member } from '@kinotic-ai/management-api'
 import type { IKinotic, IServiceProxy, Page, Pageable } from '@kinotic-ai/core'
 
 /**
@@ -27,9 +27,9 @@ export interface ISystemOrganizationService {
     findProjects(organizationId: string, pageable: Pageable): Promise<Page<Project>>
 
     /** applicationId null = the organization's members */
-    findMembers(organizationId: string, applicationId: string | null, pageable: Pageable): Promise<Page<UserParticipantIdentity>>
+    findMembers(organizationId: string, applicationId: string | null, pageable: Pageable): Promise<Page<Member>>
 
-    searchMembers(searchText: string, organizationId: string, applicationId: string | null, pageable: Pageable): Promise<Page<UserParticipantIdentity>>
+    searchMembers(searchText: string, organizationId: string, applicationId: string | null, pageable: Pageable): Promise<Page<Member>>
 
     findPendingInvites(organizationId: string, applicationId: string | null, pageable: Pageable): Promise<Page<PendingInviteSummary>>
 
@@ -67,11 +67,11 @@ export class SystemOrganizationService implements ISystemOrganizationService {
         return this.serviceProxy.invoke('findProjects', [organizationId, pageable])
     }
 
-    public findMembers(organizationId: string, applicationId: string | null, pageable: Pageable): Promise<Page<UserParticipantIdentity>> {
+    public findMembers(organizationId: string, applicationId: string | null, pageable: Pageable): Promise<Page<Member>> {
         return this.serviceProxy.invoke('findMembers', [organizationId, applicationId, pageable])
     }
 
-    public searchMembers(searchText: string, organizationId: string, applicationId: string | null, pageable: Pageable): Promise<Page<UserParticipantIdentity>> {
+    public searchMembers(searchText: string, organizationId: string, applicationId: string | null, pageable: Pageable): Promise<Page<Member>> {
         return this.serviceProxy.invoke('searchMembers', [searchText, organizationId, applicationId, pageable])
     }
 

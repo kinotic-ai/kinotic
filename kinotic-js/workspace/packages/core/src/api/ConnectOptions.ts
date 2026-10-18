@@ -49,7 +49,7 @@ export function buildServerUrl(server: ServerInfo, scheme: 'ws' | 'http'): strin
  * {@link WebSocketFactory} never re-types it and drifts from core.
  */
 export function buildBrokerUrl(server: ServerInfo): string {
-    return buildServerUrl(server, 'ws') + '/v1'
+    return buildServerUrl(server, 'ws') + '/api/v1'
 }
 
 export enum SessionKeepAliveMode {

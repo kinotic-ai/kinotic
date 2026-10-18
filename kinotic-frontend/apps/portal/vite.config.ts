@@ -41,9 +41,8 @@ const TUNNEL_HOSTS = ['.ngrok-free.app', '.ngrok-free.dev', '.ngrok.app', '.ngro
 // Kinotic.connect() same-origin, and these routes forward to the local management server. In
 // plain `pnpm dev` the app calls localhost:58503 directly and this proxy sits idle.
 const BACKEND_PROXY = {
-    '/api': { target: 'http://localhost:58503', changeOrigin: true },
-    // STOMP WebSocket (ApiGatewayVertcleFactory.STOMP_WEBSOCKET_PATH)
-    '/v1': { target: 'http://localhost:58503', changeOrigin: true, ws: true },
+    // REST under /api and the STOMP WebSocket at /api/v1 (ApiGatewayVertcleFactory.STOMP_WEBSOCKET_PATH)
+    '/api': { target: 'http://localhost:58503', changeOrigin: true, ws: true },
     // OAuth 2.1 metadata + MCP endpoint, so MCP hosts can use the tunnel too
     '/.well-known': { target: 'http://localhost:58503', changeOrigin: true },
     '/mcp': { target: 'http://localhost:58503', changeOrigin: true },

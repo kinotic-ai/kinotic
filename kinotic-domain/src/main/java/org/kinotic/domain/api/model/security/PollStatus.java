@@ -12,6 +12,6 @@ public enum PollStatus {
     EXPIRED,
     /** No usable grant matches the supplied device code. */
     INVALID,
-    /** The grant was approved; {@link DeviceCodePollResult#user()} is populated. */
+    /** The grant was approved; {@link DeviceCodePollResult#approver()} is populated. */
     APPROVED
 }

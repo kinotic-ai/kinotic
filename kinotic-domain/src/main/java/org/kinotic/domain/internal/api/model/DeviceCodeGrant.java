@@ -43,6 +43,12 @@ public class DeviceCodeGrant implements Identifiable<String> {
      */
     private String identityId;
 
+    /** The organization of the scope the approver was signed in to, the scope the issued delegate acts in; {@code null} for the platform. */
+    private String organizationId;
+
+    /** The application of that scope, or {@code null}. */
+    private String applicationId;
+
     private Date created;
 
     /** Hard expiry after which the grant can no longer be polled or approved. */

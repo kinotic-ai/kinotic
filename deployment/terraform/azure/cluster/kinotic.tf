@@ -41,15 +41,15 @@ resource "helm_release" "kinotic" {
     { name = "servers.kinotic-server-management.managementServer.apiBaseUrl", value = "https://api.${local.global.dns_zone_name}" },
     { name = "servers.kinotic-server-system.systemServer.consoleBaseUrl", value = "https://console.${local.global.dns_zone_name}" },
     { name = "servers.kinotic-server-system.systemServer.apiBaseUrl", value = "https://system-api.${local.global.dns_zone_name}" },
-    # Every application's API host, <organizationId>--<applicationId>.apps-api.<zone>: what the app
-    # server serves, and what the system server hands each UI build
-    { name = "servers.kinotic-server-app.appServer.apiBaseUrl", value = "https://apps-api.${local.global.dns_zone_name}" },
-    { name = "servers.kinotic-server-system.deployment.appApiBaseUrl", value = "https://apps-api.${local.global.dns_zone_name}" },
+    # Every application's API host, <organizationId>--<applicationId>.apps-api.<cloudflare zone>: what
+    # the app server serves, and what the system server hands each UI build
+    { name = "servers.kinotic-server-app.appServer.apiBaseUrl", value = "https://${local.apps_api_domain}" },
+    { name = "servers.kinotic-server-system.deployment.appApiBaseUrl", value = "https://${local.apps_api_domain}" },
     # What a workload dials: the management server for sync, the app server for runtime
     { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_HOST", value = "api.${local.global.dns_zone_name}" },
     { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_PORT", value = "443" },
     { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_USESSL", value = "true" },
-    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST", value = "apps-api.${local.global.dns_zone_name}" },
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST", value = local.apps_api_domain },
     { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_PORT", value = "443" },
     { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_USESSL", value = "true" },
     # Workload identity for Azure Key Vault access
@@ -60,8 +60,17 @@ resource "helm_release" "kinotic" {
     { name = "extraEnv.KINOTIC_DOMAIN_SECRETSTORAGE_AZURE_VAULTURL", value = azurerm_key_vault.main.vault_uri },
     # UI sites — the domain published UIs are served under and the account the system server
     # publishes them into
-    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN", value = local.sites_domain },
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN", value = local.cloudflare_sites_domain },
     { name = "servers.kinotic-server-system.extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT", value = module.sites.storage_blob_endpoint },
+    # Each organization's sites subdomain: every server knows the domain, whose pages an application's
+    # login admits; the management server creates an organization's record at sign-up and the system
+    # server before its first publish, with the DNS token the global root stores, so the Cloudflare
+    # provisioner runs on those two alone
+    { name = "extraEnv.KINOTIC_DOMAIN_SITEDOMAIN_DOMAIN", value = local.cloudflare_sites_domain },
+    { name = "servers.kinotic-server-management.extraEnv.KINOTIC_DOMAIN_SITEDOMAIN_CLOUDFLARE_ENABLED", value = "true" },
+    { name = "servers.kinotic-server-management.extraEnv.KINOTIC_DOMAIN_SITEDOMAIN_CLOUDFLARE_ZONEID", value = var.cloudflare_zone_id },
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_DOMAIN_SITEDOMAIN_CLOUDFLARE_ENABLED", value = "true" },
+    { name = "servers.kinotic-server-system.extraEnv.KINOTIC_DOMAIN_SITEDOMAIN_CLOUDFLARE_ZONEID", value = var.cloudflare_zone_id },
     # Email (Azure Communication Services) — shared service from global terraform, as the
     # servers' workload identity
     { name = "kinotic.domain.email.enabled", value = "true" },

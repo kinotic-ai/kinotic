@@ -144,8 +144,7 @@ public abstract class OAuthServerHandler implements SuppliesGatewayRoutes {
     private void handleApprove(RoutingContext ctx) {
         Participant approver = authEndpointSupport.requireSessionUser(ctx);
         String requestId = authEndpointSupport.readJsonBody(ctx).getString("requestId");
-        respondRedirectUrl(ctx, oauthAuthorizationService.approve(issuer(ctx), requestId,
-                                                                  approver.getId()));
+        respondRedirectUrl(ctx, oauthAuthorizationService.approve(issuer(ctx), requestId, approver));
     }
 
     /**

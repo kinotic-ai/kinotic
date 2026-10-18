@@ -7,7 +7,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.management.api.model.Project;
-import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.Member;
 import org.kinotic.management.api.model.PendingInviteSummary;
 
 /**
@@ -75,9 +75,9 @@ public interface SystemOrganizationService {
      * @param organizationId the organization whose members to return
      * @param applicationId the application to narrow to, or null for organization members
      * @param pageable the page settings to use
-     * @return a page of matching {@link UserParticipantIdentity}s
+     * @return a page of members
      */
-    Future<Page<UserParticipantIdentity>> findMembers(String organizationId,
+    Future<Page<Member>> findMembers(String organizationId,
                                                                  String applicationId,
                                                                  Pageable pageable);
 
@@ -89,9 +89,9 @@ public interface SystemOrganizationService {
      * @param organizationId the organization whose members to search
      * @param applicationId the application to narrow to, or null for organization members
      * @param pageable the page settings to use
-     * @return a page of matching {@link UserParticipantIdentity}s
+     * @return a page of matching members
      */
-    Future<Page<UserParticipantIdentity>> searchMembers(String searchText,
+    Future<Page<Member>> searchMembers(String searchText,
                                                                    String organizationId,
                                                                    String applicationId,
                                                                    Pageable pageable);

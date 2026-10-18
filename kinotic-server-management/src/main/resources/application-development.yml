@@ -12,7 +12,7 @@ kinotic:
       webhookSecret: "-"
       appPrivateKey: "-"
   managementServer:
-    # Plain localhost dev (pnpm dev, no tunnel): vite serves the portal and proxies /api, /v1
+    # Plain localhost dev (pnpm dev, no tunnel): vite serves the portal and proxies /api (REST and the STOMP WebSocket at /api/v1)
     # (WebSocket), /.well-known, and /mcp to 58503, so the API base is the portal's. A developer's
     # ngrok tunnel and GitHub App replace both from ~/.kinotic/dev-environment/kinotic-server-management/application.yml,
     # imported below, so SPA links, OIDC/OAuth redirect_uris, GitHub callbacks, and the MCP
@@ -56,7 +56,7 @@ kinotic:
   # OIDC client secrets resolve via SecretReferenceResolver — Azure Key Vault when
   # kinotic.domain.secretStorage.azure.vaultUrl is set, otherwise from KINOTIC_AKV_<name> properties
   # (uppercased, non-alphanumerics → "_"), set as an env var or a key in any loaded config file,
-  # matching the secret name on the seeded OrgSignupOidcConfiguration / OidcConfiguration row.
+  # matching the secretNameRef of the seeded OrgSignupOidcConfiguration row.
 
 logging:
   level:

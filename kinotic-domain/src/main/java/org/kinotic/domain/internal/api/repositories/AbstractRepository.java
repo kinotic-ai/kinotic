@@ -2,6 +2,7 @@ package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.*;
+import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
 import io.vertx.core.Future;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
@@ -11,6 +12,8 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -51,6 +54,23 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
 
     public Future<T> findById(String id) {
         return findById(id, null);
+    }
+
+    /**
+     * The documents with the given ids that exist, in no particular order, read by a multi-get so a
+     * document just written is seen.
+     */
+    public Future<List<T>> findAllById(Collection<String> ids) {
+        Future<List<T>> ret;
+        if (ids.isEmpty()) {
+            ret = Future.succeededFuture(List.of());
+        } else {
+            List<MultiGetOperation> operations = ids.stream()
+                                                    .map(id -> MultiGetOperation.of(op -> op.index(indexName).id(id)))
+                                                    .toList();
+            ret = crudServiceTemplate.multiGet(operations, type, null, null);
+        }
+        return ret;
     }
 
     protected Future<T> findById(String id, Consumer<GetRequest.Builder> builderConsumer) {

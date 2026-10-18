@@ -347,6 +347,11 @@ jobs:
           bun run build
           bun run --filter '*' test
 
+      - name: Run the sites Worker tests
+        run: |
+          cd deployment/cloudflare/sites-worker
+          bun test
+
       - name: Collect Allure results
         if: ${{ !cancelled() }}
         uses: ./.github/actions/collect-allure

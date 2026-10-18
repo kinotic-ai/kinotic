@@ -78,7 +78,7 @@ class AzureProvisioningIntegrationTest {
     private Vertx vertx;
     private KinoticSystemApiProperties properties;
     private TokenCredential credential;
-    private FrontDoorUiDeploymentProvisioner siteProvisioner;
+    private HttpUiDeploymentProvisioner siteProvisioner;
     private AzureSiteStorageService siteStorage;
     private final HttpClient http = HttpClient.newHttpClient();
 
@@ -92,7 +92,7 @@ class AzureProvisioningIntegrationTest {
 
         vertx = Vertx.vertx();
         credential = new DefaultAzureCredentialBuilder().build();
-        siteProvisioner = new FrontDoorUiDeploymentProvisioner(vertx, properties);
+        siteProvisioner = new HttpUiDeploymentProvisioner(vertx, properties);
         siteStorage = new AzureSiteStorageService(vertx, properties);
     }
 

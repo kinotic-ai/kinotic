@@ -7,16 +7,14 @@ creates:
 | Resource | Name | Purpose |
 |---|---|---|
 | Resource group | `rg-kinotic-<environment>` | Holds everything below but the service principal |
-| Front Door Standard profile + endpoint | `afd-kinotic-<environment>-sites` | Serves every published UI at `<label>.apps-<environment>.kinotic.ai` through one wildcard domain, one wildcard DNS record and one route; nothing on Front Door changes when a UI is published (`modules/sites`) |
-| Sites storage account | `stkinotic<environment>sites` | Holds every site's files under `sites/<hostname>/`, read by the profile's identity and written by the publish workloads through URLs the server signs |
-| Key vault | `kv-kinotic-<environment>-sites` | Holds the Let's Encrypt wildcard certificate for `*.apps-<environment>.kinotic.ai`, issued by the apply through a DNS challenge and renewed by an apply within 30 days of expiry |
+| Sites storage account | `stkinotic<environment>sites` | Holds every site's files under `sites/<hostname>/`, read anonymously by the sites Worker and written by the publish workloads through URLs the server signs |
+| Cloudflare sites Worker and routes | `kinotic-<environment>-sites` | Serves every published UI at `<app>--<ui>.<org>.<environment>.kinotic.io` from the account; the zone's settings and Total TLS come with it (`modules/cloudflare-sites`) |
 | Service principal | `kinotic-<environment>-server` | The identity the server runs as, with Storage Blob Data Contributor on the sites account and Contributor on the email service |
-| `.env.local` at the repository root | | The principal's `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID`, written by the apply |
+| `.env.local` at the repository root | | The principal's `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID`, and the DNS token the server creates organizations' records with, written by the apply |
 
-The wildcard DNS records are written into the shared `kinotic.ai` zone under
-`apps-<environment>`, so the zone itself is not created here. There is no VNet: the publish
-workloads reach the account over its public endpoint. State is local, in this directory, and
-gitignored.
+Each organization the server creates gets one record, `*.<org>.<environment>.kinotic.io`,
+created by the server with the DNS token. There is no VNet: the publish workloads reach the
+account over its public endpoint. State is local, in this directory, and gitignored.
 
 ## Prerequisites
 
@@ -35,9 +33,9 @@ export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)   # the azurerm 
 cd deployment/terraform/azure/dev
 ```
 
-Pick an environment name of your own in `terraform.tfvars`. It names everything above and
-the `apps-<environment>` sites domain, and a site hostname can be bound to one Front Door
-profile in all of Azure, so two developers sharing one would collide:
+Pick an environment name of your own in `terraform.tfvars`. It names everything above and is
+your label under the zone, `<environment>.kinotic.io`, so two developers sharing one would
+collide:
 
 ```hcl
 environment = "local"   # e.g. your first name
@@ -82,6 +80,13 @@ IDE's `SystemServerApplication` run configuration does); the management server r
 
 ```bash
 SPRING_PROFILES_ACTIVE=development,local
+```
+
+The app server admits a sign-in only from a page under the sites domain, so to sign in to a
+published site run it with the same two profiles after writing its own `local` profile:
+
+```bash
+terraform output -raw app_server_application_local_yml > ../../../../kinotic-server-app/src/main/resources/application-local.yml
 ```
 
 `DefaultAzureCredential` takes the three `AZURE_*` variables before anything else, so the

@@ -8,7 +8,8 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.identity.MachineKind;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
-import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.Member;
+import org.kinotic.domain.api.services.security.MembershipService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.system.api.services.SystemMemberService;
@@ -19,15 +20,16 @@ import org.springframework.stereotype.Component;
 public class DefaultSystemMemberService implements SystemMemberService {
 
     private final ParticipantIdentityService identityService;
+    private final MembershipService membershipService;
 
     @Override
-    public Future<Page<UserParticipantIdentity>> findUsers(Pageable pageable) {
-        return identityService.findUsersByScope(null, null, pageable);
+    public Future<Page<Member>> findUsers(Pageable pageable) {
+        return membershipService.findMembers(null, pageable);
     }
 
     @Override
-    public Future<Page<UserParticipantIdentity>> searchUsers(String searchText, Pageable pageable) {
-        return identityService.searchUsersByScope(searchText, null, null, pageable);
+    public Future<Page<Member>> searchUsers(String searchText, Pageable pageable) {
+        return membershipService.searchMembers(searchText, null, pageable);
     }
 
     @Override

@@ -166,3 +166,43 @@ resource "kubernetes_network_policy" "elasticsearch" {
 
   depends_on = [kubernetes_namespace.elastic]
 }
+
+# ── Egress NetworkPolicy on the servers ───────────────────────────────────────
+# The server pods authenticate with workload identity and never read the node's metadata, so the
+# instance-metadata endpoint and the Azure WireServer are denied to them, as EgressPolicyManager
+# denies them to every workload VM. An organization's OIDC provider is the one host a customer can
+# make the server fetch; both addresses answer an unauthenticated request with the node's identity.
+# In-cluster destinations are allowed by selector because Cilium applies CIDR rules to traffic
+# leaving the cluster only.
+
+resource "kubernetes_network_policy" "kinotic_server_egress" {
+  metadata {
+    name      = "kinotic-server-egress"
+    namespace = kubernetes_namespace.kinotic.metadata[0].name
+  }
+
+  spec {
+    pod_selector {
+      match_labels = { "app.kubernetes.io/part-of" = "kinotic" }
+    }
+
+    policy_types = ["Egress"]
+
+    egress {
+      to {
+        namespace_selector {}
+      }
+    }
+
+    egress {
+      to {
+        ip_block {
+          cidr   = "0.0.0.0/0"
+          except = ["169.254.169.254/32", "168.63.129.16/32"]
+        }
+      }
+    }
+  }
+
+  depends_on = [kubernetes_namespace.kinotic]
+}

@@ -1,16 +1,20 @@
 package org.kinotic.domain.api.utils;
 
 import org.kinotic.domain.api.model.ApplicationKey;
+import org.kinotic.domain.api.model.SiteAddress;
 
 import java.net.URI;
 import java.util.Locale;
 
 /**
- * The hostname labels an application is served under: its API host {@code <organizationId>--<applicationId>}
- * and the site of each of its UIs, {@code <organizationId>--<applicationId>--<uiName>}. Organization,
- * application and UI names never contain the separator, so a label names exactly one application, and one UI.
- * The API host is a label under a base URL each server configures for itself, so the methods that read or
- * build a full host take that base URL from the caller.
+ * The hostnames an application is served under. Its API host is the label {@code <organizationId>--<applicationId>}
+ * under a base URL each server configures for itself, so the methods that read or build a full API host take that
+ * base URL from the caller. Each of its UIs' sites is {@code <applicationId>--<uiName>} under the organization's own
+ * subdomain of the sites domain, {@code <applicationId>--<uiName>.<organizationId>.<sites domain>}, and a site
+ * addressed to one tenant of the application puts the tenant first,
+ * {@code <tenantId>--<applicationId>--<uiName>.<organizationId>.<sites domain>}. Organization, application, UI and
+ * tenant names never contain the separator, so a label names exactly one application, one UI and, when it carries
+ * one, one tenant.
  */
 public final class HostLabelUtil {
 
@@ -44,7 +48,7 @@ public final class HostLabelUtil {
 
     /**
      * The application whose API host {@code host} is: a {@link #label(ApplicationKey) label} under the domain of
-     * {@code apiBaseUrl}, so {@code acme--orders.apps-api.kinotic.ai} under {@code https://apps-api.kinotic.ai}
+     * {@code apiBaseUrl}, so {@code acme--orders.apps-api.kinotic.io} under {@code https://apps-api.kinotic.io}
      * is application {@code orders} of organization {@code acme}.
      *
      * @param host       a hostname, as a request names it; compared ignoring case
@@ -64,8 +68,8 @@ public final class HostLabelUtil {
 
     /**
      * The URL a browser reaches the application's API on: its {@link #label(ApplicationKey) label} under
-     * {@code apiBaseUrl}, with that URL's scheme and port, so {@code https://acme--orders.apps-api.kinotic.ai}
-     * under {@code https://apps-api.kinotic.ai}.
+     * {@code apiBaseUrl}, with that URL's scheme and port, so {@code https://acme--orders.apps-api.kinotic.io}
+     * under {@code https://apps-api.kinotic.io}.
      *
      * @param apiBaseUrl the base URL every application's API host is a label under
      */
@@ -74,15 +78,41 @@ public final class HostLabelUtil {
         return base.getScheme() + "://" + label(applicationKey) + "." + base.getRawAuthority();
     }
 
-    /** The label of the site of the application's UI {@code uiName}, {@code <organizationId>--<applicationId>--<uiName>}. */
+    /** The label of the site of the application's UI {@code uiName} within the organization's subdomain, {@code <applicationId>--<uiName>}. */
     public static String siteLabel(ApplicationKey applicationKey, String uiName) {
-        return label(applicationKey) + HOST_LABEL_SEPARATOR + uiName;
+        return applicationKey.applicationId() + HOST_LABEL_SEPARATOR + uiName;
     }
 
-    /** Whether {@code label} is the {@link #siteLabel(ApplicationKey, String) label of the site} of one of the application's UIs. */
-    public static boolean isSiteLabel(ApplicationKey applicationKey, String label) {
-        String[] names = label.split(HOST_LABEL_SEPARATOR, -1);
-        return names.length == 3 && names[0].equals(applicationKey.organizationId()) && names[1].equals(applicationKey.applicationId())
-                && !names[2].isEmpty();
+    /**
+     * The id of the site of the application's UI {@code uiName}: its hostname under the sites domain,
+     * {@code <applicationId>--<uiName>.<organizationId>}, which names one UI of one application of one organization.
+     */
+    public static String siteId(ApplicationKey applicationKey, String uiName) {
+        return siteLabel(applicationKey, uiName) + "." + applicationKey.organizationId();
+    }
+
+    /**
+     * What the site at {@code host} names, read from its first two labels: the organization from the second, and
+     * from the first the application and UI, {@code <applicationId>--<uiName>}, with the tenant before them when it
+     * has three names, {@code <tenantId>--<applicationId>--<uiName>}. {@code null} when {@code host} has no such
+     * shape; whether the host is under the sites domain is the caller's to check.
+     *
+     * @param host a hostname, as a request or an origin names it; compared ignoring case
+     */
+    public static SiteAddress fromSiteHost(String host) {
+        String[] labels = host.toLowerCase(Locale.ROOT).split("\\.", -1);
+        SiteAddress ret = null;
+        if (labels.length >= 3 && !labels[1].isEmpty()) {
+            String[] names = labels[0].split(HOST_LABEL_SEPARATOR, -1);
+            boolean named = names.length >= 2 && names.length <= 3;
+            for (String name : names) {
+                named &= !name.isEmpty();
+            }
+            if (named) {
+                int app = names.length - 2;
+                ret = new SiteAddress(new ApplicationKey(labels[1], names[app]), names[app + 1], names.length == 3 ? names[0] : null);
+            }
+        }
+        return ret;
     }
 }

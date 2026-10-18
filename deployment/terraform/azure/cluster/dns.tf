@@ -1,20 +1,20 @@
 # ── DNS Records ───────────────────────────────────────────────────────────────
 # Each server's names → its LoadBalancer, which carries 443 to the server's gateway (REST,
-# STOMP/WebSocket, the login and OIDC callback endpoints): api.<domain> the management server,
-# system-api.<domain> the system server, and apps-api.<domain> with every application's
-# <organizationId>--<applicationId>.apps-api.<domain> the app server.
+# STOMP/WebSocket, the login and OIDC callback endpoints): api.<domain> the management server
+# and system-api.<domain> the system server, in the platform zone. The app server's names,
+# apps-api.<zone> with every application's <organizationId>--<applicationId> under it, are in
+# the Cloudflare zone (cloudflare.tf), proxied to the same kind of load balancer.
 
 locals {
   server_records = {
     "api"        = "kinotic-server-management"
     "system-api" = "kinotic-server-system"
-    "apps-api"   = "kinotic-server-app"
-    "*.apps-api" = "kinotic-server-app"
   }
+  server_services = toset(concat(values(local.server_records), ["kinotic-server-app"]))
 }
 
 data "kubernetes_service" "server" {
-  for_each = toset(values(local.server_records))
+  for_each = local.server_services
 
   metadata {
     name      = each.key

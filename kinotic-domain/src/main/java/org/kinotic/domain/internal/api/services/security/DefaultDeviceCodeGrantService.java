@@ -8,11 +8,12 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.security.DeviceCodeGrantStart;
 import org.kinotic.domain.api.model.security.DeviceCodePollResult;
 import org.kinotic.domain.api.model.security.PollStatus;
-import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.participant.ParticipantScope;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.services.security.DeviceCodeGrantService;
 import org.kinotic.domain.internal.api.model.DeviceCodeGrant;
 import org.kinotic.domain.internal.api.repositories.DeviceCodeGrantRepository;
-import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
@@ -41,7 +42,7 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final DeviceCodeGrantRepository deviceCodeGrantRepository;
-    private final ParticipantIdentityRepository identityRepository;
+    private final ParticipantIdentityService identityService;
 
     @Override
     public Future<DeviceCodeGrantStart> start(String issuer, String deviceName) {
@@ -84,13 +85,13 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
                     .map(new DeviceCodePollResult(PollStatus.EXPIRED, null, null));
         }
         if (grant.getIdentityId() != null) {
-            // Approved — hand back the user and consume the grant so it cannot be replayed.
-            return identityRepository.findById(grant.getIdentityId())
-                    .map(UserParticipantIdentity.class::cast)
-                    .compose(user -> deviceCodeGrantRepository.deleteById(grant.getId())
-                            .map(user == null || !user.isEnabled()
+            // Approved — hand back the approver in the scope it approved from, and consume the grant so it
+            // cannot be replayed. An approver that may no longer act there, disabled or no longer a member, fails it.
+            return identityService.resolveParticipant(grant.getIdentityId(), grant.getOrganizationId(), grant.getApplicationId())
+                    .compose(approver -> deviceCodeGrantRepository.deleteById(grant.getId())
+                            .map(approver == null
                                     ? new DeviceCodePollResult(PollStatus.INVALID, null, null)
-                                    : new DeviceCodePollResult(PollStatus.APPROVED, user, grant.getDeviceName())));
+                                    : new DeviceCodePollResult(PollStatus.APPROVED, approver, grant.getDeviceName())));
         }
         if (polledTooSoon(grant, now)) {
             return Future.succeededFuture(new DeviceCodePollResult(PollStatus.SLOW_DOWN, null, null));
@@ -101,10 +102,11 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
     }
 
     @Override
-    public Future<Void> approve(String issuer, String userCode, String identityId) {
+    public Future<Void> approve(String issuer, String userCode, Participant approver) {
         Validate.notBlank(issuer, "issuer is required");
         Validate.notBlank(userCode, "userCode is required");
-        Validate.notBlank(identityId, "identityId is required");
+        Validate.notNull(approver, "approver is required");
+        ParticipantScope scope = DomainUtil.scopeOf(approver);
         return deviceCodeGrantRepository.findByUserCode(normalizeUserCode(userCode))
                 .compose(grant -> {
                     if (grant == null || !issuer.equals(grant.getIssuer())) {
@@ -118,7 +120,9 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
                         return Future.failedFuture(
                                 new IllegalArgumentException("Device authorization request has already been approved"));
                     }
-                    grant.setIdentityId(identityId);
+                    grant.setIdentityId(approver.getId())
+                         .setOrganizationId(scope.organizationId())
+                         .setApplicationId(scope.applicationId());
                     return deviceCodeGrantRepository.saveSync(grant)
                                                     .mapEmpty();
                 });

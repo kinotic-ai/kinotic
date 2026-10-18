@@ -1,0 +1,17 @@
+# Ignore rules for the image vulnerability scan in .github/workflows/gradle-build.yml (sbom_scan), which
+# anchore/scan-action reads from the repository root. A rule applies when every field it names matches.
+#
+# The Go binaries in the server and migration images are the CNB lifecycle launcher (built with Go 1.26.8)
+# and the Paketo health checker (Go 1.27.1, golang.org/x/net v0.58.0); kinotic ships no Go of its own.
+# The two advisories below are the Critical findings against them, and neither reaches either binary.
+# Remove each rule once the Paketo builder carries a lifecycle on Go 1.26.9 and a health checker on
+# Go 1.27.2 / x/net 0.60.0, at which point the scan no longer reports it.
+ignore:
+  - vulnerability: GO-2026-6604
+    reason: os.Root.Mkdir following a junction is Windows-only; the images run Linux
+    package:
+      type: go-module
+  - vulnerability: GO-2026-6612
+    reason: HTTP/2 server flow-control bypass; neither the lifecycle launcher nor the health checker serves HTTP
+    package:
+      type: go-module

@@ -5,7 +5,7 @@ import io.vertx.ext.web.RoutingContext;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.services.security.KinoticJwtIssuer;
-import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
+import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.RefreshTokenService;
 import org.kinotic.systemserver.api.config.SystemServerProperties;
@@ -19,11 +19,11 @@ public class SystemAuthEndpointSupport extends AuthEndpointSupport {
 
     public SystemAuthEndpointSupport(SystemServerProperties properties,
                                      KinoticJwtIssuer jwtIssuer,
-                                     OrgSignupOidcConfigurationService orgSignupOidcConfigurationService,
+                                     OidcConfigurationService oidcConfigurationService,
                                      OidcFlowOrchestrator oidcFlowOrchestrator,
                                      ParticipantIdentityService identityService,
                                      RefreshTokenService refreshTokenService) {
-        super(jwtIssuer, orgSignupOidcConfigurationService, oidcFlowOrchestrator, identityService, refreshTokenService);
+        super(jwtIssuer, oidcConfigurationService, oidcFlowOrchestrator, identityService, refreshTokenService);
         this.properties = properties;
     }
 

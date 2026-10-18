@@ -19,17 +19,17 @@ import org.springframework.stereotype.Component;
 
 
 /**
- * Reports whether a published UI serves through the platform's Front Door profile at
- * {@code <label>.<sitesDomain>}. The profile serves every site of the sites domain from the
- * sites storage account, keyed by hostname, through what terraform provisions once, so a site
- * needs nothing of its own: only a request through it tells whether it serves.
+ * Reports whether a published UI serves at its hostname under the sites domain. The edge serves every
+ * site of the sites domain from the sites storage account, keyed by hostname, through what terraform
+ * provisions once and the record the organization's subdomain was given, so a site needs nothing of its
+ * own: only a request through the edge tells whether it serves.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(value = "kinotic.systemApi.disableAzureStorage",
                        havingValue = "false", matchIfMissing = true)
-public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner {
+public class HttpUiDeploymentProvisioner implements UiDeploymentProvisioner {
 
     private static final String VERSION_FILE = "version.json";
     private static final long HTTP_TIMEOUT_MS = 10_000;
@@ -39,9 +39,8 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
     // Built on first use rather than at startup, so a server that never publishes a UI opens no client
     private volatile WebClient web;
 
-    // Front Door serves a hostname of the wildcard domain from its first request, so only a
-    // request through the site tells that it serves: the version file for the commit, and
-    // the root for the spa rule, which the version file bypasses
+    // the edge serves a site from its first request, so only a request through the site tells that it
+    // serves: the version file for the commit, and the root for the spa rule, which the version file bypasses
     @Override
     public Future<DeploymentStatus> check(UiDeployment deployment, String commitSha) {
         Validate.notNull(deployment, "deployment is required");

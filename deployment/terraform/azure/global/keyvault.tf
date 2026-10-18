@@ -189,6 +189,25 @@ resource "azurerm_key_vault_secret" "github_webhook_secret" {
   depends_on = [terraform_data.wait_for_kv_rbac]
 }
 
+# The Cloudflare DNS token the management and system servers import as
+# kinotic.domain.siteDomain.cloudflare.apiToken, with which each organization's sites record
+# is created. Supplied via TF_VAR_cloudflare_dns_api_token on first apply; rotations happen
+# out-of-band via `az keyvault secret set ...` and lifecycle.ignore_changes keeps them.
+resource "azurerm_key_vault_secret" "cloudflare_dns_api_token" {
+  name         = "kinotic-cloudflare-dns-api-token"
+  key_vault_id = azurerm_key_vault.platform.id
+  content_type = "Cloudflare API token with DNS edit on the customer zone"
+  value        = var.cloudflare_dns_api_token
+
+  tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+
+  depends_on = [terraform_data.wait_for_kv_rbac]
+}
+
 # ── OIDC client secrets ───────────────────────────────────────────────────────
 # Stored at name = configId. SecretReferenceResolver in the servers fetches by name
 # at OAuth2-build time (no pod-side mount); the secretNameRef on the

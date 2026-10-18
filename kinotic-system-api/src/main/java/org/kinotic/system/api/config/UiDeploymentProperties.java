@@ -19,31 +19,31 @@ import lombok.experimental.Accessors;
 public class UiDeploymentProperties {
 
     /**
-     * The domain every site is a label under, e.g. {@code apps.kinotic.ai}: a UI published as
-     * {@code acme--shop--admin} is served at {@code acme--shop--admin.apps.kinotic.ai}.
+     * The domain every organization's sites are under, e.g. {@code kinotic.io}: the UI {@code admin} of
+     * application {@code shop} of organization {@code acme} is served at {@code shop--admin.acme.kinotic.io}.
      */
     @NotBlank
     private String sitesDomain;
 
     /**
      * Blob endpoint of the sites storage account every published UI is written to, under
-     * {@code sites/<hostname>/}, from which Front Door serves it.
+     * {@code sites/<hostname>/}, from which the edge serves it.
      */
     @NotBlank
     private String sitesStorageEndpoint;
 
     /**
-     * The hostname a site with the given label is served at.
+     * The hostname a site with the given id is served at.
      */
-    public String resolveHostname(String label) {
-        return label + "." + sitesDomain;
+    public String resolveHostname(String siteId) {
+        return siteId + "." + sitesDomain;
     }
 
     /**
-     * Where a site with the given label is served.
+     * Where a site with the given id is served.
      */
-    public String resolveSiteUrl(String label) {
-        return "https://" + resolveHostname(label);
+    public String resolveSiteUrl(String siteId) {
+        return "https://" + resolveHostname(siteId);
     }
 
 }

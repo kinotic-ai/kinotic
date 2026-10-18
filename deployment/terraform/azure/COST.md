@@ -34,12 +34,12 @@ Estimated monthly costs for `centralus` (the `location` in `cluster/terraform.tf
 | Entra ID App Registration (Grafana) | Azure AD | Free |
 | Azure Key Vault (platform secrets) | Key Vault Standard | **~$1/mo** |
 | Azure Communication Services | Email | **Per-message** |
-| Front Door Standard profile + endpoint (UI sites) | Azure Front Door | **~$35/mo** base, billed hourly; traffic ~$0.09/GB out, ~$0.01 per 10k requests; custom domains and managed certificates included |
+| Cloudflare zone for the UI sites (`kinotic.io`) | Cloudflare Pro + Advanced Certificate Manager + Workers Paid | **~$40/mo** fixed ($25 + $10 + $5); no egress charge; Workers $0.30 per million requests past the ten million included; Azure egress on edge cache misses only |
 | Organization storage resource group + private-endpoints subnet | Resource Manager, VNet | Free |
 | Private DNS zone (`privatelink.blob.core.windows.net`) + VNet link | Azure Private DNS | **~$0.50/mo** |
 | Per organization: storage account | Blob Storage (StorageV2, LRS, hot) | **~$0.02/GB/mo**; a published UI is a few MB, so cents |
 | Per organization: private endpoint | Private Link | **~$7.30/mo** each, plus ~$0.01/GB processed |
-| Per site: CNAME + TXT records, Front Door domain and route | Azure DNS, Front Door | Included |
+| Per organization: one proxied wildcard record and its certificate | Cloudflare | Included |
 
 ### Production Only (`beta_mode = false`)
 
@@ -61,7 +61,7 @@ Estimated monthly costs for `centralus` (the `location` in `cluster/terraform.tf
 | Resource | Azure Service | Estimated cost |
 |---|---|---|
 | Azure Container Registry (Basic) | ACR | $5/mo |
-| Front Door WAF policy | Web Application Firewall (needs the Premium tier, ~$330/mo base) | $300+/mo over today's Standard profile |
+| Cloudflare WAF managed rules on the sites zone | Included on Pro; a rate limit on the auth routes is a rule on the zone | Included |
 
 ---
 
@@ -90,7 +90,7 @@ Includes observability stack (Loki + Tempo + Mimir + Alloy + Grafana) and Entra 
 | Azure Communication Services | Email | 1 | $0.00025/email | $0 |
 | DNS Zone | kinotic.ai | 1 | $0.50 | $1 |
 | State Storage | Blob (LRS) | 1 | $1 | $1 |
-| Front Door Standard (UI sites) | Base fee | 1 | $35 | $35 |
+| Cloudflare (UI sites) | Pro, certificates, Workers | 1 | $40 | $40 |
 | Private DNS Zone (blob) | privatelink.blob.core.windows.net | 1 | $0.50 | $1 |
 | Organization storage | Storage account + private endpoint | per org | ~$7.50 | +$7.50 per org |
 
@@ -151,7 +151,7 @@ AKS Standard tier with uptime SLA.
 | Grafana PVC | managed-csi-premium, 1 GB | 1 | $1 | $1 |
 | DNS Zone | kinotic.ai | 1 | $0.50 | $1 |
 | State Storage | Blob (LRS) | 1 | $1 | $1 |
-| Front Door Standard (UI sites) | Base fee | 1 | $35 | $35 |
+| Cloudflare (UI sites) | Pro, certificates, Workers | 1 | $40 | $40 |
 | Private DNS Zone (blob) | privatelink.blob.core.windows.net | 1 | $0.50 | $1 |
 | Organization storage | Storage account + private endpoint | per org | ~$7.50 | +$7.50 per org |
 
@@ -171,7 +171,7 @@ private endpoints, no cluster.
 
 | Line Item | Spec | Count | Unit cost | Total/mo |
 |---|---|---|---|---|
-| Front Door Standard (UI sites) | Base fee, billed hourly | 1 | $35 | $35 |
+| Cloudflare (UI sites) | Pro, certificates, Workers | 1 | $40 | $40 |
 | Organization storage accounts | Blob (LRS, hot), a few MB each | per org | cents | ~$0 |
 | Service principal, role assignments, resource group | | | $0 | $0 |
 | DNS records under `apps-<environment>` | In the shared `kinotic.ai` zone | | included | $0 |

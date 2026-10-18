@@ -7,10 +7,10 @@ import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
  */
 public enum AuthType {
 
-    /** Email/password with bcrypt-hashed credentials. */
+    /** Email/password with bcrypt-hashed credentials, as a pending sign-up chooses it. */
     LOCAL,
 
-    /** Federated identity via an external OIDC provider (Google, Microsoft, etc.). */
+    /** Federated identity via an external OIDC provider, as a pending sign-up chooses it. */
     OIDC,
 
     /**

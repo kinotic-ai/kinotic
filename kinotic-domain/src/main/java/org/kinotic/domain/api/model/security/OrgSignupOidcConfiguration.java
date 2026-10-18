@@ -6,18 +6,19 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * Kinotic-curated social IdP configuration (Google, Microsoft Live, GitHub, etc.) that
- * powers the "Continue with X" buttons on both the new-org signup page and the
- * email-first org login fallback. Seeded via SQL migration; not editable through the
- * org admin UI.
- *
- * <p>Distinct from {@link OidcConfiguration}, which is per-org and referenced by
- * {@code Organization.ssoConfigId} or {@code Application.oidcConfigurationIds}.
+ * A Kinotic-curated social IdP registration (GitHub today) that powers the "Continue with X" buttons on
+ * the new-org signup page and on every organization's login page. Belongs to no organization,
+ * because signup happens before one exists. Seeded via SQL migration and saved by the platform operator
+ * only.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class OrgSignupOidcConfiguration extends BaseOidcConfiguration {
+public final class OrgSignupOidcConfiguration extends ManagedOidcConfiguration {
 
+    @Override
+    public OidcConfigurationType getType() {
+        return OidcConfigurationType.ORG_SIGNUP;
+    }
 }

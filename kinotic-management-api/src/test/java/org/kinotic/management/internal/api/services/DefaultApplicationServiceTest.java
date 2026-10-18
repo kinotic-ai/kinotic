@@ -95,13 +95,13 @@ class DefaultApplicationServiceTest {
 
     @Test
     void rejectsIdsWhoseSiteLabelsLeaveNoRoomForAUiName() {
-        // a site label "acme--<app>--<ui>" with a one-character UI name leaves 54 of the 63 characters a label may hold
+        // a site label "<app>--<ui>" with a one-character UI name leaves 60 of the 63 characters a label may hold
         Application fits = new Application("Orders App", "desc");
-        fits.setId("a".repeat(54));
+        fits.setId("a".repeat(60));
         assertDoesNotThrow(() -> service.beforeSave(fits));
 
         Application tooLong = new Application("Orders App", "desc");
-        tooLong.setId("a".repeat(55));
+        tooLong.setId("a".repeat(61));
         assertThrows(IllegalArgumentException.class, () -> service.beforeSave(tooLong));
     }
 

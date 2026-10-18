@@ -6,8 +6,8 @@
 |---|---|---|
 | **Docker Compose** | `docker-compose/` | Local development (Elasticsearch, the observability stack, Keycloak); the development server runs the same images and config files as containers |
 | **KinD** | `kind/` | Local Kubernetes via Kubernetes in Docker, for rehearsing the Helm charts |
-| **Development server** | `terraform/proxmox/` + `terraform/azure/dev-server/` | One Proxmox host with a container per service, workload nodes on their own machines, Front Door and email kept in Azure ([design](https://kinotic.ai/platform/development-server)) |
-| **Developer's Azure side** | `terraform/azure/dev/` | Front Door, sites account, and email for the servers on a developer machine |
+| **Development server** | `terraform/proxmox/` + `terraform/azure/dev-server/` | One Proxmox host with a container per service, workload nodes on their own machines, the sites account and email kept in Azure and the sites on Cloudflare ([design](https://kinotic.ai/platform/development-server)) |
+| **Developer's Azure side** | `terraform/azure/dev/` | The sites account, the Cloudflare sites Worker, and email for the servers on a developer machine |
 | **Azure** | `terraform/azure/` | Production AKS cluster |
 
 KinD and Azure are deployed with Terraform and share the same Helm charts. The development

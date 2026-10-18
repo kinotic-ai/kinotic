@@ -32,7 +32,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ApiGatewayVertcleFactory {
 
-    private static final String STOMP_WEBSOCKET_PATH = "/v1";
+    private static final String STOMP_WEBSOCKET_PATH = "/api/v1";
 
     private final KinoticApiGatewayProperties properties;
     private final StompServerHandlerFactory stompServerHandlerFactory;
@@ -84,10 +84,6 @@ public class ApiGatewayVertcleFactory {
         // here, so a module absent from the server's classpath contributes nothing and the gateway
         // still boots.
         gatewayRoutes.forEach(routes -> routes.mountRoutes(router));
-
-        // The STOMP WebSocket handshake authenticates from the browser session, so the
-        // SessionHandler must also cover the WebSocket path — it is not under /api/*.
-        router.route(STOMP_WEBSOCKET_PATH).handler(sessionHandler).handler(sessionBinding);
 
         // The library's default heartbeat, 30 s offered and expected both ways, is what the TS client offers
         // too, so the negotiated interval is 30 s and a silent connection closes after two of them

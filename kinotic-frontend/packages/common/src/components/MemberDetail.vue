@@ -22,11 +22,10 @@
 <script setup lang="ts">
 import { computed, markRaw } from 'vue'
 import Tag from 'primevue/tag'
-import { CalendarPlus, Hash, KeyRound, Mail, ShieldCheck, UserRound } from '@lucide/vue'
+import { CalendarPlus, Hash, Mail, UserRound } from '@lucide/vue'
 
 import type { MemberSummary } from '../types/MemberSummary'
 import DatetimeUtil from '../util/DatetimeUtil'
-import { authTypeLabel } from '../util/helpers'
 import { statusSeverity } from './useCrudTablePage'
 import DashboardSection from './DashboardSection.vue'
 import FactList from './FactList.vue'
@@ -47,8 +46,6 @@ const facts = computed(() => {
   const member = props.member
   return [
     { label: 'Email', icon: markRaw(Mail), value: member.email, mono: true },
-    { label: 'Signs in with', icon: markRaw(member.authType === 'OIDC' ? ShieldCheck : KeyRound),
-      value: member.authType ? authTypeLabel(member.authType) : null },
     { label: member.invite ? 'Invited' : 'Joined', icon: markRaw(CalendarPlus),
       value: member.created ? DatetimeUtil.formatDateTime(member.created) : null },
     { label: member.invite ? 'Invitation id' : 'User id', icon: markRaw(Hash), value: member.id, mono: true }

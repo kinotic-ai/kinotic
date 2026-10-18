@@ -53,12 +53,12 @@ describe('System login route', () => {
     })
 
     it('leaves the org login route working for the org user', async () => {
-        const res = await login('/api/auth/org/login', 'kinotic@kinotic.local', 'kinotic', restBase(managementServer()))
+        const res = await login('/api/auth/org/login/kinotic-test', 'kinotic@kinotic.local', 'kinotic', restBase(managementServer()))
         expect(res.status).toBe(204)
     })
 
     it('refuses the system admin at the management server\'s login', async () => {
-        const res = await login('/api/auth/org/login', 'admin@kinotic.local', 'kinotic', restBase(managementServer()))
+        const res = await login('/api/auth/org/login/kinotic-test', 'admin@kinotic.local', 'kinotic', restBase(managementServer()))
         expect(res.status).toBe(401)
     })
 

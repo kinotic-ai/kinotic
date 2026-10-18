@@ -120,3 +120,32 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+# ── Cloudflare ────────────────────────────────────────────────────────────────
+
+variable "cloudflare_zone_name" {
+  description = "The Cloudflare zone organizations' sites and the application API hosts live on, e.g. kinotic.io"
+  type        = string
+}
+
+variable "cloudflare_zone_id" {
+  description = "The zone's id, from the Cloudflare dashboard"
+  type        = string
+}
+
+variable "cloudflare_account_id" {
+  description = "The Cloudflare account the sites Worker is deployed in"
+  type        = string
+}
+
+variable "cloudflare_api_token" {
+  description = "The token terraform applies the zone with: Workers Scripts edit on the account, and DNS, zone settings and SSL and certificates edit on the zone. Set it in local.auto.tfvars or TF_VAR_cloudflare_api_token"
+  type        = string
+  sensitive   = true
+}
+
+variable "cloudflare_dns_api_token" {
+  description = "A second token holding DNS edit on the zone and nothing else, which cert-manager answers the DNS-01 challenges for the apps-api names with; the same token the global root stores for the servers as kinotic-cloudflare-dns-api-token"
+  type        = string
+  sensitive   = true
+}

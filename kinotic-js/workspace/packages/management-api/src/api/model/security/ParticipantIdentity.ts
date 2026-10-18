@@ -16,6 +16,7 @@ export abstract class ParticipantIdentity implements Identifiable<string> {
     public id: string | null = null
     public abstract readonly type: ParticipantIdentityType
     public displayName: string | null = null
+    /** DELEGATED for a delegate, CLIENT_CREDENTIALS for a machine; null for a user, whose sign-in methods are its credential and bindings. */
     public authType: AuthType | null = null
     public organizationId: string | null = null
     public applicationId: string | null = null

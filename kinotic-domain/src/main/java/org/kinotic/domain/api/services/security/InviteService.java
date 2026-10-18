@@ -3,7 +3,9 @@ package org.kinotic.domain.api.services.security;
 import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.domain.api.exceptions.ExistingAccountException;
+import org.kinotic.domain.api.exceptions.InviteEmailMismatchException;
 import org.kinotic.domain.api.model.security.PendingInvite;
 
 /**
@@ -33,31 +35,38 @@ public interface InviteService {
     Future<PendingInvite> getValidInvite(String token);
 
     /**
-     * Accepts an invitation by setting a password. Creates the member in the invite's stored
-     * scope and consumes the invitation.
+     * Accepts an invitation with a password and consumes it. An invitation into an organization makes the
+     * account with the invited email a member: when none exists, the account is created with
+     * {@code password}; when one exists, {@code password} must be that account's, which proves the
+     * acceptor owns it, and a mismatch fails with {@link ExistingAccountException} without consuming the
+     * invitation. An invitation into an application creates the application's user with {@code password}.
      *
      * @param token       the accept token from the invitation email
-     * @param password    the password chosen by the invitee
-     * @param displayName optional display-name override; the invite's value is used when blank
-     * @return a future emitting the created member
+     * @param password    the password chosen by a new member, or the existing account's
+     * @param displayName optional display name of a new member; the invite's value is used when blank
+     * @return the new member as a participant of the invitation's scope, for the session to sign in
      */
-    Future<UserParticipantIdentity> acceptLocalInvite(String token, String password, String displayName);
+    Future<Participant> acceptLocalInvite(String token, String password, String displayName);
 
     /**
-     * Accepts an invitation with a verified OIDC identity. The IdP-verified email must match the
-     * invited email (case-insensitive) or the accept fails. Creates the member in the invite's
-     * stored scope, carrying the OIDC identity, and consumes the invitation.
+     * Accepts an invitation with a verified OIDC identity and consumes it. The provider-verified email must
+     * match the invited email (case-insensitive) or the accept fails with
+     * {@link InviteEmailMismatchException}. An invitation into an organization makes the account the
+     * identity is bound to a member, when its email is the invited one; with no bound account, the account
+     * with the invited email must not exist either, else the accept fails with
+     * {@link ExistingAccountException}, and a new account bound to the identity is created. An invitation
+     * into an application creates the application's user bound to the identity.
      *
      * @param token         the accept token recovered from the OIDC flow session
      * @param oidcSubject   the {@code sub} claim from the IdP
      * @param oidcConfigId  id of the OIDC configuration that produced the identity
      * @param verifiedEmail the verified {@code email} claim from the IdP
-     * @return a future emitting the created member
+     * @return the new member as a participant of the invitation's scope, for the session to sign in
      */
-    Future<UserParticipantIdentity> acceptOidcInvite(String token,
-                                                     String oidcSubject,
-                                                     String oidcConfigId,
-                                                     String verifiedEmail);
+    Future<Participant> acceptOidcInvite(String token,
+                                         String oidcSubject,
+                                         String oidcConfigId,
+                                         String verifiedEmail);
 
     /**
      * Lists the live (unexpired) invitations for the given scope. {@code applicationId} null

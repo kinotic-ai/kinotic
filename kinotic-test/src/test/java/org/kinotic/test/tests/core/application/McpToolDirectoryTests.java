@@ -31,7 +31,7 @@ public class McpToolDirectoryTests extends KinoticTestBase {
     private static final String MICROSERVICE_DEPLOYMENT_SERVICE = "management-api~org.kinotic.management.api.services.deployment.MicroserviceDeploymentService";
 
     private static final String FIND_PROJECTS_BY_REPO = KinoticUtil.mcpToolName(PROJECT_SERVICE, "findByRepoFullName");
-    private static final String GET_OIDC_CONFIGURATIONS = KinoticUtil.mcpToolName(APPLICATION_SERVICE, "getOidcConfigurations");
+    private static final String GET_LOGIN_PROVIDERS = KinoticUtil.mcpToolName(APPLICATION_SERVICE, "getLoginProviders");
     // a service in a sub-package publishes in the zone its own package-info declares
     private static final String FIND_MICROSERVICE_DEPLOYMENTS = KinoticUtil.mcpToolName(MICROSERVICE_DEPLOYMENT_SERVICE, "findAllForProject");
 
@@ -48,7 +48,7 @@ public class McpToolDirectoryTests extends KinoticTestBase {
     public void mcpExposedServicesArePublishedAndListed() throws Exception {
         // the directory publishes on ApplicationReadyEvent and liveness flips entries online one at a
         // time, so the poll must wait for every expected tool before asserting anything
-        List<String> expected = List.of(FIND_PROJECTS_BY_REPO, GET_OIDC_CONFIGURATIONS, FIND_MICROSERVICE_DEPLOYMENTS);
+        List<String> expected = List.of(FIND_PROJECTS_BY_REPO, GET_LOGIN_PROVIDERS, FIND_MICROSERVICE_DEPLOYMENTS);
         CursorPageable pageable = Pageable.create(null, 1000, Sort.by("id"));
         List<String> names = List.of();
         long deadline = System.currentTimeMillis() + 30_000;

@@ -15,13 +15,19 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
+import io.vertx.ext.web.client.WebClientOptions;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SessionBinding;
-import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
+import org.kinotic.domain.api.model.security.OidcConfiguration;
+import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
+import org.kinotic.domain.api.model.ApplicationKey;
+import org.kinotic.domain.api.model.security.ManagedOidcConfiguration;
+import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 import org.kinotic.domain.internal.api.rest.support.OidcFlowSession;
@@ -57,12 +63,14 @@ public class OidcFlowOrchestrator {
                     .maximumSize(1_000)
                     .buildAsync();
     private final SecretReferenceResolver secretReferenceResolver;
+    private final OidcConfigurationService oidcConfigurationService;
     private final Vertx vertx;
     private WebClient webClient;
 
     @PostConstruct
     public void start() {
-        this.webClient = WebClient.create(vertx);
+        // an identity endpoint answers with the profile itself; a redirect is not followed to wherever it points
+        this.webClient = WebClient.create(vertx, new WebClientOptions().setFollowRedirects(false));
     }
 
     @PreDestroy
@@ -81,18 +89,17 @@ public class OidcFlowOrchestrator {
      *
      * <p>The session is consumed regardless of outcome — replay protection.
      *
-     * @param configResolver loads the config for this route, scoped by the {@code orgId}
-     *                       recovered from the flow session (or {@code null} when the flow
-     *                       stashed none — non-org-scoped routes ignore the argument). Must
-     *                       return a {@link Future} resolving to {@code null} when
-     *                       the config is unknown; a config that is no longer enabled is
-     *                       rejected here, so the resolver need not check it.
+     * @param configResolver loads the config for this route, scoped by the organization, application and
+     *                       tenant recovered from the flow session (each {@code null} when the flow stashed
+     *                       none — routes scoped otherwise ignore them). Must resolve to {@code null} when
+     *                       the config is unknown; a config that is no longer enabled is rejected here, so
+     *                       the resolver need not check it.
      */
-    public <C extends BaseOidcConfiguration> Future<CallbackResult<C>> handleCallback(
+    public <C extends OidcConfiguration> Future<CallbackResult<C>> handleCallback(
             RoutingContext ctx,
             String pathConfigId,
             String callbackUrl,
-            Function<String, Future<C>> configResolver) {
+            FlowConfigResolver<C> configResolver) {
 
         String code = ctx.request().getParam("code");
         String state = ctx.request().getParam("state");
@@ -115,7 +122,7 @@ public class OidcFlowOrchestrator {
             return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.STATE_MISMATCH));
         }
 
-        return configResolver.apply(flowSession.orgId())
+        return configResolver.resolve(flowSession.orgId(), flowSession.applicationId(), flowSession.tenantId())
                      .compose(config -> {
                          // Re-checked here rather than in each resolver: a config disabled while the
                          // user was at the IdP must not complete the flow it started.
@@ -125,24 +132,26 @@ public class OidcFlowOrchestrator {
                          return getOAuth2Auth(config)
                                  .compose(oauth2 -> exchangeCode(oauth2, code, callbackUrl, flowSession.pkceVerifier()))
                                  .compose(user -> verifiedClaims(config, user, flowSession))
-                                 .map(claims -> new CallbackResult<>(config, claims, flowSession.orgId(),
-                                                                   flowSession.inviteToken(), flowSession.origin()));
+                                 .map(claims -> new CallbackResult<>(config, claims, flowSession.purpose(), flowSession.orgId(),
+                                                                   flowSession.applicationId(), flowSession.tenantId(),
+                                                                   flowSession.inviteToken(), flowSession.accountId(),
+                                                                   flowSession.origin()));
                      });
     }
 
     /**
      * Produces the verified identity claims for an exchanged token: id_token claims validated
      * against issuer, audience and nonce for OIDC providers, or claims fetched from the
-     * provider's identity endpoint for rows that set {@code userInfoUri}.
+     * provider's identity endpoint for a managed registration that sets {@code userInfoUri}.
      */
-    private Future<Map<String, Object>> verifiedClaims(BaseOidcConfiguration config, User user, OidcFlowSession flowSession) {
+    private Future<Map<String, Object>> verifiedClaims(OidcConfiguration config, User user, OidcFlowSession flowSession) {
         Future<Map<String, Object>> ret;
-        if (config.getUserInfoUri() != null && !config.getUserInfoUri().isBlank()) {
+        if (config instanceof ManagedOidcConfiguration social && social.getUserInfoUri() != null && !social.getUserInfoUri().isBlank()) {
             // A provider configured with an identity endpoint issues no id_token, so there is no
             // issuer/audience/nonce to check — the state match in handleCallback plus the direct
             // TLS code exchange are the security boundary, and identity comes from the provider's
             // API using the exchanged access token.
-            ret = fetchApiClaims(config, user);
+            ret = fetchApiClaims(social, user);
         } else {
             Map<String, Object> claims = flattenClaims(user);
             if (!OAuth2Util.isIssuerValid(claims, config.getAuthority())) {
@@ -166,30 +175,79 @@ public class OidcFlowOrchestrator {
     }
 
     /**
-     * Generates state/nonce/PKCE, stores them on the session along with the origin of the page
-     * starting the flow, builds the IdP authorization URL using the supplied callback URL, and
-     * returns the URL.
-     *
-     * @param orgId the organization id to stash on the session for the callback to scope its
-     *              config lookup by, or {@code null} for non-org-scoped flows.
+     * The flow the session holds for the callback about to be handled, or {@code null} when it holds none, for
+     * a handler to route a failed callback by; {@link #handleCallback} consumes the flow itself.
      */
-    public Future<String> startFlow(RoutingContext ctx,
-                                    BaseOidcConfiguration config,
-                                    String callbackUrl,
-                                    String orgId) {
-        return startFlow(ctx, config, callbackUrl, orgId, null);
+    public PendingFlow pendingFlow(RoutingContext ctx) {
+        OidcFlowSession flowSession = ctx.session().get(OIDC_FLOW_SESSION_KEY);
+        return flowSession == null ? null : new PendingFlow(flowSession.purpose(), flowSession.origin(), flowSession.inviteToken());
     }
 
     /**
-     * {@link #startFlow(RoutingContext, BaseOidcConfiguration, String, String)} for an
-     * invitation-accept flow: additionally stashes the invite's accept token on the session
-     * so the callback can complete the acceptance.
+     * Begins a {@link OidcFlowPurpose#LOGIN} flow signing in to the organization {@code orgId}, or to none when
+     * it is {@code null}: generates state/nonce/PKCE, stores them on the session along with the page at
+     * {@code origin} the completed login is bound to, builds the IdP authorization URL using the supplied
+     * callback URL, and returns the URL. The caller names the origin because a start reached by a link
+     * carries no {@code Origin} of its own.
      */
     public Future<String> startFlow(RoutingContext ctx,
-                                    BaseOidcConfiguration config,
+                                    OidcConfiguration config,
                                     String callbackUrl,
                                     String orgId,
-                                    String inviteToken) {
+                                    String origin) {
+        return startFlow(ctx, config, callbackUrl, OidcFlowPurpose.LOGIN, orgId, null, null, null, null, origin);
+    }
+
+    /**
+     * {@link #startFlow(RoutingContext, OidcConfiguration, String, String, String)} for a sign-in to
+     * {@code application}, or to its tenant {@code tenantId} when one is named: stashes the ids of the scope
+     * for the callback to resolve its configuration by.
+     */
+    public Future<String> startFlow(RoutingContext ctx,
+                                    OidcConfiguration config,
+                                    String callbackUrl,
+                                    ApplicationKey application,
+                                    String tenantId,
+                                    String origin) {
+        return startFlow(ctx, config, callbackUrl, OidcFlowPurpose.LOGIN, application.organizationId(), application.applicationId(),
+                         tenantId, null, null, origin);
+    }
+
+    /** Begins a {@link OidcFlowPurpose#SIGN_UP} flow through one of the platform's org sign-up registrations. */
+    public Future<String> startSignUp(RoutingContext ctx, OidcConfiguration config, String callbackUrl) {
+        return startFlow(ctx, config, callbackUrl, OidcFlowPurpose.SIGN_UP, null, null, null, null, null, SessionBinding.origin(ctx));
+    }
+
+    /**
+     * Begins an {@link OidcFlowPurpose#INVITATION} flow accepting the invitation {@code inviteToken} into
+     * organization {@code orgId}, stashed for the callback to resolve its configuration by and to complete the
+     * acceptance with.
+     */
+    public Future<String> startInvitation(RoutingContext ctx, OidcConfiguration config, String callbackUrl, String orgId, String inviteToken) {
+        Validate.notBlank(inviteToken, "inviteToken cannot be blank");
+        return startFlow(ctx, config, callbackUrl, OidcFlowPurpose.INVITATION, orgId, null, null, inviteToken, null, SessionBinding.origin(ctx));
+    }
+
+    /**
+     * Begins a {@link OidcFlowPurpose#CONNECT} flow binding the identity the provider asserts to account
+     * {@code accountId}; {@code orgId} is the organization whose configuration the flow runs through, or
+     * {@code null} for one of the platform's registrations.
+     */
+    public Future<String> startConnect(RoutingContext ctx, OidcConfiguration config, String callbackUrl, String orgId, String accountId) {
+        Validate.notBlank(accountId, "accountId cannot be blank");
+        return startFlow(ctx, config, callbackUrl, OidcFlowPurpose.CONNECT, orgId, null, null, null, accountId, SessionBinding.origin(ctx));
+    }
+
+    private Future<String> startFlow(RoutingContext ctx,
+                                     OidcConfiguration config,
+                                     String callbackUrl,
+                                     OidcFlowPurpose purpose,
+                                     String orgId,
+                                     String applicationId,
+                                     String tenantId,
+                                     String inviteToken,
+                                     String accountId,
+                                     String origin) {
         String state = DomainUtil.generateUrlSafeToken(32);
         String nonce = DomainUtil.generateUrlSafeToken(32);
         String pkceVerifier = DomainUtil.generateUrlSafeToken(64);
@@ -197,13 +255,14 @@ public class OidcFlowOrchestrator {
 
         Session session = ctx.session();
         session.regenerateId();
-        session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), orgId,
-                                                               inviteToken, SessionBinding.origin(ctx)));
+        session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), purpose, orgId,
+                                                               applicationId, tenantId, inviteToken, accountId, origin));
 
-        // Scopes ride as RFC 6749's space-delimited string; a row without them gets the
-        // standard OIDC triple.
-        List<String> scopes = config.getScopes() != null && !config.getScopes().isBlank()
-                ? List.of(config.getScopes().split(" "))
+        // Scopes ride as RFC 6749's space-delimited string; a managed registration may name its own, every
+        // other configuration gets the standard OIDC triple.
+        List<String> scopes = config instanceof ManagedOidcConfiguration social
+                              && social.getScopes() != null && !social.getScopes().isBlank()
+                ? List.of(social.getScopes().split(" "))
                 : List.of("openid", "email", "profile");
 
         return getOAuth2Auth(config)
@@ -221,10 +280,14 @@ public class OidcFlowOrchestrator {
      * @param config       the persisted OIDC configuration (must have authority set)
      * @param clientSecret resolved client secret, or null for public-client flows
      */
-    private Future<OAuth2Auth> createOAuth2Auth(BaseOidcConfiguration config, String clientSecret) {
+    private Future<OAuth2Auth> createOAuth2Auth(OidcConfiguration config, String clientSecret) {
         Future<OAuth2Auth> ret;
-        if (config.getAuthorizationUri() != null || config.getTokenUri() != null) {
-            if (config.getAuthorizationUri() == null || config.getTokenUri() == null) {
+        // only a managed registration may name endpoints in place of discovery
+        ManagedOidcConfiguration explicit = config instanceof ManagedOidcConfiguration social
+                                              && (social.getAuthorizationUri() != null || social.getTokenUri() != null)
+                ? social : null;
+        if (explicit != null) {
+            if (explicit.getAuthorizationUri() == null || explicit.getTokenUri() == null) {
                 ret = Future.failedFuture(new IllegalArgumentException(
                         "OidcConfiguration " + config.getId()
                                 + " must set both authorizationUri and tokenUri to bypass OIDC discovery"));
@@ -235,8 +298,8 @@ public class OidcFlowOrchestrator {
                 OAuth2Options options = new OAuth2Options()
                         .setClientId(config.getClientId())
                         .setSite(config.getAuthority())
-                        .setAuthorizationPath(config.getAuthorizationUri())
-                        .setTokenPath(config.getTokenUri())
+                        .setAuthorizationPath(explicit.getAuthorizationUri())
+                        .setTokenPath(explicit.getTokenUri())
                         // some providers (github.com) reject requests that carry no User-Agent
                         .setHeaders(new JsonObject().put("User-Agent", USER_AGENT));
                 if (clientSecret != null) {
@@ -323,7 +386,7 @@ public class OidcFlowOrchestrator {
      * {@code email}; {@code userEmailsUri}, when set, supplies the definitive {@code email}
      * and {@code email_verified} from a GitHub-style emails array.
      */
-    private Future<Map<String, Object>> fetchApiClaims(BaseOidcConfiguration config, User user) {
+    private Future<Map<String, Object>> fetchApiClaims(ManagedOidcConfiguration config, User user) {
         String accessToken = user.principal().getString("access_token");
         return apiGet(accessToken, config.getUserInfoUri())
                 .map(response -> profileClaims(response.bodyAsJsonObject()))
@@ -433,21 +496,36 @@ public class OidcFlowOrchestrator {
      * configuration takes effect on the next flow. A discovery that fails is not cached, so the next
      * flow retries it.
      */
-    private Future<OAuth2Auth> getOAuth2Auth(BaseOidcConfiguration config) {
-        // Keying on updated as well as id is what picks up an edited clientId/authority/secretNameRef:
-        // both call sites pass a row read for this request, so a save misses the cache on every node
-        // without an invalidation message, and the superseded entry ages out on its own.
+    private Future<OAuth2Auth> getOAuth2Auth(OidcConfiguration config) {
+        // Keying on updated as well as id is what picks up an edited clientId/authority or a replaced
+        // client secret, which is saved along with the row: both call sites pass a row read for this
+        // request, so a save misses the cache on every node without an invalidation message, and the
+        // superseded entry ages out on its own.
         String key = config.getId() + ':' + (config.getUpdated() != null ? config.getUpdated().getTime() : 0);
         // AsyncCache evicts an entry whose future completes exceptionally, which is what keeps a
         // transient discovery failure from being cached — the loader must not touch the cache itself
         CompletableFuture<OAuth2Auth> cached =
                 oauth2AuthCache.get(key,
-                                    (id, executor) -> secretReferenceResolver.resolve(config.getSecretNameRef())
-                                                                             .compose(secret -> createOAuth2Auth(config, secret))
-                                                                             .toCompletionStage()
-                                                                             .toCompletableFuture());
+                                    (id, executor) -> clientSecretOf(config)
+                                            .compose(secret -> createOAuth2Auth(config, secret))
+                                            .toCompletionStage()
+                                            .toCompletableFuture());
         return Future.fromCompletionStage(cached, vertx.getOrCreateContext())
                      .onFailure(err -> log.error("Failed to initialize OAuth2Auth for config {}", config.getId(), err));
+    }
+
+    /**
+     * The client secret {@code config} sends its provider, or null for a public client, read from where
+     * its kind of configuration keeps it: the platform's secret storage, under the name the operator
+     * gave a managed registration, or the owning organization's scope of the secret storage for a
+     * configuration an organization saved.
+     */
+    private Future<String> clientSecretOf(OidcConfiguration config) {
+        return switch (config) {
+            case ManagedOidcConfiguration managed -> secretReferenceResolver.resolve(managed.getSecretNameRef());
+            // an organization's administrator controls this row, so nothing on it may name a platform secret
+            case OwnedOidcConfiguration owned -> oidcConfigurationService.findClientSecret(owned);
+        };
     }
 
 }

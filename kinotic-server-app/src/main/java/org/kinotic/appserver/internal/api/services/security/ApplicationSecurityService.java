@@ -36,20 +36,20 @@ public class ApplicationSecurityService implements SecurityService {
     @Override
     public Future<Participant> authenticate(Map<String, String> authenticationInfo) {
         ApplicationKey applicationKey = requestApplicationKey(authenticationInfo);
-        return credentialAuthenticationService.authenticate(authenticationInfo, identity -> admits(identity, applicationKey));
+        return credentialAuthenticationService.authenticate(authenticationInfo, (identity, participant) -> admits(identity, participant, applicationKey));
     }
 
-    private static boolean admits(ParticipantIdentity identity, ApplicationKey applicationKey) {
+    private static boolean admits(ParticipantIdentity identity, Participant participant, ApplicationKey applicationKey) {
         boolean ret;
-        if (identity.getOrganizationId() == null) {
-            ret = false;
-        } else if (identity.getApplicationId() != null) {
-            ret = applicationKey == null || applicationKey.equals(new ApplicationKey(identity.getOrganizationId(), identity.getApplicationId()));
-        } else {
+        if (participant instanceof ApplicationParticipant user) {
+            ret = applicationKey == null || applicationKey.equals(new ApplicationKey(user.getOrganizationId(), user.getApplicationId()));
+        } else if (participant instanceof OrganizationParticipant runtime) {
             // an organization's identity reaches the app server only as the runtime of one of its applications
             ret = identity instanceof MachineParticipantIdentity machine
                     && machine.getMachineKind() == MachineKind.APP_RUNTIME
-                    && (applicationKey == null || applicationKey.organizationId().equals(machine.getOrganizationId()));
+                    && (applicationKey == null || applicationKey.organizationId().equals(runtime.getOrganizationId()));
+        } else {
+            ret = false;
         }
         return ret;
     }

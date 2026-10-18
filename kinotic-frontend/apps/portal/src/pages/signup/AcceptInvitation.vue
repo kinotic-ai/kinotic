@@ -40,11 +40,21 @@
           :action="startUrl(provider.id)"
           intent="sign-up"
         />
-        <div class="login-divider"><span>or set a password</span></div>
+        <div v-if="!details.accountExists || details.accountHasPassword" class="login-divider"><span>{{ details.accountExists ? 'or use your password' : 'or set a password' }}</span></div>
       </div>
 
-      <div class="login-form__step">
-        <div class="login-field">
+      <!-- An invited address that already has a Kinotic account joins as that account: the person proves it
+           is theirs with its password, or with a provider it signs in through when it has no password, and keeps
+           the one account across every organization. -->
+      <p v-if="details.accountExists && !details.accountHasPassword" class="login-form__subtitle">
+        You already have a Kinotic account for <strong>{{ details.email }}</strong> that signs in with a provider.
+        Continue with the provider your account uses to join.
+      </p>
+      <div v-else class="login-form__step">
+        <p v-if="details.accountExists" class="login-form__subtitle">
+          You already have a Kinotic account for <strong>{{ details.email }}</strong>. Enter its password to join.
+        </p>
+        <div v-else class="login-field">
           <InputText
             v-model="displayName"
             class="login-input"
@@ -53,7 +63,19 @@
           />
         </div>
 
+        <div v-if="details.accountExists" class="login-field login-field--last">
+          <Password
+            v-model="password"
+            input-class="login-password-input"
+            class="login-password"
+            placeholder="Your password"
+            toggleMask
+            :feedback="false"
+            @keyup.enter="handleAccept"
+          />
+        </div>
         <SetPasswordFields
+          v-else
           ref="passwordFields"
           v-model:password="password"
           v-model:confirm="confirmPassword"
@@ -77,6 +99,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
+import Password from 'primevue/password'
 import { useToast } from 'primevue/usetoast'
 
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
@@ -99,6 +122,10 @@ interface InviteDetails {
   organizationName: string | null
   applicationId: string | null
   invitedByName: string
+  /** Whether a Kinotic account already exists for the invited email, which then joins as itself. */
+  accountExists: boolean
+  /** Whether that account has a password to prove itself with; without one it joins through a provider it is bound to. */
+  accountHasPassword: boolean
   providers: InviteProvider[]
 }
 
@@ -112,7 +139,7 @@ type Phase = 'loading' | 'ready' | 'appAccepted' | 'invalid'
  * not their UI) or `?error=<code>` on failure.
  */
 const phase = ref<Phase>('loading')
-const details = ref<InviteDetails>({ email: '', displayName: null, organizationName: null, applicationId: null, invitedByName: '', providers: [] })
+const details = ref<InviteDetails>({ email: '', displayName: null, organizationName: null, applicationId: null, invitedByName: '', accountExists: false, accountHasPassword: false, providers: [] })
 const displayName = ref('')
 const password = ref('')
 const confirmPassword = ref('')
@@ -130,7 +157,9 @@ const route = useRoute()
 const router = useRouter()
 
 const canSubmit = computed<boolean>(() => {
-  return !!password.value && !!confirmPassword.value && password.value === confirmPassword.value
+  return details.value.accountExists
+      ? !!password.value
+      : !!password.value && !!confirmPassword.value && password.value === confirmPassword.value
 })
 
 onMounted(async () => {
@@ -174,6 +203,8 @@ async function loadDetails() {
       organizationName: data.organizationName ?? null,
       applicationId: data.applicationId ?? null,
       invitedByName: data.invitedByName,
+      accountExists: data.accountExists === true,
+      accountHasPassword: data.accountHasPassword === true,
       providers: Array.isArray(data.providers) ? data.providers : []
     }
     displayName.value = details.value.displayName ?? ''
@@ -239,7 +270,9 @@ async function handleAccept() {
 function errorCodeToMessage(code: string): string {
   switch (code) {
     case 'invite_invalid':     return 'This invitation is invalid, expired, or already used. Ask for a new invitation.'
-    case 'email_mismatch':     return "That account's email doesn't match the invited address. Sign in with the matching account, or set a password instead."
+    case 'email_mismatch':     return "That account's email doesn't match the invited address. Sign in with the matching account, or use your password instead."
+    case 'account_exists':     return 'A Kinotic account already exists for the invited email. Enter its password to join.'
+    case 'account_disabled':   return 'This account cannot sign in to the organization. Ask an administrator to enable it.'
     case 'email_not_verified': return 'Your identity provider has not verified your email address.'
     case 'state_mismatch':     return 'The sign-in attempt expired or was tampered with. Please try again.'
     case 'access_denied':      return 'You declined to authorize the sign-in. Please try again to continue.'

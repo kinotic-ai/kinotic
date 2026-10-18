@@ -153,8 +153,22 @@ describe('Server planes', () => {
         expect((await requestAt(appServer(), apiHost(APP_ID), 'GET', '/api/auth/me', {Cookie: session})).status).toBe(401)
     })
 
+    it('signs a user in to the tenant the login names and no other', async () => {
+        const loginTo = (tenantId: string) => requestAt(appServer(), apiHost(APP_ID), 'POST', '/api/auth/app/login',
+                                                         {'Content-Type': 'application/json'},
+                                                         JSON.stringify({email: appFixtureEmail(APP_ID, E2E_APP_TENANT),
+                                                                         password: E2E_FIXTURE_PASSWORD, tenantId}))
+        expect((await loginTo(E2E_APP_TENANT)).status).toBe(204)
+        // the application has no such tenant
+        expect((await loginTo('nobody')).status).toBe(404)
+        // the tenant's login offers what the application's does
+        const providers = await requestAt(appServer(), apiHost(APP_ID), 'GET', `/api/auth/app/login/providers?tenantId=${E2E_APP_TENANT}`)
+        expect(providers.status).toBe(200)
+        expect(JSON.parse(providers.body)).toEqual([])
+    })
+
     it('authenticates a session only at the server that issued it', async () => {
-        const login = await fetch(`${restBase(managementServer())}/api/auth/org/login`, {
+        const login = await fetch(`${restBase(managementServer())}/api/auth/org/login/${E2E_ORGANIZATION_ID}`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({email: E2E_ORG_USER_EMAIL, password: E2E_FIXTURE_PASSWORD})

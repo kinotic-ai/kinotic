@@ -56,6 +56,10 @@ Takes (dict "name" <server key> "server" <server values> "root" $).
 - object: {{ $objects.githubWebhookSecret }}
   path: kinotic.managementApi.github.webhookSecret
 {{- end }}
+{{- if .server.siteDomain }}
+- object: {{ $objects.cloudflareDnsApiToken }}
+  path: kinotic.domain.siteDomain.cloudflare.apiToken
+{{- end }}
 {{- end -}}
 
 {{/*

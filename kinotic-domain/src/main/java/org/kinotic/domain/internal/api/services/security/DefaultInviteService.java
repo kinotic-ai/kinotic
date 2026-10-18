@@ -11,7 +11,12 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.exceptions.AccountDisabledException;
+import org.kinotic.domain.api.exceptions.ExistingAccountException;
 import org.kinotic.domain.api.exceptions.InviteEmailMismatchException;
+import org.kinotic.domain.api.services.security.LocalAuthenticationService;
+import org.kinotic.domain.api.services.security.MembershipService;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.internal.api.repositories.PendingInviteRepository;
 import org.kinotic.domain.internal.api.services.EmailService;
@@ -19,6 +24,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -31,6 +37,8 @@ public class DefaultInviteService implements InviteService {
 
     private final PendingInviteRepository pendingInviteRepository;
     private final ParticipantIdentityService identityService;
+    private final MembershipService membershipService;
+    private final LocalAuthenticationService localAuthenticationService;
     private final OrganizationService organizationService;
     private final EmailService emailService;
 
@@ -66,24 +74,17 @@ public class DefaultInviteService implements InviteService {
     }
 
     /**
-     * Scope-branched availability check. Org invites reject an email with an org-scope account
-     * in ANY organization — org login resolves users by unscoped email lookups, so a second
-     * org-scope row for the same email would make login nondeterministic. App login is fully
-     * scoped, so app invites only check within the target application. Both also reject when
-     * an invitation is already pending in the scope.
+     * Rejects an invitation to a scope that already holds a user with the email, or one for which an
+     * invitation is already pending. Every login is addressed to its scope, so an email may be a
+     * member of any number of organizations and applications.
      */
     private Future<Void> checkEmailAvailable(PendingInvite invite) {
-        Future<UserParticipantIdentity> existingUser = invite.getApplicationId() == null
-                ? identityService.findFirstOrgUserByEmail(invite.getEmail())
-                : identityService.findByEmail(invite.getEmail(),
-                                             invite.getOrganizationId(),
-                                             invite.getApplicationId());
-        return existingUser
-                .compose(user -> {
-                    if (user != null) {
+        return isMemberAlready(invite)
+                .compose(member -> {
+                    if (member) {
                         return Future.<PendingInvite>failedFuture(new IllegalArgumentException(
                                 invite.getApplicationId() == null
-                                        ? "This email already belongs to an organization."
+                                        ? "A member with this email already exists in this organization."
                                         : "A user with this email already exists in this application."));
                     }
                     return pendingInviteRepository.findByEmailAndScope(invite.getEmail(),
@@ -106,19 +107,41 @@ public class DefaultInviteService implements InviteService {
     }
 
     @Override
-    public Future<UserParticipantIdentity> acceptLocalInvite(String token, String password, String displayName) {
+    public Future<Participant> acceptLocalInvite(String token, String password, String displayName) {
         Validate.notBlank(token, "token is required");
         Validate.notBlank(password, "password is required");
 
         return pendingInviteRepository.findValidByToken(token)
-                .compose(invite -> acceptInvite(invite, password, displayName, null, null));
+                .compose(invite -> {
+                    Future<Participant> ret;
+                    if (invite.getApplicationId() != null) {
+                        ret = identityService.createUser(newMember(invite, displayName), password)
+                                             .map(DomainUtil::createParticipant);
+                    } else {
+                        ret = identityService.findByEmail(invite.getEmail(), null, null).compose(account -> {
+                            Future<Participant> joined;
+                            if (account == null) {
+                                joined = identityService.createUser(newMember(invite, displayName), password)
+                                                        .compose(created -> join(created, invite));
+                            } else if (!account.isEnabled()) {
+                                // the invitation's holder owns the email, so the account's standing is theirs to learn; a
+                                // password check would answer as for a wrong password
+                                joined = Future.failedFuture(new AccountDisabledException("This account cannot sign in to the organization."));
+                            } else {
+                                joined = requireAccountPassword(account, password).compose(v -> join(account, invite));
+                            }
+                            return joined;
+                        });
+                    }
+                    return ret.compose(member -> pendingInviteRepository.deleteById(invite.getId()).map(member));
+                });
     }
 
     @Override
-    public Future<UserParticipantIdentity> acceptOidcInvite(String token,
-                                                            String oidcSubject,
-                                                            String oidcConfigId,
-                                                            String verifiedEmail) {
+    public Future<Participant> acceptOidcInvite(String token,
+                                                String oidcSubject,
+                                                String oidcConfigId,
+                                                String verifiedEmail) {
         Validate.notBlank(token, "token is required");
         Validate.notBlank(oidcSubject, "oidcSubject is required");
         Validate.notBlank(oidcConfigId, "oidcConfigId is required");
@@ -130,35 +153,90 @@ public class DefaultInviteService implements InviteService {
                         return Future.failedFuture(new InviteEmailMismatchException(
                                 "This invitation was sent to a different email address."));
                     }
-                    return acceptInvite(invite, null, null, oidcSubject, oidcConfigId);
+                    Future<Participant> ret;
+                    if (invite.getApplicationId() != null) {
+                        ret = identityService.createOidcUser(newMember(invite, null), oidcConfigId, oidcSubject)
+                                             .map(DomainUtil::createParticipant);
+                    } else {
+                        ret = identityService.findByOidcIdentity(oidcConfigId, oidcSubject, null, null).compose(bound -> {
+                            Future<Participant> joined;
+                            if (bound != null) {
+                                // the identity proves the acceptor owns the account, which must be the invited one
+                                joined = invite.getEmail().equals(bound.getEmail())
+                                        ? join(bound, invite)
+                                        : Future.failedFuture(new InviteEmailMismatchException(
+                                                "This invitation was sent to a different email address."));
+                            } else {
+                                joined = identityService.findByEmail(invite.getEmail(), null, null).compose(account -> account == null
+                                        ? identityService.createOidcUser(newMember(invite, null), oidcConfigId, oidcSubject)
+                                                         .compose(created -> join(created, invite))
+                                        : Future.failedFuture(new ExistingAccountException(
+                                                "An account already exists for this email. Sign in with its password to accept.")));
+                            }
+                            return joined;
+                        });
+                    }
+                    return ret.compose(member -> pendingInviteRepository.deleteById(invite.getId()).map(member));
                 });
     }
 
+    // an application invitee is a user of the application; an organization invitee is an account holding a
+    // membership of the organization, whatever the membership's enabled flag
+    private Future<Boolean> isMemberAlready(PendingInvite invite) {
+        Future<Boolean> ret;
+        if (invite.getApplicationId() != null) {
+            ret = identityService.findByEmail(invite.getEmail(), invite.getOrganizationId(), invite.getApplicationId())
+                                 .map(Objects::nonNull);
+        } else {
+            ret = identityService.findByEmail(invite.getEmail(), null, null)
+                                 .compose(account -> account == null
+                                         ? Future.succeededFuture(false)
+                                         : membershipService.findMembership(account.getId(), invite.getOrganizationId())
+                                                            .map(Objects::nonNull));
+        }
+        return ret;
+    }
+
     /**
-     * Single accept path for both methods: the member's scope comes entirely from the stored
-     * invite, the auth type from whether a password is present (createUser auto-detects), and
-     * the invite is consumed on success. A concurrent double-accept is safe — createUser's
-     * unique-email-in-scope check fails the second attempt.
+     * The unsaved user an invitation creates: an application's user in the invitation's application, or an
+     * account for an invitation into an organization. Id, dates, the enabled flag and the sign-in method are
+     * applied by the identity service. A concurrent double-accept is safe — the unique-email check fails the
+     * second attempt.
      */
-    private Future<UserParticipantIdentity> acceptInvite(PendingInvite invite,
-                                                         String password,
-                                                         String displayNameOverride,
-                                                         String oidcSubject,
-                                                         String oidcConfigId) {
+    private static UserParticipantIdentity newMember(PendingInvite invite, String displayNameOverride) {
         UserParticipantIdentity user = new UserParticipantIdentity();
         user.setEmail(invite.getEmail())
             .setDisplayName(StringUtils.isNotBlank(displayNameOverride)
                                     ? displayNameOverride
-                                    : invite.getDisplayName())
-            .setOrganizationId(invite.getOrganizationId())
-            .setApplicationId(invite.getApplicationId());
-        if (oidcSubject != null) {
-            user.setOidcSubject(oidcSubject)
-                .setOidcConfigId(oidcConfigId);
+                                    : invite.getDisplayName());
+        if (invite.getApplicationId() != null) {
+            user.setOrganizationId(invite.getOrganizationId())
+                .setApplicationId(invite.getApplicationId());
         }
-        return identityService.createUser(user, password)
-                .compose(saved -> pendingInviteRepository.deleteById(invite.getId())
-                                                         .map(saved));
+        return user;
+    }
+
+    // the account becomes a member of the invitation's organization and signs in there; a disabled account
+    // joins nothing, and a membership that already exists is reused, so one disabled before the acceptance
+    // refuses the sign-in as a login would
+    private Future<Participant> join(UserParticipantIdentity account, PendingInvite invite) {
+        Future<Participant> ret;
+        if (!account.isEnabled()) {
+            ret = Future.failedFuture(new AccountDisabledException("This account cannot sign in to the organization."));
+        } else {
+            ret = membershipService.addMember(account.getId(), invite.getOrganizationId())
+                                   .compose(membership -> membershipService.resolveMember(account, invite.getOrganizationId()));
+        }
+        return ret;
+    }
+
+    // an existing account is joined only by someone who knows its password
+    private Future<Void> requireAccountPassword(UserParticipantIdentity account, String password) {
+        return localAuthenticationService.authenticateLocal(account.getEmail(), password, null, null)
+                                         .compose(authenticated -> authenticated == null
+                                                 ? Future.failedFuture(new ExistingAccountException(
+                                                         "An account already exists for this email. Enter its password to accept."))
+                                                 : Future.succeededFuture());
     }
 
     @Override

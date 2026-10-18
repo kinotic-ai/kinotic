@@ -27,7 +27,7 @@ public class SystemSecurityService implements SecurityService {
         return credentialAuthenticationService.authenticate(authenticationInfo, SystemSecurityService::admits);
     }
 
-    private static boolean admits(ParticipantIdentity identity) {
-        return identity.getOrganizationId() == null && identity.getApplicationId() == null;
+    private static boolean admits(ParticipantIdentity identity, Participant participant) {
+        return participant instanceof SystemParticipant;
     }
 }

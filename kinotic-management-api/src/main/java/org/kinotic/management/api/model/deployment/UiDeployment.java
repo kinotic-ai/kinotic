@@ -23,8 +23,9 @@ import java.util.Date;
 public class UiDeployment implements Reconcilable<DeploymentState>, OrganizationScoped<String> {
 
     /**
-     * The site's hostname label under the platform's sites domain, minted when the UI is first
-     * published: {@code <org>--<app>--<ui>}. The site's resources are named after it.
+     * The site's hostname under the platform's sites domain, minted when the UI is first published:
+     * {@code <app>--<ui>.<org>}, the UI's label within the organization's own subdomain. The site's
+     * resources are named after it.
      */
     private String id;
 
