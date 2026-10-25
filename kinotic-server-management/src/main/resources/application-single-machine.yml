@@ -9,6 +9,10 @@ kinotic:
       numberOfShards: 1
       numberOfReplicas: 0
   domain:
+    email:
+      # No mail service on one machine: each link a person must open is logged and shown in the UI that asked
+      # for it: a sign-up's verification link, an invitation's accept link, the organizations an address belongs to
+      enabled: false
     systemSecrets:
       # Seeded on first boot by DevSystemSecretsGenerator, or by whichever server boots first: every server on the
       # machine reads the same file, and none of it is committed. Production uses Azure Key Vault via the Secrets

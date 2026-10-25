@@ -30,7 +30,3 @@ kinotic:
   domain:
     # The portal build this server serves on 9090
     portalBaseUrl: http://localhost:9090
-    email:
-      # No mail service: a sign-up continues at its verification link at once, an inviter is shown the
-      # invitation's link to send on, and the find-my-organizations form lists the address's organizations
-      enabled: false

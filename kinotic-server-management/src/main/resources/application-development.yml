@@ -29,22 +29,15 @@ kinotic:
     allowedOriginPattern: "http:\\/\\/localhost:(5173|9090)|https:\\/\\/[a-zA-Z0-9-]+\\.ngrok(-free)?\\.(app|dev|io)"
     allowCredentials: true
   domain:
-    # The portal's vite dev server, where browser flows return and the emailed links open
+    # The portal's vite dev server, where browser flows return and the links a person must open lead
     portalBaseUrl: http://localhost:5173
-    email:
-      # No real ACS in dev — EmailService logs verification URLs instead of sending.
-      # To test against real ACS, flip enabled=true (endpoint/sender are pre-filled).
-      enabled: true
-      endpoint: https://acs-kinotic.communication.azure.com
-      sender-address: "DoNotReply@kinotic.ai"
     elastic-connections:
       - scheme: "http"
         host: "localhost"
         port: "9200"
   ignite:
     discoveryType: SHAREDFS
-  # OIDC client secrets resolve via SecretReferenceResolver — Azure Key Vault when
-  # kinotic.domain.secretStorage.azure.vaultUrl is set, otherwise from KINOTIC_AKV_<name> properties
+  # OIDC client secrets resolve via SecretReferenceResolver from KINOTIC_AKV_<name> properties
   # (uppercased, non-alphanumerics → "_"), set as an env var or a key in any loaded config file,
   # matching the secretNameRef of the seeded OrgSignupOidcConfiguration row.
 

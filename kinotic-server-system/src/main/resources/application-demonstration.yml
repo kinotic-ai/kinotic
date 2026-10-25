@@ -14,6 +14,3 @@ kinotic:
   domain:
     # The portal the management server serves on 9090, where invitations are accepted
     portalBaseUrl: http://localhost:9090
-    email:
-      # No mail service: an inviter is shown the invitation's link to send on
-      enabled: false
