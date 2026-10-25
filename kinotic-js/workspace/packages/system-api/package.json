@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/system-api",
-  "version": "5.0.0-beta.32",
+  "version": "5.0.0-beta.33",
   "type": "module",
   "description": "Client API for the Kinotic platform's system plane: the workload and node orchestration services system machines and operators use.",
   "files": [

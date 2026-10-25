@@ -187,7 +187,8 @@ public class OidcFlowOrchestrator {
      */
     public PendingFlow pendingFlow(RoutingContext ctx) {
         OidcFlowSession flowSession = ctx.session().get(OIDC_FLOW_SESSION_KEY);
-        return flowSession == null ? null : new PendingFlow(flowSession.purpose(), flowSession.origin(), flowSession.inviteToken());
+        return flowSession == null ? null : new PendingFlow(flowSession.purpose(), flowSession.orgId(), flowSession.applicationId(),
+                                                            flowSession.origin(), flowSession.inviteToken());
     }
 
     /**
@@ -277,11 +278,6 @@ public class OidcFlowOrchestrator {
         String pkceVerifier = DomainUtil.generateUrlSafeToken(64);
         String pkceChallenge = OAuth2Util.s256Challenge(pkceVerifier);
 
-        Session session = ctx.session();
-        session.regenerateId();
-        session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), purpose, orgId,
-                                                               applicationId, tenantId, inviteToken, organizationUserId, origin));
-
         // Scopes ride as RFC 6749's space-delimited string; a managed registration may name its own, every
         // other configuration gets the standard OIDC triple.
         List<String> scopes = config instanceof ManagedOidcConfiguration social
@@ -297,7 +293,14 @@ public class OidcFlowOrchestrator {
                                 .setState(state)
                                 .setCodeChallenge(pkceChallenge)
                                 .setCodeChallengeMethod("S256")
-                                .putAdditionalParameter("nonce", nonce)));
+                                .putAdditionalParameter("nonce", nonce)))
+                // stored once the provider is reachable, so a start that fails leaves the session's pending flow intact
+                .onSuccess(url -> {
+                    Session session = ctx.session();
+                    session.regenerateId();
+                    session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), purpose, orgId,
+                                                                           applicationId, tenantId, inviteToken, organizationUserId, origin));
+                });
     }
 
     /**

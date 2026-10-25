@@ -14,8 +14,8 @@ public enum OidcConfigurationType {
      */
     ORG_SIGNUP,
     /**
-     * A registration the system holds with a social provider, which any application may offer
-     * at its sign-in by naming the provider kind.
+     * A registration the system holds with a social provider, which an application's configuration of the
+     * same provider kind signs in through when it uses {@link ClientRegistrationType#MANAGED}.
      */
     APP_SOCIAL,
     /**

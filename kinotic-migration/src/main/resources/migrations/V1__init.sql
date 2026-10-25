@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS kinotic_application (
     tenantManagement KEYWORD,
     primaryUiId KEYWORD,
     primaryUiUrl KEYWORD,
-    socialProviders KEYWORD,
+    passwordSignUp BOOLEAN,
     updated DATE
 );
 
@@ -278,15 +278,17 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_binding (
 -- managed registrations (ManagedOidcConfiguration): they belong to no organization, are seeded below,
 -- and name their client secret in the system's secret storage with secretNameRef. type=ORG_SIGNUP
 -- (GitHub) powers the "Continue with X" buttons on org signup and org login; type=APP_SOCIAL
--- (Google, Microsoft) is offered at an application's login when kinotic_application.socialProviders
--- names its provider kind. type=ORGANIZATION, type=APPLICATION and type=TENANT are providers an
+-- (Google, Microsoft) is the registration an APPLICATION row of the same provider kind signs in through
+-- when its clientRegistrationType is MANAGED. type=ORGANIZATION, type=APPLICATION and type=TENANT are providers an
 -- organization configured for one of its own sign-in scopes (OwnedOidcConfiguration: organizationId set
 -- and enforced by the service, applicationId set for APPLICATION and TENANT, tenantId for TENANT): the
 -- organization's own login, that application's, or the login of that tenant of the application, which
 -- also offers what the application's does. A configuration is offered at its own scope only; an organization wanting the same
 -- provider at another scope copies it there (OidcConfigurationService.copy). createUserOnSignIn says
 -- whether an identity the provider verifies that no user of the scope is bound to becomes a user on
--- first sign-in. The row names no client secret: OidcConfigurationService.save(configuration,
+-- first sign-in. An APPLICATION row's clientRegistrationType says whose registration with the provider
+-- a sign-in uses: MANAGED, the system's APP_SOCIAL row of its provider kind, or OWN, the row's own
+-- client; a MANAGED row keeps its own client fields for a switch back. The row names no client secret: OidcConfigurationService.save(configuration,
 -- clientSecret) holds the secret in the organization's scope of the secret storage
 -- (SecretStorageService), keyed by the row's id, and confidentialClient records that one is held. Nor
 -- does it name a URL: it names the organization's account at the provider (providerAccount), and the
@@ -301,6 +303,7 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     providerAccount KEYWORD NOT INDEXED,
     confidentialClient BOOLEAN,
     createUserOnSignIn BOOLEAN,
+    clientRegistrationType KEYWORD,
     name KEYWORD,
     provider KEYWORD,
     clientId KEYWORD NOT INDEXED,
@@ -357,6 +360,19 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_signup (
     authType KEYWORD,
     oidcSubject KEYWORD,
     oidcConfigId KEYWORD
+);
+
+-- Pending application sign-ups (PendingApplicationSignUp): a person signing up to an application with an
+-- email and a password, from the verification email until the person follows its link and chooses a
+-- password. Single-use: consumed and deleted when completed, or found expired.
+CREATE TABLE IF NOT EXISTS kinotic_pending_application_sign_up (
+    id KEYWORD,
+    verificationToken KEYWORD,
+    expiresAt DATE,
+    created DATE,
+    email KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD
 );
 
 -- Pending member invitations (PendingInvite) awaiting acceptance: the invitee's identity, the

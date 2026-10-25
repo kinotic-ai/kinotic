@@ -1,6 +1,7 @@
 import { MANAGEMENT_API_ZONE } from '@/api/Zones'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import { FunctionalIterablePage, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
+import type { OidcProviderType } from '@/api/model/security/OidcProviderType'
 import type { OwnedOidcConfiguration } from '@/api/model/security/OwnedOidcConfiguration'
 
 /**
@@ -14,6 +15,13 @@ export interface IOwnedOidcConfigurationService {
 
     /** The organization's configurations, of every kind and enabled or not, oldest first, a page at a time. */
     findAll(pageable: Pageable): Promise<IterablePage<OwnedOidcConfiguration>>
+
+    /**
+     * The provider kinds an application's configuration may sign in through Kinotic's registration for, with
+     * `clientRegistrationType` `MANAGED`: no client of the organization's own is needed, and the consent screen shows
+     * Kinotic's name.
+     */
+    findManagedProviders(): Promise<OidcProviderType[]>
 
     /** The organization's configuration, or null when the organization owns none by that id. */
     findById(id: string): Promise<OwnedOidcConfiguration | null>
@@ -64,6 +72,10 @@ export class OwnedOidcConfigurationService implements IOwnedOidcConfigurationSer
     public async findAll(pageable: Pageable): Promise<IterablePage<OwnedOidcConfiguration>> {
         const page: Page<OwnedOidcConfiguration> = await this.findAllSinglePage(pageable)
         return new FunctionalIterablePage(pageable, page, (pageable: Pageable) => this.findAllSinglePage(pageable))
+    }
+
+    public findManagedProviders(): Promise<OidcProviderType[]> {
+        return this.serviceProxy.invoke('findManagedProviders', [])
     }
 
     public findById(id: string): Promise<OwnedOidcConfiguration | null> {
