@@ -1,1 +1,0 @@
-{"id":"a65bb76c4c477656bbc6646af6708fd9.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.core.internal.api.RpcTests.testCallWithoutParticipantSendsNoParticipantFromAContextBoundToOne","name":"testCallWithoutParticipantSendsNoParticipantFromAContextBoundToOne()","status":"passed","testResultsByEnv":{"default":"41bdd1e87191111d0d98166741d745a3"}}
