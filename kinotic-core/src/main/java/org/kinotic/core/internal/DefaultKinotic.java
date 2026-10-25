@@ -15,10 +15,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.ReactiveAdapterRegistry;
-import org.springframework.core.ReactiveTypeDescriptor;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Mono;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -27,8 +25,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 
@@ -72,35 +68,7 @@ public class DefaultKinotic implements Kinotic {
         this.kinoticProperties = kinoticProperties;
         this.serverInfo = new ServerInfo(clusterManager.getNodeId(), nodeName);
 
-        // Register Vertx Future with Reactor
-        reactiveAdapterRegistry.registerReactiveType(ReactiveTypeDescriptor.singleOptionalValue(Future.class,
-                                                                                                (Supplier<Future<?>>) Future::succeededFuture),
-                                                     source -> {
-                                                         Future<?> future = (Future<?>) source;
-                                                         // Short-circuit for already-completed futures to avoid Vert.x
-                                                         // context dispatch. Both future.onComplete() and toCompletionStage()
-                                                         // dispatch through the event loop even for resolved futures.
-                                                         if (future.isComplete()) {
-                                                             if (future.succeeded()) {
-                                                                 Object result = future.result();
-                                                                 return result != null ? Mono.just(result) : Mono.empty();
-                                                             } else {
-                                                                 return Mono.error(future.cause());
-                                                             }
-                                                         }
-                                                         return Mono.fromCompletionStage(future.toCompletionStage());
-                                                     },
-                                                     publisher -> Future.future(promise -> Mono.from(publisher)
-                                                                                               .doOnSuccess((Consumer<Object>) o -> {
-                                                                                                   if(o != null){
-                                                                                                       promise.complete(o);
-                                                                                                   }else{
-                                                                                                       promise.complete();
-                                                                                                   }
-                                                                                               })
-                                                                                               .subscribe(v -> {}, promise::fail)));// We use an empty consumer this is handled with doOnSuccess, this is done so we get a single "signal" instead of onNext, onComplete type logic..
-
-
+        KinoticUtil.registerVertxFutureAdapter(reactiveAdapterRegistry);
     }
 
     @EventListener

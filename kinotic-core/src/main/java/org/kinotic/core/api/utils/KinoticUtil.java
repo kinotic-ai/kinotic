@@ -7,6 +7,7 @@ import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
 import lombok.extern.slf4j.Slf4j;
 import net.openhft.hashing.LongTupleHashFunction;
+import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.kinotic.core.api.service.ServiceIdentifier;
@@ -15,6 +16,9 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
+import org.springframework.core.ReactiveAdapterRegistry;
+import org.springframework.core.ReactiveTypeDescriptor;
+import reactor.core.publisher.Mono;
 
 import java.math.BigInteger;
 import java.net.URLEncoder;
@@ -23,7 +27,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  *
@@ -97,22 +103,68 @@ public class KinoticUtil {
     }
 
     /**
-     * The identity a {@link org.kinotic.core.api.annotations.Proxy} interface addresses: its zone, namespace,
-     * name and version as declared on the interface, with no scope. A scoped call adds the scope per invocation.
-     * @param proxyInterface an interface annotated with {@link org.kinotic.core.api.annotations.Proxy}
+     * The identity a service interface addresses: its zone, namespace, name and version as declared on the
+     * interface, with no scope. A scoped call adds the scope per invocation. The interface is either a
+     * {@link Proxy} for a service published elsewhere or the {@link Publish}ed interface itself, whose proxies
+     * then address the service it declares.
+     * @param serviceInterface an interface annotated with {@link Proxy} or {@link Publish}
      * @return the identifier the interface's calls are routed by
      */
-    public static ServiceIdentifier serviceIdentifierOf(Class<?> proxyInterface) {
-        Proxy proxyAnnotation = proxyInterface.getAnnotation(Proxy.class);
-        Validate.notNull(proxyAnnotation, "The Class provided must be annotated with @Proxy");
-        String namespace = proxyAnnotation.namespace().isEmpty() ? safeEncodeURI(proxyInterface.getPackageName()) : safeEncodeURI(proxyAnnotation.namespace());
-        String name = proxyAnnotation.name().isEmpty() ? proxyInterface.getSimpleName() : proxyAnnotation.name();
+    public static ServiceIdentifier serviceIdentifierOf(Class<?> serviceInterface) {
+        String namespace;
+        String name;
+        Proxy proxyAnnotation = serviceInterface.getAnnotation(Proxy.class);
+        Publish publishAnnotation = serviceInterface.getAnnotation(Publish.class);
+        if (proxyAnnotation != null) {
+            namespace = proxyAnnotation.namespace();
+            name = proxyAnnotation.name();
+        } else if (publishAnnotation != null) {
+            namespace = publishAnnotation.namespace();
+            name = publishAnnotation.name();
+        } else {
+            throw new IllegalArgumentException("The Class provided must be annotated with @Proxy or @Publish");
+        }
         // A proxy targets one address; with no declaration it targets the un-zoned address
-        return new ServiceIdentifier(MetaUtil.getZone(proxyInterface),
-                                     namespace,
-                                     name,
+        return new ServiceIdentifier(MetaUtil.getZone(serviceInterface),
+                                     safeEncodeURI(namespace.isEmpty() ? serviceInterface.getPackageName() : namespace),
+                                     name.isEmpty() ? serviceInterface.getSimpleName() : name,
                                      null,
-                                     MetaUtil.getVersion(proxyInterface));
+                                     MetaUtil.getVersion(serviceInterface));
+    }
+
+    /**
+     * Registers the Vert.x {@link Future} with the registry as a single, optional value reactive type, so the
+     * service invoker and the service proxies treat a {@code Future<T>} like a {@code Mono<T>}: a {@code Future}
+     * result replies when it completes, and a {@code Future<T>} return type converts a reply into its {@code T}.
+     * @param reactiveAdapterRegistry the registry the invoker and the proxies resolve reactive types with
+     */
+    public static void registerVertxFutureAdapter(ReactiveAdapterRegistry reactiveAdapterRegistry) {
+        reactiveAdapterRegistry.registerReactiveType(ReactiveTypeDescriptor.singleOptionalValue(Future.class,
+                                                                                                (Supplier<Future<?>>) Future::succeededFuture),
+                                                     source -> {
+                                                         Future<?> future = (Future<?>) source;
+                                                         // Short-circuit for already-completed futures to avoid Vert.x
+                                                         // context dispatch. Both future.onComplete() and toCompletionStage()
+                                                         // dispatch through the event loop even for resolved futures.
+                                                         if (future.isComplete()) {
+                                                             if (future.succeeded()) {
+                                                                 Object result = future.result();
+                                                                 return result != null ? Mono.just(result) : Mono.empty();
+                                                             } else {
+                                                                 return Mono.error(future.cause());
+                                                             }
+                                                         }
+                                                         return Mono.fromCompletionStage(future.toCompletionStage());
+                                                     },
+                                                     publisher -> Future.future(promise -> Mono.from(publisher)
+                                                                                               .doOnSuccess((Consumer<Object>) o -> {
+                                                                                                   if(o != null){
+                                                                                                       promise.complete(o);
+                                                                                                   }else{
+                                                                                                       promise.complete();
+                                                                                                   }
+                                                                                               })
+                                                                                               .subscribe(v -> {}, promise::fail)));// We use an empty consumer this is handled with doOnSuccess, this is done so we get a single "signal" instead of onNext, onComplete type logic..
     }
 
     /**

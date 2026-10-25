@@ -10,7 +10,6 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.vertx.core.Vertx;
-import io.vertx.core.eventbus.EventBus;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -43,7 +42,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Base implementation of the {@link RpcServiceProxyHandle}
- * Will send all service requests on the Vertx {@link EventBus}
+ * Will send all service requests through the {@link RpcTransport} it is given
  *
  * Created by navid on 2019-04-18.
  */
@@ -59,7 +58,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private final CRI handlerCRI;
     private final RpcArgumentConverter rpcArgumentConverter;
     private final RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory;
-    private final EventBusService eventBusService;
+    private final RpcTransport transport;
     private final SecurityContext securityContext;
     private final ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
     private final RequestLivenessWatcher requestLivenessWatcher;
@@ -83,7 +82,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                         Class<T> serviceClass,
                                         RpcArgumentConverter rpcArgumentConverter,
                                         RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory,
-                                        EventBusService eventBusService,
+                                        RpcTransport transport,
                                         SecurityContext securityContext,
                                         ObjectProvider<ServiceDirectory> serviceDirectoryProvider,
                                         RequestLivenessWatcher requestLivenessWatcher,
@@ -97,7 +96,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         Validate.notNull(serviceClass, "serviceClass must not be null");
         Validate.notNull(rpcArgumentConverter, "argumentConverter must not be null");
         Validate.notNull(rpcReturnValueHandlerFactory, "returnValueHandlerFactory must not be null");
-        Validate.notNull(eventBusService, "eventBusService must not be null");
+        Validate.notNull(transport, "transport must not be null");
         Validate.notNull(securityContext, "securityContext must not be null");
         Validate.notNull(serviceDirectoryProvider, "serviceDirectoryProvider must not be null");
         Validate.notNull(requestLivenessWatcher, "requestLivenessWatcher must not be null");
@@ -112,7 +111,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         this.serviceClass = serviceClass;
         this.rpcArgumentConverter = rpcArgumentConverter;
         this.rpcReturnValueHandlerFactory = rpcReturnValueHandlerFactory;
-        this.eventBusService = eventBusService;
+        this.transport = transport;
         this.securityContext = securityContext;
         this.serviceDirectoryProvider = serviceDirectoryProvider;
         this.requestLivenessWatcher = requestLivenessWatcher;
@@ -144,7 +143,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         /*
           Response handler logic to correlate response from remote service invocation's
          */
-        replyEventConsumer = eventBusService.listen(this.handlerCRI);
+        replyEventConsumer = transport.listen(this.handlerCRI);
         replyEventConsumer.handler(event -> {
 
                     String correlationId = event.metadata().get(EventConstants.CORRELATION_ID_HEADER);
@@ -245,7 +244,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     // Published, not sent: the instance producing the stream is whichever one round-robin gave the request,
     // so every instance of the service gets the cancel and the ones without the stream ignore it
     private void sendCancel(CRI serviceCri, String correlationId){
-        eventBusService.publish(EventUtil.createStreamControlEvent(serviceCri, correlationId, EventConstants.CONTROL_VALUE_CANCEL));
+        transport.publish(EventUtil.createStreamControlEvent(serviceCri, correlationId, EventConstants.CONTROL_VALUE_CANCEL));
     }
 
     /**
@@ -333,7 +332,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                 @Override
                 public void send() {
                     // Send data to remote end to trigger service invocation
-                    eventBusService.sendWithAck(rpcOutboundEvent)
+                    transport.sendWithAck(rpcOutboundEvent)
                                    .onComplete(ar -> {
                                        if(ar.failed()) {
                                            // send failed, signal handler so failure can be relayed to the return value

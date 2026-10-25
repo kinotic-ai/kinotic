@@ -1,0 +1,21 @@
+plugins {
+    id 'org.kinotic.java-library-conventions'
+}
+
+dependencies {
+    // api scope: the proxies, service identifiers and connected info of core appear in the client's public API
+    api project(':kinotic-core')
+    // api scope: the client's operations complete Vert.x futures
+    api 'io.vertx:vertx-core'
+
+    implementation 'org.kinotic:vertx-stomp-lite'
+
+    implementation 'tools.jackson.core:jackson-core'
+    implementation 'tools.jackson.core:jackson-databind'
+
+    // The tests run the client against the gateway, started in-process with a test security service and test services
+    testImplementation project(':kinotic-api-gateway')
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-core'
+    testImplementation 'io.projectreactor:reactor-test'
+}

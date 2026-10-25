@@ -43,8 +43,12 @@ public class KinoticJacksonConfig {
         return builder -> builder.disable(MapperFeature.DETECT_PARAMETER_NAMES);
     }
 
+    /**
+     * The serializers of the platform's own value types, {@link Page} and {@link Pageable}; folded into the
+     * Boot-managed mapper as a bean, and into the mapper a process without a Spring context converts with.
+     */
     @Bean
-    public SimpleModule kinoticCoreModule(){
+    public static SimpleModule kinoticCoreModule(){
         SimpleModule ret = new SimpleModule("KinoticCoreModule", Version.unknownVersion());
 
         ret.addDeserializer(Pageable.class, new PageableDeserializer());

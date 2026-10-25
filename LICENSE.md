@@ -7,7 +7,8 @@ Portions of this software are licensed as follows:
   [`kinotic-ee/LICENSE`](kinotic-ee/LICENSE).
 
 - All content that resides in the [`kinotic-core/`](kinotic-core),
-  [`kinotic-api-gateway/`](kinotic-api-gateway), [`kinotic-idl/`](kinotic-idl),
+  [`kinotic-api-gateway/`](kinotic-api-gateway), [`kinotic-client/`](kinotic-client),
+  [`kinotic-idl/`](kinotic-idl),
   [`kinotic-js/workspace/packages/core/`](kinotic-js/workspace/packages/core) and
   [`kinotic-js/workspace/packages/idl/`](kinotic-js/workspace/packages/idl) directories of this
   repository (Kinotic RPC) is licensed under the Apache License 2.0 defined in

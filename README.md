@@ -339,6 +339,7 @@ The repository contains the major components required to build and operate Kinot
 | [`kinotic-sql`](kinotic-sql) | The SQL grammar used for migrations and named queries, parsed and executed against the entity stores |
 | [`kinotic-grind`](kinotic-grind) | Job engine: job and task definitions, runs, progress reporting and events |
 | [`kinotic-api-gateway`](kinotic-api-gateway) | Client-facing gateway: STOMP over WebSocket, REST routes, and the MCP endpoint |
+| [`kinotic-client`](kinotic-client) | Java client: calls a gateway's services from outside its cluster through the typed `@Publish` proxies, over STOMP on a WebSocket |
 | [`kinotic-management-api`](kinotic-management-api) | Management plane: applications, projects, artifacts, deployments, GitHub provisioning, logs and metrics |
 | [`kinotic-system-api`](kinotic-system-api) | System plane: workload and VM node orchestration, deployment operations, log and site storage |
 | [`kinotic-server-management`](kinotic-server-management) | The management server: the deployable Spring Boot server for the portal, organization members, their machines and the CLI, assembling core, domain, management-api and the gateway |
@@ -377,7 +378,7 @@ Kinotic provides the higher-level abstractions while allowing developers and org
 
 The project is licensed under the Elastic License 2.0 with the Kinotic Additional Limitations,
 except Kinotic RPC, the service and event layer in `kinotic-core`, `kinotic-api-gateway`,
-`kinotic-idl` and the `@kinotic-ai/core` and `@kinotic-ai/idl` packages, which is licensed under the
+`kinotic-client`, `kinotic-idl` and the `@kinotic-ai/core` and `@kinotic-ai/idl` packages, which is licensed under the
 Apache License 2.0, and the Enterprise Features in [`kinotic-ee/`](kinotic-ee), which are licensed
 under the Kinotic Enterprise License and need an agreement with Minds Ignited for production use. See
 [LICENSE.md](LICENSE.md) for the terms governing the project, and [CLA.md](CLA.md) for the
