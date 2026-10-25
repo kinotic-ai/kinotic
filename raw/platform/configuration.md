@@ -1410,7 +1410,7 @@ works with no site of one's own.
 
 ## LLM configurations
 
-The large language models the platform's services call are configured at runtime rather than in a
+The large language models the system's services call are configured at runtime rather than in a
 property file: a system user adds them on the system console's **System → LLM configurations**
 page, and a service selects one by its name through `LlmConfigurationService.findByName`, published
 in the `system-api` zone.
@@ -1528,7 +1528,7 @@ in the `system-api` zone.
 The API key is given on save, `LlmConfigurationService.save(configuration, apiKey)`, and held through
 `SecretStorageService` in the system's scope, keyed by the configuration's id; a save without one
 keeps the key held, and deleting the configuration deletes its key. `findApiKey(id)` reads it back for
-a platform service that calls the model: only a cluster member calling as itself, with no participant
+a system service that calls the model: only a cluster member calling as itself, with no participant
 bound, can read it, so no gateway connection can, the system console's users included.
 
 ## Without Azure storage
