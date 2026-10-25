@@ -1,3 +1,8 @@
+---
+title: "Artifact Types"
+description: "Learn about the different artifact types a Kinotic project can contribute -- from persistence and microservices to frontends."
+canonical_url: "https://kinotic.ai/apps/application-structure/artifact-types"
+---
 # Artifact Types
 
 > Learn about the different artifact types a Kinotic project can contribute -- from persistence and microservices to frontends.
@@ -22,7 +27,7 @@ Persistence is typically the first artifact you create because it establishes th
 
 ## Microservice
 
-A microservice artifact is long-running code that executes in a pod or VM. It publishes services that other parts of the application can discover and call through [service proxies](/apps/services/service-proxies).
+A microservice artifact is long-running code that executes in a pod or VM. It publishes services that other parts of the application can discover and call through [service proxies](https://kinotic.ai/apps/services/service-proxies).
 
 **What you provide:**
 
@@ -32,7 +37,7 @@ A microservice artifact is long-running code that executes in a pod or VM. It pu
 **What the platform provides:**
 
 - Automatic service registration in the Service Directory.
-- Service discovery and zone-based routing so other projects can call your service through a [service proxy](/apps/services/service-proxies) with a simple function call.
+- Service discovery and zone-based routing so other projects can call your service through a [service proxy](https://kinotic.ai/apps/services/service-proxies) with a simple function call.
 - Lifecycle management, scaling, and health monitoring.
 
 Use a microservice when your logic goes beyond simple CRUD -- orchestrating across multiple entities, calling external APIs, or running long-lived workflows.
@@ -165,3 +170,8 @@ Most real-world applications combine several artifact types. A typical setup mig
 </table>
 
 Each project is independently developed and versioned, but they all deploy as part of the same application and communicate through the Service Directory.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

@@ -1,3 +1,8 @@
+---
+title: "Applications and Projects"
+description: "Learn how to configure Kinotic applications and the projects that compose them."
+canonical_url: "https://kinotic.ai/apps/application-structure/applications-and-projects"
+---
 # Applications and Projects
 
 > Learn how to configure Kinotic applications and the projects that compose them.
@@ -9,7 +14,7 @@ An application is the deployable unit in Kinotic. Projects are the building bloc
 Every application has:
 
 - **Name** -- A human-readable name (e.g., `Inventory App`).
-- **Id** -- Derived from the name at creation: the slugified name, made of lowercase letters, digits, and single interior dashes (e.g., `inventory-app`). The id forms the final label of the application's [zone](/platform/reference/cri-format), and joined to the organization id with `--` it forms the application's API host label, `<organizationId>--<applicationId>`. Each of its UIs' sites is `<applicationId>--<uiName>` under the organization's own subdomain of the sites domain, `<applicationId>--<uiName>.<organizationId>.kinotic.io`; that first label is held to 37 characters, which leaves a tenant's name room in front of it on a tenant's site (`<tenantId>--<applicationId>--<uiName>`, within DNS's 63), and the API host label to DNS's 63, so a name that leaves no room for a UI name, or whose API host label would exceed the limit under the organization's id, is rejected.
+- **Id** -- Derived from the name at creation: the slugified name, made of lowercase letters, digits, and single interior dashes (e.g., `inventory-app`). The id forms the final label of the application's [zone](https://kinotic.ai/platform/reference/cri-format), and joined to the organization id with `--` it forms the application's API host label, `<organizationId>--<applicationId>`. Each of its UIs' sites is `<applicationId>--<uiName>` under the organization's own subdomain of the sites domain, `<applicationId>--<uiName>.<organizationId>.kinotic.io`; that first label is held to 37 characters, which leaves a tenant's name room in front of it on a tenant's site (`<tenantId>--<applicationId>--<uiName>`, within DNS's 63), and the API host label to DNS's 63, so a name that leaves no room for a UI name, or whose API host label would exceed the limit under the organization's id, is rejected.
 - **Description** -- A human-readable summary of what the application does.
 - **Primary UI** -- The name of the UI whose site the application's browser flows return to, chosen on the application's Settings page, and set to the first UI a deployment publishes while none is chosen: OAuth consent opens its `/oauth/consent` page, and a sign-in an identity provider fails returns to its `/login` page with an `error` parameter. Until one is chosen, the application's OAuth authorization endpoint answers `400`. It must name a UI one of the application's projects has published; it stays set if that UI's deployment is later removed.
 
@@ -307,7 +312,7 @@ When the application is deployed, the platform resolves these internal dependenc
 
 ## Deployable packages
 
-When a push deploys a project (see [Push to Deploy](/apps/deployment/push-to-deploy)), the
+When a push deploys a project (see [Push to Deploy](https://kinotic.ai/apps/deployment/push-to-deploy)), the
 platform finds the packages it deploys by where they sit in the workspace:
 
 - **Microservices** live directly under `packages/microservices`, one package each. A
@@ -466,3 +471,8 @@ every application; elsewhere an application's users sign in only from its publis
 Most applications start with a single project created through Kinotic OS, which provisions a GitHub repository scaffolded as a Bun workspace mono repo: `packages/domain` (entity model and generated repositories), `packages/microservices`, `packages/ui`, and a `.config/kinotic.config.ts` wired to the owning organization and application. Clone the provisioned repository and start building.
 
 As the application grows, you can add additional projects for microservices, batch jobs, or frontends -- each with its own `.config/kinotic.config.ts` pointing to the same application identifier.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

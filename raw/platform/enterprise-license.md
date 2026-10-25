@@ -1,3 +1,8 @@
+---
+title: "Enterprise License"
+description: "Which parts of Kinotic are Enterprise Features, what running them in production requires, and how the license treats substitute implementations."
+canonical_url: "https://kinotic.ai/platform/enterprise-license"
+---
 # Enterprise License
 
 > Which parts of Kinotic are Enterprise Features, what running them in production requires, and how the license treats substitute implementations.
@@ -204,4 +209,9 @@ To arrange an enterprise agreement, contact Minds Ignited through [kinotic.ai](h
 Contributors accept the
 [Kinotic Contributor License Agreement](https://github.com/kinotic-ai/kinotic/blob/develop/CLA.md),
 which lets Minds Ignited license a contribution under either license. See
-[Contributing](/platform/contributing#licensing).
+[Contributing](https://kinotic.ai/platform/contributing#licensing).
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

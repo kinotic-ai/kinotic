@@ -1,3 +1,8 @@
+---
+title: "Decorators Reference"
+description: "Complete reference for all Kinotic decorators."
+canonical_url: "https://kinotic.ai/apps/reference/decorators"
+---
 # Decorators Reference
 
 > Complete reference for all Kinotic decorators.
@@ -296,7 +301,7 @@ export class SensorReading {
 
 ### `@Query(statement)`
 
-Method decorator that defines a [named query](/apps/persistence/named-queries) on a repository class. The statement is a `SELECT`, `INSERT`, `UPDATE` or `DELETE` of the repository's entity in the [Kinotic SQL grammar](/apps/reference/migration-sql-grammar), including an aggregate `SELECT` (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`, …), with `:paramName` parameter binding. The method body is left empty -- `kinotic generate` fills in the implementation. Declare the method on the repository subclass that extends the generated base class (the subclass is generated once and never overwritten).
+Method decorator that defines a [named query](https://kinotic.ai/apps/persistence/named-queries) on a repository class. The statement is a `SELECT`, `INSERT`, `UPDATE` or `DELETE` of the repository's entity in the [Kinotic SQL grammar](https://kinotic.ai/apps/reference/migration-sql-grammar), including an aggregate `SELECT` (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`, …), with `:paramName` parameter binding. The method body is left empty -- `kinotic generate` fills in the implementation. Declare the method on the repository subclass that extends the generated base class (the subclass is generated once and never overwritten).
 
 ```typescript
 import { Query } from '@kinotic-ai/persistence'
@@ -323,7 +328,7 @@ These decorators are imported from `@kinotic-ai/core`.
 
 ### `@Publish(namespace?, name?, advertise?)`
 
-Publishes a class as a remotely accessible service. The service becomes available to clients via the RPC gateway, addressed inside the client's zone (see [CRI Format](/platform/reference/cri-format)).
+Publishes a class as a remotely accessible service. The service becomes available to clients via the RPC gateway, addressed inside the client's zone (see [CRI Format](https://kinotic.ai/platform/reference/cri-format)).
 
 ```typescript
 import { Publish } from '@kinotic-ai/core'
@@ -416,4 +421,9 @@ class AuditService {
 }
 ```
 
-`participant` is absent only for an invocation that originated inside the platform with no participant bound, such as a scheduled job. See [Publishing Services](/apps/services/publishing-services#context) for narrowing it to a scope-typed participant.
+`participant` is absent only for an invocation that originated inside the platform with no participant bound, such as a scheduled job. See [Publishing Services](https://kinotic.ai/apps/services/publishing-services#context) for narrowing it to a scope-typed participant.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

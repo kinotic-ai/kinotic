@@ -1,3 +1,8 @@
+---
+title: "Observability"
+description: "Monitoring, tracing, and logging across your Kinotic applications."
+canonical_url: "https://kinotic.ai/platform/observability"
+---
 # Observability
 
 > Monitoring, tracing, and logging across your Kinotic applications.
@@ -30,7 +35,7 @@ Track platform activity including:
 
 View microservice logs directly from the dashboard with the ability to temporarily adjust logging levels for debugging. Increase verbosity on a running service to investigate an issue, then restore normal levels when done — no redeployment required.
 
-The same dialog edits a node's [trace log filters](/platform/configuration#trace-logging), so turning a logger up to TRACE does not have to mean drowning in whatever service talks most. Both changes last until the node restarts.
+The same dialog edits a node's [trace log filters](https://kinotic.ai/platform/configuration#trace-logging), so turning a logger up to TRACE does not have to mean drowning in whatever service talks most. Both changes last until the node restarts.
 
 The servers' own logs are in Loki's `kinotic-system` tenant, and every stream of them carries two labels: `service_name`, the server (`kinotic-server-management`, `kinotic-server-system` or `kinotic-server-app`), and `service_instance_id`, the node. Each node reads both from its `OTEL_SERVICE_NAME` and the `service.instance.id` in its `OTEL_RESOURCE_ATTRIBUTES`, and every deployment sets them to match how its logs are shipped:
 
@@ -116,7 +121,7 @@ The workload runner starts the processes it runs (the sync's install, entity syn
 
 ### Log shipping architecture
 
-Every node runs a managed [Grafana Alloy](https://grafana.com/docs/alloy/latest/) process whose pipeline is regenerated as workloads come and go; Alloy tails each running workload's log files and pushes them to Loki, and receives the traces and metrics of the workloads that elect telemetry and pushes them to Tempo and Mimir (see [Workload Traces and Metrics](#workload-traces-and-metrics)). What a workload has to do for its logs to be shipped depends on the node's [VM provider](/platform/configuration#vm-provider):
+Every node runs a managed [Grafana Alloy](https://grafana.com/docs/alloy/latest/) process whose pipeline is regenerated as workloads come and go; Alloy tails each running workload's log files and pushes them to Loki, and receives the traces and metrics of the workloads that elect telemetry and pushes them to Tempo and Mimir (see [Workload Traces and Metrics](#workload-traces-and-metrics)). What a workload has to do for its logs to be shipped depends on the node's [VM provider](https://kinotic.ai/platform/configuration#vm-provider):
 
 <table>
 <thead>
@@ -202,7 +207,7 @@ Every node runs a managed [Grafana Alloy](https://grafana.com/docs/alloy/latest/
 
 Workload VMs run detached from the vm-manager process by default (`Workload.detached`), and the vm-manager persists each workload's state on the node. If the vm-manager restarts (a crash, a systemd restart), it reattaches to the detached VMs that are still running and regenerates the Alloy pipeline, so their logs keep shipping. A non-detached workload runs in the foreground — the call that starts it resolves only once its run has ended, with the exit code — and ends with the vm-manager process.
 
-On a deployment's job run page the **Sync project source** step expands into the sync workload's log, the way a CI step does: open while the step runs, where its **Follow** button follows new lines as they arrive, and readable afterwards from the run's history. The node's removal of an ended run waits for the shipper to read the workload's log files to the end first, so a run over in seconds still ships every line it wrote, and a workload's logs outlive its VM: they are read by the organization and workload id, so the sync and publish workloads, which the node removes as their runs end, stay readable from the run's history until the workload's record is deleted — from the console, or by the retention sweep once the run is older than `kinotic.systemApi.workload.retentionDays` — which deletes its log streams with it (see [Workload retention](/platform/configuration#workload-retention)).
+On a deployment's job run page the **Sync project source** step expands into the sync workload's log, the way a CI step does: open while the step runs, where its **Follow** button follows new lines as they arrive, and readable afterwards from the run's history. The node's removal of an ended run waits for the shipper to read the workload's log files to the end first, so a run over in seconds still ships every line it wrote, and a workload's logs outlive its VM: they are read by the organization and workload id, so the sync and publish workloads, which the node removes as their runs end, stay readable from the run's history until the workload's record is deleted — from the console, or by the retention sweep once the run is older than `kinotic.systemApi.workload.retentionDays` — which deletes its log streams with it (see [Workload retention](https://kinotic.ai/platform/configuration#workload-retention)).
 
 A run that has ended — stopped, exited, or failed — is removed from the node once the server holds its outcome: the node ships what the VM wrote, then removes the VM, its disk and its log files. The workload's record and its logs remain until the record is deleted, so a microservice restart from the console runs a fresh VM with a new `vm_id`.
 
@@ -304,7 +309,7 @@ The `LogService` (`@kinotic-ai/management-api`) streams (`tail`) and queries (`h
 
 ## Workload Traces and Metrics
 
-A workload that sets `telemetry` to `true` is given an OTLP endpoint of its own on the node it runs on, and the traces and metrics it exports there are shipped to Tempo and Mimir under its organization's tenant, carrying the same identity as its log streams. Telemetry is elected per workload: the node ships nothing for a workload that leaves it off, whatever the workload's runtime exports. The runtime workload of every [deployed project](/platform/configuration#project-deployment) elects it, under the project's name as its service name.
+A workload that sets `telemetry` to `true` is given an OTLP endpoint of its own on the node it runs on, and the traces and metrics it exports there are shipped to Tempo and Mimir under its organization's tenant, carrying the same identity as its log streams. Telemetry is elected per workload: the node ships nothing for a workload that leaves it off, whatever the workload's runtime exports. The runtime workload of every [deployed project](https://kinotic.ai/platform/configuration#project-deployment) elects it, under the project's name as its service name.
 
 ### What the node does
 
@@ -520,7 +525,7 @@ A workload with `network.mode` `DISABLED` has no way to reach the endpoint, so a
 </tbody>
 </table>
 
-The port is opened by the same per-workload rules as the workload's [egress](/platform/configuration#workload-egress), so a `CLOUD_HYPERVISOR` node that does not deny egress by default refuses a workload electing telemetry, as it refuses one declaring `allowedHosts`.
+The port is opened by the same per-workload rules as the workload's [egress](https://kinotic.ai/platform/configuration#workload-egress), so a `CLOUD_HYPERVISOR` node that does not deny egress by default refuses a workload electing telemetry, as it refuses one declaring `allowedHosts`.
 
 ### Identity and tenant
 
@@ -739,3 +744,8 @@ The portal shows them on an application's **Observability** page: a trace search
 </table>
 
 The vm-manager resolves the Alloy binary from the `PATH`, downloading its pinned release when none is found. Both the download and Alloy's launch happen while the node starts up, before it registers and accepts workloads, so no workload operation waits on them. One Alloy process ships logs, traces, and metrics; a node configured for some of them runs it for those alone.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

@@ -1,3 +1,8 @@
+---
+title: "Migrations"
+description: "Versioned data migrations for an application's entities, run during kinotic sync."
+canonical_url: "https://kinotic.ai/apps/persistence/migrations"
+---
 # Migrations
 
 > Versioned data migrations for an application's entities, run during kinotic sync.
@@ -44,7 +49,7 @@ INSERT INTO Role (id, tenantId, name) VALUES ('role-member', 'acme', 'Member') W
 
 ## Supported Statements
 
-A migration uses the four data statements. Each names an entity of the application. Keywords match in any case, but entity and field names are case-sensitive and must be written the way the entity class spells them: `Person` and `firstName`, not `person` and `FIRSTNAME`. An entity name in the wrong case fails the run, naming the entity meant; a field name in the wrong case is not an error, so an `UPDATE` or `DELETE` that uses one changes no rows. See [Case](/apps/reference/migration-sql-grammar#case).
+A migration uses the four data statements. Each names an entity of the application. Keywords match in any case, but entity and field names are case-sensitive and must be written the way the entity class spells them: `Person` and `firstName`, not `person` and `FIRSTNAME`. An entity name in the wrong case fails the run, naming the entity meant; a field name in the wrong case is not an error, so an `UPDATE` or `DELETE` that uses one changes no rows. See [Case](https://kinotic.ai/apps/reference/migration-sql-grammar#case).
 
 ### INSERT INTO
 
@@ -142,4 +147,9 @@ The script reaches `ctx` only as `ctx._source` or `ctx.op`, and does not call `m
 - **Keep migrations small and focused** - One logical change per migration file
 - **Never modify a migration after it has been applied** - Create a new migration instead
 
-For the complete SQL grammar reference, see the [Migration SQL Grammar Reference](/apps/reference/migration-sql-grammar).
+For the complete SQL grammar reference, see the [Migration SQL Grammar Reference](https://kinotic.ai/apps/reference/migration-sql-grammar).
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

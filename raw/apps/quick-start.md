@@ -1,3 +1,8 @@
+---
+title: "Quick Start"
+description: "Get started building your first Kinotic App -- from a provisioned project to a running CRUD service in under five minutes."
+canonical_url: "https://kinotic.ai/apps/quick-start"
+---
 # Quick Start
 
 > Get started building your first Kinotic App -- from a provisioned project to a running CRUD service in under five minutes.
@@ -147,6 +152,11 @@ You should see the saved person printed to the console, followed by a page of re
 
 Now that you have a working application, explore the rest of the documentation:
 
-- [Application Structure](/apps/application-structure/overview) -- Understand how organizations, applications, projects, and artifacts are organized.
-- [Services](/apps/services) -- Learn how to publish and consume services across your application.
-- [Persistence](/apps/persistence) -- Dive deeper into entity definitions, relationships, and querying.
+- [Application Structure](https://kinotic.ai/apps/application-structure/overview) -- Understand how organizations, applications, projects, and artifacts are organized.
+- [Services](https://kinotic.ai/apps/services) -- Learn how to publish and consume services across your application.
+- [Persistence](https://kinotic.ai/apps/persistence) -- Dive deeper into entity definitions, relationships, and querying.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

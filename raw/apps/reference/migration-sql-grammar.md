@@ -1,14 +1,19 @@
+---
+title: "Migration SQL Grammar"
+description: "Complete SQL grammar reference for migration scripts."
+canonical_url: "https://kinotic.ai/apps/reference/migration-sql-grammar"
+---
 # Migration SQL Grammar
 
 > Complete SQL grammar reference for migration scripts.
 
 ## Overview
 
-This grammar reference applies to migration scripts used for schema and data migrations in Kinotic, and to [named queries](/apps/persistence/named-queries), which use the same SQL dialect for `SELECT`, `INSERT`, `UPDATE` and `DELETE`.
+This grammar reference applies to migration scripts used for schema and data migrations in Kinotic, and to [named queries](https://kinotic.ai/apps/persistence/named-queries), which use the same SQL dialect for `SELECT`, `INSERT`, `UPDATE` and `DELETE`.
 
 All statements must end with a semicolon (`;`). Identifiers must start with a letter or underscore and can contain letters, numbers, and underscores; double quotes make a [reserved word](#keywords) a name (`"order"`). Keywords match in any case, but names are case-sensitive: see [Case](#case). Strings are enclosed in single quotes (`'...'`).
 
-An application's migrations, the ones `kinotic sync` runs from its `migrations` folder, use only the data statements: `INSERT`, `UPDATE`, `DELETE` and `REINDEX`. There `<index_name>` is the name of one of the application's entities, which the platform resolves to the entity's backing store, and an `INSERT` carries neither `ROUTING` nor `DOCUMENT_ID`, since both are derived from the row's id and tenant fields. A `REINDEX` `SCRIPT` there reaches `ctx` only as `ctx._source` or `ctx.op`. See [Migrations](/apps/persistence/migrations). The remaining statements, and the storage names in the examples below, belong to the [system migrations](/platform/system-migrations).
+An application's migrations, the ones `kinotic sync` runs from its `migrations` folder, use only the data statements: `INSERT`, `UPDATE`, `DELETE` and `REINDEX`. There `<index_name>` is the name of one of the application's entities, which the platform resolves to the entity's backing store, and an `INSERT` carries neither `ROUTING` nor `DOCUMENT_ID`, since both are derived from the row's id and tenant fields. A `REINDEX` `SCRIPT` there reaches `ctx` only as `ctx._source` or `ctx.op`. See [Migrations](https://kinotic.ai/apps/persistence/migrations). The remaining statements, and the storage names in the examples below, belong to the [system migrations](https://kinotic.ai/platform/system-migrations).
 
 ## Statements Overview
 
@@ -684,7 +689,7 @@ DELETE FROM products WHERE inStock = false WITH REFRESH ;
 
 ## SELECT
 
-Reads the documents matching a where clause, whole or projected to the listed fields, or aggregates them. A `SELECT` is the statement of a [named query](/apps/persistence/named-queries#select); a migration has no use for one.
+Reads the documents matching a where clause, whole or projected to the listed fields, or aggregates them. A `SELECT` is the statement of a [named query](https://kinotic.ai/apps/persistence/named-queries#select); a migration has no use for one.
 
 **Syntax:**
 
@@ -1529,3 +1534,8 @@ SELECT COUNT(*) AS total FROM Person WHERE LASTNAME = 'Doe';
 ```
 
 The same holds for a field named like a keyword: `SELECT date FROM Event` reads the field `date`, while `SELECT DATE FROM Event` reads a field named `DATE`, which no row has. An alias keeps the case it is written in, and a returned row's columns are named by it.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

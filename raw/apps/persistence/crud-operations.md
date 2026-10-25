@@ -1,3 +1,8 @@
+---
+title: "CRUD Operations"
+description: "Using generated entity services for create, read, update, delete, search, and count operations in Kinotic."
+canonical_url: "https://kinotic.ai/apps/persistence/crud-operations"
+---
 # CRUD Operations
 
 > Using generated entity services for create, read, update, delete, search, and count operations in Kinotic.
@@ -17,7 +22,7 @@ await Kinotic.connect()
 const service = new PersonRepository()
 ```
 
-`Kinotic.connect()` resolves the server and credentials from the environment — see [Authentication](/apps/security/authentication) for the resolution chain.
+`Kinotic.connect()` resolves the server and credentials from the environment — see [Authentication](https://kinotic.ai/apps/security/authentication) for the resolution chain.
 
 ## Create
 
@@ -127,3 +132,8 @@ await service.syncIndex()
 ```
 
 This is useful in scripts or tests where you need to query data right after writing it. In production, the platform refreshes automatically at a short interval.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

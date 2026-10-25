@@ -1,0 +1,55 @@
+# Kinotic
+
+## Overview
+
+- [Kinotic](https://kinotic.ai/raw/index.md)
+
+## Documentation Sets
+
+- [Kinotic](https://kinotic.ai/llms-full.txt)
+
+## Docs
+
+Every page below is available as raw markdown.
+
+- [Applications and Projects](https://kinotic.ai/raw/apps/application-structure/applications-and-projects.md): Learn how to configure Kinotic applications and the projects that compose them.
+- [Artifact Types](https://kinotic.ai/raw/apps/application-structure/artifact-types.md): Learn about the different artifact types a Kinotic project can contribute -- from persistence and microservices to frontends.
+- [Overview](https://kinotic.ai/raw/apps/application-structure/overview.md): Understand how Kinotic apps are organized -- from organizations down to individual artifacts.
+- [CLI Reference](https://kinotic.ai/raw/apps/cli-reference.md): Command reference for the Kinotic CLI.
+- [Environments](https://kinotic.ai/raw/apps/deployment/environments.md): Development, staging, and production environment configuration.
+- [Push to Deploy](https://kinotic.ai/raw/apps/deployment/push-to-deploy.md): How a git push to your project's repository becomes a running deployment.
+- [Deployment Workflow](https://kinotic.ai/raw/apps/deployment/workflow.md): The Kinotic deployment pipeline from development to production.
+- [Introduction](https://kinotic.ai/raw/apps/introduction.md): Learn what Kinotic is, why it exists, and how it helps developers and AI agents build enterprise-grade applications at scale.
+- [CRUD Operations](https://kinotic.ai/raw/apps/persistence/crud-operations.md): Using generated entity services for create, read, update, delete, search, and count operations in Kinotic.
+- [Defining Entities](https://kinotic.ai/raw/apps/persistence/defining-entities.md): How to define entities using TypeScript decorators for Kinotic's persistence layer.
+- [Entity Decorators](https://kinotic.ai/raw/apps/persistence/entity-decorators.md): All available entity decorators for configuring field behavior, indexing, relationships, and versioning in Kinotic persistence.
+- [Migrations](https://kinotic.ai/raw/apps/persistence/migrations.md): Versioned data migrations for an application's entities, run during kinotic sync.
+- [Multi-Tenancy](https://kinotic.ai/raw/apps/persistence/multi-tenancy.md): Multi-tenant data isolation in Kinotic with automatic tenant filtering.
+- [Named Queries](https://kinotic.ai/raw/apps/persistence/named-queries.md): Defining and using custom named queries on entity services in Kinotic.
+- [Overview](https://kinotic.ai/raw/apps/persistence/overview.md): Kinotic's persistence layer provides declarative data management with automatic CRUD service generation from TypeScript entity definitions.
+- [Quick Start](https://kinotic.ai/raw/apps/quick-start.md): Get started building your first Kinotic App -- from a provisioned project to a running CRUD service in under five minutes.
+- [Decorators Reference](https://kinotic.ai/raw/apps/reference/decorators.md): Complete reference for all Kinotic decorators.
+- [Migration SQL Grammar](https://kinotic.ai/raw/apps/reference/migration-sql-grammar.md): Complete SQL grammar reference for migration scripts.
+- [Authentication](https://kinotic.ai/raw/apps/security/authentication.md): Authentication methods and identity management in Kinotic.
+- [Overview](https://kinotic.ai/raw/apps/services/overview.md): How services work in Kinotic and the communication patterns they support.
+- [Publishing Services](https://kinotic.ai/raw/apps/services/publishing-services.md): How to publish TypeScript services in Kinotic using decorators.
+- [Service Proxies](https://kinotic.ai/raw/apps/services/service-proxies.md): How to call remote services using service proxies in Kinotic.
+- [Streaming](https://kinotic.ai/raw/apps/services/streaming.md): Real-time data streaming between services and clients.
+- [System Architecture](https://kinotic.ai/raw/platform/architecture.md): High-level architecture of the Kinotic OS platform.
+- [Configuration](https://kinotic.ai/raw/platform/configuration.md): Configuration reference for Kinotic OS server and services.
+- [Contributing](https://kinotic.ai/raw/platform/contributing.md): How to contribute to the Kinotic OS project.
+- [Defense in Depth](https://kinotic.ai/raw/platform/defense-in-depth.md): The layered enforcement strategies applied to every request path in Kinotic OS.
+- [Deployment Guide](https://kinotic.ai/raw/platform/deployment-guide.md): Deploying and operating Kinotic OS in various environments.
+- [Development Server](https://kinotic.ai/raw/platform/development-server.md): A development environment for a few peers on one physical host, what it keeps in Azure, and how their applications move to Kinotic Cloud.
+- [Enterprise License](https://kinotic.ai/raw/platform/enterprise-license.md): Which parts of Kinotic are Enterprise Features, what running them in production requires, and how the license treats substitute implementations.
+- [MCP Tools](https://kinotic.ai/raw/platform/mcp-tools.md): Expose published service functions as Model Context Protocol tools.
+- [Observability](https://kinotic.ai/raw/platform/observability.md): Monitoring, tracing, and logging across your Kinotic applications.
+- [Organization Management](https://kinotic.ai/raw/platform/organization-management.md): How organizations are created, how their users authenticate, and how OIDC providers are wired up.
+- [CRI Format](https://kinotic.ai/raw/platform/reference/cri-format.md): Kinotic Resource Identifier specification.
+- [Grind Jobs](https://kinotic.ai/raw/platform/reference/grind-jobs.md): The declarative job framework for long-running platform work.
+- [Project Publishing Design](https://kinotic.ai/raw/platform/reference/project-publishing-design.md): How a project's microservices and UIs are deployed, stored, and served, and how far the build has come.
+- [Sign-In Design](https://kinotic.ai/raw/platform/reference/sign-in-design.md): How OIDC configurations, scoped logins and the one-user-per-scope model fit together, in seven figures.
+- [Service Call Liveness](https://kinotic.ai/raw/platform/service-call-liveness.md): How a call through a service proxy fails when the node serving it dies, instead of waiting forever — without a timeout anywhere.
+- [Supply Chain Security](https://kinotic.ai/raw/platform/supply-chain-security.md): How Kinotic inventories, scans and gates the container images it publishes, and where the evidence for each control is kept.
+- [System Migrations](https://kinotic.ai/raw/platform/system-migrations.md): Writing and maintaining migration scripts for Kinotic's internal system indices.
+- [System Security](https://kinotic.ai/raw/platform/system-security.md): Platform-level security architecture in Kinotic OS — scope isolation, credential separation, OIDC model.

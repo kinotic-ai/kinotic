@@ -1,3 +1,8 @@
+---
+title: "Grind Jobs"
+description: "The declarative job framework for long-running platform work."
+canonical_url: "https://kinotic.ai/platform/reference/grind-jobs"
+---
 # Grind Jobs
 
 > The declarative job framework for long-running platform work.
@@ -344,7 +349,7 @@ Kinotic ships one system job:
     </td>
     
     <td>
-      Runs the <a href="/platform/configuration#workload-retention">
+      Runs the <a href="https://kinotic.ai/platform/configuration#workload-retention">
         workload retention
       </a>
       
@@ -353,3 +358,8 @@ Kinotic ships one system job:
   </tr>
 </tbody>
 </table>
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

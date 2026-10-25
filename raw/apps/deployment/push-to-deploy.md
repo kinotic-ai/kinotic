@@ -1,3 +1,8 @@
+---
+title: "Push to Deploy"
+description: "How a git push to your project's repository becomes a running deployment."
+canonical_url: "https://kinotic.ai/apps/deployment/push-to-deploy"
+---
 # Push to Deploy
 
 > How a git push to your project's repository becomes a running deployment.
@@ -69,7 +74,7 @@ if they crash immediately after a reload.
 ## Artifacts
 
 A project repository is a Bun workspace, and every deployment finds the
-[artifacts](/apps/application-structure/artifact-types) it contains by where each package
+[artifacts](https://kinotic.ai/apps/application-structure/artifact-types) it contains by where each package
 sits in the tree. Two kinds are deployed today:
 
 - A **microservice** is a directory directly under `packages/microservices` holding a
@@ -396,3 +401,8 @@ ends. Intermediate
 commits are skipped rather than queued — the checkout converges to the newest push, and
 each skipped commit is still reachable in git history. Redeliveries of the same push are
 harmless: syncing a commit twice converges to the same checkout.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

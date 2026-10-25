@@ -1,3 +1,8 @@
+---
+title: "Entity Decorators"
+description: "All available entity decorators for configuring field behavior, indexing, relationships, and versioning in Kinotic persistence."
+canonical_url: "https://kinotic.ai/apps/persistence/entity-decorators"
+---
 # Entity Decorators
 
 > All available entity decorators for configuring field behavior, indexing, relationships, and versioning in Kinotic persistence.
@@ -238,4 +243,9 @@ export class SensorReading {
 }
 ```
 
-For a complete reference of all decorators, see the [Decorators Reference](/apps/reference/decorators).
+For a complete reference of all decorators, see the [Decorators Reference](https://kinotic.ai/apps/reference/decorators).
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

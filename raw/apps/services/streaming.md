@@ -1,3 +1,8 @@
+---
+title: "Streaming"
+description: "Real-time data streaming between services and clients."
+canonical_url: "https://kinotic.ai/apps/services/streaming"
+---
 # Streaming
 
 > Real-time data streaming between services and clients.
@@ -51,7 +56,7 @@ A stream ends for its caller in one of four ways, and the service stops producin
 - **The service completes it.** The caller's `Observable` completes.
 - **The service fails it.** The caller's `Observable` errors with the exception the service threw or emitted.
 - **The caller unsubscribes.** A cancel reaches the service, which unsubscribes from the `Observable` the method returned, so a finite source stops early and an `interval` stops ticking.
-- **The caller is gone.** The platform watches the caller's reply destination for every stream in progress, on the node hosting a Java service and on the gateway for a TypeScript one. When nothing listens there any more — the caller's connection closed, or its node left the cluster — the stream is cancelled the same way an unsubscribe cancels it. A TypeScript service whose own connection ends, however it ends, cancels every stream it was producing at that moment, because the gateway has already failed those callers (see [service call liveness](/platform/service-call-liveness)).
+- **The caller is gone.** The platform watches the caller's reply destination for every stream in progress, on the node hosting a Java service and on the gateway for a TypeScript one. When nothing listens there any more — the caller's connection closed, or its node left the cluster — the stream is cancelled the same way an unsubscribe cancels it. A TypeScript service whose own connection ends, however it ends, cancels every stream it was producing at that moment, because the gateway has already failed those callers (see [service call liveness](https://kinotic.ai/platform/service-call-liveness)).
 
 A service that stops while producing a stream ends it with an error at the caller rather than a silent cancel.
 
@@ -61,3 +66,8 @@ A service that stops while producing a stream ends it with an error at the calle
 - **Notifications and alerts** -- Push updates to connected clients
 - **Change data capture** -- React to data changes as they happen
 - **Large result sets** -- Stream results incrementally instead of loading everything at once
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

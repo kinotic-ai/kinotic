@@ -1,3 +1,8 @@
+---
+title: "Publishing Services"
+description: "How to publish TypeScript services in Kinotic using decorators."
+canonical_url: "https://kinotic.ai/apps/services/publishing-services"
+---
 # Publishing Services
 
 > How to publish TypeScript services in Kinotic using decorators.
@@ -26,7 +31,7 @@ This registers the service as `com.example.GreetingService` at version `1.0.0`, 
 
 ## Zones
 
-Every service address lives in a zone — the isolation boundary the gateway validates on each call (see [CRI Format](/platform/reference/cri-format)). An application's services always register inside the application's own zone: the client's `zonePrefix` is set from static project configuration before services are instantiated, and declared zones are appended to it, so a service can never register outside its application.
+Every service address lives in a zone — the isolation boundary the gateway validates on each call (see [CRI Format](https://kinotic.ai/platform/reference/cri-format)). An application's services always register inside the application's own zone: the client's `zonePrefix` is set from static project configuration before services are instantiated, and declared zones are appended to it, so a service can never register outside its application.
 
 ```typescript
 import { Kinotic } from '@kinotic-ai/core'
@@ -173,3 +178,8 @@ Kinotic.serviceRegistry.registerContextInterceptor({
     }
 })
 ```
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

@@ -1,3 +1,8 @@
+---
+title: "Contributing"
+description: "How to contribute to the Kinotic OS project."
+canonical_url: "https://kinotic.ai/platform/contributing"
+---
 # Contributing
 
 > How to contribute to the Kinotic OS project.
@@ -785,8 +790,13 @@ Enterprise License. The root
 the repository to its license. Any interface in an Elastic-licensed package with an `ee`
 segment, such as `org.kinotic.domain.api.ee.services.SecretStorageBackend`, is an Enterprise
 Extension Point: its implementations for production use are Enterprise Features and belong in
-`kinotic-ee/`. [Enterprise License](/platform/enterprise-license) describes what production use of
+`kinotic-ee/`. [Enterprise License](https://kinotic.ai/platform/enterprise-license) describes what production use of
 them requires.
 
 The CLA grants Minds Ignited the right to license your contribution under any of these licenses,
 including as part of an Enterprise Feature; you keep the copyright in it.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

@@ -1,3 +1,8 @@
+---
+title: "Overview"
+description: "How services work in Kinotic and the communication patterns they support."
+canonical_url: "https://kinotic.ai/apps/services/overview"
+---
 # Overview
 
 > How services work in Kinotic and the communication patterns they support.
@@ -8,7 +13,7 @@ Services are the building blocks of Kinotic applications. Any TypeScript class c
 
 1. **Publish** -- Decorate a class with `@Publish` and its methods become remotely callable
 2. **Discover** -- The platform automatically registers the service so consumers can reach it by its address
-3. **Call** -- Other services and frontends invoke methods through [service proxies](/apps/services/service-proxies) as if they were local
+3. **Call** -- Other services and frontends invoke methods through [service proxies](https://kinotic.ai/apps/services/service-proxies) as if they were local
 
 You don't configure routing, serialization, or service discovery. The platform handles all of that.
 
@@ -36,3 +41,8 @@ stream$.subscribe((reading) => console.log(reading))
 ## Service-to-Service Calls
 
 Services can call other services transparently. A published service uses a proxy to another service and invokes it the same way any external client would. The platform routes the call without the caller needing to know where the target service is running.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

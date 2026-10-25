@@ -1,10 +1,15 @@
+---
+title: "Sign-In Design"
+description: "How OIDC configurations, scoped logins and the one-user-per-scope model fit together, in seven figures."
+canonical_url: "https://kinotic.ai/platform/reference/sign-in-design"
+---
 # Sign-In Design
 
 > How OIDC configurations, scoped logins and the one-user-per-scope model fit together, in seven figures.
 
 ## Overview
 
-Seven pictures of how sign-up and sign-in fit together: who owns a provider configuration and where its secret lives, the configuration classes, how a configuration's kind decides which login offers it, the two routes a browser can take through the app server, the identity and participant classes, what one person's organization user is made of, and the doors on the management server. [Organization Management](/platform/organization-management) walks the same flows endpoint by endpoint and [System Security](/platform/system-security) states the rules they enforce; this page is the map.
+Seven pictures of how sign-up and sign-in fit together: who owns a provider configuration and where its secret lives, the configuration classes, how a configuration's kind decides which login offers it, the two routes a browser can take through the app server, the identity and participant classes, what one person's organization user is made of, and the doors on the management server. [Organization Management](https://kinotic.ai/platform/organization-management) walks the same flows endpoint by endpoint and [System Security](https://kinotic.ai/platform/system-security) states the rules they enforce; this page is the map.
 
 ## Two owners, two keys into one vault
 
@@ -112,3 +117,8 @@ Organization users sign up and in on the management server. Every door produces 
 </sign-in-flows-diagram>
 
 Four doors on one host. A new organization user appears through the first three: founded at sign-up, added by an administrator, or created by an invitation. The fourth is where a signed-in organization user adds a method; the only other way a provider identity joins an organization user that already exists is the organization's own provider claiming a pending member.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

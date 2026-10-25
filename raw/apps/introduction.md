@@ -1,3 +1,8 @@
+---
+title: "Introduction"
+description: "Learn what Kinotic is, why it exists, and how it helps developers and AI agents build enterprise-grade applications at scale."
+canonical_url: "https://kinotic.ai/apps/introduction"
+---
 # Introduction
 
 > Learn what Kinotic is, why it exists, and how it helps developers and AI agents build enterprise-grade applications at scale.
@@ -128,4 +133,9 @@ This documentation walks through everything you need to build and ship a Kinotic
 5. **Security** -- Set up authentication and authorization.
 6. **Deployment** -- Ship your application to Kinotic OS or Kinotic OS Cloud.
 
-Ready to build something? Head to the [Quick Start](/apps/quick-start) to create your first Kinotic App.
+Ready to build something? Head to the [Quick Start](https://kinotic.ai/apps/quick-start) to create your first Kinotic App.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

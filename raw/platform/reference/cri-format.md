@@ -1,3 +1,8 @@
+---
+title: "CRI Format"
+description: "Kinotic Resource Identifier specification."
+canonical_url: "https://kinotic.ai/platform/reference/cri-format"
+---
 # CRI Format
 
 > Kinotic Resource Identifier specification.
@@ -521,3 +526,8 @@ cri.raw()           // 'srv://tenant-123@app.acme-org.orders-app~OrderService/pl
   </tr>
 </tbody>
 </table>
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

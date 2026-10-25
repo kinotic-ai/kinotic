@@ -1,3 +1,8 @@
+---
+title: "Defining Entities"
+description: "How to define entities using TypeScript decorators for Kinotic's persistence layer."
+canonical_url: "https://kinotic.ai/apps/persistence/defining-entities"
+---
 # Defining Entities
 
 > How to define entities using TypeScript decorators for Kinotic's persistence layer.
@@ -80,3 +85,8 @@ export class Device {
 ```
 
 With `@Id`, you are responsible for providing a unique value before saving.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

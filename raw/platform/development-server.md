@@ -1,3 +1,8 @@
+---
+title: "Development Server"
+description: "A development environment for a few peers on one physical host, what it keeps in Azure, and how their applications move to Kinotic Cloud."
+canonical_url: "https://kinotic.ai/platform/development-server"
+---
 # Development Server
 
 > A development environment for a few peers on one physical host, what it keeps in Azure, and how their applications move to Kinotic Cloud.
@@ -131,7 +136,7 @@ client's; the edge's log keeps the client's.
 `BOXLITE` is the provider that runs anywhere a developer works; `CLOUD_HYPERVISOR` is the one a
 node is provisioned for, with a health contract the node re-checks on every heartbeat, egress
 denied by default, host-side stdout capture, and no mount limit (see
-[VM provider](/platform/configuration#vm-provider)). The development server is a production
+[VM provider](https://kinotic.ai/platform/configuration#vm-provider)). The development server is a production
 shape, so the node is provisioned with the kit under `deployment/vm-node` exactly as any other
 node is.
 
@@ -2327,12 +2332,12 @@ read-only for a week, then tear it down.
 
 The same pieces serve a developer's machine, without the Proxmox host: the compose stack
 from `deployment/docker-compose` with the `BOXLITE` vm-manager beside it, as the
-[contributing guide](/platform/contributing#running-workloads-on-your-machine) describes, and
+[contributing guide](https://kinotic.ai/platform/contributing#running-workloads-on-your-machine) describes, and
 the `dev/` root for the sites account, the Cloudflare side, and email. Every
 development environment shares one GitHub App. An App has one webhook URL, and it points at
 the development server, so a developer's own server sees no push events: deployments there
 start from the re-run path, and a developer who needs the webhook registers an App of their
-own, as the [contributing guide](/platform/contributing#your-tunnel-and-github-app) describes. Sign-in through Azure and Google is outside this page until that support is defined.
+own, as the [contributing guide](https://kinotic.ai/platform/contributing#your-tunnel-and-github-app) describes. Sign-in through Azure and Google is outside this page until that support is defined.
 
 ## Build order
 
@@ -2377,3 +2382,8 @@ moved their configuration.
 - Whether the node's IPv4-only egress allowlist for GitHub and npm is maintained by hand from
 their published ranges or by a resolver-backed ipset, which the kit's README names as the path
 for hostname allowlists.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

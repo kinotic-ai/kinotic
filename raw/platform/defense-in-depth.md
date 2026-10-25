@@ -1,14 +1,19 @@
+---
+title: "Defense in Depth"
+description: "The layered enforcement strategies applied to every request path in Kinotic OS."
+canonical_url: "https://kinotic.ai/platform/defense-in-depth"
+---
 # Defense in Depth
 
 > The layered enforcement strategies applied to every request path in Kinotic OS.
 
 ## Overview
 
-The platform is built so that no single defect — a buggy query filter, corrupted stored data, a misbehaving client, a replayed token — can widen access on its own. Every request path crosses at least two independent enforcement layers that would each have to fail for an unauthorized action to succeed. This page catalogs those layers; the operational security model (scopes, credentials, OIDC) is on [System Security](/platform/system-security).
+The platform is built so that no single defect — a buggy query filter, corrupted stored data, a misbehaving client, a replayed token — can widen access on its own. Every request path crosses at least two independent enforcement layers that would each have to fail for an unauthorized action to succeed. This page catalogs those layers; the operational security model (scopes, credentials, OIDC) is on [System Security](https://kinotic.ai/platform/system-security).
 
 Two principles run through all of it:
 
-- **Enforcement is structural, not pattern-based.** Authorization decisions read typed values — the participant type, the zone parsed from the [CRI](/platform/reference/cri-format) — never string patterns a crafted input might slip past.
+- **Enforcement is structural, not pattern-based.** Authorization decisions read typed values — the participant type, the zone parsed from the [CRI](https://kinotic.ai/platform/reference/cri-format) — never string patterns a crafted input might slip past.
 - **Internal faults are logged, not leaked.** When an internal invariant is violated, the full detail (CRIs, ids) goes to the server log for operators, and the caller receives a generic error indistinguishable from a routine failure.
 
 ## Network Architecture
@@ -33,7 +38,7 @@ The layers, from the outside in:
 
 ## Zone Authorization
 
-Every routable address carries its zone in the CRI itself, so the isolation boundary travels with the message and is validated wherever the message goes. Which zones a participant may address is derived from the participant type in one place — `ZoneRules` — and every enforcement point uses that same derivation. The full participant × zone matrix is in the [CRI format reference](/platform/reference/cri-format).
+Every routable address carries its zone in the CRI itself, so the isolation boundary travels with the message and is validated wherever the message goes. Which zones a participant may address is derived from the participant type in one place — `ZoneRules` — and every enforcement point uses that same derivation. The full participant × zone matrix is in the [CRI format reference](https://kinotic.ai/platform/reference/cri-format).
 
 The derivation defends its own inputs:
 
@@ -84,8 +89,13 @@ The account login and type stored on the binding are read from the attested `/us
 
 ## Authentication Cross-Checks
 
-Documented in full on [System Security](/platform/system-security), one check is defense-in-depth by design:
+Documented in full on [System Security](https://kinotic.ai/platform/system-security), one check is defense-in-depth by design:
 
 - **JWT scope claims are cross-checked against the user record.** A Kinotic-minted JWT carries `organizationId`/`applicationId` claims, and authentication requires them to match the scope of the `ParticipantIdentity` the `sub` claim resolves to — a token minted before the user was moved or re-scoped is rejected even though its signature verifies.
 
 Credential failures are also uniform: an unknown email and a wrong password produce the same `Invalid credentials` error, so the login surface cannot be used to enumerate which accounts exist.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

@@ -1,3 +1,8 @@
+---
+title: "Named Queries"
+description: "Defining and using custom named queries on entity services in Kinotic."
+canonical_url: "https://kinotic.ai/apps/persistence/named-queries"
+---
 # Named Queries
 
 > Defining and using custom named queries on entity services in Kinotic.
@@ -44,7 +49,7 @@ Named queries must be synced to the server before they can be used. If a query h
 
 ## Statements
 
-A named query is one statement. `SELECT`, `INSERT`, `UPDATE` and `DELETE` are statements of the [Kinotic SQL grammar](/apps/reference/migration-sql-grammar), the one migrations use, written without the terminating semicolon. Keywords match in any case, but entity and field names are case-sensitive and must be written the way the entity class spells them: `Person` and `lastName`, not `person` and `LASTNAME`. A field name in the wrong case is not an error: the query gets nothing back, no rows read and none written. See [Case](/apps/reference/migration-sql-grammar#case).
+A named query is one statement. `SELECT`, `INSERT`, `UPDATE` and `DELETE` are statements of the [Kinotic SQL grammar](https://kinotic.ai/apps/reference/migration-sql-grammar), the one migrations use, written without the terminating semicolon. Keywords match in any case, but entity and field names are case-sensitive and must be written the way the entity class spells them: `Person` and `lastName`, not `person` and `LASTNAME`. A field name in the wrong case is not an error: the query gets nothing back, no rows read and none written. See [Case](https://kinotic.ai/apps/reference/migration-sql-grammar#case).
 
 ### SELECT
 
@@ -63,7 +68,7 @@ A write returns one row, `{ count }`, holding the number of rows it wrote. Add `
 
 ### Aggregates
 
-A `SELECT` that calls a function (`COUNT(*)`, `SUM`, `AVG`, `MIN`, `MAX`, `PERCENTILE`, `HISTOGRAM`, …) or has a `GROUP BY` is an aggregate. It runs on Elasticsearch SQL, so it can call any of [its functions](https://www.elastic.co/docs/reference/query-languages/sql/sql-functions), and returns one row per group, shaped by the projection: `AS` names a column, and a column or group can be a sub-field (`address.city`). It is written in the same grammar as every other statement, with the same `WHERE` clause and `:name` parameters, and names the query's own entity in `FROM`; see [SELECT](/apps/reference/migration-sql-grammar#select). A paged aggregate takes a cursor `Pageable`.
+A `SELECT` that calls a function (`COUNT(*)`, `SUM`, `AVG`, `MIN`, `MAX`, `PERCENTILE`, `HISTOGRAM`, …) or has a `GROUP BY` is an aggregate. It runs on Elasticsearch SQL, so it can call any of [its functions](https://www.elastic.co/docs/reference/query-languages/sql/sql-functions), and returns one row per group, shaped by the projection: `AS` names a column, and a column or group can be a sub-field (`address.city`). It is written in the same grammar as every other statement, with the same `WHERE` clause and `:name` parameters, and names the query's own entity in `FROM`; see [SELECT](https://kinotic.ai/apps/reference/migration-sql-grammar#select). A paged aggregate takes a cursor `Pageable`.
 
 ## Multi-tenancy
 
@@ -71,7 +76,7 @@ Every named query is confined to the participant's tenant, the way every reposit
 
 ## Admin Repository Queries
 
-A named query on an [admin repository](/apps/persistence/multi-tenancy#admin-repository) runs against the tenants the caller selects, so it declares a `TenantSelection` parameter like every other admin repository method. The generated implementation sends it as the query's tenant selection rather than as a query parameter. A read runs against every tenant the selection names; a write acts on one tenant, so its selection names exactly one.
+A named query on an [admin repository](https://kinotic.ai/apps/persistence/multi-tenancy#admin-repository) runs against the tenants the caller selects, so it declares a `TenantSelection` parameter like every other admin repository method. The generated implementation sends it as the query's tenant selection rather than as a query parameter. A read runs against every tenant the selection names; a write acts on one tenant, so its selection names exactly one.
 
 ```typescript
 import { Query, type TenantSelection } from '@kinotic-ai/persistence'
@@ -88,3 +93,8 @@ const openOrders = await new OrderAdminRepository().countByStatus('OPEN', ['tena
 ```
 
 `kinotic generate` fails when a query on an admin repository has no `TenantSelection` parameter, and when a query on the tenant-scoped repository declares one.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

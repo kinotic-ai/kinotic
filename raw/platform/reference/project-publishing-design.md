@@ -1,3 +1,8 @@
+---
+title: "Project Publishing Design"
+description: "How a project's microservices and UIs are deployed, stored, and served, and how far the build has come."
+canonical_url: "https://kinotic.ai/platform/reference/project-publishing-design"
+---
 # Project Publishing Design
 
 > How a project's microservices and UIs are deployed, stored, and served, and how far the build has come.
@@ -9,7 +14,7 @@ under `packages/microservices` runs in a VM of its own, and every UI under `pack
 is built by the deployment, uploaded to organization-owned Azure Blob storage, and served
 on its own hostname through the Cloudflare sites Worker. It describes the target shape, and the
 [Built so far](#built-so-far) section at the end says which parts exist today. The
-user-facing view of the same flow is [Push to Deploy](/apps/deployment/push-to-deploy).
+user-facing view of the same flow is [Push to Deploy](https://kinotic.ai/apps/deployment/push-to-deploy).
 
 ## Entities
 
@@ -46,7 +51,7 @@ which issues tokens only for the projects of the caller's organization.
 
 ## Artifacts and their identity
 
-The [artifacts](/apps/application-structure/artifact-types) a commit contains are found
+The [artifacts](https://kinotic.ai/apps/application-structure/artifact-types) a commit contains are found
 inside the sync VM, over the checkout, by TypeScript in the workload-runner: code that sits
 in the Bun ecosystem and can later resolve packages the way the project's own tooling
 (`bunup`) does. For now the rule is naive and reads no Bun or bunup configuration: a
@@ -446,3 +451,8 @@ label, so the portal's deployment page lists each UI with a link to its site, th
 reports and the commit it serves, with removal. Each server's session cookie is `__Host-kinotic-<server>-session`,
 named once in `ApiGatewayVertcleFactory` from the server's `ZonePartitioningService` and handed to the
 gateway's session handler and to the `SessionBinding` that resolves each page's login from it.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

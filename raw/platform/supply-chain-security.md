@@ -1,3 +1,8 @@
+---
+title: "Supply Chain Security"
+description: "How Kinotic inventories, scans and gates the container images it publishes, and where the evidence for each control is kept."
+canonical_url: "https://kinotic.ai/platform/supply-chain-security"
+---
 # Supply Chain Security
 
 > How Kinotic inventories, scans and gates the container images it publishes, and where the evidence for each control is kept.
@@ -555,3 +560,8 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
   </tr>
 </tbody>
 </table>
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

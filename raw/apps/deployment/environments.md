@@ -1,3 +1,8 @@
+---
+title: "Environments"
+description: "Development, staging, and production environment configuration."
+canonical_url: "https://kinotic.ai/apps/deployment/environments"
+---
 # Environments
 
 > Development, staging, and production environment configuration.
@@ -33,3 +38,8 @@ Production is a full Kubernetes deployment managed through Helm charts:
 - Managed data persistence
 - TLS termination and ingress configuration
 - Monitoring and observability integration
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

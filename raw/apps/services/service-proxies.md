@@ -1,3 +1,8 @@
+---
+title: "Service Proxies"
+description: "How to call remote services using service proxies in Kinotic."
+canonical_url: "https://kinotic.ai/apps/services/service-proxies"
+---
 # Service Proxies
 
 > How to call remote services using service proxies in Kinotic.
@@ -120,3 +125,8 @@ Each proxy provides two ways to call the remote service:
   </tr>
 </tbody>
 </table>
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

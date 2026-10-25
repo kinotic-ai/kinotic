@@ -1,3 +1,8 @@
+---
+title: "Deployment Guide"
+description: "Deploying and operating Kinotic OS in various environments."
+canonical_url: "https://kinotic.ai/platform/deployment-guide"
+---
 # Deployment Guide
 
 > Deploying and operating Kinotic OS in various environments.
@@ -173,7 +178,7 @@ sets:
 the Key Vault at `kinotic.domain.secretStorage.azure.vaultUrl`; that backend is an Enterprise
 Feature in the `kinotic-ee` module, which the org, system and app servers include, and its
 production use needs a Kinotic Enterprise License agreement with Minds Ignited (see
-[Enterprise License](/platform/enterprise-license)). A server
+[Enterprise License](https://kinotic.ai/platform/enterprise-license)). A server
 configured with a backend whose module is not on its classpath fails at startup.
 
 A server picks up a rotated JWT key set while it runs, and an imported secret when it restarts.
@@ -190,7 +195,7 @@ A single-host development environment on Proxmox — a container per service, th
 behind an edge that routes the one forwarded port by SNI, three Elasticsearch nodes on their own
 disks, and Cloud Hypervisor nodes on machines of their own — that keeps the sites account and
 email in Azure, the sites on Cloudflare, and is designed to migrate its organizations to Kinotic Cloud. See
-[Development Server](/platform/development-server).
+[Development Server](https://kinotic.ai/platform/development-server).
 
 ### Cloud Providers (Terraform)
 
@@ -234,11 +239,16 @@ Turnstile, for the portal's hostname.
 `kinotic.tf` passes the zone as the sites domain and the account's blob endpoint to the system
 server as `KINOTIC_SYSTEMAPI_UIDEPLOYMENT_*`, the app server's `apps-api.<zone>` base, and the
 `KINOTIC_DOMAIN_PUBLISHEDSITES_*` settings every server provisions organizations with (see
-[Configuration](/platform/configuration#ui-sites)). The cluster root takes the zone's id, the
+[Configuration](https://kinotic.ai/platform/configuration#ui-sites)). The cluster root takes the zone's id, the
 account id and two tokens as variables: the operator's, which terraform applies the zone and
 the Worker with, and the DNS token. The system server's development profile disables the
 provisioner instead.
 
 A developer machine gets the same modules from `deployment/terraform/azure/dev`, under
-`<environment>.<zone>`. The [contributing guide](/platform/contributing#publishing-uis-against-azure)
+`<environment>.<zone>`. The [contributing guide](https://kinotic.ai/platform/contributing#publishing-uis-against-azure)
 walks through it.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

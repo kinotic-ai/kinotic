@@ -1,3 +1,8 @@
+---
+title: "System Architecture"
+description: "High-level architecture of the Kinotic OS platform."
+canonical_url: "https://kinotic.ai/platform/architecture"
+---
 # System Architecture
 
 > High-level architecture of the Kinotic OS platform.
@@ -15,7 +20,7 @@ Kinotic OS is a full-stack application platform that handles service communicati
 - **Persistence Layer** — Provides automatic CRUD operations for entities backed by Elasticsearch.
 - **Auth System** — Handles authentication (email/password and OIDC) across three authorization hierarchies: System, Organization, and Application. Each server admits only the participants it serves.
 
-The three servers are Spring Boot applications that form one Ignite cluster, in which each hosts only its own zones. [Defense in Depth](/platform/defense-in-depth#network-architecture) shows which participants each admits and which zones each hosts.
+The three servers are Spring Boot applications that form one Ignite cluster, in which each hosts only its own zones. [Defense in Depth](https://kinotic.ai/platform/defense-in-depth#network-architecture) shows which participants each admits and which zones each hosts.
 
 ## Tech Stack
 
@@ -103,7 +108,7 @@ Services communicate via STOMP over WebSocket, with messages routed by CRI (Kino
 scheme://[scope@]resourceName[/path][#version]
 ```
 
-The RPC gateway uses CRIs to route requests to the correct service instance, apply versioning, and enforce scope-based multi-tenancy. See the [CRI Format](/platform/reference/cri-format) reference for details.
+The RPC gateway uses CRIs to route requests to the correct service instance, apply versioning, and enforce scope-based multi-tenancy. See the [CRI Format](https://kinotic.ai/platform/reference/cri-format) reference for details.
 
 ### Never block the event loop
 
@@ -117,3 +122,8 @@ public Future<Report> render(String id) {
 ```
 
 The platform never hands off on a service's behalf. A method that blocks stalls every service sharing its loop, and Vert.x's blocked-thread checker reports it in the log.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

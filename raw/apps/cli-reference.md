@@ -1,3 +1,8 @@
+---
+title: "CLI Reference"
+description: "Command reference for the Kinotic CLI."
+canonical_url: "https://kinotic.ai/apps/cli-reference"
+---
 # CLI Reference
 
 > Command reference for the Kinotic CLI.
@@ -59,7 +64,7 @@ kinotic login
 
 ### `kinotic generate` / `kinotic gen`
 
-Generate Repository classes from your entity definitions. This runs locally without connecting to the server, and fills in the implementations of [named query](/apps/persistence/named-queries) methods declared with `@Query`.
+Generate Repository classes from your entity definitions. This runs locally without connecting to the server, and fills in the implementations of [named query](https://kinotic.ai/apps/persistence/named-queries) methods declared with `@Query`.
 
 Each entity's C3Type schema is written as JSON to `.config/c3/entities/<namespace>.<name>.json`, and the named queries declared on a Repository to `.config/c3/queries/<RepositoryName>.json`. Removing the last named query from a Repository removes its queries file.
 
@@ -117,7 +122,7 @@ kinotic gen --force
 
 ### `kinotic sync` / `kinotic synchronize`
 
-Synchronize local entity definitions with the Kinotic server. This uploads your entity classes so the server can set up the backing data stores and register the entity services, and applies any pending [migrations](/apps/persistence/migrations) from the `./migrations` directory. The entities are synchronized into the project named by `projectId` in `.config/kinotic.config.ts`, which must already exist in Kinotic OS. It runs the same generation as `kinotic generate`, so the repository classes, `.config/c3` and the `ServiceDefinitions` module are refreshed as well; the service definitions reach the server from the runtime, as each service comes online, not from the sync. Requires a prior `kinotic login` against the target server.
+Synchronize local entity definitions with the Kinotic server. This uploads your entity classes so the server can set up the backing data stores and register the entity services, and applies any pending [migrations](https://kinotic.ai/apps/persistence/migrations) from the `./migrations` directory. The entities are synchronized into the project named by `projectId` in `.config/kinotic.config.ts`, which must already exist in Kinotic OS. It runs the same generation as `kinotic generate`, so the repository classes, `.config/c3` and the `ServiceDefinitions` module are refreshed as well; the service definitions reach the server from the runtime, as each service comes online, not from the sync. Requires a prior `kinotic login` against the target server.
 
 ```bash
 kinotic sync -p
@@ -205,3 +210,8 @@ kinotic sync -p -v -s http://localhost:58503
 ---
 
 Run `kinotic --help` or `kinotic <command> --help` for the full list of commands and options.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

@@ -1,3 +1,8 @@
+---
+title: "Deployment Workflow"
+description: "The Kinotic deployment pipeline from development to production."
+canonical_url: "https://kinotic.ai/apps/deployment/workflow"
+---
 # Deployment Workflow
 
 > The Kinotic deployment pipeline from development to production.
@@ -40,3 +45,8 @@ Production deployment happens only after staging approval:
 
 - **Full application build** — All projects within the application are built and deployed together.
 - **Deployed after approval** — The production environment is updated only when a team member has reviewed and approved the staging deployment.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

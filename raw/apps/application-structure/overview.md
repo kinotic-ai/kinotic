@@ -1,3 +1,8 @@
+---
+title: "Overview"
+description: "Understand how Kinotic apps are organized -- from organizations down to individual artifacts."
+canonical_url: "https://kinotic.ai/apps/application-structure/overview"
+---
 # Overview
 
 > Understand how Kinotic apps are organized -- from organizations down to individual artifacts.
@@ -29,7 +34,7 @@ Projects exist so that different concerns can live in separate packages while st
 
 ### Artifacts
 
-Artifacts are the outputs that a project contributes to the application. A single project can produce one or more artifacts -- a set of persisted entities, a microservice, a batch job, a UI component library, or a complete frontend. See [Artifact Types](/apps/application-structure/artifact-types) for the full list.
+Artifacts are the outputs that a project contributes to the application. A single project can produce one or more artifacts -- a set of persisted entities, a microservice, a batch job, a UI component library, or a complete frontend. See [Artifact Types](https://kinotic.ai/apps/application-structure/artifact-types) for the full list.
 
 ## The Service Directory
 
@@ -111,4 +116,9 @@ A typical application looks something like this:
 
 Each project is developed, tested, and versioned independently, but they all deploy as part of the same application and can call each other through the Service Directory.
 
-For details on how to configure an application and its projects, see [Applications and Projects](/apps/application-structure/applications-and-projects).
+For details on how to configure an application and its projects, see [Applications and Projects](https://kinotic.ai/apps/application-structure/applications-and-projects).
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

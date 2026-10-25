@@ -1,3 +1,8 @@
+---
+title: "Configuration"
+description: "Configuration reference for Kinotic OS server and services."
+canonical_url: "https://kinotic.ai/platform/configuration"
+---
 # Configuration
 
 > Configuration reference for Kinotic OS server and services.
@@ -20,7 +25,7 @@ Kinotic OS is configured through a combination of application properties, enviro
 
 ## Loki, Tempo, and Mimir
 
-The server reads workload logs from Grafana Loki, and workload traces and metrics from Grafana Tempo and Mimir (see [Observability](/platform/observability#workload-logs)). Each runs multi-tenant, and the server queries the tenant the caller may see.
+The server reads workload logs from Grafana Loki, and workload traces and metrics from Grafana Tempo and Mimir (see [Observability](https://kinotic.ai/platform/observability#workload-logs)). Each runs multi-tenant, and the server queries the tenant the caller may see.
 
 <table>
 <thead>
@@ -388,7 +393,7 @@ A workload's image is pulled before every start when its reference floats — no
 
 A `CLOUD_HYPERVISOR` node denies workload egress by default and permits each workload only what its policy allows. The node's firewall carries the denial; the vm-manager writes one exception per allowed destination when a workload starts, and removes them when it stops.
 
-Every destination comes from the workload's own `network.allowedHosts`, including the api-gateway — the server sets it there, because only the server knows where the gateway is. The node adds the destinations the workload cannot know: the resolver it was given, and its own OTLP endpoint for a workload that elects `telemetry` (see [Workload Traces and Metrics](/platform/observability#workload-traces-and-metrics)).
+Every destination comes from the workload's own `network.allowedHosts`, including the api-gateway — the server sets it there, because only the server knows where the gateway is. The node adds the destinations the workload cannot know: the resolver it was given, and its own OTLP endpoint for a workload that elects `telemetry` (see [Workload Traces and Metrics](https://kinotic.ai/platform/observability#workload-traces-and-metrics)).
 
 <table>
 <thead>
@@ -735,7 +740,7 @@ On `BOXLITE` nodes a workload may declare at most one entry in `volumeMounts`: t
 ## Project deployment
 
 The system server deploys a project on every push to its repository's default branch (see
-[Push to Deploy](/apps/deployment/push-to-deploy)). The pipeline runs a short-lived sync VM
+[Push to Deploy](https://kinotic.ai/apps/deployment/push-to-deploy)). The pipeline runs a short-lived sync VM
 per deployment and a short-lived SBOM VM when the project's dependencies changed, which connect to
 the management server, and one long-lived runtime VM per microservice, which connects to the app server,
 configured under `kinotic.systemApi.deployment.*`:
@@ -954,7 +959,7 @@ the runtime VMs.
 
 Each application has an API host of its own, its `<organizationId>--<applicationId>` label
 under a platform domain, and every UI a deployment builds is handed its application's host
-to connect to (see [the UI build contract](/apps/application-structure/applications-and-projects#the-ui-build-contract)).
+to connect to (see [the UI build contract](https://kinotic.ai/apps/application-structure/applications-and-projects#the-ui-build-contract)).
 The app server serves every application at its host: its login and OAuth routes take the
 application from the host a request is addressed to and answer `404` on any other host, and it
 signs an application's users in only from pages that are the application's own UIs. Each URL a
@@ -1068,7 +1073,7 @@ management-api. The Helm chart sets all three from the same paths in its values:
     </td>
     
     <td>
-      The portal as a browser reaches it: where the management server's browser flows send the user, and the base of the verification, invite and sign-in links in the platform's emails, which every server that sends mail reads, unless the service sending one passes an <a href="/platform/organization-management#email-templates">
+      The portal as a browser reaches it: where the management server's browser flows send the user, and the base of the verification, invite and sign-in links in the platform's emails, which every server that sends mail reads, unless the service sending one passes an <a href="https://kinotic.ai/platform/organization-management#email-templates">
         email template
       </a>
       
@@ -1196,8 +1201,8 @@ Worker. The account is configured under `kinotic.systemApi.uiDeployment.*`:
 The endpoint is validated at boot, like the GitHub App settings, so an environment
 [without Azure storage](#without-azure-storage) still sets it, to a placeholder. In the Azure
 deployment terraform creates the account and the Cloudflare side and passes the account and
-domain to the server (see the [deployment guide](/platform/deployment-guide)); the `local`
-profile of the [contributing guide](/platform/contributing#publishing-uis-against-azure) names
+domain to the server (see the [deployment guide](https://kinotic.ai/platform/deployment-guide)); the `local`
+profile of the [contributing guide](https://kinotic.ai/platform/contributing#publishing-uis-against-azure) names
 a developer's own. The server never reads or writes the account itself: it holds Storage Blob
 Data Contributor on it only to sign the URLs, scoped to one site's directory, that the publish
 and removal workloads act through. The sites Worker reads the account over its blob endpoint
@@ -1570,7 +1575,7 @@ everything that uses it with one property:
 </table>
 
 The development profile and the tests set it; the `local` profile of the
-[contributing guide](/platform/contributing#publishing-uis-against-azure) turns it off against
+[contributing guide](https://kinotic.ai/platform/contributing#publishing-uis-against-azure) turns it off against
 a developer's own subscription.
 
 ## Workload storage and log limits
@@ -1633,7 +1638,7 @@ A workload writes to two places the node must bound: the directories it mounts, 
 
 ## Workload retention
 
-A workload's record is the only link to its logs, so nothing deletes one as a side effect: destroying a workload removes its VM and its disk from the node and records the run `STOPPED`, and the record and its logs stay. Deleting a workload, from the console or through `WorkloadOrchestrationService.deleteWorkload`, is the one way either goes: it deletes every log line the workload wrote from the organization's Loki tenant (the system's own, `kinotic-system`, for a system workload), then the record, and refuses a run still open on its node — stop or destroy it first. The retention sweep, one cluster singleton beside the reconcile master, runs hourly and deletes the records of runs that ended longer ago than the retention period the same way, a page of a hundred at a time, up to fifty pages a sweep; what one sweep leaves, the next one takes. An operator runs the same sweep on demand as the `workload-retention-sweep` system job, with **Run system job** on the system console's **Jobs** page (see [System jobs](/platform/reference/grind-jobs#system-jobs)).
+A workload's record is the only link to its logs, so nothing deletes one as a side effect: destroying a workload removes its VM and its disk from the node and records the run `STOPPED`, and the record and its logs stay. Deleting a workload, from the console or through `WorkloadOrchestrationService.deleteWorkload`, is the one way either goes: it deletes every log line the workload wrote from the organization's Loki tenant (the system's own, `kinotic-system`, for a system workload), then the record, and refuses a run still open on its node — stop or destroy it first. The retention sweep, one cluster singleton beside the reconcile master, runs hourly and deletes the records of runs that ended longer ago than the retention period the same way, a page of a hundred at a time, up to fifty pages a sweep; what one sweep leaves, the next one takes. An operator runs the same sweep on demand as the `workload-retention-sweep` system job, with **Run system job** on the system console's **Jobs** page (see [System jobs](https://kinotic.ai/platform/reference/grind-jobs#system-jobs)).
 
 Configured under `kinotic.systemApi.workload.*`:
 
@@ -1723,5 +1728,10 @@ patterns are consulted only while trace logging is enabled, and cost nothing at 
 `kinotic.traceLog` is what a node starts with. The system console's **Logging** dialog, on each
 node in the Cluster page's server node table, whichever of the three servers it runs, edits the
 patterns on a running node the same way it sets log levels — see
-[Observability](/platform/observability#application-logs). Those edits last until the node restarts,
+[Observability](https://kinotic.ai/platform/observability#application-logs). Those edits last until the node restarts,
 which returns it to its configured `kinotic.traceLog`.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

@@ -1,3 +1,8 @@
+---
+title: "Multi-Tenancy"
+description: "Multi-tenant data isolation in Kinotic with automatic tenant filtering."
+canonical_url: "https://kinotic.ai/apps/persistence/multi-tenancy"
+---
 # Multi-Tenancy
 
 > Multi-tenant data isolation in Kinotic with automatic tenant filtering.
@@ -140,7 +145,7 @@ Choose it when the application is created — `createApplicationIfNotExist` take
 
 ## Tenants and their sites
 
-Under `TENANT_ADMINISTRATORS` a tenant is a `Tenant` of the application, created by your organization in the portal or through `TenantService` (`createTenantIfNotExist(applicationId, name, description)`), whose id is its slugified name: lowercase letters, digits and single dashes, at most 24 characters so it leads a hostname label, and unique within your organization, so a name whose slug a tenant of another of your applications already holds is refused. The tenant's users carry that id as their `tenantId`. Each of the application's published UIs is also served for the tenant at `<tenantId>--<applicationId>--<uiName>` under your organization's subdomain of the sites domain, and a sign-in from that site is to the tenant: it admits the tenant's users only, and offers the tenant's own identity providers (`TenantOidcConfiguration`, added for the tenant on the application's **Settings → Sign-in providers** tab in the portal) before the application's — see [Authentication](/apps/security/authentication#signing-in-to-a-tenant). A tenant whose users were created with a `tenantId` no `Tenant` row names has no login of its own until the row is created.
+Under `TENANT_ADMINISTRATORS` a tenant is a `Tenant` of the application, created by your organization in the portal or through `TenantService` (`createTenantIfNotExist(applicationId, name, description)`), whose id is its slugified name: lowercase letters, digits and single dashes, at most 24 characters so it leads a hostname label, and unique within your organization, so a name whose slug a tenant of another of your applications already holds is refused. The tenant's users carry that id as their `tenantId`. Each of the application's published UIs is also served for the tenant at `<tenantId>--<applicationId>--<uiName>` under your organization's subdomain of the sites domain, and a sign-in from that site is to the tenant: it admits the tenant's users only, and offers the tenant's own identity providers (`TenantOidcConfiguration`, added for the tenant on the application's **Settings → Sign-in providers** tab in the portal) before the application's — see [Authentication](https://kinotic.ai/apps/security/authentication#signing-in-to-a-tenant). A tenant whose users were created with a `tenantId` no `Tenant` row names has no login of its own until the row is created.
 
 Under `SYSTEM` tenants are minted per user and have no rows or sites; the user signs in at the application's own sites.
 
@@ -245,6 +250,11 @@ Admin repository methods accept a tenant selection array as the first argument:
 
 ## Security Considerations
 
-A participant that belongs to a tenant is confined to it. Through the admin repository, including its [named queries](/apps/persistence/named-queries#admin-repository-queries), it may select only its own tenant; naming another tenant, or `['*']`, is refused with an authorization error. On save, a blank `@TenantId` is filled with the participant's tenant and any other value is rejected. Selecting other tenants is possible only for a participant without a tenant, which is how a microservice in a project's deployment connects (organization scope), and such a participant must name the tenant of every entity it saves.
+A participant that belongs to a tenant is confined to it. Through the admin repository, including its [named queries](https://kinotic.ai/apps/persistence/named-queries#admin-repository-queries), it may select only its own tenant; naming another tenant, or `['*']`, is refused with an authorization error. On save, a blank `@TenantId` is filled with the participant's tenant and any other value is rejected. Selecting other tenants is possible only for a participant without a tenant, which is how a microservice in a project's deployment connects (organization scope), and such a participant must name the tenant of every entity it saves.
 
 The standard tenant-isolated repository is the default and should be used for regular application logic.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

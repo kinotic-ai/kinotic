@@ -1,10 +1,15 @@
+---
+title: "System Security"
+description: "Platform-level security architecture in Kinotic OS — scope isolation, credential separation, OIDC model."
+canonical_url: "https://kinotic.ai/platform/system-security"
+---
 # System Security
 
 > Platform-level security architecture in Kinotic OS — scope isolation, credential separation, OIDC model.
 
 ## Overview
 
-This page describes the architectural choices behind Kinotic's IAM. It is the *why*; for the operational *how* (signup flows, login flows, endpoint reference) see [Organization Management](/platform/organization-management), and for the layered enforcement applied to every request path see [Defense in Depth](/platform/defense-in-depth).
+This page describes the architectural choices behind Kinotic's IAM. It is the *why*; for the operational *how* (signup flows, login flows, endpoint reference) see [Organization Management](https://kinotic.ai/platform/organization-management), and for the layered enforcement applied to every request path see [Defense in Depth](https://kinotic.ai/platform/defense-in-depth).
 
 The platform supports email/password and OIDC authentication, gives each person a user of each scope they sign in to — one system user, one organization user with a membership per organization, and one user per application — isolates application user pools by application, stores credentials separately from user records, and uses standalone `OidcConfiguration` entities that are referenced (not embedded) by the scopes that consume them.
 
@@ -68,7 +73,7 @@ A `Participant` carries its scope structurally, in two optional string fields �
     </td>
     
     <td>
-      Email/password or OIDC (system social or per-org SSO) at the organization's login — see <a href="/platform/organization-management">
+      Email/password or OIDC (system social or per-org SSO) at the organization's login — see <a href="https://kinotic.ai/platform/organization-management">
         Organization Management
       </a>
     </td>
@@ -118,7 +123,7 @@ A `Participant` carries its scope structurally, in two optional string fields �
     </td>
     
     <td>
-      Email/password at the system server; planned to move to Microsoft Entra — see <a href="/platform/organization-management#system-authentication">
+      Email/password at the system server; planned to move to Microsoft Entra — see <a href="https://kinotic.ai/platform/organization-management#system-authentication">
         System Authentication
       </a>
     </td>
@@ -153,7 +158,7 @@ Both methods are available at the Organization and Application layers:
 - **Email/Password** — Credentials are verified against bcrypt hashes. Password hashes are stored in a separate `IdentityCredential` entity (a different Elasticsearch index) and are architecturally invisible to the rest of the system. User CRUD operations have no way to accidentally expose credentials.
 - **OIDC** — JWT tokens are validated against the `OidcConfiguration` the target scope offers. The platform verifies signature, issuer, audience, and expiration via JWKS.
 
-A browser authenticates over HTTP and carries a session cookie; the STOMP WebSocket upgrade reads the logged-in `Participant` back out of that session, so the browser never handles a token. Each login in the session is bound to the page that made it, and the upgrade reads the login of the page opening the socket (see [Defense in Depth](/platform/defense-in-depth#browser-sessions)). Scope is structural rather than header-supplied: an organization login establishes an `OrganizationParticipant`, an application login an `ApplicationParticipant`, and that participant type is what scopes the caller's authority for the rest of the connection. A non-browser client presents a Kinotic JWT instead, whose `organizationId` / `applicationId` claims carry the same scope. Each server names its session cookie `__Host-kinotic-<server>-session` (the management server's is `__Host-kinotic-management-session`) and keeps its sessions in a cluster map of its own, `<server>.vertx-web.sessions`, so a session one server issued is unknown to the others, even on a development machine where they share `localhost` and cookies ignore the port. Browsers accept a `__Host-` cookie only when it is Secure, scoped to path `/` and set without a `Domain`, so a page on a sibling host of the API, such as a published UI under the sites domain, can neither plant nor override it. The cookie is `SameSite=Lax`, which sends it from the API's own site, the one the sites domain shares with the application API hosts in production (`<app>--<ui>.<org>.kinotic.io` and `<org>--<app>.apps-api.kinotic.io`); `kinotic.apiGateway.sessionCookieSameSite: NONE` sends it from any origin the CORS pattern admits, for an environment whose published sites and API live on unrelated domains.
+A browser authenticates over HTTP and carries a session cookie; the STOMP WebSocket upgrade reads the logged-in `Participant` back out of that session, so the browser never handles a token. Each login in the session is bound to the page that made it, and the upgrade reads the login of the page opening the socket (see [Defense in Depth](https://kinotic.ai/platform/defense-in-depth#browser-sessions)). Scope is structural rather than header-supplied: an organization login establishes an `OrganizationParticipant`, an application login an `ApplicationParticipant`, and that participant type is what scopes the caller's authority for the rest of the connection. A non-browser client presents a Kinotic JWT instead, whose `organizationId` / `applicationId` claims carry the same scope. Each server names its session cookie `__Host-kinotic-<server>-session` (the management server's is `__Host-kinotic-management-session`) and keeps its sessions in a cluster map of its own, `<server>.vertx-web.sessions`, so a session one server issued is unknown to the others, even on a development machine where they share `localhost` and cookies ignore the port. Browsers accept a `__Host-` cookie only when it is Secure, scoped to path `/` and set without a `Domain`, so a page on a sibling host of the API, such as a published UI under the sites domain, can neither plant nor override it. The cookie is `SameSite=Lax`, which sends it from the API's own site, the one the sites domain shares with the application API hosts in production (`<app>--<ui>.<org>.kinotic.io` and `<org>--<app>.apps-api.kinotic.io`); `kinotic.apiGateway.sessionCookieSameSite: NONE` sends it from any origin the CORS pattern admits, for an environment whose published sites and API live on unrelated domains.
 
 Each server authenticates only its own kind of caller. A client outside a browser presents a Kinotic access token (`Authorization: Bearer`), or a `clientId` and `clientSecret`: a user's email and password, checked in the scope the `organizationId` and `applicationId` headers select, or a machine's id and secret. The server resolves the identity the credentials prove and admits it only when it is one of its own; any other identity fails as invalid credentials, the same answer a wrong password gets:
 
@@ -429,7 +434,7 @@ Provider configurations share a shape but not an owner. Every kind extends the s
 </tbody>
 </table>
 
-Kinotic's own GitHub registration is an `OrgSignupOidcConfiguration` — it powers the "Continue with GitHub" button on org signup and org login, and belongs to no organization because signup happens before one exists. Kinotic's Google and Microsoft registrations are `ApplicationSocialOidcConfiguration`s: one registration per provider, which any application switches on by naming the provider kind in its `socialProviders`, so the application's users sign in with Google or Microsoft without the organization registering with either. A user who revokes the app's access at the provider revokes it for every application offering that registration, the trade one shared registration makes. Because the registration is shared and a provider returns only to a redirect URI registered in advance, its sign-ins return to the app server's own host rather than the application's API host, and the verified identity is handed to the application's host under a single-use code — see the app routes in [Organization Management](/platform/organization-management#endpoint-reference). Everything an organization configures for itself is the third kind.
+Kinotic's own GitHub registration is an `OrgSignupOidcConfiguration` — it powers the "Continue with GitHub" button on org signup and org login, and belongs to no organization because signup happens before one exists. Kinotic's Google and Microsoft registrations are `ApplicationSocialOidcConfiguration`s: one registration per provider, which any application switches on by naming the provider kind in its `socialProviders`, so the application's users sign in with Google or Microsoft without the organization registering with either. A user who revokes the app's access at the provider revokes it for every application offering that registration, the trade one shared registration makes. Because the registration is shared and a provider returns only to a redirect URI registered in advance, its sign-ins return to the app server's own host rather than the application's API host, and the verified identity is handed to the application's host under a single-use code — see the app routes in [Organization Management](https://kinotic.ai/platform/organization-management#endpoint-reference). Everything an organization configures for itself is the third kind.
 
 ### Why types rather than one with a flag
 
@@ -461,9 +466,9 @@ The identity endpoints (`userInfoUri`, `userEmailsUri`) are fetched with no redi
 
 ## Sign-Up
 
-Self-service signup is wired up for the Organization scope. Both email/password and social-IdP entry points create the `Organization` together with the founder's organization user — its password or GitHub binding — and the founder's membership of the new organization; a person who already has an organization user cannot sign up a second one and joins further organizations by invitation — see [Organization Management](/platform/organization-management) for the step-by-step.
+Self-service signup is wired up for the Organization scope. Both email/password and social-IdP entry points create the `Organization` together with the founder's organization user — its password or GitHub binding — and the founder's membership of the new organization; a person who already has an organization user cannot sign up a second one and joins further organizations by invitation — see [Organization Management](https://kinotic.ai/platform/organization-management) for the step-by-step.
 
-For the Application scope, end-user provisioning is admin-driven: an org admin (or the application's own admin tooling) creates user rows in the application's scope, or invites them — see [Organization Management](/platform/organization-management). There is no self-service sign-up form for an application scope. An application whose tenants the system manages may instead let an `ApplicationOidcConfiguration` with `createUserOnSignIn` create a user on the first sign-in of an identity its provider verifies, which gives the new user a tenant of their own; under tenant administrators a user is never without a tenant, so there a user is created by an administrator, an invitation, or a `TenantOidcConfiguration` with `createUserOnSignIn`, which creates the identity its provider verifies as a user of that tenant on its first sign-in at the tenant's login.
+For the Application scope, end-user provisioning is admin-driven: an org admin (or the application's own admin tooling) creates user rows in the application's scope, or invites them — see [Organization Management](https://kinotic.ai/platform/organization-management). There is no self-service sign-up form for an application scope. An application whose tenants the system manages may instead let an `ApplicationOidcConfiguration` with `createUserOnSignIn` create a user on the first sign-in of an identity its provider verifies, which gives the new user a tenant of their own; under tenant administrators a user is never without a tenant, so there a user is created by an administrator, an invitation, or a `TenantOidcConfiguration` with `createUserOnSignIn`, which creates the identity its provider verifies as a user of that tenant on its first sign-in at the tenant's login.
 
 ## Design Decisions
 
@@ -772,3 +777,8 @@ There is no startup bootstrap step for OIDC. A seeded provider row carries only 
 - **Groups** — Group entities and membership management.
 - **System-scope OIDC** — System users do not authenticate through any of the OIDC flows above. Their sign-in to the system console, planned to move to Microsoft Entra, is a separate thing from how organization users sign up and in, and will be its own kind of `OidcConfiguration` beside the two above rather than a reuse of `OrgSignupOidcConfiguration` (deferred).
 - **Account linking** — Linking an existing local account to a social identity is on the roadmap but not built.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

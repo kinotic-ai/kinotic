@@ -1,3 +1,8 @@
+---
+title: "Organization Management"
+description: "How organizations are created, how their users authenticate, and how OIDC providers are wired up."
+canonical_url: "https://kinotic.ai/platform/organization-management"
+---
 # Organization Management
 
 > How organizations are created, how their users authenticate, and how OIDC providers are wired up.
@@ -10,7 +15,7 @@ System users sign in to the system server, separately from everything described 
 
 ## Mental Model
 
-Eight persistent entities carry the auth state, and one short-lived entity bridges each signup. The [Sign-In Design](/platform/reference/sign-in-design) reference draws them and the flows between them.
+Eight persistent entities carry the auth state, and one short-lived entity bridges each signup. The [Sign-In Design](https://kinotic.ai/platform/reference/sign-in-design) reference draws them and the flows between them.
 
 <table>
 <thead>
@@ -652,7 +657,7 @@ An organization's own provider therefore signs in only the members its administr
 
 ## User Login
 
-A login is addressed to an organization. An organization user may be a member of any number of organizations, each an `OrganizationMembership` of its own, so nothing about the person alone says where they are signing in; the organization's id, the slug of its hostnames (see [Applications and Projects](/apps/application-structure/applications-and-projects#applications)), is what every login route and page is addressed by. The portal has two login pages:
+A login is addressed to an organization. An organization user may be a member of any number of organizations, each an `OrganizationMembership` of its own, so nothing about the person alone says where they are signing in; the organization's id, the slug of its hostnames (see [Applications and Projects](https://kinotic.ai/apps/application-structure/applications-and-projects#applications)), is what every login route and page is addressed by. The portal has two login pages:
 
 - `/login`, the landing page, for someone whose organization is not yet known: the system's social buttons, which sign in without naming an organization when the identity belongs to exactly one and otherwise offer the ones it belongs to; an organization field that leads to that organization's page; and a "Don't know your organization?" link that emails the person the organizations their address belongs to.
 - `/login/<organizationId>`, the organization's page (`OrganizationLoginPage.vue`), which offers exactly what that organization's login supports: one button per configuration `GET /api/auth/org/login/<organizationId>/providers` lists — the system's org sign-up registrations (GitHub) followed by the organization's own `OrganizationOidcConfiguration`s — and an email + password form. The organization's own host, `<organizationId>.<sitesDomain>`, redirects here.
@@ -872,7 +877,7 @@ Authentication happens at the WebSocket upgrade (handshake), not in a STOMP CONN
 </tbody>
 </table>
 
-The browser SPA never holds a JWT — its login establishes a session cookie and that cookie authenticates the upgrade. The Bearer path is for non-browser clients: the CLI obtains an access token through the OAuth device-code grant at `POST /api/auth/oauth/token`, which mints a Kinotic JWT carrying `sub` / `email` / `organizationId` / `applicationId`. For that path the management server validates the JWT signature against its signing keys and creates the `Session`. Every path admits only the server's own kind of participant: a credential that proves an identity of another scope fails as invalid (see [System Security](/platform/system-security#authentication-methods)). The CLI persists a rotating refresh token to mint fresh access tokens before each connect.
+The browser SPA never holds a JWT — its login establishes a session cookie and that cookie authenticates the upgrade. The Bearer path is for non-browser clients: the CLI obtains an access token through the OAuth device-code grant at `POST /api/auth/oauth/token`, which mints a Kinotic JWT carrying `sub` / `email` / `organizationId` / `applicationId`. For that path the management server validates the JWT signature against its signing keys and creates the `Session`. Every path admits only the server's own kind of participant: a credential that proves an identity of another scope fails as invalid (see [System Security](https://kinotic.ai/platform/system-security#authentication-methods)). The CLI persists a rotating refresh token to mint fresh access tokens before each connect.
 
 ## Provider-Specific Quirks
 
@@ -1361,7 +1366,7 @@ Each handler is a component of the module that serves it, so a server mounts the
 </tbody>
 </table>
 
-The app server serves every application at an API host of its own, `<organizationId>--<applicationId>` under `kinotic.domain.appApiBaseUrl` (see [Configuration](/platform/configuration#application-api-hosts)). Its login and OAuth routes act for the application whose host the request is addressed to and answer `404` on any other host, and that host is the application's OAuth issuer. The one exception is a sign-in through a system social registration (`ApplicationSocialOidcConfiguration`): a provider returns the browser only to a redirect URI registered in advance, and the registration is shared by every application that offers it, so its `authorize` and `callback` routes are served at `kinotic.domain.appApiBaseUrl` itself, the shared host, and the verified sign-in is handed to the application's own host under a single-use code (`SocialLoginHandoffService`, an Ignite cache with a one-minute TTL) where the session is established. The code completes the sign-in only in the browser that started it: the start at the application's host put a value in that browser's session, the shared host carries it through its own session into the handoff, and the completion requires the browser to present it again, so a completion URL passed to another person signs no one in.
+The app server serves every application at an API host of its own, `<organizationId>--<applicationId>` under `kinotic.domain.appApiBaseUrl` (see [Configuration](https://kinotic.ai/platform/configuration#application-api-hosts)). Its login and OAuth routes act for the application whose host the request is addressed to and answer `404` on any other host, and that host is the application's OAuth issuer. The one exception is a sign-in through a system social registration (`ApplicationSocialOidcConfiguration`): a provider returns the browser only to a redirect URI registered in advance, and the registration is shared by every application that offers it, so its `authorize` and `callback` routes are served at `kinotic.domain.appApiBaseUrl` itself, the shared host, and the verified sign-in is handed to the application's own host under a single-use code (`SocialLoginHandoffService`, an Ignite cache with a one-minute TTL) where the session is established. The code completes the sign-in only in the browser that started it: the start at the application's host put a value in that browser's session, the shared host carries it through its own session into the handoff, and the completion requires the browser to present it again, so a completion URL passed to another person signs no one in.
 
 CORS for the server's UI origin is applied at the router root. A Vert.x `SessionHandler` covers every `/api/*` route (and the STOMP WebSocket path), so the same session cookie carries the OIDC roundtrip state and the post-login identity; the cookie is `HttpOnly`, `Secure`, `SameSite=Lax`, with a configurable timeout (`kinotic.api-gateway.session-timeout`).
 
@@ -2203,7 +2208,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      MCP JSON-RPC endpoint (see <a href="/platform/mcp-tools">
+      MCP JSON-RPC endpoint (see <a href="https://kinotic.ai/platform/mcp-tools">
         MCP Tools
       </a>
       
@@ -2591,4 +2596,9 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
 </tbody>
 </table>
 
-For the underlying architectural rationale (scope isolation, credential separation, the two kinds of `OidcConfiguration`), see [System Security](/platform/system-security).
+For the underlying architectural rationale (scope isolation, credential separation, the two kinds of `OidcConfiguration`), see [System Security](https://kinotic.ai/platform/system-security).
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.
