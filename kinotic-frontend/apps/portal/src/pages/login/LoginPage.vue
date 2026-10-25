@@ -106,7 +106,7 @@ import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import { organizationLoginPath, organizationSlug, rememberedOrganization } from '@/pages/login/organizationLogin'
+import { organizationLoginPath, organizationSlug, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
 
 const debug = createDebug('login')
 
@@ -162,7 +162,11 @@ onMounted(() => {
     router.replace({ path: organizationLoginPath(remembered), query: route.query })
   } else {
     void consumeUrlError()
-    organization.value = remembered ?? ''
+    const unknown = unknownOrganization()
+    if (unknown !== null) {
+      displayError(`There is no organization named ${unknown}.`)
+    }
+    organization.value = remembered ?? unknown ?? ''
     nextTick(() => focus(organizationInput))
     // the buttons appear when the list arrives, so a server slow to answer does not hold up the form
     void loadProviders()
@@ -274,6 +278,15 @@ async function consumeUrlError() {
       memberships.value = choices
     }
   }
+}
+
+/**
+ * The remembered organization the organization page sent the browser back from because it no longer
+ * exists, or null when the page was reached any other way.
+ */
+function unknownOrganization(): string | null {
+  const name = window.history.state?.[UNKNOWN_ORGANIZATION_STATE]
+  return typeof name === 'string' && name ? name : null
 }
 
 function urlError(): string | null {
@@ -398,18 +411,18 @@ function displayError(text: string) {
 }
 
 .login-providers :deep(.social-auth-button-form),
-.login-providers :deep(.social-auth-button--gh) {
+.login-providers :deep(.social-auth-button--mark) {
   width: 100%;
 }
 
-.login-providers :deep(.social-auth-button--gh) {
+.login-providers :deep(.social-auth-button--mark) {
   height: 3.5rem;
   border-radius: 5px;
   border-color: var(--lp-provider-border);
   font-weight: 400;
 }
 
-.login-providers :deep(.social-auth-button--gh:hover) {
+.login-providers :deep(.social-auth-button--mark:hover) {
   border-color: var(--lp-provider-border-hover);
 }
 
