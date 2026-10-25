@@ -11,15 +11,15 @@
     "ui-test": "vitest --ui --mode development"
   },
   "dependencies": {
-    "@kinotic-ai/core": "^5.0.0-beta.28",
+    "@kinotic-ai/core": "^5.0.0-beta.29",
     "@kinotic-ai/management-api": "^5.0.0-beta.67",
-    "@kinotic-ai/persistence": "^5.0.0-beta.18",
+    "@kinotic-ai/persistence": "^5.0.0-beta.19",
     "vue": "^3.5.41"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.5.0",
-    "@kinotic-ai/idl": "^5.0.0-beta.1",
-    "@kinotic-ai/kinotic-cli": "^5.2.0-beta.36",
+    "@kinotic-ai/idl": "^5.0.0-beta.6",
+    "@kinotic-ai/kinotic-cli": "^5.2.0-beta.37",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@types/node": "^25.9.5",
     "@types/ws": "^8.18.1",
