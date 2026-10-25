@@ -6,7 +6,6 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.model.security.LoginScope;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
@@ -46,9 +45,8 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
      * an email with no {@code @} and from a request no page sent; {@code 404} for an application that does not exist.
      */
     private void handleSignUp(RoutingContext ctx) {
-        String origin = SessionBinding.origin(ctx);
+        String origin = authEndpointSupport.requirePageOrigin(ctx);
         if (origin == null) {
-            authEndpointSupport.respondError(ctx, 400, "A sign-up is started by a page");
             return;
         }
         JsonObject body = authEndpointSupport.readJsonBody(ctx);
@@ -86,8 +84,7 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
      * once the application no longer offers sign-up; {@code 404} for an application that does not exist.
      */
     private void handleComplete(RoutingContext ctx) {
-        if (SessionBinding.origin(ctx) == null) {
-            authEndpointSupport.respondError(ctx, 400, "A sign-up is completed by a page");
+        if (authEndpointSupport.requirePageOrigin(ctx) == null) {
             return;
         }
         JsonObject body = authEndpointSupport.readJsonBody(ctx);

@@ -206,6 +206,8 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
         assertEquals(List.of(new ApplicationLoginProvider(appGoogle.getId(), appGoogle.getName(), OidcProviderType.GOOGLE, false)),
                      applicationMethods.providers());
         assertNull(await(signUps.findOrCreateOidcUser(atApplication, appGoogle, googleClaims("app-" + suffix()))));
+        // a tenant's provider signs people up into its tenant only, so at the application's login it signs no one up
+        assertNull(await(signUps.findOrCreateOidcUser(atApplication, tenantGoogle, googleClaims("app-tenant-" + suffix()))));
         application.setPasswordSignUp(true);
         assertInstanceOf(IllegalArgumentException.class, failure(() -> applicationService.saveSync(application)));
 

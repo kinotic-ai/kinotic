@@ -231,15 +231,18 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
             ret = concat(oidcRepository.findEnabledOrgSignup().map(signup -> signup), own);
         } else if (tenantId == null) {
             // a configuration using Kinotic's registration is offered while the system holds an enabled one of its kind
-            ret = Future.all(own, oidcRepository.findEnabledSocial()).map(cf -> {
-                Set<OidcProviderType> managed = cf.<List<ApplicationSocialOidcConfiguration>>resultAt(1).stream()
-                                                  .map(OidcConfiguration::getProvider)
-                                                  .collect(Collectors.toSet());
-                return cf.<List<OidcConfiguration>>resultAt(0).stream()
-                         .filter(configuration -> !OidcConfigurationService.isManaged(configuration)
-                                                  || managed.contains(configuration.getProvider()))
-                         .toList();
-            });
+            ret = own.compose(owned -> owned.stream().anyMatch(OidcConfigurationService::isManaged)
+                    ? oidcRepository.findEnabledSocial().map(registrations -> {
+                        Set<OidcProviderType> managed = registrations.stream()
+                                                                     .map(OidcConfiguration::getProvider)
+                                                                     .collect(Collectors.toSet());
+                        return owned.stream()
+                                    .filter(configuration -> !OidcConfigurationService.isManaged(configuration)
+                                                             || managed.contains(configuration.getProvider()))
+                                    .map(configuration -> (OidcConfiguration) configuration)
+                                    .toList();
+                    })
+                    : Future.succeededFuture(List.copyOf(owned)));
         } else {
             // a tenant's login offers the tenant's own providers before everything the application's offers
             ret = concat(own, findEnabledForScope(organizationId, applicationId, null).map(offered -> offered));

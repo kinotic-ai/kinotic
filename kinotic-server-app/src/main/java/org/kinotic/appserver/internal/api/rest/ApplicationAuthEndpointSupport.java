@@ -150,6 +150,20 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
     }
 
     /**
+     * The origin of the page that sent the request, which a browser flow is started and completed from. A request
+     * no page sent is answered with {@code 400}.
+     *
+     * @return the origin, or {@code null} once the request has been answered
+     */
+    public String requirePageOrigin(RoutingContext ctx) {
+        String ret = SessionBinding.origin(ctx);
+        if (ret == null) {
+            respondError(ctx, 400, "The request is sent by a page");
+        }
+        return ret;
+    }
+
+    /**
      * The scope the request signs in to: the application the request was addressed to, from the page that
      * sent it, and the tenant of the application when that page is one of the tenant's sites or, from a page
      * that is no site, when the request names the tenant as {@code requestedTenantId}.

@@ -160,8 +160,7 @@ public final class OAuth2Util {
         if (!(email instanceof String emailStr) || emailStr.isBlank()) return false;
 
         Object explicit = claims.get("email_verified");
-        if (explicit instanceof Boolean b) return b;
-        if (explicit instanceof String s) return Boolean.parseBoolean(s);
+        if (explicit != null) return isTrue(explicit);
 
         // No explicit claim — fall back to the per-provider trust convention.
         return provider == OidcProviderType.AZURE_AD || provider == OidcProviderType.APPLE;

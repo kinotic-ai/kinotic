@@ -11,7 +11,8 @@
         <CopyableUrl v-if="startUrl" label="Direct sign-in link" :url="startUrl" :help="START_URL_HELP" />
       </div>
 
-      <div v-else class="flex flex-col gap-5">
+      <!-- Which credentials the form asks for depends on the providers Kinotic manages, so the fields wait for the list -->
+      <div v-else-if="managedProvidersLoaded" class="flex flex-col gap-5">
         <div>
           <label for="oidc-provider" class="mb-2 block text-sm font-medium">Provider</label>
           <Select v-if="isNew" input-id="oidc-provider" v-model="provider" :options="ORGANIZATION_OIDC_PROVIDERS" option-value="provider"
@@ -243,6 +244,7 @@ const createUserOnSignIn = ref(false)
 const clientRegistrationType = ref<ClientRegistrationType>(ClientRegistrationType.OWN)
 /** The provider kinds Kinotic manages a registration for, which an application's own login may sign in through. */
 const managedProviders = ref<OidcProviderType[]>([])
+const managedProvidersLoaded = ref(false)
 const showAdvanced = ref(false)
 const saving = ref(false)
 const removingSecret = ref(false)
@@ -343,6 +345,8 @@ function reset(): void {
   if (editing?.id) {
     loadCallbackUrl(editing.id)
   }
+  // an organization's own login never signs in through Kinotic's registration, so its form needs no list
+  managedProvidersLoaded.value = props.applicationId === null
   if (props.applicationId !== null) {
     loadManagedProviders()
   }
@@ -353,6 +357,8 @@ async function loadManagedProviders(): Promise<void> {
     managedProviders.value = await Kinotic.ownedOidcConfigurations.findManagedProviders()
   } catch (err) {
     showErrorToast(toast, 'Failed to load the providers Kinotic manages', err)
+  } finally {
+    managedProvidersLoaded.value = true
   }
 }
 

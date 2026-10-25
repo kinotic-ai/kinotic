@@ -7,7 +7,6 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.security.ApplicationOidcConfiguration;
@@ -87,9 +86,8 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
      */
     private void handleStart(RoutingContext ctx) {
         String configId = ctx.pathParam("configId");
-        String origin = SessionBinding.origin(ctx);
+        String origin = authEndpointSupport.requirePageOrigin(ctx);
         if (origin == null) {
-            authEndpointSupport.respondError(ctx, 400, "A sign-in is started by a page");
             return;
         }
 

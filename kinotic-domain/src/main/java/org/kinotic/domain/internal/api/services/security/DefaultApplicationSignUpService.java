@@ -147,7 +147,12 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                                 // the name is whatever the requester typed, so it stays out of an email sent to an
                                 // address nobody has proven is theirs
                                 .compose(saved -> emailService.sendApplicationSignUpEmail(email, application.getName(),
-                                                                                          pending.getVerificationToken(), uiOrigin));
+                                                                                          pending.getVerificationToken(), uiOrigin)
+                                                              // sendVerification sends nothing while a pending sign-up is
+                                                              // valid, so one whose email never went would refuse the
+                                                              // address a link for the whole TTL
+                                                              .recover(err -> pendingRepository.deleteById(pending.getId())
+                                                                                               .transform(v -> Future.failedFuture(err))));
     }
 
     @Override
@@ -183,7 +188,8 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     private static boolean signsUp(LoginScope scope, OidcConfiguration configuration) {
         boolean ret;
         if (configuration instanceof TenantOidcConfiguration forTenant) {
-            ret = forTenant.isCreateUserOnSignIn();
+            // only at its tenant's login: at the application's, the user it created would belong to no tenant
+            ret = forTenant.isCreateUserOnSignIn() && forTenant.getTenantId().equals(scope.tenantId());
         } else if (configuration instanceof ApplicationOidcConfiguration forApplication) {
             ret = forApplication.isCreateUserOnSignIn() && admitsNewUsers(scope);
         } else {
