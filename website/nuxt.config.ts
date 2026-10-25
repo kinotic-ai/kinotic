@@ -1,3 +1,32 @@
+// The docs moved: Apps now live under Organizations, and the introduction and quick start under
+// Getting Started. These keep the old URLs working (each is prerendered below so the static site
+// emits a redirect page for it).
+const docsRedirects: Record<string, string> = {
+  '/apps/application-structure/applications-and-projects': '/organizations/apps/application-structure/applications-and-projects',
+  '/apps/application-structure/artifact-types': '/organizations/apps/application-structure/artifact-types',
+  '/apps/application-structure/overview': '/organizations/apps/application-structure/overview',
+  '/apps/cli-reference': '/organizations/apps/cli-reference',
+  '/apps/deployment/environments': '/organizations/apps/deployment/environments',
+  '/apps/deployment/push-to-deploy': '/organizations/apps/deployment/push-to-deploy',
+  '/apps/deployment/workflow': '/organizations/apps/deployment/workflow',
+  '/apps/persistence/crud-operations': '/organizations/apps/persistence/crud-operations',
+  '/apps/persistence/defining-entities': '/organizations/apps/persistence/defining-entities',
+  '/apps/persistence/entity-decorators': '/organizations/apps/persistence/entity-decorators',
+  '/apps/persistence/migrations': '/organizations/apps/persistence/migrations',
+  '/apps/persistence/multi-tenancy': '/organizations/apps/persistence/multi-tenancy',
+  '/apps/persistence/named-queries': '/organizations/apps/persistence/named-queries',
+  '/apps/persistence/overview': '/organizations/apps/persistence/overview',
+  '/apps/reference/decorators': '/organizations/apps/reference/decorators',
+  '/apps/reference/migration-sql-grammar': '/organizations/apps/reference/migration-sql-grammar',
+  '/apps/security/authentication': '/organizations/apps/security/authentication',
+  '/apps/services/overview': '/organizations/apps/services/overview',
+  '/apps/services/publishing-services': '/organizations/apps/services/publishing-services',
+  '/apps/services/service-proxies': '/organizations/apps/services/service-proxies',
+  '/apps/services/streaming': '/organizations/apps/services/streaming',
+  '/apps/introduction': '/getting-started/introduction',
+  '/apps/quick-start': '/getting-started/quick-start',
+}
+
 export default defineNuxtConfig({
   extends: ['docus'],
   // Canonical site URL for nuxt-site-config consumers (robots, sitemap, OG images, canonical
@@ -17,12 +46,15 @@ export default defineNuxtConfig({
   agentDiscovery: {
     robots: { aiPolicy: false },
   },
+  routeRules: Object.fromEntries(
+    Object.entries(docsRedirects).map(([from, to]) => [from, { redirect: to }]),
+  ),
   // /V2, /V3 and /vc are unlinked pages shared by URL, so prerendering never discovers them
   // by crawling — without this, `nuxt generate` emits no page for them and the deployed URLs 404.
   // Their own `noindex` meta tag keeps them out of search results and out of /sitemap.xml.
   nitro: {
     prerender: {
-      routes: ['/V2', '/V3', '/vc'],
+      routes: ['/V2', '/V3', '/vc', ...Object.keys(docsRedirects)],
     },
   },
   // The docus sitemap lists content pages only; these are the indexable pages in app/pages.
