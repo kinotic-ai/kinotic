@@ -30,6 +30,9 @@ public class DefaultJobDefinition implements JobDefinition {
     private final boolean parallel;
 
     @Getter
+    private boolean continueOnFailure;
+
+    @Getter
     private String name;
 
     @Getter
@@ -54,6 +57,13 @@ public class DefaultJobDefinition implements JobDefinition {
     @Override
     public JobDefinition version(String version) {
         this.version = version;
+        return this;
+    }
+
+    @Override
+    public JobDefinition continueOnFailure() {
+        Validate.validState(!parallel, "a parallel definition cancels its tasks on the first failure");
+        this.continueOnFailure = true;
         return this;
     }
 

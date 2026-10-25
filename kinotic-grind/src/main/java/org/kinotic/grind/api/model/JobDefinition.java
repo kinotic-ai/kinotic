@@ -49,6 +49,12 @@ public interface JobDefinition {
     boolean isParallel();
 
     /**
+     * True if a task of this definition failing does not stop the tasks after it.
+     * @return true when every task runs before the definition fails
+     */
+    boolean isContinueOnFailure();
+
+    /**
      * Sets the stable name identifying this job across runs.
      * @param name to use
      * @return this for fluent use
@@ -61,6 +67,16 @@ public interface JobDefinition {
      * @return this for fluent use
      */
     JobDefinition version(String version);
+
+    /**
+     * Makes each task of this sequential definition run even after one before it fails; the
+     * definition then fails once every task has run, with the first failure. Tasks that do not
+     * depend on one another, such as one import per source, each get their run.
+     * @return this for fluent use
+     * @throws IllegalStateException if the definition is parallel, whose first failure cancels the
+     *         tasks still running
+     */
+    JobDefinition continueOnFailure();
 
     /**
      * Seeds the given values into the job scope before the first task runs, each stored as a

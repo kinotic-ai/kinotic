@@ -1,11 +1,14 @@
 package org.kinotic.domain.internal.api.services;
 
+import io.vertx.core.Future;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cluster.ClusterNode;
 import org.kinotic.core.api.KinoticNodeAttributes;
+import org.kinotic.core.api.crud.CursorPage;
+import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.ServerSbom;
 import org.kinotic.domain.api.repositories.ServerSbomRepository;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -20,12 +23,15 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 /**
- * Records the node's {@link ServerSbom} when it starts, and deletes it when the node shuts down.
+ * Records the node's {@link ServerSbom} when it starts, deletes it when the node shuts down, and
+ * deletes the SBOMs left by nodes that left the cluster without shutting down.
  */
 @Slf4j
 @Component
@@ -36,6 +42,8 @@ public class ServerSbomRecorder {
     private static final String COMPONENTS_RESOURCE = "META-INF/kinotic/components.txt";
 
     private static final long DELETE_TIMEOUT_SECONDS = 10;
+
+    private static final int ID_PAGE_SIZE = 1_000;
 
     private final Ignite ignite;
     private final ServerSbomRepository repository;
@@ -58,12 +66,13 @@ public class ServerSbomRecorder {
                                           .setStarted(started);
         repository.save(sbom)
                   .onFailure(error -> log.error("Could not record the node's SBOM", error));
+        deleteSbomsOfNodesGone();
     }
 
     @PreDestroy
     void deleteSbom() {
-        // only the node itself deletes its row, so no node can delete the row of one that is still running;
-        // a node that crashes leaves its row behind, which readers skip since they look up running nodes only
+        // only the node itself deletes its row while it runs, so no node can delete the row of one that is
+        // still running; a node that crashes leaves its row for the next node to start to delete
         try {
             repository.deleteById(ignite.cluster().localNode().id().toString())
                       .toCompletionStage()
@@ -75,6 +84,30 @@ public class ServerSbomRecorder {
             Thread.currentThread().interrupt();
             log.warn("Interrupted while deleting the node's SBOM; its row stays behind");
         }
+    }
+
+    // The rows are listed before the topology is read: a node whose row the listing holds joined the
+    // cluster before writing it, so one missing from the topology read after the listing has left
+    private void deleteSbomsOfNodesGone() {
+        CursorPage.readAll(repository::findAllIds, ID_PAGE_SIZE, Sort.by("id"))
+                  .compose(sboms -> {
+                      Set<String> running = ignite.cluster().nodes().stream()
+                                                  .map(node -> node.id().toString())
+                                                  .collect(Collectors.toSet());
+                      List<String> gone = sboms.stream()
+                                               .map(ServerSbom::getId)
+                                               .filter(id -> !running.contains(id))
+                                               .toList();
+                      Future<Void> ret;
+                      if (gone.isEmpty()) {
+                          ret = Future.succeededFuture();
+                      } else {
+                          log.info("Deleting the SBOMs of {} nodes that left the cluster", gone.size());
+                          ret = repository.deleteAllById(gone);
+                      }
+                      return ret;
+                  })
+                  .onFailure(error -> log.warn("Could not delete the SBOMs of nodes that left the cluster", error));
     }
 
     // The package URLs the classpath's COMPONENTS_RESOURCE lists, empty when it holds none

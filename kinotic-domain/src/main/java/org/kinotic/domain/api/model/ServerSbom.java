@@ -36,9 +36,9 @@ public class ServerSbom implements Identifiable<String> {
     private String version;
 
     /**
-     * The package URL of every library the node's server was built with, e.g.
-     * {@code pkg:maven/io.vertx/vertx-core@5.1.6}; empty when the node runs from classes rather than a
-     * packaged jar.
+     * The package URL of every library the node's server was built with and of the OpenTelemetry agent
+     * it runs with, e.g. {@code pkg:maven/io.vertx/vertx-core@5.1.6}; empty when the node runs from
+     * classes rather than a packaged jar.
      */
     private List<String> packages = new ArrayList<>();
 
