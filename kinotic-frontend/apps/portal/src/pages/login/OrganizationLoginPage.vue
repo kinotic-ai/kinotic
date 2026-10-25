@@ -247,18 +247,18 @@ function displayError(text: string) {
 }
 
 .login-providers :deep(.social-auth-button-form),
-.login-providers :deep(.social-auth-button--gh) {
+.login-providers :deep(.social-auth-button--mark) {
   width: 100%;
 }
 
-.login-providers :deep(.social-auth-button--gh) {
+.login-providers :deep(.social-auth-button--mark) {
   height: 3.5rem;
   border-radius: 5px;
   border-color: var(--lp-provider-border);
   font-weight: 400;
 }
 
-.login-providers :deep(.social-auth-button--gh:hover) {
+.login-providers :deep(.social-auth-button--mark:hover) {
   border-color: var(--lp-provider-border-hover);
 }
 
