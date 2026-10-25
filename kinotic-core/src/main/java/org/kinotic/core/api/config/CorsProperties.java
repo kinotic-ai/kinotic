@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.config;
+package org.kinotic.core.api.config;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

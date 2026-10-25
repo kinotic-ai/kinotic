@@ -1,6 +1,5 @@
-package org.kinotic.core.api.config;
+package org.kinotic.domain.api.config;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -26,10 +25,10 @@ import java.util.List;
 public class VersionedKeySet {
 
     private String activeKeyId;
-    private List<KeyEntry> keys = new ArrayList<>();
+    private List<VersionedKey> keys = new ArrayList<>();
 
-    public KeyEntry getActive() {
-        for (KeyEntry entry : keys) {
+    public VersionedKey getActive() {
+        for (VersionedKey entry : keys) {
             if (entry.getId().equals(activeKeyId)) {
                 return entry;
             }
@@ -37,24 +36,12 @@ public class VersionedKeySet {
         throw new IllegalStateException("Active key id '" + activeKeyId + "' not present in keys list");
     }
 
-    public KeyEntry findById(String id) {
-        for (KeyEntry entry : keys) {
+    public VersionedKey findById(String id) {
+        for (VersionedKey entry : keys) {
             if (entry.getId().equals(id)) {
                 return entry;
             }
         }
         return null;
-    }
-
-    @Getter
-    @Setter
-    @Accessors(chain = true)
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class KeyEntry {
-        /** Stable, human-readable version identifier (e.g., "v1", "v2"). */
-        private String id;
-        /** Base64-encoded key material. */
-        private String key;
     }
 }

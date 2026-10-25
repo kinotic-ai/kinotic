@@ -103,7 +103,7 @@ spec:
                 secretKeyRef:
                   name: {{ $.Values.kinotic.elastic.secretName }}
                   key: {{ $.Values.kinotic.elastic.secretKey }}
-            - name: KINOTIC_SYSTEMSECRETS_JWTSIGNINGKEYSPATH
+            - name: KINOTIC_DOMAIN_SYSTEMSECRETS_JWTSIGNINGKEYSPATH
               value: "{{ $.Values.systemSecrets.mountPath }}/jwt-signing-keys"
             # Each file of the system-secrets volume sets the property it is named after
             - name: SPRING_CONFIG_IMPORT

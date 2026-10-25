@@ -21,9 +21,8 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.secret.SecretReferenceResolver;
+import org.kinotic.domain.api.services.SecretReferenceResolver;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.config.DomainProperties;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
@@ -197,7 +196,7 @@ public class OidcFlowOrchestrator {
      * {@code origin} the completed login is bound to and the browser returns to, builds the IdP authorization URL
      * using the supplied callback URL, and returns the URL. The caller names the origin because a start reached by
      * a link carries no {@code Origin} of its own. An origin that is neither the portal's nor one
-     * {@code kinotic.domain.cors.allowedOriginPattern} trusts is stored as none, so the flow returns to this server's UI.
+     * {@code kinotic.cors.allowedOriginPattern} trusts is stored as none, so the flow returns to this server's UI.
      */
     public Future<String> startFlow(RoutingContext ctx,
                                     OidcConfiguration config,
@@ -225,7 +224,7 @@ public class OidcFlowOrchestrator {
 
     /**
      * Begins a {@link OidcFlowPurpose#SIGN_UP} flow through one of the system's org sign-up registrations, which
-     * returns to the page that sent the request when it is the portal or {@code kinotic.domain.cors.allowedOriginPattern}
+     * returns to the page that sent the request when it is the portal or {@code kinotic.cors.allowedOriginPattern}
      * trusts it, and to this server's UI otherwise.
      */
     public Future<String> startSignUp(RoutingContext ctx, OidcConfiguration config, String callbackUrl) {
@@ -236,7 +235,7 @@ public class OidcFlowOrchestrator {
      * Begins an {@link OidcFlowPurpose#INVITATION} flow accepting the invitation {@code inviteToken} into
      * organization {@code orgId}, stashed for the callback to resolve its configuration by and to complete the
      * acceptance with. It returns to the page that sent the request when it is the portal or
-     * {@code kinotic.domain.cors.allowedOriginPattern} trusts it, and to this server's UI otherwise.
+     * {@code kinotic.cors.allowedOriginPattern} trusts it, and to this server's UI otherwise.
      */
     public Future<String> startInvitation(RoutingContext ctx, OidcConfiguration config, String callbackUrl, String orgId, String inviteToken) {
         Validate.notBlank(inviteToken, "inviteToken cannot be blank");
@@ -247,7 +246,7 @@ public class OidcFlowOrchestrator {
      * Begins a {@link OidcFlowPurpose#CONNECT} flow binding the identity the provider asserts to organization user
      * {@code organizationUserId}; {@code orgId} is the organization whose configuration the flow runs through, or
      * {@code null} for one of the system's registrations. It returns to the page that sent the request when it is the
-     * portal or {@code kinotic.domain.cors.allowedOriginPattern} trusts it, and to this server's UI otherwise.
+     * portal or {@code kinotic.cors.allowedOriginPattern} trusts it, and to this server's UI otherwise.
      */
     public Future<String> startConnect(RoutingContext ctx, OidcConfiguration config, String callbackUrl, String orgId, String organizationUserId) {
         Validate.notBlank(organizationUserId, "organizationUserId cannot be blank");
@@ -258,8 +257,8 @@ public class OidcFlowOrchestrator {
     // returns to, so only the portal or a page the CORS pattern names gets it; the portal is named separately because
     // a portal served from the API's own origin needs no CORS entry
     private String trustedOrigin(String origin) {
-        DomainProperties domain = domainProperties.getDomain();
-        boolean trusted = domain.getCors().trustsOrigin(origin) || (origin != null && origin.equals(domain.portalOrigin()));
+        boolean trusted = domainProperties.getCors().trustsOrigin(origin)
+                          || (origin != null && origin.equals(domainProperties.getDomain().portalOrigin()));
         return trusted ? origin : null;
     }
 
