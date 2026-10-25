@@ -84,7 +84,7 @@ import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, postCredentials } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import { forgetOrganization } from '@/pages/login/organizationLogin'
+import { forgetOrganization, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
 
 const debug = createDebug('login')
 
@@ -135,7 +135,15 @@ async function loadProviders() {
     const res = await fetch(apiUrl(`/api/auth/org/login/${encodeURIComponent(props.organizationId)}/providers`),
                             { credentials: 'same-origin' })
     if (res.status === 404) {
-      unknown.value = true
+      if (props.organizationId === rememberedOrganization()) {
+        // a remembered organization that no longer exists would pull every visit to /login back
+        // here, so it is forgotten and the landing page told, through the history state, what was
+        // remembered; the page stays put for a typed organization, which answers a typo in place
+        forgetOrganization()
+        await router.replace({ path: '/login', query: route.query, state: { [UNKNOWN_ORGANIZATION_STATE]: props.organizationId } })
+      } else {
+        unknown.value = true
+      }
       return
     }
     if (!res.ok) {
