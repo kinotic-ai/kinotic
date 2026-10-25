@@ -9,6 +9,7 @@ import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.security.ApplicationLoginMethods;
+import org.kinotic.domain.api.model.security.LoginScope;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -151,7 +152,10 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     @Override
     public Future<ApplicationLoginMethods> getLoginMethods(String applicationId) {
         Validate.notNull(applicationId, "applicationId cannot be null");
-        return applicationSignUpService.findLoginMethods(new ApplicationKey(requireOrganizationId(), applicationId), null);
+        return findById(applicationId).compose(application -> {
+            Validate.isTrue(application != null, "The organization has no application %s", applicationId);
+            return applicationSignUpService.findLoginMethods(new LoginScope(application, null));
+        });
     }
 
 }

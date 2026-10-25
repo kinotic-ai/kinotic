@@ -188,7 +188,8 @@ public class OidcFlowOrchestrator {
      */
     public PendingFlow pendingFlow(RoutingContext ctx) {
         OidcFlowSession flowSession = ctx.session().get(OIDC_FLOW_SESSION_KEY);
-        return flowSession == null ? null : new PendingFlow(flowSession.purpose(), flowSession.origin(), flowSession.inviteToken());
+        return flowSession == null ? null : new PendingFlow(flowSession.purpose(), flowSession.orgId(), flowSession.applicationId(),
+                                                            flowSession.origin(), flowSession.inviteToken());
     }
 
     /**

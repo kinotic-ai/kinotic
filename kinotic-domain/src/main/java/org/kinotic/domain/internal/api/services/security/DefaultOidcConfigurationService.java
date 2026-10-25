@@ -7,11 +7,10 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.security.ApplicationOidcConfiguration;
 import org.kinotic.domain.api.model.security.ApplicationSocialOidcConfiguration;
-import org.kinotic.domain.api.model.security.ClientRegistrationType;
 import org.kinotic.domain.api.model.security.ManagedOidcConfiguration;
+import org.kinotic.domain.api.model.security.ManagedSignIn;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
@@ -90,31 +89,38 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                                 "An organization's own login names one directory of its own, not '%s', which admits every directory",
                                 owned.getProviderAccount());
             } else if (owned instanceof ApplicationOidcConfiguration forApplication) {
-                ret = requireApplication(forApplication.getOrganizationId(), forApplication.getApplicationId()).mapEmpty();
-                if (OidcConfigurationService.isManaged(forApplication)) {
-                    ret = ret.compose(v -> requireManagedRegistration(forApplication.getProvider()));
-                }
+                Validate.isTrue(StringUtils.isNotBlank(forApplication.getApplicationId()), "Application id must be set on ApplicationOidcConfiguration");
+                // the application whose login the configuration is offered at must be the organization's own
+                ret = applicationRepository.requireById(forApplication.getApplicationId(), forApplication.getOrganizationId()).mapEmpty();
             } else if (owned instanceof TenantOidcConfiguration forTenant) {
                 ret = requireTenant(forTenant.getOrganizationId(), forTenant.getApplicationId(), forTenant.getTenantId());
             }
+        } else if (entity instanceof ApplicationSocialOidcConfiguration social && social.isEnabled()) {
+            ret = requireOnlyEnabledRegistration(social);
         }
+        Future<OidcConfiguration> existing;
         if (entity.getId() == null) {
             entity.setId(UUID.randomUUID().toString());
             entity.setCreated(new Date());
+            existing = ret.map(v -> null);
         } else {
             // the index holds every owner's rows under raw ids, so the row the id names must be the caller's too
-            ret = ret.compose(v -> oidcRepository.findById(entity.getId()).map(existing -> {
-                if (existing != null) {
-                    requireOwner(existing);
+            existing = ret.compose(v -> oidcRepository.findById(entity.getId())).map(found -> {
+                if (found != null) {
+                    requireOwner(found);
                     // the kind is the scope the configuration is offered at and keys its bindings, so a row never changes it
-                    Validate.isTrue(existing.getClass() == entity.getClass(), "Configuration %s is a %s, which a %s cannot replace",
-                                    entity.getId(), existing.getClass().getSimpleName(), entity.getClass().getSimpleName());
+                    Validate.isTrue(found.getClass() == entity.getClass(), "Configuration %s is a %s, which a %s cannot replace",
+                                    entity.getId(), found.getClass().getSimpleName(), entity.getClass().getSimpleName());
                 }
-                return null;
-            }));
+                return found;
+            });
         }
         entity.setUpdated(new Date());
-        return ret;
+        // switching to Kinotic's registration needs an enabled one of the kind; a configuration already using it saves
+        // without one, so its organization can still disable, rename or delete the secret of one the system stopped offering
+        return existing.compose(found -> OidcConfigurationService.isManaged(entity) && !OidcConfigurationService.isManaged(found)
+                ? requireManagedRegistration(entity.getProvider())
+                : Future.succeededFuture());
     }
 
     @Override
@@ -160,19 +166,21 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
         return securityContext.requireParticipant(OrganizationParticipant.class).getOrganizationId();
     }
 
-    // the application whose login an ApplicationOidcConfiguration is offered at must be the organization's own
-    private Future<Application> requireApplication(String orgId, String applicationId) {
-        Validate.isTrue(StringUtils.isNotBlank(applicationId), "Application id must be set on ApplicationOidcConfiguration");
-        return applicationRepository.findById(applicationId, orgId).map(application -> {
-            Validate.isTrue(application != null, "Organization %s has no application %s", orgId, applicationId);
-            return application;
-        });
-    }
-
     // a configuration using Kinotic's registration signs in through the system's registration of its provider kind
     private Future<Void> requireManagedRegistration(OidcProviderType provider) {
         return oidcRepository.findEnabledSocialByProvider(provider).map(registration -> {
             Validate.isTrue(registration != null, "Kinotic manages no sign-in with %s; use the application's own credentials", provider.key());
+            return null;
+        });
+    }
+
+    // an application's configuration of a kind signs in through the system's one enabled registration of that kind
+    private Future<Void> requireOnlyEnabledRegistration(ApplicationSocialOidcConfiguration registration) {
+        return oidcRepository.findEnabledSocialByProvider(registration.getProvider()).map(enabled -> {
+            if (enabled != null && !enabled.getId().equals(registration.getId())) {
+                throw new IllegalArgumentException("The system's registration " + enabled.getId() + " signs in with "
+                                                   + registration.getProvider().key() + " already; disable it first");
+            }
             return null;
         });
     }
@@ -207,12 +215,6 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
     @Override
     public Future<List<ApplicationSocialOidcConfiguration>> findEnabledAppSocialRegistrations() {
         return oidcRepository.findEnabledSocial();
-    }
-
-    @Override
-    public Future<ApplicationSocialOidcConfiguration> findEnabledAppSocialByProvider(OidcProviderType provider) {
-        Validate.notNull(provider, "provider cannot be null");
-        return oidcRepository.findEnabledSocialByProvider(provider);
     }
 
     @Override
@@ -270,9 +272,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                                      // one using Kinotic's registration while the system holds an enabled one of its kind,
                                      // as findEnabledForScope lists it
                                      case ApplicationOidcConfiguration owned when OidcConfigurationService.isManaged(owned) ->
-                                             organizationId.equals(owned.getOrganizationId()) && owned.getApplicationId().equals(applicationId)
-                                                     ? oidcRepository.findEnabledSocialByProvider(owned.getProvider()).map(Objects::nonNull)
-                                                     : Future.succeededFuture(false);
+                                             managedRegistration(owned, organizationId, applicationId).map(Objects::nonNull);
                                      case ApplicationOidcConfiguration owned ->
                                              Future.succeededFuture(organizationId.equals(owned.getOrganizationId())
                                                                     && owned.getApplicationId().equals(applicationId));
@@ -286,6 +286,33 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                                  };
                                  return offered.map(yes -> yes && configuration.isEnabled() ? configuration : null);
                              });
+    }
+
+    @Override
+    public Future<ManagedSignIn> findOfferedManaged(String configurationId, String organizationId, String applicationId) {
+        Validate.notBlank(configurationId, "configurationId cannot be blank");
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        Validate.notBlank(applicationId, "applicationId cannot be blank");
+        return oidcRepository.findById(configurationId).compose(configuration -> {
+            Future<ManagedSignIn> ret;
+            if (configuration instanceof ApplicationOidcConfiguration owned && OidcConfigurationService.isManaged(owned) && owned.isEnabled()) {
+                ret = managedRegistration(owned, organizationId, applicationId)
+                        .map(registration -> registration != null ? new ManagedSignIn(owned, registration) : null);
+            } else {
+                ret = Future.succeededFuture();
+            }
+            return ret;
+        });
+    }
+
+    // the system's enabled registration the application's configuration signs in through, or null when the
+    // configuration is not the application's or the system holds none of its kind
+    private Future<ApplicationSocialOidcConfiguration> managedRegistration(ApplicationOidcConfiguration configuration,
+                                                                          String organizationId,
+                                                                          String applicationId) {
+        return organizationId.equals(configuration.getOrganizationId()) && configuration.getApplicationId().equals(applicationId)
+                ? oidcRepository.findEnabledSocialByProvider(configuration.getProvider())
+                : Future.succeededFuture();
     }
 
     @Override

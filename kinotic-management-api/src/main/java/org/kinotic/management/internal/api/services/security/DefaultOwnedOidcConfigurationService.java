@@ -38,7 +38,7 @@ public class DefaultOwnedOidcConfigurationService implements OwnedOidcConfigurat
     public Future<List<OidcProviderType>> findManagedProviders() {
         requireOrganizationId();
         return oidcConfigurationService.findEnabledAppSocialRegistrations()
-                                       .map(registrations -> registrations.stream().map(OidcConfiguration::getProvider).toList());
+                                       .map(registrations -> registrations.stream().map(OidcConfiguration::getProvider).distinct().toList());
     }
 
     @Override

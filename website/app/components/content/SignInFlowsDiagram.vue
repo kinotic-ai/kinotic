@@ -8,7 +8,7 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
   <div class="sign-in-diagram-wrap">
 
     <!-- ═══════════════════════════ OWNERS: two owners, two keys into one vault ═══════════════════════════ -->
-    <svg v-if="figure === 'owners'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 440" role="img" aria-label="A system user seeds a managed registration, which names its secret in the vault and is read by that name at sign-in. An organization administrator saves its own configuration together with the client secret; the row has no secret field, and the service stores the secret in the organization's scope keyed by the configuration id, reading it back at sign-in. A crossed-out arrow shows that an organization's row cannot reach the system's named secrets. Clients only ever receive a summary: id, name, provider, type.">
+    <svg v-if="figure === 'owners'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 440" role="img" aria-label="A system user seeds a managed registration, which names its secret in the vault and is read by that name at sign-in. An organization administrator saves its own configuration together with the client secret; the row has no secret field, and the service stores the secret in the organization's scope keyed by the configuration id, reading it back at sign-in. A crossed-out arrow shows that an organization's row cannot reach the system's named secrets. Clients only ever receive a summary: configuration id, name and provider, with its type, or at an application's login whether it signs people up.">
       <defs>
         <marker id="si1-ind" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-ind" points="0,0 10,5 0,10"></polygon></marker>
         <marker id="si1-grn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-grn" points="0,0 10,5 0,10"></polygon></marker>
@@ -70,7 +70,7 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
 
       <!-- the wire -->
       <rect class="chip" x="40" y="396" width="1060" height="30" rx="8"></rect>
-      <text class="t-mono-ink" x="570" y="416" text-anchor="middle">what any client sees of either kind:  LoginProviderSummary { configurationId, name, provider, type }</text>
+      <text class="t-mono-ink" x="570" y="416" text-anchor="middle">what any client sees of either kind:  { configurationId, name, provider }, with type (LoginProviderSummary) or signUp (ApplicationLoginProvider)</text>
     </svg>
 
     <!-- ═══════════════════════════ MODEL: the configuration classes ═══════════════════════════ -->

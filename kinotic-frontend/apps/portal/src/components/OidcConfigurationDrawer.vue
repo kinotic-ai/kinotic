@@ -75,7 +75,10 @@
           <InputText id="oidc-account" v-model="providerAccount" :placeholder="ACCOUNT_PLACEHOLDERS[provider]" autocomplete="off"
                      :invalid="accountInvalid" class="w-full font-mono" />
           <p v-if="accountInvalid" class="mt-1.5 text-[0.8125rem] text-red-600 dark:text-red-400">
-            Enter the {{ offered.providerAccountLabel }} in the form {{ ACCOUNT_PLACEHOLDERS[provider] }}.
+            Enter the {{ offered.providerAccountLabel }} in the form {{ ACCOUNT_PLACEHOLDERS[provider] }}{{ everyDirectoryAccounts ? `, or ${everyDirectoryAccounts}` : '' }}.
+          </p>
+          <p v-else-if="everyDirectoryAccounts" class="mt-1.5 text-[0.8125rem] text-muted-color">
+            Or {{ everyDirectoryAccounts }}, which admit the users of every directory.
           </p>
         </div>
 
@@ -173,6 +176,7 @@ import {
   OidcConfigurationType,
   OidcProviderType,
   ORGANIZATION_OIDC_PROVIDERS,
+  admitsEveryDirectory,
   findOrganizationOidcProvider,
   isProviderAccountValid,
   type OwnedOidcConfiguration,
@@ -257,10 +261,14 @@ const managed = computed(() => managedOffered.value && clientRegistrationType.va
 const choosingSecret = computed(() => !managed.value && (isNew.value
     || (props.configuration?.clientRegistrationType === ClientRegistrationType.MANAGED && !props.configuration.confidentialClient)))
 const offered = computed(() => findOrganizationOidcProvider(provider.value))
+/** The accounts admitting every directory that an application's or a tenant's login may name, listed for the form. */
+const everyDirectoryAccounts = computed(() => props.applicationId !== null && offered.value?.everyDirectoryAccounts.length
+    ? offered.value.everyDirectoryAccounts.join(' or ')
+    : null)
 const accountInvalid = computed(() => offered.value?.providerAccountLabel != null && providerAccount.value.trim() !== ''
-    && !isProviderAccountValid(provider.value, providerAccount.value.trim()))
+    && !isAccountAccepted(providerAccount.value.trim()))
 const complete = computed(() => name.value.trim() !== '' && (managed.value || (clientId.value.trim() !== ''
-    && isProviderAccountValid(provider.value, accountValue())
+    && isAccountAccepted(accountValue())
     && (!choosingSecret.value || publicClient.value || clientSecret.value !== ''))))
 
 const title = computed(() => saved.value ? 'Provider added' : isNew.value ? 'Add provider' : 'Edit provider')
@@ -308,6 +316,12 @@ function scopeLabel(id: string | null): string {
 
 function accountValue(): string | null {
   return offered.value?.providerAccountLabel ? providerAccount.value.trim() : null
+}
+
+// an organization's own login names one directory of its own, which the server requires of every save
+function isAccountAccepted(account: string | null): boolean {
+  return isProviderAccountValid(provider.value, account)
+      && (props.applicationId !== null || !admitsEveryDirectory(provider.value, account))
 }
 
 function reset(): void {

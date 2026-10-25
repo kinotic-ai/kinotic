@@ -121,12 +121,15 @@ public class EmailService {
     /**
      * Sends a person signing up to an application the link that verifies their email, naming the application.
      *
-     * @param email           the recipient's email address
-     * @param applicationName the name of the application signed up to
-     * @param verificationUrl the link to the application's UI page that completes the sign-up
+     * @param email             the recipient's email address
+     * @param applicationName   the name of the application signed up to
+     * @param verificationToken the token to include in the verification URL
+     * @param uiBaseUrl         the origin of the application's UI whose verification page the link opens
      * @return a future that completes once the send has finished (or fails if ACS rejects it)
      */
-    public Future<Void> sendApplicationSignUpEmail(String email, String applicationName, String verificationUrl) {
+    public Future<Void> sendApplicationSignUpEmail(String email, String applicationName, String verificationToken, String uiBaseUrl) {
+        String verificationUrl = uiBaseUrl + VERIFICATION_PATH + verificationToken;
+
         if (!properties.getDomain().getEmail().isEnabled()) {
             log.warn("Email sending is disabled; sign-up verification URL of {} for <{}>: {}", applicationName, email, verificationUrl);
             return Future.succeededFuture();

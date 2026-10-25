@@ -37,7 +37,7 @@ public interface ApplicationService extends OrganizationScopedCrudService<Applic
      * answers the same for the page that asks. Every application accepts an email and a password from an existing
      * user: the page posts {@code {email, password}} to {@code POST /api/auth/app/login}. Each provider is offered as a
      * "Continue with &lt;name&gt;" button on both pages: the page posts to
-     * {@code POST /api/auth/app/login/oidc/start/<id>} and sends the browser to the {@code redirect} URL the answer
+     * {@code POST /api/auth/app/login/oidc/start/<configurationId>} and sends the browser to the {@code redirect} URL the answer
      * carries; the browser returns to the page signed in, or to its {@code /login} page with an {@code error}
      * parameter. A provider whose {@code signUp} is true creates the user of a person it verifies on that person's
      * first sign-in. While {@code passwordSignUp} is true, the sign-up page posts {@code {email, displayName}} to

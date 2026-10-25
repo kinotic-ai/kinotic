@@ -67,12 +67,13 @@ public class OidcConfigurationRepository extends AbstractRepository<OidcConfigur
     }
 
     /**
-     * Every enabled social registration the system holds for applications, one per provider kind.
+     * Every enabled social registration the system holds for applications, oldest first.
      */
     public Future<List<ApplicationSocialOidcConfiguration>> findEnabledSocial() {
         return findAll(Pageable.ofSize(100), b -> b.query(composeFilter(
                 termFilter(TYPE_FIELD, OidcConfigurationType.APP_SOCIAL.name()),
-                termFilter(ENABLED_FIELD, true))))
+                termFilter(ENABLED_FIELD, true)))
+                .sort(s -> s.field(f -> f.field("created"))))
                 .map(page -> page.map(ApplicationSocialOidcConfiguration.class::cast))
                 .map(Page::getContent);
     }
@@ -81,10 +82,12 @@ public class OidcConfigurationRepository extends AbstractRepository<OidcConfigur
      * The enabled social registration of the given provider kind, or {@code null} when the system holds none.
      */
     public Future<ApplicationSocialOidcConfiguration> findEnabledSocialByProvider(OidcProviderType provider) {
+        // sorted, so every step of one sign-in resolves the same registration should the seeded rows hold two
         return findFirst(b -> b.query(composeFilter(
                 termFilter(TYPE_FIELD, OidcConfigurationType.APP_SOCIAL.name()),
                 termFilter(PROVIDER_FIELD, provider.key()),
-                termFilter(ENABLED_FIELD, true))))
+                termFilter(ENABLED_FIELD, true)))
+                .sort(s -> s.field(f -> f.field("id"))))
                 .map(ApplicationSocialOidcConfiguration.class::cast);
     }
 

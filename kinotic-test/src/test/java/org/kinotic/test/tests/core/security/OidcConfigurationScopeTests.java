@@ -10,6 +10,7 @@ import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.security.ApplicationOidcConfiguration;
 import org.kinotic.domain.api.model.security.ApplicationSocialOidcConfiguration;
 import org.kinotic.domain.api.model.security.ClientRegistrationType;
+import org.kinotic.domain.api.model.security.ManagedSignIn;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
@@ -17,6 +18,7 @@ import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.TenantOidcConfiguration;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
@@ -45,7 +47,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * is offered there, after the org sign-up providers, and at none of its applications; one made for an
  * application is offered at that application only and must name one of the organization's; a disabled
  * configuration is offered nowhere; an application's configuration may sign in through Kinotic's registration of
- * its provider kind and switch to the organization's own and back as one configuration; one made for a tenant of an application is offered at that tenant's login, which also offers the
+ * its provider kind, which is offered at the application's login only while the system's registration is enabled,
+ * and switch to the organization's own and back as one configuration; the system holds one enabled registration of
+ * each kind; one made for a tenant of an application is offered at that tenant's login, which also offers the
  * application's, and nowhere else; and a copy of a configuration into another scope is a configuration of that
  * scope, with the source's secret and an id of its own.
  */
@@ -80,6 +84,11 @@ public class OidcConfigurationScopeTests extends KinoticTestBase {
 
     private <T> Future<T> asAdministrator(Supplier<Future<T>> call) {
         return runAs(administrator, call);
+    }
+
+    // the system's registrations are saved by a system participant only
+    private <T> Future<T> asSystem(Supplier<Future<T>> call) {
+        return runAs(new DefaultSystemParticipant("scope-system-" + suffix(), Map.of(), List.of()), call);
     }
 
     @Test
@@ -170,21 +179,22 @@ public class OidcConfigurationScopeTests extends KinoticTestBase {
         await(asAdministrator(() -> applicationService.createApplicationIfNotExist(appId, "Managed application", null)));
         // the system's registration is never offered on its own, only through an application's configuration
         assertNull(await(oidcConfigurations.findOffered("google-platform", organization.getId(), appId)));
-        ApplicationSocialOidcConfiguration registration = await(oidcConfigurations.findEnabledAppSocialByProvider(OidcProviderType.GOOGLE));
-        assertEquals("google-platform", registration.getId());
+        assertNull(await(oidcConfigurations.findOfferedManaged("google-platform", organization.getId(), appId)));
 
-        ApplicationOidcConfiguration google = new ApplicationOidcConfiguration().setApplicationId(appId)
-                                                                                .setClientRegistrationType(ClientRegistrationType.MANAGED);
-        google.setOrganizationId(organization.getId());
-        google.setName("Google")
-              .setProvider(OidcProviderType.GOOGLE)
-              .setEnabled(true);
-        ApplicationOidcConfiguration saved = await(asAdministrator(() -> oidcConfigurations.save(google, null)));
+        ApplicationOidcConfiguration saved = await(asAdministrator(() -> oidcConfigurations.save(managedGoogle(appId), null)));
         assertNull(saved.getAuthority());
         assertFalse(saved.isConfidentialClient());
         await(oidcConfigurations.syncIndex());
         assertEquals(saved.getId(), await(oidcConfigurations.findOffered(saved.getId(), organization.getId(), appId)).getId());
         assertEquals(List.of(saved.getId()), ids(await(oidcConfigurations.findEnabledForScope(organization.getId(), appId))));
+        ManagedSignIn signIn = await(oidcConfigurations.findOfferedManaged(saved.getId(), organization.getId(), appId));
+        assertEquals(saved.getId(), signIn.configuration().getId());
+        assertEquals("google-platform", signIn.registration().getId());
+
+        // the organization's own login and its other applications do not offer it
+        assertNull(await(oidcConfigurations.findOffered(saved.getId(), organization.getId(), null)));
+        assertFalse(ids(await(oidcConfigurations.findEnabledForScope(organization.getId(), null))).contains(saved.getId()));
+        assertNull(await(oidcConfigurations.findOfferedManaged(saved.getId(), organization.getId(), "another-app-" + suffix())));
 
         // switched to the application's own registration it is the same configuration, its credentials checked from then on
         saved.setClientRegistrationType(ClientRegistrationType.OWN)
@@ -193,6 +203,7 @@ public class OidcConfigurationScopeTests extends KinoticTestBase {
         assertEquals(saved.getId(), own.getId());
         assertEquals("https://accounts.google.com", own.getAuthority());
         assertTrue(own.isConfidentialClient());
+        assertNull(await(oidcConfigurations.findOfferedManaged(own.getId(), organization.getId(), appId)));
 
         // and switched back it keeps them for the next switch, and has none of its own to copy
         own.setClientRegistrationType(ClientRegistrationType.MANAGED);
@@ -204,6 +215,44 @@ public class OidcConfigurationScopeTests extends KinoticTestBase {
         // a kind Kinotic holds no registration for is refused
         ApplicationOidcConfiguration okta = forApplication("Orders Okta", appId).setClientRegistrationType(ClientRegistrationType.MANAGED);
         assertInstanceOf(IllegalArgumentException.class, failure(() -> oidcConfigurations.save(okta, null)));
+    }
+
+    @Test
+    public void aManagedConfigurationIsOfferedOnlyWhileKinoticsRegistrationIsEnabled() throws Exception {
+        String appId = "oidc-scope-app-" + suffix();
+        await(asAdministrator(() -> applicationService.createApplicationIfNotExist(appId, "Unmanaged application", null)));
+        ApplicationOidcConfiguration saved = await(asAdministrator(() -> oidcConfigurations.save(managedGoogle(appId), "kept-google-secret")));
+        ApplicationSocialOidcConfiguration registration = (ApplicationSocialOidcConfiguration) await(oidcConfigurations.findById("google-platform"));
+        await(asSystem(() -> oidcConfigurations.saveSync(registration.setEnabled(false))));
+        try {
+            await(oidcConfigurations.syncIndex());
+            assertNull(await(oidcConfigurations.findOffered(saved.getId(), organization.getId(), appId)));
+            assertTrue(await(oidcConfigurations.findEnabledForScope(organization.getId(), appId)).isEmpty());
+            assertNull(await(oidcConfigurations.findOfferedManaged(saved.getId(), organization.getId(), appId)));
+
+            // its organization still edits the configuration it has, and only one starting to use Kinotic's is refused
+            saved.setEnabled(false);
+            assertFalse(await(asAdministrator(() -> oidcConfigurations.save(saved, null))).isEnabled());
+            assertFalse(await(asAdministrator(() -> oidcConfigurations.deleteClientSecret(saved.getId()))).isConfidentialClient());
+            assertInstanceOf(IllegalArgumentException.class, failure(() -> oidcConfigurations.save(managedGoogle(appId), null)));
+        } finally {
+            await(asSystem(() -> oidcConfigurations.saveSync(registration.setEnabled(true))));
+        }
+    }
+
+    @Test
+    public void theSystemHoldsOneEnabledRegistrationOfEachKind() throws Exception {
+        ApplicationSocialOidcConfiguration second = new ApplicationSocialOidcConfiguration();
+        second.setName("Second Google")
+              .setProvider(OidcProviderType.GOOGLE)
+              .setClientId("second-google-client")
+              .setEnabled(true);
+        assertInstanceOf(IllegalArgumentException.class,
+                         assertThrows(ExecutionException.class, () -> await(asSystem(() -> oidcConfigurations.save(second)))).getCause());
+
+        // the enabled one saves as itself
+        OidcConfiguration google = await(oidcConfigurations.findById("google-platform"));
+        assertEquals(google.getId(), await(asSystem(() -> oidcConfigurations.saveSync(google))).getId());
     }
 
     @Test
@@ -238,6 +287,16 @@ public class OidcConfigurationScopeTests extends KinoticTestBase {
     private OrganizationOidcConfiguration forOrganization(String name) {
         OrganizationOidcConfiguration ret = new OrganizationOidcConfiguration();
         okta(ret, name);
+        return ret;
+    }
+
+    private ApplicationOidcConfiguration managedGoogle(String applicationId) {
+        ApplicationOidcConfiguration ret = new ApplicationOidcConfiguration().setApplicationId(applicationId)
+                                                                             .setClientRegistrationType(ClientRegistrationType.MANAGED);
+        ret.setOrganizationId(organization.getId());
+        ret.setName("Google")
+           .setProvider(OidcProviderType.GOOGLE)
+           .setEnabled(true);
         return ret;
     }
 

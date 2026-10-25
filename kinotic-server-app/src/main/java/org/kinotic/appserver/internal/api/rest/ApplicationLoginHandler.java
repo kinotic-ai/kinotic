@@ -67,12 +67,12 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     /**
      * {@code GET /api/auth/app/login/methods[?tenantId]} — what the application's login offers, or a tenant's login
      * from one of the tenant's sites or when {@code tenantId} names one:
-     * {@code {passwordSignUp, providers: [{id, name, provider, signUp}]}}, the providers in the order to present
-     * them.
+     * {@code {passwordSignUp, providers: [{configurationId, name, provider, signUp}]}}, the providers in the order to
+     * present them. {@code 404} for an application that does not exist.
      */
     private void handleMethods(RoutingContext ctx) {
         authEndpointSupport.loginScope(ctx, ctx.request().getParam("tenantId"))
-              .compose(scope -> signUpService.findLoginMethods(scope.application(), scope.tenantId()))
+              .compose(signUpService::findLoginMethods)
               .onSuccess(methods -> ctx.response().putHeader("Content-Type", "application/json").end(Json.encode(methods)))
               .onFailure(err -> authEndpointSupport.fail(ctx, err, "Failed to list sign-in methods"));
     }
@@ -94,8 +94,8 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
         }
 
         authEndpointSupport.loginScope(ctx, ctx.request().getParam("tenantId"))
-              .compose(scope -> oidcConfigurationService.findOffered(configId, scope.application().organizationId(),
-                                                                     scope.application().applicationId(), scope.tenantId())
+              .compose(scope -> oidcConfigurationService.findOffered(configId, scope.applicationKey().organizationId(),
+                                                                     scope.applicationKey().applicationId(), scope.tenantId())
                                                         .compose(config -> {
                   Future<String> ret;
                   switch (config) {
@@ -108,8 +108,8 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
                           ctx.session().put(ApplicationAuthEndpointSupport.SOCIAL_LOGIN_BINDING_SESSION_KEY, binding);
                           ret = Future.succeededFuture(authEndpointSupport.socialAuthorizeUrl(scope, configId, origin, binding));
                       }
-                      default -> ret = oidcFlowOrchestrator.startFlow(ctx, config, callbackUrl(scope.application(), configId),
-                                                                      scope.application(), scope.tenantId(), origin);
+                      default -> ret = oidcFlowOrchestrator.startFlow(ctx, config, callbackUrl(scope.applicationKey(), configId),
+                                                                      scope.applicationKey(), scope.tenantId(), origin);
                   }
                   return ret;
               }))
@@ -135,7 +135,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
         authEndpointSupport.loginScope(ctx, tenantId)
               .onSuccess(scope -> authEndpointSupport.handlePasswordLogin(ctx,
                       (email, password) -> localAuthenticationService.authenticateApplicationUser(
-                              email, password, scope.application().organizationId(), scope.application().applicationId())
+                              email, password, scope.applicationKey().organizationId(), scope.applicationKey().applicationId())
                                                                        .map(user -> scope.memberOf(user) == null ? null : DomainUtil.createParticipant(user))))
               .onFailure(err -> authEndpointSupport.fail(ctx, err, "Failed to sign in"));
     }
@@ -157,17 +157,18 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
                 ctx, pathConfigId, callbackUrl(applicationKey, pathConfigId),
                 (_, _, tenantId) -> oidcConfigurationService.findOffered(pathConfigId, applicationKey.organizationId(),
                                                                          applicationKey.applicationId(), tenantId))
-                .onSuccess(result -> completeAppLogin(ctx, result, new LoginScope(applicationKey, result.tenantId())))
+                .onSuccess(result -> completeAppLogin(ctx, result, applicationKey))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, flow != null ? flow.origin() : null, ex));
     }
 
     private void completeAppLogin(RoutingContext ctx,
                                   CallbackResult<OidcConfiguration> result,
-                                  LoginScope scope) {
+                                  ApplicationKey applicationKey) {
         if (authEndpointSupport.verifiedSubject(ctx, result) != null) {
             // the scope offers only owned configurations at this callback; Kinotic's registration returns to the shared host
             authEndpointSupport.completeLogin(ctx, result.origin(),
-                    authEndpointSupport.findOrCreateUser(scope, (OwnedOidcConfiguration) result.config(), result.claims())
+                    authEndpointSupport.loginScope(applicationKey, result.tenantId())
+                                       .compose(scope -> authEndpointSupport.findOrCreateUser(scope, (OwnedOidcConfiguration) result.config(), result.claims()))
                                        .map(user -> user == null ? null : AuthEndpointSupport.participantOf(user)));
         }
     }

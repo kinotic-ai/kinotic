@@ -168,6 +168,10 @@ describe('Server planes', () => {
         expect(JSON.parse(methods.body)).toEqual({passwordSignUp: false, providers: []})
     })
 
+    it('answers 404 at the API host of an application that does not exist', async () => {
+        expect((await requestAt(appServer(), apiHost('no-such-app'), 'GET', '/api/auth/app/login/methods')).status).toBe(404)
+    })
+
     it('authenticates a session only at the server that issued it', async () => {
         const login = await fetch(`${restBase(managementServer())}/api/auth/org/login/${E2E_ORGANIZATION_ID}`, {
             method: 'POST',

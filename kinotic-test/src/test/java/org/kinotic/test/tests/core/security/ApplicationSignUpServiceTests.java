@@ -7,7 +7,6 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.exceptions.UnverifiedEmailException;
 import org.kinotic.domain.api.model.Application;
-import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.TenantManagement;
@@ -15,6 +14,7 @@ import org.kinotic.domain.api.model.security.ApplicationLoginMethods;
 import org.kinotic.domain.api.model.security.ApplicationLoginProvider;
 import org.kinotic.domain.api.model.security.ApplicationOidcConfiguration;
 import org.kinotic.domain.api.model.security.ClientRegistrationType;
+import org.kinotic.domain.api.model.security.LoginScope;
 import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.PendingApplicationSignUp;
@@ -34,7 +34,9 @@ import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -43,6 +45,7 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -62,6 +65,7 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
     // a work directory, whose administrator sets its users' email claims; personal accounts live in Microsoft's own
     private static final String WORK_DIRECTORY = "4a6c1d2e-8b3f-4c5d-9e7f-0a1b2c3d4e5f";
     private static final String PERSONAL_ACCOUNTS = "9188040d-6c67-4c5b-b112-36a304b66dad";
+    private static final String UI_ORIGIN = "https://ui.example.test";
 
     @Autowired
     private ApplicationSignUpService signUps;
@@ -107,8 +111,7 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
     @Test
     public void aUserSignedUpThroughKinoticsRegistrationSignsInThroughTheApplicationsOwn() throws Exception {
         String appId = "signup-app-" + suffix();
-        await(asAdministrator(() -> applicationService.createApplicationIfNotExist(appId, "Switching application", TenantManagement.SYSTEM)));
-        ApplicationKey application = new ApplicationKey(organization.getId(), appId);
+        LoginScope application = new LoginScope(await(asAdministrator(() -> applicationService.createApplicationIfNotExist(appId, "Switching application", TenantManagement.SYSTEM))), null);
         ApplicationOidcConfiguration microsoft = new ApplicationOidcConfiguration().setApplicationId(appId)
                                                                                    .setClientRegistrationType(ClientRegistrationType.MANAGED);
         microsoft.setOrganizationId(organization.getId())
@@ -121,7 +124,7 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
         String objectId = UUID.randomUUID().toString();
         String email = "switch-" + suffix() + "@example.test";
         // Microsoft gives each client registration a sub of its own for the same person
-        ApplicationParticipantIdentity signedUp = await(signUps.findOrCreateOidcUser(application, null, managed,
+        ApplicationParticipantIdentity signedUp = await(signUps.findOrCreateOidcUser(application, managed,
                                                                                      entraClaims("sub-under-kinotic", WORK_DIRECTORY, objectId, email, true)));
         assertNotNull(signedUp);
         assertEquals(email, signedUp.getEmail());
@@ -131,7 +134,7 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
                .setProviderAccount("common")
                .setClientId("switching-entra-client");
         ApplicationOidcConfiguration own = await(asAdministrator(() -> oidcConfigurations.save(managed, "switching-secret")));
-        ApplicationParticipantIdentity signedIn = await(signUps.findOrCreateOidcUser(application, null, own,
+        ApplicationParticipantIdentity signedIn = await(signUps.findOrCreateOidcUser(application, own,
                                                                                      entraClaims("sub-under-own", WORK_DIRECTORY, objectId, email, true)));
         assertEquals(signedUp.getId(), signedIn.getId());
 
@@ -143,8 +146,7 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
     @Test
     public void aMicrosoftEmailSignsUpThroughEveryDirectoryOnlyWhenTheTokenProvesIt() throws Exception {
         String appId = "signup-app-" + suffix();
-        await(asAdministrator(() -> applicationService.createApplicationIfNotExist(appId, "Entra application", TenantManagement.SYSTEM)));
-        ApplicationKey application = new ApplicationKey(organization.getId(), appId);
+        LoginScope application = new LoginScope(await(asAdministrator(() -> applicationService.createApplicationIfNotExist(appId, "Entra application", TenantManagement.SYSTEM))), null);
         ApplicationOidcConfiguration microsoft = new ApplicationOidcConfiguration().setApplicationId(appId)
                                                                                    .setClientRegistrationType(ClientRegistrationType.MANAGED);
         microsoft.setOrganizationId(organization.getId())
@@ -159,16 +161,16 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
         // any directory's administrator sets its users' email, so a bare Entra email would hold the address against its owner
         String claimed = "claimed-" + suffix() + "@example.test";
         assertInstanceOf(UnverifiedEmailException.class,
-                         failure(() -> signUps.findOrCreateOidcUser(application, null, managed,
+                         failure(() -> signUps.findOrCreateOidcUser(application, managed,
                                                                     entraClaims("sub-" + suffix(), WORK_DIRECTORY, UUID.randomUUID().toString(), claimed, false))));
         assertNull(await(identities.findApplicationUserByEmail(claimed, organization.getId(), appId)));
 
         // a personal account's email is Microsoft's to verify, and xms_edov proves a work directory's
         String personal = "personal-" + suffix() + "@example.test";
-        assertEquals(personal, await(signUps.findOrCreateOidcUser(application, null, managed,
+        assertEquals(personal, await(signUps.findOrCreateOidcUser(application, managed,
                                                                   entraClaims("sub-" + suffix(), PERSONAL_ACCOUNTS, UUID.randomUUID().toString(), personal, false))).getEmail());
         String domainOwned = "owned-" + suffix() + "@example.test";
-        assertEquals(domainOwned, await(signUps.findOrCreateOidcUser(application, null, managed,
+        assertEquals(domainOwned, await(signUps.findOrCreateOidcUser(application, managed,
                                                                      entraClaims("sub-" + suffix(), WORK_DIRECTORY, UUID.randomUUID().toString(), domainOwned, true))).getEmail());
 
         // a registration of the organization's own naming one directory trusts that directory's administrator
@@ -182,7 +184,7 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
                     .setEnabled(true);
         ApplicationOidcConfiguration acme = await(asAdministrator(() -> oidcConfigurations.save(ownDirectory, "acme-entra-secret")));
         String employee = "employee-" + suffix() + "@example.test";
-        assertEquals(employee, await(signUps.findOrCreateOidcUser(application, null, acme,
+        assertEquals(employee, await(signUps.findOrCreateOidcUser(application, acme,
                                                                   entraClaims("sub-" + suffix(), WORK_DIRECTORY, UUID.randomUUID().toString(), employee, false))).getEmail());
     }
 
@@ -190,61 +192,83 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
     public void newPeopleSignUpOnlyWhereTheyGetATenant() throws Exception {
         String appId = "signup-app-" + suffix();
         Application application = await(asAdministrator(() -> applicationService.createApplicationIfNotExist(appId, "Tenanted application", null)));
-        ApplicationKey key = new ApplicationKey(organization.getId(), appId);
         Tenant globex = await(asAdministrator(() -> tenantService.createTenantIfNotExist(appId, "Globex", "A customer")));
+        LoginScope atApplication = new LoginScope(application, null);
+        LoginScope atGlobex = new LoginScope(application, globex.getId());
         ApplicationOidcConfiguration appGoogle = await(asAdministrator(() -> oidcConfigurations.save(google(new ApplicationOidcConfiguration().setApplicationId(appId)), null)));
         TenantOidcConfiguration tenantGoogle = await(asAdministrator(() -> oidcConfigurations.save(google(new TenantOidcConfiguration().setApplicationId(appId)
                                                                                                                                          .setTenantId(globex.getId())), null)));
         await(oidcConfigurations.syncIndex());
 
         // the application's tenants are its administrators', so its own login signs no one up
-        ApplicationLoginMethods atApplication = await(signUps.findLoginMethods(key, null));
-        assertFalse(atApplication.passwordSignUp());
+        ApplicationLoginMethods applicationMethods = await(signUps.findLoginMethods(atApplication));
+        assertFalse(applicationMethods.passwordSignUp());
         assertEquals(List.of(new ApplicationLoginProvider(appGoogle.getId(), appGoogle.getName(), OidcProviderType.GOOGLE, false)),
-                     atApplication.providers());
-        assertNull(await(signUps.findOrCreateOidcUser(key, null, appGoogle, googleClaims("app-" + suffix()))));
+                     applicationMethods.providers());
+        assertNull(await(signUps.findOrCreateOidcUser(atApplication, appGoogle, googleClaims("app-" + suffix()))));
         application.setPasswordSignUp(true);
         assertInstanceOf(IllegalArgumentException.class, failure(() -> applicationService.saveSync(application)));
 
         // the tenant's own provider signs people up into the tenant, and the application's does not there either
-        ApplicationLoginMethods atTenant = await(signUps.findLoginMethods(key, globex.getId()));
-        assertFalse(atTenant.passwordSignUp());
-        assertEquals(List.of(true, false), atTenant.providers().stream().map(ApplicationLoginProvider::signUp).toList());
-        ApplicationParticipantIdentity tenantUser = await(signUps.findOrCreateOidcUser(key, globex.getId(), tenantGoogle, googleClaims("tenant-" + suffix())));
+        ApplicationLoginMethods tenantMethods = await(signUps.findLoginMethods(atGlobex));
+        assertFalse(tenantMethods.passwordSignUp());
+        assertEquals(List.of(true, false), tenantMethods.providers().stream().map(ApplicationLoginProvider::signUp).toList());
+        String tenantSubject = "tenant-" + suffix();
+        ApplicationParticipantIdentity tenantUser = await(signUps.findOrCreateOidcUser(atGlobex, tenantGoogle, googleClaims(tenantSubject)));
         assertEquals(globex.getId(), tenantUser.getTenantId());
-        assertNull(await(signUps.findOrCreateOidcUser(key, globex.getId(), appGoogle, googleClaims("tenant-app-" + suffix()))));
+        assertNull(await(signUps.findOrCreateOidcUser(atGlobex, appGoogle, googleClaims("tenant-app-" + suffix()))));
+        // the tenant's user signs in again as the same user
+        assertEquals(tenantUser.getId(), await(signUps.findOrCreateOidcUser(atGlobex, tenantGoogle, googleClaims(tenantSubject))).getId());
     }
 
     @Test
     public void aPasswordSignUpCreatesTheUserOnceTheEmailIsVerified() throws Exception {
         String appId = "signup-app-" + suffix();
         Application application = await(asAdministrator(() -> applicationService.createApplicationIfNotExist(appId, "Password application", TenantManagement.SYSTEM)));
-        ApplicationKey key = new ApplicationKey(organization.getId(), appId);
         String email = "password-" + suffix() + "@example.test";
-        assertInstanceOf(IllegalStateException.class, failure(() -> signUps.initiatePasswordSignUp(key, email, "Pat", "https://ui.example.test")));
+        assertInstanceOf(IllegalStateException.class, failure(() -> signUps.initiatePasswordSignUp(new LoginScope(application, null), email, "Pat", UI_ORIGIN)));
 
-        await(asAdministrator(() -> applicationService.saveSync(application.setPasswordSignUp(true))));
-        assertTrue(await(signUps.findLoginMethods(key, null)).passwordSignUp());
-        await(signUps.initiatePasswordSignUp(key, email, "Pat", "https://ui.example.test"));
+        LoginScope scope = new LoginScope(await(asAdministrator(() -> applicationService.saveSync(application.setPasswordSignUp(true)))), null);
+        assertTrue(await(signUps.findLoginMethods(scope)).passwordSignUp());
+        // the email is matched and stored trimmed and lowercased
+        await(signUps.initiatePasswordSignUp(scope, "  " + email.toUpperCase(Locale.ROOT) + " ", "Pat", UI_ORIGIN));
         List<PendingApplicationSignUp> pending = pendingFor(email);
         assertEquals(1, pending.size());
-        String token = pending.getFirst().getVerificationToken();
+        String first = pending.getFirst().getVerificationToken();
 
-        // a token carried to another application's host signs up no one there
-        ApplicationKey other = new ApplicationKey(organization.getId(), "another-app-" + suffix());
-        assertInstanceOf(IllegalArgumentException.class, failure(() -> signUps.completePasswordSignUp(other, token, "a-good-password")));
+        // while the link sent is valid, a repeated request sends no other
+        await(signUps.initiatePasswordSignUp(scope, email, "Pat", UI_ORIGIN));
+        assertEquals(List.of(first), tokens(pendingFor(email)));
+        // once it has expired, a request sends a new link in its place
+        await(pendingSignUps.saveSync(pending.getFirst().setExpiresAt(new Date(System.currentTimeMillis() - 60_000))));
+        await(signUps.initiatePasswordSignUp(scope, email, "Pat", UI_ORIGIN));
+        List<String> renewed = tokens(pendingFor(email));
+        assertEquals(1, renewed.size());
+        assertNotEquals(first, renewed.getFirst());
+        String token = renewed.getFirst();
+
+        // a tenant's login signs no one up, and a token carried to another application's host signs up no one there
+        assertInstanceOf(IllegalStateException.class, failure(() -> signUps.completePasswordSignUp(new LoginScope(scope.application(), "a-tenant"), token, "a-good-password")));
+        String otherId = "another-app-" + suffix();
+        Application other = await(asAdministrator(() -> applicationService.createApplicationIfNotExist(otherId, "Another password application", TenantManagement.SYSTEM)));
+        LoginScope atOther = new LoginScope(await(asAdministrator(() -> applicationService.saveSync(other.setPasswordSignUp(true)))), null);
+        assertInstanceOf(IllegalArgumentException.class, failure(() -> signUps.completePasswordSignUp(atOther, token, "a-good-password")));
         // an absent password is refused as an invalid request
-        assertInstanceOf(IllegalArgumentException.class, assertThrows(RuntimeException.class, () -> signUps.completePasswordSignUp(key, token, null)));
+        assertInstanceOf(IllegalArgumentException.class, assertThrows(RuntimeException.class, () -> signUps.completePasswordSignUp(scope, token, null)));
 
-        ApplicationParticipantIdentity user = await(signUps.completePasswordSignUp(key, token, "a-good-password"));
+        ApplicationParticipantIdentity user = await(signUps.completePasswordSignUp(scope, token, "a-good-password"));
         assertEquals(email, user.getEmail());
         assertNotNull(user.getTenantId());
         assertEquals(user.getId(), await(localAuthentication.authenticateApplicationUser(email, "a-good-password", organization.getId(), appId)).getId());
-        assertInstanceOf(IllegalArgumentException.class, failure(() -> signUps.completePasswordSignUp(key, token, "a-good-password")));
+        assertInstanceOf(IllegalArgumentException.class, failure(() -> signUps.completePasswordSignUp(scope, token, "a-good-password")));
 
         // an email that has a user is sent nothing, and the call answers as it does for any other
-        await(signUps.initiatePasswordSignUp(key, email, "Pat Again", "https://ui.example.test"));
+        await(signUps.initiatePasswordSignUp(scope, email, "Pat Again", UI_ORIGIN));
         assertTrue(pendingFor(email).isEmpty());
+    }
+
+    private static List<String> tokens(List<PendingApplicationSignUp> pending) {
+        return pending.stream().map(PendingApplicationSignUp::getVerificationToken).toList();
     }
 
     private List<PendingApplicationSignUp> pendingFor(String email) throws Exception {
