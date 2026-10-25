@@ -24,8 +24,9 @@ public final class OAuth2Util {
     /**
      * The identifier {@code provider} asserts for the person that is the same under every client registered with the
      * provider, so a person is recognized whichever registration verified them: for Microsoft Entra, whose
-     * {@code sub} differs per client, the directory and the object id ({@code <tid>/<oid>}); for every other
-     * provider, and for an Entra token that carries no object id, the {@code sub} claim.
+     * {@code sub} differs per client, the directory and the object id ({@code <tid>/<oid>}), which for a guest is the
+     * directory signed in to and the guest's id there; for every other provider, and for an Entra token that carries no
+     * object id, the {@code sub} claim.
      *
      * @param claims   the verified claims of the identity
      * @param provider the provider kind that verified them
@@ -66,9 +67,9 @@ public final class OAuth2Util {
         return ret;
     }
 
-    // a boolean claim some providers send as a string, "true" or "1"
+    // a boolean claim some providers send as a string, "true" in any case or "1"
     private static boolean isTrue(Object claim) {
-        return Boolean.TRUE.equals(claim) || "true".equals(claim) || "1".equals(claim);
+        return Boolean.TRUE.equals(claim) || (claim instanceof String s && (Boolean.parseBoolean(s) || "1".equals(s)));
     }
 
     public static String firstPresent(Map<String, Object> claims, String... names) {
@@ -160,7 +161,7 @@ public final class OAuth2Util {
         if (!(email instanceof String emailStr) || emailStr.isBlank()) return false;
 
         Object explicit = claims.get("email_verified");
-        if (explicit != null) return isTrue(explicit);
+        if (explicit instanceof Boolean || explicit instanceof String) return isTrue(explicit);
 
         // No explicit claim — fall back to the per-provider trust convention.
         return provider == OidcProviderType.AZURE_AD || provider == OidcProviderType.APPLE;

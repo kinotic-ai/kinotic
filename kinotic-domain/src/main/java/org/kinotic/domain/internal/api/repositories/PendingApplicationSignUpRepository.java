@@ -2,7 +2,6 @@ package org.kinotic.domain.internal.api.repositories;
 
 import io.vertx.core.Future;
 import org.kinotic.domain.api.model.security.PendingApplicationSignUp;
-import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
@@ -17,10 +16,10 @@ public class PendingApplicationSignUpRepository extends AbstractTokenVerificatio
         super("kinotic_pending_application_sign_up", PendingApplicationSignUp.class, crudServiceTemplate);
     }
 
-    /** The sign-up of {@code email} to the application, expired or not, or {@code null} when none is pending. */
+    /** The sign-up of {@code email}, normalized, to the application, expired or not, or {@code null} when none is pending. */
     public Future<PendingApplicationSignUp> findByEmail(String email, String organizationId, String applicationId) {
         return findFirst(b -> b.query(composeFilter(
-                termFilter("email", DomainUtil.normalizeEmail(email)),
+                termFilter("email", email),
                 termFilter("organizationId", organizationId),
                 termFilter("applicationId", applicationId))));
     }

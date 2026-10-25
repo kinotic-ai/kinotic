@@ -67,24 +67,25 @@ public interface ApplicationSignUpService {
      *                    call returns, with {@link IllegalStateException}
      * @param email       the email to verify, which must contain {@code @}, matched and stored trimmed and lowercased;
      *                    checked before the call returns, with {@link IllegalArgumentException}
-     * @param displayName the name the person gave, at most 200 characters, or {@code null}, which names the user once
-     *                    the sign-up completes; the email carries only the application's name and the link
      * @param uiOrigin    the origin of the application's UI the link opens, which the caller has checked is one of the
      *                    application's
      * @return completes once the email is sent, or once it is known none is
      */
-    Future<Void> initiatePasswordSignUp(LoginScope scope, String email, String displayName, String uiOrigin);
+    Future<Void> initiatePasswordSignUp(LoginScope scope, String email, String uiOrigin);
 
     /**
      * Completes a sign-up {@link #initiatePasswordSignUp} started: consumes the token and creates the application's
-     * user with the verified email and {@code password}, with a tenant of its own.
+     * user with the verified email, {@code password} and {@code displayName}, with a tenant of its own. The name is
+     * taken here, from the person who holds the email, so no earlier request for the address chooses it.
      *
      * @param scope    the login whose API host the completion was addressed to, which the sign-up must be to and must
      *                 still offer password sign-up; checked before the call returns, with {@link IllegalStateException}
      * @param token    the token the verification link carried
      * @param password the password the person chose
+     * @param displayName the name the person gave, at most 200 characters, or {@code null}
      * @return the new user; fails with {@link IllegalArgumentException} when the token is unknown, spent, expired or
-     *         for another application, and {@link ExistingUserException} when the email has a user already
+     *         for another application, or the name is longer than 200 characters, and {@link ExistingUserException}
+     *         when the email has a user already
      */
-    Future<ApplicationParticipantIdentity> completePasswordSignUp(LoginScope scope, String token, String password);
+    Future<ApplicationParticipantIdentity> completePasswordSignUp(LoginScope scope, String token, String password, String displayName);
 }

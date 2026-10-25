@@ -31,9 +31,6 @@ public class PendingApplicationSignUp implements PendingVerification {
     /** The email the person signed up with, which the user is created with. */
     private String email;
 
-    /** The name the person gave, or {@code null}. */
-    private String displayName;
-
     /** The organization that owns {@link #applicationId}. */
     private String organizationId;
 

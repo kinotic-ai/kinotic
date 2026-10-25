@@ -40,9 +40,9 @@ public interface ApplicationService extends OrganizationScopedCrudService<Applic
      * {@code POST /api/auth/app/login/oidc/start/<configurationId>} and sends the browser to the {@code redirect} URL the answer
      * carries; the browser returns to the page signed in, or to its {@code /login} page with an {@code error}
      * parameter. A provider whose {@code signUp} is true creates the user of a person it verifies on that person's
-     * first sign-in. While {@code passwordSignUp} is true, the sign-up page posts {@code {email, displayName}} to
+     * first sign-in. While {@code passwordSignUp} is true, the sign-up page posts {@code {email}} to
      * {@code POST /api/auth/app/signup}, the person follows the emailed link to the UI's {@code /signup/verify?token=}
-     * page, and that page posts {@code {token, password}} to {@code POST /api/auth/app/signup/complete}, which signs
+     * page, and that page posts {@code {token, password[, displayName]}} to {@code POST /api/auth/app/signup/complete}, which signs
      * the person in. A page never asks the server about an email before the user chooses a method.
      *
      * @param applicationId the id of the application

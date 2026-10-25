@@ -256,6 +256,18 @@ public abstract class AuthEndpointSupport {
         return ret;
     }
 
+    /**
+     * The string field {@code name} of a request body, or {@code null} when the body has none. A field holding any
+     * other JSON type answers the request with a {@code 400}.
+     */
+    public static String stringField(JsonObject body, String name) {
+        Object value = body.getValue(name);
+        if (value != null && !(value instanceof String)) {
+            throw new IllegalArgumentException("The field " + name + " must be a string");
+        }
+        return (String) value;
+    }
+
     // ── Token issuance ────────────────────────────────────────────────────────
 
     /**
@@ -428,8 +440,8 @@ public abstract class AuthEndpointSupport {
     public void handlePasswordLogin(RoutingContext ctx,
                                     BiFunction<String, String, Future<Participant>> authenticate) {
         JsonObject body = readJsonBody(ctx);
-        String email = body.getString("email");
-        String password = body.getString("password");
+        String email = stringField(body, "email");
+        String password = stringField(body, "password");
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
             respondError(ctx, 400, "email and password are required");
             return;

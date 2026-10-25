@@ -100,7 +100,7 @@ public class ApplicationSocialLoginHandler implements SuppliesGatewayRoutes {
                                                                         applicationKey, scope.tenantId(), origin)))
               .onSuccess(url -> {
                   // held through the provider round-trip for the callback to hand on with the identity; written with the
-                  // flow startFlow stored, so a start that fails leaves another tab's sign-in intact
+                  // flow startFlow stored, so the keys and the flow always belong to the same start
                   ctx.session().put(ApplicationAuthEndpointSupport.SOCIAL_LOGIN_BINDING_SESSION_KEY, binding);
                   ctx.session().put(CONFIGURATION_SESSION_KEY, configId);
                   ctx.response().setStatusCode(302).putHeader("Location", url).end();

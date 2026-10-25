@@ -30,8 +30,8 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -111,6 +111,10 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                     // the kind is the scope the configuration is offered at and keys its bindings, so a row never changes it
                     Validate.isTrue(found.getClass() == entity.getClass(), "Configuration %s is a %s, which a %s cannot replace",
                                     entity.getId(), found.getClass().getSimpleName(), entity.getClass().getSimpleName());
+                    // an owned configuration's users are bound to identities its provider asserted, so it keeps that provider
+                    Validate.isTrue(!(found instanceof OwnedOidcConfiguration) || found.getProvider() == entity.getProvider(),
+                                    "Configuration %s signs in with %s, which it keeps; add a configuration for %s",
+                                    entity.getId(), found.getProvider().key(), entity.getProvider().key());
                 }
                 return found;
             });
@@ -168,8 +172,8 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
 
     // a configuration using Kinotic's registration signs in through the system's registration of its provider kind
     private Future<Void> requireManagedRegistration(OidcProviderType provider) {
-        return oidcRepository.findEnabledSocialByProvider(provider).map(registration -> {
-            Validate.isTrue(registration != null, "Kinotic manages no sign-in with %s; use the application's own credentials", provider.key());
+        return enabledRegistrations().map(registrations -> {
+            Validate.isTrue(registrations.containsKey(provider), "Kinotic manages no sign-in with %s; use the application's own credentials", provider.key());
             return null;
         });
     }
@@ -232,16 +236,11 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
         } else if (tenantId == null) {
             // a configuration using Kinotic's registration is offered while the system holds an enabled one of its kind
             ret = own.compose(owned -> owned.stream().anyMatch(OidcConfigurationService::isManaged)
-                    ? oidcRepository.findEnabledSocial().map(registrations -> {
-                        Set<OidcProviderType> managed = registrations.stream()
-                                                                     .map(OidcConfiguration::getProvider)
-                                                                     .collect(Collectors.toSet());
-                        return owned.stream()
-                                    .filter(configuration -> !OidcConfigurationService.isManaged(configuration)
-                                                             || managed.contains(configuration.getProvider()))
-                                    .map(configuration -> (OidcConfiguration) configuration)
-                                    .toList();
-                    })
+                    ? enabledRegistrations().map(registrations -> owned.stream()
+                                                                       .filter(configuration -> !OidcConfigurationService.isManaged(configuration)
+                                                                                                || registrations.containsKey(configuration.getProvider()))
+                                                                       .map(configuration -> (OidcConfiguration) configuration)
+                                                                       .toList())
                     : Future.succeededFuture(List.copyOf(owned)));
         } else {
             // a tenant's login offers the tenant's own providers before everything the application's offers
@@ -314,8 +313,16 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                                                                           String organizationId,
                                                                           String applicationId) {
         return organizationId.equals(configuration.getOrganizationId()) && configuration.getApplicationId().equals(applicationId)
-                ? oidcRepository.findEnabledSocialByProvider(configuration.getProvider())
+                ? enabledRegistrations().map(registrations -> registrations.get(configuration.getProvider()))
                 : Future.succeededFuture();
+    }
+
+    // the one rule for which kinds a configuration may sign in through Kinotic's registration for: the system's enabled
+    // registrations, at most one per kind, which requireOnlyEnabledRegistration holds
+    private Future<Map<OidcProviderType, ApplicationSocialOidcConfiguration>> enabledRegistrations() {
+        return oidcRepository.findEnabledSocial()
+                             .map(registrations -> registrations.stream()
+                                                                .collect(Collectors.toMap(OidcConfiguration::getProvider, registration -> registration)));
     }
 
     @Override

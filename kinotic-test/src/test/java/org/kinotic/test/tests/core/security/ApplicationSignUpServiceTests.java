@@ -228,44 +228,48 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
         String appId = "signup-app-" + suffix();
         Application application = await(asAdministrator(() -> applicationService.createApplicationIfNotExist(appId, "Password application", TenantManagement.SYSTEM)));
         String email = "password-" + suffix() + "@example.test";
-        assertInstanceOf(IllegalStateException.class, failure(() -> signUps.initiatePasswordSignUp(new LoginScope(application, null), email, "Pat", UI_ORIGIN)));
+        assertInstanceOf(IllegalStateException.class, failure(() -> signUps.initiatePasswordSignUp(new LoginScope(application, null), email, UI_ORIGIN)));
 
         LoginScope scope = new LoginScope(await(asAdministrator(() -> applicationService.saveSync(application.setPasswordSignUp(true)))), null);
         assertTrue(await(signUps.findLoginMethods(scope)).passwordSignUp());
         // the email is matched and stored trimmed and lowercased
-        await(signUps.initiatePasswordSignUp(scope, "  " + email.toUpperCase(Locale.ROOT) + " ", "Pat", UI_ORIGIN));
+        await(signUps.initiatePasswordSignUp(scope, "  " + email.toUpperCase(Locale.ROOT) + " ", UI_ORIGIN));
         List<PendingApplicationSignUp> pending = pendingFor(email);
         assertEquals(1, pending.size());
         String first = pending.getFirst().getVerificationToken();
 
         // while the link sent is valid, a repeated request sends no other
-        await(signUps.initiatePasswordSignUp(scope, email, "Pat", UI_ORIGIN));
+        await(signUps.initiatePasswordSignUp(scope, email, UI_ORIGIN));
         assertEquals(List.of(first), tokens(pendingFor(email)));
         // once it has expired, a request sends a new link in its place
         await(pendingSignUps.saveSync(pending.getFirst().setExpiresAt(new Date(System.currentTimeMillis() - 60_000))));
-        await(signUps.initiatePasswordSignUp(scope, email, "Pat", UI_ORIGIN));
+        await(signUps.initiatePasswordSignUp(scope, email, UI_ORIGIN));
         List<String> renewed = tokens(pendingFor(email));
         assertEquals(1, renewed.size());
         assertNotEquals(first, renewed.getFirst());
         String token = renewed.getFirst();
 
         // a tenant's login signs no one up, and a token carried to another application's host signs up no one there
-        assertInstanceOf(IllegalStateException.class, failure(() -> signUps.completePasswordSignUp(new LoginScope(scope.application(), "a-tenant"), token, "a-good-password")));
+        assertInstanceOf(IllegalStateException.class, failure(() -> signUps.completePasswordSignUp(new LoginScope(scope.application(), "a-tenant"), token, "a-good-password", null)));
         String otherId = "another-app-" + suffix();
         Application other = await(asAdministrator(() -> applicationService.createApplicationIfNotExist(otherId, "Another password application", TenantManagement.SYSTEM)));
         LoginScope atOther = new LoginScope(await(asAdministrator(() -> applicationService.saveSync(other.setPasswordSignUp(true)))), null);
-        assertInstanceOf(IllegalArgumentException.class, failure(() -> signUps.completePasswordSignUp(atOther, token, "a-good-password")));
-        // an absent password is refused as an invalid request
-        assertInstanceOf(IllegalArgumentException.class, assertThrows(RuntimeException.class, () -> signUps.completePasswordSignUp(scope, token, null)));
+        assertInstanceOf(IllegalArgumentException.class, failure(() -> signUps.completePasswordSignUp(atOther, token, "a-good-password", null)));
+        // an absent password, or a name past 200 characters, is refused as an invalid request
+        assertInstanceOf(IllegalArgumentException.class, assertThrows(RuntimeException.class, () -> signUps.completePasswordSignUp(scope, token, null, null)));
+        assertInstanceOf(IllegalArgumentException.class, assertThrows(RuntimeException.class,
+                                                                      () -> signUps.completePasswordSignUp(scope, token, "a-good-password", "n".repeat(201))));
 
-        ApplicationParticipantIdentity user = await(signUps.completePasswordSignUp(scope, token, "a-good-password"));
+        // the name is chosen by the person who holds the email, when they complete the sign-up
+        ApplicationParticipantIdentity user = await(signUps.completePasswordSignUp(scope, token, "a-good-password", "Pat Signs Up"));
         assertEquals(email, user.getEmail());
+        assertEquals("Pat Signs Up", user.getDisplayName());
         assertNotNull(user.getTenantId());
         assertEquals(user.getId(), await(localAuthentication.authenticateApplicationUser(email, "a-good-password", organization.getId(), appId)).getId());
-        assertInstanceOf(IllegalArgumentException.class, failure(() -> signUps.completePasswordSignUp(scope, token, "a-good-password")));
+        assertInstanceOf(IllegalArgumentException.class, failure(() -> signUps.completePasswordSignUp(scope, token, "a-good-password", null)));
 
         // an email that has a user is sent nothing, and the call answers as it does for any other
-        await(signUps.initiatePasswordSignUp(scope, email, "Pat Again", UI_ORIGIN));
+        await(signUps.initiatePasswordSignUp(scope, email, UI_ORIGIN));
         assertTrue(pendingFor(email).isEmpty());
     }
 

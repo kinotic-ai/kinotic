@@ -211,6 +211,9 @@ public class OidcConfigurationScopeTests extends KinoticTestBase {
         assertEquals("orders-google-client", managed.getClientId());
         assertEquals("orders-google-secret", await(oidcConfigurations.findClientSecret(managed)));
         assertInstanceOf(IllegalArgumentException.class, failure(() -> oidcConfigurations.copy(managed.getId(), null)));
+        // its users are bound to identities Google asserted, so it keeps signing in with Google
+        managed.setProvider(OidcProviderType.AZURE_AD);
+        assertInstanceOf(IllegalArgumentException.class, failure(() -> oidcConfigurations.save(managed, null)));
 
         // a kind Kinotic holds no registration for is refused
         ApplicationOidcConfiguration okta = forApplication("Orders Okta", appId).setClientRegistrationType(ClientRegistrationType.MANAGED);

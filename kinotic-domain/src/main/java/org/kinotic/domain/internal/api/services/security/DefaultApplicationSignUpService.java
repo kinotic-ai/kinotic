@@ -100,12 +100,10 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     }
 
     @Override
-    public Future<Void> initiatePasswordSignUp(LoginScope scope, String email, String displayName, String uiOrigin) {
+    public Future<Void> initiatePasswordSignUp(LoginScope scope, String email, String uiOrigin) {
         Validate.notNull(scope, "scope cannot be null");
         Validate.isTrue(email != null && email.contains("@"), "A valid email is required");
         Validate.notBlank(uiOrigin, "The UI the verification link opens is required");
-        Validate.isTrue(displayName == null || displayName.length() <= MAX_DISPLAY_NAME_LENGTH,
-                        "A display name is at most %d characters", MAX_DISPLAY_NAME_LENGTH);
         requirePasswordSignUp(scope);
         String address = DomainUtil.normalizeEmail(email);
         ApplicationKey application = scope.applicationKey();
@@ -113,11 +111,11 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                               .compose(existing -> existing != null
                                       // the caller learns nothing either way; the person who holds the email signs in
                                       ? Future.succeededFuture()
-                                      : sendVerification(scope.application(), address, displayName, uiOrigin));
+                                      : sendVerification(scope.application(), address, uiOrigin));
     }
 
     // one sign-up per email is pending at a time, so repeated requests for an address send it one link a day
-    private Future<Void> sendVerification(Application application, String email, String displayName, String uiOrigin) {
+    private Future<Void> sendVerification(Application application, String email, String uiOrigin) {
         return pendingRepository.findByEmail(email, application.getOrganizationId(), application.getId())
                                 .compose(earlier -> {
                                     Future<Void> ret;
@@ -125,13 +123,13 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                                         ret = Future.succeededFuture();
                                     } else {
                                         Future<Void> cleared = earlier != null ? pendingRepository.deleteById(earlier.getId()) : Future.succeededFuture();
-                                        ret = cleared.compose(v -> savePendingAndSend(application, email, displayName, uiOrigin));
+                                        ret = cleared.compose(v -> savePendingAndSend(application, email, uiOrigin));
                                     }
                                     return ret;
                                 });
     }
 
-    private Future<Void> savePendingAndSend(Application application, String email, String displayName, String uiOrigin) {
+    private Future<Void> savePendingAndSend(Application application, String email, String uiOrigin) {
         Date now = new Date();
         PendingApplicationSignUp pending = new PendingApplicationSignUp()
                 .setId(UUID.randomUUID().toString())
@@ -139,13 +137,10 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                 .setCreated(now)
                 .setExpiresAt(new Date(now.getTime() + PASSWORD_SIGN_UP_TTL_MS))
                 .setEmail(email)
-                .setDisplayName(displayName != null && !displayName.isBlank() ? displayName : null)
                 .setOrganizationId(application.getOrganizationId())
                 .setApplicationId(application.getId());
         // refreshed before the email goes, so a request repeated right away finds this one
         return pendingRepository.saveSync(pending)
-                                // the name is whatever the requester typed, so it stays out of an email sent to an
-                                // address nobody has proven is theirs
                                 .compose(saved -> emailService.sendApplicationSignUpEmail(email, application.getName(),
                                                                                           pending.getVerificationToken(), uiOrigin)
                                                               // sendVerification sends nothing while a pending sign-up is
@@ -156,11 +151,13 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     }
 
     @Override
-    public Future<ApplicationParticipantIdentity> completePasswordSignUp(LoginScope scope, String token, String password) {
+    public Future<ApplicationParticipantIdentity> completePasswordSignUp(LoginScope scope, String token, String password, String displayName) {
         Validate.notNull(scope, "scope cannot be null");
         // isTrue rather than notBlank, which throws NullPointerException for an absent value
         Validate.isTrue(StringUtils.isNotBlank(token), "The verification token is required");
         Validate.isTrue(StringUtils.isNotBlank(password), "A password is required");
+        Validate.isTrue(displayName == null || displayName.length() <= MAX_DISPLAY_NAME_LENGTH,
+                        "A display name is at most %d characters", MAX_DISPLAY_NAME_LENGTH);
         requirePasswordSignUp(scope);
         ApplicationKey application = scope.applicationKey();
         return pendingRepository.findValidByToken(token)
@@ -168,7 +165,7 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                     // a token carried to another application's host signs up no one there
                     Validate.isTrue(application.equals(new ApplicationKey(pending.getOrganizationId(), pending.getApplicationId())),
                                     "Invalid or already consumed token.");
-                    return identityService.createUser(newUser(application, pending.getEmail(), pending.getDisplayName()), password)
+                    return identityService.createUser(newUser(application, pending.getEmail(), StringUtils.isNotBlank(displayName) ? displayName : null), password)
                                           .compose(created -> pendingRepository.deleteById(pending.getId()).map(created));
                 });
     }

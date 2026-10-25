@@ -371,7 +371,6 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_application_sign_up (
     expiresAt DATE,
     created DATE,
     email KEYWORD,
-    displayName KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD
 );

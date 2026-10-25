@@ -37,7 +37,7 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * {@code POST /api/auth/app/signup {email[, displayName]}} — emails {@code email} a link to the
+     * {@code POST /api/auth/app/signup {email}} — emails {@code email} a link to the
      * {@code /signup/verify?token=…} page of the UI that sent the request, and answers {@code 202} whether or not the
      * email has a user, before anything is sent; an email that has one is sent nothing, and so is one whose link from
      * an earlier request is still valid. {@code 403} from a page that is not one of the application's UIs, from a
@@ -50,18 +50,17 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
             return;
         }
         JsonObject body = authEndpointSupport.readJsonBody(ctx);
-        String email = body.getString("email");
-        String displayName = body.getString("displayName");
+        String email = AuthEndpointSupport.stringField(body, "email");
 
         authEndpointSupport.loginScope(ctx, null)
-              .onSuccess(scope -> startSignUp(ctx, scope, email, displayName, origin))
+              .onSuccess(scope -> startSignUp(ctx, scope, email, origin))
               .onFailure(err -> authEndpointSupport.fail(ctx, err, "Failed to start sign-up"));
     }
 
-    private void startSignUp(RoutingContext ctx, LoginScope scope, String email, String displayName, String origin) {
+    private void startSignUp(RoutingContext ctx, LoginScope scope, String email, String origin) {
         Future<Void> started;
         try {
-            started = signUpService.initiatePasswordSignUp(scope, email, displayName, origin);
+            started = signUpService.initiatePasswordSignUp(scope, email, origin);
         } catch (IllegalStateException e) {
             authEndpointSupport.respondError(ctx, 403, e.getMessage());
             return;
@@ -76,10 +75,10 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * {@code POST /api/auth/app/signup/complete {token, password}} — completes the sign-up the token was emailed
-     * for, creating the application's user with the verified email and the password, and answers {@code 204} with the
+     * {@code POST /api/auth/app/signup/complete {token, password[, displayName]}} — completes the sign-up the token
+     * was emailed for, creating the application's user with the verified email, the password and the name, and answers {@code 204} with the
      * session cookie, signed in on the page that sent it. {@code 400} for a token that is unknown, spent, expired or
-     * for another application, or a missing password; {@code 409} when the email has a user already, which the person
+     * for another application, a missing password, or a name longer than 200 characters; {@code 409} when the email has a user already, which the person
      * signs in as instead; {@code 403} from a page that is not one of the application's UIs, from a tenant's site, or
      * once the application no longer offers sign-up; {@code 404} for an application that does not exist.
      */
@@ -88,11 +87,12 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
             return;
         }
         JsonObject body = authEndpointSupport.readJsonBody(ctx);
-        String token = body.getString("token");
-        String password = body.getString("password");
+        String token = AuthEndpointSupport.stringField(body, "token");
+        String password = AuthEndpointSupport.stringField(body, "password");
+        String displayName = AuthEndpointSupport.stringField(body, "displayName");
 
         authEndpointSupport.loginScope(ctx, null)
-              .compose(scope -> signUpService.completePasswordSignUp(scope, token, password))
+              .compose(scope -> signUpService.completePasswordSignUp(scope, token, password, displayName))
               .onSuccess(user -> authEndpointSupport.respondSuccess(ctx, AuthEndpointSupport.participantOf(user)))
               .onFailure(err -> {
                   switch (err) {
