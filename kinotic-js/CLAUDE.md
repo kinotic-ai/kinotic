@@ -38,13 +38,13 @@ Update every pin to the new versions in the same change as the bump:
 | vm-manager's test fixture | `workspace/packages/vm-manager/test/fixtures/echo-project/package.json` | none |
 
 A consumer that pins `kinotic-cli` gets the CLI's exact pins as well, so a CLI left behind
-brings its own `management-api` and `core` into that graph. `load-generator` pins old
-majors and is not kept in step with these.
+brings its own `management-api` and `core` into that graph. `load-generator` is out of
+date, pins old majors, and is left out of bumps.
 
 Find every pin before and after the edit:
 
 ```bash
-git grep -nE '@kinotic-ai/[a-z-]+.{0,6}[0-9]+\.[0-9]+\.[0-9]+' -- ':/*package.json' ':/*pnpm-workspace.yaml'
+git grep -nE '@kinotic-ai/[a-z-]+.{0,6}[0-9]+\.[0-9]+\.[0-9]+' -- ':/*package.json' ':/*pnpm-workspace.yaml' ':(top,exclude)kinotic-js/load-generator'
 ```
 
 A new first-party package a pnpm consumer starts depending on goes into that consumer's
