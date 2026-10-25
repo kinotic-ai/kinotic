@@ -27,6 +27,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -47,16 +48,17 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     @Override
     public Future<ApplicationLoginMethods> findLoginMethods(ApplicationKey application, String tenantId) {
         Validate.notNull(application, "application cannot be null");
-        return requireApplication(application)
-                .compose(found -> oidcConfigurationService.findEnabledForScope(application.organizationId(), application.applicationId(), tenantId)
-                                                          .map(offered -> new ApplicationLoginMethods(
-                                                                  offersPasswordSignUp(found, tenantId),
-                                                                  offered.stream()
-                                                                         .map(configuration -> new ApplicationLoginProvider(configuration.getId(),
-                                                                                                                            configuration.getName(),
-                                                                                                                            configuration.getProvider(),
-                                                                                                                            signsUp(found, tenantId, configuration)))
-                                                                         .toList())));
+        Future<Application> found = requireApplication(application);
+        Future<List<OidcConfiguration>> offered = oidcConfigurationService.findEnabledForScope(application.organizationId(),
+                                                                                              application.applicationId(), tenantId);
+        return Future.all(found, offered).map(v -> new ApplicationLoginMethods(
+                offersPasswordSignUp(found.result(), tenantId),
+                offered.result().stream()
+                       .map(configuration -> new ApplicationLoginProvider(configuration.getId(),
+                                                                          configuration.getName(),
+                                                                          configuration.getProvider(),
+                                                                          signsUp(found.result(), tenantId, configuration)))
+                       .toList()));
     }
 
     @Override
@@ -98,9 +100,10 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                                                                   OwnedOidcConfiguration configuration,
                                                                   String subject,
                                                                   Map<String, Object> verifiedClaims) {
-        // an email the provider vouches for may still not be the person's, and a user created under it would hold the
-        // email against its owner
-        if (!OAuth2Util.isEmailProven(verifiedClaims, configuration.getProvider())) {
+        // where every directory at the provider is admitted, the email the provider vouches for may be one a stranger's
+        // directory set, and a user created under it would hold the email against its owner; a configuration naming one
+        // directory trusts that directory's administrator, as its owner chose to
+        if (admitsEveryDirectory(configuration) && !OAuth2Util.isEmailProven(verifiedClaims, configuration.getProvider())) {
             return Future.failedFuture(new UnverifiedEmailException("The provider does not prove the email belongs to the person signing in"));
         }
         String email = OAuth2Util.stringClaim(verifiedClaims, "email");
@@ -199,6 +202,12 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     // tenant's administrators decide who joins a tenant, so no method of the application's admits a person into one
     private static boolean admitsNewUsers(Application application, String tenantId) {
         return tenantId == null && application.getTenantManagement() == TenantManagement.SYSTEM;
+    }
+
+    // Kinotic's registration admits every directory, as an organization's own one naming no single directory does
+    private static boolean admitsEveryDirectory(OwnedOidcConfiguration configuration) {
+        return OidcConfigurationService.isManaged(configuration)
+                || configuration.getProvider().admitsEveryDirectory(configuration.getProviderAccount());
     }
 
     private static ApplicationParticipantIdentity newUser(ApplicationKey application, String email, String displayName) {

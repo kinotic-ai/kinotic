@@ -68,6 +68,9 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
             // the organization names its account at the provider, never a URL: the kind's template decides the
             // issuer, so the server only ever connects to the provider's own hosts. A configuration signing in through
             // Kinotic's registration uses none of its own client fields, which it keeps unchecked for a switch back
+            if (owned instanceof ApplicationOidcConfiguration forApplication) {
+                Validate.notNull(forApplication.getClientRegistrationType(), "ApplicationOidcConfiguration clientRegistrationType cannot be null");
+            }
             if (OidcConfigurationService.isManaged(owned)) {
                 owned.setAuthority(null);
             } else {
@@ -87,7 +90,6 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                                 "An organization's own login names one directory of its own, not '%s', which admits every directory",
                                 owned.getProviderAccount());
             } else if (owned instanceof ApplicationOidcConfiguration forApplication) {
-                Validate.notNull(forApplication.getClientRegistrationType(), "ApplicationOidcConfiguration clientRegistrationType cannot be null");
                 ret = requireApplication(forApplication.getOrganizationId(), forApplication.getApplicationId()).mapEmpty();
                 if (OidcConfigurationService.isManaged(forApplication)) {
                     ret = ret.compose(v -> requireManagedRegistration(forApplication.getProvider()));
@@ -232,7 +234,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                                                   .map(OidcConfiguration::getProvider)
                                                   .collect(Collectors.toSet());
                 return cf.<List<OidcConfiguration>>resultAt(0).stream()
-                         .filter(configuration -> !OidcConfigurationService.isManaged((OwnedOidcConfiguration) configuration)
+                         .filter(configuration -> !OidcConfigurationService.isManaged(configuration)
                                                   || managed.contains(configuration.getProvider()))
                          .toList();
             });

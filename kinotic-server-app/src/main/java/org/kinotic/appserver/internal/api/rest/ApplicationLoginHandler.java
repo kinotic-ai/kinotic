@@ -1,7 +1,7 @@
 package org.kinotic.appserver.internal.api.rest;
 
 import io.vertx.core.Future;
-import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -10,8 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.ApplicationKey;
-import org.kinotic.domain.api.model.security.ApplicationLoginMethods;
-import org.kinotic.domain.api.model.security.ApplicationLoginProvider;
 import org.kinotic.domain.api.model.security.ApplicationOidcConfiguration;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
@@ -75,21 +73,8 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     private void handleMethods(RoutingContext ctx) {
         authEndpointSupport.loginScope(ctx, ctx.request().getParam("tenantId"))
               .compose(scope -> signUpService.findLoginMethods(scope.application(), scope.tenantId()))
-              .onSuccess(methods -> ctx.response().putHeader("Content-Type", "application/json").end(methodsJson(methods).encode()))
+              .onSuccess(methods -> ctx.response().putHeader("Content-Type", "application/json").end(Json.encode(methods)))
               .onFailure(err -> authEndpointSupport.fail(ctx, err, "Failed to list sign-in methods"));
-    }
-
-    private static JsonObject methodsJson(ApplicationLoginMethods methods) {
-        JsonArray providers = new JsonArray();
-        for (ApplicationLoginProvider provider : methods.providers()) {
-            providers.add(new JsonObject()
-                                  .put("id", provider.id())
-                                  .put("name", provider.name())
-                                  .put("provider", provider.provider().key())
-                                  .put("signUp", provider.signUp()));
-        }
-        return new JsonObject().put("passwordSignUp", methods.passwordSignUp())
-                               .put("providers", providers);
     }
 
     /**

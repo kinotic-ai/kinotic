@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Verifies how people become users of an application: a user a provider signed up through Kinotic's registration
  * is the same user once the configuration switches to the application's own registration; a Microsoft email signs up
- * only when the token proves it; an application admits new
+ * through a registration admitting every directory only when the token proves it; an application admits new
  * people at its own login only while the system manages its tenants, which gives each a tenant, and a tenant's
  * login admits them into the tenant through the tenant's own providers only; and a sign-up with an email and a
  * password creates the user once the emailed token comes back with a password, at the application it was for.
@@ -141,7 +141,7 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
     }
 
     @Test
-    public void aMicrosoftEmailSignsUpOnlyWhenTheTokenProvesIt() throws Exception {
+    public void aMicrosoftEmailSignsUpThroughEveryDirectoryOnlyWhenTheTokenProvesIt() throws Exception {
         String appId = "signup-app-" + suffix();
         await(asAdministrator(() -> applicationService.createApplicationIfNotExist(appId, "Entra application", TenantManagement.SYSTEM)));
         ApplicationKey application = new ApplicationKey(organization.getId(), appId);
@@ -170,6 +170,20 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
         String domainOwned = "owned-" + suffix() + "@example.test";
         assertEquals(domainOwned, await(signUps.findOrCreateOidcUser(application, null, managed,
                                                                      entraClaims("sub-" + suffix(), WORK_DIRECTORY, UUID.randomUUID().toString(), domainOwned, true))).getEmail());
+
+        // a registration of the organization's own naming one directory trusts that directory's administrator
+        ApplicationOidcConfiguration ownDirectory = new ApplicationOidcConfiguration().setApplicationId(appId);
+        ownDirectory.setOrganizationId(organization.getId())
+                    .setProviderAccount(WORK_DIRECTORY)
+                    .setCreateUserOnSignIn(true);
+        ownDirectory.setName("Acme Entra")
+                    .setProvider(OidcProviderType.AZURE_AD)
+                    .setClientId("acme-entra-client")
+                    .setEnabled(true);
+        ApplicationOidcConfiguration acme = await(asAdministrator(() -> oidcConfigurations.save(ownDirectory, "acme-entra-secret")));
+        String employee = "employee-" + suffix() + "@example.test";
+        assertEquals(employee, await(signUps.findOrCreateOidcUser(application, null, acme,
+                                                                  entraClaims("sub-" + suffix(), WORK_DIRECTORY, UUID.randomUUID().toString(), employee, false))).getEmail());
     }
 
     @Test

@@ -56,9 +56,10 @@ public interface ApplicationSignUpService {
      *                       and, where the provider gives it, a name
      * @return the user, or {@code null} when no user of the scope is bound to the identity and none is created; fails
      *         with {@link ExistingUserException} when a user would be created under an email the application already
-     *         holds under another sign-in method, and with {@link UnverifiedEmailException} when the claims do not
-     *         prove the email belongs to the person (a Microsoft Entra email needs {@code email_verified} or
-     *         {@code xms_edov}, or a personal Microsoft account)
+     *         holds under another sign-in method, and with {@link UnverifiedEmailException} when the configuration
+     *         admits every directory at the provider (Kinotic's registration, or Microsoft Entra's {@code common} or
+     *         {@code organizations}) and the claims do not prove the email belongs to the person: a Microsoft Entra
+     *         email needs {@code email_verified} or {@code xms_edov}, or a personal Microsoft account
      */
     Future<ApplicationParticipantIdentity> findOrCreateOidcUser(ApplicationKey application,
                                                                 String tenantId,
