@@ -14,13 +14,13 @@ against a Kinotic server.
 ## Installation
 
 ```bash
-pnpm add @kinotic-ai/frontend-common@beta @kinotic-ai/core@beta vue vue-router primevue@^4.5.5 @primeuix/themes@^2.0.3 primeicons
+pnpm add @kinotic-ai/frontend-common@beta @kinotic-ai/core@beta vue vue-router primevue@^4.5.5 @primeuix/themes@^2.0.3 primeicons@^7.0.0
 pnpm add -D tailwindcss@^4 tailwindcss-primeui
 ```
 
-The 5.0 Kinotic packages are published under the `beta` dist-tag. The theme is built for PrimeVue 4 and
-`@primeuix/themes` 2, so pin those majors: without a range, `pnpm add` installs the newest majors, which the
-package does not support.
+The 5.0 Kinotic packages are published under the `beta` dist-tag. The theme is built for PrimeVue 4,
+`@primeuix/themes` 2 and PrimeIcons 7, so pin those majors: without a range, `pnpm add` installs the newest
+majors, which the package does not support.
 
 ### Peer dependencies
 
