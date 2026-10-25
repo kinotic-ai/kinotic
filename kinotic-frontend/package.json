@@ -5,8 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter kinotic-portal dev",
-    "dev:tunnel": "pnpm --filter kinotic-portal dev:tunnel",
-    "dev:tunnel:build": "pnpm --filter kinotic-portal dev:tunnel:build",
     "build": "pnpm -r build",
     "build:dev": "pnpm -r build:dev",
     "dev:system": "pnpm --filter kinotic-system-console dev"

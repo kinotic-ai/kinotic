@@ -19,7 +19,7 @@ pnpm ui-test       # vitest --ui
 
 `test/setup.ts` is the vitest `globalSetup`. With `VITE_USE_KINOTIC_DOCKER=true` it brings up
 `deployment/docker-compose/compose.kinotic-e2e-test.yml` (Elasticsearch + migration + the org,
-system and app servers on the `test,e2e-tests,compose` profiles) and hands each server's mapped
+system and app servers on the `e2e` profile) and hands each server's mapped
 port to the suites; otherwise it points them at the ports that file publishes on `127.0.0.1`. A
 suite reaches a server through `managementServer()`, `systemServer()` or `appServer()` in
 `test/TestHelpers.ts`: an organization's users and machines connect to the management server,

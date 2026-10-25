@@ -2,8 +2,7 @@
 -- client. One applicationId per suite: EntityDefinition ids derive from
 -- organizationId.applicationId.entityName, so suites running in parallel need distinct
 -- applicationIds to avoid colliding on the same entity name. Password for every user: kinotic.
--- Applies only when the migration app runs with the 'test' profile — the e2e compose stack
--- sets it; a local stack must add it to seed these fixtures.
+-- Applies only when the migration app runs with the 'e2e' profile, which the e2e compose stack sets.
 
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000003', 'APPLICATION_USER', 'app-e2e-datastream-kinotic@test.local', 'e2e DataStream App User', 'test-org', 'e2e-datastream', 'kinotic', true) WITH REFRESH;
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000005', 'APPLICATION_USER', 'app-e2e-named-query-kinotic@test.local', 'e2e NamedQuery App User', 'test-org', 'e2e-named-query', 'kinotic', true) WITH REFRESH;

@@ -76,11 +76,6 @@ services:
       OTEL_SERVICE_NAME: kinotic-server-management
       OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-management,service.instance.id=kinotic-server-management
       THC_PORT: 58503 # Paketo health-check probe — health endpoint is mounted on the api-gateway router
-    volumes:
-      # The developer's tunnel origin and GitHub App (dev-tools/github-app/dev-github-app.ts).
-      # Spring loads ./config/application.yml from the working directory, /workspace, above every
-      # packaged file, so it replaces application-demonstration.yml's localhost:58503 API URL
-      - ${HOME}/.kinotic/dev-environment/kinotic-server-management:/workspace/config:ro
 
   kinotic-server-system:
     <<: *kinotic-server
@@ -96,11 +91,6 @@ services:
       OTEL_SERVICE_NAME: kinotic-server-system
       OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-system,service.instance.id=kinotic-server-system
       THC_PORT: 58504
-    volumes:
-      # The developer's GitHub App (dev-tools/github-app/dev-github-app.ts), with which this server
-      # mints the tokens deployments fetch their repositories with; Spring loads it as
-      # ./config/application.yml
-      - ${HOME}/.kinotic/dev-environment/kinotic-server-system:/workspace/config:ro
 
   kinotic-server-app:
     <<: *kinotic-server

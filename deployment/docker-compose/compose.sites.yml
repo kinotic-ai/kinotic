@@ -1,7 +1,7 @@
 # Where published UIs are stored and served on this machine, in place of the Azure sites storage account
 # and the Cloudflare Worker: the Azurite emulator holds every site's files, which the publish and removal
 # workloads upload and delete, and the local edge runs the Worker itself in front of it. The system
-# server's `development` and `demonstration` profiles upload to it
+# server's `demonstration` profile uploads to it
 # (kinotic.systemApi.uiDeployment.siteStorage: AZURITE), and a published UI opens at
 # http://<app>--<ui>.<org>.sites.localhost:8088.
 

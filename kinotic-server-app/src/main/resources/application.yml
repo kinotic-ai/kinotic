@@ -23,9 +23,3 @@ logging:
     com:
       kinotic: INFO
 
-spring:
-  profiles:
-    # Both run the whole platform on one machine, and share application-single-machine.yml
-    group:
-      development: single-machine
-      demonstration: single-machine

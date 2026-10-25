@@ -1,4 +1,4 @@
--- Fixture rows that give the system console realistic data to render in a development stack:
+-- Fixture rows that give the system console realistic data to render in a demonstration stack:
 -- applications, projects, members, and pending invites for the test-org organization, plus
 -- worker nodes and workloads in every state for the orchestrator views. Development-only — the
 -- e2e suites assert against exact test-org contents and must not see these rows.

@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * The test node's {@link AuthEndpointSupport}: every module runs in this one node, so it presents the UI
- * the management server presents in development.
+ * the management server serves, the portal on 9090.
  */
 @Component
 public class TestAuthEndpointSupport extends AuthEndpointSupport {

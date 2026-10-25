@@ -9,18 +9,14 @@ include:
 # Environment every server node of the e2e stack runs with, on top of compose.kinotic-servers.yml.
 x-kinotic-server-e2e-environment: &kinotic-server-e2e-environment
   JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=256m # remove otel javaagent for test
-  SPRING_PROFILES_ACTIVE: test,e2e-tests,compose
+  SPRING_PROFILES_ACTIVE: e2e
   KINOTIC_DOMAIN_EMAIL_ENABLED: "false"
   # The links no email carries come back in the responses for the UI to show, which the sign-up and member suites follow
-  # SecretNameDeriver requires a master key at startup. The key lives in the `development`
-  # profile (application-development.yml), which e2e deliberately drops in favor of
-  # `test,e2e-tests,compose`, so supply the dummy test key here. Matches kinotic-test's
+  # SecretNameDeriver requires a master key at startup: the dummy test key, matching kinotic-test's
   # application.yml so derived secret names stay consistent with the test fixtures.
   KINOTIC_DOMAIN_SECRETSTORAGE_MASTERKEY: a2lub3RpYy10ZXN0LW1hc3Rlci1rZXktZHVtbXktMDA=
-  # KinoticJwtIssuer signs every access token with these keys. DevSystemSecretsGenerator seeds
-  # them when the `development` profile sets kinotic.domain.systemSecrets.generateMissing, and e2e drops
-  # that profile, so mount the dummy set below; without
-  # it the OAuth token endpoints cannot mint a token.
+  # KinoticJwtIssuer signs every access token with these keys, the dummy set mounted below; without it
+  # the OAuth token endpoints cannot mint a token.
   KINOTIC_DOMAIN_SYSTEMSECRETS_JWTSIGNINGKEYSPATH: /system-secrets/jwt-signing-keys
   # The nodes find each other over this static address list and form one Ignite cluster. A node
   # the running suite did not start does not resolve; Ignite logs the miss and carries on.
@@ -51,8 +47,8 @@ services:
       kinotic-elasticsearch-test-settings:
         condition: service_completed_successfully
     environment:
-      # 'test' activates the e2e fixture migrations (V3__e2e_app_fixtures.test.sql).
-      SPRING_PROFILES_ACTIVE: development,test,compose
+      # 'e2e' applies the test users (V2) and the e2e fixtures (V3__e2e_app_fixtures.e2e.sql)
+      SPRING_PROFILES_ACTIVE: e2e
   kinotic-server-management:
     environment:
       <<: [*kinotic-server-e2e-environment, *kinotic-management-api-e2e-environment]
@@ -60,9 +56,7 @@ services:
       KINOTIC_MANAGEMENTSERVER_TURNSTILE_ENABLED: "false"
       # The OrganizationSignup suite signs up with an email and a password
       KINOTIC_MANAGEMENTSERVER_PASSWORDSIGNUP: "true"
-    # Replaces compose.kinotic-servers.yml's mount of the developer's tunnel and GitHub App,
-    # which would otherwise configure the e2e server on a developer machine
-    volumes: !override
+    volumes:
       - ./jwt-signing-keys.e2e-test.json:/system-secrets/jwt-signing-keys:ro
   kinotic-server-system:
     environment:
@@ -73,16 +67,14 @@ services:
       # test deploys a UI.
       KINOTIC_DOMAIN_PUBLISHEDSITES_DOMAIN: apps.localhost
       KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT: "-"
-      # The workloads' server hosts are @NotBlank and validated at boot. They are set in the
-      # `development` profile, which e2e drops in favor of `test,e2e-tests,compose`, so supply them
-      # here. No e2e test deploys a workload, so the values only have to bind.
+      # The workloads' server hosts are @NotBlank and validated at boot. No e2e test deploys a workload,
+      # so the values only have to bind.
       KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_HOST: localhost
       KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST: localhost
       # The URLs the system server is reached at; validated at boot. No console runs in the e2e stack
       KINOTIC_SYSTEMSERVER_APIBASEURL: http://localhost:58504
       KINOTIC_SYSTEMSERVER_CONSOLEBASEURL: http://localhost:5174
-    # Replaces compose.kinotic-servers.yml's mount of the developer's GitHub App
-    volumes: !override
+    volumes:
       - ./jwt-signing-keys.e2e-test.json:/system-secrets/jwt-signing-keys:ro
   kinotic-server-app:
     environment:

@@ -16,7 +16,7 @@ kinotic:
   debug: true
   maxNumberOfCoresToUse: 4
   domain:
-    # the portal the emailed links open; the test node presents the management server's development UI
+    # the portal the links open: the one the management server serves on 9090
     portalBaseUrl: http://localhost:9090
     email:
       # no Azure Communication Services here: an invitation or verification send logs its link instead
