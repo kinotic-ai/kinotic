@@ -14,7 +14,8 @@ Kinotic supports multiple authentication methods to secure your applications. Ev
 ### Authentication Methods
 
 - **Email and Password** — Built-in user management with secure credential storage. Ideal for getting started quickly or for applications that manage their own user base.
-- **OIDC Providers** — Connect any standard OpenID Connect provider including Google, Microsoft, Okta, and others. Your organization admin enables OIDC configurations for your application — including the system's social providers pre-registered with Kinotic OS.
+- **OIDC Providers** — Connect any standard OpenID Connect provider including Google, Microsoft, Okta, and others. Your organization admin enables OIDC configurations for your application; Google and Microsoft can be managed by Kinotic, with no setup, or use your own credentials.
+- **Sign-up** — New people can create their own account, through a provider or with an email and a password verified by email, when the application turns it on.
 
 This page covers what an application developer needs to know. For the platform-level model behind these mechanisms — scope isolation, the `OidcConfiguration` entity, signup and login flows — see [System Security](https://kinotic.ai/platform/system-security) and [Organization Management](https://kinotic.ai/platform/organization-management).
 
@@ -143,7 +144,91 @@ A Kinotic-minted JWT already carries the `organizationId` / `applicationId` clai
 
 ### Browser applications
 
-A browser UI does **not** supply credentials. It signs its user in over REST at its application's API host, the `VITE_KINOTIC_HOST` of [the UI build contract](https://kinotic.ai/apps/application-structure/applications-and-projects#the-ui-build-contract), which sets a session cookie for that host, then connects to the same host with no credentials — the default resolution finds the session. The host names the application, so the UI never sends its organization or application id:
+A browser UI does **not** supply credentials. It signs its user in, or up, over REST at its application's API host, the `VITE_KINOTIC_HOST` of [the UI build contract](https://kinotic.ai/apps/application-structure/applications-and-projects#the-ui-build-contract), which sets a session cookie for that host, then connects to the same host with no credentials — the default resolution finds the session. The host names the application, so the UI never sends its organization or application id. Every call below takes `credentials: 'include'` and is made from a page that is one of the application's own UIs; the API host refuses a sign-in or sign-up from any other page with `403`.
+
+A UI that offers sign-in serves a `/login` page; one that offers sign-up also serves a `/signup` page and the `/signup/verify` page the verification email links to. Both pages start by asking the API host what the login offers:
+
+```text
+GET /api/auth/app/login/methods
+→ 200 { "passwordSignUp": true,
+        "providers": [ { "configurationId": "4f1c…", "name": "Google", "provider": "google", "signUp": true } ] }
+```
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Field
+    </th>
+    
+    <th>
+      Meaning
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        passwordSignUp
+      </code>
+    </td>
+    
+    <td>
+      New people may sign up with an email and a password: show the sign-up form
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        providers[]
+      </code>
+    </td>
+    
+    <td>
+      The sign-in providers, in the order to show them: one "Continue with <code>
+        name
+      </code>
+      
+      " button each, branded by <code>
+        provider
+      </code>
+      
+       (<code>
+        google
+      </code>
+      
+      , <code>
+        azure-ad
+      </code>
+      
+      , <code>
+        okta
+      </code>
+      
+      ), which starts a sign-in through <code>
+        configurationId
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        providers[].signUp
+      </code>
+    </td>
+    
+    <td>
+      The provider creates the user of a person it verifies on their first sign-in, so its button belongs on the sign-up page too
+    </td>
+  </tr>
+</tbody>
+</table>
+
+An existing user can always sign in with their email and password, whatever `passwordSignUp` says.
 
 ```typescript
 import { Kinotic } from '@kinotic-ai/core'
@@ -158,45 +243,143 @@ const post = (path: string, body: object) => fetch(`${api}${path}`, {
     body: JSON.stringify(body),
 })
 
-// the password form
+// what the login offers, for both the /login and the /signup page
+const methods = await (await fetch(`${api}/app/login/methods`, { credentials: 'include' })).json()
+
+// /login: the password form
 if ((await post('/app/login', { email, password })).status === 204) {
     await Kinotic.connect({ server })
 }
 
-// one "Continue with <name>" button per provider the login offers
-const providers = await (await fetch(`${api}/app/login/providers`, { credentials: 'include' })).json()
-async function continueWith(provider: { id: string }) {
-    const start = await (await post(`/app/login/oidc/start/${provider.id}`, {})).json()
+// /login and /signup: one "Continue with <name>" button per provider; on /signup, only those with signUp
+async function continueWith(provider: { configurationId: string }) {
+    const start = await (await post(`/app/login/oidc/start/${provider.configurationId}`, {})).json()
     window.location.assign(start.redirect)
+}
+
+// /signup, while methods.passwordSignUp: always answers 202, then the person checks their inbox
+await post('/app/signup', { email })
+
+// /signup/verify?token=…: the person chooses a password, and optionally a name, and is signed in
+const token = new URLSearchParams(window.location.search).get('token')
+const done = await post('/app/signup/complete', { token, password, displayName })
+if (done.status === 204) {
+    await Kinotic.connect({ server })
 }
 ```
 
-The login page offers every method the application supports and lets the user choose: the password form, and a button for each configuration `GET /api/auth/app/login/providers` lists as `[{id, name, provider}]`, whether the organization's own provider or one of the system's shared Google and Microsoft registrations. No endpoint takes an email before the user has chosen a method, so a login page cannot be used to learn which emails have a user. An AI assistant building the page can ask the same question through the `ApplicationService.getLoginProviders` MCP tool.
+#### Signing in
 
-A login belongs to the page that made it, and the API host accepts one only from a page that is one of the application's own UIs. `GET /api/auth/me` answers `204` while the page is signed in, and `POST /api/auth/logout` signs it out; both take `credentials: 'include'` as well.
+The login page offers every method the application supports and lets the user choose: the password form, posting to `POST /api/auth/app/login`, which answers `204` with the cookie or a generic `401`, and a button for each provider. A button posts the provider's `id` to `POST /api/auth/app/login/oidc/start/:id`, whose answer carries the `redirect` to send the browser to. The provider returns the browser to `/` on the page that started the sign-in, signed in, or to that page's `/login` with an `error` parameter (`no_user`, `user_exists`, `user_disabled`, `email_not_verified`, `config_not_found`, …). No endpoint takes an email before the user has chosen a method, so a login page cannot be used to learn which emails have a user.
+
+`GET /api/auth/me` answers `204` while the page is signed in, and `POST /api/auth/logout` signs it out.
+
+#### Signing up
+
+A person gets a user of your application without an invitation in two ways, each switched on by your organization administrator on the application's settings:
+
+- **Through a provider.** A provider whose `signUp` is true makes a person it verifies a user on their first sign-in, from the provider's verified email and name. There is no separate sign-up call: the same "Continue with Google" button signs a new person up and an existing user in. A person whose email already has a user under another method is refused with `user_exists`, and signs in the way they did before. Microsoft lets the administrator of any directory set its users' email, so a Microsoft provider that admits every directory — managed by Kinotic, or your own credentials naming `common` or `organizations` — signs up a personal Microsoft account, or a work account whose token carries `xms_edov` (email domain owner verified) or `email_verified` as true; any other Microsoft account is refused with `email_not_verified` and joins by invitation or another method. A Microsoft registration of your own emits `xms_edov` once you add it as an optional claim of the ID token in its Entra app registration. A provider naming one directory, your own or a tenant's, signs up that directory's users as its administrator set them.
+- **With an email and a password.** While `passwordSignUp` is true, the sign-up page posts `{email}` to `POST /api/auth/app/signup`; the email it sends carries only the application's name and the link. It answers `202` for every email, before anything is sent, and an email that already has a user is sent nothing, so the page cannot learn whether an account exists; tell the person to check their inbox. The email is matched trimmed and lowercased. The email links to `/signup/verify?token=…` on the same UI the sign-up started from and is valid for 24 hours; while a link sent to the address is still valid, asking again sends nothing more, and once it has expired, asking again sends a new one. That page posts `{token, password, displayName}` to `POST /api/auth/app/signup/complete`, where the optional `displayName`, at most 200 characters, is the user's name: it is asked for here, of the person who holds the email, so whoever asked for the link cannot choose it. The call creates the user and answers `204` with the session cookie. It answers `400` for an unknown, used or expired token, or one sent for another application, a missing password or a longer name, `403` from a tenant's site or once the application no longer offers password sign-up, and `409` when the email got a user meanwhile, in which case the person signs in instead.
+
+The sign-up endpoints answer `403` while the application does not offer password sign-up, and from a tenant's site.
+
+Every new user ends up in a tenant. An application signs people up at its own login only while the system manages its tenants (`TenantManagement.SYSTEM`), which gives each new user a tenant of their own; a provider's `signUp` and `passwordSignUp` are always false at the login of an application whose tenants their administrators manage. There a person joins a tenant by invitation, or through one of the tenant's own providers that signs people up, at the tenant's login (below).
 
 ### Signing in to a tenant
 
-An application whose tenants its administrators manage gives each tenant a login of its own. A page served at one of the tenant's sites, `<tenantId>--<applicationId>--<uiName>` under your organization's subdomain of the sites domain (see [Multi-Tenancy](https://kinotic.ai/apps/persistence/multi-tenancy#tenants-and-their-sites)), signs in to that tenant with the same calls as above: the API host reads the tenant from the page's host, so `/app/login/providers` lists what the tenant's login offers — the tenant's own providers, then the application's — and `/app/login` admits only the tenant's users. A page that is not one of the tenant's sites, such as a UI running locally, names the tenant instead, with `?tenantId=` on the `GET` and the start, and `tenantId` in the login body; the API host answers `404` for a tenant the application does not have, and `403` when a tenant's site names another tenant.
+An application whose tenants its administrators manage gives each tenant a login of its own. A page served at one of the tenant's sites, `<tenantId>--<applicationId>--<uiName>` under your organization's subdomain of the sites domain (see [Multi-Tenancy](https://kinotic.ai/apps/persistence/multi-tenancy#tenants-and-their-sites)), signs in to that tenant with the same calls as above: the API host reads the tenant from the page's host, so `/app/login/methods` lists what the tenant's login offers — the tenant's own providers, then the application's — and `/app/login` admits only the tenant's users. Only the tenant's own providers can sign people up there, into the tenant; the application's providers sign in the tenant's existing users, and password sign-up is not offered. A page that is not one of the tenant's sites, such as a UI running locally, names the tenant instead, with `?tenantId=` on the `GET` and the start, and `tenantId` in the login body; the API host answers `404` for a tenant the application does not have, and `403` when a tenant's site names another tenant.
 
-### How OIDC Works with Your Application
+### Sign-in providers
 
-1. Your organization administrator creates one or more `ApplicationOidcConfiguration`s for your application's login, or `TenantOidcConfiguration`s for one tenant's, in the portal under the application's **Settings → Sign-in providers** tab, and registers the callback URL the tab shows for each, `https://<organizationId>--<applicationId>.<app API domain>/api/auth/app/login/oidc/callback/<configId>`, with the provider; or names one of the system's shared Google and Microsoft registrations in the application's `socialProviders`
-2. Your UI renders a button per provider the login offers; the button posts the configuration's id to the start at your API host, whose answer carries the URL to send the browser to
-3. The provider returns the browser to the API host, which validates the provider's response, looks the user up in your application, or in the tenant the sign-in is to, and sets the session cookie. A shared registration returns the browser to the app server's shared host instead, which validates the response and hands the verified identity to your application's API host under a single-use code, which completes only in the browser that started the sign-in; that host looks the user up and sets the cookie
-4. The browser returns to `/` on the site that started the sign-in, which connects with the session; a sign-in that fails returns instead to the `/login` page of that site with an `error` parameter, so every UI that offers sign-in serves a `/login` route. A failure that no longer knows which site started it — the flow's session expired, or a shared registration's single-use code was refused with `handoff_invalid` — returns to the `/login` page of your application's [primary UI](https://kinotic.ai/apps/application-structure/applications-and-projects#applications)
+Your organization administrator adds the application's sign-in providers in the portal under the application's **Settings → Sign-in providers** tab, each an `ApplicationOidcConfiguration` (or a `TenantOidcConfiguration` for one tenant's login), or a product built on Kinotic saves them through `OwnedOidcConfigurationService.save`. For Google and Microsoft — the kinds `OwnedOidcConfigurationService.findManagedProviders()` lists — each provider chooses whose registration with the provider it signs in through, its `clientRegistrationType`:
 
-### Reusable Providers
+<table>
+<thead>
+  <tr>
+    <th>
+      <code>
+        clientRegistrationType
+      </code>
+    </th>
+    
+    <th>
+      Setup
+    </th>
+    
+    <th>
+      Consent screen
+    </th>
+  </tr>
+</thead>
 
-Kinotic OS registers once with Google and Microsoft. A system user provisions these as `ApplicationSocialOidcConfiguration` entities, and your application offers one by naming its provider kind, `google` or `azure-ad`, in its `socialProviders` — no registration of your own with the provider. The registration is shared by every application that offers it, so a user who revokes it at the provider revokes it for all of them. Your organization's own providers for your application are `ApplicationOidcConfiguration` entities your organization admin creates for it on the application's **Sign-in providers** settings tab, each registered with the provider under the application's own callback URL; the organization's own enterprise SSO for the portal is an `OrganizationOidcConfiguration`, and an admin who wants the same provider at both copies it from one scope to the other. An `ApplicationOidcConfiguration` whose `createUserOnSignIn` is on creates a user of your application from an identity it verifies on that identity's first sign-in, when the system manages your application's tenants; see below.
+<tbody>
+  <tr>
+    <td>
+      <code>
+        MANAGED
+      </code>
+      
+       — managed by Kinotic
+    </td>
+    
+    <td>
+      None: the provider signs in through Kinotic's own registration with Google or Microsoft
+    </td>
+    
+    <td>
+      Kinotic's name
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        OWN
+      </code>
+      
+       — your own credentials
+    </td>
+    
+    <td>
+      Register an OAuth client at the provider, give the configuration its client ID and secret (and for Microsoft the directory: a tenant id, or <code>
+        common
+      </code>
+      
+       / <code>
+        organizations
+      </code>
+      
+       for any account), and register the configuration's callback URL, <code>
+        https://<organizationId>--<applicationId>.<app API domain>/api/auth/app/login/oidc/callback/<configId>
+      </code>
+      
+      , which the tab shows
+    </td>
+    
+    <td>
+      Your application's name and branding
+    </td>
+  </tr>
+</tbody>
+</table>
 
-All are kinds of `OidcConfiguration` — see [System Security](https://kinotic.ai/platform/system-security) for how ownership is captured by the subtype.
+Okta, and Google or Microsoft for one tenant, always use your own credentials. Sign-in and sign-up behave the same either way. Switching a provider between the two is an edit of the same configuration, and its users stay the same users: a user is bound to the identifier the provider gives the person under every client it registers — Google's `sub`, Microsoft's directory and object ids — so a person who signed up under Kinotic's registration signs in under yours, and back. One exception: Microsoft identifies a guest (B2B) user by the directory they sign in to, and Kinotic's registration signs a guest in through their home directory while your own registration naming your directory signs them in through yours. A guest who signed up one way is therefore not recognized the other way, in either direction of a switch: their email already has a user, so the sign-in is refused with `user_exists`, or with `no_user` where the provider does not sign people up. A configuration using Kinotic's registration keeps any client ID and secret it holds, so switching back needs no new setup. Kinotic's registration is shared by every application that uses it, so a user who revokes it at the provider revokes it for all of them.
+
+A provider's `createUserOnSignIn` is its `signUp`: on, it signs new people up where the scope admits them, as described above.
+
+How a sign-in through a provider runs:
+
+1. Your UI renders a button per provider the login offers; the button posts the configuration's id to the start at your API host, whose answer carries the URL to send the browser to
+2. The provider returns the browser to the API host, which validates the provider's response, finds the user bound to the identity in your application, or in the tenant the sign-in is to, creating it where the provider signs people up, and sets the session cookie. A provider using Kinotic's registration returns the browser to the app server's shared host instead, which validates the response, finds or creates the user, and hands the sign-in to your application's API host under a single-use code, which completes only in the browser that started the sign-in; that host sets the cookie
+3. The browser returns to `/` on the site that started the sign-in, which connects with the session; a sign-in that fails returns instead to the `/login` page of that site with an `error` parameter, so every UI that offers sign-in serves a `/login` route. A failure that no longer knows which site started it — the flow's session expired, or a shared registration's single-use code was refused with `handoff_invalid` — returns to the `/login` page of your application's [primary UI](https://kinotic.ai/apps/application-structure/applications-and-projects#applications)
+
+An AI assistant building the pages can ask what the login offers through the `ApplicationService.getLoginMethods` MCP tool, which answers what `GET /api/auth/app/login/methods` answers for the application's own login. All provider kinds are `OidcConfiguration`s — see [System Security](https://kinotic.ai/platform/system-security) for how ownership is captured by the subtype.
 
 ## User Management
 
-Application-scope users are **invited** by an administrator before they can authenticate, unless one of your application's own `ApplicationOidcConfiguration`s says otherwise. Having a valid Google account never grants access to your application by itself: the system's shared registrations create no users. A configuration your organization registered for the application may have `createUserOnSignIn` on, and then an identity that provider verifies which no user is bound to (an `OidcBinding` of the provider's configuration and `sub` to a user) becomes a user of the application on its first sign-in, with a tenant of its own, which is why it applies only while the system manages the application's tenants. Under tenant administrators a user is never without a tenant, so there a user is created by an administrator, an invitation, or a tenant's own `TenantOidcConfiguration` with `createUserOnSignIn`, which makes the identity its provider verifies a user of that tenant on its first sign-in at the tenant's login; the application's own configurations never create a user into a tenant. An identity whose verified email the application already holds under another method is refused with `user_exists`. A configuration of your own for Google with `createUserOnSignIn` admits any Google account, which is sign-up with Google for your application. Self-service signup with a form applies to the [Organization scope](https://kinotic.ai/platform/organization-management) only.
+Besides signing up, an application's users are **invited** by an administrator. Your organization administrator manages your application's users on the application's **Users** page in the portal. **Invite user** emails an invitation (`MemberService.inviteMember(email, displayName, applicationId)`); the invitee accepts it by choosing a password, which creates the application's user, and is then sent to your application's [primary UI](https://kinotic.ai/apps/application-structure/applications-and-projects#applications), where they sign in with that email and password from then on. The first UI one of your projects publishes becomes the primary UI unless you have chosen one; while the application has none, the accept page confirms the new user instead. An invitation into an application is accepted with a password only, and a user created this way has no OIDC identity bound to it, so it signs in with the password even when the email matches an identity at one of the application's providers.
 
-Your organization administrator manages your application's users on the application's **Users** page in the portal. **Invite user** emails an invitation (`MemberService.inviteMember(email, displayName, applicationId)`); the invitee accepts it by choosing a password, which creates the application's user, and is then sent to your application's [primary UI](https://kinotic.ai/apps/application-structure/applications-and-projects#applications), where they sign in with that email and password from then on. The first UI one of your projects publishes becomes the primary UI unless you have chosen one; while the application has none, the accept page confirms the new user instead. An invitation into an application is accepted with a password only, and a user created this way has no OIDC identity bound to it, so it signs in with the password even when the email matches an identity at one of the application's providers.
+Sign-up is configured per application, by the organization in the portal or by any product built on Kinotic through the management API: `Application.passwordSignUp`, saved with `ApplicationService.save`, turns on sign-up with an email and a password, and each provider's `createUserOnSignIn` and `clientRegistrationType`, saved with `OwnedOidcConfigurationService.save`, say whether it signs people up and whose registration it uses. A builder that creates applications for its own users can create each one with `TenantManagement.SYSTEM`, add a Google provider managed by Kinotic with `createUserOnSignIn` on, turn `passwordSignUp` on when the owner wants it, and later save the same provider with `OWN` and the owner's client ID and secret.
 
 For details on user and OIDC configuration management, see the [Organization Management](https://kinotic.ai/platform/organization-management) platform guide.
 

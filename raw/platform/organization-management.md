@@ -15,7 +15,7 @@ System users sign in to the system server, separately from everything described 
 
 ## Mental Model
 
-Eight persistent entities carry the auth state, and one short-lived entity bridges each signup. The [Sign-In Design](https://kinotic.ai/platform/reference/sign-in-design) reference draws them and the flows between them.
+Eight persistent entities carry the auth state, and a short-lived entity bridges each signup. The [Sign-In Design](https://kinotic.ai/platform/reference/sign-in-design) reference draws them and the flows between them.
 
 <table>
 <thead>
@@ -59,7 +59,15 @@ Eight persistent entities carry the auth state, and one short-lived entity bridg
     </td>
     
     <td>
-      A registration the system holds with a social provider (Google, Microsoft) that any organization may offer at one of its applications' logins. Belongs to no organization
+      A registration the system holds with a social provider (Google, Microsoft) that an application's configuration of the same kind signs in through when its <code>
+        clientRegistrationType
+      </code>
+      
+       is <code>
+        MANAGED
+      </code>
+      
+      . Belongs to no organization
     </td>
     
     <td>
@@ -109,6 +117,18 @@ Eight persistent entities carry the auth state, and one short-lived entity bridg
     <td>
       The same record made for the login of one of the organization's applications (<code>
         applicationId
+      </code>
+      
+      ); its <code>
+        clientRegistrationType
+      </code>
+      
+       says whether it signs in through the organization's own client (<code>
+        OWN
+      </code>
+      
+      ) or Kinotic's registration of its provider kind (<code>
+        MANAGED
       </code>
       
       )
@@ -237,9 +257,11 @@ Eight persistent entities carry the auth state, and one short-lived entity bridg
     </td>
     
     <td>
-      Created by an admin, invitation, or <code>
+      Created by an admin, invitation, a provider's <code>
         createUserOnSignIn
       </code>
+      
+      , or sign-up with an email and a password
     </td>
   </tr>
   
@@ -255,7 +277,19 @@ Eight persistent entities carry the auth state, and one short-lived entity bridg
         (oidcConfigId, subject)
       </code>
       
-       → identity id, once among organization users and once per application among the application's users. With the optional password these are the user's sign-in methods
+       → identity id, where an application user's <code>
+        subject
+      </code>
+      
+       is the identifier the provider gives the person under every client it registers (Google's <code>
+        sub
+      </code>
+      
+      , Microsoft's <code>
+        <tid>/<oid>
+      </code>
+      
+      ), once among organization users and once per application among the application's users. With the optional password these are the user's sign-in methods
     </td>
     
     <td>
@@ -264,6 +298,26 @@ Eight persistent entities carry the auth state, and one short-lived entity bridg
       </code>
       
        for an application's user, or by the user from the Profile page
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        PendingApplicationSignUp
+      </code>
+    </td>
+    
+    <td>
+      Holds a sign-up to an application with an email and a password, from the verification email until the person chooses a password
+    </td>
+    
+    <td>
+      Short-lived; deleted once <code>
+        /api/auth/app/signup/complete
+      </code>
+      
+       succeeds
     </td>
   </tr>
   
@@ -295,7 +349,7 @@ Eight persistent entities carry the auth state, and one short-lived entity bridg
 </tbody>
 </table>
 
-A configuration is offered at the one scope its kind names. When the same Okta tenant serves both the org's own login and one of its applications', the org copies the configuration into the application's scope with `OwnedOidcConfigurationService.copy`; the copy is registered with the provider under its own callback URL and keeps its own copy of the client secret. An application offers the system's Google and Microsoft registrations by naming their provider kinds in its `socialProviders`.
+A configuration is offered at the one scope its kind names. When the same Okta tenant serves both the org's own login and one of its applications', the org copies the configuration into the application's scope with `OwnedOidcConfigurationService.copy`; the copy is registered with the provider under its own callback URL and keeps its own copy of the client secret. An application signs in through the system's Google and Microsoft registrations with an `ApplicationOidcConfiguration` of that kind whose `clientRegistrationType` is `MANAGED`; switching it to `OWN` with the organization's own client ID and secret is an edit of the same configuration, and its users stay the same users.
 
 ### Two distinct OIDC roles
 
@@ -380,7 +434,7 @@ A configuration is offered at the one scope its kind names. When the same Okta t
   <tr>
     <td>
       <strong>
-        Application SSO
+        Application sign-in
       </strong>
     </td>
     
@@ -391,37 +445,15 @@ A configuration is offered at the one scope its kind names. When the same Okta t
     </td>
     
     <td>
-      The org, at one of its applications' logins, by creating the configuration for that application
-    </td>
-    
-    <td>
-      A "Continue with <name>
-        " button on that application's own login page
-      </name>
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <strong>
-        Application social sign-in
-      </strong>
-    </td>
-    
-    <td>
-      <code>
+      The org, at one of its applications' logins, by creating the configuration for that application, through its own client or, for Google and Microsoft, Kinotic's <code>
         ApplicationSocialOidcConfiguration
       </code>
     </td>
     
     <td>
-      The application, by naming the provider type in its <code>
-        socialProviders
-      </code>
-    </td>
-    
-    <td>
-      A "Continue with Google/Microsoft" button on that application's own login page
+      A "Continue with <name>
+        " button on that application's own sign-in page, and on its sign-up page when the configuration signs people up
+      </name>
     </td>
   </tr>
   
@@ -451,7 +483,7 @@ A configuration is offered at the one scope its kind names. When the same Okta t
 </tbody>
 </table>
 
-The roles are separate *subtypes* of `OidcConfiguration`, stored in one index under a `type` discriminator the way the kinds of `ParticipantIdentity` are, rather than one type with a flag, because the difference between them is ownership. Every lookup filters on the discriminator and every write is held to its kind's owner, so an org admin configuring SSO can never make it appear as a global button or name a system secret, and a seeded system registration can never affect an org's SSO settings.
+An `ApplicationSocialOidcConfiguration` is never offered on its own: it is the credentials a `MANAGED` application configuration signs in through. The roles are separate *subtypes* of `OidcConfiguration`, stored in one index under a `type` discriminator the way the kinds of `ParticipantIdentity` are, rather than one type with a flag, because the difference between them is ownership. Every lookup filters on the discriminator and every write is held to its kind's owner, so an org admin configuring SSO can never make it appear as a global button or name a system secret, and a seeded system registration can never affect an org's SSO settings.
 
 ## Org Creation
 
@@ -716,7 +748,7 @@ Each button on the organization's page is a form posting to the organization's s
 3. IdP returns to the callback registered for the configuration:
      GET /api/auth/org/login/social/callback/<configId>   an org sign-up registration
      GET /api/auth/org/login/sso/callback/<configId>      the organization's own configuration
-4. OrganizationLoginHandler → AuthEndpointSupport.completeOidcLogin:
+4. OrganizationLoginHandler.completeOrganizationLogin:
    - validates state/nonce, exchanges code, validates id_token (sub + email_verified)
    - looks up the organization user bound to (configId, sub) (ParticipantIdentityService.
      findOrganizationUserByOidcIdentity) and its OrganizationMembership of the stashed
@@ -746,7 +778,7 @@ The landing page's buttons are populated from `GET /api/auth/org/login/providers
      (oidcConfigurationService.findEnabledOrgSignupByProvider)
    - same flow-session setup as above, with no organization stashed, then 302 to the IdP
 3. IdP returns to GET /api/auth/org/login/social/callback/<configId>
-4. OrganizationLoginHandler.handleSocialCallback → completeOidcLogin:
+4. OrganizationLoginHandler.completeLandingLogin:
    - finds the organization user bound to (configId, sub) and its enabled memberships
      (OrganizationMembershipService.findMemberships)
    - exactly one: signs in to that organization as above
@@ -1161,7 +1193,7 @@ OIDC is a standard, but providers diverge on a few details. The validation helpe
 
 An `OrganizationOidcConfiguration` is offered at the org's own login page, `/login/<organizationId>`, by existing. An organization admin manages the organization's configurations in the portal under **Organization settings → Authentication providers**, or through the published `OwnedOidcConfigurationService` the page calls (`Kinotic.ownedOidcConfigurations` in `@kinotic-ai/management-api`, and an MCP tool), which acts for the caller's organization alone.
 
-1. **Add provider** opens the form in a drawer on the right. Pick the provider (Google, Microsoft or Okta) and enter the display name the login page prints on its button, the organization's account at the provider where the kind takes one (the **Directory (tenant) ID** for Microsoft Entra ID, the **Okta domain** on `okta.com`, `oktapreview.com` or `okta-emea.com` for Okta), the client ID and the client secret, or tick **Public client (no secret)**. The form checks the account against the kind's pattern before it saves, and shows the server's message when the server still refuses. The audience is optional, under **Advanced**. Saving calls `OwnedOidcConfigurationService.save(configuration, clientSecret)`: the authority is derived from the kind's template, so no URL is given, and the `organizationId` is the caller's whatever was sent. A secret is held in the organization's own scope of the secret storage — the row itself never names one, and nothing reads it back through the service; `confidentialClient` says whether one is held. `createUserOnSignIn` is refused on an organization's configuration, and the form does not offer it: the organization's administrators add its members (see [Members](#members)), and the provider signs in the member it verifies under a pending member's address, claiming that organization user on the first sign-in, or the organization user its identity is already bound to. A person the provider verifies whose address is no member's gets `no_user`; one whose address already has an organization user that someone signs in as is not claimed, and joins by accepting the invitation the administrator's Add member sent.
+1. **Add provider** opens the form in a drawer on the right. Pick the provider (Google, Microsoft or Okta) and enter the display name the login page prints on its button, the organization's account at the provider where the kind takes one (the **Directory (tenant) ID** for Microsoft Entra ID, never `common` or `organizations`, which an application's provider may name, the **Okta domain** on `okta.com`, `oktapreview.com` or `okta-emea.com` for Okta), the client ID and the client secret, or tick **Public client (no secret)**. The form checks the account against the kind's pattern before it saves, and shows the server's message when the server still refuses. The audience is optional, under **Advanced**. Saving calls `OwnedOidcConfigurationService.save(configuration, clientSecret)`: the authority is derived from the kind's template, so no URL is given, and the `organizationId` is the caller's whatever was sent. A secret is held in the organization's own scope of the secret storage — the row itself never names one, and nothing reads it back through the service; `confidentialClient` says whether one is held. `createUserOnSignIn` is refused on an organization's configuration, and the form does not offer it: the organization's administrators add its members (see [Members](#members)), and the provider signs in the member it verifies under a pending member's address, claiming that organization user on the first sign-in, or the organization user its identity is already bound to. A person the provider verifies whose address is no member's gets `no_user`; one whose address already has an organization user that someone signs in as is not claimed, and joins by accepting the invitation the administrator's Add member sent.
 2. Once saved, the form shows the configuration's **callback URL**, `<kinotic.managementApi.apiBaseUrl>/api/auth/org/login/sso/callback/<configId>`, which `OwnedOidcConfigurationService.findCallbackUrl(configId)` returns. Add it to the IdP app registration as a redirect URI; sign-ins through the configuration fail until it is there. It is the only one the configuration needs: a login, an invitation accepted through the provider, and a member connecting the provider to their organization user from the Profile page all return to it, and the flow's purpose, recorded on the session when it starts, says which it is. For a same-origin deploy that base is the portal's own origin; for a split-origin deploy (the SPA on the sites Worker, the backend on AKS) it is the backend's hostname, so the IdP returns the browser to the management server, not the SPA. The provider's row, its **Edit** form and its details all show the same URL again.
 3. Editing a configuration leaves its kind fixed, since the kind is the scope it is offered at and the server refuses a save that changes it. The client secret field starts empty: a save with it empty keeps the secret held (`save` with a null or blank secret keeps it), and a secret entered replaces it. **Make this a public client**, which asks for confirmation, deletes the held secret with `OwnedOidcConfigurationService.deleteClientSecret(configId)`.
 4. The row menu also enables or disables the configuration (a disabled one is listed on no login page and signs no one in), deletes it after a confirmation (sign-ins through it stop at once and its held secret is deleted), and copies it to an application: **Copy to application** calls `OwnedOidcConfigurationService.copy(configurationId, applicationId)`, which makes an `ApplicationOidcConfiguration` with the source's provider, account, client ID and secret, and shows the copy's own callback URL, `<the application's API host>/api/auth/app/login/oidc/callback/<copyId>`, to register with the provider as well. The application's API host is its label under `kinotic.domain.appApiBaseUrl`.
@@ -1895,7 +1927,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     
     <td>
       <code>
-        /api/auth/app/login/providers[?tenantId]
+        /api/auth/app/login/methods[?tenantId]
       </code>
     </td>
     
@@ -1906,8 +1938,8 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      Enabled configurations the application's login offers, <code>
-        [{id, name, provider}]
+      What the application's login offers, <code>
+        {passwordSignUp, providers: [{configurationId, name, provider, signUp}]}
       </code>
       
       , or the tenant's login from one of the tenant's sites or when <code>
@@ -1915,10 +1947,14 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
       </code>
       
        names one; <code>
+        403
+      </code>
+      
+       from a page that is not one of the application's UIs or is a site of another tenant, <code>
         404
       </code>
       
-       for a tenant the application does not have
+       for an application that does not exist or a tenant it does not have
     </td>
   </tr>
   
@@ -1967,6 +2003,102 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     
     <td>
       <code>
+        /api/auth/app/signup
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        ApplicationSignUpHandler
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        {email}
+      </code>
+      
+      ; <code>
+        202
+      </code>
+      
+       for every email before anything is sent, then emails the link to <code>
+        /signup/verify?token=
+      </code>
+      
+       on the UI that sent it, or nothing to an email that has a user or whose link from an earlier request is still valid; <code>
+        400
+      </code>
+      
+       for an email with no <code>
+        @
+      </code>
+      
+      ; <code>
+        403
+      </code>
+      
+       while the application does not offer password sign-up, from a tenant's site, or from a page that is not one of its UIs; <code>
+        404
+      </code>
+      
+       for an application that does not exist
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        POST
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/app/signup/complete
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        ApplicationSignUpHandler
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        {token, password[, displayName]}
+      </code>
+      
+      , the name at most 200 characters; creates the application's user with a tenant of its own and establishes the session (204); <code>
+        400
+      </code>
+      
+       for an unknown, spent or expired token, one sent for another application, or a missing password; <code>
+        403
+      </code>
+      
+       while the application no longer offers password sign-up, from a tenant's site, or from a page that is not one of its UIs; <code>
+        404
+      </code>
+      
+       for an application that does not exist; <code>
+        409
+      </code>
+      
+       when the email has a user
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        POST
+      </code>
+    </td>
+    
+    <td>
+      <code>
         /api/auth/app/login/oidc/start/:configId[?tenantId]
       </code>
     </td>
@@ -1986,7 +2118,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
         authorize
       </code>
       
-       URL for a system social registration, carrying a <code>
+       URL for a configuration using Kinotic's registration, carrying a <code>
         binding
       </code>
       
@@ -2098,7 +2230,11 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      Shared host: the IdP returns here; verifies the identity, 302 to the application's host with a single-use code; a failed callback 302s to the starting page's <code>
+      Shared host: the IdP returns here, <code>
+        configId
+      </code>
+      
+       naming the system registration; verifies the identity, finds or creates the user through the application's configuration the flow started with, 302 to the application's host with a single-use code; a failed callback 302s to the starting page's <code>
         /login
       </code>
       

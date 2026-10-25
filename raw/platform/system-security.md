@@ -304,9 +304,19 @@ Provider configurations share a shape but not an owner. Every kind extends the s
     </td>
     
     <td>
-      Seeded by SQL migration; saved by a system participant only. Offered at an application's login when the application names the registration's provider kind in its <code>
-        socialProviders
+      Seeded by SQL migration; saved by a system participant only, at most one enabled per provider kind. Never offered on its own: an <code>
+        ApplicationOidcConfiguration
       </code>
+      
+       of its provider kind whose <code>
+        clientRegistrationType
+      </code>
+      
+       is <code>
+        MANAGED
+      </code>
+      
+       signs in through it
     </td>
     
     <td>
@@ -386,11 +396,37 @@ Provider configurations share a shape but not an owner. Every kind extends the s
     </td>
     
     <td>
-      As above
+      As above; with <code>
+        clientRegistrationType
+      </code>
+      
+       <code>
+        MANAGED
+      </code>
+      
+       it signs in through the system's <code>
+        ApplicationSocialOidcConfiguration
+      </code>
+      
+       of its provider kind, which must be enabled when the configuration switches to <code>
+        MANAGED
+      </code>
+      
+      , and needs no account or client of its own. Once <code>
+        MANAGED
+      </code>
+      
+       it saves whether or not the system still holds one, and is offered only while it does
     </td>
     
     <td>
-      As above
+      As above, unused while <code>
+        MANAGED
+      </code>
+      
+       and kept for a switch back to <code>
+        OWN
+      </code>
     </td>
   </tr>
   
@@ -434,7 +470,7 @@ Provider configurations share a shape but not an owner. Every kind extends the s
 </tbody>
 </table>
 
-Kinotic's own GitHub registration is an `OrgSignupOidcConfiguration` — it powers the "Continue with GitHub" button on org signup and org login, and belongs to no organization because signup happens before one exists. Kinotic's Google and Microsoft registrations are `ApplicationSocialOidcConfiguration`s: one registration per provider, which any application switches on by naming the provider kind in its `socialProviders`, so the application's users sign in with Google or Microsoft without the organization registering with either. A user who revokes the app's access at the provider revokes it for every application offering that registration, the trade one shared registration makes. Because the registration is shared and a provider returns only to a redirect URI registered in advance, its sign-ins return to the app server's own host rather than the application's API host, and the verified identity is handed to the application's host under a single-use code — see the app routes in [Organization Management](https://kinotic.ai/platform/organization-management#endpoint-reference). Everything an organization configures for itself is the third kind.
+Kinotic's own GitHub registration is an `OrgSignupOidcConfiguration` — it powers the "Continue with GitHub" button on org signup and org login, and belongs to no organization because signup happens before one exists. Kinotic's Google and Microsoft registrations are `ApplicationSocialOidcConfiguration`s: one registration per provider, which an application's `ApplicationOidcConfiguration` of that kind signs in through when its `clientRegistrationType` is `MANAGED`, so the application's users sign in with Google or Microsoft without the organization registering with either. The application's configuration is the provider the login offers, the key its users are bound under and the switch that signs people up, whichever registration it uses, so switching it to the organization's own client (`OWN`) is an edit of the same row that leaves its users where they are. A user who revokes the app's access at the provider revokes it for every application offering that registration, the trade one shared registration makes. Because the registration is shared and a provider returns only to a redirect URI registered in advance, its sign-ins return to the app server's own host rather than the application's API host, and the verified identity is handed to the application's host under a single-use code — see the app routes in [Organization Management](https://kinotic.ai/platform/organization-management#endpoint-reference). Everything an organization configures for itself is the third kind.
 
 ### Why types rather than one with a flag
 
@@ -444,11 +480,11 @@ The difference between the kinds is *ownership* and *scope*, and those are exact
 
 An organization's configuration is offered at exactly the scope its kind names and nowhere else: an `OrganizationOidcConfiguration` at the organization's own login, an `ApplicationOidcConfiguration` at that application's login, a `TenantOidcConfiguration` at the login of that tenant of the application. A tenant's login is the application's narrowed to the tenant, so it offers the application's configurations too, and admits only the tenant's users through them; the tenant's own configuration is the one that may create a user into the tenant on first sign-in. There is no sharing across scopes. An organization that uses one Okta application for its portal and for one of its own applications copies the configuration with `OwnedOidcConfigurationService.copy(sourceId, applicationId)`, the published service an organization manages its own configurations through, which creates a configuration of the target scope's kind carrying the source's provider, account, client id and client secret, under an id of its own. Each copy therefore has its own callback URL, which the provider must be given, and a client secret the provider rotates is updated on each copy. That is the trade for every callback trusting only the row it loaded: the configuration says where it is offered, and nothing but the row decides what a sign-in through it may do.
 
-Each owned configuration also decides, with `createUserOnSignIn`, what happens to an identity its provider verifies that no user of the scope is bound to: refused, or created as a user of the scope from the provider's verified email and name and bound to the identity. An email the scope already holds under another method is refused either way. Off by default, and refused on an `OrganizationOidcConfiguration`: an organization's members are added by its administrators, whom its provider then signs in, so no organization user is ever created on an organization's provider's word. An application's or a tenant's configuration takes it for any kind, which with Google is sign-up with Google for that scope.
+Each owned configuration also decides, with `createUserOnSignIn`, what happens to an identity its provider verifies that no user of the scope is bound to: refused, or created as a user of the scope from the provider's verified email and name and bound to the identity. An email the scope already holds under another method is refused either way. Off by default, and refused on an `OrganizationOidcConfiguration`: an organization's members are added by its administrators, whom its provider then signs in, so no organization user is ever created on an organization's provider's word. An application's or a tenant's configuration takes it for any kind, which with Google is sign-up with Google for that scope. It creates a user only where the new user gets a valid tenant: at an application's own login while the system manages the application's tenants, which gives each new user a tenant of their own, and at a tenant's login through the tenant's own configuration, into that tenant. Where a configuration admits every directory at the provider — Kinotic's registration, or an organization's own naming Entra's `common` or `organizations` — it creates a user only under an email the provider proves is the person's (`OAuth2Util.isEmailProven`): Microsoft Entra lets the administrator of any directory set its users' email claim, so such an Entra email signs up only for a personal Microsoft account, or with an `xms_edov` or `email_verified` claim that is true, and is otherwise refused with `email_not_verified`. A configuration naming one directory trusts that directory's administrator, as the organization that chose it does; Kinotic's own Entra registration and an organization's multi-tenant one emit `xms_edov` once it is added as an optional ID-token claim. Signing in an existing user needs no such proof, since the user is found by the binding, never the email. An application's configuration signs no one up at a tenant's login, nor at the login of an application whose tenants their administrators manage, since there an administrator decides who joins a tenant. `ApplicationSignUpService` holds that rule and reports it as each provider's `signUp` in `GET /api/auth/app/login/methods`.
 
 ### Resolving what a scope offers
 
-`OidcConfigurationService.findEnabledForScope(organizationId, applicationId, tenantId)` is the single answer to "which providers may this login page show", keyed on the same scope the rest of the platform scopes by. The organization's own login offers the enabled org sign-up registrations followed by its enabled `OrganizationOidcConfiguration`s; an application's login offers its enabled `ApplicationOidcConfiguration`s followed by the system's social registrations whose provider kinds the application's `socialProviders` names; a tenant's login offers the tenant's enabled `TenantOidcConfiguration`s followed by what the application's login offers. The login, invite-accept, and signup pages all read it, so what a page renders and what its start endpoint accepts cannot drift apart. A sign-in start or callback that names a configuration asks `findOffered(configurationId, organizationId, applicationId, tenantId)` the matching question for one configuration, so a configuration an organization owns at one scope cannot sign anyone in at another.
+`OidcConfigurationService.findEnabledForScope(organizationId, applicationId, tenantId)` is the single answer to "which providers may this login page show", keyed on the same scope the rest of the platform scopes by. The organization's own login offers the enabled org sign-up registrations followed by its enabled `OrganizationOidcConfiguration`s; an application's login offers its enabled `ApplicationOidcConfiguration`s, one that is `MANAGED` while the system holds an enabled registration of its kind; a tenant's login offers the tenant's enabled `TenantOidcConfiguration`s followed by what the application's login offers. The login, invite-accept, and signup pages all read it, so what a page renders and what its start endpoint accepts cannot drift apart. A sign-in start or callback that names a configuration asks `findOffered(configurationId, organizationId, applicationId, tenantId)` the matching question for one configuration, so a configuration an organization owns at one scope cannot sign anyone in at another.
 
 ### Where client secrets live
 
@@ -456,11 +492,11 @@ Client secrets are never stored on a configuration row, and the kinds keep their
 
 A managed registration's `secretNameRef` names a secret placed in the system's secret storage, which `SecretReferenceResolver` fetches at flow time — Azure Key Vault in a deployed environment, `KINOTIC_AKV_*` properties (environment variables or keys in any loaded config file) in development. Only `ManagedOidcConfiguration` has the field.
 
-An `OwnedOidcConfiguration` has no secret name at all. Its secret is given on save, `OwnedOidcConfigurationService.save(configuration, clientSecret)` for an organization and the domain's `OidcConfigurationService.save(configuration, clientSecret)` beneath it, which stores it through `SecretStorageService` in the organization's scope (`organizationId`), keyed by the configuration's id, and sets the row's `confidentialClient` to say a secret is held; a save with a `null` or blank secret keeps the one held, and a new configuration saved without one is a public client. `deleteClientSecret(id)` deletes the stored secret and clears the flag, making the configuration a public client, and deleting the configuration deletes the secret too. The flag is always the server's: a save sets it from what the secret storage holds, whatever the configuration sent. A copy of a configuration stores the secret again under the copy's id. At flow time `OidcFlowOrchestrator` reads it back through `OidcConfigurationService.findClientSecret`, never through `SecretReferenceResolver`, and a public client's flag answers without a read of the secret storage. Because the secret is addressed by the owner and the row rather than by a name on the row, a configuration returned by any service carries nothing a client could use to find or name it, and `ApplicationService.getLoginProviders` answers with a `LoginProviderSummary` (id, name, provider kind, type) rather than the configuration at all.
+An `OwnedOidcConfiguration` has no secret name at all. Its secret is given on save, `OwnedOidcConfigurationService.save(configuration, clientSecret)` for an organization and the domain's `OidcConfigurationService.save(configuration, clientSecret)` beneath it, which stores it through `SecretStorageService` in the organization's scope (`organizationId`), keyed by the configuration's id, and sets the row's `confidentialClient` to say a secret is held; a save with a `null` or blank secret keeps the one held, and a new configuration saved without one is a public client. `deleteClientSecret(id)` deletes the stored secret and clears the flag, making the configuration a public client, and deleting the configuration deletes the secret too. The flag is always the server's: a save sets it from what the secret storage holds, whatever the configuration sent. A copy of a configuration stores the secret again under the copy's id. At flow time `OidcFlowOrchestrator` reads it back through `OidcConfigurationService.findClientSecret`, never through `SecretReferenceResolver`, and a public client's flag answers without a read of the secret storage. Because the secret is addressed by the owner and the row rather than by a name on the row, a configuration returned by any service carries nothing a client could use to find or name it, and `ApplicationService.getLoginMethods` answers with an `ApplicationLoginMethods` (for each provider its `configurationId`, name, provider kind and whether it signs people up) rather than the configuration at all.
 
 ### Where the server is willing to connect
 
-An organization never names a URL. It chooses a provider type that `OidcProviderType.offeredToOrganizations()` admits and gives its account at that provider in the form the type asks for: the directory (tenant) id for Entra, the Okta domain for Okta, nothing for Google. `OidcConfigurationService` fills the type's issuer template with that account on every save and stores the result as the `authority`, replacing whatever was sent, and each type's account pattern admits no scheme, port, path, userinfo or foreign host. So every host the sign-in flow fetches — the discovery document and JWKS at the authority, the token endpoint the discovery document names, and the identity endpoints — is one of the provider's own, and there is nothing an organization can point the server at. Types with no template, such as Keycloak or a generic OIDC server at a customer's own host, are not offered to organizations. The curated social rows are the system's and may name endpoints explicitly.
+An organization never names a URL. It chooses a provider type that `OidcProviderType.offeredToOrganizations()` admits and gives its account at that provider in the form the type asks for: the directory (tenant) id for Entra, or, for an application's or a tenant's login, `common` or `organizations` for a registration whose users come from any directory, the Okta domain for Okta, nothing for Google. `OidcConfigurationService` fills the type's issuer template with that account on every save and stores the result as the `authority`, replacing whatever was sent, and each type's account pattern admits no scheme, port, path, userinfo or foreign host. So every host the sign-in flow fetches — the discovery document and JWKS at the authority, the token endpoint the discovery document names, and the identity endpoints — is one of the provider's own, and there is nothing an organization can point the server at. An organization's own login refuses `common` and `organizations`: it claims a pending member on the email the provider asserts, which only the organization's own directory may vouch for, while any directory's administrator sets its users' emails. Types with no template, such as Keycloak or a generic OIDC server at a customer's own host, are not offered to organizations. The curated social rows are the system's and may name endpoints explicitly.
 
 The identity endpoints (`userInfoUri`, `userEmailsUri`) are fetched with no redirects followed. The deployment's egress policy denies the server pods the node's instance-metadata and WireServer addresses (see the terraform under `deployment/terraform/azure/cluster`), which is what protects the one kind of destination that answers a plain unauthenticated request with the node's own identity.
 
@@ -468,7 +504,7 @@ The identity endpoints (`userInfoUri`, `userEmailsUri`) are fetched with no redi
 
 Self-service signup is wired up for the Organization scope. Both email/password and social-IdP entry points create the `Organization` together with the founder's organization user — its password or GitHub binding — and the founder's membership of the new organization; a person who already has an organization user cannot sign up a second one and joins further organizations by invitation — see [Organization Management](https://kinotic.ai/platform/organization-management) for the step-by-step.
 
-For the Application scope, end-user provisioning is admin-driven: an org admin (or the application's own admin tooling) creates user rows in the application's scope, or invites them — see [Organization Management](https://kinotic.ai/platform/organization-management). There is no self-service sign-up form for an application scope. An application whose tenants the system manages may instead let an `ApplicationOidcConfiguration` with `createUserOnSignIn` create a user on the first sign-in of an identity its provider verifies, which gives the new user a tenant of their own; under tenant administrators a user is never without a tenant, so there a user is created by an administrator, an invitation, or a `TenantOidcConfiguration` with `createUserOnSignIn`, which creates the identity its provider verifies as a user of that tenant on its first sign-in at the tenant's login.
+For the Application scope, an org admin (or the application's own admin tooling) creates user rows in the application's scope, or invites them — see [Organization Management](https://kinotic.ai/platform/organization-management) — and an application may also let people sign up from its own UIs, as `ApplicationSignUpService` decides. An application whose tenants the system manages may let an `ApplicationOidcConfiguration` with `createUserOnSignIn` create a user on the first sign-in of an identity its provider verifies, and may turn on `Application.passwordSignUp`: a person posts an email to the application's API host, which answers alike for every email, emails a single-use token valid for a day to the `/signup/verify` page of the UI that asked, and sends nothing to an email the application already has a user under; the token comes back with a password and creates the user (`PendingApplicationSignUp` holds the sign-up meanwhile). Either way the new user gets a tenant of their own. `ApplicationService.save` refuses `passwordSignUp` on an application whose tenants their administrators manage: there a user is never without a tenant, so a user is created by an administrator, an invitation, or a `TenantOidcConfiguration` with `createUserOnSignIn`, which creates the identity its provider verifies as a user of that tenant on its first sign-in at the tenant's login. Sign-up is made only from a page that is one of the application's UIs, as a sign-in is.
 
 ## Design Decisions
 
@@ -606,7 +642,7 @@ SYSTEM-scope machines are the system's own, so they are managed from the system 
 
 ### Provider identities keyed by `(oidcConfigId, subject)`
 
-A provider identity is bound to a user by the OIDC `sub` claim plus the configId — **not** email. Email is mutable at the IdP and the same email across two IdP tenants is two different people. The `sub` is stable within an issuer, and pairing it with the configId disambiguates issuers. The email a provider asserts is used exactly once, when a binding is created: a sign-up or a `createUserOnSignIn` login takes it as the new user's email, and an invitation accepted with a provider requires it to match the invited address. After that, only the binding says whose identity it is.
+A provider identity is bound to a user by the OIDC `sub` claim plus the configId — **not** email. Email is mutable at the IdP and the same email across two IdP tenants is two different people. The `sub` is stable within an issuer, and pairing it with the configId disambiguates issuers. An application's user is bound by the identifier the provider gives the person under every client registered with it (`OAuth2Util.stableSubject`): the `sub` for Google and every other provider, but for Microsoft Entra, whose `sub` differs per client registration, the directory and object ids `<tid>/<oid>`. So an application configuration switched between Kinotic's registration and the organization's own finds the users it signed in before, without ever matching on an email. The email a provider asserts is used exactly once, when a binding is created: a sign-up or a `createUserOnSignIn` login takes it as the new user's email, and an invitation accepted with a provider requires it to match the invited address. After that, only the binding says whose identity it is.
 
 ### Auto-derived organization id
 
