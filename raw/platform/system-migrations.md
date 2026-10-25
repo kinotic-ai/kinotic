@@ -7,7 +7,7 @@ canonical_url: "https://kinotic.ai/platform/system-migrations"
 
 > Writing and maintaining migration scripts for Kinotic's internal system indices.
 
-The Kinotic platform uses the same migration SQL system as application developers to manage its own internal Elasticsearch indices. This page covers considerations specific to platform development — for general migration syntax, see [App Migrations](https://kinotic.ai/organizations/apps/persistence/migrations).
+The Kinotic platform uses the same migration SQL system as application developers to manage its own internal Elasticsearch indices. This page covers considerations specific to platform development — for general migration syntax, see [App Migrations](https://kinotic.ai/apps/persistence/migrations).
 
 ## What Are System Migrations?
 
@@ -17,7 +17,7 @@ System migrations live in `kinotic-migration/src/main/resources/migrations/` and
 
 ## Using Composite Types in System Indices
 
-OBJECT, NESTED, and UNION columns work the same way in system migrations as in application migrations. Refer to the [Composite Column Types](https://kinotic.ai/organizations/apps/persistence/migrations#composite-column-types) section of the app documentation for syntax and examples.
+OBJECT, NESTED, and UNION columns work the same way in system migrations as in application migrations. Refer to the [Composite Column Types](https://kinotic.ai/apps/persistence/migrations#composite-column-types) section of the app documentation for syntax and examples.
 
 ## Deserializing Union Types
 
@@ -79,7 +79,7 @@ If two variants declare the same field name with different scalar types — e.g.
 
 ## Data Streams
 
-System data that is append-only and time-series — audit trails, events, telemetry — should be backed by an Elasticsearch **data stream** rather than a regular index, so old data ages out and backing indices roll over automatically. Create one from a migration with [`CREATE DATA STREAM`](https://kinotic.ai/organizations/apps/reference/migration-sql-grammar#create-data-stream):
+System data that is append-only and time-series — audit trails, events, telemetry — should be backed by an Elasticsearch **data stream** rather than a regular index, so old data ages out and backing indices roll over automatically. Create one from a migration with [`CREATE DATA STREAM`](https://kinotic.ai/apps/reference/migration-sql-grammar#create-data-stream):
 
 ```sql
 CREATE DATA STREAM system_audit (
@@ -89,7 +89,7 @@ CREATE DATA STREAM system_audit (
 ) WITH (DATA_RETENTION = '90d') ;
 ```
 
-`DATA_RETENTION` is the native [data stream lifecycle](https://www.elastic.co/docs/manage-data/lifecycle/data-stream) — Elasticsearch deletes data past the period (measured per backing index from rollover, not per document). See the [Migration SQL Grammar](https://kinotic.ai/organizations/apps/reference/migration-sql-grammar#create-data-stream) for the full statement and the exact retention semantics.
+`DATA_RETENTION` is the native [data stream lifecycle](https://www.elastic.co/docs/manage-data/lifecycle/data-stream) — Elasticsearch deletes data past the period (measured per backing index from rollover, not per document). See the [Migration SQL Grammar](https://kinotic.ai/apps/reference/migration-sql-grammar#create-data-stream) for the full statement and the exact retention semantics.
 
 ### Every document needs a `@timestamp` — and Java needs ceremony for it
 
@@ -122,7 +122,7 @@ private Instant eventTime;
 public Instant esTimestamp() { return eventTime; }
 ```
 
-This **duplicates** the value (both `eventTime` and `@timestamp` are stored). It is the same document shape that application entities get from the [`@TimeReference`](https://kinotic.ai/organizations/apps/persistence/entity-decorators) decorator. When a migration creates the stream backing such an entity, declare the pairing so the stream documents which column is the natural time field:
+This **duplicates** the value (both `eventTime` and `@timestamp` are stored). It is the same document shape that application entities get from the [`@TimeReference`](https://kinotic.ai/apps/persistence/entity-decorators) decorator. When a migration creates the stream backing such an entity, declare the pairing so the stream documents which column is the natural time field:
 
 ```sql
 CREATE DATA STREAM sensor_readings (

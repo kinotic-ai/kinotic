@@ -1,0 +1,217 @@
+---
+title: "CLI Reference"
+description: "Command reference for the Kinotic CLI."
+canonical_url: "https://kinotic.ai/apps/cli-reference"
+---
+# CLI Reference
+
+> Command reference for the Kinotic CLI.
+
+## Installation
+
+Provisioned project repositories vendor the CLI as a dev dependency, so inside a
+project the CLI is already available -- `bun run generate` runs it with no global
+install. To use the CLI outside a project:
+
+```bash
+bun install -g @kinotic-ai/kinotic-cli
+```
+
+## Commands
+
+Project commands (`kinotic generate`, `kinotic sync`) locate the project by searching upward from the current directory for a `.config/kinotic.config.*` file, so they can be run from any directory inside the project.
+
+### `kinotic login`
+
+Log in to a Kinotic server and store credentials for subsequent commands. Runs the OAuth device-authorization flow: the CLI opens a browser once for you to approve, then stores a refresh token so later commands are non-interactive. The server you log in to becomes the default server for commands like `kinotic sync`.
+
+```bash
+kinotic login --server http://localhost:58503
+kinotic login
+```
+
+**Flags:**
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Flag
+    </th>
+    
+    <th>
+      Description
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        -s, --server
+      </code>
+    </td>
+    
+    <td>
+      The Kinotic server URL to log in to. When omitted, the stored default server is used
+    </td>
+  </tr>
+</tbody>
+</table>
+
+---
+
+### `kinotic generate` / `kinotic gen`
+
+Generate Repository classes from your entity definitions. This runs locally without connecting to the server, and fills in the implementations of [named query](https://kinotic.ai/apps/persistence/named-queries) methods declared with `@Query`.
+
+Each entity's C3Type schema is written as JSON to `.config/c3/entities/<namespace>.<name>.json`, and the named queries declared on a Repository to `.config/c3/queries/<RepositoryName>.json`. Removing the last named query from a Repository removes its queries file.
+
+Every class decorated with `@Publish` under the project's `servicesPaths` gets a service definition: its functions, with the parameters a request carries and their types. The definitions are written to `ServiceDefinitions.ts` under `generatedPath`, a module the project imports so each service registers in the platform's service directory as it comes online.
+
+```bash
+kinotic generate
+kinotic gen -v
+kinotic gen --force
+```
+
+**Flags:**
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Flag
+    </th>
+    
+    <th>
+      Description
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        -v, --verbose
+      </code>
+    </td>
+    
+    <td>
+      Enable verbose logging
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        -f, --force
+      </code>
+    </td>
+    
+    <td>
+      Force full regeneration, ignoring incremental change detection
+    </td>
+  </tr>
+</tbody>
+</table>
+
+---
+
+### `kinotic sync` / `kinotic synchronize`
+
+Synchronize local entity definitions with the Kinotic server. This uploads your entity classes so the server can set up the backing data stores and register the entity services, and applies any pending [migrations](https://kinotic.ai/apps/persistence/migrations) from the `./migrations` directory. The entities are synchronized into the project named by `projectId` in `.config/kinotic.config.ts`, which must already exist in Kinotic OS. It runs the same generation as `kinotic generate`, so the repository classes, `.config/c3` and the `ServiceDefinitions` module are refreshed as well; the service definitions reach the server from the runtime, as each service comes online, not from the sync. Requires a prior `kinotic login` against the target server.
+
+```bash
+kinotic sync -p
+kinotic sync -p -v -s http://localhost:58503
+```
+
+**Flags:**
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Flag
+    </th>
+    
+    <th>
+      Description
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        -s, --server
+      </code>
+    </td>
+    
+    <td>
+      The Kinotic server URL. When omitted, the stored default server is used
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        -p, --publish
+      </code>
+    </td>
+    
+    <td>
+      Publish each entity after save/update
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        -v, --verbose
+      </code>
+    </td>
+    
+    <td>
+      Enable verbose logging
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        --dryRun
+      </code>
+    </td>
+    
+    <td>
+      Enables verbose logging and does not save any changes to the server
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        --force
+      </code>
+    </td>
+    
+    <td>
+      Force full regeneration, ignoring incremental change detection
+    </td>
+  </tr>
+</tbody>
+</table>
+
+---
+
+Run `kinotic --help` or `kinotic <command> --help` for the full list of commands and options.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

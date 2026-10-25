@@ -152,9 +152,9 @@ You should see the saved person printed to the console, followed by a page of re
 
 Now that you have a working application, explore the rest of the documentation:
 
-- [Application Structure](https://kinotic.ai/organizations/apps/application-structure/overview) -- Understand how organizations, applications, projects, and artifacts are organized.
-- [Services](https://kinotic.ai/organizations/apps/services/overview) -- Learn how to publish and consume services across your application.
-- [Persistence](https://kinotic.ai/organizations/apps/persistence/overview) -- Dive deeper into entity definitions, relationships, and querying.
+- [Application Structure](https://kinotic.ai/apps/application-structure/overview) -- Understand how organizations, applications, projects, and artifacts are organized.
+- [Services](https://kinotic.ai/apps/services/overview) -- Learn how to publish and consume services across your application.
+- [Persistence](https://kinotic.ai/apps/persistence/overview) -- Dive deeper into entity definitions, relationships, and querying.
 
 
 ## Sitemap

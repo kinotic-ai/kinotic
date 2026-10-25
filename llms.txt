@@ -12,32 +12,32 @@
 
 Every page below is available as raw markdown.
 
+- [Applications and Projects](https://kinotic.ai/raw/apps/application-structure/applications-and-projects.md): Learn how to configure Kinotic applications and the projects that compose them.
+- [Artifact Types](https://kinotic.ai/raw/apps/application-structure/artifact-types.md): Learn about the different artifact types a Kinotic project can contribute -- from persistence and microservices to frontends.
+- [Overview](https://kinotic.ai/raw/apps/application-structure/overview.md): Understand how Kinotic apps are organized -- from organizations down to individual artifacts.
+- [CLI Reference](https://kinotic.ai/raw/apps/cli-reference.md): Command reference for the Kinotic CLI.
+- [Environments](https://kinotic.ai/raw/apps/deployment/environments.md): Development, staging, and production environment configuration.
+- [Push to Deploy](https://kinotic.ai/raw/apps/deployment/push-to-deploy.md): How a git push to your project's repository becomes a running deployment.
+- [Deployment Workflow](https://kinotic.ai/raw/apps/deployment/workflow.md): The Kinotic deployment pipeline from development to production.
+- [CRUD Operations](https://kinotic.ai/raw/apps/persistence/crud-operations.md): Using generated entity services for create, read, update, delete, search, and count operations in Kinotic.
+- [Defining Entities](https://kinotic.ai/raw/apps/persistence/defining-entities.md): How to define entities using TypeScript decorators for Kinotic's persistence layer.
+- [Entity Decorators](https://kinotic.ai/raw/apps/persistence/entity-decorators.md): All available entity decorators for configuring field behavior, indexing, relationships, and versioning in Kinotic persistence.
+- [Migrations](https://kinotic.ai/raw/apps/persistence/migrations.md): Versioned data migrations for an application's entities, run during kinotic sync.
+- [Multi-Tenancy](https://kinotic.ai/raw/apps/persistence/multi-tenancy.md): Multi-tenant data isolation in Kinotic with automatic tenant filtering.
+- [Named Queries](https://kinotic.ai/raw/apps/persistence/named-queries.md): Defining and using custom named queries on entity services in Kinotic.
+- [Overview](https://kinotic.ai/raw/apps/persistence/overview.md): Kinotic's persistence layer provides declarative data management with automatic CRUD service generation from TypeScript entity definitions.
+- [Decorators Reference](https://kinotic.ai/raw/apps/reference/decorators.md): Complete reference for all Kinotic decorators.
+- [Migration SQL Grammar](https://kinotic.ai/raw/apps/reference/migration-sql-grammar.md): Complete SQL grammar reference for migration scripts.
+- [Authentication](https://kinotic.ai/raw/apps/security/authentication.md): Authentication methods and identity management in Kinotic.
+- [Overview](https://kinotic.ai/raw/apps/services/overview.md): How services work in Kinotic and the communication patterns they support.
+- [Publishing Services](https://kinotic.ai/raw/apps/services/publishing-services.md): How to publish TypeScript services in Kinotic using decorators.
+- [Service Proxies](https://kinotic.ai/raw/apps/services/service-proxies.md): How to call remote services using service proxies in Kinotic.
+- [Streaming](https://kinotic.ai/raw/apps/services/streaming.md): Real-time data streaming between services and clients.
 - [Introduction](https://kinotic.ai/raw/getting-started/introduction.md): Learn what Kinotic is, why it exists, and how it helps developers and AI agents build enterprise-grade applications at scale.
 - [Local-Only Setup](https://kinotic.ai/raw/getting-started/local-only-setup.md): Run Kinotic entirely on your own machine, without a Kinotic OS Cloud organization.
 - [Quick Start](https://kinotic.ai/raw/getting-started/quick-start.md): Get started building your first Kinotic App -- from a provisioned project to a running CRUD service in under five minutes.
-- [Applications and Projects](https://kinotic.ai/raw/organizations/apps/application-structure/applications-and-projects.md): Learn how to configure Kinotic applications and the projects that compose them.
-- [Artifact Types](https://kinotic.ai/raw/organizations/apps/application-structure/artifact-types.md): Learn about the different artifact types a Kinotic project can contribute -- from persistence and microservices to frontends.
-- [Overview](https://kinotic.ai/raw/organizations/apps/application-structure/overview.md): Understand how Kinotic apps are organized -- from organizations down to individual artifacts.
-- [CLI Reference](https://kinotic.ai/raw/organizations/apps/cli-reference.md): Command reference for the Kinotic CLI.
-- [Environments](https://kinotic.ai/raw/organizations/apps/deployment/environments.md): Development, staging, and production environment configuration.
-- [Push to Deploy](https://kinotic.ai/raw/organizations/apps/deployment/push-to-deploy.md): How a git push to your project's repository becomes a running deployment.
-- [Deployment Workflow](https://kinotic.ai/raw/organizations/apps/deployment/workflow.md): The Kinotic deployment pipeline from development to production.
-- [CRUD Operations](https://kinotic.ai/raw/organizations/apps/persistence/crud-operations.md): Using generated entity services for create, read, update, delete, search, and count operations in Kinotic.
-- [Defining Entities](https://kinotic.ai/raw/organizations/apps/persistence/defining-entities.md): How to define entities using TypeScript decorators for Kinotic's persistence layer.
-- [Entity Decorators](https://kinotic.ai/raw/organizations/apps/persistence/entity-decorators.md): All available entity decorators for configuring field behavior, indexing, relationships, and versioning in Kinotic persistence.
-- [Migrations](https://kinotic.ai/raw/organizations/apps/persistence/migrations.md): Versioned data migrations for an application's entities, run during kinotic sync.
-- [Multi-Tenancy](https://kinotic.ai/raw/organizations/apps/persistence/multi-tenancy.md): Multi-tenant data isolation in Kinotic with automatic tenant filtering.
-- [Named Queries](https://kinotic.ai/raw/organizations/apps/persistence/named-queries.md): Defining and using custom named queries on entity services in Kinotic.
-- [Overview](https://kinotic.ai/raw/organizations/apps/persistence/overview.md): Kinotic's persistence layer provides declarative data management with automatic CRUD service generation from TypeScript entity definitions.
-- [Decorators Reference](https://kinotic.ai/raw/organizations/apps/reference/decorators.md): Complete reference for all Kinotic decorators.
-- [Migration SQL Grammar](https://kinotic.ai/raw/organizations/apps/reference/migration-sql-grammar.md): Complete SQL grammar reference for migration scripts.
-- [Authentication](https://kinotic.ai/raw/organizations/apps/security/authentication.md): Authentication methods and identity management in Kinotic.
-- [Overview](https://kinotic.ai/raw/organizations/apps/services/overview.md): How services work in Kinotic and the communication patterns they support.
-- [Publishing Services](https://kinotic.ai/raw/organizations/apps/services/publishing-services.md): How to publish TypeScript services in Kinotic using decorators.
-- [Service Proxies](https://kinotic.ai/raw/organizations/apps/services/service-proxies.md): How to call remote services using service proxies in Kinotic.
-- [Streaming](https://kinotic.ai/raw/organizations/apps/services/streaming.md): Real-time data streaming between services and clients.
-- [Okta SSO Setup](https://kinotic.ai/raw/organizations/authentication-providers/okta.md): Configure Okta as a single sign-on provider for your Kinotic organization.
-- [Overview](https://kinotic.ai/raw/organizations/authentication-providers/overview.md): Let your organization's members sign in to the Kinotic portal with your own identity provider.
+- [Authentication Providers](https://kinotic.ai/raw/organizations/authentication-providers.md): Let your organization's members sign in to the Kinotic portal with your own identity provider.
+- [Okta SSO Setup](https://kinotic.ai/raw/organizations/okta-sso-setup.md): Configure Okta as a single sign-on provider for your Kinotic organization.
 - [Overview](https://kinotic.ai/raw/organizations/overview.md): Set up a Kinotic organization -- its members, how they sign in, and the Apps it builds.
 - [System Architecture](https://kinotic.ai/raw/platform/architecture.md): High-level architecture of the Kinotic OS platform.
 - [Configuration](https://kinotic.ai/raw/platform/configuration.md): Configuration reference for Kinotic OS server and services.

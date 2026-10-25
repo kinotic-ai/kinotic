@@ -10,6 +10,9 @@
         <loc>https://kinotic.ai/terms</loc>
     </url>
     <url>
+        <loc>https://kinotic.ai/apps/cli-reference</loc>
+    </url>
+    <url>
         <loc>https://kinotic.ai/getting-started/introduction</loc>
     </url>
     <url>
@@ -17,6 +20,12 @@
     </url>
     <url>
         <loc>https://kinotic.ai/getting-started/quick-start</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/organizations/authentication-providers</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/organizations/okta-sso-setup</loc>
     </url>
     <url>
         <loc>https://kinotic.ai/organizations/overview</loc>
@@ -64,13 +73,64 @@
         <loc>https://kinotic.ai/platform/system-security</loc>
     </url>
     <url>
-        <loc>https://kinotic.ai/organizations/apps/cli-reference</loc>
+        <loc>https://kinotic.ai/apps/application-structure/applications-and-projects</loc>
     </url>
     <url>
-        <loc>https://kinotic.ai/organizations/authentication-providers/okta</loc>
+        <loc>https://kinotic.ai/apps/application-structure/artifact-types</loc>
     </url>
     <url>
-        <loc>https://kinotic.ai/organizations/authentication-providers/overview</loc>
+        <loc>https://kinotic.ai/apps/application-structure/overview</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/deployment/environments</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/deployment/push-to-deploy</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/deployment/workflow</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/persistence/crud-operations</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/persistence/defining-entities</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/persistence/entity-decorators</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/persistence/migrations</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/persistence/multi-tenancy</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/persistence/named-queries</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/persistence/overview</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/reference/decorators</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/reference/migration-sql-grammar</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/security/authentication</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/services/overview</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/services/publishing-services</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/services/service-proxies</loc>
+    </url>
+    <url>
+        <loc>https://kinotic.ai/apps/services/streaming</loc>
     </url>
     <url>
         <loc>https://kinotic.ai/platform/reference/cri-format</loc>
@@ -84,65 +144,5 @@
     <url>
         <loc>https://kinotic.ai/platform/reference/sign-in-design</loc>
     </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/application-structure/applications-and-projects</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/application-structure/artifact-types</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/application-structure/overview</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/deployment/environments</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/deployment/push-to-deploy</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/deployment/workflow</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/persistence/crud-operations</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/persistence/defining-entities</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/persistence/entity-decorators</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/persistence/migrations</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/persistence/multi-tenancy</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/persistence/named-queries</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/persistence/overview</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/reference/decorators</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/reference/migration-sql-grammar</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/security/authentication</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/services/overview</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/services/publishing-services</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/services/service-proxies</loc>
-    </url>
-    <url>
-        <loc>https://kinotic.ai/organizations/apps/services/streaming</loc>
-    </url>
 </urlset>
-<!-- XML Sitemap generated by @nuxtjs/sitemap v8.6.2 at 2026-10-25T12:22:21.420Z -->
+<!-- XML Sitemap generated by @nuxtjs/sitemap v8.6.2 at 2026-10-25T13:17:10.748Z -->

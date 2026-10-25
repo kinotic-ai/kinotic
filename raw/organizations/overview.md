@@ -7,7 +7,7 @@ canonical_url: "https://kinotic.ai/organizations/overview"
 
 > Set up a Kinotic organization -- its members, how they sign in, and the Apps it builds.
 
-An **organization** is the top-level home for everything you build on Kinotic. It owns its members, the identity providers they sign in with, and its [Apps](https://kinotic.ai/organizations/apps/application-structure/overview).
+An **organization** is the top-level home for everything you build on Kinotic. It owns its members, the identity providers they sign in with, and its [Apps](https://kinotic.ai/apps/application-structure/overview).
 
 Organization administrators manage the organization from **Organization settings** in the Kinotic portal.
 
