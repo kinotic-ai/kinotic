@@ -1,0 +1,1 @@
+{"id":"62d80e7b4c959268fc2d1e9963087383.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.management.internal.api.services.github.DefaultGitHubAppInstallationServiceTest.refusesAReturnToOutsideTheAllowedOrigins","name":"refusesAReturnToOutsideTheAllowedOrigins()","status":"passed","testResultsByEnv":{"default":"07676cf349d0ce77ae60d8d91217e266"}}

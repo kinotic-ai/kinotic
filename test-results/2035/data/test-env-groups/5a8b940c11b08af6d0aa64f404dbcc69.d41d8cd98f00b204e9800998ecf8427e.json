@@ -1,1 +1,0 @@
-{"id":"5a8b940c11b08af6d0aa64f404dbcc69.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.domain.api.model.security.OidcConfigurationSerializationTest.organizationConfigurationRoundTripsWithoutNamingASecret","name":"organizationConfigurationRoundTripsWithoutNamingASecret()","status":"passed","testResultsByEnv":{"default":"c5a6e974e5833ed22d07b2903490370e"}}
