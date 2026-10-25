@@ -1078,7 +1078,7 @@ management-api. The Helm chart sets all three from the same paths in its values:
       </a>
       
        naming its own UI. A sign-in, sign-up or invitation flow started from another UI the management server's <code>
-        kinotic.domain.cors.allowedOriginPattern
+        kinotic.cors.allowedOriginPattern
       </code>
       
        names, other than through <code>
@@ -1102,7 +1102,7 @@ management-api. The Helm chart sets all three from the same paths in its values:
   <tr>
     <td>
       <code>
-        kinotic.domain.cors.allowedOriginPattern
+        kinotic.cors.allowedOriginPattern
       </code>
     </td>
     

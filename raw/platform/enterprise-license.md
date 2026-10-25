@@ -9,9 +9,11 @@ canonical_url: "https://kinotic.ai/platform/enterprise-license"
 
 ## Overview
 
-Kinotic is source-available under two licenses. Most of the platform is licensed under the
-Elastic License 2.0 with the Kinotic Additional Limitations. The Enterprise Features are licensed
-under the Kinotic Enterprise License, published by Minds Ignited LLC. The root
+Kinotic is licensed under three licenses. Kinotic RPC, the service and event layer every server
+is built on, is open source under the Apache License 2.0, so it can be used without Kinotic OS.
+The rest of the platform is source-available under the Elastic License 2.0 with the Kinotic
+Additional Limitations, and the Enterprise Features under the Kinotic Enterprise License, published
+by Minds Ignited LLC. The root
 [`LICENSE.md`](https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE.md) routes each part of
 the repository to its license, and the license texts govern wherever this page summarizes them.
 
@@ -39,6 +41,40 @@ the repository to its license, and the license texts govern wherever this page s
     <td>
       <a href="https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-ee/LICENSE" rel="nofollow">
         Kinotic Enterprise License
+      </a>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Kinotic RPC: <code>
+        kinotic-core/
+      </code>
+      
+      , <code>
+        kinotic-api-gateway/
+      </code>
+      
+      , <code>
+        kinotic-idl/
+      </code>
+      
+      , and the <code>
+        @kinotic-ai/core
+      </code>
+      
+       and <code>
+        @kinotic-ai/idl
+      </code>
+      
+       packages in <code>
+        kinotic-js/workspace/packages/
+      </code>
+    </td>
+    
+    <td>
+      <a href="https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE-APACHE" rel="nofollow">
+        Apache License 2.0
       </a>
     </td>
   </tr>

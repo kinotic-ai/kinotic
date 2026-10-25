@@ -551,7 +551,7 @@ kinotic-{org,system,app}-server/src/main/resources/
 
 Each server runs with `SPRING_PROFILES_ACTIVE=dev-server`. Leaving out `development` is what
 takes it off the development conveniences: no auto-seeded system secrets
-(`kinotic.systemSecrets.generateMissing` is set by the development profile alone), the halting Ignite failure handler, the
+(`kinotic.domain.systemSecrets.generateMissing` is set by the development profile alone), the halting Ignite failure handler, the
 production shard defaults — which `dev-server` then overrides. Its environment is composed by
 terraform from what the three share — the compose services', the Azure root's outputs, and the
 addresses only the proxmox root knows — and what is its own; its secrets arrive through
@@ -1027,7 +1027,7 @@ What differs between the three:
   <tr>
     <td>
       <code>
-        kinotic.domain.cors.allowedOriginPattern
+        kinotic.cors.allowedOriginPattern
       </code>
     </td>
     
@@ -1306,7 +1306,7 @@ What the three share:
   <tr>
     <td>
       <code>
-        kinotic.domain.cors.allowCredentials
+        kinotic.cors.allowCredentials
       </code>
     </td>
     
@@ -1372,7 +1372,7 @@ What the three share:
   <tr>
     <td>
       <code>
-        kinotic.systemSecrets.jwtSigningKeysPath
+        kinotic.domain.systemSecrets.jwtSigningKeysPath
       </code>
     </td>
     

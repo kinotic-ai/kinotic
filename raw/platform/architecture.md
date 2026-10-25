@@ -110,6 +110,65 @@ scheme://[scope@]resourceName[/path][#version]
 
 The RPC gateway uses CRIs to route requests to the correct service instance, apply versioning, and enforce scope-based multi-tenancy. See the [CRI Format](https://kinotic.ai/platform/reference/cri-format) reference for details.
 
+### Kinotic RPC on its own
+
+Kinotic RPC, the service and event layer in `kinotic-core` and `kinotic-api-gateway`, runs without the rest of
+Kinotic OS. A server built on it alone supplies two beans the gateway authenticates and authorizes every
+connection with:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Bean
+    </th>
+    
+    <th>
+      What it decides
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        SecurityService
+      </code>
+    </td>
+    
+    <td>
+      Who a connection is: it authenticates the STOMP CONNECT headers and returns the connection's <code>
+        Participant
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        ZoneRulesResolver
+      </code>
+    </td>
+    
+    <td>
+      What that participant may address: the <code>
+        ZoneRules
+      </code>
+      
+       of zones it may send to and subscribe in, which the gateway narrows to the zones the server's <code>
+        ZonePartitioningService
+      </code>
+      
+       serves
+    </td>
+  </tr>
+</tbody>
+</table>
+
+Kinotic OS's servers supply each from their own module: the `SecurityService` of the server, and kinotic-domain's
+resolver, which gives system, organization and application participants their zones.
+
 ### Never block the event loop
 
 A Java service published with `@Publish` is invoked on a Vert.x event loop it shares with the other services on the node, the same rule Vert.x sets for its own handlers. A method returns a `Future`, `CompletableFuture`, `Mono` or `Flux` and lets the work complete off the loop; a method that is slow, because it blocks on a synchronous client, a lock or a sleep, or because it does heavy CPU work, hands that work off inside itself:

@@ -5391,6 +5391,65 @@ scheme://[scope@]resourceName[/path][#version]
 
 The RPC gateway uses CRIs to route requests to the correct service instance, apply versioning, and enforce scope-based multi-tenancy. See the [CRI Format](https://kinotic.ai/platform/reference/cri-format) reference for details.
 
+### Kinotic RPC on its own
+
+Kinotic RPC, the service and event layer in `kinotic-core` and `kinotic-api-gateway`, runs without the rest of
+Kinotic OS. A server built on it alone supplies two beans the gateway authenticates and authorizes every
+connection with:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Bean
+    </th>
+    
+    <th>
+      What it decides
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        SecurityService
+      </code>
+    </td>
+    
+    <td>
+      Who a connection is: it authenticates the STOMP CONNECT headers and returns the connection's <code>
+        Participant
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        ZoneRulesResolver
+      </code>
+    </td>
+    
+    <td>
+      What that participant may address: the <code>
+        ZoneRules
+      </code>
+      
+       of zones it may send to and subscribe in, which the gateway narrows to the zones the server's <code>
+        ZonePartitioningService
+      </code>
+      
+       serves
+    </td>
+  </tr>
+</tbody>
+</table>
+
+Kinotic OS's servers supply each from their own module: the `SecurityService` of the server, and kinotic-domain's
+resolver, which gives system, organization and application participants their zones.
+
 ### Never block the event loop
 
 A Java service published with `@Publish` is invoked on a Vert.x event loop it shares with the other services on the node, the same rule Vert.x sets for its own handlers. A method returns a `Future`, `CompletableFuture`, `Mono` or `Flux` and lets the work complete off the loop; a method that is slow, because it blocks on a synchronous client, a lock or a sleep, or because it does heavy CPU work, hands that work off inside itself:
@@ -6480,7 +6539,7 @@ management-api. The Helm chart sets all three from the same paths in its values:
       </a>
       
        naming its own UI. A sign-in, sign-up or invitation flow started from another UI the management server's <code>
-        kinotic.domain.cors.allowedOriginPattern
+        kinotic.cors.allowedOriginPattern
       </code>
       
        names, other than through <code>
@@ -6504,7 +6563,7 @@ management-api. The Helm chart sets all three from the same paths in its values:
   <tr>
     <td>
       <code>
-        kinotic.domain.cors.allowedOriginPattern
+        kinotic.cors.allowedOriginPattern
       </code>
     </td>
     
@@ -7914,9 +7973,12 @@ on your first pull request by commenting `I have read the Kinotic CLA Document a
 
 ## Licensing
 
-Everything outside `kinotic-ee/` is licensed under the Elastic License 2.0 with the Kinotic
-Additional Limitations; `kinotic-ee/` holds the Enterprise Features, licensed under the Kinotic
-Enterprise License. The root
+Kinotic RPC (`kinotic-core/`, `kinotic-api-gateway/`, `kinotic-idl/`, and the `core` and `idl`
+packages in `kinotic-js/workspace/packages/`) is licensed under the Apache License 2.0, and none of
+its modules may depend on a module outside it: the build fails if one declares a project dependency on such a
+module. `kinotic-ee/` holds the
+Enterprise Features, licensed under the Kinotic Enterprise License. Everything else is licensed
+under the Elastic License 2.0 with the Kinotic Additional Limitations. The root
 [`LICENSE.md`](https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE.md) routes each part of
 the repository to its license. Any interface in an Elastic-licensed package with an `ee`
 segment, such as `org.kinotic.domain.api.ee.services.SecretStorageBackend`, is an Enterprise
@@ -7963,7 +8025,7 @@ The layers, from the outside in:
 
 ## Zone Authorization
 
-Every routable address carries its zone in the CRI itself, so the isolation boundary travels with the message and is validated wherever the message goes. Which zones a participant may address is derived from the participant type in one place — `ZoneRules` — and every enforcement point uses that same derivation. The full participant × zone matrix is in the [CRI format reference](https://kinotic.ai/platform/reference/cri-format).
+Every routable address carries its zone in the CRI itself, so the isolation boundary travels with the message and is validated wherever the message goes. Which zones a participant may address is derived from the participant type in one place, `ScopedParticipantZoneRulesResolver`, which yields the participant's `ZoneRules`, and every enforcement point uses that same derivation. The full participant × zone matrix is in the [CRI format reference](https://kinotic.ai/platform/reference/cri-format).
 
 The derivation defends its own inputs:
 
@@ -7986,7 +8048,7 @@ A browser authenticates with one session cookie per API host, and every login in
 
 - **A login authenticates only its own page.** The page is the request's `Origin`, or for a same-origin request, which carries none, the origin of its `Referer`. A page that shares the cookie's site without having logged in, such as a published UI on a sibling host, finds no login under its origin, so it cannot ride another page's session. Logging out ends only the calling page's login; the session ends once no page's login, and no sign-in another page has in progress, remains.
 - **A session is bound to the host that issued it.** Each login records the host it was established on, and a session presented on any other host is destroyed and the request refused, so a cookie replayed by hand against another API host authenticates nothing.
-- **A redirect login binds to the page that started it.** An identity provider returns the browser with a top-level navigation that carries no `Origin`, so the flow records the starting page's origin when it begins; the completed login is bound to that page and the browser is sent back there. On the management server the flow records the page only when it is the portal or `kinotic.domain.cors.allowedOriginPattern` names it, and a flow started anywhere else returns to the portal, so a page outside the pattern learns nothing from where a flow lands, not even whether an email already has an account.
+- **A redirect login binds to the page that started it.** An identity provider returns the browser with a top-level navigation that carries no `Origin`, so the flow records the starting page's origin when it begins; the completed login is bound to that page and the browser is sent back there. On the management server the flow records the page only when it is the portal or `kinotic.cors.allowedOriginPattern` names it, and a flow started anywhere else returns to the portal, so a page outside the pattern learns nothing from where a flow lands, not even whether an email already has an account.
 - **An application's users sign in only from its own UIs.** The app server starts a login, by password or through an identity provider, only from a page whose host is one of the application's sites, `<applicationId>--<uiName>.<organizationId>` under the sites domain, with or without a tenant before the application, and its CORS pattern holds pages to the sites domain. A UI of another application shares that domain, so without the check it could start a single sign-on the identity provider completes without a prompt and hold the login on this application's host.
 
 ## MCP Endpoint
@@ -8815,7 +8877,7 @@ kinotic-{org,system,app}-server/src/main/resources/
 
 Each server runs with `SPRING_PROFILES_ACTIVE=dev-server`. Leaving out `development` is what
 takes it off the development conveniences: no auto-seeded system secrets
-(`kinotic.systemSecrets.generateMissing` is set by the development profile alone), the halting Ignite failure handler, the
+(`kinotic.domain.systemSecrets.generateMissing` is set by the development profile alone), the halting Ignite failure handler, the
 production shard defaults — which `dev-server` then overrides. Its environment is composed by
 terraform from what the three share — the compose services', the Azure root's outputs, and the
 addresses only the proxmox root knows — and what is its own; its secrets arrive through
@@ -9291,7 +9353,7 @@ What differs between the three:
   <tr>
     <td>
       <code>
-        kinotic.domain.cors.allowedOriginPattern
+        kinotic.cors.allowedOriginPattern
       </code>
     </td>
     
@@ -9570,7 +9632,7 @@ What the three share:
   <tr>
     <td>
       <code>
-        kinotic.domain.cors.allowCredentials
+        kinotic.cors.allowCredentials
       </code>
     </td>
     
@@ -9636,7 +9698,7 @@ What the three share:
   <tr>
     <td>
       <code>
-        kinotic.systemSecrets.jwtSigningKeysPath
+        kinotic.domain.systemSecrets.jwtSigningKeysPath
       </code>
     </td>
     
@@ -10654,9 +10716,11 @@ for hostname allowlists.
 
 ## Overview
 
-Kinotic is source-available under two licenses. Most of the platform is licensed under the
-Elastic License 2.0 with the Kinotic Additional Limitations. The Enterprise Features are licensed
-under the Kinotic Enterprise License, published by Minds Ignited LLC. The root
+Kinotic is licensed under three licenses. Kinotic RPC, the service and event layer every server
+is built on, is open source under the Apache License 2.0, so it can be used without Kinotic OS.
+The rest of the platform is source-available under the Elastic License 2.0 with the Kinotic
+Additional Limitations, and the Enterprise Features under the Kinotic Enterprise License, published
+by Minds Ignited LLC. The root
 [`LICENSE.md`](https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE.md) routes each part of
 the repository to its license, and the license texts govern wherever this page summarizes them.
 
@@ -10684,6 +10748,40 @@ the repository to its license, and the license texts govern wherever this page s
     <td>
       <a href="https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-ee/LICENSE" rel="nofollow">
         Kinotic Enterprise License
+      </a>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Kinotic RPC: <code>
+        kinotic-core/
+      </code>
+      
+      , <code>
+        kinotic-api-gateway/
+      </code>
+      
+      , <code>
+        kinotic-idl/
+      </code>
+      
+      , and the <code>
+        @kinotic-ai/core
+      </code>
+      
+       and <code>
+        @kinotic-ai/idl
+      </code>
+      
+       packages in <code>
+        kinotic-js/workspace/packages/
+      </code>
+    </td>
+    
+    <td>
+      <a href="https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE-APACHE" rel="nofollow">
+        Apache License 2.0
       </a>
     </td>
   </tr>
@@ -12619,7 +12717,7 @@ Email verification is the security gate — no `Organization`, organization user
      created for an organization user that cannot be
    - creates a PendingSignUp with the verified subject, configId, email, displayName
    - 302 to /register?token=<verificationToken> on the UI the sign-up started from, when
-     kinotic.domain.cors.allowedOriginPattern names its origin other than through *, and on the portal otherwise
+     kinotic.cors.allowedOriginPattern names its origin other than through *, and on the portal otherwise
 7. /register prompts for orgName (CompleteOrg.vue)
 8. POST /api/auth/org/signup/social/complete  { token, orgName, orgDescription? }
 9. SignUpService.completeOidcWithNewOrg:
@@ -12653,7 +12751,7 @@ Email verification is the security gate — no `Organization`, organization user
 
 Another UI signed in through the management server, such as one built on Kinotic, links GitHub
 without the portal: it calls `startInstall` with the absolute URL of one of its own pages as
-`returnTo`, which must be on an origin `kinotic.domain.cors.allowedOriginPattern` names (a pattern of
+`returnTo`, which must be on an origin `kinotic.cors.allowedOriginPattern` names (a pattern of
 `*` names none);
 `startInstall` refuses any other URL, and a network-path reference (a `returnTo` starting with `//`
 or `/\`). After the install, `/api/github/install/callback` forwards GitHub's `installation_id`,
@@ -12751,7 +12849,7 @@ HTML-escaped.
 
 That UI's invitation page calls the `/api/auth/invite/*` routes below. An acceptance through a provider
 returns to the page that started it, and a failed one to that page's `/invite/accept?error=`, when
-that page is the portal or `kinotic.domain.cors.allowedOriginPattern` names it, and to the portal otherwise. An
+that page is the portal or `kinotic.cors.allowedOriginPattern` names it, and to the portal otherwise. An
 application invitation whose application has its own invitation template is sent with that template's
 content, and its link still opens the passed template's UI.
 
@@ -12815,7 +12913,7 @@ Each button on the organization's page is a form posting to the organization's s
      path within the SPA, then state/nonce/PKCE as for signup, and 302 to the IdP
    - the completed login is bound to the page that started it, or to the portal when a
      GET link, which names no page, started it; a page that is neither the portal nor one
-     kinotic.domain.cors.allowedOriginPattern names is not recorded, and the flow returns to
+     kinotic.cors.allowedOriginPattern names is not recorded, and the flow returns to
      the portal holding no login for it
 3. IdP returns to the callback registered for the configuration:
      GET /api/auth/org/login/social/callback/<configId>   an org sign-up registration
