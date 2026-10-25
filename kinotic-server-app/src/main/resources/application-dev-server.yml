@@ -22,11 +22,11 @@ kinotic:
     # Generated once when the server is built (generate-secrets.sh in deployment/terraform/proxmox):
     # an activeKeyId and a keys list, so a key can be added to the set at migration time
     jwtSigningKeysPath: /etc/kinotic/platform-secrets/jwt-signing-keys
+  cors:
+    # The UIs published under the sites domain
+    allowedOriginPattern: "https:\\/\\/[a-z0-9-]+\\.[a-z0-9-]+\\.${kinotic.domain.publishedSites.domain}"
+    allowCredentials: true
   domain:
-    cors:
-      # The UIs published under the sites domain
-      allowedOriginPattern: "https:\\/\\/[a-z0-9-]+\\.[a-z0-9-]+\\.${kinotic.domain.publishedSites.domain}"
-      allowCredentials: true
     secretStorage:
       # The in-memory default loses every stored secret on restart; the Key Vault the
       # dev-server terraform root creates keeps them, and keeps them in Azure for migration.

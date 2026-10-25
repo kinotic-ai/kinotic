@@ -1,11 +1,11 @@
-package org.kinotic.core.internal.system;
+package org.kinotic.domain.internal.api.services.secret;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.core.api.config.SystemSecretsProperties;
-import org.kinotic.core.api.config.VersionedKeySet;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.config.SystemSecretsProperties;
+import org.kinotic.domain.api.config.VersionedKeySet;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
@@ -46,7 +46,7 @@ public class SystemSecretsService {
 
     private ScheduledExecutorService scheduler;
 
-    public SystemSecretsService(KinoticProperties kinoticProperties,
+    public SystemSecretsService(KinoticDomainProperties kinoticProperties,
                                   ObjectMapper objectMapper,
                                   Optional<DevSystemSecretsGenerator> generator) {
         this.properties = kinoticProperties.getSystemSecrets();

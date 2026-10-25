@@ -10,9 +10,9 @@ import io.vertx.ext.auth.jwt.JWTAuth;
 import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.config.VersionedKeySet;
+import org.kinotic.domain.api.config.VersionedKeySet;
 import org.kinotic.domain.api.model.security.KinoticAudience;
-import org.kinotic.core.internal.system.SystemSecretsService;
+import org.kinotic.domain.internal.api.services.secret.SystemSecretsService;
 import org.springframework.stereotype.Component;
 
 import java.util.Base64;

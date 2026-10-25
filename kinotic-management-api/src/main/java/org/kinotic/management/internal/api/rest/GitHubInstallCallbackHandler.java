@@ -5,7 +5,7 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.kinotic.management.internal.api.services.github.GitHubInstallStateService;
 import org.kinotic.management.internal.api.services.github.StagedInstall;
 import org.springframework.stereotype.Component;

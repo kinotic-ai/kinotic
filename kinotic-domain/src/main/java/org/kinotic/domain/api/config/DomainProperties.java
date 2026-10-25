@@ -18,12 +18,6 @@ import java.util.List;
 public class DomainProperties {
 
     /**
-     * CORS configuration of every Vert.x HTTP server that exposes browser-facing routes. Its allowed origins are also
-     * the UIs a server's browser flows may return to, trusted with sign-up links and GitHub App install codes.
-     */
-    private CorsProperties cors = new CorsProperties();
-
-    /**
      * Email / outbound-mail configuration.
      */
     private EmailProperties email = new EmailProperties();

@@ -1,10 +1,10 @@
-package org.kinotic.core.internal.system;
+package org.kinotic.domain.internal.api.services.secret;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.core.api.config.SystemSecretsProperties;
-import org.kinotic.core.api.config.VersionedKeySet;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.config.SystemSecretsProperties;
+import org.kinotic.domain.api.config.VersionedKeySet;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -34,7 +34,7 @@ public class DevSystemSecretsGenerator {
     private static final int KEY_BYTES = 32;
     private static final String INITIAL_VERSION = "v1";
 
-    private final KinoticProperties kinoticProperties;
+    private final KinoticDomainProperties kinoticProperties;
     private final ObjectMapper objectMapper;
     private final SecureRandom random = new SecureRandom();
 

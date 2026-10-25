@@ -44,11 +44,11 @@ kinotic:
     apiBaseUrl: http://localhost:58504
     # The system console's vite dev server (pnpm dev:system), which system logins return to
     consoleBaseUrl: http://localhost:5174
+  cors:
+    # The system console's vite dev server
+    allowedOriginPattern: "http:\\/\\/localhost:5174"
+    allowCredentials: true
   domain:
-    cors:
-      # The system console's vite dev server
-      allowedOriginPattern: "http:\\/\\/localhost:5174"
-      allowCredentials: true
     # What a UI build is handed: the app server as a browser reaches it, not the address a workload
     # dials above
     appApiBaseUrl: http://localhost:58505

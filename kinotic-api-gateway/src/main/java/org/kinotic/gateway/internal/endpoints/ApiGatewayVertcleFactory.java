@@ -17,10 +17,9 @@ import io.vertx.ext.web.sstore.SessionStore;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.security.SessionBinding;
-import org.kinotic.gateway.api.utils.ApiGatewayUtil;
-import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
+import org.kinotic.gateway.api.utils.ApiGatewayUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -36,7 +35,6 @@ public class ApiGatewayVertcleFactory {
     private static final String STOMP_WEBSOCKET_PATH = "/api/v1";
 
     private final KinoticApiGatewayProperties properties;
-    private final KinoticDomainProperties domainProperties;
     private final StompServerHandlerFactory stompServerHandlerFactory;
     private final List<SuppliesGatewayRoutes> gatewayRoutes;
     private final HealthChecks healthChecks;
@@ -50,8 +48,8 @@ public class ApiGatewayVertcleFactory {
         // Vert.x's default bare reason-phrase 500. CORS: the SPA is a different origin from this
         // gateway (portal.kinotic.ai vs api.kinotic.ai in prod, vite's :5173 in dev). They're
         // same-site, so the SameSite=Lax session cookie flows; credentialed CORS
-        // (kinotic.domain.cors.*) lets the cross-origin login fetch store it.
-        Router router = ApiGatewayUtil.createRouterWithCors(vertx, domainProperties.getDomain().getCors());
+        // (kinotic.cors.*) lets the cross-origin login fetch store it.
+        Router router = ApiGatewayUtil.createRouterWithCors(vertx, properties.getCors());
 
         // Health check on the api-gateway port so probes work even when the static
         // web-server (9090) is disabled in Azure.
