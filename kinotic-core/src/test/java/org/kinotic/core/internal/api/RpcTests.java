@@ -45,6 +45,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -462,6 +463,71 @@ public class RpcTests {
         } finally {
             replyConsumer.unregister();
         }
+    }
+
+    /**
+     * Pins stream flow control: after a {@link EventConstants#CONTROL_VALUE_SUSPEND} control event the service
+     * sends no further values on the stream until a {@link EventConstants#CONTROL_VALUE_RESUME}, so a consumer
+     * that cannot keep up stops the producer instead of having its values buffered.
+     */
+    @Test
+    public void testSuspendStopsStreamUntilResume() throws Exception {
+        CRI replyCri = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME,
+                                  UUID.randomUUID().toString(),
+                                  "org.kinotic.tests.SuspendProbe");
+        CRI streamCri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
+                                   null,
+                                   "org.kinotic.core.internal.api.support.RpcTestService",
+                                   "/getInfiniteFlux",
+                                   null);
+        String correlationId = UUID.randomUUID().toString();
+        AtomicInteger valuesReceived = new AtomicInteger();
+        List<String> errors = Collections.synchronizedList(new ArrayList<>());
+
+        EventConsumer replyConsumer = eventBusService.listen(replyCri);
+        replyConsumer.handler(reply -> {
+            if(reply.metadata().contains(EventConstants.ERROR_HEADER)){
+                errors.add(reply.metadata().get(EventConstants.ERROR_HEADER));
+            }else{
+                valuesReceived.incrementAndGet();
+            }
+        });
+        replyConsumer.completion().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+        try {
+            Metadata metadata = Metadata.create();
+            metadata.put(EventConstants.REPLY_TO_HEADER, replyCri.raw());
+            metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
+            metadata.put(EventConstants.CONTENT_TYPE_HEADER, "application/json");
+            eventBusService.send(Event.create(streamCri, metadata, new byte[0]));
+            Awaitility.await("the stream produces values")
+                      .atMost(Duration.ofSeconds(10))
+                      .until(() -> valuesReceived.get() >= 2);
+
+            eventBusService.publish(streamControlEvent(streamCri, correlationId, EventConstants.CONTROL_VALUE_SUSPEND));
+            // getInfiniteFlux emits once a second, so a value sent before the suspend landed may still arrive
+            Thread.sleep(1500);
+            int receivedAtSuspend = valuesReceived.get();
+            Awaitility.await("no values arrive while the stream is suspended")
+                      .during(Duration.ofSeconds(3))
+                      .atMost(Duration.ofSeconds(4))
+                      .until(() -> valuesReceived.get() == receivedAtSuspend);
+
+            eventBusService.publish(streamControlEvent(streamCri, correlationId, EventConstants.CONTROL_VALUE_RESUME));
+            Awaitility.await("values arrive again after the stream is resumed")
+                      .atMost(Duration.ofSeconds(10))
+                      .until(() -> valuesReceived.get() > receivedAtSuspend);
+            Assertions.assertEquals(List.of(), errors);
+        } finally {
+            eventBusService.publish(streamControlEvent(streamCri, correlationId, EventConstants.CONTROL_VALUE_CANCEL));
+            replyConsumer.unregister();
+        }
+    }
+
+    private static Event<byte[]> streamControlEvent(CRI streamCri, String correlationId, String control){
+        Metadata metadata = Metadata.create();
+        metadata.put(EventConstants.CONTROL_HEADER, control);
+        metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
+        return Event.create(streamCri, metadata, null);
     }
 
     /**
