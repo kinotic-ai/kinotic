@@ -7492,7 +7492,11 @@ We welcome contributions to Kinotic OS. This guide covers the repository structu
         packages/common
       </code>
       
-       (shared UI code)
+       (shared UI code, published to npm as <code>
+        @kinotic-ai/frontend-common
+      </code>
+      
+      )
     </td>
   </tr>
   
