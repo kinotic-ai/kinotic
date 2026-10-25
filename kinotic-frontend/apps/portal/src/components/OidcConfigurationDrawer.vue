@@ -374,7 +374,7 @@ function configurationToSave(): OwnedOidcConfiguration {
   const fields = {
     name: name.value.trim(),
     // the fields of the organization's own registration are kept while Kinotic's is used, for a switch back
-    providerAccount: managed.value && providerAccount.value.trim() === '' ? null : accountValue(),
+    providerAccount: accountValue() || null,
     clientId: clientId.value.trim() || null,
     audience: audience.value.trim() || null,
     enabled: enabled.value,
