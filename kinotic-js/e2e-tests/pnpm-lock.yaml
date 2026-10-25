@@ -32,7 +32,7 @@ importers:
         version: 10.5.0
       '@kinotic-ai/idl':
         specifier: ^5.0.0-beta.6
-        version: 5.0.0-beta.5
+        version: 5.0.0-beta.6
       '@kinotic-ai/kinotic-cli':
         specifier: ^5.2.0-beta.37
         version: 5.2.0-beta.37(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)
@@ -453,9 +453,6 @@ packages:
 
   '@kinotic-ai/core@5.0.0-beta.29':
     resolution: {integrity: sha512-JwSHA42I5B/lccu/Dn8AFtSw5Ofez84mBhYh2tHQJ9/o1ivmFSA979Xio/jUZVy619tq4aAufu3OvmUinFWUBw==}
-
-  '@kinotic-ai/idl@5.0.0-beta.5':
-    resolution: {integrity: sha512-i1aNnpDKOqD0yf56w3YmZsoK4a2tM3JBjXxrF+DP0tBrf2RTvuj5wURMrKuacKaeLMkHvuWD9Kyq8s9TFcBRmQ==}
 
   '@kinotic-ai/idl@5.0.0-beta.6':
     resolution: {integrity: sha512-GemJ94ptLbrZ642NEqqd7sWVkSyH1ybTGU2WKeiVhvHYDwARt3DKLA/MOcxls6QsafFRisJUl0irGgHC9huQpA==}
@@ -2556,8 +2553,6 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
-
-  '@kinotic-ai/idl@5.0.0-beta.5': {}
 
   '@kinotic-ai/idl@5.0.0-beta.6': {}
 
