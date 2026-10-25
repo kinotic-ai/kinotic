@@ -17,10 +17,19 @@
          light/dark surface matching GitHub's monochrome logo usage. -->
     <button v-else-if="provider === 'github'"
             type="submit"
-            :class="['social-auth-button', 'social-auth-button--gh', isDarkMode ? 'social-auth-button--gh-dark' : 'social-auth-button--gh-light']"
+            :class="['social-auth-button', 'social-auth-button--mark', 'social-auth-button--gh', isDarkMode ? 'social-auth-button--gh-dark' : 'social-auth-button--gh-light']"
             :aria-label="githubLabel">
-      <span class="pi pi-github social-auth-button__gh-logo" aria-hidden="true"></span>
-      <span class="social-auth-button__gh-label">{{ githubLabel }}</span>
+      <span class="pi pi-github social-auth-button__mark-logo" aria-hidden="true"></span>
+      <span class="social-auth-button__mark-label">{{ githubLabel }}</span>
+    </button>
+    <!-- Okta: composed button — the Okta ring, masked so it takes the button's text color,
+         on a white or Okta-navy surface. -->
+    <button v-else-if="provider === 'okta'"
+            type="submit"
+            :class="['social-auth-button', 'social-auth-button--mark', 'social-auth-button--okta', isDarkMode ? 'social-auth-button--okta-dark' : 'social-auth-button--okta-light']"
+            :aria-label="genericLabel">
+      <span class="social-auth-button__mark-logo social-auth-button__okta-logo" aria-hidden="true"></span>
+      <span class="social-auth-button__mark-label">{{ genericLabel }}</span>
     </button>
     <!-- Fallback for any other provider until we have its branded artwork. -->
     <button v-else type="submit" class="social-auth-button social-auth-button--generic">
@@ -36,6 +45,7 @@ export function providerDisplayName(provider: string): string {
     case 'azure-ad': return 'Microsoft'
     case 'github':   return 'GitHub'
     case 'google':   return 'Google'
+    case 'okta':     return 'Okta'
     default:         return provider.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
   }
 }
@@ -175,10 +185,10 @@ const ariaLabel = genericLabel
   margin-left: 12px;
 }
 
-/* GitHub button — the mark stays monochrome on a neutral surface per GitHub's logo
- * guidance: near-black on white in light mode, white on GitHub's dark #24292F in dark
- * mode. Sized to line up with the Google (40px) and Microsoft (41px) buttons. */
-.social-auth-button--gh {
+/* Mark buttons — a provider's monochrome mark beside the label on a surface in the
+ * provider's own light and dark colors. Sized to line up with the Google (40px) and
+ * Microsoft (41px) buttons. */
+.social-auth-button--mark {
   display: inline-flex;
   align-items: center;
   height: 41px;
@@ -190,6 +200,22 @@ const ariaLabel = genericLabel
   border-radius: 6px;
 }
 
+.social-auth-button--mark:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.social-auth-button__mark-logo {
+  font-size: 20px;
+  flex: 0 0 auto;
+}
+
+.social-auth-button__mark-label {
+  margin-left: 12px;
+}
+
+/* GitHub — near-black on white in light mode, white on GitHub's dark #24292F in dark
+ * mode, per GitHub's logo guidance. */
 .social-auth-button--gh-light {
   background: #FFFFFF;
   border: 1px solid #D0D7DE;
@@ -202,18 +228,26 @@ const ariaLabel = genericLabel
   color: #FFFFFF;
 }
 
-.social-auth-button--gh:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
+/* Okta — the ring in Okta's navy on white in light mode, white on the navy in dark mode.
+ * The ring is a CSS mask filled with currentColor so one asset serves both. */
+.social-auth-button--okta-light {
+  background: #FFFFFF;
+  border: 1px solid #D0D7DE;
+  color: #00297A;
 }
 
-.social-auth-button__gh-logo {
-  font-size: 20px;
-  flex: 0 0 auto;
+.social-auth-button--okta-dark {
+  background: #00297A;
+  border: 1px solid #00297A;
+  color: #FFFFFF;
 }
 
-.social-auth-button__gh-label {
-  margin-left: 12px;
+.social-auth-button__okta-logo {
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+  mask: url('@/assets/okta-icon.svg') center / contain no-repeat;
+  -webkit-mask: url('@/assets/okta-icon.svg') center / contain no-repeat;
 }
 
 /* Generic style for providers we don't yet have official artwork for. */
