@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.services.security;
+package org.kinotic.domain.internal.api.services.security;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.ZoneRules;
@@ -11,19 +11,17 @@ import org.kinotic.domain.api.model.security.participant.OrganizationParticipant
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.domain.api.model.security.participant.SystemParticipant;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.springframework.stereotype.Component;
 
 import java.util.Set;
 
 /**
- * The zone rules of the platform's participants, decided by the participant type. Application participants send to
+ * The zone rules of Kinotic OS's participants, decided by the participant type. Application participants send to
  * the {@code app-api} data plane and their own {@code app.<organizationId>.<applicationId>} zone and subscribe in no
  * zone at all. Organization participants send to the {@code management-api} management surface, {@code app-api},
  * and their own {@code app.<organizationId>} zones, and subscribe within those same app zones — an application's
  * runtime authenticates as an organization participant to host and call its services. System participants send
  * everywhere and subscribe in the {@code system-api} zone.
  */
-@Component
 public class ScopedParticipantZoneRulesResolver implements ZoneRulesResolver {
 
     @Override

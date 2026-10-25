@@ -239,7 +239,7 @@ locals {
         SUMMIT42_UIBASEURL = "https://${local.azure.summit42_hostname}"
         # The management server's dev-server profile, which Summit 42's image does not carry
         SPRING_CONFIG_IMPORT                                    = "optional:file:/etc/kinotic/secrets.yml"
-        KINOTIC_SYSTEMSECRETS_JWTSIGNINGKEYSPATH                = "/etc/kinotic/platform-secrets/jwt-signing-keys"
+        KINOTIC_DOMAIN_SYSTEMSECRETS_JWTSIGNINGKEYSPATH         = "/etc/kinotic/platform-secrets/jwt-signing-keys"
         KINOTIC_DOMAIN_SECRETSTORAGE_BACKEND                    = "AZURE"
         KINOTIC_MANAGEMENTAPI_ENTITYDEFINITION_NUMBEROFSHARDS   = "1"
         KINOTIC_MANAGEMENTAPI_ENTITYDEFINITION_NUMBEROFREPLICAS = "1"

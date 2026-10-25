@@ -35,7 +35,7 @@ public class ZoneRules {
      */
     public static ZoneRules sendingToAnyZone(Set<String> subscribableZones) {
         Validate.notNull(subscribableZones, "subscribableZones must not be null");
-        return new ZoneRules(true, Set.of(), subscribableZones, EVERY_ZONE);
+        return new ZoneRules(true, Set.of(), Set.copyOf(subscribableZones), EVERY_ZONE);
     }
 
     /**
@@ -48,7 +48,7 @@ public class ZoneRules {
     public static ZoneRules of(Set<String> sendZones, Set<String> subscribableZones) {
         Validate.notNull(sendZones, "sendZones must not be null");
         Validate.notNull(subscribableZones, "subscribableZones must not be null");
-        return new ZoneRules(false, sendZones, subscribableZones, EVERY_ZONE);
+        return new ZoneRules(false, Set.copyOf(sendZones), Set.copyOf(subscribableZones), EVERY_ZONE);
     }
 
     /**

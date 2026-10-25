@@ -1,7 +1,6 @@
 package org.kinotic.domain.api.model.security.participant;
 
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.domain.api.services.security.ScopedParticipantZoneRulesResolver;
 
 /**
  * A {@link Participant} whose authority is scoped to one layer of the platform. The permitted
@@ -9,7 +8,7 @@ import org.kinotic.domain.api.services.security.ScopedParticipantZoneRulesResolv
  * type is exhaustive: code that maps every scope to a value gains a compile error when a scope is
  * added, rather than reaching a runtime branch that has no answer for it.
  * <p>
- * Reserve such switches for decisions that differ per layer (see {@link ScopedParticipantZoneRulesResolver}); code that
+ * Reserve such switches for decisions that differ per layer (such as the zone rules each scope is given); code that
  * only needs the participant's scope ids should read {@link #getScope()} instead of matching
  * the subtypes.
  */

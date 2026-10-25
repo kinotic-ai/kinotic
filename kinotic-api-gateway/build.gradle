@@ -28,19 +28,3 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.vertx:vertx-ignite'
 }
-
-// kinotic-frontend builds the SPA into src/main/resources/webroot here, where the runtime
-// StaticHandler picks it up from the classpath. Without this dep the alphabetical order runs
-// api-gateway tasks before kinotic-frontend, so the jar would be packaged with an empty webroot.
-//
-// Gradle 9 enforces explicit dependencies on every task that reads from the resources dir —
-// processResources for the main jar, sourcesJar for the published sources artifact. Hook both.
-// CLAUDE_CLOUD_COMPILE excludes kinotic-frontend from the build entirely (see settings.gradle),
-// so the task path only exists when that flag is off.
-if (!Boolean.parseBoolean(System.getenv('CLAUDE_CLOUD_COMPILE'))) {
-    ['processResources', 'sourcesJar'].each { taskName ->
-        tasks.matching { it.name == taskName }.configureEach {
-            dependsOn ':kinotic-frontend:copyDist'
-        }
-    }
-}

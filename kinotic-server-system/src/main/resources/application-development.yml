@@ -49,6 +49,12 @@ kinotic:
     allowedOriginPattern: "http:\\/\\/localhost:5174"
     allowCredentials: true
   domain:
+    systemSecrets:
+      # Seeded on first boot by DevSystemSecretsGenerator, or by whichever server boots first: every
+      # server on the machine reads the same file. Production uses Azure Key Vault via the Secrets
+      # Store CSI driver — same file layout, different origin.
+      generateMissing: true
+      jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys
     # What a UI build is handed: the app server as a browser reaches it, not the address a workload
     # dials above
     appApiBaseUrl: http://localhost:58505
@@ -69,12 +75,6 @@ kinotic:
   maxNumberOfCoresToUse: 4
   ignite:
     discoveryType: SHAREDFS
-  systemSecrets:
-    # Seeded on first boot by DevSystemSecretsGenerator, or by whichever server boots first: every
-    # server on the machine reads the same file. Production uses Azure Key Vault via the Secrets
-    # Store CSI driver — same file layout, different origin.
-    generateMissing: true
-    jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys
 
 logging:
   level:

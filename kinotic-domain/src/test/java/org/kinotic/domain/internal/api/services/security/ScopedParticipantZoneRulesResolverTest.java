@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.services.security;
+package org.kinotic.domain.internal.api.services.security;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.event.CRI;

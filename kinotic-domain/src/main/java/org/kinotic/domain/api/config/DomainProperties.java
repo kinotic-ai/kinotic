@@ -18,6 +18,14 @@ import java.util.List;
 public class DomainProperties {
 
     /**
+     * Paths to system-level secret files (the JWT signing keys).
+     * Files are mounted into the pod by the Azure Key Vault CSI driver in production or
+     * by a Kubernetes Secret volume locally, and watched for changes so rotation flows
+     * through without a restart.
+     */
+    private SystemSecretsProperties systemSecrets = new SystemSecretsProperties();
+
+    /**
      * Email / outbound-mail configuration.
      */
     private EmailProperties email = new EmailProperties();
