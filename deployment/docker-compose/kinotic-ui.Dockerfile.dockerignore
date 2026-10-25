@@ -1,0 +1,10 @@
+# The build context is the repository root, and the image is built from kinotic-frontend's sources and its server
+*
+!kinotic-frontend/package.json
+!kinotic-frontend/pnpm-lock.yaml
+!kinotic-frontend/pnpm-workspace.yaml
+!kinotic-frontend/apps
+!kinotic-frontend/packages
+**/node_modules
+**/dist
+!deployment/docker-compose/kinotic-ui.ts

@@ -33,8 +33,6 @@ resource "helm_release" "kinotic" {
     { name = "servers.kinotic-server-system.tlsSecretName", value = var.tls_secret_name },
     { name = "servers.kinotic-server-app.tlsSecretName", value = var.tls_secret_name },
     { name = "image.tag", value = var.kinotic_version },
-    # The portal is hosted outside the cluster — no static server inside.
-    { name = "servers.kinotic-server-management.webServer.enabled", value = "false" },
     # Where the portal and the console live — post-OIDC redirects and the emailed links — and
     # where each server's REST endpoints live, the OIDC redirect_uri
     { name = "kinotic.domain.portalBaseUrl", value = "https://portal.${local.global.dns_zone_name}" },

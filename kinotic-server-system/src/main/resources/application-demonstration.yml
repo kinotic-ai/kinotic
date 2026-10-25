@@ -42,14 +42,14 @@ kinotic:
         - registry.npmjs.org
   systemServer:
     apiBaseUrl: http://localhost:58504
-    # The system console's vite dev server (pnpm dev:system), which system logins return to
-    consoleBaseUrl: http://localhost:5174
+    # The system console kinotic-ui serves (compose.ui.yml), which system logins return to
+    consoleBaseUrl: http://localhost:9091
   cors:
-    # The system console's vite dev server
-    allowedOriginPattern: "http:\\/\\/localhost:5174"
+    # The system console kinotic-ui serves, and its vite dev server (pnpm dev:system) a contributor runs from source
+    allowedOriginPattern: "http:\\/\\/localhost:(9091|5174)"
     allowCredentials: true
   domain:
-    # The portal the management server serves on 9090, where invitations are accepted
+    # The portal kinotic-ui serves, where invitations are accepted
     portalBaseUrl: http://localhost:9090
     email:
       # No mail service: each link a person must open is logged and shown in the UI that asked for it: a

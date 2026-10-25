@@ -24,11 +24,12 @@ the commit under test rather than whatever the published tag currently holds.
 
 | File | Purpose | Brings up |
 |---|---|---|
-| `compose.yml` | Top-level — `include:`s every piece below | Full stack (ES + Kibana + OTEL + load-gen + migration + Azurite and the sites edge + the three servers) |
+| `compose.yml` | Top-level — `include:`s every piece below, as the compose project `kinotic` | Full stack (ES + Kibana + OTEL + load-gen + migration + Azurite and the sites edge + Gitea + the three servers + the UIs) |
 | `compose.elasticsearch.yml` | Elasticsearch | `kinotic-elasticsearch:9200` |
 | `compose.kibana.yml` | Kibana (depends on Elasticsearch) | `kinotic-kibana:5601` |
 | `compose.kinotic-migration.yml` | Runs `kinotic-migration` once against ES, then exits | One-shot job — `service_completed_successfully` is what the servers wait on |
-| `compose.kinotic-servers.yml` | The three Kinotic servers, one Ignite cluster | `kinotic-server-management:9090/58503` (portal, REST and STOMP), `kinotic-server-system:58504`, `kinotic-server-app:58505` |
+| `compose.kinotic-servers.yml` | The three Kinotic servers, one Ignite cluster | `kinotic-server-management:58503`, `kinotic-server-system:58504`, `kinotic-server-app:58505` (REST and STOMP) |
+| `compose.ui.yml` | The portal and the system console, the `kinotic-ui` image built from `kinotic-ui.Dockerfile`, which builds `kinotic-frontend` and serves both through `kinotic-ui.ts`. `docker compose up --build` builds it from the working tree | `kinotic-ui:9090` (portal), `kinotic-ui:9091` (system console) |
 | `compose-otel.yml` | OpenTelemetry collector + Grafana + Tempo + Loki + Mimir | `grafana:3000`, `loki:3100`, `tempo:3200`, `mimir:9009` |
 | `compose.gen-schemas.yml` | Load-generator container that pre-populates schemas | One-shot when `compose.yml` brings up the full stack |
 | `compose.sites.yml` | Where published UIs are stored and served: the Azurite emulator, and the local edge, the `kinotic-sites-edge` image built from `sites-edge.Dockerfile`, which runs the Cloudflare sites Worker (`../cloudflare/sites-worker/worker.js`) over it through `sites-edge.ts`. `docker compose up --build` builds it from the working tree | `kinotic-azurite:10000`, `kinotic-sites-edge:8088` |
@@ -65,7 +66,8 @@ docker compose down -v && docker compose up -d
 
 | Service | URL | Notes |
 |---|---|---|
-| Kinotic UI | <http://localhost:9090> | TLS off in compose. The `/login`, `/signup`, `/applications` routes are SPA. |
+| Portal | <http://localhost:9090> | TLS off in compose. Served by `kinotic-ui`; every path that names no file answers with the SPA's `index.html` |
+| System console | <http://localhost:9091> | Served by `kinotic-ui`, as the portal is; system users sign in here |
 | Management server | <http://localhost:58503> | REST, and STOMP at `ws://localhost:58503/v1` — what the SPA's `Kinotic.connect(...)` opens |
 | System server | <http://localhost:58504> | REST, and STOMP at `ws://localhost:58504/v1`, for the system console |
 | App server | <http://localhost:58505> | REST, and STOMP at `ws://localhost:58505/v1`; each application's API host is `<organizationId>--<applicationId>.localhost:58505` |

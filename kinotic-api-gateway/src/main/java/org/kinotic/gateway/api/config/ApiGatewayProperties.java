@@ -34,12 +34,6 @@ public class ApiGatewayProperties {
     private int stompPort = DEFAULT_STOMP_PORT;
 
     /**
-     * Static-file web server configuration. Disabled in Azure where the SPA
-     * is hosted outside the cluster.
-     */
-    private WebServerProperties webServer = new WebServerProperties();
-
-    /**
      * SSL/TLS configuration for all Vert.x HTTP servers.
      */
     private SslProperties ssl = new SslProperties();

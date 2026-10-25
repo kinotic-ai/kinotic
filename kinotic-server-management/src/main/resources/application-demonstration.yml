@@ -5,7 +5,7 @@
 kinotic:
   managementApi:
     # This server's API as a browser and Claude Code reach it: the OAuth issuer of /mcp, and the base of the
-    # OIDC callbacks, all on 58503; 9090 serves only the portal's files
+    # OIDC callbacks
     apiBaseUrl: http://localhost:58503
     # Projects' repositories are hosted on the Gitea compose.gitea.yml runs, so a project needs no GitHub
     repoHost: GITEA
@@ -27,11 +27,12 @@ kinotic:
       # Cloudflare service
       enabled: false
   cors:
-    # The portal this server serves, and the portal's vite dev server (pnpm dev) a contributor runs from source
-    allowedOriginPattern: "http:\\/\\/localhost:(9090|5173)"
+    # The portal kinotic-ui serves (compose.ui.yml), the portal's vite dev server (pnpm dev) a contributor runs
+    # from source, and Summit 42's UI, which its own compose file adds to this stack
+    allowedOriginPattern: "http:\\/\\/localhost:(9090|5173|9092)"
     allowCredentials: true
   domain:
-    # The portal build this server serves on 9090
+    # The portal kinotic-ui serves
     portalBaseUrl: http://localhost:9090
     email:
       # No mail service: each link a person must open is logged and shown in the UI that asked for it: a

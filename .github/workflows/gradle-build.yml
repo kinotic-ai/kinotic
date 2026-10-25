@@ -159,6 +159,12 @@ jobs:
           version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
           docker build -f deployment/docker-compose/sites-edge.Dockerfile -t "kinoticai/kinotic-sites-edge:${version}" deployment
 
+      # The compose stack's portal and system console, versioned and promoted with the servers
+      - name: Build the UI image
+        run: |
+          version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
+          docker build -f deployment/docker-compose/kinotic-ui.Dockerfile -t "kinoticai/kinotic-ui:${version}" .
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
         with:
@@ -169,7 +175,7 @@ jobs:
       - name: Stage server images on ghcr.io
         run: |
           version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
-          for image in kinotic-server-management kinotic-server-system kinotic-server-app kinotic-server-test kinotic-sites-edge; do
+          for image in kinotic-server-management kinotic-server-system kinotic-server-app kinotic-server-test kinotic-sites-edge kinotic-ui; do
             staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}"
             docker tag "kinoticai/${image}:${version}" "$staged"
             docker push "$staged"
@@ -522,7 +528,7 @@ jobs:
         if: ${{ env.PROMOTE == 'true' }}
         run: |
           version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
-          for image in kinotic-migration kinotic-server-management kinotic-server-system kinotic-server-app kinotic-sites-edge; do
+          for image in kinotic-migration kinotic-server-management kinotic-server-system kinotic-server-app kinotic-sites-edge kinotic-ui; do
             staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}"
             docker pull "$staged"
             docker tag "$staged" "kinoticai/${image}:${version}"

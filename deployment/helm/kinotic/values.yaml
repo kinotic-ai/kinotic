@@ -17,11 +17,6 @@ servers:
       sha: ""
     # kinotic.apiGateway.stompPort: REST, STOMP and MCP
     gatewayPort: 58503
-    # kinotic.apiGateway.webServer.*: the portal's files, served from the jar. Disabled where the
-    # portal is hosted outside the cluster.
-    webServer:
-      enabled: true
-      port: 9090
     # kinotic.managementServer.*: the Turnstile site this server's open routes are guarded by; the
     # URLs of its API and the portal are kinotic.managementApi.apiBaseUrl and kinotic.domain.portalBaseUrl below
     managementServer:
@@ -53,8 +48,6 @@ servers:
       repository: kinoticai/kinotic-server-system
       sha: ""
     gatewayPort: 58504
-    webServer:
-      enabled: false
     # kinotic.systemServer.*: the URLs this server is reached at (no trailing slashes)
     systemServer:
       # this server's REST endpoints, the base of its OIDC redirect_uris and its OAuth issuer
@@ -78,8 +71,6 @@ servers:
       repository: kinoticai/kinotic-server-app
       sha: ""
     gatewayPort: 58505
-    webServer:
-      enabled: false
     tlsSecretName: kinotic-server-app-tls
     turnstile: false
     githubApp: false

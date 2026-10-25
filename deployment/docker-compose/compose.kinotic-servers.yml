@@ -1,4 +1,4 @@
-# The three Kinotic servers, one Ignite cluster: kinotic-server-management (the portal and the org API),
+# The three Kinotic servers, one Ignite cluster: kinotic-server-management (the org API),
 # kinotic-server-system (the system's own API) and kinotic-server-app (every application's API).
 
 # What every server container shares; each service below adds its image, ports and identity.
@@ -65,14 +65,12 @@ services:
     container_name: kinotic-server-management
     image: kinoticai/kinotic-server-management:${kinoticVersion:-5.0.0-SNAPSHOT}
     ports:
-      - "127.0.0.1:9090:9090" # The portal
       - "127.0.0.1:58503:58503" # REST and STOMP
     environment:
       <<: *kinotic-server-environment
       KINOTIC_MANAGEMENTAPI_LOKIURL: http://loki:3100
       KINOTIC_MANAGEMENTAPI_TEMPOURL: http://tempo:3200
       KINOTIC_MANAGEMENTAPI_MIMIRURL: http://mimir:9009
-      KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9090
       OTEL_SERVICE_NAME: kinotic-server-management
       OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-management,service.instance.id=kinotic-server-management
       THC_PORT: 58503 # Paketo health-check probe — health endpoint is mounted on the api-gateway router

@@ -1,5 +1,5 @@
-# The local edge compose.sites.yml runs: the Cloudflare sites Worker served from Azurite, and the storage
-# gateway the publish and removal workloads upload through (sites-edge.ts).
+# The local edge compose.sites.yml runs: the Cloudflare sites Worker serving every published site from Azurite
+# (sites-edge.ts).
 #
 # Build with deployment/ as the context, which holds both the Worker and the edge script:
 #   docker build -f docker-compose/sites-edge.Dockerfile -t kinoticai/kinotic-sites-edge deployment
@@ -10,5 +10,5 @@ WORKDIR /deployment
 COPY cloudflare/sites-worker/worker.js cloudflare/sites-worker/worker.js
 COPY docker-compose/sites-edge.ts docker-compose/sites-edge.ts
 
-EXPOSE 8088 8089
+EXPOSE 8088
 CMD ["bun", "docker-compose/sites-edge.ts"]

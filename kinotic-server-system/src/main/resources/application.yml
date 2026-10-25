@@ -17,9 +17,6 @@ kinotic:
   apiGateway:
     # Off the management server's 58503, so the servers run side by side on one machine
     stompPort: 58504
-    # The system console is served from its own static hosting, never from a server
-    webServer:
-      enabled: false
 
 
 logging:

@@ -13,9 +13,6 @@ kinotic:
     # Off the management server's 58503 and the system server's 58504, so the servers run side by side
     # on one machine
     stompPort: 58505
-    # Applications' UIs are published to the sites domain, never served from a server
-    webServer:
-      enabled: false
 
 
 logging:
