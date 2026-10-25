@@ -1,8 +1,5 @@
 export default defineNuxtConfig({
   extends: ['docus'],
-  // Lists every prerendered, indexable page in /sitemap.xml; @nuxtjs/robots adds its Sitemap line
-  // to robots.txt.
-  modules: ['@nuxtjs/sitemap'],
   // Canonical site URL for nuxt-site-config consumers (robots, sitemap, OG images, canonical
   // links). Without it they fall back to http://localhost, which leaks into the deployed
   // robots.txt Sitemap line and OG/canonical URLs.
@@ -15,6 +12,11 @@ export default defineNuxtConfig({
   robots: {
     disallow: ['/test-results/'],
   },
+  // The agent-discovery AI policy gives each AI crawler its own `Allow: /` group, which overrides the
+  // /test-results/ Disallow for those crawlers, and it declares `ai-train=yes` in robots.txt.
+  agentDiscovery: {
+    robots: { aiPolicy: false },
+  },
   // /V2, /V3 and /vc are unlinked pages shared by URL, so prerendering never discovers them
   // by crawling — without this, `nuxt generate` emits no page for them and the deployed URLs 404.
   // Their own `noindex` meta tag keeps them out of search results and out of /sitemap.xml.
@@ -22,6 +24,16 @@ export default defineNuxtConfig({
     prerender: {
       routes: ['/V2', '/V3', '/vc'],
     },
+  },
+  // The docus sitemap lists content pages only; these are the indexable pages in app/pages.
+  sitemap: {
+    urls: ['/', '/privacy', '/terms'],
+  },
+  // The only images are the SVG header logos, which IPX has nothing to optimize. Prerendering an
+  // /_ipx/ route never completes with @nuxt/image 2.2 (ipx 4) on Nitro 2, which ends `nuxt generate`
+  // early without writing /sitemap.xml, so images are served as-is.
+  image: {
+    provider: 'none',
   },
   runtimeConfig: {
     public: {

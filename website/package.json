@@ -9,10 +9,9 @@
   },
   "dependencies": {
     "@microsoft/clarity": "^1.0.2",
-    "@nuxtjs/sitemap": "^8.6.2",
     "better-sqlite3": "^12.11.1",
-    "docus": "^5.12.3",
-    "nuxt": "^4.5.2"
+    "docus": "^5.15.0",
+    "nuxt": "^4.6.2"
   },
   "overrides": {
     "@babel/core": "^7.29.1",
