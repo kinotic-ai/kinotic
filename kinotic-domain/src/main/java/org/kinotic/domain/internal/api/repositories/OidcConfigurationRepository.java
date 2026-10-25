@@ -79,19 +79,6 @@ public class OidcConfigurationRepository extends AbstractRepository<OidcConfigur
     }
 
     /**
-     * The enabled social registration of the given provider kind, or {@code null} when the system holds none.
-     */
-    public Future<ApplicationSocialOidcConfiguration> findEnabledSocialByProvider(OidcProviderType provider) {
-        // sorted, so every step of one sign-in resolves the same registration should the seeded rows hold two
-        return findFirst(b -> b.query(composeFilter(
-                termFilter(TYPE_FIELD, OidcConfigurationType.APP_SOCIAL.name()),
-                termFilter(PROVIDER_FIELD, provider.key()),
-                termFilter(ENABLED_FIELD, true)))
-                .sort(s -> s.field(f -> f.field("id"))))
-                .map(ApplicationSocialOidcConfiguration.class::cast);
-    }
-
-    /**
      * The configuration {@code id} that organization {@code orgId} owns, of any owned kind, enabled or not, or
      * {@code null} when that organization owns none by that id.
      */

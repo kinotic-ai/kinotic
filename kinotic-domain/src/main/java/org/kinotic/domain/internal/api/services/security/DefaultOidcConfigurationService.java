@@ -180,7 +180,8 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
 
     // an application's configuration of a kind signs in through the system's one enabled registration of that kind
     private Future<Void> requireOnlyEnabledRegistration(ApplicationSocialOidcConfiguration registration) {
-        return oidcRepository.findEnabledSocialByProvider(registration.getProvider()).map(enabled -> {
+        return enabledRegistrations().map(registrations -> {
+            ApplicationSocialOidcConfiguration enabled = registrations.get(registration.getProvider());
             if (enabled != null && !enabled.getId().equals(registration.getId())) {
                 throw new IllegalArgumentException("The system's registration " + enabled.getId() + " signs in with "
                                                    + registration.getProvider().key() + " already; disable it first");
@@ -318,11 +319,13 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
     }
 
     // the one rule for which kinds a configuration may sign in through Kinotic's registration for: the system's enabled
-    // registrations, at most one per kind, which requireOnlyEnabledRegistration holds
+    // registrations, one per kind. requireOnlyEnabledRegistration holds saves to that; should seeded rows hold two of a
+    // kind, the oldest serves every sign-in and a save of the newer is refused
     private Future<Map<OidcProviderType, ApplicationSocialOidcConfiguration>> enabledRegistrations() {
         return oidcRepository.findEnabledSocial()
                              .map(registrations -> registrations.stream()
-                                                                .collect(Collectors.toMap(OidcConfiguration::getProvider, registration -> registration)));
+                                                                .collect(Collectors.toMap(OidcConfiguration::getProvider, registration -> registration,
+                                                                                          (oldest, _) -> oldest)));
     }
 
     @Override
