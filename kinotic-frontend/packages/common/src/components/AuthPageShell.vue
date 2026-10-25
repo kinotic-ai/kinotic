@@ -2,7 +2,7 @@
   <div class="login-page">
     <div class="login-shell">
       <aside class="login-art" aria-hidden="true">
-        <img :src="backgroundArt" alt="" class="login-art__image" />
+        <img :src="art" alt="" class="login-art__image" />
       </aside>
 
       <main class="login-panel">
@@ -31,8 +31,6 @@
 import { computed } from 'vue'
 import Toast from 'primevue/toast'
 
-import loginBgDark from '../assets/left_background_dark.png'
-import loginBgLight from '../assets/left-background_light.png'
 import loginPageLogo from '../assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '../assets/login-page-kinotic-logo-light.svg'
 import { isDark as darkMode, toggleDark } from '../composables/useTheme'
@@ -42,17 +40,15 @@ import '../styles/auth-pages.css'
  * Page chrome shared by every unauthenticated auth page: background art, theme toggle,
  * brand mark, footer, and the Toast outlet. Page content renders in the default slot.
  */
-const props = withDefaults(defineProps<{
-  /** Overrides the theme-aware background art when set. */
-  art?: string | null
+withDefaults(defineProps<{
+  /** The app's background art, shown beside the page content. */
+  art: string
 
   showThemeToggle?: boolean
 }>(), {
-  art: null,
   showThemeToggle: true,
 })
 
-const backgroundArt = computed(() => props.art ?? (darkMode.value ? loginBgDark : loginBgLight))
 const brandMark = computed(() => darkMode.value ? loginPageLogo : loginPageLogoLight)
 const isDark = darkMode
 function toggleTheme() { toggleDark() }

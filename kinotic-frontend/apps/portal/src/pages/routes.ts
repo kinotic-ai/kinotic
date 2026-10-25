@@ -4,7 +4,7 @@ import { ChartLine, CloudUpload, LaptopMinimalCheck, LayoutDashboard, LayoutGrid
 import { ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 import { ConnectedAppsPage, OAuthConsentPage } from '@kinotic-ai/frontend-common/management'
 
-import loginPageLeft from '@/assets/login-page-left.svg'
+import loginArt from '@/assets/login-background.svg'
 import { USER_STATE } from '@/states/IUserState'
 
 /**
@@ -282,7 +282,7 @@ const pageRoutes: RouteRecordRaw[] = [
     path: '/oauth/consent',
     meta: { authenticationRequired: true },
     component: OAuthConsentPage,
-    props: { session: USER_STATE, art: loginPageLeft }
+    props: { session: USER_STATE, art: loginArt }
   },
   {
     name: 'github-install-callback',

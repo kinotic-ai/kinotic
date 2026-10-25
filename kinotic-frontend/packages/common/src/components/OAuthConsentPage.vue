@@ -63,14 +63,12 @@ import { apiUrl } from '../util/helpers'
  * user approves or denies, and either decision returns the client's redirect URL this page
  * navigates to.
  */
-const props = withDefaults(defineProps<{
+const props = defineProps<{
   /** The app's session, whose signed-in participant the approval binds to. */
   session: ISessionState
-  /** Overrides the auth pages' background art when set. */
-  art?: string | null
-}>(), {
-  art: null
-})
+  /** The app's auth-page background art. */
+  art: string
+}>()
 
 /** What the server shows about the request awaiting consent. */
 interface PendingOAuthAuthorization {

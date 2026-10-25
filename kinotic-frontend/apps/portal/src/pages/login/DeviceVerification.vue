@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell :art="loginBackgroundArt" :show-theme-toggle="false">
+  <AuthPageShell :art="loginArt" :show-theme-toggle="false">
     <div class="login-form">
       <div v-if="!userCode" class="text-center py-8">
         <span class="login-status-icon pi pi-exclamation-triangle"></span>
@@ -40,7 +40,7 @@ import { useRoute } from 'vue-router'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
 
-import loginPageLeft from '@/assets/login-page-left.svg'
+import loginArt from '@/assets/login-background.svg'
 import { apiUrl, AuthPageShell, readAuthError } from '@kinotic-ai/frontend-common'
 
 /**
@@ -51,7 +51,6 @@ import { apiUrl, AuthPageShell, readAuthError } from '@kinotic-ai/frontend-commo
 const loading = ref(false)
 const approved = ref(false)
 
-const loginBackgroundArt = loginPageLeft
 const toast = useToast()
 const route = useRoute()
 
