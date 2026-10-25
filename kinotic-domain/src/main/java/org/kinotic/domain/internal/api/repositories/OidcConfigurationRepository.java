@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
@@ -15,7 +14,6 @@ import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -69,30 +67,28 @@ public class OidcConfigurationRepository extends AbstractRepository<OidcConfigur
     }
 
     /**
-     * The enabled social registrations of the given provider kinds, in the order of {@code providers}. A kind
-     * the system holds no enabled registration for is left out.
+     * Every enabled social registration the system holds for applications, oldest first.
      */
-    public Future<List<ApplicationSocialOidcConfiguration>> findEnabledSocialByProviders(Collection<OidcProviderType> providers) {
-        Future<List<ApplicationSocialOidcConfiguration>> ret;
-        if (providers.isEmpty()) {
-            ret = Future.succeededFuture(List.of());
-        } else {
-            List<FieldValue> keys = providers.stream().map(kind -> FieldValue.of(kind.key())).toList();
-            ret = findAll(Pageable.ofSize(100), b -> b.query(composeFilter(
-                    termFilter(TYPE_FIELD, OidcConfigurationType.APP_SOCIAL.name()),
-                    termFilter(ENABLED_FIELD, true),
-                    Query.of(q -> q.terms(t -> t.field(PROVIDER_FIELD).terms(v -> v.value(keys)))))))
-                    .map(Page::getContent)
-                    .map(found -> providers.stream()
-                                           .map(kind -> found.stream()
-                                                             .map(ApplicationSocialOidcConfiguration.class::cast)
-                                                             .filter(config -> config.getProvider() == kind)
-                                                             .findFirst()
-                                                             .orElse(null))
-                                           .filter(Objects::nonNull)
-                                           .toList());
-        }
-        return ret;
+    public Future<List<ApplicationSocialOidcConfiguration>> findEnabledSocial() {
+        return findAll(Pageable.ofSize(100), b -> b.query(composeFilter(
+                termFilter(TYPE_FIELD, OidcConfigurationType.APP_SOCIAL.name()),
+                termFilter(ENABLED_FIELD, true)))
+                .sort(s -> s.field(f -> f.field("created"))))
+                .map(page -> page.map(ApplicationSocialOidcConfiguration.class::cast))
+                .map(Page::getContent);
+    }
+
+    /**
+     * The enabled social registration of the given provider kind, or {@code null} when the system holds none.
+     */
+    public Future<ApplicationSocialOidcConfiguration> findEnabledSocialByProvider(OidcProviderType provider) {
+        // sorted, so every step of one sign-in resolves the same registration should the seeded rows hold two
+        return findFirst(b -> b.query(composeFilter(
+                termFilter(TYPE_FIELD, OidcConfigurationType.APP_SOCIAL.name()),
+                termFilter(PROVIDER_FIELD, provider.key()),
+                termFilter(ENABLED_FIELD, true)))
+                .sort(s -> s.field(f -> f.field("id"))))
+                .map(ApplicationSocialOidcConfiguration.class::cast);
     }
 
     /**

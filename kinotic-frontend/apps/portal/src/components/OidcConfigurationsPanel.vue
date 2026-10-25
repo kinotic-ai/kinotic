@@ -33,7 +33,7 @@
       </template>
 
       <template #item.secret="{ item }">
-        <Tag :value="item.secret" :severity="item.configuration.confidentialClient ? 'info' : 'warn'" />
+        <Tag :value="item.secret" :severity="isManaged(item.configuration) || item.configuration.confidentialClient ? 'info' : 'warn'" />
       </template>
 
       <template #item.created="{ item }">
@@ -47,7 +47,7 @@
       </template>
       <div v-if="selectedRow" class="flex max-w-[720px] flex-col gap-6">
         <FactList :facts="facts(selectedRow.configuration)" />
-        <CopyableUrl label="Callback URL" :url="selectedCallbackUrl"
+        <CopyableUrl v-if="!isManaged(selectedRow.configuration)" label="Callback URL" :url="selectedCallbackUrl"
                      help="Register this as a redirect URI at the provider; sign-ins through this provider fail until it is." />
         <CopyableUrl v-if="startUrlOf(selectedRow.configuration)" label="Direct sign-in link" :url="startUrlOf(selectedRow.configuration)"
                      :help="START_URL_HELP" />
@@ -101,6 +101,7 @@ import { useToast } from 'primevue/usetoast'
 import { Building2, CalendarClock, Fingerprint, Globe, KeyRound, UsersRound } from '@lucide/vue'
 import { FunctionalIterablePage, Kinotic, Pageable, type IterablePage, type Page } from '@kinotic-ai/core'
 import {
+  ClientRegistrationType,
   OidcConfigurationType,
   type OidcProviderType,
   type OwnedOidcConfiguration,
@@ -178,7 +179,7 @@ const headers = computed<CrudHeader[]>(() => [
 
 const intro = computed(() => props.applicationId === null
     ? 'The identity providers your organization\'s members sign in to the portal with, such as your Okta or Microsoft Entra ID directory. Each one is offered on your organization\'s login page once its callback URL is registered at the provider.'
-    : 'The identity providers this application\'s users sign in with, offered on the application\'s login page, or on one tenant\'s for a provider of that tenant. Each one works once its callback URL is registered at the provider.')
+    : 'The identity providers this application\'s users sign in and sign up with, offered on the application\'s login page, or on one tenant\'s for a provider of that tenant. Google and Microsoft can be managed by Kinotic, which works with no setup; a provider with your own credentials works once its callback URL is registered at the provider.')
 const emptyStateText = computed(() => props.applicationId === null
     ? 'No providers yet. Add one so your members sign in with your organization\'s own accounts.'
     : 'No providers yet. Add one so this application\'s users sign in with an identity provider.')
@@ -231,7 +232,7 @@ function toRow(configuration: OwnedOidcConfiguration): ConfigurationRow {
     providerAccount: configuration.providerAccount,
     scope: scopeOf(configuration),
     status: configuration.enabled ? 'Enabled' : 'Disabled',
-    secret: configuration.confidentialClient ? 'Secret held' : 'Public',
+    secret: isManaged(configuration) ? 'Managed by Kinotic' : configuration.confidentialClient ? 'Secret held' : 'Public',
     created: configuration.created
   }
 }
@@ -259,17 +260,24 @@ async function findCallbackUrl(id: string): Promise<string | null> {
   return ret
 }
 
+function isManaged(configuration: OwnedOidcConfiguration): boolean {
+  return configuration.clientRegistrationType === ClientRegistrationType.MANAGED
+}
+
 function facts(configuration: OwnedOidcConfiguration) {
-  return [
-    { label: 'Provider', icon: KeyRound, value: providerDisplayName(configuration.provider) },
-    ...(props.applicationId === null ? [] : [{ label: 'Offered at', icon: Building2, value: scopeOf(configuration) }]),
+  const own = isManaged(configuration) ? [] : [
     { label: 'Account', icon: Globe, value: configuration.providerAccount, mono: true },
     { label: 'Client ID', icon: Fingerprint, value: configuration.clientId, mono: true },
     { label: 'Issuer', icon: Globe, value: configuration.authority, mono: true },
-    { label: 'Client', icon: KeyRound, value: configuration.confidentialClient ? 'Confidential, a secret is held' : 'Public, no secret is held' },
+    { label: 'Client', icon: KeyRound, value: configuration.confidentialClient ? 'Confidential, a secret is held' : 'Public, no secret is held' }
+  ]
+  return [
+    { label: 'Provider', icon: KeyRound, value: providerDisplayName(configuration.provider) },
+    ...(props.applicationId === null ? [] : [{ label: 'Offered at', icon: Building2, value: scopeOf(configuration) }]),
+    ...(isManaged(configuration) ? [{ label: 'Credentials', icon: KeyRound, value: 'Managed by Kinotic' }] : own),
     ...(props.applicationId === null ? [] : [{
       label: 'New users', icon: UsersRound,
-      value: configuration.createUserOnSignIn ? 'Created on first sign-in' : 'Invited or created first'
+      value: configuration.createUserOnSignIn ? 'Sign up on first sign-in' : 'Invited or created first'
     }]),
     { label: 'Created', icon: CalendarClock, value: configuration.created ? formatDate(configuration.created) : null }
   ]
@@ -322,7 +330,7 @@ function rowActions(row: ConfigurationRow): MenuItem[] {
   const configuration = row.configuration
   return [
     { label: 'Edit', icon: 'pi pi-pencil', command: () => openForm(configuration) },
-    { label: 'Copy to application', icon: 'pi pi-copy', command: () => openCopyForm(configuration) },
+    ...(isManaged(configuration) ? [] : [{ label: 'Copy to application', icon: 'pi pi-copy', command: () => openCopyForm(configuration) }]),
     {
       label: configuration.enabled ? 'Disable' : 'Enable',
       icon: configuration.enabled ? 'pi pi-ban' : 'pi pi-check-circle',

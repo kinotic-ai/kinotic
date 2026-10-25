@@ -8,7 +8,7 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
   <div class="sign-in-diagram-wrap">
 
     <!-- ═══════════════════════════ OWNERS: two owners, two keys into one vault ═══════════════════════════ -->
-    <svg v-if="figure === 'owners'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 440" role="img" aria-label="A system user seeds a managed registration, which names its secret in the vault and is read by that name at sign-in. An organization administrator saves its own configuration together with the client secret; the row has no secret field, and the service stores the secret in the organization's scope keyed by the configuration id, reading it back at sign-in. A crossed-out arrow shows that an organization's row cannot reach the system's named secrets. Clients only ever receive a summary: id, name, provider, type.">
+    <svg v-if="figure === 'owners'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 440" role="img" aria-label="A system user seeds a managed registration, which names its secret in the vault and is read by that name at sign-in. An organization administrator saves its own configuration together with the client secret; the row has no secret field, and the service stores the secret in the organization's scope keyed by the configuration id, reading it back at sign-in. A crossed-out arrow shows that an organization's row cannot reach the system's named secrets. Clients only ever receive a summary: configuration id, name and provider, with its type, or at an application's login whether it signs people up.">
       <defs>
         <marker id="si1-ind" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-ind" points="0,0 10,5 0,10"></polygon></marker>
         <marker id="si1-grn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-grn" points="0,0 10,5 0,10"></polygon></marker>
@@ -70,11 +70,11 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
 
       <!-- the wire -->
       <rect class="chip" x="40" y="396" width="1060" height="30" rx="8"></rect>
-      <text class="t-mono-ink" x="570" y="416" text-anchor="middle">what any client sees of either kind:  LoginProviderSummary { configurationId, name, provider, type }</text>
+      <text class="t-mono-ink" x="570" y="416" text-anchor="middle">what any client sees of either kind:  { configurationId, name, provider }, with type (LoginProviderSummary) or signUp (ApplicationLoginProvider)</text>
     </svg>
 
     <!-- ═══════════════════════════ MODEL: the configuration classes ═══════════════════════════ -->
-    <svg v-else-if="figure === 'model'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 600" role="img" aria-label="UML class diagram. OidcConfiguration, sealed and abstract, holds id, name, provider, clientId, authority, audience, enabled and timestamps, and refers to the enums OidcProviderType and OidcConfigurationType. Two sealed abstract subclasses: ManagedOidcConfiguration with secretNameRef and the explicit endpoint fields, and OwnedOidcConfiguration with organizationId, providerAccount, confidentialClient and createUserOnSignIn. Managed has two final leaves, OrgSignupOidcConfiguration and ApplicationSocialOidcConfiguration. Owned has three final leaves: OrganizationOidcConfiguration, ApplicationOidcConfiguration with applicationId, and TenantOidcConfiguration with applicationId and tenantId. Application and Tenant appear as the entities those ids point at.">
+    <svg v-else-if="figure === 'model'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 600" role="img" aria-label="UML class diagram. OidcConfiguration, sealed and abstract, holds id, name, provider, clientId, authority, audience, enabled and timestamps, and refers to the enums OidcProviderType and OidcConfigurationType. Two sealed abstract subclasses: ManagedOidcConfiguration with secretNameRef and the explicit endpoint fields, and OwnedOidcConfiguration with organizationId, providerAccount, confidentialClient and createUserOnSignIn. Managed has two final leaves, OrgSignupOidcConfiguration and ApplicationSocialOidcConfiguration. Owned has three final leaves: OrganizationOidcConfiguration, ApplicationOidcConfiguration with applicationId and clientRegistrationType, MANAGED or OWN, and TenantOidcConfiguration with applicationId and tenantId. Application and Tenant appear as the entities those ids point at.">
       <defs>
         <marker id="si2-gen" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto"><polygon class="mk-gen" points="1,1 11,6 1,11"></polygon></marker>
         <marker id="si2-mut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon class="mk-mut" points="0,0 10,5 0,10"></polygon></marker>
@@ -150,7 +150,7 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
       <text class="t-name" x="590" y="320" text-anchor="middle">Application</text>
       <line class="sep" x1="440" y1="328" x2="740" y2="328"></line>
       <text class="t-attr" x="452" y="346">tenantManagement: TenantManagement</text>
-      <text class="t-attr" x="452" y="362">socialProviders: List&lt;OidcProviderType&gt;</text>
+      <text class="t-attr" x="452" y="362">passwordSignUp: boolean</text>
 
       <rect class="cls" x="440" y="396" width="300" height="76" rx="4"></rect>
       <text class="t-name" x="590" y="416" text-anchor="middle">Tenant</text>
@@ -178,11 +178,12 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
       <line class="sep" x1="620" y1="528" x2="790" y2="528"></line>
       <text class="t-attr-mut" x="705" y="546" text-anchor="middle">type ORGANIZATION</text>
 
-      <rect class="cls" x="810" y="500" width="170" height="76" rx="4"></rect>
+      <rect class="cls" x="810" y="500" width="170" height="92" rx="4"></rect>
       <text class="t-name" x="895" y="520" text-anchor="middle">ApplicationOidc…</text>
       <line class="sep" x1="810" y1="528" x2="980" y2="528"></line>
       <text class="t-attr" x="822" y="546">applicationId: String</text>
-      <text class="t-attr-mut" x="822" y="562">type APPLICATION</text>
+      <text class="t-attr" x="822" y="562">clientRegistrationType</text>
+      <text class="t-attr-mut" x="822" y="578">type APPLICATION</text>
 
       <rect class="cls" x="1000" y="500" width="170" height="92" rx="4"></rect>
       <text class="t-name" x="1085" y="520" text-anchor="middle">TenantOidc…</text>
@@ -197,7 +198,7 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
     </svg>
 
     <!-- ═══════════════════════════ OFFERING: which login offers a configuration ═══════════════════════════ -->
-    <svg v-else-if="figure === 'offering'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 490" role="img" aria-label="Five configurations on the left: GitHub, the system's org sign-up registration; Acme Okta, the organization's own ORGANIZATION kind; a copy of Acme Okta of APPLICATION kind for the orders application; Google, a system social registration; Globex Entra, a TENANT kind for the globex tenant of orders. Three logins on the right: acme's own login on the management server, the acme--orders application login on the app server, and the globex tenant's login reached from the tenant's sites. GitHub reaches acme's login by right. Acme Okta reaches acme's login; an arrow from it to the application login is crossed out, since an ORGANIZATION kind is offered at the organization's login only. The copy reaches the application login. Google reaches the application login because orders names google in socialProviders. Globex Entra reaches the tenant login, which then also offers what the application login offers.">
+    <svg v-else-if="figure === 'offering'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 490" role="img" aria-label="Five configurations on the left: GitHub, the system's org sign-up registration; Acme Okta, the organization's own ORGANIZATION kind; a copy of Acme Okta of APPLICATION kind for the orders application; Google, a system social registration; Globex Entra, a TENANT kind for the globex tenant of orders. Three logins on the right: acme's own login on the management server, the acme--orders application login on the app server, and the globex tenant's login reached from the tenant's sites. GitHub reaches acme's login by right. Acme Okta reaches acme's login; an arrow from it to the application login is crossed out, since an ORGANIZATION kind is offered at the organization's login only. The copy reaches the application login. Google reaches the application login through orders' own Google configuration, which signs in through the system's registration because it is MANAGED. Globex Entra reaches the tenant login, which then also offers what the application login offers.">
       <defs>
         <marker id="si3-ind" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-ind" points="0,0 10,5 0,10"></polygon></marker>
         <marker id="si3-grn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-grn" points="0,0 10,5 0,10"></polygon></marker>
@@ -241,7 +242,7 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
       <text class="t-sub" x="950" y="220" text-anchor="middle">app server · acme--orders.apps-api.kinotic.io</text>
       <line class="sep" x1="816" y1="230" x2="1084" y2="230"></line>
       <text class="t-lbl" x="950" y="250" text-anchor="middle">Acme Okta (copy) · Google · password</text>
-      <text class="t-tiny" x="950" y="270" text-anchor="middle">Microsoft: not in socialProviders, so not offered</text>
+      <text class="t-tiny" x="950" y="270" text-anchor="middle">Microsoft: no configuration, so not offered</text>
 
       <rect class="gw gw-app" x="800" y="330" width="300" height="110" rx="8"></rect>
       <text class="t-name" x="950" y="354" text-anchor="middle">globex tenant login</text>
@@ -270,7 +271,7 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
 
       <!-- Google → app login -->
       <polyline class="flow-ind" points="300,320 560,320 560,275 800,275" marker-end="url(#si3-ind)"></polyline>
-      <text class="t-lbl-ind" x="680" y="267" text-anchor="middle">orders.socialProviders names google</text>
+      <text class="t-lbl-ind" x="680" y="267" text-anchor="middle">orders' Google configuration, MANAGED</text>
 
       <!-- Globex Entra → tenant login -->
       <line class="flow-amb" x1="300" y1="400" x2="800" y2="400" marker-end="url(#si3-amb)"></line>

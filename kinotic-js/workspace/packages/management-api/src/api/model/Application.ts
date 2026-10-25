@@ -1,6 +1,5 @@
 import type { Identifiable } from '@kinotic-ai/core'
 import { TenantManagement } from '@/api/model/TenantManagement'
-import { OidcProviderType } from '@/api/model/security/OidcProviderType'
 
 export class Application implements Identifiable<string> {
 
@@ -41,11 +40,12 @@ export class Application implements Identifiable<string> {
     public primaryUiUrl: string | null = null
 
     /**
-     * The system's social registrations this application's login offers, by provider kind, in the
-     * order to present them: 'google', 'azure-ad'. The application's users sign in with Kinotic's
-     * registration at the provider, so the application registers nothing of its own. Empty offers none.
+     * Whether a person may sign up as a new user of the application with an email and a password, the email verified
+     * by a link sent to it, from one of the application's UIs. Taken only while the system manages the application's
+     * tenants, which gives each new user a tenant of its own. The application's providers sign people up as each
+     * one's `createUserOnSignIn` says.
      */
-    public socialProviders: OidcProviderType[] = []
+    public passwordSignUp: boolean = false
 
     public updated: string | null = null
 

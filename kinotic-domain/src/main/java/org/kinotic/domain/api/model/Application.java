@@ -4,12 +4,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 
 @Getter
 @Setter
@@ -50,12 +47,13 @@ public class Application implements OrganizationScoped<String> {
     private String primaryUiUrl;
 
     /**
-     * The system's social registrations this application's login offers, by provider kind, in the order
-     * to present them: Google, Microsoft. The application's users sign in with Kinotic's registration at
-     * the provider, so the application registers nothing of its own; the organization's own providers
-     * for the application are its {@code ApplicationOidcConfiguration}s. Empty offers none.
+     * Whether a person may sign up as a new user of the application with an email and a password, the email
+     * verified by a link sent to it, from one of the application's UIs. Taken only while the system manages the
+     * application's tenants, which gives each new user a tenant of its own; a user of an application whose tenants
+     * their administrators manage joins a tenant through an invitation or the tenant's own login. The
+     * application's providers sign people up as each one's {@code createUserOnSignIn} says.
      */
-    private List<OidcProviderType> socialProviders = new ArrayList<>();
+    private boolean passwordSignUp;
 
     private Date updated = null;
 

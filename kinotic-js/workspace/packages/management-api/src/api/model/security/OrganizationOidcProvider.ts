@@ -7,4 +7,10 @@ export interface OrganizationOidcProvider {
     providerAccountLabel: string | null
     /** The form the account takes, matched against the whole value, or null for a kind that takes no account. */
     providerAccountPattern: RegExp | null
+    /**
+     * The accounts that admit the users of every directory at the provider rather than one, which an application's or a
+     * tenant's configuration may name in place of an account in the pattern's form; an organization's own login names
+     * one directory of its own.
+     */
+    everyDirectoryAccounts: string[]
 }
