@@ -17,16 +17,16 @@
          light/dark surface matching GitHub's monochrome logo usage. -->
     <button v-else-if="provider === 'github'"
             type="submit"
-            :class="['social-auth-button', 'social-auth-button--mark', 'social-auth-button--gh', isDarkMode ? 'social-auth-button--gh-dark' : 'social-auth-button--gh-light']"
+            :class="['social-auth-button', 'social-auth-button--mark', isDarkMode ? 'social-auth-button--mark-dark' : 'social-auth-button--mark-light']"
             :aria-label="githubLabel">
       <span class="pi pi-github social-auth-button__mark-logo" aria-hidden="true"></span>
       <span class="social-auth-button__mark-label">{{ githubLabel }}</span>
     </button>
     <!-- Okta: composed button — the Okta ring, masked so it takes the button's text color,
-         on a white or Okta-navy surface. -->
+         on the same neutral surface as the GitHub button. -->
     <button v-else-if="provider === 'okta'"
             type="submit"
-            :class="['social-auth-button', 'social-auth-button--mark', 'social-auth-button--okta', isDarkMode ? 'social-auth-button--okta-dark' : 'social-auth-button--okta-light']"
+            :class="['social-auth-button', 'social-auth-button--mark', isDarkMode ? 'social-auth-button--mark-dark' : 'social-auth-button--mark-light']"
             :aria-label="genericLabel">
       <span class="social-auth-button__mark-logo social-auth-button__okta-logo" aria-hidden="true"></span>
       <span class="social-auth-button__mark-label">{{ genericLabel }}</span>
@@ -185,9 +185,9 @@ const ariaLabel = genericLabel
   margin-left: 12px;
 }
 
-/* Mark buttons — a provider's monochrome mark beside the label on a surface in the
- * provider's own light and dark colors. Sized to line up with the Google (40px) and
- * Microsoft (41px) buttons. */
+/* Mark buttons — a provider's monochrome mark beside the label on a neutral surface:
+ * near-black on white in light mode, white on GitHub's dark #24292F in dark mode, per
+ * GitHub's logo guidance. Sized to line up with the Google (40px) and Microsoft (41px) buttons. */
 .social-auth-button--mark {
   display: inline-flex;
   align-items: center;
@@ -214,34 +214,19 @@ const ariaLabel = genericLabel
   margin-left: 12px;
 }
 
-/* GitHub — near-black on white in light mode, white on GitHub's dark #24292F in dark
- * mode, per GitHub's logo guidance. */
-.social-auth-button--gh-light {
+.social-auth-button--mark-light {
   background: #FFFFFF;
   border: 1px solid #D0D7DE;
   color: #24292F;
 }
 
-.social-auth-button--gh-dark {
+.social-auth-button--mark-dark {
   background: #24292F;
   border: 1px solid #24292F;
   color: #FFFFFF;
 }
 
-/* Okta — the ring in Okta's navy on white in light mode, white on the navy in dark mode.
- * The ring is a CSS mask filled with currentColor so one asset serves both. */
-.social-auth-button--okta-light {
-  background: #FFFFFF;
-  border: 1px solid #D0D7DE;
-  color: #00297A;
-}
-
-.social-auth-button--okta-dark {
-  background: #00297A;
-  border: 1px solid #00297A;
-  color: #FFFFFF;
-}
-
+/* The Okta ring is a CSS mask filled with currentColor, so one asset serves both modes. */
 .social-auth-button__okta-logo {
   width: 20px;
   height: 20px;
