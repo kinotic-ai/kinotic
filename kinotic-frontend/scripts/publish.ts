@@ -60,7 +60,7 @@ const failedToPublish: Pkg[] = []
 
 for (const pkg of toPublish) {
     console.log(`\nBuilding ${pkg.name}...`)
-    const buildResult = spawnSync('pnpm', ['run', 'build'], { cwd: pkg.dir, stdio: 'inherit' })
+    const buildResult = spawnSync('pnpm', ['run', 'build:lib'], { cwd: pkg.dir, stdio: 'inherit' })
     if (buildResult.status !== 0) {
         console.error(`Build failed for ${pkg.name}`)
         process.exit(1)
@@ -71,9 +71,9 @@ for (const pkg of toPublish) {
     console.log(`\nPublishing ${pkg.name}@${pkg.version}...`)
 
     // a -beta prerelease publishes under the beta dist-tag, so `latest` always points at a stable
-    // version. pnpm's git checks accept only a master or main branch, and this repository releases
-    // from develop.
-    const publishArgs = ['publish', '--no-git-checks', ...(pkg.version.includes('-beta.') ? ['--tag', 'beta'] : [])]
+    // version. pnpm's git checks require the publish branch, which defaults to master or main; this
+    // repository releases from develop.
+    const publishArgs = ['publish', '--publish-branch', 'develop', ...(pkg.version.includes('-beta.') ? ['--tag', 'beta'] : [])]
 
     const result = spawnSync('pnpm', publishArgs, { cwd: pkg.dir, stdio: 'inherit' })
 

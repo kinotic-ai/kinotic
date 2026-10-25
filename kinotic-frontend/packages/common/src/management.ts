@@ -23,6 +23,3 @@ export * from './components/LogSource'
 export { default as LogView } from './components/LogView.vue'
 export { default as WorkloadLogView } from './components/WorkloadLogView.vue'
 export { default as WorkloadLogsDialog } from './components/WorkloadLogsDialog.vue'
-
-// Registers the ECharts modules the consoles' charts render with: TelemetryPanel's and the apps' own
-import './charts/echarts'

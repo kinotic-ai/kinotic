@@ -26,21 +26,22 @@ builds fail on a dynamic import of it or its subpaths and on any import cycle be
   generic components and utilities. Nothing reachable from it imports `@kinotic-ai/management-api` or
   reads a management service off `Kinotic` (`Kinotic.jobMonitoring`, `Kinotic.logs`, ...).
 - `@kinotic-ai/frontend-common/management` (`src/management.ts`) — everything that does: job runs,
-  telemetry, workload logs, machines, connected apps, the OAuth consent page. It also registers the
-  ECharts modules every chart renders with.
+  telemetry, workload logs, machines, connected apps, the OAuth consent page.
 
 Export new code from the entry that matches its imports, so an app that wants only the generic entry
 never bundles management code or needs `@kinotic-ai/management-api` installed (it is an optional peer).
 A module-level value built from a management-api import (`TASK_VIEWS`, keyed by `TaskViews`) cannot be
 tree-shaken, so a generic module that pulls one in costs every consumer the components it references.
+For the same reason a chart registers its ECharts modules when it renders (`registerChartModules()` in
+`MetricChart`), never as a side effect of importing an entry.
 
 ## Publishing frontend-common
 
 The workspace's `package.json` points `main` and `exports` at `src`; `publishConfig` replaces them with
 `dist` in the published `package.json`, and `pnpm publish` turns the `catalog:` versions into ranges.
-`pnpm --filter @kinotic-ai/frontend-common build` (also part of the root `build`) runs the library
-build in `packages/common/vite.config.ts` and emits the `.d.ts` files with
-`vue-tsc -p tsconfig.build.json`. The build:
+`pnpm --filter @kinotic-ai/frontend-common build:lib` runs the library build in
+`packages/common/vite.config.ts` and emits the `.d.ts` files with `vue-tsc -p tsconfig.build.json`; the
+root `build` leaves it out, since the apps read `src`. The build:
 
 - externalizes every dependency and peer dependency, so the consumer's single copy of each is used
 - writes every component style and `src/styles` into `dist/style.css`, which consumers import
@@ -70,9 +71,8 @@ confirmation (`useConfirm`), a value shown once (`MachineSecretDialog`), or a lo
 
 - Use `pnpm install` at the workspace root to install dependencies
 - Use `pnpm add <package>` in the app/package that needs the dependency
-- Use `pnpm <script>` to run scripts (root `build` builds every app and frontend-common's library
-  build; `dev` runs the portal, `dev:system` runs the system console; `pnpm run publish` releases
-  frontend-common)
+- Use `pnpm <script>` to run scripts (root `build` builds every app; `dev` runs the portal,
+  `dev:system` runs the system console; `pnpm run publish` releases frontend-common)
 - **DO NOT** use bun, yarn, or npm
 
 Note: the `kinotic-js/workspace` packages use bun — that does not apply here.

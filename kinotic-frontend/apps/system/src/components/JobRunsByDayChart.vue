@@ -16,6 +16,7 @@ import { computed } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import { ChartColumn } from '@lucide/vue'
 import VChart from 'vue-echarts'
+import '@/util/echarts'
 
 import { ExecutionStatus, type JobRun } from '@kinotic-ai/management-api'
 import { DashboardSection, DatetimeUtil, accentColor, chartGridColor, chartLegend, chartTextColor, chartTooltip, isDark } from '@kinotic-ai/frontend-common'

@@ -8,6 +8,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import VChart from 'vue-echarts'
+import '@/util/echarts'
 
 import { accentColor, chartItemTooltip, isDark } from '@kinotic-ai/frontend-common'
 

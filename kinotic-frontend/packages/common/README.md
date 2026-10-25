@@ -6,7 +6,8 @@ session state, and components such as `FormDrawer`, `SteppingDrawer`, `CrudTable
 `PageHeader` and `AuthPageShell`. Use it to build a Vue app that looks and behaves like the Kinotic
 consoles.
 
-The package ships ES modules for a bundler such as Vite.
+The package ships ES modules for apps built with [Vite](https://vite.dev): Vite supplies the
+`import.meta.env` variables it reads and resolves the images it imports.
 
 ## Installation
 
@@ -24,6 +25,7 @@ Your app provides these, so the package and your app share one copy of each:
 | `primevue`, `@primeuix/themes` | the theme and every component |
 | `@kinotic-ai/core` | the session state and the connection to the Kinotic server |
 | `@kinotic-ai/management-api` | only the `@kinotic-ai/frontend-common/management` entry (optional) |
+| `echarts`, `vue-echarts` | only the `@kinotic-ai/frontend-common/management` entry (optional) |
 
 The components also use [PrimeIcons](https://primevue.org/icons) classes, so import
 `primeicons/primeicons.css` once in your app.

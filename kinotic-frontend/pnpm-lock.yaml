@@ -21,6 +21,24 @@ catalogs:
     '@kinotic-ai/system-api':
       specifier: ^5.0.0-beta.32
       version: 5.0.0-beta.32
+    '@vitejs/plugin-vue':
+      specifier: ^6.0.8
+      version: 6.0.8
+    echarts:
+      specifier: ^6.1.0
+      version: 6.1.0
+    typescript:
+      specifier: ~5.8.3
+      version: 5.8.3
+    vite:
+      specifier: ^8.2.1
+      version: 8.2.1
+    vue-echarts:
+      specifier: ^8.1.0
+      version: 8.1.0
+    vue-tsc:
+      specifier: ^2.2.12
+      version: 2.2.12
 
 importers:
 
@@ -126,7 +144,7 @@ importers:
         specifier: ^25.9.5
         version: 25.9.5
       '@vitejs/plugin-vue':
-        specifier: ^6.0.8
+        specifier: 'catalog:'
         version: 6.0.8(vite@8.2.1(@types/node@25.9.5)(jiti@2.7.0)(yaml@2.9.0))(vue@3.5.41(typescript@5.8.3))
       '@vue/tsconfig':
         specifier: ^0.9.1
@@ -144,19 +162,19 @@ importers:
         specifier: ^4.3.3
         version: 4.3.3
       typescript:
-        specifier: ~5.8.3
+        specifier: 'catalog:'
         version: 5.8.3
       unplugin-vue-components:
         specifier: ^28.8.0
         version: 28.8.0(@babel/parser@7.29.8)(vue@3.5.41(typescript@5.8.3))
       vite:
-        specifier: ^8.2.1
+        specifier: 'catalog:'
         version: 8.2.1(@types/node@25.9.5)(jiti@2.7.0)(yaml@2.9.0)
       vite-svg-loader:
         specifier: ^5.1.1
         version: 5.1.1(vue@3.5.41(typescript@5.8.3))
       vue-tsc:
-        specifier: ^2.2.12
+        specifier: 'catalog:'
         version: 2.2.12(typescript@5.8.3)
 
   apps/system:
@@ -183,7 +201,7 @@ importers:
         specifier: ^2.0.3
         version: 2.0.3
       echarts:
-        specifier: ^6.1.0
+        specifier: 'catalog:'
         version: 6.1.0
       primeicons:
         specifier: ^7.0.0
@@ -198,7 +216,7 @@ importers:
         specifier: ^3.5.41
         version: 3.5.41(typescript@5.8.3)
       vue-echarts:
-        specifier: ^8.1.0
+        specifier: 'catalog:'
         version: 8.1.0(echarts@6.1.0)(vue@3.5.41(typescript@5.8.3))
       vue-router:
         specifier: ^5.2.0
@@ -211,7 +229,7 @@ importers:
         specifier: ^25.9.5
         version: 25.9.5
       '@vitejs/plugin-vue':
-        specifier: ^6.0.8
+        specifier: 'catalog:'
         version: 6.0.8(vite@8.2.1(@types/node@25.9.5)(jiti@2.7.0)(yaml@2.9.0))(vue@3.5.41(typescript@5.8.3))
       '@vue/tsconfig':
         specifier: ^0.9.1
@@ -226,13 +244,13 @@ importers:
         specifier: ^4.3.3
         version: 4.3.3
       typescript:
-        specifier: ~5.8.3
+        specifier: 'catalog:'
         version: 5.8.3
       vite:
-        specifier: ^8.2.1
+        specifier: 'catalog:'
         version: 8.2.1(@types/node@25.9.5)(jiti@2.7.0)(yaml@2.9.0)
       vue-tsc:
-        specifier: ^2.2.12
+        specifier: 'catalog:'
         version: 2.2.12(typescript@5.8.3)
 
   packages/common:
@@ -243,24 +261,21 @@ importers:
       '@primeuix/themes':
         specifier: ^2.0.3
         version: 2.0.3
+      '@types/debug':
+        specifier: ^4.1.13
+        version: 4.1.13
       '@vueuse/core':
         specifier: ^14.4.0
         version: 14.4.0(vue@3.5.41(typescript@5.8.3))
       debug:
         specifier: ^4.4.3
         version: 4.4.3
-      echarts:
-        specifier: ^6.1.0
-        version: 6.1.0
       primevue:
         specifier: ^4.5.5
         version: 4.5.5(vue@3.5.41(typescript@5.8.3))
       vue:
         specifier: ^3.5.41
         version: 3.5.41(typescript@5.8.3)
-      vue-echarts:
-        specifier: ^8.1.0
-        version: 8.1.0(echarts@6.1.0)(vue@3.5.41(typescript@5.8.3))
       vue-router:
         specifier: ^5.2.0
         version: 5.2.0(@vue/compiler-sfc@3.5.41)(rolldown@1.2.3)(vite@8.2.1(@types/node@25.9.5)(jiti@2.7.0)(yaml@2.9.0))(vue@3.5.41(typescript@5.8.3))
@@ -271,23 +286,26 @@ importers:
       '@kinotic-ai/management-api':
         specifier: 'catalog:'
         version: 5.0.0-beta.66(@kinotic-ai/core@5.0.0-beta.28)
-      '@types/debug':
-        specifier: ^4.1.13
-        version: 4.1.13
       '@vitejs/plugin-vue':
-        specifier: ^6.0.8
+        specifier: 'catalog:'
         version: 6.0.8(vite@8.2.1(@types/node@25.9.5)(jiti@2.7.0)(yaml@2.9.0))(vue@3.5.41(typescript@5.8.3))
       '@vue/tsconfig':
         specifier: ^0.9.1
         version: 0.9.1(typescript@5.8.3)(vue@3.5.41(typescript@5.8.3))
+      echarts:
+        specifier: 'catalog:'
+        version: 6.1.0
       typescript:
-        specifier: ~5.8.3
+        specifier: 'catalog:'
         version: 5.8.3
       vite:
-        specifier: ^8.2.1
+        specifier: 'catalog:'
         version: 8.2.1(@types/node@25.9.5)(jiti@2.7.0)(yaml@2.9.0)
+      vue-echarts:
+        specifier: 'catalog:'
+        version: 8.1.0(echarts@6.1.0)(vue@3.5.41(typescript@5.8.3))
       vue-tsc:
-        specifier: ^2.2.12
+        specifier: 'catalog:'
         version: 2.2.12(typescript@5.8.3)
 
 packages:
