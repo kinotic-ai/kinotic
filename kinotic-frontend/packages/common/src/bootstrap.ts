@@ -2,19 +2,24 @@ import PrimeVue from 'primevue/config'
 import ConfirmationService from 'primevue/confirmationservice'
 import ToastService from 'primevue/toastservice'
 import Tooltip from 'primevue/tooltip'
-import { type App, type Component, createApp } from 'vue'
+import { type App, type Component, createApp, type InjectionKey } from 'vue'
 import type { Router } from 'vue-router'
 import { KinoticPreset } from './KinoticPreset'
 import { installAuthGuard } from './session/authGuard'
 import { serverUnreachable } from './session/connectionState'
 import { installConnectionHandler } from './session/connectionHandling'
 import type { ISessionState } from './session/SessionState'
+import type { AuthPageBranding } from './types/AuthPageBranding'
 
 export interface KinoticAppOptions {
     root: Component
     router: Router
     sessionState: ISessionState
+    authPageBranding: AuthPageBranding
 }
+
+/** Injects the {@link AuthPageBranding} the app was created with. */
+export const AUTH_PAGE_BRANDING: InjectionKey<AuthPageBranding> = Symbol('authPageBranding')
 
 /**
  * How long the auth guard waits for the session probe before the app paints regardless. A probe that has
@@ -25,12 +30,13 @@ const SESSION_PROBE_PAINT_MS = 500
 
 /**
  * Creates a Vue app with the Kinotic chrome every client shares: the PrimeVue theme preset,
- * the toast service, the router, and the authentication guard and session-loss handling
- * backed by {@code sessionState}.
+ * the toast service, the router, the auth pages' {@code authPageBranding}, and the
+ * authentication guard and session-loss handling backed by {@code sessionState}.
  * Returns the app unmounted so the caller can add app-specific plugins before {@code mount}.
  */
-export function createKinoticApp({ root, router, sessionState }: KinoticAppOptions): App {
+export function createKinoticApp({ root, router, sessionState, authPageBranding }: KinoticAppOptions): App {
     const app = createApp(root)
+    app.provide(AUTH_PAGE_BRANDING, authPageBranding)
 
     app.use(PrimeVue, {
         theme: {
