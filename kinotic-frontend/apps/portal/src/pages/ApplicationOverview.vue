@@ -151,7 +151,9 @@ import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { type Project, DeploymentStatusType, RepositoryConnectionStatus, TenantManagement, type UiDeployment } from '@kinotic-ai/management-api'
-import { createDebug, DatetimeUtil, deploymentStatusSeverity, FactList, InitialsTile, observedPhase, observedPhaseSeverity, PageHeader, ProjectsIcon, StatCard, TINTS, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { createDebug, DatetimeUtil, FactList, InitialsTile, PageHeader, ProjectsIcon, StatCard, TINTS,
+         EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { deploymentStatusSeverity, observedPhase, observedPhaseSeverity } from '@kinotic-ai/frontend-common/management'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 

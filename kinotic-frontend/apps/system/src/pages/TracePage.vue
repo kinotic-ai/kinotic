@@ -14,7 +14,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { PageHeader, TraceDetail } from '@kinotic-ai/frontend-common'
+import { PageHeader } from '@kinotic-ai/frontend-common'
+import { TraceDetail } from '@kinotic-ai/frontend-common/management'
 
 import { scopePath } from '@/util/scope'
 

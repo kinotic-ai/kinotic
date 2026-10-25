@@ -1,7 +1,8 @@
 import type { Component } from 'vue'
 import { type RouteMeta, type RouteRecordRaw } from 'vue-router'
 import { ChartLine, CloudUpload, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, ListTree, Server, Settings, Table, User, Users, Zap } from '@lucide/vue'
-import { ConnectedAppsPage, OAuthConsentPage, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import { ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import { ConnectedAppsPage, OAuthConsentPage } from '@kinotic-ai/frontend-common/management'
 
 import loginPageLeft from '@/assets/login-page-left.svg'
 import { USER_STATE } from '@/states/IUserState'

@@ -71,7 +71,8 @@ import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { ExecutionStatus, RepositoryConnectionStatus, WorkloadStatus,
          type JobRun, type Project, type Workload } from '@kinotic-ai/management-api'
 import { DashboardSection, DatetimeUtil, FactList, InitialsTile, PageHeader, ProjectsIcon, StatCard, TimePill, TINTS,
-         errorMessage, executionStatusSeverity, scanJobRuns, shortSha, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+         errorMessage, shortSha, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { executionStatusSeverity, scanJobRuns } from '@kinotic-ai/frontend-common/management'
 
 import { commitShaOf, isDeployRun } from '@/util/runs'
 import { applicationPath, organizationPath, projectPath } from '@/util/scope'

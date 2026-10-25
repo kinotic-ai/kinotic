@@ -3,7 +3,8 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import {
     Box, BrainCircuit, Building2, ChartLine, CloudUpload, Cpu, Gauge, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, ScrollText, Server, Users
 } from '@lucide/vue'
-import { ConnectedAppsPage, OAuthConsentPage, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import { ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import { ConnectedAppsPage, OAuthConsentPage } from '@kinotic-ai/frontend-common/management'
 
 import { SYSTEM_USER_STATE } from './states/SystemUserState'
 
