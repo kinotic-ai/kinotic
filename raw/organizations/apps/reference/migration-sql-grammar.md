@@ -1,0 +1,1541 @@
+---
+title: "Migration SQL Grammar"
+description: "Complete SQL grammar reference for migration scripts."
+canonical_url: "https://kinotic.ai/organizations/apps/reference/migration-sql-grammar"
+---
+# Migration SQL Grammar
+
+> Complete SQL grammar reference for migration scripts.
+
+## Overview
+
+This grammar reference applies to migration scripts used for schema and data migrations in Kinotic, and to [named queries](https://kinotic.ai/organizations/apps/persistence/named-queries), which use the same SQL dialect for `SELECT`, `INSERT`, `UPDATE` and `DELETE`.
+
+All statements must end with a semicolon (`;`). Identifiers must start with a letter or underscore and can contain letters, numbers, and underscores; double quotes make a [reserved word](#keywords) a name (`"order"`). Keywords match in any case, but names are case-sensitive: see [Case](#case). Strings are enclosed in single quotes (`'...'`).
+
+An application's migrations, the ones `kinotic sync` runs from its `migrations` folder, use only the data statements: `INSERT`, `UPDATE`, `DELETE` and `REINDEX`. There `<index_name>` is the name of one of the application's entities, which the platform resolves to the entity's backing store, and an `INSERT` carries neither `ROUTING` nor `DOCUMENT_ID`, since both are derived from the row's id and tenant fields. A `REINDEX` `SCRIPT` there reaches `ctx` only as `ctx._source` or `ctx.op`. See [Migrations](https://kinotic.ai/organizations/apps/persistence/migrations). The remaining statements, and the storage names in the examples below, belong to the [system migrations](https://kinotic.ai/platform/system-migrations).
+
+## Statements Overview
+
+- `CREATE TABLE`
+- `CREATE DATA STREAM`
+- `CREATE COMPONENT TEMPLATE`
+- `CREATE INDEX TEMPLATE`
+- `REINDEX`
+- `INSERT`
+- `UPDATE`
+- `DELETE`
+- `SELECT`
+- Comments
+
+---
+
+## CREATE TABLE
+
+Creates an Elasticsearch index with the specified field mappings.
+
+**Syntax:**
+
+```sql
+CREATE TABLE [IF NOT EXISTS] <index_name> (<column_name> <type> [, <column_name> <type>]*) ;
+```
+
+- `IF NOT EXISTS` (optional): Only create the index if it does not already exist.
+- `<type>`: See [Supported Types](#supported-types).
+
+**Example:**
+
+```sql
+CREATE TABLE IF NOT EXISTS products (
+    name TEXT,
+    sku KEYWORD,
+    price DOUBLE,
+    inStock BOOLEAN,
+    createdAt DATE
+) ;
+```
+
+---
+
+## CREATE DATA STREAM
+
+Creates an Elasticsearch [data stream](https://www.elastic.co/guide/en/elasticsearch/reference/current/data-streams.html) — an append-only, time-series store whose backing indices roll over automatically. Unlike `CREATE TABLE`, which creates a single index, this creates a data-stream-backing index template (matching the stream name) and then materializes the stream.
+
+A managed `@timestamp` date field is always added to the mapping; every document written to a data stream must carry it. The declared columns use `dynamic: strict` mappings, the same as `CREATE TABLE`.
+
+**Syntax:**
+
+```sql
+CREATE DATA STREAM <stream_name> (<column_name> <type> [, <column_name> <type>]*)
+    [WITH (<option> [, <option>]*)] ;
+```
+
+**Options:**
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Option
+    </th>
+    
+    <th>
+      Allowed Values
+    </th>
+    
+    <th>
+      Description
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        DATA_RETENTION
+      </code>
+    </td>
+    
+    <td>
+      String (e.g., <code>
+        '30d'
+      </code>
+      
+      )
+    </td>
+    
+    <td>
+      A <a href="https://www.elastic.co/docs/manage-data/lifecycle/data-stream" rel="nofollow">
+        data stream lifecycle
+      </a>
+      
+       retention period. Elasticsearch rolls backing indices over automatically and deletes data older than this — the native data stream lifecycle (<code>
+        template.lifecycle.data_retention
+      </code>
+      
+      ), not ILM, so there is no policy object or bootstrap index to manage.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        TIME_REFERENCE
+      </code>
+    </td>
+    
+    <td>
+      String naming a declared <code>
+        DATE
+      </code>
+      
+       column
+    </td>
+    
+    <td>
+      Designates that column as the natural time field your application reads and writes; <code>
+        @timestamp
+      </code>
+      
+       becomes its required Elasticsearch companion (see below). The named column must exist and be of type <code>
+        DATE
+      </code>
+      
+      .
+    </td>
+  </tr>
+</tbody>
+</table>
+
+`<type>`: See [Supported Types](#supported-types).
+
+Every data stream document must carry a `@timestamp` date field, which Elasticsearch requires and which is added to the mapping automatically — you do not (and cannot) declare it as a column. There are two ways to supply it at write time:
+
+- **Without TIME_REFERENCE** — documents carry `@timestamp` directly (for a Java DTO, map a field with `@JsonProperty("@timestamp")`).
+- **With TIME_REFERENCE = '<col>'** — the named column is the natural time field your code works with, and `@timestamp` is duplicated from it on write. Use this for streams backing entities whose time field carries a `@TimeReference`, so the stored document keeps both the friendly column (queryable by its own name) and `@timestamp`.
+
+**Example:**
+
+```sql
+-- raw stream: writers provide @timestamp directly
+CREATE DATA STREAM events (
+    level   KEYWORD,
+    message TEXT
+) WITH (DATA_RETENTION = '30d') ;
+
+-- entity-style stream: eventTime is the natural field, @timestamp rides alongside it
+CREATE DATA STREAM sensor_readings (
+    id        KEYWORD,
+    eventTime DATE,
+    value     DOUBLE
+) WITH (DATA_RETENTION = '30d', TIME_REFERENCE = 'eventTime') ;
+```
+
+<callout type="info">
+
+**DATA_RETENTION is a retention floor measured from rollover, not a per-document TTL.** Retention is applied per backing index, timed from when that index is rolled over — not from when each document was written. A lifecycle pass (every 10 minutes by default) deletes a whole backing index once `now - rollover_time` exceeds the period. So a document written just before a rollover can outlive the period by the age of its backing index, and deletion happens at backing-index granularity rather than per row. Use this to keep "roughly the last N days"; if you need deletion timed from a business field, use a scheduled `DELETE`/delete-by-query instead.
+
+</callout>
+
+---
+
+## CREATE COMPONENT TEMPLATE
+
+Creates a reusable component template that can be referenced by index templates.
+
+**Syntax:**
+
+```sql
+CREATE COMPONENT TEMPLATE <template_name> (<definition> [, <definition>]*) ;
+```
+
+**Definitions:**
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Definition
+    </th>
+    
+    <th>
+      Allowed Values
+    </th>
+    
+    <th>
+      Description
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        NUMBER_OF_SHARDS
+      </code>
+    </td>
+    
+    <td>
+      Integer (e.g., 1, 3)
+    </td>
+    
+    <td>
+      Number of primary shards for the index
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        NUMBER_OF_REPLICAS
+      </code>
+    </td>
+    
+    <td>
+      Integer (e.g., 0, 1)
+    </td>
+    
+    <td>
+      Number of replica shards for the index
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        <column_name> <type>
+      </code>
+    </td>
+    
+    <td>
+      See Supported Types
+    </td>
+    
+    <td>
+      Field mapping (name and type)
+    </td>
+  </tr>
+</tbody>
+</table>
+
+**Example:**
+
+```sql
+CREATE COMPONENT TEMPLATE base_settings (
+    NUMBER_OF_SHARDS = 3,
+    NUMBER_OF_REPLICAS = 1,
+    createdAt DATE,
+    updatedAt DATE
+) ;
+```
+
+---
+
+## CREATE INDEX TEMPLATE
+
+Creates an index template that applies settings and mappings to indices matching a pattern.
+
+**Syntax:**
+
+```sql
+CREATE INDEX TEMPLATE <template_name> FOR '<pattern>' USING '<component_template>'
+    [WITH (<definition> [, <definition>]*)] ;
+```
+
+- `WITH (...)` (optional): Additional definitions as in component templates.
+
+**Example:**
+
+```sql
+CREATE INDEX TEMPLATE logs_template FOR 'logs-*' USING 'base_settings'
+    WITH (NUMBER_OF_REPLICAS = 2, level KEYWORD) ;
+```
+
+---
+
+## REINDEX
+
+Copies documents from one index to another with optional transformations.
+
+**Syntax:**
+
+```sql
+REINDEX <source_index> INTO <dest_index> [WITH (<option> [, <option>]*)] ;
+```
+
+**Options:**
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Option
+    </th>
+    
+    <th>
+      Allowed Values
+    </th>
+    
+    <th>
+      Description
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        CONFLICTS
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        ABORT
+      </code>
+      
+      , <code>
+        PROCEED
+      </code>
+    </td>
+    
+    <td>
+      How to handle version conflicts: abort or proceed
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        MAX_DOCS
+      </code>
+    </td>
+    
+    <td>
+      Integer (e.g., 1000)
+    </td>
+    
+    <td>
+      Maximum number of documents to reindex
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        SLICES
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        AUTO
+      </code>
+      
+      , Integer (e.g., 2)
+    </td>
+    
+    <td>
+      Number of slices for parallel processing; AUTO selects automatically based on shard count
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        SIZE
+      </code>
+    </td>
+    
+    <td>
+      Integer (e.g., 500)
+    </td>
+    
+    <td>
+      Batch size for reindexing
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        SOURCE_FIELDS
+      </code>
+    </td>
+    
+    <td>
+      Comma-separated list (e.g., <code>
+        'field1,field2'
+      </code>
+      
+      )
+    </td>
+    
+    <td>
+      Restrict source fields to copy
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        QUERY
+      </code>
+    </td>
+    
+    <td>
+      String (Lucene query syntax)
+    </td>
+    
+    <td>
+      Query to filter source documents
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        SCRIPT
+      </code>
+    </td>
+    
+    <td>
+      String (Painless script)
+    </td>
+    
+    <td>
+      Script to transform documents during reindex
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        WAIT
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        TRUE
+      </code>
+      
+      , <code>
+        FALSE
+      </code>
+    </td>
+    
+    <td>
+      If TRUE, wait for completion; if FALSE, return task ID
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        SKIP_IF_NO_SOURCE
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        TRUE
+      </code>
+      
+      , <code>
+        FALSE
+      </code>
+    </td>
+    
+    <td>
+      If TRUE, skip if source index does not exist (default FALSE)
+    </td>
+  </tr>
+</tbody>
+</table>
+
+**Example:**
+
+```sql
+REINDEX old_products INTO new_products WITH (
+    CONFLICTS = PROCEED,
+    SLICES = AUTO,
+    QUERY = 'status:active',
+    SKIP_IF_NO_SOURCE = TRUE
+) ;
+```
+
+If `SKIP_IF_NO_SOURCE = TRUE`, the reindex operation will be skipped (no error) if the source index does not exist. This is useful for idempotent migrations.
+
+---
+
+## INSERT
+
+Inserts a document into an index.
+
+**Syntax:**
+
+```sql
+INSERT INTO <index_name> [(<column_name> [, <column_name>]*)]
+    VALUES (<value> [, <value>]*) [WITH <option> [, <option>]*] ;
+```
+
+Options may appear in any order:
+
+- `REFRESH`: Immediately refresh the index after insert, making the document searchable.
+- `ROUTING '<value>'`: Index the document under this routing value. A read that routes by the same value reaches it; without this the document is routed by its `_id` and lands on whichever shard that hashes to.
+- `DOCUMENT_ID '<value>'`: Index the document under this `_id`, instead of the value of the `id` column.
+
+`<value>`: See [Values](#values) — a literal, a parameter (`:name`), an object literal, or an array literal. A `null` stores no field at all, leaving the document the same as one whose column list never named it.
+
+**Example:**
+
+```sql
+INSERT INTO products (name, sku, inStock)
+    VALUES ('Widget', 'WDG-001', true) WITH REFRESH ;
+```
+
+Seeding a row that a reader addresses by a composite `_id` and reaches with a routed search needs both options, since the statement has no knowledge of how the row will be read. The platform's organization-scoped repositories address a row as `<organizationId>--<id>`, routed by the organization id:
+
+```sql
+INSERT INTO kinotic_application (id, organizationId, name)
+    VALUES ('atlas-crm', 'test-org', 'Atlas CRM')
+    WITH REFRESH, ROUTING 'test-org', DOCUMENT_ID 'test-org--atlas-crm' ;
+```
+
+### Inserting composite columns
+
+`OBJECT`, `NESTED`, `UNION`, `GEO_POINT`, `GEO_SHAPE`, and `JSON` columns take an object literal — `{ field: value, ... }` — as their value. An `OBJECT` or `NESTED` column holding a list takes an array literal of object literals. Object and array literals nest to any depth.
+
+```sql
+CREATE TABLE persons (
+    id      KEYWORD,
+    address OBJECT (street TEXT, city KEYWORD, coords OBJECT (lat DOUBLE, lon DOUBLE)),
+    tags    NESTED (label TEXT, value KEYWORD)
+) ;
+
+INSERT INTO persons (id, address, tags) VALUES (
+    'p-1',
+    { street: '1 Main St', city: 'Springfield', coords: { lat: 30.26, lon: -97.74 } },
+    [ { label: 'Release', value: 'v1' }, { label: 'Area', value: 'sql' } ]
+) WITH REFRESH ;
+```
+
+A `UNION` column is stored as the merged flat object, so its value is an object literal carrying the discriminator plus that variant's fields:
+
+```sql
+INSERT INTO assets (id, item)
+    VALUES ('a-1', { kind: 'Book', title: 'Refactoring', isbn: '978-0134757599' }) ;
+```
+
+Because composite mappings are `dynamic: strict`, a sub-field that is not declared in the `CREATE TABLE` is rejected by Elasticsearch when the statement runs — a mistyped sub-field name fails the migration rather than being stored.
+
+### The `id` column
+
+When the column list includes `id`, its value is used as the document's unique storage identifier. If the column list omits `id`, a random storage identifier is auto-generated.
+
+This matters because every find-by-id lookup resolves the document by its `_id`. A row inserted without an `id` column cannot be retrieved by its logical identifier later — it will only be discoverable via search.
+
+As a rule: if the target table has a logical `id` field, always include the `id` column in the INSERT so `_id` stays in sync with the document's `id` value.
+
+```sql
+-- Recommended: id column promoted to _id
+INSERT INTO users (id, email, active)
+    VALUES ('user-001', 'jane@example.com', true)
+    WITH REFRESH ;
+
+-- Avoid when the table has a logical id field: the row will get a random _id
+INSERT INTO users (email, active) VALUES ('jane@example.com', true) ;
+```
+
+---
+
+## UPDATE
+
+Updates documents matching a where clause.
+
+**Syntax:**
+
+```sql
+UPDATE <index_name> SET <field> = <expression> [, <field> = <expression>]*
+    WHERE <where_clause> [WITH REFRESH] ;
+```
+
+- `WITH REFRESH` (optional): Immediately refresh the index after update.
+- `<expression>`: See [Expressions](#expressions) — a value (including an object or array literal), a parameter (`:name`), or a binary expression (e.g., `age + 1`).
+
+**Example:**
+
+```sql
+UPDATE products SET inStock = false, updatedAt = '2024-01-15'
+    WHERE sku = 'WDG-001' WITH REFRESH ;
+```
+
+### Updating composite columns
+
+A composite column is set from the same object and array literals `INSERT` uses:
+
+```sql
+UPDATE persons
+   SET address = { street: '99 Elm St', city: 'Shelbyville' },
+       tags    = [ { label: 'Area', value: 'grammar' }, { label: 'Release', value: 'v2' } ]
+ WHERE id = 'p-1' WITH REFRESH ;
+```
+
+An object literal is **merged into** the stored object rather than replacing it, matching the merge Elasticsearch performs for a partial document update. Sub-fields the statement does not mention keep their stored values, so a single sub-field can be changed by naming only that one:
+
+```sql
+-- street and zip keep their stored values; only city changes
+UPDATE persons SET address = { city: 'Shelbyville' } WHERE id = 'p-1' ;
+```
+
+The merge is recursive, so an object inside an object merges the same way:
+
+```sql
+-- coords.lon is left alone
+UPDATE persons SET address = { coords: { lat: 30.26 } } WHERE id = 'p-1' ;
+```
+
+Everything that is not an object is replaced outright — arrays, including a `NESTED` column's list, are never appended to or merged element-wise:
+
+```sql
+-- tags becomes exactly this one element, whatever it held before
+UPDATE articles SET tags = [ { label: 'Area', value: 'grammar' } ] WHERE id = 'a-1' ;
+```
+
+The stored side decides too: if the column currently holds a scalar, an array, or nothing at all, there is nothing to merge into, so the object is written as though merged into an empty one.
+
+Because omitting a sub-field keeps it, `null` is what removes one. Name the column on the left of the assignment and the sub-field inside the literal: the nesting of the literal is what addresses the field, at any depth.
+
+```sql
+-- removes address.street; city and the rest of the address are untouched
+UPDATE persons SET address = { street: null } WHERE id = 'p-1' ;
+
+-- removes address.coords.lat; lon and the rest of coords are untouched
+UPDATE persons SET address = { coords: { lat: null } } WHERE id = 'p-1' ;
+
+-- removes the whole address column
+UPDATE persons SET address = null WHERE id = 'p-1' ;
+```
+
+A cleared field is gone rather than stored as an empty value, leaving the document exactly as if it had never carried one. Nothing is stored as null, so a later read gives you the same absent field either way.
+
+A dot-path is not valid on the left of an assignment — `SET address.street = null` does not parse, because `SET` takes a column name. The literal above is the form that reaches a sub-field.
+
+---
+
+## DELETE
+
+Deletes documents matching a where clause.
+
+**Syntax:**
+
+```sql
+DELETE FROM <index_name> WHERE <where_clause> [WITH REFRESH] ;
+```
+
+- `WITH REFRESH` (optional): Immediately refresh the index after delete.
+
+**Example:**
+
+```sql
+DELETE FROM products WHERE inStock = false WITH REFRESH ;
+```
+
+---
+
+## SELECT
+
+Reads the documents matching a where clause, whole or projected to the listed fields, or aggregates them. A `SELECT` is the statement of a [named query](https://kinotic.ai/organizations/apps/persistence/named-queries#select); a migration has no use for one.
+
+**Syntax:**
+
+```sql
+SELECT (* | <select_item> [, <select_item>]*) FROM <index_name>
+    [WHERE <where_clause>]
+    [GROUP BY <select_expression> [, <select_expression>]*]
+    [ORDER BY <field> [ASC | DESC] [, <field> [ASC | DESC]]*]
+    [LIMIT <integer>] ;
+
+<select_item>       ::= <select_expression> [AS <alias>]
+<select_expression> ::= <field> | <function>([* | <argument> [, <argument>]*])
+<argument>          ::= <select_expression> | 'string' | number | :parameter
+<field>             ::= <name>[.<name>]*
+```
+
+- `*` reads each document whole; a column list reads the listed top-level fields, each whole, so an object field comes back with all its sub-fields.
+- A `SELECT` that calls a function (`COUNT(*)`, `SUM(total)`, `HISTOGRAM(age, 10)`, …) or has a `GROUP BY` is an aggregate, and runs on [Elasticsearch SQL](https://www.elastic.co/docs/reference/query-languages/sql/sql-functions), whose functions it can call. It returns one row per group, holding the listed columns; `AS` names a column, and a field can be a sub-field of an object field (`address.city`). A `SELECT` that does neither lists top-level fields without aliases.
+- `ORDER BY` orders the documents by the listed fields, or an aggregate's rows by its fields and column aliases, in precedence order, ascending unless `DESC` is given.
+- `LIMIT` caps the number of documents or rows read.
+
+**Example:**
+
+```sql
+SELECT firstName, address FROM persons WHERE lastName = :lastName AND age >= 18 ORDER BY lastName, firstName DESC LIMIT 50 ;
+SELECT COUNT(*) AS total, address.city FROM persons WHERE age >= 18 GROUP BY address.city ORDER BY total DESC ;
+```
+
+---
+
+## Comments
+
+```sql
+-- This is a comment
+```
+
+Comments start with `--` and continue to the end of the line. Comments are ignored by the parser.
+
+---
+
+## Where Clauses
+
+Where clauses are used in `UPDATE`, `DELETE` and `SELECT` statements.
+
+**Syntax:**
+
+```sql
+<field> <operator> <value>
+(<where_clause>)
+<where_clause> AND <where_clause>
+<where_clause> OR <where_clause>
+```
+
+**Operators:** `=`, `!=`, `<`, `>`, `<=`, `>=`. `=` compares in a where clause, and assigns in `SET` and `WITH` options.
+
+`<field>` is a field, or a sub-field of an object field joined by dots (`address.city`).
+
+**Values:** String, number, or boolean literal, or parameter (`:name`). Object and array literals cannot be compared.
+
+**Example:**
+
+```sql
+WHERE status = 'archived' AND createdAt < '2023-01-01'
+WHERE (category = 'electronics' OR category = 'appliances') AND price > 100
+```
+
+---
+
+## Values
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Form
+    </th>
+    
+    <th>
+      Examples
+    </th>
+    
+    <th>
+      Notes
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      String
+    </td>
+    
+    <td>
+      <code>
+        'Widget'
+      </code>
+      
+      , <code>
+        '2024-01-15'
+      </code>
+    </td>
+    
+    <td>
+      Single-quoted. Dates are strings in ISO 8601 form
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Number
+    </td>
+    
+    <td>
+      <code>
+        12
+      </code>
+      
+      , <code>
+        -3
+      </code>
+      
+      , <code>
+        30.26
+      </code>
+      
+      , <code>
+        -97.74
+      </code>
+    </td>
+    
+    <td>
+      Whole numbers and decimals, both optionally negative
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Boolean
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+      
+      , <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      Lowercase
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Null
+    </td>
+    
+    <td>
+      <code>
+        null
+      </code>
+    </td>
+    
+    <td>
+      Lowercase. Means the field has no value: nothing is stored for it, and a stored one is removed
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Parameter
+    </td>
+    
+    <td>
+      <code>
+        :orgId
+      </code>
+      
+      , <code>
+        :minAge
+      </code>
+    </td>
+    
+    <td>
+      A value supplied when the statement runs, looked up by the name after the colon
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Object
+    </td>
+    
+    <td>
+      <code>
+        { street: '1 Main St', zip: '11111' }
+      </code>
+    </td>
+    
+    <td>
+      A sub-document for an <code>
+        OBJECT
+      </code>
+      
+      , <code>
+        UNION
+      </code>
+      
+      , <code>
+        GEO_POINT
+      </code>
+      
+      , <code>
+        GEO_SHAPE
+      </code>
+      
+      , or <code>
+        JSON
+      </code>
+      
+       column
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Array
+    </td>
+    
+    <td>
+      <code>
+        ['ADMIN', 'USER']
+      </code>
+      
+      , <code>
+        [ { label: 'a' } ]
+      </code>
+    </td>
+    
+    <td>
+      A list of any of the forms above; the value form for a <code>
+        NESTED
+      </code>
+      
+       column or an <code>
+        OBJECT
+      </code>
+      
+       column holding a list
+    </td>
+  </tr>
+</tbody>
+</table>
+
+Object and array literals nest to any depth, so an `OBJECT` holding a `NESTED` holding another `OBJECT` is written as one literal. Field names in an object literal are bare identifiers, or single-quoted strings when the name is not a valid identifier:
+
+```sql
+{ 'content-type': 'application/json', charset: 'utf-8' }
+```
+
+A parameter can stand anywhere a value can, including inside an object or array literal, and the same name may be used more than once in a statement:
+
+```sql
+UPDATE persons SET address = { street: :street, city: :city } WHERE id = :id ;
+DELETE FROM events WHERE created < :cutoff OR updated < :cutoff ;
+```
+
+Values are supplied per execution, keyed by parameter name, so two parameters on the same field stay distinct — `SET price = :newPrice WHERE price = :oldPrice` resolves each from its own name. A statement that names a parameter with no value supplied fails, naming it.
+
+Object and array literals are accepted wherever a value is written — `INSERT ... VALUES` (see [Inserting composite columns](#inserting-composite-columns)) and `UPDATE ... SET` (see [Updating composite columns](#updating-composite-columns)). `WHERE` conditions take scalar values only.
+
+---
+
+## Supported Types
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Type
+    </th>
+    
+    <th>
+      Description
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        TEXT
+      </code>
+    </td>
+    
+    <td>
+      Full-text searchable string; analyzed and tokenized
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        KEYWORD
+      </code>
+    </td>
+    
+    <td>
+      Exact-match string; not tokenized
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        KEYWORD NOT INDEXED
+      </code>
+    </td>
+    
+    <td>
+      Exact-match string; stored but not searchable
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        INTEGER
+      </code>
+    </td>
+    
+    <td>
+      32-bit signed integer
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        INTEGER NOT INDEXED
+      </code>
+    </td>
+    
+    <td>
+      32-bit signed integer; stored but not searchable
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        LONG
+      </code>
+    </td>
+    
+    <td>
+      64-bit signed integer
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        LONG NOT INDEXED
+      </code>
+    </td>
+    
+    <td>
+      64-bit signed integer; stored but not searchable
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        FLOAT
+      </code>
+    </td>
+    
+    <td>
+      32-bit floating-point number
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        FLOAT NOT INDEXED
+      </code>
+    </td>
+    
+    <td>
+      32-bit floating-point number; stored but not searchable
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        DOUBLE
+      </code>
+    </td>
+    
+    <td>
+      64-bit floating-point number
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        DOUBLE NOT INDEXED
+      </code>
+    </td>
+    
+    <td>
+      64-bit floating-point number; stored but not searchable
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        BOOLEAN
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+      
+       / <code>
+        false
+      </code>
+      
+       value
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        BOOLEAN NOT INDEXED
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+      
+       / <code>
+        false
+      </code>
+      
+       value; stored but not searchable
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        DATE
+      </code>
+    </td>
+    
+    <td>
+      ISO 8601 date/datetime string
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        DATE NOT INDEXED
+      </code>
+    </td>
+    
+    <td>
+      ISO 8601 date/datetime string; stored but not searchable
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        JSON
+      </code>
+    </td>
+    
+    <td>
+      Arbitrary JSON object; leaf values indexed as searchable strings (see <a href="#json-type">
+        JSON type
+      </a>
+      
+      )
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        JSON NOT INDEXED
+      </code>
+    </td>
+    
+    <td>
+      Arbitrary JSON object; stored as-is without indexing any sub-fields
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        BINARY
+      </code>
+    </td>
+    
+    <td>
+      Base64-encoded binary data; stored but not searchable
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        GEO_POINT
+      </code>
+    </td>
+    
+    <td>
+      Geographic point (<code>
+        lat
+      </code>
+      
+      , <code>
+        lon
+      </code>
+      
+      )
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        GEO_SHAPE
+      </code>
+    </td>
+    
+    <td>
+      Geographic shape (polygon, line, etc.)
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        UUID
+      </code>
+    </td>
+    
+    <td>
+      UUID stored as an exact-match string
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        UUID NOT INDEXED
+      </code>
+    </td>
+    
+    <td>
+      UUID stored as an exact-match string; not searchable
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        DECIMAL
+      </code>
+    </td>
+    
+    <td>
+      Decimal number stored as a 64-bit float
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        DECIMAL NOT INDEXED
+      </code>
+    </td>
+    
+    <td>
+      Decimal number stored as a 64-bit float; not searchable
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        OBJECT (...)
+      </code>
+    </td>
+    
+    <td>
+      Embedded object with declared sub-fields, one or a list of them; schema is fixed
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        OBJECT (...) NOT INDEXED
+      </code>
+    </td>
+    
+    <td>
+      Embedded object; stored but sub-fields are not searchable
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        NESTED (...)
+      </code>
+    </td>
+    
+    <td>
+      List of embedded objects, each indexed as its own document; only for a query that must match two sub-fields of the same element (see <a href="#nested">
+        NESTED
+      </a>
+      
+      )
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        UNION (...)
+      </code>
+    </td>
+    
+    <td>
+      One of several named object variants; all variant fields are merged into a single object
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        UNION (...) NOT INDEXED
+      </code>
+    </td>
+    
+    <td>
+      Union field; stored but not searchable
+    </td>
+  </tr>
+</tbody>
+</table>
+
+The `NOT INDEXED` variant of each type stores the value but excludes it from the search index. This reduces storage and indexing overhead for fields that only need to be returned in results, not queried.
+
+---
+
+## JSON Type
+
+The `JSON` type stores an entire JSON object as a single field. All leaf values within the object — regardless of nesting depth — are indexed and queryable as strings. This approach avoids requiring a fixed schema for nested data, making it well-suited for semi-structured or dynamic payloads.
+
+**Key behaviors:**
+
+- **Leaf values are indexed by dot-path.** A field defined as `metadata JSON` indexes every leaf value under its dot-path — e.g. `metadata.version`, `metadata.source.region` — as an exact-match string.
+- **All comparisons are string-based.** Even numeric or date values stored inside a JSON field are compared as strings. Use `TEXT`, `INTEGER`, `DOUBLE`, etc. for fields that require numeric or range queries.
+- **Dynamic nesting is supported.** The sub-field structure does not need to be declared in the schema — any JSON shape can be stored and its leaf values will be indexed automatically.
+
+**Example:**
+
+```sql
+CREATE TABLE events (
+    id      UUID,
+    ts      DATE,
+    payload JSON
+) ;
+```
+
+A record with `payload = {"source": {"region": "us-east"}, "retries": 3}` indexes the leaf values `payload.source.region` and `payload.retries`. Note that `retries` is indexed as the string `'3'`, not the number `3`.
+
+Migration `WHERE` clauses accept only simple column names, so dot-path filtering is not available in `UPDATE`/`DELETE` statements.
+
+For `JSON NOT INDEXED`, the object is stored and returned in query results but none of its sub-fields can be queried.
+
+---
+
+## Composite Types
+
+OBJECT, NESTED, and UNION allow structured sub-documents to be defined inline. All composite types enforce `dynamic: strict` on their sub-fields — new sub-fields must be added via `ALTER TABLE`, not inserted ad-hoc.
+
+Composite types are recursive: OBJECT inside NESTED, NESTED inside OBJECT, and other combinations are all valid.
+
+### OBJECT
+
+Defines an embedded object with declared sub-fields. The column holds one object or a list of them: Elasticsearch indexes a list by flattening each sub-field into an array (`tags.label: ['a', 'b']`, `tags.value: [...]`), so a query on any one sub-field matches across the whole list, and the document returns the list as stored. This is the column type for every list of objects unless the query described under [NESTED](#nested) applies.
+
+**Syntax:**
+
+```sql
+<column_name> OBJECT (<sub_column> <type> [, <sub_column> <type>]*) [NOT INDEXED]
+```
+
+- `NOT INDEXED` (optional): disables the object. The data is stored but cannot be searched or accessed via field paths.
+
+**Example:**
+
+```sql
+CREATE TABLE persons (
+    id KEYWORD,
+    address OBJECT (street TEXT, city KEYWORD, state KEYWORD, zip KEYWORD)
+);
+
+-- Store but do not index the payload object
+CREATE TABLE events (
+    id KEYWORD,
+    payload OBJECT (raw TEXT, size INTEGER) NOT INDEXED
+);
+```
+
+### NESTED
+
+Defines a list of embedded objects where each element is indexed as its own hidden document. Use it only when a query must match two sub-fields of the **same element** — `tags.label = 'env' AND tags.value = 'prod'` as one tag, not one tag's label and another tag's value — which the flattening an `OBJECT` column performs cannot express. Every element is a separate Lucene document, reached with a `nested` query and `inner_hits`, counted against `index.mapping.nested_objects.limit`, and rewritten whenever the parent document is updated, so a list that is read whole or queried by one sub-field is an `OBJECT` column. See the Elasticsearch reference on the [nested field type](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/nested).
+
+**Syntax:**
+
+```sql
+<column_name> NESTED (<sub_column> <type> [, <sub_column> <type>]*)
+```
+
+NESTED does not support `NOT INDEXED`.
+
+**Example:**
+
+```sql
+CREATE TABLE articles (
+    id KEYWORD,
+    tags NESTED (label TEXT, value KEYWORD)
+);
+```
+
+### UNION
+
+Defines a field that can hold one of several named object variants. All variant fields are merged into a single flat object. Fields that appear in multiple variants must have the same type.
+
+**Syntax:**
+
+```sql
+<column_name> UNION (
+    <VariantName> (<sub_column> <type> [, <sub_column> <type>]*) [, ...]
+) [NOT INDEXED]
+```
+
+- `NOT INDEXED` (optional): disables the merged object.
+- Include a shared discriminator field (e.g. `kind KEYWORD`) in each variant so application code can identify which variant it received.
+
+**Example:**
+
+```sql
+CREATE TABLE assets (
+    id KEYWORD,
+    item UNION (
+        Book  (kind KEYWORD, title TEXT, isbn KEYWORD),
+        Video (kind KEYWORD, title TEXT, duration INTEGER)
+    )
+);
+```
+
+The resulting `item` field is a single object with properties `kind`, `title`, `isbn`, and `duration`.
+
+<callout type="warning">
+
+**Limitation: shared OBJECT/NESTED/UNION fields across variants.** If two variants declare a field with the same name and the same composite type (OBJECT, NESTED, or UNION), only the first variant's sub-field definitions are used. The second variant's sub-fields are silently dropped. Conflict detection only applies to scalar types — it will not throw if two same-named OBJECT fields have different sub-structures.
+
+To avoid this, ensure that any field shared across variants with a composite type has identical sub-fields in every variant. Scalar shared fields (such as a `kind KEYWORD` discriminator) are always safe.
+
+</callout>
+
+---
+
+## Expressions
+
+Expressions appear on the right of an `UPDATE ... SET` assignment.
+
+- **Values:** any form in [Values](#values) — `'string'`, `123`, `12.5`, `-3`, `true`, `false`, `{ ... }`, `[ ... ]`
+- **Parameters:** `:name`
+- **Binary Expressions:** `<field> + <value>`, `<field> - <value>`, `<field> * <value>`, `<field> / <value>`; a comparison belongs in the `WHERE` clause
+
+A binary expression reads the named field from the stored document, so its operands are scalars; object and array literals are only meaningful as a whole value.
+
+---
+
+## Keywords
+
+Keywords match in any case: `SELECT`, `select` and `Select` are the same keyword. The literals `true`, `false` and `null` match in any case too, and cannot be used as a name, though an object literal can carry such a field name as a quoted key (`{ 'null': 1 }`).
+
+Only the words that structure a statement are reserved:
+
+`ALTER`, `AND`, `AS`, `BY`, `CREATE`, `DELETE`, `FROM`, `GROUP`, `INSERT`, `INTO`, `LIMIT`, `NOT`, `OR`, `ORDER`, `REINDEX`, `SELECT`, `SET`, `UPDATE`, `VALUES`, `WHERE`, `WITH`
+
+Every other keyword, such as a type (`date`, `text`, `keyword`) or an option (`size`, `query`, `script`), is also a name wherever a name can appear, so a field can be called `date` or `size`. A reserved word is a name when double-quoted: `SELECT "order" FROM Order`.
+
+### Case
+
+Keywords ignore case. Names do not: an entity, field or alias name is written exactly the way the entity class spells it, since that is how it is stored. `firstName`, `FirstName` and `FIRSTNAME` are three different fields.
+
+A name in the wrong case behaves differently depending on what it names:
+
+- **An entity name** in the wrong case fails the statement, and the error names the entity you meant: `Application shop has no published entity named person; did you mean Person?`
+- **A field name** in the wrong case is not an error. It names a field no row has, so **you get nothing**: a `SELECT` or aggregate returns no rows, and an `UPDATE` or `DELETE` changes none. When a query unexpectedly returns nothing, check the case of its field names first.
+
+```sql
+-- the same statement: keywords in any case
+SELECT COUNT(*) AS total FROM Person WHERE lastName = 'Doe';
+select count(*) as total from Person where lastName = 'Doe';
+
+-- fails: no entity is named person
+SELECT COUNT(*) AS total FROM person WHERE lastName = 'Doe';
+
+-- returns nothing: LASTNAME is not the lastName field
+SELECT COUNT(*) AS total FROM Person WHERE LASTNAME = 'Doe';
+```
+
+The same holds for a field named like a keyword: `SELECT date FROM Event` reads the field `date`, while `SELECT DATE FROM Event` reads a field named `DATE`, which no row has. An alias keeps the case it is written in, and a returned row's columns are named by it.
+
+
+## Sitemap
+
+See the full [sitemap](https://kinotic.ai/sitemap.md) for all pages.

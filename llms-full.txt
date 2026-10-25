@@ -15,6 +15,306 @@ Every page on this site is available as raw markdown: append `.md` to its
 URL or send `Accept: text/markdown`.
 
 
+# Introduction
+
+> Learn what Kinotic is, why it exists, and how it helps developers and AI agents build enterprise-grade applications at scale.
+
+Kinotic is a next-generation cloud operating system that abstracts away infrastructure complexity so developers and AI agents can focus on what matters: building great applications.
+
+## Humane Representation of Thought
+
+The rise of AI-assisted development has unlocked a new paradigm -- rapid iteration driven by natural-language intent and intelligent code generation. Kinotic is purpose-built for this paradigm. Whether a human developer or an AI agent is writing the code, Kinotic provides the guardrails, services, and runtime that turn quick prototypes into production-grade systems.
+
+## Core Components
+
+- **Kinotic Apps** -- Applications that run on Kinotic OS. Today, Kinotic Apps are built with TypeScript running on Bun -- you write standard TypeScript for domain models, business logic, and UI, and the platform handles infrastructure, deployment, and scaling. Support for Go, Java, and Python backends is coming soon.
+- **Kinotic OS** -- The cloud operating system that runs your apps. It provides authentication, authorization, persistence, service mesh, observability, and deployment infrastructure out of the box.
+- **Kinotic OS Cloud** -- A fully managed SaaS offering of Kinotic OS. No servers to provision, no infrastructure to maintain.
+- **Kinotic CLI** -- The developer tool that ties it all together. Use it to initialize projects, define entities, generate service code, and deploy applications.
+
+## Why Kinotic?
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Concern
+    </th>
+    
+    <th>
+      Without Kinotic
+    </th>
+    
+    <th>
+      With Kinotic
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      Authentication & Authorization
+    </td>
+    
+    <td>
+      Wire up OIDC and session management yourself
+    </td>
+    
+    <td>
+      Built in -- configure once, enforce everywhere
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Persistence
+    </td>
+    
+    <td>
+      Choose a database, write migrations, build CRUD endpoints
+    </td>
+    
+    <td>
+      Define entities, run <code>
+        kinotic sync
+      </code>
+      
+      , get a full service layer
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Service Mesh
+    </td>
+    
+    <td>
+      Deploy sidecars, configure routing, handle retries
+    </td>
+    
+    <td>
+      Automatic service discovery and RPC across the application
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      CI/CD
+    </td>
+    
+    <td>
+      Maintain pipelines, container registries, rollout strategies
+    </td>
+    
+    <td>
+      Handled by the platform
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Observability
+    </td>
+    
+    <td>
+      Instrument code, deploy collectors, build dashboards
+    </td>
+    
+    <td>
+      SBOM generation, metrics, and tracing are included
+    </td>
+  </tr>
+</tbody>
+</table>
+
+**Rapid prototyping.** Go from an idea to a running application in minutes with the CLI and generated services.
+
+**Enterprise-ready.** Software bill of materials and full observability mean you never have to rewrite for production.
+
+**Internet scale.** The platform is designed to scale horizontally from day one.
+
+## What These Docs Cover
+
+This documentation walks through everything you need to build and ship a Kinotic App:
+
+1. **Quick Start** -- Scaffold a project and persist your first entity in under five minutes.
+2. **Application Structure** -- Understand how organizations, applications, projects, and artifacts fit together.
+3. **Services** -- Publish and consume services across your application.
+4. **Persistence** -- Define entities, configure indexes, and run queries.
+5. **Security** -- Set up authentication and authorization.
+6. **Deployment** -- Ship your application to Kinotic OS or Kinotic OS Cloud.
+
+Ready to build something? Head to the [Quick Start](https://kinotic.ai/getting-started/quick-start) to create your first Kinotic App.
+
+
+# Local-Only Setup
+
+> Run Kinotic entirely on your own machine, without a Kinotic OS Cloud organization.
+
+<alert type="info">
+
+**Coming soon.** A local-only setup is in development. This page will cover installing and running Kinotic on your own machine without a cloud organization.
+
+</alert>
+
+Until then, follow the [Quick Start](https://kinotic.ai/getting-started/quick-start) to build an App in a Kinotic OS Cloud organization.
+
+
+# Quick Start
+
+> Get started building your first Kinotic App -- from a provisioned project to a running CRUD service in under five minutes.
+
+This guide walks you through creating a Kinotic App, defining an entity, generating its repository, and using the repository to read and write data.
+
+## Prerequisites
+
+- **Bun** -- Install from [https://bun.sh](https://bun.sh)
+- **A Kinotic organization** you are a member of, with a linked GitHub organization
+
+## Create Your Application
+
+Kinotic OS creates your Application and Project and provisions a GitHub repository for it, already scaffolded as a Bun workspace with the Kinotic CLI vendored as a dev dependency -- there is nothing to install globally.
+
+The fastest way is the official Kinotic plugin, which drives the whole flow conversationally. In Claude Code:
+
+```text
+/plugin marketplace add kinotic-ai/agent-plugin
+/plugin install kinotic@kinotic
+/kinotic:new-app my-app
+```
+
+In Codex (the CLI, the IDE extension, or the ChatGPT desktop app), install the same plugin and ask Codex to create a Kinotic app:
+
+```bash
+codex plugin marketplace add kinotic-ai/agent-plugin
+codex plugin add kinotic@kinotic
+```
+
+In Grok Build, install it and run `/new-app my-app`:
+
+```bash
+grok plugin install kinotic-ai/agent-plugin --trust
+```
+
+You can also create the Application and Project from the Kinotic OS dashboard; either way you end up with a provisioned repository.
+
+## Clone and Install
+
+```bash
+git clone <your-provisioned-repo> && cd <your-repo>
+bun install
+```
+
+The repository comes with a `.config/kinotic.config.ts` already wired to your organization, application, and project, pointing entity discovery at `packages/domain/model` and repository generation at `packages/domain/repositories`.
+
+## Define an Entity
+
+Create a file at `packages/domain/model/Person.ts`:
+
+```typescript
+import { Entity, AutoGeneratedId, NotNull, Precision, PrecisionType, MultiTenancyType } from '@kinotic-ai/persistence'
+
+@Entity(MultiTenancyType.NONE)
+export class Person {
+    @AutoGeneratedId
+    id: string | null = null
+
+    @NotNull
+    firstName: string = ''
+
+    @NotNull
+    lastName: string = ''
+
+    @Precision(PrecisionType.SHORT)
+    age: number = 0
+}
+```
+
+A few things to note:
+
+- `@Entity(MultiTenancyType.NONE)` marks the class as a persisted entity with no multi-tenancy.
+- `@AutoGeneratedId` tells the platform to generate an ID when one is not provided.
+- `@NotNull` enforces that a field must have a value.
+- `@Precision(PrecisionType.SHORT)` tells the platform this number is a short integer, which influences how it is stored and indexed.
+
+## Generate the Repository
+
+```bash
+bun run generate
+bun run type-check
+```
+
+This writes `packages/domain/repositories/PersonRepository.ts` (yours to extend) along with a generated base class, and saves the entity's schema under `.config/c3/`. Export both from the domain package's entry so other packages can import them:
+
+```typescript
+// packages/domain/index.ts
+export * from './model/Person.js'
+export * from './repositories/PersonRepository.js'
+```
+
+## Push to Sync
+
+```bash
+git add . && git commit -m "Add Person entity" && git push
+```
+
+Kinotic OS reads entity definitions from the connected GitHub repository and synchronizes them for you -- publishing the entity creates the backing storage and registers its services. There is nothing to log in to or push from your machine besides git.
+
+## Use the Generated Repository
+
+The provisioned repository ships a starter microservice at `packages/microservices/main` that already sets the zone and connects. Extend its `src/main.ts` to try the repository out:
+
+```typescript
+import { Kinotic, Pageable } from '@kinotic-ai/core'
+import { PersistencePlugin } from '@kinotic-ai/persistence'
+import { PersonRepository } from '@my-app/domain'
+import { appZone } from '@kinotic-ai/management-api'
+import config from '../../../../.config/kinotic.config'
+
+Kinotic.use(PersistencePlugin)
+Kinotic.zonePrefix = appZone(config.organizationId, config.applicationId)
+
+// server and credentials resolve from the environment: KINOTIC_SERVER_HOST/PORT/USE_SSL,
+// KINOTIC_CLIENT_ID/KINOTIC_CLIENT_SECRET, which a deployment sets to the app server and the
+// microservice's own machine identity. With nothing set it dials https://api.kinotic.ai, the org
+// server, which admits no runtime
+await Kinotic.connect()
+
+const personRepository = new PersonRepository()
+
+// Create a person
+const person = await personRepository.save({
+    id: null,
+    firstName: 'Jane',
+    lastName: 'Doe',
+    age: 28
+})
+
+console.log('Saved:', person)
+
+// Find all people
+const page = await personRepository.findAll(Pageable.create(0, 10))
+console.log('People:', page.content)
+```
+
+Run it with Bun:
+
+```bash
+bun run packages/microservices/main/src/main.ts
+```
+
+You should see the saved person printed to the console, followed by a page of results containing that person.
+
+## What's Next?
+
+Now that you have a working application, explore the rest of the documentation:
+
+- [Application Structure](https://kinotic.ai/organizations/apps/application-structure/overview) -- Understand how organizations, applications, projects, and artifacts are organized.
+- [Services](https://kinotic.ai/organizations/apps/services/overview) -- Learn how to publish and consume services across your application.
+- [Persistence](https://kinotic.ai/organizations/apps/persistence/overview) -- Dive deeper into entity definitions, relationships, and querying.
+
+
 # Applications and Projects
 
 > Learn how to configure Kinotic applications and the projects that compose them.
@@ -324,7 +624,7 @@ When the application is deployed, the platform resolves these internal dependenc
 
 ## Deployable packages
 
-When a push deploys a project (see [Push to Deploy](https://kinotic.ai/apps/deployment/push-to-deploy)), the
+When a push deploys a project (see [Push to Deploy](https://kinotic.ai/organizations/apps/deployment/push-to-deploy)), the
 platform finds the packages it deploys by where they sit in the workspace:
 
 - **Microservices** live directly under `packages/microservices`, one package each. A
@@ -509,7 +809,7 @@ Persistence is typically the first artifact you create because it establishes th
 
 ## Microservice
 
-A microservice artifact is long-running code that executes in a pod or VM. It publishes services that other parts of the application can discover and call through [service proxies](https://kinotic.ai/apps/services/service-proxies).
+A microservice artifact is long-running code that executes in a pod or VM. It publishes services that other parts of the application can discover and call through [service proxies](https://kinotic.ai/organizations/apps/services/service-proxies).
 
 **What you provide:**
 
@@ -519,7 +819,7 @@ A microservice artifact is long-running code that executes in a pod or VM. It pu
 **What the platform provides:**
 
 - Automatic service registration in the Service Directory.
-- Service discovery and zone-based routing so other projects can call your service through a [service proxy](https://kinotic.ai/apps/services/service-proxies) with a simple function call.
+- Service discovery and zone-based routing so other projects can call your service through a [service proxy](https://kinotic.ai/organizations/apps/services/service-proxies) with a simple function call.
 - Lifecycle management, scaling, and health monitoring.
 
 Use a microservice when your logic goes beyond simple CRUD -- orchestrating across multiple entities, calling external APIs, or running long-lived workflows.
@@ -685,7 +985,7 @@ Projects exist so that different concerns can live in separate packages while st
 
 ### Artifacts
 
-Artifacts are the outputs that a project contributes to the application. A single project can produce one or more artifacts -- a set of persisted entities, a microservice, a batch job, a UI component library, or a complete frontend. See [Artifact Types](https://kinotic.ai/apps/application-structure/artifact-types) for the full list.
+Artifacts are the outputs that a project contributes to the application. A single project can produce one or more artifacts -- a set of persisted entities, a microservice, a batch job, a UI component library, or a complete frontend. See [Artifact Types](https://kinotic.ai/organizations/apps/application-structure/artifact-types) for the full list.
 
 ## The Service Directory
 
@@ -767,7 +1067,7 @@ A typical application looks something like this:
 
 Each project is developed, tested, and versioned independently, but they all deploy as part of the same application and can call each other through the Service Directory.
 
-For details on how to configure an application and its projects, see [Applications and Projects](https://kinotic.ai/apps/application-structure/applications-and-projects).
+For details on how to configure an application and its projects, see [Applications and Projects](https://kinotic.ai/organizations/apps/application-structure/applications-and-projects).
 
 
 # CLI Reference
@@ -831,7 +1131,7 @@ kinotic login
 
 ### `kinotic generate` / `kinotic gen`
 
-Generate Repository classes from your entity definitions. This runs locally without connecting to the server, and fills in the implementations of [named query](https://kinotic.ai/apps/persistence/named-queries) methods declared with `@Query`.
+Generate Repository classes from your entity definitions. This runs locally without connecting to the server, and fills in the implementations of [named query](https://kinotic.ai/organizations/apps/persistence/named-queries) methods declared with `@Query`.
 
 Each entity's C3Type schema is written as JSON to `.config/c3/entities/<namespace>.<name>.json`, and the named queries declared on a Repository to `.config/c3/queries/<RepositoryName>.json`. Removing the last named query from a Repository removes its queries file.
 
@@ -889,7 +1189,7 @@ kinotic gen --force
 
 ### `kinotic sync` / `kinotic synchronize`
 
-Synchronize local entity definitions with the Kinotic server. This uploads your entity classes so the server can set up the backing data stores and register the entity services, and applies any pending [migrations](https://kinotic.ai/apps/persistence/migrations) from the `./migrations` directory. The entities are synchronized into the project named by `projectId` in `.config/kinotic.config.ts`, which must already exist in Kinotic OS. It runs the same generation as `kinotic generate`, so the repository classes, `.config/c3` and the `ServiceDefinitions` module are refreshed as well; the service definitions reach the server from the runtime, as each service comes online, not from the sync. Requires a prior `kinotic login` against the target server.
+Synchronize local entity definitions with the Kinotic server. This uploads your entity classes so the server can set up the backing data stores and register the entity services, and applies any pending [migrations](https://kinotic.ai/organizations/apps/persistence/migrations) from the `./migrations` directory. The entities are synchronized into the project named by `projectId` in `.config/kinotic.config.ts`, which must already exist in Kinotic OS. It runs the same generation as `kinotic generate`, so the repository classes, `.config/c3` and the `ServiceDefinitions` module are refreshed as well; the service definitions reach the server from the runtime, as each service comes online, not from the sync. Requires a prior `kinotic login` against the target server.
 
 ```bash
 kinotic sync -p
@@ -1087,7 +1387,7 @@ if they crash immediately after a reload.
 ## Artifacts
 
 A project repository is a Bun workspace, and every deployment finds the
-[artifacts](https://kinotic.ai/apps/application-structure/artifact-types) it contains by where each package
+[artifacts](https://kinotic.ai/organizations/apps/application-structure/artifact-types) it contains by where each package
 sits in the tree. Two kinds are deployed today:
 
 - A **microservice** is a directory directly under `packages/microservices` holding a
@@ -1460,139 +1760,6 @@ Production deployment happens only after staging approval:
 - **Deployed after approval** — The production environment is updated only when a team member has reviewed and approved the staging deployment.
 
 
-# Introduction
-
-> Learn what Kinotic is, why it exists, and how it helps developers and AI agents build enterprise-grade applications at scale.
-
-Kinotic is a next-generation cloud operating system that abstracts away infrastructure complexity so developers and AI agents can focus on what matters: building great applications.
-
-## Humane Representation of Thought
-
-The rise of AI-assisted development has unlocked a new paradigm -- rapid iteration driven by natural-language intent and intelligent code generation. Kinotic is purpose-built for this paradigm. Whether a human developer or an AI agent is writing the code, Kinotic provides the guardrails, services, and runtime that turn quick prototypes into production-grade systems.
-
-## Core Components
-
-- **Kinotic Apps** -- Applications that run on Kinotic OS. Today, Kinotic Apps are built with TypeScript running on Bun -- you write standard TypeScript for domain models, business logic, and UI, and the platform handles infrastructure, deployment, and scaling. Support for Go, Java, and Python backends is coming soon.
-- **Kinotic OS** -- The cloud operating system that runs your apps. It provides authentication, authorization, persistence, service mesh, observability, and deployment infrastructure out of the box.
-- **Kinotic OS Cloud** -- A fully managed SaaS offering of Kinotic OS. No servers to provision, no infrastructure to maintain.
-- **Kinotic CLI** -- The developer tool that ties it all together. Use it to initialize projects, define entities, generate service code, and deploy applications.
-
-## Why Kinotic?
-
-<table>
-<thead>
-  <tr>
-    <th>
-      Concern
-    </th>
-    
-    <th>
-      Without Kinotic
-    </th>
-    
-    <th>
-      With Kinotic
-    </th>
-  </tr>
-</thead>
-
-<tbody>
-  <tr>
-    <td>
-      Authentication & Authorization
-    </td>
-    
-    <td>
-      Wire up OIDC and session management yourself
-    </td>
-    
-    <td>
-      Built in -- configure once, enforce everywhere
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      Persistence
-    </td>
-    
-    <td>
-      Choose a database, write migrations, build CRUD endpoints
-    </td>
-    
-    <td>
-      Define entities, run <code>
-        kinotic sync
-      </code>
-      
-      , get a full service layer
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      Service Mesh
-    </td>
-    
-    <td>
-      Deploy sidecars, configure routing, handle retries
-    </td>
-    
-    <td>
-      Automatic service discovery and RPC across the application
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      CI/CD
-    </td>
-    
-    <td>
-      Maintain pipelines, container registries, rollout strategies
-    </td>
-    
-    <td>
-      Handled by the platform
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      Observability
-    </td>
-    
-    <td>
-      Instrument code, deploy collectors, build dashboards
-    </td>
-    
-    <td>
-      SBOM generation, metrics, and tracing are included
-    </td>
-  </tr>
-</tbody>
-</table>
-
-**Rapid prototyping.** Go from an idea to a running application in minutes with the CLI and generated services.
-
-**Enterprise-ready.** Software bill of materials and full observability mean you never have to rewrite for production.
-
-**Internet scale.** The platform is designed to scale horizontally from day one.
-
-## What These Docs Cover
-
-This documentation walks through everything you need to build and ship a Kinotic App:
-
-1. **Quick Start** -- Scaffold a project and persist your first entity in under five minutes.
-2. **Application Structure** -- Understand how organizations, applications, projects, and artifacts fit together.
-3. **Services** -- Publish and consume services across your application.
-4. **Persistence** -- Define entities, configure indexes, and run queries.
-5. **Security** -- Set up authentication and authorization.
-6. **Deployment** -- Ship your application to Kinotic OS or Kinotic OS Cloud.
-
-Ready to build something? Head to the [Quick Start](https://kinotic.ai/apps/quick-start) to create your first Kinotic App.
-
-
 # CRUD Operations
 
 > Using generated entity services for create, read, update, delete, search, and count operations in Kinotic.
@@ -1612,7 +1779,7 @@ await Kinotic.connect()
 const service = new PersonRepository()
 ```
 
-`Kinotic.connect()` resolves the server and credentials from the environment — see [Authentication](https://kinotic.ai/apps/security/authentication) for the resolution chain.
+`Kinotic.connect()` resolves the server and credentials from the environment — see [Authentication](https://kinotic.ai/organizations/apps/security/authentication) for the resolution chain.
 
 ## Create
 
@@ -2048,7 +2215,7 @@ export class SensorReading {
 }
 ```
 
-For a complete reference of all decorators, see the [Decorators Reference](https://kinotic.ai/apps/reference/decorators).
+For a complete reference of all decorators, see the [Decorators Reference](https://kinotic.ai/organizations/apps/reference/decorators).
 
 
 # Migrations
@@ -2097,7 +2264,7 @@ INSERT INTO Role (id, tenantId, name) VALUES ('role-member', 'acme', 'Member') W
 
 ## Supported Statements
 
-A migration uses the four data statements. Each names an entity of the application. Keywords match in any case, but entity and field names are case-sensitive and must be written the way the entity class spells them: `Person` and `firstName`, not `person` and `FIRSTNAME`. An entity name in the wrong case fails the run, naming the entity meant; a field name in the wrong case is not an error, so an `UPDATE` or `DELETE` that uses one changes no rows. See [Case](https://kinotic.ai/apps/reference/migration-sql-grammar#case).
+A migration uses the four data statements. Each names an entity of the application. Keywords match in any case, but entity and field names are case-sensitive and must be written the way the entity class spells them: `Person` and `firstName`, not `person` and `FIRSTNAME`. An entity name in the wrong case fails the run, naming the entity meant; a field name in the wrong case is not an error, so an `UPDATE` or `DELETE` that uses one changes no rows. See [Case](https://kinotic.ai/organizations/apps/reference/migration-sql-grammar#case).
 
 ### INSERT INTO
 
@@ -2195,7 +2362,7 @@ The script reaches `ctx` only as `ctx._source` or `ctx.op`, and does not call `m
 - **Keep migrations small and focused** - One logical change per migration file
 - **Never modify a migration after it has been applied** - Create a new migration instead
 
-For the complete SQL grammar reference, see the [Migration SQL Grammar Reference](https://kinotic.ai/apps/reference/migration-sql-grammar).
+For the complete SQL grammar reference, see the [Migration SQL Grammar Reference](https://kinotic.ai/organizations/apps/reference/migration-sql-grammar).
 
 
 # Multi-Tenancy
@@ -2340,9 +2507,9 @@ Choose it when the application is created — `createApplicationIfNotExist` take
 
 ## Tenants and their sites
 
-Under `TENANT_ADMINISTRATORS` a tenant is a `Tenant` of the application, created by your organization in the portal or through `TenantService` (`createTenantIfNotExist(applicationId, name, description)`), whose id is its slugified name: lowercase letters, digits and single dashes, at most 24 characters so it leads a hostname label, and unique within your organization, so a name whose slug a tenant of another of your applications already holds is refused. The tenant's users carry that id as their `tenantId`. Each of the application's published UIs is also served for the tenant at `<tenantId>--<applicationId>--<uiName>` under your organization's subdomain of the sites domain, and a sign-in from that site is to the tenant: it admits the tenant's users only, and offers the tenant's own identity providers (`TenantOidcConfiguration`, added for the tenant on the application's **Settings → Sign-in providers** tab in the portal) before the application's — see [Authentication](https://kinotic.ai/apps/security/authentication#signing-in-to-a-tenant). A tenant whose users were created with a `tenantId` no `Tenant` row names has no login of its own until the row is created.
+Under `TENANT_ADMINISTRATORS` a tenant is a `Tenant` of the application, created by your organization in the portal or through `TenantService` (`createTenantIfNotExist(applicationId, name, description)`), whose id is its slugified name: lowercase letters, digits and single dashes, at most 24 characters so it leads a hostname label, and unique within your organization, so a name whose slug a tenant of another of your applications already holds is refused. The tenant's users carry that id as their `tenantId`. Each of the application's published UIs is also served for the tenant at `<tenantId>--<applicationId>--<uiName>` under your organization's subdomain of the sites domain, and a sign-in from that site is to the tenant: it admits the tenant's users only, and offers the tenant's own identity providers (`TenantOidcConfiguration`, added for the tenant on the application's **Settings → Sign-in providers** tab in the portal) before the application's — see [Authentication](https://kinotic.ai/organizations/apps/security/authentication#signing-in-to-a-tenant). A tenant whose users were created with a `tenantId` no `Tenant` row names has no login of its own until the row is created.
 
-Under `SYSTEM` tenants are minted per user and have no rows or sites; the user signs in at the application's own sites. It is the one under which new people may [sign up](https://kinotic.ai/apps/security/authentication#signing-up) at the application's own login, since each new user gets a tenant of their own; under `TENANT_ADMINISTRATORS` a person joins a tenant by invitation or through one of the tenant's own providers that signs people up.
+Under `SYSTEM` tenants are minted per user and have no rows or sites; the user signs in at the application's own sites. It is the one under which new people may [sign up](https://kinotic.ai/organizations/apps/security/authentication#signing-up) at the application's own login, since each new user gets a tenant of their own; under `TENANT_ADMINISTRATORS` a person joins a tenant by invitation or through one of the tenant's own providers that signs people up.
 
 ## Tenants and services
 
@@ -2445,7 +2612,7 @@ Admin repository methods accept a tenant selection array as the first argument:
 
 ## Security Considerations
 
-A participant that belongs to a tenant is confined to it. Through the admin repository, including its [named queries](https://kinotic.ai/apps/persistence/named-queries#admin-repository-queries), it may select only its own tenant; naming another tenant, or `['*']`, is refused with an authorization error. On save, a blank `@TenantId` is filled with the participant's tenant and any other value is rejected. Selecting other tenants is possible only for a participant without a tenant, which is how a microservice in a project's deployment connects (organization scope), and such a participant must name the tenant of every entity it saves.
+A participant that belongs to a tenant is confined to it. Through the admin repository, including its [named queries](https://kinotic.ai/organizations/apps/persistence/named-queries#admin-repository-queries), it may select only its own tenant; naming another tenant, or `['*']`, is refused with an authorization error. On save, a blank `@TenantId` is filled with the participant's tenant and any other value is rejected. Selecting other tenants is possible only for a participant without a tenant, which is how a microservice in a project's deployment connects (organization scope), and such a participant must name the tenant of every entity it saves.
 
 The standard tenant-isolated repository is the default and should be used for regular application logic.
 
@@ -2496,7 +2663,7 @@ Named queries must be synced to the server before they can be used. If a query h
 
 ## Statements
 
-A named query is one statement. `SELECT`, `INSERT`, `UPDATE` and `DELETE` are statements of the [Kinotic SQL grammar](https://kinotic.ai/apps/reference/migration-sql-grammar), the one migrations use, written without the terminating semicolon. Keywords match in any case, but entity and field names are case-sensitive and must be written the way the entity class spells them: `Person` and `lastName`, not `person` and `LASTNAME`. A field name in the wrong case is not an error: the query gets nothing back, no rows read and none written. See [Case](https://kinotic.ai/apps/reference/migration-sql-grammar#case).
+A named query is one statement. `SELECT`, `INSERT`, `UPDATE` and `DELETE` are statements of the [Kinotic SQL grammar](https://kinotic.ai/organizations/apps/reference/migration-sql-grammar), the one migrations use, written without the terminating semicolon. Keywords match in any case, but entity and field names are case-sensitive and must be written the way the entity class spells them: `Person` and `lastName`, not `person` and `LASTNAME`. A field name in the wrong case is not an error: the query gets nothing back, no rows read and none written. See [Case](https://kinotic.ai/organizations/apps/reference/migration-sql-grammar#case).
 
 ### SELECT
 
@@ -2515,7 +2682,7 @@ A write returns one row, `{ count }`, holding the number of rows it wrote. Add `
 
 ### Aggregates
 
-A `SELECT` that calls a function (`COUNT(*)`, `SUM`, `AVG`, `MIN`, `MAX`, `PERCENTILE`, `HISTOGRAM`, …) or has a `GROUP BY` is an aggregate. It runs on Elasticsearch SQL, so it can call any of [its functions](https://www.elastic.co/docs/reference/query-languages/sql/sql-functions), and returns one row per group, shaped by the projection: `AS` names a column, and a column or group can be a sub-field (`address.city`). It is written in the same grammar as every other statement, with the same `WHERE` clause and `:name` parameters, and names the query's own entity in `FROM`; see [SELECT](https://kinotic.ai/apps/reference/migration-sql-grammar#select). A paged aggregate takes a cursor `Pageable`.
+A `SELECT` that calls a function (`COUNT(*)`, `SUM`, `AVG`, `MIN`, `MAX`, `PERCENTILE`, `HISTOGRAM`, …) or has a `GROUP BY` is an aggregate. It runs on Elasticsearch SQL, so it can call any of [its functions](https://www.elastic.co/docs/reference/query-languages/sql/sql-functions), and returns one row per group, shaped by the projection: `AS` names a column, and a column or group can be a sub-field (`address.city`). It is written in the same grammar as every other statement, with the same `WHERE` clause and `:name` parameters, and names the query's own entity in `FROM`; see [SELECT](https://kinotic.ai/organizations/apps/reference/migration-sql-grammar#select). A paged aggregate takes a cursor `Pageable`.
 
 ## Multi-tenancy
 
@@ -2523,7 +2690,7 @@ Every named query is confined to the participant's tenant, the way every reposit
 
 ## Admin Repository Queries
 
-A named query on an [admin repository](https://kinotic.ai/apps/persistence/multi-tenancy#admin-repository) runs against the tenants the caller selects, so it declares a `TenantSelection` parameter like every other admin repository method. The generated implementation sends it as the query's tenant selection rather than as a query parameter. A read runs against every tenant the selection names; a write acts on one tenant, so its selection names exactly one.
+A named query on an [admin repository](https://kinotic.ai/organizations/apps/persistence/multi-tenancy#admin-repository) runs against the tenants the caller selects, so it declares a `TenantSelection` parameter like every other admin repository method. The generated implementation sends it as the query's tenant selection rather than as a query parameter. A read runs against every tenant the selection names; a write acts on one tenant, so its selection names exactly one.
 
 ```typescript
 import { Query, type TenantSelection } from '@kinotic-ai/persistence'
@@ -2570,160 +2737,6 @@ Two packages work together to provide the persistence layer:
 
 - **@kinotic-ai/persistence** - Provides entity decorators (`@Entity`, `@AutoGeneratedId`, `@NotNull`, `@Text`, etc.), entity service interfaces, and the persistence plugin
 - **@kinotic-ai/core** - Provides the connection layer (`Kinotic.connect()`), pagination types, and core utilities shared across all Kinotic packages
-
-
-# Quick Start
-
-> Get started building your first Kinotic App -- from a provisioned project to a running CRUD service in under five minutes.
-
-This guide walks you through creating a Kinotic App, defining an entity, generating its repository, and using the repository to read and write data.
-
-## Prerequisites
-
-- **Bun** -- Install from [https://bun.sh](https://bun.sh)
-- **A Kinotic organization** you are a member of, with a linked GitHub organization
-
-## Create Your Application
-
-Kinotic OS creates your Application and Project and provisions a GitHub repository for it, already scaffolded as a Bun workspace with the Kinotic CLI vendored as a dev dependency -- there is nothing to install globally.
-
-The fastest way is the official Kinotic plugin, which drives the whole flow conversationally. In Claude Code:
-
-```text
-/plugin marketplace add kinotic-ai/agent-plugin
-/plugin install kinotic@kinotic
-/kinotic:new-app my-app
-```
-
-In Codex (the CLI, the IDE extension, or the ChatGPT desktop app), install the same plugin and ask Codex to create a Kinotic app:
-
-```bash
-codex plugin marketplace add kinotic-ai/agent-plugin
-codex plugin add kinotic@kinotic
-```
-
-In Grok Build, install it and run `/new-app my-app`:
-
-```bash
-grok plugin install kinotic-ai/agent-plugin --trust
-```
-
-You can also create the Application and Project from the Kinotic OS dashboard; either way you end up with a provisioned repository.
-
-## Clone and Install
-
-```bash
-git clone <your-provisioned-repo> && cd <your-repo>
-bun install
-```
-
-The repository comes with a `.config/kinotic.config.ts` already wired to your organization, application, and project, pointing entity discovery at `packages/domain/model` and repository generation at `packages/domain/repositories`.
-
-## Define an Entity
-
-Create a file at `packages/domain/model/Person.ts`:
-
-```typescript
-import { Entity, AutoGeneratedId, NotNull, Precision, PrecisionType, MultiTenancyType } from '@kinotic-ai/persistence'
-
-@Entity(MultiTenancyType.NONE)
-export class Person {
-    @AutoGeneratedId
-    id: string | null = null
-
-    @NotNull
-    firstName: string = ''
-
-    @NotNull
-    lastName: string = ''
-
-    @Precision(PrecisionType.SHORT)
-    age: number = 0
-}
-```
-
-A few things to note:
-
-- `@Entity(MultiTenancyType.NONE)` marks the class as a persisted entity with no multi-tenancy.
-- `@AutoGeneratedId` tells the platform to generate an ID when one is not provided.
-- `@NotNull` enforces that a field must have a value.
-- `@Precision(PrecisionType.SHORT)` tells the platform this number is a short integer, which influences how it is stored and indexed.
-
-## Generate the Repository
-
-```bash
-bun run generate
-bun run type-check
-```
-
-This writes `packages/domain/repositories/PersonRepository.ts` (yours to extend) along with a generated base class, and saves the entity's schema under `.config/c3/`. Export both from the domain package's entry so other packages can import them:
-
-```typescript
-// packages/domain/index.ts
-export * from './model/Person.js'
-export * from './repositories/PersonRepository.js'
-```
-
-## Push to Sync
-
-```bash
-git add . && git commit -m "Add Person entity" && git push
-```
-
-Kinotic OS reads entity definitions from the connected GitHub repository and synchronizes them for you -- publishing the entity creates the backing storage and registers its services. There is nothing to log in to or push from your machine besides git.
-
-## Use the Generated Repository
-
-The provisioned repository ships a starter microservice at `packages/microservices/main` that already sets the zone and connects. Extend its `src/main.ts` to try the repository out:
-
-```typescript
-import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { PersistencePlugin } from '@kinotic-ai/persistence'
-import { PersonRepository } from '@my-app/domain'
-import { appZone } from '@kinotic-ai/management-api'
-import config from '../../../../.config/kinotic.config'
-
-Kinotic.use(PersistencePlugin)
-Kinotic.zonePrefix = appZone(config.organizationId, config.applicationId)
-
-// server and credentials resolve from the environment: KINOTIC_SERVER_HOST/PORT/USE_SSL,
-// KINOTIC_CLIENT_ID/KINOTIC_CLIENT_SECRET, which a deployment sets to the app server and the
-// microservice's own machine identity. With nothing set it dials https://api.kinotic.ai, the org
-// server, which admits no runtime
-await Kinotic.connect()
-
-const personRepository = new PersonRepository()
-
-// Create a person
-const person = await personRepository.save({
-    id: null,
-    firstName: 'Jane',
-    lastName: 'Doe',
-    age: 28
-})
-
-console.log('Saved:', person)
-
-// Find all people
-const page = await personRepository.findAll(Pageable.create(0, 10))
-console.log('People:', page.content)
-```
-
-Run it with Bun:
-
-```bash
-bun run packages/microservices/main/src/main.ts
-```
-
-You should see the saved person printed to the console, followed by a page of results containing that person.
-
-## What's Next?
-
-Now that you have a working application, explore the rest of the documentation:
-
-- [Application Structure](https://kinotic.ai/apps/application-structure/overview) -- Understand how organizations, applications, projects, and artifacts are organized.
-- [Services](https://kinotic.ai/apps/services) -- Learn how to publish and consume services across your application.
-- [Persistence](https://kinotic.ai/apps/persistence) -- Dive deeper into entity definitions, relationships, and querying.
 
 
 # Decorators Reference
@@ -3024,7 +3037,7 @@ export class SensorReading {
 
 ### `@Query(statement)`
 
-Method decorator that defines a [named query](https://kinotic.ai/apps/persistence/named-queries) on a repository class. The statement is a `SELECT`, `INSERT`, `UPDATE` or `DELETE` of the repository's entity in the [Kinotic SQL grammar](https://kinotic.ai/apps/reference/migration-sql-grammar), including an aggregate `SELECT` (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`, …), with `:paramName` parameter binding. The method body is left empty -- `kinotic generate` fills in the implementation. Declare the method on the repository subclass that extends the generated base class (the subclass is generated once and never overwritten).
+Method decorator that defines a [named query](https://kinotic.ai/organizations/apps/persistence/named-queries) on a repository class. The statement is a `SELECT`, `INSERT`, `UPDATE` or `DELETE` of the repository's entity in the [Kinotic SQL grammar](https://kinotic.ai/organizations/apps/reference/migration-sql-grammar), including an aggregate `SELECT` (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`, …), with `:paramName` parameter binding. The method body is left empty -- `kinotic generate` fills in the implementation. Declare the method on the repository subclass that extends the generated base class (the subclass is generated once and never overwritten).
 
 ```typescript
 import { Query } from '@kinotic-ai/persistence'
@@ -3144,7 +3157,7 @@ class AuditService {
 }
 ```
 
-`participant` is absent only for an invocation that originated inside the platform with no participant bound, such as a scheduled job. See [Publishing Services](https://kinotic.ai/apps/services/publishing-services#context) for narrowing it to a scope-typed participant.
+`participant` is absent only for an invocation that originated inside the platform with no participant bound, such as a scheduled job. See [Publishing Services](https://kinotic.ai/organizations/apps/services/publishing-services#context) for narrowing it to a scope-typed participant.
 
 
 # Migration SQL Grammar
@@ -3153,11 +3166,11 @@ class AuditService {
 
 ## Overview
 
-This grammar reference applies to migration scripts used for schema and data migrations in Kinotic, and to [named queries](https://kinotic.ai/apps/persistence/named-queries), which use the same SQL dialect for `SELECT`, `INSERT`, `UPDATE` and `DELETE`.
+This grammar reference applies to migration scripts used for schema and data migrations in Kinotic, and to [named queries](https://kinotic.ai/organizations/apps/persistence/named-queries), which use the same SQL dialect for `SELECT`, `INSERT`, `UPDATE` and `DELETE`.
 
 All statements must end with a semicolon (`;`). Identifiers must start with a letter or underscore and can contain letters, numbers, and underscores; double quotes make a [reserved word](#keywords) a name (`"order"`). Keywords match in any case, but names are case-sensitive: see [Case](#case). Strings are enclosed in single quotes (`'...'`).
 
-An application's migrations, the ones `kinotic sync` runs from its `migrations` folder, use only the data statements: `INSERT`, `UPDATE`, `DELETE` and `REINDEX`. There `<index_name>` is the name of one of the application's entities, which the platform resolves to the entity's backing store, and an `INSERT` carries neither `ROUTING` nor `DOCUMENT_ID`, since both are derived from the row's id and tenant fields. A `REINDEX` `SCRIPT` there reaches `ctx` only as `ctx._source` or `ctx.op`. See [Migrations](https://kinotic.ai/apps/persistence/migrations). The remaining statements, and the storage names in the examples below, belong to the [system migrations](https://kinotic.ai/platform/system-migrations).
+An application's migrations, the ones `kinotic sync` runs from its `migrations` folder, use only the data statements: `INSERT`, `UPDATE`, `DELETE` and `REINDEX`. There `<index_name>` is the name of one of the application's entities, which the platform resolves to the entity's backing store, and an `INSERT` carries neither `ROUTING` nor `DOCUMENT_ID`, since both are derived from the row's id and tenant fields. A `REINDEX` `SCRIPT` there reaches `ctx` only as `ctx._source` or `ctx.op`. See [Migrations](https://kinotic.ai/organizations/apps/persistence/migrations). The remaining statements, and the storage names in the examples below, belong to the [system migrations](https://kinotic.ai/platform/system-migrations).
 
 ## Statements Overview
 
@@ -3833,7 +3846,7 @@ DELETE FROM products WHERE inStock = false WITH REFRESH ;
 
 ## SELECT
 
-Reads the documents matching a where clause, whole or projected to the listed fields, or aggregates them. A `SELECT` is the statement of a [named query](https://kinotic.ai/apps/persistence/named-queries#select); a migration has no use for one.
+Reads the documents matching a where clause, whole or projected to the listed fields, or aggregates them. A `SELECT` is the statement of a [named query](https://kinotic.ai/organizations/apps/persistence/named-queries#select); a migration has no use for one.
 
 **Syntax:**
 
@@ -4821,7 +4834,7 @@ A Kinotic-minted JWT already carries the `organizationId` / `applicationId` clai
 
 ### Browser applications
 
-A browser UI does **not** supply credentials. It signs its user in, or up, over REST at its application's API host, the `VITE_KINOTIC_HOST` of [the UI build contract](https://kinotic.ai/apps/application-structure/applications-and-projects#the-ui-build-contract), which sets a session cookie for that host, then connects to the same host with no credentials — the default resolution finds the session. The host names the application, so the UI never sends its organization or application id. Every call below takes `credentials: 'include'` and is made from a page that is one of the application's own UIs; the API host refuses a sign-in or sign-up from any other page with `403`.
+A browser UI does **not** supply credentials. It signs its user in, or up, over REST at its application's API host, the `VITE_KINOTIC_HOST` of [the UI build contract](https://kinotic.ai/organizations/apps/application-structure/applications-and-projects#the-ui-build-contract), which sets a session cookie for that host, then connects to the same host with no credentials — the default resolution finds the session. The host names the application, so the UI never sends its organization or application id. Every call below takes `credentials: 'include'` and is made from a page that is one of the application's own UIs; the API host refuses a sign-in or sign-up from any other page with `403`.
 
 A UI that offers sign-in serves a `/login` page; one that offers sign-up also serves a `/signup` page and the `/signup/verify` page the verification email links to. Both pages start by asking the API host what the login offers:
 
@@ -4964,7 +4977,7 @@ Every new user ends up in a tenant. An application signs people up at its own lo
 
 ### Signing in to a tenant
 
-An application whose tenants its administrators manage gives each tenant a login of its own. A page served at one of the tenant's sites, `<tenantId>--<applicationId>--<uiName>` under your organization's subdomain of the sites domain (see [Multi-Tenancy](https://kinotic.ai/apps/persistence/multi-tenancy#tenants-and-their-sites)), signs in to that tenant with the same calls as above: the API host reads the tenant from the page's host, so `/app/login/methods` lists what the tenant's login offers — the tenant's own providers, then the application's — and `/app/login` admits only the tenant's users. Only the tenant's own providers can sign people up there, into the tenant; the application's providers sign in the tenant's existing users, and password sign-up is not offered. A page that is not one of the tenant's sites, such as a UI running locally, names the tenant instead, with `?tenantId=` on the `GET` and the start, and `tenantId` in the login body; the API host answers `404` for a tenant the application does not have, and `403` when a tenant's site names another tenant.
+An application whose tenants its administrators manage gives each tenant a login of its own. A page served at one of the tenant's sites, `<tenantId>--<applicationId>--<uiName>` under your organization's subdomain of the sites domain (see [Multi-Tenancy](https://kinotic.ai/organizations/apps/persistence/multi-tenancy#tenants-and-their-sites)), signs in to that tenant with the same calls as above: the API host reads the tenant from the page's host, so `/app/login/methods` lists what the tenant's login offers — the tenant's own providers, then the application's — and `/app/login` admits only the tenant's users. Only the tenant's own providers can sign people up there, into the tenant; the application's providers sign in the tenant's existing users, and password sign-up is not offered. A page that is not one of the tenant's sites, such as a UI running locally, names the tenant instead, with `?tenantId=` on the `GET` and the start, and `tenantId` in the login body; the API host answers `404` for a tenant the application does not have, and `403` when a tenant's site names another tenant.
 
 ### Sign-in providers
 
@@ -5048,13 +5061,13 @@ How a sign-in through a provider runs:
 
 1. Your UI renders a button per provider the login offers; the button posts the configuration's id to the start at your API host, whose answer carries the URL to send the browser to
 2. The provider returns the browser to the API host, which validates the provider's response, finds the user bound to the identity in your application, or in the tenant the sign-in is to, creating it where the provider signs people up, and sets the session cookie. A provider using Kinotic's registration returns the browser to the app server's shared host instead, which validates the response, finds or creates the user, and hands the sign-in to your application's API host under a single-use code, which completes only in the browser that started the sign-in; that host sets the cookie
-3. The browser returns to `/` on the site that started the sign-in, which connects with the session; a sign-in that fails returns instead to the `/login` page of that site with an `error` parameter, so every UI that offers sign-in serves a `/login` route. A failure that no longer knows which site started it — the flow's session expired, or a shared registration's single-use code was refused with `handoff_invalid` — returns to the `/login` page of your application's [primary UI](https://kinotic.ai/apps/application-structure/applications-and-projects#applications)
+3. The browser returns to `/` on the site that started the sign-in, which connects with the session; a sign-in that fails returns instead to the `/login` page of that site with an `error` parameter, so every UI that offers sign-in serves a `/login` route. A failure that no longer knows which site started it — the flow's session expired, or a shared registration's single-use code was refused with `handoff_invalid` — returns to the `/login` page of your application's [primary UI](https://kinotic.ai/organizations/apps/application-structure/applications-and-projects#applications)
 
 An AI assistant building the pages can ask what the login offers through the `ApplicationService.getLoginMethods` MCP tool, which answers what `GET /api/auth/app/login/methods` answers for the application's own login. All provider kinds are `OidcConfiguration`s — see [System Security](https://kinotic.ai/platform/system-security) for how ownership is captured by the subtype.
 
 ## User Management
 
-Besides signing up, an application's users are **invited** by an administrator. Your organization administrator manages your application's users on the application's **Users** page in the portal. **Invite user** emails an invitation (`MemberService.inviteMember(email, displayName, applicationId)`); the invitee accepts it by choosing a password, which creates the application's user, and is then sent to your application's [primary UI](https://kinotic.ai/apps/application-structure/applications-and-projects#applications), where they sign in with that email and password from then on. The first UI one of your projects publishes becomes the primary UI unless you have chosen one; while the application has none, the accept page confirms the new user instead. An invitation into an application is accepted with a password only, and a user created this way has no OIDC identity bound to it, so it signs in with the password even when the email matches an identity at one of the application's providers.
+Besides signing up, an application's users are **invited** by an administrator. Your organization administrator manages your application's users on the application's **Users** page in the portal. **Invite user** emails an invitation (`MemberService.inviteMember(email, displayName, applicationId)`); the invitee accepts it by choosing a password, which creates the application's user, and is then sent to your application's [primary UI](https://kinotic.ai/organizations/apps/application-structure/applications-and-projects#applications), where they sign in with that email and password from then on. The first UI one of your projects publishes becomes the primary UI unless you have chosen one; while the application has none, the accept page confirms the new user instead. An invitation into an application is accepted with a password only, and a user created this way has no OIDC identity bound to it, so it signs in with the password even when the email matches an identity at one of the application's providers.
 
 Sign-up is configured per application, by the organization in the portal or by any product built on Kinotic through the management API: `Application.passwordSignUp`, saved with `ApplicationService.save`, turns on sign-up with an email and a password, and each provider's `createUserOnSignIn` and `clientRegistrationType`, saved with `OwnedOidcConfigurationService.save`, say whether it signs people up and whose registration it uses. A builder that creates applications for its own users can create each one with `TenantManagement.SYSTEM`, add a Google provider managed by Kinotic with `createUserOnSignIn` on, turn `passwordSignUp` on when the owner wants it, and later save the same provider with `OWN` and the owner's client ID and secret.
 
@@ -5071,7 +5084,7 @@ Services are the building blocks of Kinotic applications. Any TypeScript class c
 
 1. **Publish** -- Decorate a class with `@Publish` and its methods become remotely callable
 2. **Discover** -- The platform automatically registers the service so consumers can reach it by its address
-3. **Call** -- Other services and frontends invoke methods through [service proxies](https://kinotic.ai/apps/services/service-proxies) as if they were local
+3. **Call** -- Other services and frontends invoke methods through [service proxies](https://kinotic.ai/organizations/apps/services/service-proxies) as if they were local
 
 You don't configure routing, serialization, or service discovery. The platform handles all of that.
 
@@ -5465,6 +5478,340 @@ A service that stops while producing a stream ends it with an error at the calle
 - **Notifications and alerts** -- Push updates to connected clients
 - **Change data capture** -- React to data changes as they happen
 - **Large result sets** -- Stream results incrementally instead of loading everything at once
+
+
+# Okta SSO Setup
+
+> Configure Okta as a single sign-on provider for your Kinotic organization.
+
+This guide connects an Okta org to your Kinotic organization so members can sign in to the Kinotic portal with **Sign in with Okta**.
+
+The setup goes back and forth once: you create the app in Okta, add the provider in Kinotic, then copy Kinotic's callback URL back into Okta.
+
+## Prerequisites
+
+- Administrator access to your **Okta Admin Console** (for example `https://yourorg-admin.okta.com`).
+- Administrator access to your **Kinotic organization**.
+
+## 1. Create the app integration in Okta
+
+1. In the Okta Admin Console, go to **Applications > Applications** and click **Create App Integration**.
+2. Select the **Classic experience** tab, choose **OIDC - OpenID Connect** as the sign-in method, and **Web Application** as the application type. Click **Next**.
+
+![Create app integration dialog](https://kinotic.ai/images/docs/okta/01-create-app-integration.png)
+
+![OIDC - OpenID Connect and Web Application selected](https://kinotic.ai/images/docs/okta/02-oidc-web-application.png)
+
+1. Enter an **App integration name**, for example `Kinotic`, and under **Client definition** choose **Use Okta-generated client ID**.
+
+![App integration name](https://kinotic.ai/images/docs/okta/03-app-name.png)
+
+1. Under **Grant type**, keep **Authorization Code** checked.
+2. Leave **Sign-in redirect URIs** as Okta's placeholder (`http://localhost:8080/authorization-code/callback`) for now. You will replace it with Kinotic's callback URL in step 4.
+
+![Grant type and redirect URIs](https://kinotic.ai/images/docs/okta/04-grant-type-redirect-uris.png)
+
+1. Under **Assignments**, choose **Allow everyone in your organization to access**, or **Limit access to selected groups** to restrict who can sign in. Click **Save**.
+
+![Assignments](https://kinotic.ai/images/docs/okta/05-assignments.png)
+
+## 2. Copy the client credentials
+
+On the saved app's **General** tab, find **Client Credentials**:
+
+- Copy the **Client ID**.
+- Under **Client Secrets**, use the copy button to copy the secret.
+
+![Client credentials](https://kinotic.ai/images/docs/okta/06-client-credentials.png)
+
+<alert type="warning">
+
+Treat the client secret like a password. Paste it directly into Kinotic; don't share it in chat or screenshots.
+
+</alert>
+
+## 3. Add the provider in Kinotic
+
+1. In the Kinotic portal, open **Organization settings** and select the **Authentication providers** tab. Click **Add provider**.
+
+![Authentication providers tab](https://kinotic.ai/images/docs/okta/07-kinotic-providers-empty.png)
+
+1. Fill in the form:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Field
+    </th>
+    
+    <th>
+      Value
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <strong>
+        Provider
+      </strong>
+    </td>
+    
+    <td>
+      <code>
+        Okta
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Display name
+      </strong>
+    </td>
+    
+    <td>
+      The text on the login button, for example <code>
+        Okta
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Okta domain
+      </strong>
+    </td>
+    
+    <td>
+      Your Okta org domain, for example <code>
+        yourorg.okta.com
+      </code>
+      
+       -- no <code>
+        https://
+      </code>
+      
+       and no path
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Client ID
+      </strong>
+    </td>
+    
+    <td>
+      The client ID from Okta
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Client secret
+      </strong>
+    </td>
+    
+    <td>
+      The client secret from Okta
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Public client (no secret)
+      </strong>
+    </td>
+    
+    <td>
+      Leave unchecked. Check it only for a public client that has no secret
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Enabled
+      </strong>
+    </td>
+    
+    <td>
+      On, so the login page offers this provider
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Advanced > Audience
+      </strong>
+    </td>
+    
+    <td>
+      Optional. Set it only when the <code>
+        aud
+      </code>
+      
+       claim of Okta's tokens is not the client ID
+    </td>
+  </tr>
+</tbody>
+</table>
+
+![Add provider form](https://kinotic.ai/images/docs/okta/08-kinotic-add-provider.png)
+
+![Advanced section with Audience](https://kinotic.ai/images/docs/okta/09-kinotic-add-provider-advanced.png)
+
+1. Click **Add provider**.
+
+Kinotic creates the configuration and the drawer shows two URLs, each with a copy button:
+
+- **Callback URL** -- `https://<api-host>/api/auth/org/login/sso/callback/<config-id>`
+- **Direct sign-in link** -- `https://<api-host>/api/auth/org/login/<org>/start/<config-id>`, useful for a tile in Okta's app launcher.
+
+Copy the **Callback URL**.
+
+![Provider added with callback URL](https://kinotic.ai/images/docs/okta/10-kinotic-callback-url.png)
+
+<alert type="info">
+
+The configuration id at the end of the callback URL is created on the first save, so the callback URL only exists after you click **Add provider**.
+
+</alert>
+
+## 4. Register the callback URL in Okta
+
+1. Back in Okta, open the app's **General** tab, and click **Edit** on **General Settings**.
+2. Under **LOGIN**, replace the **Sign-in redirect URIs** placeholder with the callback URL you copied from Kinotic.
+3. Click **Save**.
+
+![Sign-in redirect URI saved](https://kinotic.ai/images/docs/okta/11-okta-redirect-uri-saved.png)
+
+<alert type="warning">
+
+Okta matches redirect URIs exactly. Paste the whole callback URL, including the configuration id at the end.
+
+</alert>
+
+The provider now appears as **Enabled** in Kinotic:
+
+![Okta provider enabled](https://kinotic.ai/images/docs/okta/12-kinotic-provider-enabled.png)
+
+## 5. Test sign-in
+
+1. Open your organization's login page, `https://<portal-host>/login/<org>`. It now shows **Sign in with Okta** (using your display name).
+2. Sign in with a user who is assigned to the Okta app.
+
+To add more users, create or assign them in Okta (**Directory > People**, or through the groups assigned to the app).
+
+## Troubleshooting
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Symptom
+    </th>
+    
+    <th>
+      Cause and fix
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      Okta shows a <code>
+        redirect_uri
+      </code>
+      
+       error
+    </td>
+    
+    <td>
+      The sign-in redirect URI in Okta doesn't exactly match Kinotic's callback URL. Copy it again from the provider in Kinotic and replace it in Okta
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Okta says the user isn't assigned to the app
+    </td>
+    
+    <td>
+      Assign the user, or a group they belong to, under the app's <strong>
+        Assignments
+      </strong>
+      
+       tab
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      The login page doesn't show the Okta button
+    </td>
+    
+    <td>
+      Check that the provider is <strong>
+        Enabled
+      </strong>
+      
+       under <strong>
+        Organization settings > Authentication providers
+      </strong>
+    </td>
+  </tr>
+</tbody>
+</table>
+
+
+# Overview
+
+> Let your organization's members sign in to the Kinotic portal with your own identity provider.
+
+An **authentication provider** is an identity provider, such as Okta or a Microsoft Entra ID directory, that your organization's members use to sign in to the Kinotic portal.
+
+You add providers in the Kinotic portal under **Organization settings > Authentication providers**. Each provider is offered on your organization's login page once its **callback URL** is registered at the provider.
+
+## Setup order
+
+Every provider follows the same order:
+
+1. Create an application (client) registration at the provider and note its client ID and secret.
+2. Add the provider in Kinotic. Kinotic creates the configuration and shows its exact callback URL.
+3. Register that callback URL as a redirect URI at the provider.
+
+The callback URL contains the configuration's id, which is only created when you first save the provider in Kinotic. That is why the provider registration is created first with a placeholder redirect URI and updated afterwards.
+
+## Guides
+
+- [Okta SSO setup](https://kinotic.ai/organizations/authentication-providers/okta)
+
+
+# Overview
+
+> Set up a Kinotic organization -- its members, how they sign in, and the Apps it builds.
+
+An **organization** is the top-level home for everything you build on Kinotic. It owns its members, the identity providers they sign in with, and its [Apps](https://kinotic.ai/organizations/apps/application-structure/overview).
+
+Organization administrators manage the organization from **Organization settings** in the Kinotic portal.
+
+## Organization setup
+
+- **Authentication providers** -- let your members sign in to the portal with your company's identity provider, such as Okta.
+- **Apps** -- build, publish, and deploy applications inside the organization.
+
+For how organizations, users, and OIDC configurations work under the hood, see [Organization Management](https://kinotic.ai/platform/organization-management).
 
 
 # System Architecture
@@ -6384,7 +6731,7 @@ On `BOXLITE` nodes a workload may declare at most one entry in `volumeMounts`: t
 ## Project deployment
 
 The system server deploys a project on every push to its repository's default branch (see
-[Push to Deploy](https://kinotic.ai/apps/deployment/push-to-deploy)). The pipeline runs a short-lived sync VM
+[Push to Deploy](https://kinotic.ai/organizations/apps/deployment/push-to-deploy)). The pipeline runs a short-lived sync VM
 per deployment and a short-lived SBOM VM when the project's dependencies changed, which connect to
 the management server, and one long-lived runtime VM per microservice, which connects to the app server,
 configured under `kinotic.systemApi.deployment.*`:
@@ -6603,7 +6950,7 @@ the runtime VMs.
 
 Each application has an API host of its own, its `<organizationId>--<applicationId>` label
 under a platform domain, and every UI a deployment builds is handed its application's host
-to connect to (see [the UI build contract](https://kinotic.ai/apps/application-structure/applications-and-projects#the-ui-build-contract)).
+to connect to (see [the UI build contract](https://kinotic.ai/organizations/apps/application-structure/applications-and-projects#the-ui-build-contract)).
 The app server serves every application at its host: its login and OAuth routes take the
 application from the host a request is addressed to and answer `404` on any other host, and it
 signs an application's users in only from pages that are the application's own UIs. Each URL a
@@ -13078,7 +13425,7 @@ An organization's own provider therefore signs in only the members its administr
 
 ## User Login
 
-A login is addressed to an organization. An organization user may be a member of any number of organizations, each an `OrganizationMembership` of its own, so nothing about the person alone says where they are signing in; the organization's id, the slug of its hostnames (see [Applications and Projects](https://kinotic.ai/apps/application-structure/applications-and-projects#applications)), is what every login route and page is addressed by. The portal has two login pages:
+A login is addressed to an organization. An organization user may be a member of any number of organizations, each an `OrganizationMembership` of its own, so nothing about the person alone says where they are signing in; the organization's id, the slug of its hostnames (see [Applications and Projects](https://kinotic.ai/organizations/apps/application-structure/applications-and-projects#applications)), is what every login route and page is addressed by. The portal has two login pages:
 
 - `/login`, the landing page, for someone whose organization is not yet known: the system's social buttons, which sign in without naming an organization when the identity belongs to exactly one and otherwise offer the ones it belongs to; an organization field that leads to that organization's page; and a "Don't know your organization?" link that emails the person the organizations their address belongs to.
 - `/login/<organizationId>`, the organization's page (`OrganizationLoginPage.vue`), which offers exactly what that organization's login supports: one button per configuration `GET /api/auth/org/login/<organizationId>/providers` lists — the system's org sign-up registrations (GitHub) followed by the organization's own `OrganizationOidcConfiguration`s — and an email + password form. The organization's own host, `<organizationId>.<sitesDomain>`, redirects here.
@@ -16017,7 +16364,7 @@ under `packages/microservices` runs in a VM of its own, and every UI under `pack
 is built by the deployment, uploaded to organization-owned Azure Blob storage, and served
 on its own hostname through the Cloudflare sites Worker. It describes the target shape, and the
 [Built so far](#built-so-far) section at the end says which parts exist today. The
-user-facing view of the same flow is [Push to Deploy](https://kinotic.ai/apps/deployment/push-to-deploy).
+user-facing view of the same flow is [Push to Deploy](https://kinotic.ai/organizations/apps/deployment/push-to-deploy).
 
 ## Entities
 
@@ -16054,7 +16401,7 @@ which issues tokens only for the projects of the caller's organization.
 
 ## Artifacts and their identity
 
-The [artifacts](https://kinotic.ai/apps/application-structure/artifact-types) a commit contains are found
+The [artifacts](https://kinotic.ai/organizations/apps/application-structure/artifact-types) a commit contains are found
 inside the sync VM, over the checkout, by TypeScript in the workload-runner: code that sits
 in the Bun ecosystem and can later resolve packages the way the project's own tooling
 (`bunup`) does. For now the rule is naive and reads no Bun or bunup configuration: a
@@ -16578,7 +16925,7 @@ Four doors on one host. A new organization user appears through the first three:
 
 ## Overview
 
-A [service proxy](https://kinotic.ai/apps/services/service-proxies) call travels over the OS bus to whichever node hosts the service — another server's node for a Java service, or a gateway socket for a TS service running on a [workload node](https://kinotic.ai/platform/architecture). If that node dies while the call is in flight, nothing would ever answer the caller. Kinotic handles this as a property of the platform rather than of each call: **no service call carries a timeout, and none needs one.** Instead, every hop that holds a pending request watches the *registration* of the callee that serves it, and fails the request the moment that registration is gone.
+A [service proxy](https://kinotic.ai/organizations/apps/services/service-proxies) call travels over the OS bus to whichever node hosts the service — another server's node for a Java service, or a gateway socket for a TS service running on a [workload node](https://kinotic.ai/platform/architecture). If that node dies while the call is in flight, nothing would ever answer the caller. Kinotic handles this as a property of the platform rather than of each call: **no service call carries a timeout, and none needs one.** Instead, every hop that holds a pending request watches the *registration* of the callee that serves it, and fails the request the moment that registration is gone.
 
 The reason to prefer this over a timeout is that a timeout encodes a guess about how long work takes, and no number is right for a service the platform does not own. Liveness observes whether the worker still exists. A legitimate ten-hour call is never cut short; a dead node fails its pending calls within seconds.
 
@@ -16590,7 +16937,7 @@ The reason to prefer this over a timeout is that a timeout encodes a guess about
 
 ## Registration is liveness
 
-A service is reachable exactly while its address has an entry in the cluster's replicated subscription cache. That cache is maintained by the Vert.x cluster manager on Ignite, and Ignite removes a dead node's entries as part of its own failure detection. The platform already turns those updates into a push signal: the [callee side](https://kinotic.ai/apps/services/streaming) of a streaming call watches the *caller's* reply destination and cancels the stream when the caller disappears; for a TypeScript service the gateway holding its connection does the watching and delivers the cancel over the socket. Liveness for callers is the same signal, in the other direction.
+A service is reachable exactly while its address has an entry in the cluster's replicated subscription cache. That cache is maintained by the Vert.x cluster manager on Ignite, and Ignite removes a dead node's entries as part of its own failure detection. The platform already turns those updates into a push signal: the [callee side](https://kinotic.ai/organizations/apps/services/streaming) of a streaming call watches the *caller's* reply destination and cancels the stream when the caller disappears; for a TypeScript service the gateway holding its connection does the watching and delivers the cancel over the socket. Liveness for callers is the same signal, in the other direction.
 
 <rpc-liveness-diagram view="overview">
 
@@ -16604,7 +16951,7 @@ The signal that ends a request is the same one every reply already carries: a te
 
 ## A call in flight when its node dies
 
-The ack that confirms receipt of a request names the node whose consumer took it. That matters for any address with more than one registration: a service published on several nodes, several TS instances of one service, or the shared address a scoped service joins for its [`@ScopeOptional`](https://kinotic.ai/apps/reference/decorators) methods. A call to such an address lands on one instance, the address stays active as long as *any* instance lives, and the caller must know which one took its request.
+The ack that confirms receipt of a request names the node whose consumer took it. That matters for any address with more than one registration: a service published on several nodes, several TS instances of one service, or the shared address a scoped service joins for its [`@ScopeOptional`](https://kinotic.ai/organizations/apps/reference/decorators) methods. A call to such an address lands on one instance, the address stays active as long as *any* instance lives, and the caller must know which one took its request.
 
 <rpc-liveness-diagram view="failure">
 
@@ -17248,7 +17595,7 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
 
 > Writing and maintaining migration scripts for Kinotic's internal system indices.
 
-The Kinotic platform uses the same migration SQL system as application developers to manage its own internal Elasticsearch indices. This page covers considerations specific to platform development — for general migration syntax, see [App Migrations](https://kinotic.ai/apps/persistence/migrations).
+The Kinotic platform uses the same migration SQL system as application developers to manage its own internal Elasticsearch indices. This page covers considerations specific to platform development — for general migration syntax, see [App Migrations](https://kinotic.ai/organizations/apps/persistence/migrations).
 
 ## What Are System Migrations?
 
@@ -17258,7 +17605,7 @@ System migrations live in `kinotic-migration/src/main/resources/migrations/` and
 
 ## Using Composite Types in System Indices
 
-OBJECT, NESTED, and UNION columns work the same way in system migrations as in application migrations. Refer to the [Composite Column Types](https://kinotic.ai/apps/persistence/migrations#composite-column-types) section of the app documentation for syntax and examples.
+OBJECT, NESTED, and UNION columns work the same way in system migrations as in application migrations. Refer to the [Composite Column Types](https://kinotic.ai/organizations/apps/persistence/migrations#composite-column-types) section of the app documentation for syntax and examples.
 
 ## Deserializing Union Types
 
@@ -17320,7 +17667,7 @@ If two variants declare the same field name with different scalar types — e.g.
 
 ## Data Streams
 
-System data that is append-only and time-series — audit trails, events, telemetry — should be backed by an Elasticsearch **data stream** rather than a regular index, so old data ages out and backing indices roll over automatically. Create one from a migration with [`CREATE DATA STREAM`](https://kinotic.ai/apps/reference/migration-sql-grammar#create-data-stream):
+System data that is append-only and time-series — audit trails, events, telemetry — should be backed by an Elasticsearch **data stream** rather than a regular index, so old data ages out and backing indices roll over automatically. Create one from a migration with [`CREATE DATA STREAM`](https://kinotic.ai/organizations/apps/reference/migration-sql-grammar#create-data-stream):
 
 ```sql
 CREATE DATA STREAM system_audit (
@@ -17330,7 +17677,7 @@ CREATE DATA STREAM system_audit (
 ) WITH (DATA_RETENTION = '90d') ;
 ```
 
-`DATA_RETENTION` is the native [data stream lifecycle](https://www.elastic.co/docs/manage-data/lifecycle/data-stream) — Elasticsearch deletes data past the period (measured per backing index from rollover, not per document). See the [Migration SQL Grammar](https://kinotic.ai/apps/reference/migration-sql-grammar#create-data-stream) for the full statement and the exact retention semantics.
+`DATA_RETENTION` is the native [data stream lifecycle](https://www.elastic.co/docs/manage-data/lifecycle/data-stream) — Elasticsearch deletes data past the period (measured per backing index from rollover, not per document). See the [Migration SQL Grammar](https://kinotic.ai/organizations/apps/reference/migration-sql-grammar#create-data-stream) for the full statement and the exact retention semantics.
 
 ### Every document needs a `@timestamp` — and Java needs ceremony for it
 
@@ -17363,7 +17710,7 @@ private Instant eventTime;
 public Instant esTimestamp() { return eventTime; }
 ```
 
-This **duplicates** the value (both `eventTime` and `@timestamp` are stored). It is the same document shape that application entities get from the [`@TimeReference`](https://kinotic.ai/apps/persistence/entity-decorators) decorator. When a migration creates the stream backing such an entity, declare the pairing so the stream documents which column is the natural time field:
+This **duplicates** the value (both `eventTime` and `@timestamp` are stored). It is the same document shape that application entities get from the [`@TimeReference`](https://kinotic.ai/organizations/apps/persistence/entity-decorators) decorator. When a migration creates the stream backing such an entity, declare the pairing so the stream documents which column is the natural time field:
 
 ```sql
 CREATE DATA STREAM sensor_readings (

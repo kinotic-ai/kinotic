@@ -2,31 +2,38 @@
 
 > Markdown index of every page on kinotic.ai. Links point at the raw markdown; append `.md` to any page URL (or set `Accept: text/markdown`) to get it from the page URL instead.
 
-## Apps
+## Getting started
 
-- [Applications and Projects](https://kinotic.ai/raw/apps/application-structure/applications-and-projects.md)
-- [Artifact Types](https://kinotic.ai/raw/apps/application-structure/artifact-types.md)
-- [Overview](https://kinotic.ai/raw/apps/application-structure/overview.md)
-- [CLI Reference](https://kinotic.ai/raw/apps/cli-reference.md)
-- [Environments](https://kinotic.ai/raw/apps/deployment/environments.md)
-- [Push to Deploy](https://kinotic.ai/raw/apps/deployment/push-to-deploy.md)
-- [Deployment Workflow](https://kinotic.ai/raw/apps/deployment/workflow.md)
-- [Introduction](https://kinotic.ai/raw/apps/introduction.md)
-- [CRUD Operations](https://kinotic.ai/raw/apps/persistence/crud-operations.md)
-- [Defining Entities](https://kinotic.ai/raw/apps/persistence/defining-entities.md)
-- [Entity Decorators](https://kinotic.ai/raw/apps/persistence/entity-decorators.md)
-- [Migrations](https://kinotic.ai/raw/apps/persistence/migrations.md)
-- [Multi-Tenancy](https://kinotic.ai/raw/apps/persistence/multi-tenancy.md)
-- [Named Queries](https://kinotic.ai/raw/apps/persistence/named-queries.md)
-- [Overview](https://kinotic.ai/raw/apps/persistence/overview.md)
-- [Quick Start](https://kinotic.ai/raw/apps/quick-start.md)
-- [Decorators Reference](https://kinotic.ai/raw/apps/reference/decorators.md)
-- [Migration SQL Grammar](https://kinotic.ai/raw/apps/reference/migration-sql-grammar.md)
-- [Authentication](https://kinotic.ai/raw/apps/security/authentication.md)
-- [Overview](https://kinotic.ai/raw/apps/services/overview.md)
-- [Publishing Services](https://kinotic.ai/raw/apps/services/publishing-services.md)
-- [Service Proxies](https://kinotic.ai/raw/apps/services/service-proxies.md)
-- [Streaming](https://kinotic.ai/raw/apps/services/streaming.md)
+- [Introduction](https://kinotic.ai/raw/getting-started/introduction.md)
+- [Local-Only Setup](https://kinotic.ai/raw/getting-started/local-only-setup.md)
+- [Quick Start](https://kinotic.ai/raw/getting-started/quick-start.md)
+
+## Organizations
+
+- [Applications and Projects](https://kinotic.ai/raw/organizations/apps/application-structure/applications-and-projects.md)
+- [Artifact Types](https://kinotic.ai/raw/organizations/apps/application-structure/artifact-types.md)
+- [Overview](https://kinotic.ai/raw/organizations/apps/application-structure/overview.md)
+- [CLI Reference](https://kinotic.ai/raw/organizations/apps/cli-reference.md)
+- [Environments](https://kinotic.ai/raw/organizations/apps/deployment/environments.md)
+- [Push to Deploy](https://kinotic.ai/raw/organizations/apps/deployment/push-to-deploy.md)
+- [Deployment Workflow](https://kinotic.ai/raw/organizations/apps/deployment/workflow.md)
+- [CRUD Operations](https://kinotic.ai/raw/organizations/apps/persistence/crud-operations.md)
+- [Defining Entities](https://kinotic.ai/raw/organizations/apps/persistence/defining-entities.md)
+- [Entity Decorators](https://kinotic.ai/raw/organizations/apps/persistence/entity-decorators.md)
+- [Migrations](https://kinotic.ai/raw/organizations/apps/persistence/migrations.md)
+- [Multi-Tenancy](https://kinotic.ai/raw/organizations/apps/persistence/multi-tenancy.md)
+- [Named Queries](https://kinotic.ai/raw/organizations/apps/persistence/named-queries.md)
+- [Overview](https://kinotic.ai/raw/organizations/apps/persistence/overview.md)
+- [Decorators Reference](https://kinotic.ai/raw/organizations/apps/reference/decorators.md)
+- [Migration SQL Grammar](https://kinotic.ai/raw/organizations/apps/reference/migration-sql-grammar.md)
+- [Authentication](https://kinotic.ai/raw/organizations/apps/security/authentication.md)
+- [Overview](https://kinotic.ai/raw/organizations/apps/services/overview.md)
+- [Publishing Services](https://kinotic.ai/raw/organizations/apps/services/publishing-services.md)
+- [Service Proxies](https://kinotic.ai/raw/organizations/apps/services/service-proxies.md)
+- [Streaming](https://kinotic.ai/raw/organizations/apps/services/streaming.md)
+- [Okta SSO Setup](https://kinotic.ai/raw/organizations/authentication-providers/okta.md)
+- [Overview](https://kinotic.ai/raw/organizations/authentication-providers/overview.md)
+- [Overview](https://kinotic.ai/raw/organizations/overview.md)
 
 ## Platform
 
