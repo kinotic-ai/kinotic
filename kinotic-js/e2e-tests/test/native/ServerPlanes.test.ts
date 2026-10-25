@@ -1,7 +1,7 @@
 import http from 'node:http'
-import {BasicCredentialsResolver, type CredentialsResolver, KinoticSingleton, type ServerInfo} from '@kinotic-ai/core'
+import {BasicCredentialsResolver, type CredentialsResolver, Kinotic, KinoticSingleton, type ServerInfo} from '@kinotic-ai/core'
 import * as allure from 'allure-js-commons'
-import {beforeAll, describe, expect, it} from 'vitest'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {E2E_APP_TENANT,
         E2E_FIXTURE_PASSWORD,
         E2E_ORGANIZATION_ID,
@@ -10,8 +10,10 @@ import {E2E_APP_TENANT,
         appFixtureEmail,
         appServer,
         buildConnectOptions,
+        initKinoticClient,
         managementServer,
         restBase,
+        shutdownKinoticClient,
         systemServer} from '../TestHelpers.js'
 
 // the organization's APP_RUNTIME machine V3__e2e_app_fixtures seeds (clientSecret: kinotic)
@@ -112,7 +114,15 @@ describe('Server planes', () => {
     beforeAll(async () => {
         await allure.suite('e2e-tests/native')
         await allure.subSuite('ServerPlanes')
-    })
+        // the fixtures seed these applications' users and tenants, and a login reads the application itself
+        await initKinoticClient()
+        await Kinotic.applications.createApplicationIfNotExist(APP_ID, 'e2e fixture application for the server planes test')
+        await Kinotic.applications.createApplicationIfNotExist(OTHER_APP_ID, 'e2e fixture application for the server planes test')
+    }, 300000)
+
+    afterAll(async () => {
+        await shutdownKinoticClient()
+    }, 60000)
 
     it('admits each participant only at the server of its plane', async () => {
         expect(await connect(managementServer(), orgUser())).toBe('connected')
