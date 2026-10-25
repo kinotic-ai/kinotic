@@ -1,5 +1,8 @@
 export default defineNuxtConfig({
   extends: ['docus'],
+  // Lists every prerendered, indexable page in /sitemap.xml; @nuxtjs/robots adds its Sitemap line
+  // to robots.txt.
+  modules: ['@nuxtjs/sitemap'],
   // Canonical site URL for nuxt-site-config consumers (robots, sitemap, OG images, canonical
   // links). Without it they fall back to http://localhost, which leaks into the deployed
   // robots.txt Sitemap line and OG/canonical URLs.
@@ -14,8 +17,7 @@ export default defineNuxtConfig({
   },
   // /V2, /V3 and /vc are unlinked pages shared by URL, so prerendering never discovers them
   // by crawling — without this, `nuxt generate` emits no page for them and the deployed URLs 404.
-  // They are kept out of search results by their own `noindex` meta tag; the sitemap covers
-  // content pages only.
+  // Their own `noindex` meta tag keeps them out of search results and out of /sitemap.xml.
   nitro: {
     prerender: {
       routes: ['/V2', '/V3', '/vc'],
