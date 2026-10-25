@@ -30,6 +30,12 @@ export function forgetOrganization(): void {
     }
 }
 
+/**
+ * Key, in the history state of a navigation to the landing page, of the remembered organization the
+ * organization page found no longer exists. The landing page prefills its organization field with it.
+ */
+export const UNKNOWN_ORGANIZATION_STATE = 'unknownOrganization'
+
 /** The portal path of an organization's login page. */
 export function organizationLoginPath(organizationId: string): string {
     return '/login/' + encodeURIComponent(organizationId)
