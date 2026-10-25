@@ -2,7 +2,7 @@
   <div class="login-page">
     <div class="login-shell">
       <aside class="login-art" aria-hidden="true">
-        <img :src="art" alt="" class="login-art__image" />
+        <img :src="branding.art" alt="" class="login-art__image" />
       </aside>
 
       <main class="login-panel">
@@ -28,28 +28,27 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import Toast from 'primevue/toast'
 
-import loginPageLogo from '../assets/login-page-kinotic-logo.svg'
 import loginPageLogoLight from '../assets/login-page-kinotic-logo-light.svg'
+import { AUTH_PAGE_BRANDING } from '../bootstrap'
 import { isDark as darkMode, toggleDark } from '../composables/useTheme'
 import '../styles/auth-pages.css'
 
 /**
- * Page chrome shared by every unauthenticated auth page: background art, theme toggle,
- * brand mark, footer, and the Toast outlet. Page content renders in the default slot.
+ * Page chrome shared by every unauthenticated auth page: the art and brand mark of the app's
+ * AuthPageBranding, theme toggle, footer, and the Toast outlet. Page content renders in the
+ * default slot.
  */
 withDefaults(defineProps<{
-  /** The app's background art, shown beside the page content. */
-  art: string
-
   showThemeToggle?: boolean
 }>(), {
   showThemeToggle: true,
 })
 
-const brandMark = computed(() => darkMode.value ? loginPageLogo : loginPageLogoLight)
+const branding = inject(AUTH_PAGE_BRANDING)!
+const brandMark = computed(() => darkMode.value ? branding.darkBrandMark : loginPageLogoLight)
 const isDark = darkMode
 function toggleTheme() { toggleDark() }
 </script>

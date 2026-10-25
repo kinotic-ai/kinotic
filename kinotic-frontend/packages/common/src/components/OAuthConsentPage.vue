@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell :art="art" :show-theme-toggle="false">
+  <AuthPageShell :show-theme-toggle="false">
     <div class="login-form">
       <div v-if="!requestId || failed" class="consent-message">
         <span class="login-status-icon pi pi-exclamation-triangle"></span>
@@ -66,8 +66,6 @@ import { apiUrl } from '../util/helpers'
 const props = defineProps<{
   /** The app's session, whose signed-in participant the approval binds to. */
   session: ISessionState
-  /** The app's auth-page background art. */
-  art: string
 }>()
 
 /** What the server shows about the request awaiting consent. */

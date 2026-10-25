@@ -6,7 +6,6 @@ import {
 import { ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 import { ConnectedAppsPage, OAuthConsentPage } from '@kinotic-ai/frontend-common/management'
 
-import loginArt from './assets/login-background.svg'
 import { SYSTEM_USER_STATE } from './states/SystemUserState'
 
 /**
@@ -112,7 +111,7 @@ const routes: RouteRecordRaw[] = [
             authenticationRequired: true
         },
         component: OAuthConsentPage,
-        props: { session: SYSTEM_USER_STATE, art: loginArt }
+        props: { session: SYSTEM_USER_STATE }
     },
     {
         path: '/',

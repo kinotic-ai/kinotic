@@ -7,6 +7,8 @@ import { KINOTIC_UI } from '@/IKinoticUI'
 import 'primeicons/primeicons.css'
 import '@fontsource-variable/jetbrains-mono'
 import App from './App.vue'
+import loginArt from '@/assets/login-background.svg'
+import loginBrandMark from '@/assets/login-page-kinotic-logo.svg'
 import { KinoticStates } from '@/states'
 
 import { Kinotic } from '@kinotic-ai/core'
@@ -61,7 +63,8 @@ if (import.meta.env.DEV) {
 const app = createKinoticApp({
     root: App,
     router,
-    sessionState: KinoticStates.getUserState()
+    sessionState: KinoticStates.getUserState(),
+    authPageBranding: { art: loginArt, darkBrandMark: loginBrandMark }
 })
 
 KINOTIC_UI.initialize(router);

@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell :art="loginArt">
+  <AuthPageShell>
     <div class="login-form">
       <div class="login-organization">
         <span class="login-organization__label">Signing in to</span>
@@ -84,7 +84,6 @@ import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, postCredentials } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import loginArt from '@/assets/login-background.svg'
 import { forgetOrganization } from '@/pages/login/organizationLogin'
 
 const debug = createDebug('login')
