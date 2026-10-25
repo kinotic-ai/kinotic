@@ -39,7 +39,8 @@ import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
-import { observedPhase, observedPhaseSeverity, shortSha } from '@kinotic-ai/frontend-common'
+import { shortSha } from '@kinotic-ai/frontend-common'
+import { observedPhase, observedPhaseSeverity } from '@kinotic-ai/frontend-common/management'
 import type { UiDeployment } from '@kinotic-ai/management-api'
 
 /**

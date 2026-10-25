@@ -153,8 +153,9 @@ import Tag from 'primevue/tag'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { Activity, ArrowDown, CircleAlert, Clock, GitCommitHorizontal, Globe, KeyRound, LaptopMinimalCheck, Server } from '@lucide/vue'
-import { DatetimeUtil, HeartbeatIcon, JobRunProgress, PageHeader, ProjectDeployResultNames,
-         WatchEventsTimeline, WorkloadLogsDialog, deploymentStatusSeverity, observedPhaseSeverity, shortSha, showErrorToast, EmptyChartCharacter, HEARTBEAT_TINTS, deploymentHeartbeat } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, HeartbeatIcon, PageHeader, shortSha, showErrorToast, EmptyChartCharacter, HEARTBEAT_TINTS } from '@kinotic-ai/frontend-common'
+import { JobRunProgress, ProjectDeployResultNames, WatchEventsTimeline, WorkloadLogsDialog, deploymentStatusSeverity,
+         observedPhaseSeverity, deploymentHeartbeat } from '@kinotic-ai/frontend-common/management'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DeploymentStatusType,
          type MachineParticipantIdentity,

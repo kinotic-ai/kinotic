@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell :art="loginArt">
+  <AuthPageShell>
     <div v-if="!token" class="login-form">
       <div class="text-center py-8">
         <span class="login-status-icon pi pi-exclamation-triangle"></span>
@@ -85,7 +85,6 @@ import { type IUserState } from '@/states/IUserState'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import type { CompleteOrgRequest } from '@kinotic-ai/management-api'
-import loginArt from '@/assets/login-background.svg'
 
 /**
  * Lands here after the GitHub registration's callback, `/api/auth/org/login/social/callback/:configId`, redirects with `?token=<verificationToken>`

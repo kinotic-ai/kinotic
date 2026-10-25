@@ -14,7 +14,8 @@
 
 <script setup lang="ts">
 import { Kinotic } from '@kinotic-ai/core'
-import { MachinesTable, PageHeader, TINTS, type MachineOperations } from '@kinotic-ai/frontend-common'
+import { PageHeader, TINTS } from '@kinotic-ai/frontend-common'
+import { MachinesTable, type MachineOperations } from '@kinotic-ai/frontend-common/management'
 
 /** Machine API clients of one application, managed by the owning org's members. */
 const props = defineProps<{

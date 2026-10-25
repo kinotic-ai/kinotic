@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell :art="loginArt">
+  <AuthPageShell>
     <div v-if="phase === 'loading'" class="login-form">
       <div class="login-loading-state">
         <div class="login-spinner login-spinner--small"></div>
@@ -108,7 +108,6 @@ import SocialAuthButton from '@/components/SocialAuthButton.vue'
 import { KINOTIC_UI } from '@/IKinoticUI'
 import { KinoticStates } from '@/states'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
-import loginArt from '@/assets/login-background.svg'
 
 interface InviteProvider {
   id: string

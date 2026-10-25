@@ -17,5 +17,6 @@
 
 <script setup lang="ts">
 import { Kinotic } from '@kinotic-ai/core'
-import { MachinesTable, PageHeader } from '@kinotic-ai/frontend-common'
+import { PageHeader } from '@kinotic-ai/frontend-common'
+import { MachinesTable } from '@kinotic-ai/frontend-common/management'
 </script>

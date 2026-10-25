@@ -23,6 +23,7 @@ import { computed, type Component } from 'vue'
 import Message from 'primevue/message'
 import VChart from 'vue-echarts'
 
+import { registerChartModules } from '../../charts/echarts'
 import { chartGridColor, chartLegend, chartTextColor, chartTooltip, seriesColor } from '../../charts/chartTheme'
 import { isDark } from '../../composables/useTheme'
 import DatetimeUtil from '../../util/DatetimeUtil'
@@ -46,6 +47,8 @@ const props = defineProps<{
   /** Renders a value in the metric's unit, on the axis and in the tooltip. */
   format: (value: number) => string
 }>()
+
+registerChartModules()
 
 const option = computed(() => {
   const dark = isDark.value

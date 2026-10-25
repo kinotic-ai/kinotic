@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell :art="loginArt">
+  <AuthPageShell>
     <div class="login-form">
       <div v-if="providers.length > 0" class="login-providers">
         <SocialAuthButton
@@ -106,7 +106,6 @@ import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import loginArt from '@/assets/login-background.svg'
 import { organizationLoginPath, organizationSlug, rememberedOrganization } from '@/pages/login/organizationLogin'
 
 const debug = createDebug('login')

@@ -92,8 +92,9 @@ import { useConfirm } from 'primevue/useconfirm'
 import { Direction, FunctionalIterablePage, Kinotic, Order,
          type IterablePage, type Page, type Pageable, type Sort } from '@kinotic-ai/core'
 import { WorkloadStatus, type StatusCondition, type Workload } from '@kinotic-ai/management-api'
-import { CrudTable, DatetimeUtil, SteppingDrawer, TimePill, WorkloadLogsDialog, formatMb, pageNumberOf, useCrudTablePage,
-         useSteppingDrawer, NodeUnreachableNote, type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
+import { CrudTable, DatetimeUtil, SteppingDrawer, TimePill, formatMb, pageNumberOf, useCrudTablePage, useSteppingDrawer,
+         NodeUnreachableNote, type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
+import { WorkloadLogsDialog } from '@kinotic-ai/frontend-common/management'
 
 import WorkloadPage from '@/pages/WorkloadPage.vue'
 import { formatCpus } from '@/util/nodes'
