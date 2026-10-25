@@ -162,9 +162,14 @@ describe('Server planes', () => {
         // the application has no such tenant
         expect((await loginTo('nobody')).status).toBe(404)
         // the tenant's login offers what the application's does
-        const providers = await requestAt(appServer(), apiHost(APP_ID), 'GET', `/api/auth/app/login/providers?tenantId=${E2E_APP_TENANT}`)
-        expect(providers.status).toBe(200)
-        expect(JSON.parse(providers.body)).toEqual([])
+        const methods = await requestAt(appServer(), apiHost(APP_ID), 'GET', `/api/auth/app/login/methods?tenantId=${E2E_APP_TENANT}`)
+        expect(methods.status).toBe(200)
+        // a tenant's login signs no one up with a password: its administrators decide who joins
+        expect(JSON.parse(methods.body)).toEqual({passwordSignUp: false, providers: []})
+    })
+
+    it('answers 404 at the API host of an application that does not exist', async () => {
+        expect((await requestAt(appServer(), apiHost('no-such-app'), 'GET', '/api/auth/app/login/methods')).status).toBe(404)
     })
 
     it('authenticates a session only at the server that issued it', async () => {

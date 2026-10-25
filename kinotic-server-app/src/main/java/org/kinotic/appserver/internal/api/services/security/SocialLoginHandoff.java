@@ -9,8 +9,8 @@ import java.io.Serializable;
 
 /**
  * A social sign-in the app server's shared callback host verified, awaiting completion at the application's own
- * API host: the identity the provider returned, the application it signs in to, and the page the sign-in belongs
- * to. Staged in {@link SocialLoginHandoffService} under a single-use code the browser carries from the one host
+ * API host: the application's user the identity the provider returned signs in as, found in the scope the sign-in was
+ * to, the application it signs in to, and the page the sign-in belongs to. Staged in {@link SocialLoginHandoffService} under a single-use code the browser carries from the one host
  * to the other.
  *
  * <p>Implements {@link Serializable} so Ignite can ship the value across cluster nodes.
@@ -25,14 +25,8 @@ public class SocialLoginHandoff implements Serializable {
 
     private String applicationId;
 
-    /** The tenant of the application the sign-in is to, or {@code null} for the application itself. */
-    private String tenantId;
-
-    /** The configuration the identity was verified through. */
-    private String configurationId;
-
-    /** The provider's {@code sub} claim for the identity. */
-    private String subject;
+    /** The application's user the verified identity signs in as. */
+    private String identityId;
 
     /** Origin of the page that started the sign-in, which the completed login is bound to. */
     private String origin;

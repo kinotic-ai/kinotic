@@ -9,6 +9,12 @@ kinotic:
       numberOfShards: 1
       numberOfReplicas: 0
   domain:
+    systemSecrets:
+      # Seeded on first boot by DevSystemSecretsGenerator, or by whichever server boots first: every server on the
+      # machine reads the same file, and none of it is committed. Production uses Azure Key Vault via the Secrets
+      # Store CSI driver — same file layout, different origin.
+      generateMissing: true
+      jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys
     # The app server on this machine: the host of an application's or a tenant's OIDC callback
     appApiBaseUrl: http://localhost:58505
     secretStorage:
@@ -18,9 +24,3 @@ kinotic:
       # Azure Key Vault.
       masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
   maxNumberOfCoresToUse: 4
-  systemSecrets:
-    # Seeded on first boot by DevSystemSecretsGenerator, or by whichever server boots first: every server on the
-    # machine reads the same file, and none of it is committed. Production uses Azure Key Vault via the Secrets
-    # Store CSI driver — same file layout, different origin.
-    generateMissing: true
-    jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys

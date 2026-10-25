@@ -22,12 +22,12 @@ kinotic:
       # No bot check on a server only the people trying it can reach, so the find-my-organizations form calls no
       # Cloudflare service
       enabled: false
+  cors:
+    # The portal this server serves, and a developer's ngrok tunnel to it. The tunnel is same-origin but
+    # still CORS-checked, because the social login forms POST and browsers send Origin on a POST navigation
+    allowedOriginPattern: "http:\\/\\/localhost:9090|https:\\/\\/[a-zA-Z0-9-]+\\.ngrok(-free)?\\.(app|dev|io)"
+    allowCredentials: true
   domain:
-    cors:
-      # The portal this server serves, and a developer's ngrok tunnel to it. The tunnel is same-origin but
-      # still CORS-checked, because the social login forms POST and browsers send Origin on a POST navigation
-      allowedOriginPattern: "http:\\/\\/localhost:9090|https:\\/\\/[a-zA-Z0-9-]+\\.ngrok(-free)?\\.(app|dev|io)"
-      allowCredentials: true
     # The portal build this server serves on 9090
     portalBaseUrl: http://localhost:9090
     email:

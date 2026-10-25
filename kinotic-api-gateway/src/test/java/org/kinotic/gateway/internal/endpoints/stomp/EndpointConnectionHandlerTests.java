@@ -29,10 +29,10 @@ import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.event.ZonePartitioningService;
+import org.kinotic.core.api.event.ZoneRules;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.internal.api.service.json.JacksonExceptionConverter;
-import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.mockito.ArgumentCaptor;
@@ -45,6 +45,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -73,6 +74,7 @@ import static org.mockito.Mockito.when;
 public class EndpointConnectionHandlerTests {
 
     private static final long SESSION_TIMEOUT_MS = 1000;
+    private static final String APP_ZONE = "app.acme-org";
     private static final String SERVICE_DESTINATION = "srv://app.acme-org.orders-app~OrderService/create#1.0.0";
 
     private static Ignite ignite;
@@ -129,7 +131,8 @@ public class EndpointConnectionHandlerTests {
         services.apiGatewayProperties.setSessionTimeout(SESSION_TIMEOUT_MS);
         services.jsonMapper = jsonMapper;
         services.exceptionConverter = new JacksonExceptionConverter(new KinoticProperties(), jsonMapper);
-        services.stompAuthorizerFactory = new StompAuthorizerFactory(ZonePartitioningService.everyZone("test"));
+        services.stompAuthorizerFactory = new StompAuthorizerFactory(ZonePartitioningService.everyZone("test"),
+                                                                    participant -> ZoneRules.of(Set.of(APP_ZONE), Set.of(APP_ZONE)));
         services.securityService = mock(SecurityService.class);
         when(services.securityService.authenticate(any())).thenReturn(Future.succeededFuture(participant()));
         services.eventBusService = eventBusService;
@@ -506,13 +509,8 @@ public class EndpointConnectionHandlerTests {
         return services.sessionStore.get(id).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
     }
 
-    // An organization participant may both call and publish services in its own application zones
-    private static DefaultOrganizationParticipant participant() {
-        return DefaultOrganizationParticipant.builder()
-                                             .id("org-user")
-                                             .organizationId("acme-org")
-                                             .metadata(Map.of())
-                                             .roles(List.of())
-                                             .build();
+    // The participant may both call and publish services in APP_ZONE
+    private static TestParticipant participant() {
+        return new TestParticipant("org-user");
     }
 }

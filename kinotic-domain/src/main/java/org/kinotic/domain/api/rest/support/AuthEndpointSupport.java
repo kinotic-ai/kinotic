@@ -6,16 +6,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SessionBinding;
-import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
-import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.DelegateType;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
@@ -259,6 +256,18 @@ public abstract class AuthEndpointSupport {
         return ret;
     }
 
+    /**
+     * The string field {@code name} of a request body, or {@code null} when the body has none. A field holding any
+     * other JSON type answers the request with a {@code 400}.
+     */
+    public static String stringField(JsonObject body, String name) {
+        Object value = body.getValue(name);
+        if (value != null && !(value instanceof String)) {
+            throw new IllegalArgumentException("The field " + name + " must be a string");
+        }
+        return (String) value;
+    }
+
     // ── Token issuance ────────────────────────────────────────────────────────
 
     /**
@@ -431,8 +440,8 @@ public abstract class AuthEndpointSupport {
     public void handlePasswordLogin(RoutingContext ctx,
                                     BiFunction<String, String, Future<Participant>> authenticate) {
         JsonObject body = readJsonBody(ctx);
-        String email = body.getString("email");
-        String password = body.getString("password");
+        String email = stringField(body, "email");
+        String password = stringField(body, "password");
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
             respondError(ctx, 400, "email and password are required");
             return;
@@ -453,43 +462,6 @@ public abstract class AuthEndpointSupport {
     }
 
     /**
-     * "After the IdP returned" composite flow for an application's login callback: validates {@code sub} +
-     * {@code email_verified}, looks up the application's user bound to the identity via the supplied
-     * function, and signs it in to the application, redirecting success or error accordingly. A successful
-     * login is bound to the page that started the flow. When the lookup finds no user, the configuration is
-     * one an organization made for the scope and it creates users on sign-in, and {@code newUser} supplies
-     * the unsaved user carrying the scope, the identity's verified email and name become that user, bound
-     * to the identity, and the user is signed in. An email the scope already holds under another method is
-     * refused with {@link OidcErrorCodes#USER_EXISTS}; a scope that supplies no user refuses the
-     * identity with {@link OidcErrorCodes#NO_USER} as a plain login does. An organization user, which signs
-     * in through a membership, is signed in by {@link #completeLogin} instead.
-     *
-     * @param userLookup takes the OIDC {@code sub} claim and returns the application's user, or null
-     * @param newUser    the unsaved user an unknown identity becomes, carrying only its scope, or {@code null}
-     *                   when the scope admits no new user; consulted only when a user would be created
-     */
-    public void completeOidcLogin(RoutingContext ctx,
-                                  CallbackResult<? extends OidcConfiguration> result,
-                                  Function<String, Future<ApplicationParticipantIdentity>> userLookup,
-                                  Supplier<Future<ApplicationParticipantIdentity>> newUser) {
-        String sub = verifiedSubject(ctx, result);
-        if (sub != null) {
-            Future<ApplicationParticipantIdentity> user = userLookup.apply(sub).compose(found -> {
-                Future<ApplicationParticipantIdentity> ret;
-                if (found == null && result.config() instanceof OwnedOidcConfiguration owned && owned.isCreateUserOnSignIn()) {
-                    ret = newUser.get().compose(template -> template == null
-                            ? Future.succeededFuture()
-                            : createUserFromClaims(template, sub, result));
-                } else {
-                    ret = Future.succeededFuture(found);
-                }
-                return ret;
-            });
-            completeLogin(ctx, result.origin(), user.map(found -> found == null ? null : participantOf(found)));
-        }
-    }
-
-    /**
      * The participant an application's user signs in as, itself; a disabled user fails the sign-in with
      * {@link OidcErrorCodes#USER_DISABLED}.
      */
@@ -498,31 +470,6 @@ public abstract class AuthEndpointSupport {
             throw new OidcCallbackException(OidcErrorCodes.USER_DISABLED);
         }
         return DomainUtil.createParticipant(user);
-    }
-
-    /**
-     * Creates the user an identity the provider verified becomes on its first sign-in: {@code template},
-     * carrying only its scope, given the identity's verified email and name and bound to the identity. A
-     * scope that already holds the email under another method refuses the identity with
-     * {@link OidcErrorCodes#USER_EXISTS}, and an identity whose provider asserts no email with
-     * {@link OidcErrorCodes#INVALID_TOKEN}.
-     */
-    public Future<ApplicationParticipantIdentity> createUserFromClaims(ApplicationParticipantIdentity template,
-                                                                String sub,
-                                                                CallbackResult<? extends OidcConfiguration> result) {
-        Map<String, Object> claims = result.claims();
-        String email = OAuth2Util.stringClaim(claims, "email");
-        Future<ApplicationParticipantIdentity> ret;
-        if (email == null) {
-            ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN));
-        } else {
-            template.setEmail(email)
-                    .setDisplayName(OAuth2Util.firstPresent(claims, "name", "preferred_username", "email"));
-            ret = identityService.createOidcUser(template, result.config().getId(), sub)
-                                 .recover(err -> Future.failedFuture(err instanceof ExistingUserException
-                                         ? new OidcCallbackException(OidcErrorCodes.USER_EXISTS) : err));
-        }
-        return ret;
     }
 
     /**

@@ -29,7 +29,7 @@ import org.kinotic.domain.api.rest.support.OidcErrorCodes;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.rest.support.OidcFlowPurpose;
 import org.kinotic.domain.api.rest.support.PendingFlow;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;

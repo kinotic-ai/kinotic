@@ -18,10 +18,10 @@ x-kinotic-server-e2e-environment: &kinotic-server-e2e-environment
   # application.yml so derived secret names stay consistent with the test fixtures.
   KINOTIC_DOMAIN_SECRETSTORAGE_MASTERKEY: a2lub3RpYy10ZXN0LW1hc3Rlci1rZXktZHVtbXktMDA=
   # KinoticJwtIssuer signs every access token with these keys. DevSystemSecretsGenerator seeds
-  # them when the `development` profile sets kinotic.systemSecrets.generateMissing, and e2e drops
+  # them when the `development` profile sets kinotic.domain.systemSecrets.generateMissing, and e2e drops
   # that profile, so mount the dummy set below; without
   # it the OAuth token endpoints cannot mint a token.
-  KINOTIC_SYSTEMSECRETS_JWTSIGNINGKEYSPATH: /system-secrets/jwt-signing-keys
+  KINOTIC_DOMAIN_SYSTEMSECRETS_JWTSIGNINGKEYSPATH: /system-secrets/jwt-signing-keys
   # The nodes find each other over this static address list and form one Ignite cluster. A node
   # the running suite did not start does not resolve; Ignite logs the miss and carries on.
   KINOTIC_IGNITE_DISCOVERYTYPE: LOCAL

@@ -1,0 +1,6 @@
+Thanks for signing up for {{applicationName}}. Confirm your email address and choose a password to finish:
+
+{{verificationUrl}}
+
+This link expires in 24 hours. If you didn't sign up for {{applicationName}},
+you can safely ignore this email.

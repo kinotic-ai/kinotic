@@ -39,7 +39,7 @@ environment" in the contributing guide (`website/content/02.platform/09.contribu
 The tunnel host must be allowed in two places:
 
 - `server.allowedHosts` in `vite.config.ts`, or vite answers `Blocked request`.
-- `kinotic.domain.cors.allowedOriginPattern` in `application-development.yml`, or the
+- `kinotic.cors.allowedOriginPattern` in `application-development.yml`, or the
   gateway answers `CORS Rejected - Invalid origin`. This applies even though the SPA and API
   share the origin, because the social login forms POST and browsers send `Origin` on a POST
   navigation.

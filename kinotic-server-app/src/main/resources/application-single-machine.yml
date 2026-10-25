@@ -1,12 +1,18 @@
 # What the development and demonstration profiles share, both running the whole platform on one machine.
 # application.yml activates it with either of them (spring.profiles.group).
 kinotic:
+  cors:
+    # An application UI's vite dev server on any local port, and the sites the local edge serves
+    # under sites.localhost
+    allowedOriginPattern: "http:\\/\\/localhost:\\d+|http:\\/\\/[a-z0-9-]+\\.[a-z0-9-]+\\.sites\\.localhost:8088"
+    allowCredentials: true
   domain:
-    cors:
-      # An application UI's vite dev server on any local port, and the sites the local edge serves
-      # under sites.localhost
-      allowedOriginPattern: "http:\\/\\/localhost:\\d+|http:\\/\\/[a-z0-9-]+\\.[a-z0-9-]+\\.sites\\.localhost:8088"
-      allowCredentials: true
+    systemSecrets:
+      # Seeded on first boot by DevSystemSecretsGenerator, or by whichever server boots first: every
+      # server on the machine reads the same file. Production uses Azure Key Vault via the Secrets
+      # Store CSI driver — same file layout, different origin.
+      generateMissing: true
+      jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys
     publishedSites:
       # The domain the local edge serves the sites under, so a published UI signs its users in
       domain: sites.localhost
@@ -20,9 +26,3 @@ kinotic:
     # whose API host its proxy addresses
     localUiOriginPattern: "http:\\/\\/localhost:\\d+"
   maxNumberOfCoresToUse: 4
-  systemSecrets:
-    # Seeded on first boot by DevSystemSecretsGenerator, or by whichever server boots first: every
-    # server on the machine reads the same file. Production uses Azure Key Vault via the Secrets
-    # Store CSI driver — same file layout, different origin.
-    generateMissing: true
-    jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys

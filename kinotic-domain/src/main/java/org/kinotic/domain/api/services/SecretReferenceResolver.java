@@ -1,4 +1,4 @@
-package org.kinotic.core.api.secret;
+package org.kinotic.domain.api.services;
 
 import io.vertx.core.Future;
 

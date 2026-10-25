@@ -37,11 +37,17 @@ kinotic:
     apiBaseUrl: http://localhost:58504
     # The system console's vite dev server (pnpm dev:system), which system logins return to
     consoleBaseUrl: http://localhost:5174
+  cors:
+    # The system console's vite dev server
+    allowedOriginPattern: "http:\\/\\/localhost:5174"
+    allowCredentials: true
   domain:
-    cors:
-      # The system console's vite dev server
-      allowedOriginPattern: "http:\\/\\/localhost:5174"
-      allowCredentials: true
+    systemSecrets:
+      # Seeded on first boot by DevSystemSecretsGenerator, or by whichever server boots first: every
+      # server on the machine reads the same file. Production uses Azure Key Vault via the Secrets
+      # Store CSI driver — same file layout, different origin.
+      generateMissing: true
+      jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys
     # What a UI build is handed: the app server as a browser reaches it, not the address a workload
     # dials above
     appApiBaseUrl: http://localhost:58505
@@ -57,9 +63,3 @@ kinotic:
       # The management server's key: SecretNameDeriver must derive the same storage names on every server
       masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
   maxNumberOfCoresToUse: 4
-  systemSecrets:
-    # Seeded on first boot by DevSystemSecretsGenerator, or by whichever server boots first: every
-    # server on the machine reads the same file. Production uses Azure Key Vault via the Secrets
-    # Store CSI driver — same file layout, different origin.
-    generateMissing: true
-    jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys

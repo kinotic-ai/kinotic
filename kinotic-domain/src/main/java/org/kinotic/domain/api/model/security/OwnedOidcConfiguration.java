@@ -57,12 +57,14 @@ public abstract sealed class OwnedOidcConfiguration extends OidcConfiguration im
     private boolean confidentialClient;
 
     /**
-     * Whether an identity the provider verifies that no user of the scope is bound to becomes a user
-     * of the scope on its first sign-in, created from the provider's verified email and name and
-     * bound to the identity. Off, such an identity is refused and a user must be invited or created
-     * first. An identity whose email the scope already holds under another method is refused either
-     * way. Taken by an application's or a tenant's configuration: an organization's members are added
-     * by its administrators, whom its provider then signs in.
+     * Whether the configuration signs new people up: an identity the provider verifies that no user of the
+     * scope is bound to becomes a user of the scope on its first sign-in, created from the provider's verified
+     * email and name and bound to the identity. Off, such an identity is refused and a user must be invited or
+     * created first. An identity whose email the scope already holds under another method is refused either
+     * way. Taken by an application's configuration, while the system manages the application's tenants, and
+     * by a tenant's: an organization's members are added by its administrators, whom its provider then signs
+     * in, and a user of an application whose tenants their administrators manage joins a tenant only through
+     * that tenant's own login.
      */
     private boolean createUserOnSignIn;
 }
