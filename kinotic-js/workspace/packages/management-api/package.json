@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/management-api",
-  "version": "5.0.0-beta.67",
+  "version": "5.0.0-beta.68",
   "type": "module",
   "files": [
     "dist"
