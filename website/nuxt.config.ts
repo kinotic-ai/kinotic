@@ -12,14 +12,28 @@ export default defineNuxtConfig({
   robots: {
     disallow: ['/test-results/'],
   },
+  // The agent-discovery AI policy gives each AI crawler its own `Allow: /` group, which overrides the
+  // /test-results/ Disallow for those crawlers, and it declares `ai-train=yes` in robots.txt.
+  agentDiscovery: {
+    robots: { aiPolicy: false },
+  },
   // /V2, /V3 and /vc are unlinked pages shared by URL, so prerendering never discovers them
   // by crawling — without this, `nuxt generate` emits no page for them and the deployed URLs 404.
-  // They are kept out of search results by their own `noindex` meta tag; the sitemap covers
-  // content pages only.
+  // Their own `noindex` meta tag keeps them out of search results and out of /sitemap.xml.
   nitro: {
     prerender: {
       routes: ['/V2', '/V3', '/vc'],
     },
+  },
+  // The docus sitemap lists content pages only; these are the indexable pages in app/pages.
+  sitemap: {
+    urls: ['/', '/privacy', '/terms'],
+  },
+  // The only images are the SVG header logos, which IPX has nothing to optimize. Prerendering an
+  // /_ipx/ route never completes with @nuxt/image 2.2 (ipx 4) on Nitro 2, which ends `nuxt generate`
+  // early without writing /sitemap.xml, so images are served as-is.
+  image: {
+    provider: 'none',
   },
   runtimeConfig: {
     public: {

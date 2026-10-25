@@ -23,15 +23,21 @@ kinotic:
       # token verifies, so the form works with no Turnstile site of one's own
       siteKey: 1x00000000000000000000AA
       secretKey: 1x0000000000000000000000000000000AA
+  cors:
+    # The portal, however dev runs it: the vite dev server (pnpm dev, 5173), this server's own
+    # webroot (9090), and an ngrok tunnel (pnpm dev:tunnel). The tunnel is same-origin but still
+    # CORS-checked, because the social login forms POST and browsers send Origin on a POST navigation.
+    # The allowlist is also trusted with sign-up links and GitHub install codes, and the ngrok wildcard admits
+    # anyone's tunnel, so it belongs in this local profile only.
+    allowedOriginPattern: "http:\\/\\/localhost:(5173|9090)|https:\\/\\/[a-zA-Z0-9-]+\\.ngrok(-free)?\\.(app|dev|io)"
+    allowCredentials: true
   domain:
-    cors:
-      # The portal, however dev runs it: the vite dev server (pnpm dev, 5173), this server's own
-      # webroot (9090), and an ngrok tunnel (pnpm dev:tunnel). The tunnel is same-origin but still
-      # CORS-checked, because the social login forms POST and browsers send Origin on a POST navigation.
-      # The allowlist is also trusted with sign-up links and GitHub install codes, and the ngrok wildcard admits
-      # anyone's tunnel, so it belongs in this local profile only.
-      allowedOriginPattern: "http:\\/\\/localhost:(5173|9090)|https:\\/\\/[a-zA-Z0-9-]+\\.ngrok(-free)?\\.(app|dev|io)"
-      allowCredentials: true
+    systemSecrets:
+      # Seeded on first boot by DevSystemSecretsGenerator. Each developer machine ends up with
+      # its own random keys; none of this is committed. Production uses Azure Key Vault via the
+      # Secrets Store CSI driver — same file layout, different origin.
+      generateMissing: true
+      jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys
     # The portal's vite dev server, where browser flows return and the emailed links open
     portalBaseUrl: http://localhost:5173
     # The app server as `pnpm dev` runs it: the host of an application's or a tenant's OIDC callback
@@ -54,12 +60,6 @@ kinotic:
   maxNumberOfCoresToUse: 4
   ignite:
     discoveryType: SHAREDFS
-  systemSecrets:
-    # Seeded on first boot by DevSystemSecretsGenerator. Each developer machine ends up with
-    # its own random keys; none of this is committed. Production uses Azure Key Vault via the
-    # Secrets Store CSI driver — same file layout, different origin.
-    generateMissing: true
-    jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys
   # OIDC client secrets resolve via SecretReferenceResolver — Azure Key Vault when
   # kinotic.domain.secretStorage.azure.vaultUrl is set, otherwise from KINOTIC_AKV_<name> properties
   # (uppercased, non-alphanumerics → "_"), set as an env var or a key in any loaded config file,

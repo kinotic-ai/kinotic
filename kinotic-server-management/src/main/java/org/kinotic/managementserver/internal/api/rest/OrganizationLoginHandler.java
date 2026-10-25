@@ -22,7 +22,7 @@ import org.kinotic.domain.api.rest.support.OidcCallbacks;
 import org.kinotic.domain.api.services.security.OrganizationMembershipService;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.api.rest.support.CallbackResult;
 import org.kinotic.domain.api.rest.support.OidcErrorCodes;

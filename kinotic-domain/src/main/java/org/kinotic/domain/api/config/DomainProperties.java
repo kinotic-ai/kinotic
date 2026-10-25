@@ -18,10 +18,12 @@ import java.util.List;
 public class DomainProperties {
 
     /**
-     * CORS configuration of every Vert.x HTTP server that exposes browser-facing routes. Its allowed origins are also
-     * the UIs a server's browser flows may return to, trusted with sign-up links and GitHub App install codes.
+     * Paths to system-level secret files (the JWT signing keys).
+     * Files are mounted into the pod by the Azure Key Vault CSI driver in production or
+     * by a Kubernetes Secret volume locally, and watched for changes so rotation flows
+     * through without a restart.
      */
-    private CorsProperties cors = new CorsProperties();
+    private SystemSecretsProperties systemSecrets = new SystemSecretsProperties();
 
     /**
      * Email / outbound-mail configuration.

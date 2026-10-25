@@ -15,7 +15,7 @@ import org.kinotic.domain.api.exceptions.PendingMemberException;
 import org.kinotic.domain.api.model.security.PendingSignUp;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
 import org.kinotic.domain.api.services.security.SignUpService;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;

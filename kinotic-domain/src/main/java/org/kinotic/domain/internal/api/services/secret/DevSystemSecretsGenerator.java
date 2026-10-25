@@ -1,10 +1,11 @@
-package org.kinotic.core.internal.system;
+package org.kinotic.domain.internal.api.services.secret;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.core.api.config.SystemSecretsProperties;
-import org.kinotic.core.api.config.VersionedKeySet;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.config.SystemSecretsProperties;
+import org.kinotic.domain.api.config.VersionedKey;
+import org.kinotic.domain.api.config.VersionedKeySet;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -22,19 +23,19 @@ import java.util.List;
  * path in {@link SystemSecretsService} works out of the box without a separate setup step.
  * Generated keys are fresh per developer machine and never committed.
  * <p>
- * Only registered when {@code kinotic.systemSecrets.generateMissing} is true; in production the
+ * Only registered when {@code kinotic.domain.systemSecrets.generateMissing} is true; in production the
  * system secrets must come from Azure Key Vault via the Secrets Store CSI driver.
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(value = "kinotic.systemSecrets.generateMissing", havingValue = "true")
+@ConditionalOnProperty(value = "kinotic.domain.systemSecrets.generateMissing", havingValue = "true")
 @RequiredArgsConstructor
 public class DevSystemSecretsGenerator {
 
     private static final int KEY_BYTES = 32;
     private static final String INITIAL_VERSION = "v1";
 
-    private final KinoticProperties kinoticProperties;
+    private final KinoticDomainProperties kinoticProperties;
     private final ObjectMapper objectMapper;
     private final SecureRandom random = new SecureRandom();
 
@@ -42,7 +43,7 @@ public class DevSystemSecretsGenerator {
      * Generates each configured secret file that does not exist yet, leaving existing files untouched.
      */
     public void ensureFilesExist() {
-        SystemSecretsProperties props = kinoticProperties.getSystemSecrets();
+        SystemSecretsProperties props = kinoticProperties.getDomain().getSystemSecrets();
         ensureFile(props.getJwtSigningKeysPath(), "JWT signing keys");
     }
 
@@ -84,6 +85,6 @@ public class DevSystemSecretsGenerator {
         String encoded = Base64.getEncoder().encodeToString(raw);
         return new VersionedKeySet()
                 .setActiveKeyId(INITIAL_VERSION)
-                .setKeys(List.of(new VersionedKeySet.KeyEntry(INITIAL_VERSION, encoded)));
+                .setKeys(List.of(new VersionedKey(INITIAL_VERSION, encoded)));
     }
 }

@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.rest;
+package org.kinotic.core.api.service;
 
 import io.vertx.ext.web.Router;
 
