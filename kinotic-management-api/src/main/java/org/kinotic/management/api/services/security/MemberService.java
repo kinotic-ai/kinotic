@@ -105,9 +105,9 @@ public interface MemberService {
 
     /**
      * The accept link of the live invitation of {@code email} into the caller's organization or one of its
-     * applications, for the inviter to send on when email is disabled
-     * ({@code kinotic.domain.email.enabled} is {@code false}), as on a demonstration server. Anyone holding the link can accept
-     * the invitation as the invited address.
+     * applications, for the inviter to send on when email is disabled ({@code kinotic.domain.email.enabled} is
+     * {@code false}), as on a demonstration server. Anyone holding the link can accept the invitation as the invited
+     * address.
      *
      * @param email         the invited address
      * @param applicationId the application invited into, one of the caller's organization's, or {@code null} for an

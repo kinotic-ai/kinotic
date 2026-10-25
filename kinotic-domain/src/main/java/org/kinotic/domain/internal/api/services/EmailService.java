@@ -87,7 +87,8 @@ public class EmailService {
      * @param verificationToken the token to include in the verification URL
      * @param template          the email to send in place of Kinotic's, whose UI's verification page the link opens,
      *                          or {@code null} for Kinotic's, which links to the portal's
-     * @return a future emitting the verification link when email is disabled, for the UI to open in place of the email, or {@code null} once the email is sent (failing if ACS rejects it)
+     * @return a future emitting the verification link when email is disabled, for the UI to open in place of the
+     *         email, or {@code null} once the email is sent (failing if ACS rejects it)
      */
     public Future<String> sendVerificationEmail(String email,
                                               String displayName,
@@ -181,8 +182,8 @@ public class EmailService {
      *
      * @param email         the recipient's email address
      * @param organizations the organizations the address is a member of, possibly none
-     * @return a future emitting the organizations' login links when email is disabled, for the UI to show in place of the email, or {@code null} once the email is sent (failing if
-     *         ACS rejects it)
+     * @return a future emitting the organizations' login links when email is disabled, for the UI to show in place
+     *         of the email, or {@code null} once the email is sent (failing if ACS rejects it)
      */
     public Future<List<OrganizationLoginLink>> sendOrganizationsEmail(String email, List<Organization> organizations) {
         List<OrganizationLoginLink> links = organizations.stream()

@@ -149,8 +149,8 @@ public class GiteaClient {
         return send(asAdmin(HttpMethod.POST, "/admin/users"), account)
                 .compose(created -> expect(created, "create the account " + username, 201, 409))
                 .compose(v -> send(asAdmin(HttpMethod.PUT, "/repos/" + fullName + "/collaborators/" + username),
-                             new JsonObject().put("permission", permission)))
-          .compose(response -> expect(response, "add " + username + " to " + fullName, 204));
+                                   new JsonObject().put("permission", permission)))
+                .compose(response -> expect(response, "add " + username + " to " + fullName, 204));
     }
 
     /**
