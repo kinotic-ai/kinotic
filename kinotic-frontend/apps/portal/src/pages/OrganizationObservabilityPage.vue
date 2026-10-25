@@ -23,7 +23,8 @@
 import { computed, onMounted, ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import Select from 'primevue/select'
-import { PageHeader, TelemetryPanel } from '@kinotic-ai/frontend-common'
+import { PageHeader } from '@kinotic-ai/frontend-common'
+import { TelemetryPanel } from '@kinotic-ai/frontend-common/management'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 

@@ -6,7 +6,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { Kinotic } from '@kinotic-ai/core'
-import { createDebug, JobRunProgress, ProjectDeployResultNames } from '@kinotic-ai/frontend-common'
+import { createDebug } from '@kinotic-ai/frontend-common'
+import { JobRunProgress, ProjectDeployResultNames } from '@kinotic-ai/frontend-common/management'
 
 const debug = createDebug('job-run-detail')
 

@@ -83,8 +83,9 @@ import { Boxes, Clock, Cpu, FolderOpen, Gauge, HardDrive, Hash, History, Layers,
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { WorkloadStatus, type WatchEvent, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DashboardSection, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, WatchEventsTimeline, errorMessage,
-         formatMb, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, errorMessage, formatMb,
+         EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { WatchEventsTimeline } from '@kinotic-ai/frontend-common/management'
 
 import CapacityRows from '@/components/CapacityRows.vue'
 import WorkloadsTable from '@/components/WorkloadsTable.vue'

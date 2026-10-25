@@ -7,7 +7,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { JobRun } from '@kinotic-ai/management-api'
-import { JobRunProgress, ProjectDeployResultNames } from '@kinotic-ai/frontend-common'
+import { JobRunProgress, ProjectDeployResultNames } from '@kinotic-ai/frontend-common/management'
 
 /**
  * One job run's progress, step by step, with each step's detail. A failed deployment explains its

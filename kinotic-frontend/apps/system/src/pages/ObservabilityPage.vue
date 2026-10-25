@@ -29,7 +29,8 @@ import Select from 'primevue/select'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import type { Application } from '@kinotic-ai/management-api'
-import { PageHeader, TelemetryPanel, errorMessage } from '@kinotic-ai/frontend-common'
+import { PageHeader, errorMessage } from '@kinotic-ai/frontend-common'
+import { TelemetryPanel } from '@kinotic-ai/frontend-common/management'
 
 import { scopePath } from '@/util/scope'
 

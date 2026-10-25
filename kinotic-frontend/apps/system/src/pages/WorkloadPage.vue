@@ -127,8 +127,9 @@ import { useToast } from 'primevue/usetoast'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { NetworkMode, WorkloadStatus, type WatchEvent, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DashboardSection, HeartbeatIcon, DatetimeUtil, FactList, PageHeader, StatCard, WatchEventsTimeline, WorkloadLogView, errorMessage,
-         formatMb, showErrorToast, workloadRun, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, NodeUnreachableNote } from '@kinotic-ai/frontend-common'
+import { DashboardSection, HeartbeatIcon, DatetimeUtil, FactList, PageHeader, StatCard, errorMessage, formatMb, showErrorToast,
+         EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, NodeUnreachableNote } from '@kinotic-ai/frontend-common'
+import { WatchEventsTimeline, WorkloadLogView, workloadRun } from '@kinotic-ai/frontend-common/management'
 
 import { formatCpus, nodeHealth } from '@/util/nodes'
 import { applicationPath, organizationPath, scopePath, scopeTint, type Scope } from '@/util/scope'
