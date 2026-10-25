@@ -1,6 +1,4 @@
-{{#if displayName}}Hi {{displayName}},
-
-{{/if}}Thanks for signing up for {{applicationName}}. Confirm your email address and choose a password to finish:
+Thanks for signing up for {{applicationName}}. Confirm your email address and choose a password to finish:
 
 {{verificationUrl}}
 

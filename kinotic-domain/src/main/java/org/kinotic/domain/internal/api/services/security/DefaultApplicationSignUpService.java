@@ -36,6 +36,7 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
 
     private static final long PASSWORD_SIGN_UP_TTL_MS = 24 * 60 * 60 * 1000L;
     private static final String VERIFICATION_PATH = "/signup/verify?token=";
+    private static final int MAX_DISPLAY_NAME_LENGTH = 200;
 
     private final ApplicationRepository applicationRepository;
     private final OidcConfigurationService oidcConfigurationService;
@@ -114,6 +115,8 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
         Validate.notNull(application, "application cannot be null");
         Validate.isTrue(email != null && email.contains("@"), "A valid email is required");
         Validate.notBlank(uiOrigin, "The UI the verification link opens is required");
+        Validate.isTrue(displayName == null || displayName.length() <= MAX_DISPLAY_NAME_LENGTH,
+                        "A display name is at most %d characters", MAX_DISPLAY_NAME_LENGTH);
         return requirePasswordSignUp(application)
                 .compose(found -> identityService.findApplicationUserByEmail(email, application.organizationId(), application.applicationId())
                                                  .compose(existing -> existing != null
@@ -134,8 +137,9 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                 .setOrganizationId(application.getOrganizationId())
                 .setApplicationId(application.getId());
         return pendingRepository.save(pending)
+                                // the name is whatever the requester typed, so it stays out of an email sent to an
+                                // address nobody has proven is theirs
                                 .compose(saved -> emailService.sendApplicationSignUpEmail(email,
-                                                                                          pending.getDisplayName(),
                                                                                           application.getName(),
                                                                                           uiOrigin + VERIFICATION_PATH + pending.getVerificationToken()));
     }

@@ -122,26 +122,20 @@ public class EmailService {
      * Sends a person signing up to an application the link that verifies their email, naming the application.
      *
      * @param email           the recipient's email address
-     * @param displayName     the name the person gave, or {@code null}
      * @param applicationName the name of the application signed up to
      * @param verificationUrl the link to the application's UI page that completes the sign-up
      * @return a future that completes once the send has finished (or fails if ACS rejects it)
      */
-    public Future<Void> sendApplicationSignUpEmail(String email, String displayName, String applicationName, String verificationUrl) {
+    public Future<Void> sendApplicationSignUpEmail(String email, String applicationName, String verificationUrl) {
         if (!properties.getDomain().getEmail().isEnabled()) {
             log.warn("Email sending is disabled; sign-up verification URL of {} for <{}>: {}", applicationName, email, verificationUrl);
             return Future.succeededFuture();
         }
 
-        // HashMap rather than Map.of: displayName is omitted (not null) when none was given, so {{#if displayName}} sees it as falsy
-        Map<String, Object> variables = new HashMap<>();
-        if (displayName != null) {
-            variables.put("displayName", displayName);
-        }
-        variables.put("applicationName", applicationName);
-        variables.put("verificationUrl", verificationUrl);
+        Map<String, Object> variables = Map.of("applicationName", applicationName,
+                                               "verificationUrl", verificationUrl);
         return send(email,
-                    displayName != null ? displayName : email,
+                    email,
                     "Confirm your email for " + applicationName,
                     render(APPLICATION_SIGN_UP_HTML, variables),
                     render(APPLICATION_SIGN_UP_TEXT, variables));

@@ -85,8 +85,8 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
      * for, creating the application's user with the verified email and the password, and answers {@code 204} with the
      * session cookie, signed in on the page that sent it. {@code 400} for a token that is unknown, spent, expired or
      * for another application, or a missing password; {@code 409} when the email has a user already, which the person
-     * signs in as instead; {@code 403} from a page that is not one of the application's UIs or once the application no
-     * longer offers sign-up.
+     * signs in as instead; {@code 403} from a page that is not one of the application's UIs, from a tenant's site, or
+     * once the application no longer offers sign-up.
      */
     private void handleComplete(RoutingContext ctx) {
         if (SessionBinding.origin(ctx) == null) {
@@ -98,7 +98,10 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
         String password = body.getString("password");
 
         authEndpointSupport.loginScope(ctx, null)
-              .compose(scope -> signUpService.completePasswordSignUp(scope.application(), token, password))
+              // sign-up is to the application's own login; a tenant's users join through the tenant's administrators
+              .compose(scope -> scope.tenantId() != null
+                      ? Future.failedFuture(new IllegalStateException("The application does not offer sign-up with an email and a password here"))
+                      : signUpService.completePasswordSignUp(scope.application(), token, password))
               .onSuccess(user -> authEndpointSupport.respondSuccess(ctx, AuthEndpointSupport.participantOf(user)))
               .onFailure(err -> {
                   switch (err) {

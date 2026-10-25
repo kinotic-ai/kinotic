@@ -65,23 +65,27 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
         requireOwner(entity);
         Future<Void> ret = Future.succeededFuture();
         if (entity instanceof OwnedOidcConfiguration owned) {
-            // the organization names its account at the provider, never a URL: the kind's template
-            // decides the issuer, so the server only ever connects to the provider's own hosts. A configuration
-            // signing in through Kinotic's registration may still hold a client of its own for a switch back,
-            // which is derived and checked once one is given
-            if (!OidcConfigurationService.isManaged(owned) || owned.getClientId() != null || owned.getProviderAccount() != null) {
+            // the organization names its account at the provider, never a URL: the kind's template decides the
+            // issuer, so the server only ever connects to the provider's own hosts. A configuration signing in through
+            // Kinotic's registration uses none of its own client fields, which it keeps unchecked for a switch back
+            if (OidcConfigurationService.isManaged(owned)) {
+                owned.setAuthority(null);
+            } else {
                 // a configuration signing in through its own client names it, or every sign-in fails at the provider
-                Validate.isTrue(OidcConfigurationService.isManaged(owned) || StringUtils.isNotBlank(owned.getClientId()),
+                Validate.isTrue(StringUtils.isNotBlank(owned.getClientId()),
                                 "%s needs the client id of its registration with the provider", owned.getClass().getSimpleName());
                 owned.setAuthority(owned.getProvider().authority(owned.getProviderAccount()));
-            } else {
-                owned.setAuthority(null);
             }
             if (owned instanceof OrganizationOidcConfiguration) {
                 // an organization's members are added by its administrators, whom its provider then signs in
                 Validate.isTrue(!owned.isCreateUserOnSignIn(),
                                 "An organization's own login admits the members its administrators added; createUserOnSignIn"
                                         + " applies to an application's or a tenant's configuration");
+                // the organization's login claims a pending member on the email the provider asserts, which only the
+                // organization's own directory may vouch for
+                Validate.isTrue(!owned.getProvider().admitsEveryDirectory(owned.getProviderAccount()),
+                                "An organization's own login names one directory of its own, not '%s', which admits every directory",
+                                owned.getProviderAccount());
             } else if (owned instanceof ApplicationOidcConfiguration forApplication) {
                 Validate.notNull(forApplication.getClientRegistrationType(), "ApplicationOidcConfiguration clientRegistrationType cannot be null");
                 ret = requireApplication(forApplication.getOrganizationId(), forApplication.getApplicationId()).mapEmpty();

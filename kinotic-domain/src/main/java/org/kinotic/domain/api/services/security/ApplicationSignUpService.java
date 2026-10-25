@@ -74,7 +74,8 @@ public interface ApplicationSignUpService {
      * @param application the application, which must offer password sign-up ({@link Application#isPasswordSignUp()})
      * @param email       the email to verify, which must contain {@code @}; checked before the call returns, with
      *                    {@link IllegalArgumentException}
-     * @param displayName the name the person gave, or {@code null}
+     * @param displayName the name the person gave, at most 200 characters, or {@code null}, which names the user once
+     *                    the sign-up completes; the email carries only the application's name and the link
      * @param uiOrigin    the origin of the application's UI the link opens, which the caller has checked is one of the
      *                    application's
      * @return fails with {@link IllegalStateException} when the application does not offer password sign-up

@@ -1,8 +1,8 @@
 package org.kinotic.domain.api.model.security;
 
 /**
- * A sign-in provider an application's login offers, as its login and sign-up pages render it: enough to show and
- * start it, and nothing of how the server reaches or authenticates to the provider.
+ * A sign-in provider an application's login offers, as its login and sign-up pages render it: what to show on its
+ * button and the id that starts a sign-in through it.
  *
  * @param id       the id of the configuration, which the page posts to begin a sign-in through it
  * @param name     the name the button shows

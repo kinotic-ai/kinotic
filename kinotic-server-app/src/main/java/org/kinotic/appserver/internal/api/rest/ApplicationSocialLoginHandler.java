@@ -101,8 +101,8 @@ public class ApplicationSocialLoginHandler implements SuppliesGatewayRoutes {
                               .compose(registration -> oidcFlowOrchestrator.startFlow(ctx, registration, callbackUrl(registration.getId()),
                                                                                       applicationKey, scope.tenantId(), origin))))
               .onSuccess(url -> {
-                  // held through the provider round-trip for the callback to hand on with the identity; written only once
-                  // this flow has replaced the session's pending one, so a start that fails leaves another tab's intact
+                  // held through the provider round-trip for the callback to hand on with the identity; written with the
+                  // flow startFlow stored, so a start that fails leaves another tab's sign-in intact
                   ctx.session().put(ApplicationAuthEndpointSupport.SOCIAL_LOGIN_BINDING_SESSION_KEY, binding);
                   ctx.session().put(CONFIGURATION_SESSION_KEY, configId);
                   ctx.response().setStatusCode(302).putHeader("Location", url).end();
@@ -191,7 +191,6 @@ public class ApplicationSocialLoginHandler implements SuppliesGatewayRoutes {
                             String code = handoffService.stage(new SocialLoginHandoff()
                                                                        .setOrganizationId(applicationKey.organizationId())
                                                                        .setApplicationId(applicationKey.applicationId())
-                                                                       .setTenantId(result.tenantId())
                                                                        .setIdentityId(user.getId())
                                                                        .setOrigin(result.origin())
                                                                        .setBinding(ctx.session().remove(ApplicationAuthEndpointSupport.SOCIAL_LOGIN_BINDING_SESSION_KEY)));
@@ -223,12 +222,12 @@ public class ApplicationSocialLoginHandler implements SuppliesGatewayRoutes {
                 || binding == null || !binding.equals(handoff.getBinding())) {
             authEndpointSupport.redirectError(ctx, null, OidcErrorCodes.HANDOFF_INVALID);
         } else {
-            LoginScope scope = new LoginScope(applicationKey, handoff.getTenantId());
             authEndpointSupport.completeLogin(ctx, handoff.getOrigin(),
+                    // the callback staged a user of the sign-in's scope, so only its application is checked here, against the host
                     identityService.findById(handoff.getIdentityId())
                                    .map(identity -> identity instanceof ApplicationParticipantIdentity user
                                                     && applicationKey.equals(new ApplicationKey(user.getOrganizationId(), user.getApplicationId()))
-                                           ? scope.memberOf(user) : null)
+                                           ? user : null)
                                    .map(user -> user == null ? null : AuthEndpointSupport.participantOf(user)));
         }
     }

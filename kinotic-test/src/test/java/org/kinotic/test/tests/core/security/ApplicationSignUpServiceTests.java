@@ -149,8 +149,10 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
                                                                                    .setClientRegistrationType(ClientRegistrationType.MANAGED);
         microsoft.setOrganizationId(organization.getId())
                  .setCreateUserOnSignIn(true);
+        // a client id left from the organization's own registration, with no directory, does not stop Kinotic's being used
         microsoft.setName("Microsoft")
                  .setProvider(OidcProviderType.AZURE_AD)
+                 .setClientId("leftover-entra-client")
                  .setEnabled(true);
         ApplicationOidcConfiguration managed = await(asAdministrator(() -> oidcConfigurations.save(microsoft, null)));
 

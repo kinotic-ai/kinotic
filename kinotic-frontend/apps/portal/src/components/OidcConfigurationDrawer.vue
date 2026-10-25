@@ -86,9 +86,9 @@
 
         <div>
           <label for="oidc-client-secret" class="mb-2 block text-sm font-medium">Client secret</label>
-          <Password input-id="oidc-client-secret" v-model="clientSecret" :feedback="false" toggle-mask :disabled="isNew && publicClient"
+          <Password input-id="oidc-client-secret" v-model="clientSecret" :feedback="false" toggle-mask :disabled="choosingSecret && publicClient"
                     :placeholder="secretPlaceholder" :input-props="{ autocomplete: 'new-password' }" class="w-full" input-class="w-full" />
-          <div v-if="isNew" class="mt-2.5 flex items-center gap-2">
+          <div v-if="choosingSecret" class="mt-2.5 flex items-center gap-2">
             <Checkbox input-id="oidc-public-client" v-model="publicClient" binary />
             <label for="oidc-public-client" class="text-sm">Public client (no secret)</label>
           </div>
@@ -252,12 +252,16 @@ const isNew = computed(() => props.configuration === null)
 const managedOffered = computed(() => props.applicationId !== null && tenantId.value === null
     && (managedProviders.value.includes(provider.value) || props.configuration?.clientRegistrationType === ClientRegistrationType.MANAGED))
 const managed = computed(() => managedOffered.value && clientRegistrationType.value === ClientRegistrationType.MANAGED)
+// a client of its own gets a secret, or is declared public, when it is added and when a configuration that holds none
+// stops using Kinotic's registration
+const choosingSecret = computed(() => !managed.value && (isNew.value
+    || (props.configuration?.clientRegistrationType === ClientRegistrationType.MANAGED && !props.configuration.confidentialClient)))
 const offered = computed(() => findOrganizationOidcProvider(provider.value))
 const accountInvalid = computed(() => offered.value?.providerAccountLabel != null && providerAccount.value.trim() !== ''
     && !isProviderAccountValid(provider.value, providerAccount.value.trim()))
 const complete = computed(() => name.value.trim() !== '' && (managed.value || (clientId.value.trim() !== ''
     && isProviderAccountValid(provider.value, accountValue())
-    && (!isNew.value || publicClient.value || clientSecret.value !== ''))))
+    && (!choosingSecret.value || publicClient.value || clientSecret.value !== ''))))
 
 const title = computed(() => saved.value ? 'Provider added' : isNew.value ? 'Add provider' : 'Edit provider')
 const description = computed(() => {
@@ -273,7 +277,7 @@ const description = computed(() => {
 })
 const secretPlaceholder = computed(() => {
   let ret: string
-  if (isNew.value) {
+  if (choosingSecret.value) {
     ret = publicClient.value ? 'No secret' : 'The secret the provider issued'
   } else if (props.configuration?.confidentialClient) {
     ret = 'A secret is held'
@@ -392,7 +396,7 @@ async function submit(): Promise<void> {
   }
   saving.value = true
   try {
-    const secret = managed.value || (isNew.value && publicClient.value) ? null : clientSecret.value || null
+    const secret = managed.value || (choosingSecret.value && publicClient.value) ? null : clientSecret.value || null
     const result = await Kinotic.ownedOidcConfigurations.save(configurationToSave(), secret)
     emit('saved', result)
     // Kinotic's registration needs nothing registered at the provider, so there is no callback URL to show
