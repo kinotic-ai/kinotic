@@ -6,14 +6,21 @@ session state, and components such as `FormDrawer`, `SteppingDrawer`, `CrudTable
 `PageHeader` and `AuthPageShell`. Use it to build a Vue app that looks and behaves like the Kinotic
 consoles.
 
-The package ships ES modules for apps built with [Vite](https://vite.dev): Vite supplies the
-`import.meta.env` variables it reads and resolves the images it imports.
+The package ships ES modules for client-rendered apps built with [Vite](https://vite.dev): Vite supplies
+the `import.meta.env` variables it reads and resolves the images it imports, and the theme reads
+`document` and `localStorage` when the package loads. `createKinoticApp` and `SessionState` sign users in
+against a Kinotic server.
 
 ## Installation
 
 ```bash
-pnpm add @kinotic-ai/frontend-common @kinotic-ai/core vue vue-router primevue @primeuix/themes primeicons
+pnpm add @kinotic-ai/frontend-common@beta @kinotic-ai/core@beta vue vue-router primevue@^4.5.5 @primeuix/themes@^2.0.3 primeicons
+pnpm add -D tailwindcss@^4 tailwindcss-primeui
 ```
+
+The 5.0 Kinotic packages are published under the `beta` dist-tag. The theme is built for PrimeVue 4 and
+`@primeuix/themes` 2, so pin those majors: without a range, `pnpm add` installs the newest majors, which the
+package does not support.
 
 ### Peer dependencies
 
