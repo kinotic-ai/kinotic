@@ -4,9 +4,9 @@ import lombok.Value;
 import org.kinotic.queue.api.model.QueueDefinition;
 
 /**
- * A queue as the cluster's store of queue definitions holds it, under the queue's name. A class rather than a record,
- * since Ignite's binary marshaller cannot build records.
+ * A queue as the cluster's store of queue definitions holds it, under the queue's name.
  */
+// A class rather than a record, since Ignite's binary marshaller cannot build records
 @Value
 public class QueueRegistration {
 

@@ -26,9 +26,10 @@ import java.util.function.IntFunction;
 
 /**
  * Sends one client's appends to each shard in batches, one batch per shard at a time and in the order the appends
- * were made, also while a queue's definition is still being looked up. Each batch carries the client's producer id and
- * a sequence that grows with every batch to the shard, so a batch sent again after a failure is written once. Runs on
- * its own context.
+ * were made, also while a queue's definition is still being looked up. Each batch carries a producer id the client
+ * draws for the shard and a sequence that grows with every batch it sends the shard, so a batch sent again after a
+ * failure is written once. A shard the client sent nothing to for {@link #IDLE_MS} is forgotten, and the client's later
+ * appends to it come from a new producer id. Runs on its own context.
  */
 final class AppendBatcher {
 
@@ -37,11 +38,12 @@ final class AppendBatcher {
     // Appends to a shard with no owner wait up to the client's retry deadline; past this many bytes waiting for the
     // shard, an append fails at once rather than holding more memory
     private static final long MAX_WAITING_BYTES = 64L * 1024 * 1024;
+    private static final long IDLE_MS = 10 * 60_000;
+    // Random, so clients that run at the same time, or one after another, never share a producer id
+    private static final SecureRandom PRODUCER_IDS = new SecureRandom();
 
     private final Context context;
     private final Function<AppendRequest, Future<List<Long>>> send;
-    // Random, so clients that run at the same time, or one after another, never share an id
-    private final long producerId = new SecureRandom().nextLong();
     private final Map<ShardId, ShardAppendQueue> queues = new HashMap<>();
     // Each queue's appends not yet given to a shard, in the order they were made, while the first one's definition is
     // still being looked up
@@ -83,7 +85,7 @@ final class AppendBatcher {
             if (append.queue().succeeded()) {
                 StoredQueue stored = append.queue().result();
                 int shard = QueueLog.shardOf(append.key(), stored.definition().shardCount());
-                ShardAppendQueue shardQueue = queues.computeIfAbsent(stored.shardId(shard), ShardAppendQueue::new);
+                ShardAppendQueue shardQueue = shardQueue(stored.shardId(shard));
                 long size = ShardEntry.size(append.key(), append.payload());
                 if (shardQueue.getWaitingBytes() + size > MAX_WAITING_BYTES) {
                     complete(List.of(append), index -> Future.failedFuture(new IllegalStateException(
@@ -108,6 +110,20 @@ final class AppendBatcher {
         }
     }
 
+    // A queue the client sent nothing to for IDLE_MS is dropped when another is created, so the shards of deleted
+    // queues are forgotten. A dropped queue's sequence starts over under a new producer id, which a shard's owner never
+    // takes for an earlier batch.
+    private ShardAppendQueue shardQueue(ShardId shardId) {
+        ShardAppendQueue ret = queues.get(shardId);
+        if (ret == null) {
+            long idleSince = MonotonicClock.millis() - IDLE_MS;
+            queues.values().removeIf(idle -> !idle.isInFlight() && idle.getWaiting().isEmpty() && idle.getLastUsed() < idleSince);
+            ret = new ShardAppendQueue(shardId, PRODUCER_IDS.nextLong());
+            queues.put(shardId, ret);
+        }
+        return ret;
+    }
+
     private void sendNext(ShardAppendQueue shardQueue) {
         if (!shardQueue.isInFlight() && !shardQueue.getWaiting().isEmpty()) {
             List<QueuedAppend> batch = new ArrayList<>();
@@ -121,9 +137,10 @@ final class AppendBatcher {
             long sequence = shardQueue.getNextSequence();
             shardQueue.setNextSequence(sequence + 1);
             shardQueue.setInFlight(true);
+            shardQueue.setLastUsed(MonotonicClock.millis());
             List<AppendRecord> records = batch.stream().map(append -> new AppendRecord(append.key(), append.payload())).toList();
             ShardId shardId = shardQueue.getShardId();
-            send.apply(new AppendRequest(shardId, producerId, sequence, records))
+            send.apply(new AppendRequest(shardId, shardQueue.getProducerId(), sequence, records))
                 .onComplete(ar -> {
                     shardQueue.setInFlight(false);
                     complete(batch, index -> ar.map(offsets -> new QueuePosition(shardId.queue(), shardId.shard(), offsets.get(index))));

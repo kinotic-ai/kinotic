@@ -35,12 +35,12 @@ public record ShardEntry(long offset, long epoch, String key, byte[] payload, Ba
         return new ShardEntry(offset, epoch, null, NO_PAYLOAD, null, membership);
     }
 
-    public EntryKind kind() {
-        EntryKind ret = EntryKind.MARKER;
+    public EntryType type() {
+        EntryType ret = EntryType.MARKER;
         if (key != null) {
-            ret = EntryKind.RECORD;
+            ret = EntryType.RECORD;
         } else if (membership != null) {
-            ret = EntryKind.MEMBERSHIP;
+            ret = EntryType.MEMBERSHIP;
         }
         return ret;
     }
@@ -49,11 +49,11 @@ public record ShardEntry(long offset, long epoch, String key, byte[] payload, Ba
      * @return whether the entry is a record appended to the queue, rather than an entry the shard's owners write
      */
     public boolean isRecord() {
-        return kind() == EntryKind.RECORD;
+        return type() == EntryType.RECORD;
     }
 
     public boolean isMembership() {
-        return kind() == EntryKind.MEMBERSHIP;
+        return type() == EntryType.MEMBERSHIP;
     }
 
     /**

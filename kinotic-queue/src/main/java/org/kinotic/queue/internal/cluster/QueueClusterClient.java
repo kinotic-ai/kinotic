@@ -144,7 +144,8 @@ public class QueueClusterClient {
      * @param startPosition where the consumer starts on the shard when it never committed there; for
      *                      {@link StartPosition#LATEST} a majority of the shard's copies must answer, so a consumer that
      *                      committed is never taken for one that did not
-     * @return the consumer's next offset on the shard, the newest the answering copies store; zero when none stores one
+     * @return the consumer's next offset on the shard, the newest the answering copies store, once a majority of the
+     * replication factor answered or every copy did; zero when none stores one
      */
     public Future<Long> findNextOffset(OffsetQuery query, StartPosition startPosition) {
         int required = startPosition == StartPosition.LATEST ? placement.quorum() : 1;
@@ -152,29 +153,34 @@ public class QueueClusterClient {
     }
 
     private Future<Long> findNextOffset(List<String> replicas, OffsetQuery query, int required) {
+        if (replicas.size() < required) {
+            return Future.failedFuture(new IllegalStateException("Only " + replicas.size() + " copies of " + query.shardId()
+                                                                         + " are placed, " + required + " are needed"));
+        }
+        int quorum = placement.quorum();
         Buffer body = query.toBuffer();
-        List<Future<Long>> replies = replicas.stream()
-                                              .map(replica -> request(replica, QueueAction.FIND_OFFSET, body).map(reply -> new Wire(reply).readLong()))
-                                              .toList();
-        return Future.join(replies).transform(ar -> {
-            long nextOffset = -1;
-            int answered = 0;
-            Throwable failure = null;
-            for (Future<Long> reply : replies) {
-                if (reply.succeeded()) {
-                    nextOffset = Math.max(nextOffset, reply.result());
-                    answered++;
-                } else {
-                    failure = reply.cause();
+        Promise<Long> ret = Promise.promise();
+        long[] nextOffset = {0};
+        int[] answered = {0};
+        int[] settled = {0};
+        for (String replica : replicas) {
+            request(replica, QueueAction.FIND_OFFSET, body).map(reply -> new Wire(reply).readLong()).onComplete(ar -> {
+                settled[0]++;
+                if (ar.succeeded()) {
+                    nextOffset[0] = Math.max(nextOffset[0], ar.result());
+                    answered[0]++;
                 }
-            }
-            // A commit is stored on a majority, so a majority's answers include it. Fewer can all come from copies that
-            // missed it, which only repeats records for a consumer starting at the earliest record.
-            return answered >= required
-                    ? Future.succeededFuture(nextOffset)
-                    : Future.failedFuture(new IllegalStateException("Only " + answered + " copies of " + query.shardId() + " answered, "
-                                                                            + required + " are needed", failure));
-        });
+                // A commit is stored on a majority, so a majority's answers include it. Fewer can all come from copies
+                // that missed it, which only repeats records for a consumer starting at the earliest record.
+                if (answered[0] >= quorum || (settled[0] == replicas.size() && answered[0] >= required)) {
+                    ret.tryComplete(nextOffset[0]);
+                } else if (settled[0] == replicas.size()) {
+                    ret.tryFail(new IllegalStateException("Only " + answered[0] + " copies of " + query.shardId() + " answered, "
+                                                                  + required + " are needed", ar.cause()));
+                }
+            });
+        }
+        return ret.future();
     }
 
     public Future<ReplicationResult> replicate(String node, ReplicateRequest request) {

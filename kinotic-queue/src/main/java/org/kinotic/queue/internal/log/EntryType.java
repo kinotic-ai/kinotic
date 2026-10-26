@@ -3,7 +3,7 @@ package org.kinotic.queue.internal.log;
 /**
  * What a {@link ShardEntry} is.
  */
-public enum EntryKind {
+public enum EntryType {
     /**
      * A record appended to the queue.
      */
@@ -18,16 +18,16 @@ public enum EntryKind {
     MEMBERSHIP;
 
     /**
-     * @return the byte the kind is stored and sent as
+     * @return the byte the type is stored and sent as
      */
     public byte code() {
         return (byte) ordinal();
     }
 
     /**
-     * @return the kind stored or sent as the byte
+     * @return the type stored or sent as the byte
      */
-    public static EntryKind fromCode(byte code) {
+    public static EntryType fromCode(byte code) {
         return values()[code];
     }
 }

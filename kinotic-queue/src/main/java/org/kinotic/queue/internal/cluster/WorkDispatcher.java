@@ -114,6 +114,7 @@ final class WorkDispatcher {
         if (lowWatermark > 0 && lastRequest - lastSaved >= groupOffsets.getRefreshInterval().toMillis()) {
             saveLowWatermark();
         }
+        skipDeleted();
         Future<LeaseResponse> ret;
         if (hasLeasable()) {
             ret = leaseNow(workerId, max, leaseMillis);
@@ -236,7 +237,6 @@ final class WorkDispatcher {
     }
 
     private boolean hasLeasable() {
-        skipDeleted();
         return !released.isEmpty() || (nextToLease < committedOffset.getAsLong() && nextToLease - lowWatermark < MAX_IN_FLIGHT);
     }
 
@@ -339,6 +339,7 @@ final class WorkDispatcher {
     }
 
     private void servePendingLeases() {
+        skipDeleted();
         while (!stopped && !pendingLeases.isEmpty() && hasLeasable()) {
             PendingLease pending = pendingLeases.removeFirst();
             vertx.cancelTimer(pending.timerId());

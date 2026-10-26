@@ -329,19 +329,21 @@ public class QueueNode {
         }
     }
 
-    // Appends a record to the group's dead-letter queue, creating the queue with the source queue's shard count
+    // Appends a record to the group's dead-letter queue, creating the queue with the source queue's shard count when
+    // this node does not know it yet
     private Future<Void> deadLetter(String queue, String groupName, ShardEntry entry) {
-        return vertx.executeBlocking(() -> {
-                        StoredQueue source = definitions.findStored(queue);
-                        if (source == null) {
-                            throw QueueFailure.NO_QUEUE.exception("No queue named " + queue);
-                        }
-                        return localQueues.saveIfAbsent(new QueueDefinition(QueueService.deadLetterQueue(queue, groupName),
-                                                                            source.definition().shardCount()));
-                    }, false)
-                    .compose(stored -> client.append(stored.name(), Future.succeededFuture(stored), entry.key(), entry.payload()))
-                    .onSuccess(position -> metrics.recordDeadLetter(queue, groupName))
-                    .mapEmpty();
+        String deadLetterQueue = QueueService.deadLetterQueue(queue, groupName);
+        StoredQueue known = definitions.findKnown(deadLetterQueue);
+        Future<StoredQueue> stored = known != null ? Future.succeededFuture(known) : vertx.executeBlocking(() -> {
+            StoredQueue source = definitions.findStored(queue);
+            if (source == null) {
+                throw QueueFailure.NO_QUEUE.exception("No queue named " + queue);
+            }
+            return localQueues.saveIfAbsent(new QueueDefinition(deadLetterQueue, source.definition().shardCount()));
+        }, false);
+        return client.append(deadLetterQueue, stored, entry.key(), entry.payload())
+                     .onSuccess(position -> metrics.recordDeadLetter(queue, groupName))
+                     .mapEmpty();
     }
 
     // Reads the owners' progress on the context, then the stored positions and sizes, which take disk access, off it

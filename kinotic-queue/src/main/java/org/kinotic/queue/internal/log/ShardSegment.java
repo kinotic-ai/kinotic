@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.BiFunction;
 import java.util.function.ToLongFunction;
 import java.util.stream.Stream;
@@ -46,6 +47,9 @@ final class ShardSegment implements AutoCloseable {
     // sequence numbers are dense like offsets: an offset's queue index is its distance from the segment's start
     private final int cycle;
     private final ExcerptAppender appender;
+    // Tailers no read is using. Creating a tailer refreshes the queue's directory listing, which costs far more than a
+    // read, so reads take one from here and put it back. The ShardLog closes a segment only while no read uses it.
+    private final ConcurrentLinkedDeque<ExcerptTailer> idleTailers = new ConcurrentLinkedDeque<>();
     // The segment's cycle file, once an entry was written to it since the segment opened
     private File cycleFile;
     // The offset before which every entry is forced to disk
@@ -123,8 +127,8 @@ final class ShardSegment implements AutoCloseable {
                 Bytes<?> bytes = dc.wire().bytes();
                 bytes.writeLong(entry.offset())
                      .writeLong(entry.epoch())
-                     .writeByte(entry.kind().code());
-                switch (entry.kind()) {
+                     .writeByte(entry.type().code());
+                switch (entry.type()) {
                     case RECORD -> bytes.writeUtf8(entry.key())
                                         .writeInt(entry.payload().length)
                                         .write(entry.payload())
@@ -183,7 +187,13 @@ final class ShardSegment implements AutoCloseable {
         List<T> ret = new ArrayList<>();
         long end = end();
         if (offset >= startOffset && offset < end) {
-            try (ExcerptTailer tailer = queue.createTailer()) {
+            ExcerptTailer tailer = idleTailers.poll();
+            if (tailer == null) {
+                tailer = queue.createTailer();
+            }
+            // The tailer may last have read on another thread
+            tailer.singleThreadedCheckReset();
+            try {
                 tailer.moveToIndex(indexOf(offset));
                 long expected = offset;
                 long bytesRead = 0;
@@ -193,6 +203,8 @@ final class ShardSegment implements AutoCloseable {
                     bytesRead += size.applyAsLong(entry);
                     expected++;
                 }
+            } finally {
+                idleTailers.push(tailer);
             }
         }
         return ret;
@@ -203,7 +215,7 @@ final class ShardSegment implements AutoCloseable {
      */
     static ShardEntry decodeEntry(long offset, Bytes<?> bytes) {
         long epoch = bytes.readLong();
-        return switch (EntryKind.fromCode(bytes.readByte())) {
+        return switch (EntryType.fromCode(bytes.readByte())) {
             case RECORD -> {
                 String key = bytes.readUtf8();
                 byte[] payload = new byte[bytes.readInt()];
@@ -228,7 +240,7 @@ final class ShardSegment implements AutoCloseable {
     static RecordSlot decodeSlot(long offset, Bytes<?> bytes) {
         bytes.readSkip(Long.BYTES);
         RecordSlot ret;
-        if (EntryKind.fromCode(bytes.readByte()) == EntryKind.RECORD) {
+        if (EntryType.fromCode(bytes.readByte()) == EntryType.RECORD) {
             String key = bytes.readUtf8();
             int payloadLength = bytes.readInt();
             bytes.readSkip(payloadLength);
@@ -241,6 +253,11 @@ final class ShardSegment implements AutoCloseable {
 
     @Override
     public void close() {
+        for (ExcerptTailer tailer : idleTailers) {
+            tailer.singleThreadedCheckReset();
+            tailer.close();
+        }
+        idleTailers.clear();
         appender.singleThreadedCheckReset();
         appender.close();
         queue.close();

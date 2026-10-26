@@ -3,7 +3,7 @@ package org.kinotic.queue.internal.cluster.message;
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.queue.internal.log.BatchSlot;
 import org.kinotic.queue.internal.log.ConsumerPosition;
-import org.kinotic.queue.internal.log.EntryKind;
+import org.kinotic.queue.internal.log.EntryType;
 import org.kinotic.queue.internal.log.Membership;
 import org.kinotic.queue.internal.log.ShardEntry;
 import org.kinotic.queue.internal.log.ShardPositions;
@@ -42,7 +42,7 @@ public final class Wire {
         this.position = Byte.BYTES;
     }
 
-    // About the bytes an entry takes besides its key and payload: offset, epoch, kind, lengths and batch slot
+    // About the bytes an entry takes besides its key and payload: offset, epoch, type, lengths and batch slot
     private static final int ENTRY_OVERHEAD_BYTES = 64;
 
     /**
@@ -82,8 +82,8 @@ public final class Wire {
     public static Buffer appendEntries(Buffer buffer, List<ShardEntry> entries) {
         buffer.appendInt(entries.size());
         for (ShardEntry entry : entries) {
-            buffer.appendLong(entry.offset()).appendLong(entry.epoch()).appendByte(entry.kind().code());
-            switch (entry.kind()) {
+            buffer.appendLong(entry.offset()).appendLong(entry.epoch()).appendByte(entry.type().code());
+            switch (entry.type()) {
                 case RECORD -> appendSlot(appendBytes(appendString(buffer, entry.key()), entry.payload()), entry.slot());
                 case MEMBERSHIP -> appendStrings(appendStrings(buffer, entry.membership().voting()), entry.membership().joining());
                 case MARKER -> {
@@ -152,7 +152,7 @@ public final class Wire {
         for (int i = 0; i < count; i++) {
             long offset = readLong();
             long epoch = readLong();
-            ret.add(switch (EntryKind.fromCode(readByte())) {
+            ret.add(switch (EntryType.fromCode(readByte())) {
                 case RECORD -> ShardEntry.record(offset, epoch, readString(), readBytes(), readSlot());
                 case MEMBERSHIP -> ShardEntry.membership(offset, epoch, new Membership(readStrings(), readStrings()));
                 case MARKER -> ShardEntry.marker(offset, epoch);
