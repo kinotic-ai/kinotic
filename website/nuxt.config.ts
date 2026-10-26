@@ -1,8 +1,10 @@
-// The docs moved: the introduction and quick start now live under Getting Started. These keep the
-// old URLs working (each is prerendered below so the static site emits a redirect page for it).
+// The docs moved: the introduction and quick start now live under Getting Started, and the local
+// setup is a tab of the quick start. These keep the old URLs working (each is prerendered below so
+// the static site emits a redirect page for it).
 const docsRedirects: Record<string, string> = {
   '/apps/introduction': '/getting-started/introduction',
   '/apps/quick-start': '/getting-started/quick-start',
+  '/getting-started/local-only-setup': '/getting-started/quick-start',
 }
 
 export default defineNuxtConfig({

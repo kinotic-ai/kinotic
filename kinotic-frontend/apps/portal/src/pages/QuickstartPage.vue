@@ -306,7 +306,7 @@ import claudeCodeIcon from '@/assets/claude-code.svg'
 
 const debug = createDebug('quickstart')
 
-const QUICK_START_URL = 'https://kinotic.ai/apps/quick-start'
+const QUICK_START_URL = 'https://kinotic.ai/getting-started/quick-start'
 const PLUGIN_COMMANDS = ['/plugin marketplace add kinotic-ai/agent-plugin', '/plugin install kinotic@kinotic']
 const AUTHORIZE_COMMANDS = ['/mcp']
 // The MCP server the Kinotic plugin connects Claude Code to, Kinotic Cloud's

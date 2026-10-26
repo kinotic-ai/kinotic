@@ -108,7 +108,7 @@ open http://localhost:9090
    on a vm-manager node running beside the stack.
 
 To connect a coding agent, install the Kinotic plugin from `kinotic-ai/agent-plugin` (see the
-[quick start](../../website/content/01.apps/02.quick-start.md)), whose own MCP server is Kinotic Cloud's,
+[quick start](../../website/content/01.getting-started/02.quick-start.md)), whose own MCP server is Kinotic Cloud's,
 and add this server beside it:
 
 ```bash
