@@ -335,7 +335,7 @@ No route asks about an email before a method is chosen, and a failed password lo
 
 **Starting from a link.** An organization's provider sign-in also starts from a plain `GET` of `/api/auth/org/login/<organizationId>/start/<configId>`, so a provider's application launcher can link straight to it.
 
-**Errors** come back to the login page as `?error=`: `no_user`, `user_disabled`, `email_not_verified` (with the provider in `provider`), and `multiple_organizations`.
+**Errors** come back to the login page as `?error=`: `no_user` and `email_not_verified` (each with the provider in `provider`), `user_disabled`, and `multiple_organizations`.
 
 ### Finding one's organizations
 
