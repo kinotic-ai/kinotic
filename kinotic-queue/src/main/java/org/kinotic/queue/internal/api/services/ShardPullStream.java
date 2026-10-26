@@ -41,6 +41,8 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
     private final Context context;
     private final String description;
     private final boolean[] pulling;
+    // The shard pullAll() tries first: the one after the shard pulled last, so shards take turns at the room as it frees
+    private int nextShard;
     // When each shard's current run of failed pulls began, or 0 while its last pull succeeded
     private final long[] failingSince;
     private final boolean[] failureReported;
@@ -146,8 +148,9 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
      * Pulls every shard that is not being pulled and {@link #canPull may be}.
      */
     protected final void pullAll() {
-        for (int shard = 0; shard < pulling.length; shard++) {
-            pullShard(shard);
+        int first = nextShard;
+        for (int i = 0; i < pulling.length; i++) {
+            pullShard((first + i) % pulling.length);
         }
     }
 
@@ -200,6 +203,7 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
     private void pullShard(int shard) {
         if (!closed && !pulling[shard] && canPull()) {
             pulling[shard] = true;
+            nextShard = (shard + 1) % pulling.length;
             pull(shard).onComplete(ar -> {
                 if (ar.succeeded()) {
                     pulling[shard] = false;

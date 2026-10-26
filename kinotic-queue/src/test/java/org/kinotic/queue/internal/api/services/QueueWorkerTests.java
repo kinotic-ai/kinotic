@@ -1,6 +1,5 @@
 package org.kinotic.queue.internal.api.services;
 
-import io.vertx.core.eventbus.ReplyException;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +16,7 @@ import org.kinotic.queue.internal.QueueTestNode;
 import org.kinotic.queue.internal.QueueTestSupport;
 import org.kinotic.queue.internal.TestSubscriber;
 import org.kinotic.queue.internal.TestWorker;
+import org.kinotic.queue.internal.cluster.QueueFailure;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -93,8 +93,24 @@ public class QueueWorkerTests {
 
         assertEquals(taken.record().position(), retaken.record().position());
         assertEquals(2, retaken.deliveryCount());
-        assertThrows(ReplyException.class, () -> await(slow.settle(QueueWorker::accept, taken)));
+        Exception refused = assertThrows(Exception.class, () -> await(slow.settle(QueueWorker::accept, taken)));
+        assertTrue(QueueFailure.LEASE_EXPIRED.matches(refused), refused.toString());
         await(other.settle(QueueWorker::accept, retaken));
+    }
+
+    @Test
+    public void aRecordTheHandlerDropsIsLeasedAgainOnceItsLeaseRunsOut() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition(QUEUE, 1)));
+        appendValues(0, 1);
+        TestWorker worker = work("billing", StartPosition.EARLIEST, 1, Duration.ofMillis(300));
+        WorkItem dropped = worker.next();
+
+        // The worker's room for one record is taken by the dropped record until its lease runs out
+        WorkItem again = worker.next();
+
+        assertEquals(dropped.record().position(), again.record().position());
+        assertEquals(2, again.deliveryCount());
+        await(worker.settle(QueueWorker::accept, again));
     }
 
     @Test

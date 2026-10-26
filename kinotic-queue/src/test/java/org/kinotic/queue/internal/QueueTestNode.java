@@ -129,6 +129,13 @@ public final class QueueTestNode implements AutoCloseable {
     }
 
     /**
+     * @return the node's bean of the type
+     */
+    public <T> T bean(Class<T> type) {
+        return context.getBean(type);
+    }
+
+    /**
      * Stops the node gracefully: it stops owning its shards and leaves the cluster.
      */
     @Override

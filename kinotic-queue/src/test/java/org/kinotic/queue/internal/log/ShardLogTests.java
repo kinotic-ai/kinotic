@@ -293,6 +293,25 @@ public class ShardLogTests {
     }
 
     @Test
+    public void aClosedQueueAndItsShardsChangeNothingOnDisk() throws Exception {
+        Path queueDirectory = directory.resolve("orders");
+        QueueLog queueLog = QueueLog.openOrCreate(queueDirectory, new QueueDefinition("orders", 2), "first", PROPERTIES);
+        ShardLog shard = queueLog.shard(0);
+        shard.appendMarker(1);
+        queueLog.close();
+        // A queue created later under the same name takes the directory
+        FileUtils.deleteDirectory(queueDirectory.toFile());
+
+        assertThrows(IllegalStateException.class, () -> shard.appendMarker(1));
+        assertThrows(IllegalStateException.class, () -> shard.promise(2));
+        assertThrows(IllegalStateException.class, () -> shard.deleteBefore(1));
+        assertThrows(IllegalStateException.class, () -> queueLog.shard(1));
+        assertThrows(IllegalStateException.class, () -> queueLog.promise(1, 2));
+        shard.close();
+        assertFalse(Files.exists(queueDirectory));
+    }
+
+    @Test
     public void markersAreStoredWithoutAKeyAndReadsStopAtTheByteBudget() {
         try (ShardLog shard = new ShardLog(directory.resolve("0"), PROPERTIES)) {
             assertEquals(0, shard.appendMarker(1));

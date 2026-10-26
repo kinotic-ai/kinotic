@@ -217,9 +217,13 @@ final class ShardOwner {
             ret = vertx.executeBlocking(() -> shardLog.append(appendEpoch, records), false).transform(ar -> {
                 Future<List<Long>> written;
                 if (ar.failed()) {
-                    // A failed append fences this epoch on the shard, so this owner can append nothing more
+                    // A failed append fences this epoch on the shard, so this owner can append nothing more. The append
+                    // wrote none of the records, so the client sends them again to the shard's next owner.
+                    if (!(ar.cause() instanceof StaleEpochException)) {
+                        log.warn("Appending to {} failed, stepping down", shardId, ar.cause());
+                    }
                     stepDown();
-                    written = Future.failedFuture(ar.cause());
+                    written = Future.failedFuture(changedOwner(shardId));
                 } else if (stopped) {
                     // The records may still be committed by the next owner, which then recognizes the batch
                     written = Future.failedFuture(changedOwner(shardId));

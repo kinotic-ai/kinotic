@@ -30,7 +30,7 @@ import java.util.stream.Stream;
  * One shard of a queue on this node: an append-only log whose entries carry offsets that increase by one per entry,
  * and epochs that never decrease from one entry to the next. The oldest entries are deleted as the queue's retention
  * allows, so the shard begins at its {@link #start() start}. Writes are serialized; reads may run concurrently with
- * writes and with each other.
+ * writes and with each other. A closed shard refuses every change with an {@link IllegalStateException}.
  */
 @Slf4j
 @Accessors(fluent = true)
@@ -88,6 +88,7 @@ public final class ShardLog implements AutoCloseable {
     // The newest epoch an append failed in. Followers may hold the failed append's entries under that epoch, so its
     // offsets are only written again by an owner of a newer epoch, whose entries replace them.
     private long fencedEpoch = -1;
+    private boolean closed;
 
     /**
      * Opens the shard stored in {@code directory}, creating it empty when there is none, with the queue's storage
@@ -188,6 +189,7 @@ public final class ShardLog implements AutoCloseable {
      * @return the newest epoch the shard had promised before this call, or -1 when it had promised none
      */
     public synchronized long promise(long epoch) {
+        requireOpen();
         long ret = acceptedEpoch;
         if (epoch > acceptedEpoch) {
             DurableFiles.writeDurably(acceptedEpochFile(directory), String.valueOf(epoch));
@@ -208,6 +210,7 @@ public final class ShardLog implements AutoCloseable {
      * @return how the batch was handled
      */
     public synchronized ReplicationResult replicate(ReplicationBatch batch) {
+        requireOpen();
         ReplicationResult ret;
         if (batch.epoch() < acceptedEpoch) {
             ret = new ReplicationResult(ReplicationStatus.STALE_EPOCH, nextOffset);
@@ -342,6 +345,7 @@ public final class ShardLog implements AutoCloseable {
      * @return the shard's start after the deletion
      */
     public synchronized LogStart deleteBefore(long offset) {
+        requireOpen();
         ShardEntry latest = latestMembership();
         long limit = Math.min(offset, latest != null ? latest.offset() : Long.MAX_VALUE);
         List<ShardSegment> deleted = segments.stream().filter(segment -> segment.isSealed() && segment.end() <= limit).toList();
@@ -367,17 +371,20 @@ public final class ShardLog implements AutoCloseable {
 
     @Override
     public synchronized void close() {
-        segmentsLock.writeLock().lock();
-        try {
-            // Records how large the segment taking writes has grown, which the manifest otherwise records when it closes
+        if (!closed) {
+            closed = true;
+            segmentsLock.writeLock().lock();
             try {
-                writeManifest(start, segments, memberships.values());
-            } catch (RuntimeException e) {
-                log.warn("Recording the segments of shard {} failed", directory, e);
+                // Records how large the segment taking writes has grown, which the manifest otherwise records when it closes
+                try {
+                    writeManifest(start, segments, memberships.values());
+                } catch (RuntimeException e) {
+                    log.warn("Recording the segments of shard {} failed", directory, e);
+                }
+                segments.forEach(ShardSegment::close);
+            } finally {
+                segmentsLock.writeLock().unlock();
             }
-            segments.forEach(ShardSegment::close);
-        } finally {
-            segmentsLock.writeLock().unlock();
         }
     }
 
@@ -386,7 +393,15 @@ public final class ShardLog implements AutoCloseable {
         return directory.toString();
     }
 
+    // A closed shard's directory may already hold the copy of a queue created later with the same name
+    private void requireOpen() {
+        if (closed) {
+            throw new IllegalStateException("Shard " + directory + " is closed");
+        }
+    }
+
     private void requireCurrent(long epoch) {
+        requireOpen();
         if (epoch < acceptedEpoch) {
             throw new StaleEpochException("Epoch " + epoch + " is older than the promised epoch " + acceptedEpoch);
         }

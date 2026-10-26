@@ -21,7 +21,8 @@ import java.util.regex.Pattern;
 
 /**
  * The shards of a queue this node holds and the committed offsets of the queue's consumers, kept under one
- * directory. Shards are created when first used, so a node holds only the shards placed on it.
+ * directory. Shards are created when first used, so a node holds only the shards placed on it. A closed queue opens no
+ * shard and makes no promise, failing with an {@link IllegalStateException}.
  */
 @Accessors(fluent = true)
 public final class QueueLog implements AutoCloseable {
@@ -58,6 +59,7 @@ public final class QueueLog implements AutoCloseable {
      */
     @Getter
     private final ConsumerOffsetRepository groupOffsets;
+    private boolean closed;
 
     private QueueLog(Path directory, QueueDefinition definition, String incarnation, QueueProperties properties) {
         this.directory = directory;
@@ -192,6 +194,7 @@ public final class QueueLog implements AutoCloseable {
      * Opens the shard, creating it when this node does not hold it yet.
      */
     public synchronized ShardLog shard(int shard) {
+        requireOpen();
         if (shards[shard] == null) {
             shards[shard] = new ShardLog(shardDirectory(shard), properties);
         }
@@ -229,6 +232,7 @@ public final class QueueLog implements AutoCloseable {
      * @return the newest epoch promised for the shard before this call, or -1 when none was
      */
     public synchronized long promise(int shard, long epoch) {
+        requireOpen();
         ShardLog copy = findShard(shard);
         return copy != null ? copy.promise(epoch) : ShardLog.promiseWithoutCopy(shardDirectory(shard), epoch);
     }
@@ -274,12 +278,20 @@ public final class QueueLog implements AutoCloseable {
 
     @Override
     public synchronized void close() {
+        closed = true;
         consumerOffsets.close();
         groupOffsets.close();
         for (ShardLog shard : shards) {
             if (shard != null) {
                 shard.close();
             }
+        }
+    }
+
+    // A closed queue's directory may already hold the copy of a queue created later with the same name
+    private void requireOpen() {
+        if (closed) {
+            throw new IllegalStateException("Queue " + directory + " is closed");
         }
     }
 

@@ -34,7 +34,8 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
     // Fetching pauses while this many records, or this many bytes of them, wait for demand or are being fetched
     private static final int MAX_PENDING = 1_024;
     private static final long MAX_PENDING_BYTES = 16 * 1024 * 1024;
-    // The smallest byte budget one fetch is given, so a nearly full buffer still fetches in useful steps
+    // The smallest byte budget one fetch is given, so a nearly full buffer still fetches in useful steps, unless the
+    // queue has so many shards that it would keep every shard from having a fetch on its way at once
     private static final long MIN_FETCH_BYTES = 64 * 1024;
 
     private final QueueClusterClient client;
@@ -50,6 +51,7 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
     private final List<TreeMap<Long, List<Promise<Void>>>> awaitingCommit;
     // The offset after the last record handed to the handler, per shard; a commit may not go past it
     private final long[] deliveredNextOffsets;
+    private final long minFetchBytes;
     private long pendingBytes;
     private long refreshTimer = -1;
     // The byte budgets of the fetches on their way
@@ -70,6 +72,7 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
         this.committingNextOffsets = new long[committedNextOffsets.length];
         this.awaitingCommit = IntStream.range(0, committedNextOffsets.length).mapToObj(shard -> new TreeMap<Long, List<Promise<Void>>>()).toList();
         this.deliveredNextOffsets = fetchOffsets.clone();
+        this.minFetchBytes = Math.min(MIN_FETCH_BYTES, MAX_PENDING_BYTES / fetchOffsets.length);
     }
 
     /**
@@ -191,7 +194,7 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
 
     @Override
     protected Future<FetchResponse> pull(int shard) {
-        long budget = Math.max(MIN_FETCH_BYTES, (MAX_PENDING_BYTES - pendingBytes - reservedBytes) / fetchOffsets.length);
+        long budget = Math.max(minFetchBytes, (MAX_PENDING_BYTES - pendingBytes - reservedBytes) / fetchOffsets.length);
         reservedBytes += budget;
         return client.fetch(new FetchRequest(queue.shardId(shard), fetchOffsets[shard], FETCH_SIZE, budget))
                      .onComplete(ar -> reservedBytes -= budget);

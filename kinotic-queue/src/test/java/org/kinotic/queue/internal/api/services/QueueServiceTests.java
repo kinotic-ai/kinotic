@@ -14,13 +14,19 @@ import org.kinotic.queue.api.services.QueueService;
 import org.kinotic.queue.api.services.QueueSubscription;
 import org.kinotic.queue.internal.QueueTestNode;
 import org.kinotic.queue.internal.TestSubscriber;
+import org.kinotic.queue.internal.cluster.LocalQueueRepository;
+import org.kinotic.queue.internal.cluster.QueueDefinitionRepository;
+import org.kinotic.queue.internal.cluster.message.ShardId;
+import org.kinotic.queue.internal.log.ShardLog;
 
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,7 +37,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.kinotic.queue.internal.QueueTestSupport.appendAll;
 import static org.kinotic.queue.internal.QueueTestSupport.await;
+import static org.kinotic.queue.internal.QueueTestSupport.keyOf;
 import static org.kinotic.queue.internal.QueueTestSupport.payload;
+import static org.kinotic.queue.internal.QueueTestSupport.range;
 import static org.kinotic.queue.internal.QueueTestSupport.value;
 
 /**
@@ -219,6 +227,41 @@ public class QueueServiceTests {
 
         assertFalse(stopped.isDone(), () -> "the subscription stopped: " + stopped.join());
         assertEquals(count, received.get());
+    }
+
+    @Test
+    public void aSubscriptionReadsEveryShardOfAQueueWithManyShards() throws Exception {
+        int shards = 300;
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", shards)));
+        // Every shard is fetched while it is empty, so each holds its fetch open
+        TestSubscriber subscriber = subscribe("billing", StartPosition.EARLIEST);
+        List<Future<QueuePosition>> appends = new ArrayList<>();
+        for (int shard = 0; shard < shards; shard++) {
+            appends.add(service.append("orders", keyOf(shard, shards), payload(shard)));
+        }
+        await(Future.all(appends));
+
+        Set<Integer> delivered = new HashSet<>();
+        while (delivered.size() < shards) {
+            delivered.add(value(subscriber.next()));
+        }
+        assertEquals(range(0, shards), delivered);
+    }
+
+    @Test
+    public void anAppendTheShardsOwnerCanNoLongerWriteIsWrittenByItsNextOwner() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 1)));
+        await(service.append("orders", "key", payload(0)));
+        // What a newer owner's takeover does to this node's copy: it promises to refuse the current owner's epoch
+        ShardId shardId = node.bean(QueueDefinitionRepository.class).findStored("orders").shardId(0);
+        ShardLog copy = node.bean(LocalQueueRepository.class).findShard(shardId);
+        copy.promise(copy.acceptedEpoch() + 1);
+
+        await(service.append("orders", "key", payload(1)));
+
+        TestSubscriber subscriber = subscribe("billing", StartPosition.EARLIEST);
+        assertEquals(0, value(subscriber.next()));
+        assertEquals(1, value(subscriber.next()));
     }
 
     private void startNode() throws Exception {
