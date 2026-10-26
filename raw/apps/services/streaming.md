@@ -51,14 +51,110 @@ subscription.unsubscribe()
 
 ## How a Stream Ends
 
-A stream ends for its caller in one of four ways, and the service stops producing in every one of them:
+A stream ends for its caller in one of five ways, and the service stops producing in every one of them:
 
 - **The service completes it.** The caller's `Observable` completes.
 - **The service fails it.** The caller's `Observable` errors with the exception the service threw or emitted.
 - **The caller unsubscribes.** A cancel reaches the service, which unsubscribes from the `Observable` the method returned, so a finite source stops early and an `interval` stops ticking.
+- **The caller falls too far behind a stream that cannot be suspended.** The caller's `Observable` errors with `RpcStreamOverflowException` (see [A Caller That Falls Behind](#a-caller-that-falls-behind)).
 - **The caller is gone.** The platform watches the caller's reply destination for every stream in progress, on the node hosting a Java service and on the gateway for a TypeScript one. When nothing listens there any more — the caller's connection closed, or its node left the cluster — the stream is cancelled the same way an unsubscribe cancels it. A TypeScript service whose own connection ends, however it ends, cancels every stream it was producing at that moment, because the gateway has already failed those callers (see [service call liveness](https://kinotic.ai/platform/service-call-liveness)).
 
 A service that stops while producing a stream ends it with an error at the caller rather than a silent cancel.
+
+## A Caller That Falls Behind
+
+A caller connected through the gateway, such as a browser, the CLI or a TypeScript service, receives a stream only as fast as its connection takes it. The gateway counts what it has written to the connection that the socket has not sent yet. When that backlog passes 1 MiB, the gateway suspends each stream to the connection that can be suspended, as its next value arrives, and resumes them all once the backlog drains below 256 KiB. Values already on their way when the suspend went out still arrive, so the caller loses nothing and receives every value in order.
+
+A stream produced by a Java service can be suspended. Once the suspend reaches the service, it sends nothing more until it is resumed, and its source has been asked for at most 32 values the service has not sent. A source that produces only as fast as it is asked stops there, whether it emits synchronously or not: `Flux.range`, `Flux.fromIterable`, `Flux.generate`, a database cursor, or a `Flux.create` that reads `onRequest`. A source emitting on the service's own event loop also yields the loop every 16 values, so a long synchronous stream does not hold it.
+
+A source that produces on its own schedule does not wait to be asked. Once its caller has been behind long enough to use up those 32 values, what happens depends on the source:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Source
+    </th>
+    
+    <th>
+      While its caller is behind
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        Flux.interval
+      </code>
+    </td>
+    
+    <td>
+      fails the stream with an overflow error
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        Flux.create
+      </code>
+      
+      , by default
+    </td>
+    
+    <td>
+      keeps buffering inside the service, without limit
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        Sinks.many().multicast().directBestEffort()
+      </code>
+    </td>
+    
+    <td>
+      drops the values for that caller, who never sees them
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      a <code>
+        share()
+      </code>
+      
+       or <code>
+        publish()
+      </code>
+      
+       of one source
+    </td>
+    
+    <td>
+      pauses every caller of the shared source, since it emits only as fast as its slowest subscriber asks
+    </td>
+  </tr>
+</tbody>
+</table>
+
+Give a stream like these an overflow strategy that says what its caller misses while it is behind: `onBackpressureLatest()` keeps only the newest value, `onBackpressureDrop()` drops values until the caller catches up, and `onBackpressureBuffer(maxSize)` holds up to `maxSize` values and fails the stream with an overflow error past them. Apply it to each caller's stream, after any `share()`, so one slow caller does not hold back the others:
+
+```java
+@Override
+public Flux<Reading> streamReadings(String sensorId) {
+    return readings.share()                                  // one subscription to the sensor feed
+                   .filter(reading -> reading.sensorId().equals(sensorId))
+                   .onBackpressureLatest();                  // a caller that falls behind skips to the newest reading
+}
+```
+
+A stream produced by a TypeScript service cannot be suspended. The gateway logs a warning when its caller falls behind, and once 32 MiB of that stream's own values are waiting to be sent it cancels the stream at the service and fails it at the caller with `RpcStreamOverflowException`, so the caller can request it again. A backlog the connection's other streams built up never cancels it. A stream that declared it can be suspended but keeps sending more than 5 seconds after a suspend is treated the same way, with a warning that names it.
+
+The gateway sends every suspend, resume and cancel to the address the caller sent its request to, whatever the stream's values say about where they came from.
 
 ## Use Cases
 
