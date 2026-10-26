@@ -1,10 +1,13 @@
 import {Kinotic, Pageable} from '@kinotic-ai/core'
-import {type PasswordConfiguration} from '@kinotic-ai/management-api'
+import {type PasswordConfiguration, TenantManagement} from '@kinotic-ai/management-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {E2E_ORGANIZATION_ID, initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
 
-/** The application whose login this suite gives an email and a password; created by the suite, as no fixture is its own. */
+/**
+ * The application whose login this suite gives an email and a password; created by the suite, as no fixture is its own,
+ * with tenants the system manages, which password sign-up needs.
+ */
 const APPLICATION_ID = 'e2e-owned-password'
 
 /**
@@ -18,7 +21,8 @@ describe('Owned password configurations', () => {
         await allure.suite('e2e-tests/native')
         await allure.subSuite('OwnedPasswordConfigurations')
         await initKinoticClient()
-        await Kinotic.applications.createApplicationIfNotExist(APPLICATION_ID, 'e2e fixture application for the owned password configuration test')
+        await Kinotic.applications.createApplicationIfNotExist(APPLICATION_ID, 'e2e fixture application for the owned password configuration test',
+                                                               TenantManagement.SYSTEM)
     }, 300000)
 
     afterAll(async () => {
