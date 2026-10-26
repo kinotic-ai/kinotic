@@ -665,13 +665,20 @@ public class ServiceInvocationSupervisor {
         private final Map<String, String> valueHeaders;
         private final Map<String, String> firstValueHeaders;
         private final Span span;
+        // the invocation's delivery context, which also delivers this stream's control events
+        private final Context context = vertx.getOrCreateContext();
         // stop() and the reply listener monitor can fail the stream from different threads at once
         private final AtomicBoolean failed = new AtomicBoolean(false);
+        // the source and a resume can both end the stream from different threads
+        private final AtomicBoolean finished = new AtomicBoolean(false);
         private ReplyListenerStatusSubscriber replyListenerStatusSubscriber;
         // set by control events on the consumer's context while the source emits on its own thread
         private volatile boolean suspended;
         // guarded by this
         private final ArrayDeque<Object> heldValues = new ArrayDeque<>();
+        // guarded by this: the source ended while values were held, with heldError null for a completion
+        private boolean terminalHeld;
+        private Throwable heldError;
         // touched only by hookOnNext, which the source serializes
         private int sentSinceRefill;
         // sends are serialized: hookOnNext sends directly only while not suspended, and resume clears the flag after its flush
@@ -696,11 +703,14 @@ public class ServiceInvocationSupervisor {
          * Ends the stream with a terminal error for its caller, then cancels the source.
          */
         public void fail(Throwable throwable){
-            if(!isDisposed() && failed.compareAndSet(false, true)){
-                handleException(incomingMetadata, throwable);
-                span.recordException(throwable);
-                span.setStatus(StatusCode.ERROR);
-                cancel();
+            if(failed.compareAndSet(false, true)){
+                if(!isDisposed()){
+                    sendError(throwable);
+                    cancel();
+                }else if(dropHeldTerminal()){
+                    sendError(throwable);
+                    finish();
+                }
             }
         }
 
@@ -711,7 +721,7 @@ public class ServiceInvocationSupervisor {
             }
             switch (control) {
                 case EventConstants.CONTROL_VALUE_CANCEL:
-                    this.cancel();
+                    cancelSourceAndHeld();
                     break;
                 case EventConstants.CONTROL_VALUE_SUSPEND:
                     suspended = true;
@@ -721,28 +731,29 @@ public class ServiceInvocationSupervisor {
                     break;
                 default:
                     // the error reply that answers the control event is terminal for the requester, so the source ends with it
-                    this.cancel();
+                    cancelSourceAndHeld();
                     throw new IllegalArgumentException("Unknown control header value " + control);
             }
         }
 
         @Override
         protected void hookFinally(@NonNull SignalType type) {
-            log.trace("Stream Cleanup Now");
-
-            // Covers every terminal signal the stream can end on, cancellation included
-            span.end();
-
-            replyListenerStatusSubscriber.cancel();
-
-            activeStreamingResults.remove(incomingMetadata.get(EventConstants.CORRELATION_ID_HEADER));
+            boolean deferred;
+            synchronized (this){
+                deferred = terminalHeld;
+            }
+            // a terminal held behind values keeps the stream registered, so its resume, cancel or failure still reaches it
+            if(!deferred){
+                finish();
+            }
         }
 
         @Override
         protected void hookOnComplete() {
             log.trace("Stream Complete");
-            sendHeldValues();
-            sendCompletionEvent(incomingMetadata);
+            if(!holdTerminal(null)){
+                sendCompletionEvent(incomingMetadata);
+            }
         }
 
         @Override
@@ -750,11 +761,9 @@ public class ServiceInvocationSupervisor {
             if(log.isTraceEnabled()){
                 log.trace("Stream Error",throwable);
             }
-            sendHeldValues();
-            handleException(incomingMetadata, throwable);
-            // hookFinally ends the span, this only marks why it ended
-            span.recordException(throwable);
-            span.setStatus(StatusCode.ERROR);
+            if(!holdTerminal(throwable)){
+                sendError(throwable);
+            }
         }
 
         @Override
@@ -779,7 +788,13 @@ public class ServiceInvocationSupervisor {
             // demand is replenished only for sent values, so a suspended stream stops its source once the window is held
             if(sent && ++sentSinceRefill == STREAM_DEMAND_WINDOW / 2){
                 sentSinceRefill = 0;
-                request(STREAM_DEMAND_WINDOW / 2);
+                if(Vertx.currentContext() == context){
+                    // a source emitting on the stream's own context holds it, so the demand waits for the next turn:
+                    // a suspend queued behind the source is processed before it emits further
+                    context.runOnContext(_ -> request(STREAM_DEMAND_WINDOW / 2));
+                }else{
+                    request(STREAM_DEMAND_WINDOW / 2);
+                }
             }
         }
 
@@ -798,24 +813,75 @@ public class ServiceInvocationSupervisor {
             convertAndSend(incomingMetadata, handlerMethod, value, headers, false);
         }
 
+        private void sendError(Throwable throwable){
+            handleException(incomingMetadata, throwable);
+            // finish ends the span, this only marks why it ended
+            span.recordException(throwable);
+            span.setStatus(StatusCode.ERROR);
+        }
+
         private void resume(){
             int sent;
+            boolean releaseTerminal;
+            Throwable error;
             synchronized (this){
-                sent = sendHeldValues();
+                sent = heldValues.size();
+                while(!heldValues.isEmpty()){
+                    send(heldValues.poll());
+                }
                 suspended = false;
+                releaseTerminal = terminalHeld;
+                error = heldError;
+                terminalHeld = false;
+                heldError = null;
             }
-            if(sent > 0){
+            if(releaseTerminal){
+                if(error == null){
+                    sendCompletionEvent(incomingMetadata);
+                }else{
+                    sendError(error);
+                }
+                finish();
+            }else if(sent > 0){
                 request(sent);
             }
         }
 
-        // a terminal signal sends what is held first, since hookFinally removes the stream and no resume can reach it after
-        private synchronized int sendHeldValues(){
-            int sent = heldValues.size();
-            while(!heldValues.isEmpty()){
-                send(heldValues.poll());
+        // a terminal arriving while values are held waits for them: sending them now would break the suspend
+        private synchronized boolean holdTerminal(Throwable error){
+            terminalHeld = suspended && !heldValues.isEmpty();
+            if(terminalHeld){
+                heldError = error;
             }
-            return sent;
+            return terminalHeld;
+        }
+
+        // the source already ended with its terminal held behind values: drop both, since the stream is cancelled or failed
+        private synchronized boolean dropHeldTerminal(){
+            boolean ret = terminalHeld;
+            if(ret){
+                heldValues.clear();
+                terminalHeld = false;
+                heldError = null;
+            }
+            return ret;
+        }
+
+        private void cancelSourceAndHeld(){
+            // a no-op once the source has ended, which leaves only a held terminal to drop
+            cancel();
+            if(dropHeldTerminal()){
+                finish();
+            }
+        }
+
+        private void finish(){
+            if(finished.compareAndSet(false, true)){
+                log.trace("Stream Cleanup Now");
+                span.end();
+                replyListenerStatusSubscriber.cancel();
+                activeStreamingResults.remove(incomingMetadata.get(EventConstants.CORRELATION_ID_HEADER));
+            }
         }
 
     }

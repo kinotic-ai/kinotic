@@ -503,7 +503,7 @@ public class RpcTests {
                       .atMost(Duration.ofSeconds(10))
                       .until(() -> valuesReceived.get() >= 2);
 
-            eventBusService.publish(streamControlEvent(streamCri, correlationId, EventConstants.CONTROL_VALUE_SUSPEND));
+            eventBusService.publish(EventUtil.createStreamControlEvent(streamCri, correlationId, EventConstants.CONTROL_VALUE_SUSPEND));
             // getInfiniteFlux emits once a second, so a value sent before the suspend landed may still arrive
             Thread.sleep(1500);
             int receivedAtSuspend = valuesReceived.get();
@@ -512,13 +512,13 @@ public class RpcTests {
                       .atMost(Duration.ofSeconds(4))
                       .until(() -> valuesReceived.get() == receivedAtSuspend);
 
-            eventBusService.publish(streamControlEvent(streamCri, correlationId, EventConstants.CONTROL_VALUE_RESUME));
+            eventBusService.publish(EventUtil.createStreamControlEvent(streamCri, correlationId, EventConstants.CONTROL_VALUE_RESUME));
             Awaitility.await("values arrive again after the stream is resumed")
                       .atMost(Duration.ofSeconds(10))
                       .until(() -> valuesReceived.get() > receivedAtSuspend);
             Assertions.assertEquals(List.of(), errors);
         } finally {
-            eventBusService.publish(streamControlEvent(streamCri, correlationId, EventConstants.CONTROL_VALUE_CANCEL));
+            eventBusService.publish(EventUtil.createStreamControlEvent(streamCri, correlationId, EventConstants.CONTROL_VALUE_CANCEL));
             replyConsumer.unregister();
         }
     }
@@ -564,13 +564,6 @@ public class RpcTests {
         } finally {
             replyConsumer.unregister();
         }
-    }
-
-    private static Event<byte[]> streamControlEvent(CRI streamCri, String correlationId, String control){
-        Metadata metadata = Metadata.create();
-        metadata.put(EventConstants.CONTROL_HEADER, control);
-        metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
-        return Event.create(streamCri, metadata, null);
     }
 
     /**
