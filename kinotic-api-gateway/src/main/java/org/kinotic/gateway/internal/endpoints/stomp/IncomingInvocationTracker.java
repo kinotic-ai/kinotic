@@ -5,8 +5,8 @@ import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
-import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
+import org.kinotic.core.api.exceptions.RpcStreamOverflowException;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.endpoints.Services;
 
@@ -19,7 +19,9 @@ import java.util.UUID;
  * is remembered when the client sends it, watched from the moment a node accepts it, and forgotten when its
  * reply comes back, the client cancels it, or the send fails. If the node serving a watched request leaves
  * the cluster, the client is answered with an {@link RpcServiceUnavailableException} in the reply's place.
- * Also holds the client's reply subscriptions, which are how replies reach it.
+ * Also holds the client's reply subscriptions, which are how replies reach it, and passes each stream value
+ * through the connection's {@link ReplyFlowControl}: a stream that cannot be suspended is cancelled when its
+ * client falls too far behind, and the client is answered with an {@link RpcStreamOverflowException}.
  *
  * Created by Navíd Mitchell 🤪 on 9/9/26.
  */
@@ -27,15 +29,17 @@ import java.util.UUID;
 public class IncomingInvocationTracker {
 
     private final Services services;
+    private final ReplyFlowControl replyFlowControl;
     // RequestLivenessWatcher is shared by every connection on this node and correlation ids are chosen by
     // clients, so this connection's watch keys carry a prefix of its own
     private final String watchKeyPrefix = UUID.randomUUID() + ":";
     private final Map<String, EventConsumer> replySubscriptions = new HashMap<>();
-    // by correlation id: the reply-to headers an answer to the request needs; touched only on the connection's event loop
-    private final Map<String, Metadata> awaitingReply = new HashMap<>();
+    // by correlation id; touched only on the connection's event loop
+    private final Map<String, IncomingInvocation> awaitingReply = new HashMap<>();
 
-    public IncomingInvocationTracker(Services services) {
+    public IncomingInvocationTracker(Services services, ReplyFlowControl replyFlowControl) {
         this.services = services;
+        this.replyFlowControl = replyFlowControl;
     }
 
     /**
@@ -45,10 +49,13 @@ public class IncomingInvocationTracker {
     public void subscribeReplies(CRI cri, String subscriptionIdentifier, StompSubscriptionHandler subscriptionHandler) {
         EventConsumer eventConsumer = services.eventBusService.listen(cri);
         eventConsumer.handler(event -> {
+                         String correlationId = event.metadata().get(EventConstants.CORRELATION_ID_HEADER);
                          if (EventUtil.isTerminalReply(event.metadata())) {
-                             requestFinished(event.metadata().get(EventConstants.CORRELATION_ID_HEADER));
+                             requestFinished(correlationId);
+                             subscriptionHandler.handleEvent(event);
+                         } else if (admit(correlationId, event)) {
+                             subscriptionHandler.handleEvent(event);
                          }
-                         subscriptionHandler.handleEvent(event);
                      })
                      .exceptionHandler(subscriptionHandler::handleError);
         // a subscription id the client reuses ends the consumer it named before
@@ -76,7 +83,7 @@ public class IncomingInvocationTracker {
     public void requestSent(Event<byte[]> request) {
         String correlationId = request.metadata().get(EventConstants.CORRELATION_ID_HEADER);
         if (correlationId != null) {
-            awaitingReply.put(correlationId, EventUtil.replyMetadataOf(request.metadata()));
+            awaitingReply.put(correlationId, new IncomingInvocation(EventUtil.replyMetadataOf(request.metadata())));
         }
     }
 
@@ -86,9 +93,9 @@ public class IncomingInvocationTracker {
     public void requestAccepted(String correlationId, String nodeId, CRI destination) {
         if (correlationId != null) {
             // the reply can arrive before the acknowledgement; then there is nothing left to watch
-            awaitingReply.computeIfPresent(correlationId, (_, replyMetadata) -> {
+            awaitingReply.computeIfPresent(correlationId, (_, invocation) -> {
                 services.requestLivenessWatcher.watch(watchKeyPrefix + correlationId, nodeId, () -> nodeLeft(correlationId, destination, nodeId));
-                return replyMetadata;
+                return invocation;
             });
         }
     }
@@ -100,6 +107,7 @@ public class IncomingInvocationTracker {
     public void requestFinished(String correlationId) {
         if (correlationId != null && awaitingReply.remove(correlationId) != null) {
             services.requestLivenessWatcher.unwatch(watchKeyPrefix + correlationId);
+            replyFlowControl.forget(correlationId);
         }
     }
 
@@ -115,15 +123,50 @@ public class IncomingInvocationTracker {
 
     // the node serving the request left the cluster before replying: answer the client in its place
     private void nodeLeft(String correlationId, CRI destination, String nodeId) {
-        Metadata replyMetadata = awaitingReply.remove(correlationId);
-        if (replyMetadata != null) {
+        IncomingInvocation invocation = awaitingReply.remove(correlationId);
+        if (invocation != null) {
+            replyFlowControl.forget(correlationId);
             RpcServiceUnavailableException cause = new RpcServiceUnavailableException(
                     "Node " + nodeId + " left the cluster while serving the request to " + destination.raw());
             try {
-                services.eventBusService.send(services.exceptionConverter.convert(replyMetadata, cause));
+                services.eventBusService.send(services.exceptionConverter.convert(invocation.getReplyMetadata(), cause));
             } catch (Exception e) {
                 log.error("Could not answer request {} to {} after node {} left", correlationId, destination.raw(), nodeId, e);
             }
+        }
+    }
+
+    // a stream value the client is still waiting on goes through flow control; any other passes as it came
+    private boolean admit(String correlationId, Event<byte[]> value) {
+        boolean ret = true;
+        IncomingInvocation invocation = correlationId != null ? awaitingReply.get(correlationId) : null;
+        if (invocation != null && !replyFlowControl.admit(correlationId, invocation, value)) {
+            ret = false;
+            overflowed(correlationId, value);
+        }
+        return ret;
+    }
+
+    // the client is too far behind a stream that cannot be suspended: cancel it and answer the client in its place
+    private void overflowed(String correlationId, Event<byte[]> value) {
+        IncomingInvocation invocation = awaitingReply.get(correlationId);
+        long behind = replyFlowControl.unsentBytes();
+        requestFinished(correlationId);
+        String originCri = value.metadata().get(EventConstants.ORIGIN_CRI_HEADER);
+        log.warn("Cancelled stream {} from {}: it cannot be suspended and its client is {} bytes behind",
+                 correlationId, originCri, behind);
+        try {
+            if (originCri != null) {
+                services.eventBusService.publish(EventUtil.createStreamControlEvent(CRI.create(originCri),
+                                                                                    correlationId,
+                                                                                    EventConstants.CONTROL_VALUE_CANCEL));
+            }
+            RpcStreamOverflowException cause = new RpcStreamOverflowException(
+                    "The stream from " + originCri + " cannot be suspended and the client fell " + behind
+                            + " bytes behind it, so it was cancelled");
+            services.eventBusService.send(services.exceptionConverter.convert(invocation.getReplyMetadata(), cause));
+        } catch (Exception e) {
+            log.error("Could not cancel stream {} from {} after its client fell behind", correlationId, originCri, e);
         }
     }
 }
