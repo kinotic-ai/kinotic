@@ -661,7 +661,7 @@ public class ServiceInvocationSupervisor {
      */
     private class StreamSubscriber extends BaseSubscriber<Object> {
 
-        private static final int STREAM_DEMAND_WINDOW = 256;
+        private static final int STREAM_DEMAND_WINDOW = 32;
 
         private final HandlerMethod handlerMethod;
         private final Metadata incomingMetadata;
