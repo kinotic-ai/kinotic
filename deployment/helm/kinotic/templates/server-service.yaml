@@ -35,12 +35,6 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    {{- if $server.webServer.enabled }}
-    - name: "ui"
-      protocol: TCP
-      port: {{ $server.webServer.port }}
-      targetPort: {{ $server.webServer.port }}
-    {{- end }}
     - name: "gateway"
       protocol: TCP
       port: {{ $server.gatewayPort }}
@@ -64,16 +58,6 @@ spec:
     clientIP:
       timeoutSeconds: 10800
   ports:
-    {{- if $server.webServer.enabled }}
-    - name: "ui"
-      protocol: TCP
-      port: 443
-      targetPort: {{ $server.webServer.port }}
-    - name: "ui-direct"
-      protocol: TCP
-      port: {{ $server.webServer.port }}
-      targetPort: {{ $server.webServer.port }}
-    {{- end }}
     - name: "gateway"
       protocol: TCP
       port: {{ $server.gatewayPort }}

@@ -53,7 +53,8 @@ public class GithubProperties {
 
     /**
      * Webhook secret configured in the App's settings page. Used to HMAC-verify
-     * inbound webhook bodies against the {@code X-Hub-Signature-256} header.
+     * inbound webhook bodies against the {@code X-Hub-Signature-256} header, and the
+     * secret each repository's push webhook is created with when Gitea hosts the repositories.
      */
     @NotBlank
     private String webhookSecret;
@@ -61,7 +62,8 @@ public class GithubProperties {
     /**
      * {@code owner/repo} of the GitHub Repository Template used to seed every
      * new project's backing repo. The App must have access to this template
-     * (typically by being installed on the owning account/org).
+     * (typically by being installed on the owning account/org). When Gitea hosts the
+     * repositories, each holds one commit of it, downloaded from GitHub without a token, so it must be public.
      */
     @NotBlank
     private String repoTemplate;

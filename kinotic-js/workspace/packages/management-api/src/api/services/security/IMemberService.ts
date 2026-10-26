@@ -86,6 +86,14 @@ export interface IMemberService {
     /** Cancels a pending invitation belonging to the caller's organization. */
     cancelInvite(inviteId: string): Promise<void>
 
+    /**
+     * The accept link of the live invitation of email into the caller's organization (applicationId null) or one of
+     * its applications, for the inviter to send on when email is disabled, as on a demonstration server. Anyone holding
+     * the link can accept the invitation as the invited address. Resolves null when email is enabled or no invitation
+     * into the scope is pending for the address.
+     */
+    findInvitationLink(email: string, applicationId: string | null): Promise<string | null>
+
     /** An {@link IDataSource} over the organization's members, for table components. */
     memberDataSource(): IDataSource<OrganizationParticipantIdentity>
 
@@ -151,6 +159,10 @@ export class MemberService implements IMemberService {
 
     public cancelInvite(inviteId: string): Promise<void> {
         return this.serviceProxy.invoke('cancelInvite', [inviteId])
+    }
+
+    public findInvitationLink(email: string, applicationId: string | null): Promise<string | null> {
+        return this.serviceProxy.invoke('findInvitationLink', [email, applicationId])
     }
 
     public memberDataSource(): IDataSource<OrganizationParticipantIdentity> {

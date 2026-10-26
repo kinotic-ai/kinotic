@@ -368,8 +368,8 @@ public class ProjectDeployJobDefinitionFactory {
      * checking. A commit without UIs publishes nothing.
      */
     private Future<UiDeployments> publishUis(Project project, DeployTarget target, ProjectArtifacts artifacts, String commitSha) {
-        // nothing serves a site without Azure storage, so nothing is uploaded either
-        boolean serving = !properties.getSystemApi().isDisableAzureStorage();
+        // nothing serves a site without site storage, so nothing is uploaded either
+        boolean serving = properties.getSystemApi().getUiDeployment().storesSites();
         String source = "deploy of " + commitSha;
         return uiDeploymentRepository.findAllForProject(project.getId())
                 .compose(existing -> {

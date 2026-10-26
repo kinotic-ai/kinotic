@@ -1,0 +1,45 @@
+# The Git server the demonstration server hosts projects' repositories on, in place of GitHub
+# (kinotic.managementApi.repoHost: GITEA). The management and system servers administer it as the
+# account created below, and a person reaches it at http://localhost:3001.
+services:
+  kinotic-gitea:
+    image: gitea/gitea:28.2.0-rootless
+    container_name: kinotic-gitea
+    environment:
+      GITEA__security__INSTALL_LOCK: "true"
+      GITEA__server__ROOT_URL: http://localhost:3001/
+      GITEA__server__DISABLE_SSH: "true"
+      GITEA__service__DISABLE_REGISTRATION: "true"
+      GITEA__database__DB_TYPE: sqlite3
+      # Push webhooks go to the management server on the compose network
+      GITEA__webhook__ALLOWED_HOST_LIST: private,loopback
+      # The account the servers administer Gitea with, the well-known demonstration administrator GiteaClient signs
+      # in as. Gitea answers only on this machine's loopback.
+      KINOTIC_GITEA_ADMIN_USERNAME: kinotic_admin
+      KINOTIC_GITEA_ADMIN_PASSWORD: kinotic-gitea-admin
+    # The image's entrypoint writes app.ini from the environment, then runs this: the database is migrated and the
+    # administrator created before the server starts, so the servers' first request finds both
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        gitea -c "$$GITEA_APP_INI" migrate &&
+        { gitea -c "$$GITEA_APP_INI" admin user list --admin | grep -q " $$KINOTIC_GITEA_ADMIN_USERNAME "
+        || gitea -c "$$GITEA_APP_INI" admin user create --admin --must-change-password=false
+        --username "$$KINOTIC_GITEA_ADMIN_USERNAME" --password "$$KINOTIC_GITEA_ADMIN_PASSWORD"
+        --email "$$KINOTIC_GITEA_ADMIN_USERNAME@kinotic.invalid"; } &&
+        exec gitea -c "$$GITEA_APP_INI" web
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3000/api/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - kinotic-gitea-data:/var/lib/gitea
+      - kinotic-gitea-config:/etc/gitea
+
+volumes:
+  kinotic-gitea-data:
+  kinotic-gitea-config:

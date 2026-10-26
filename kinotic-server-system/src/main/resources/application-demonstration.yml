@@ -1,0 +1,78 @@
+# The demonstration server: the whole platform on one machine from deployment/docker-compose
+# (compose.yml), to try Kinotic, or develop it, with no Azure, no GitHub and no mail service.
+# compose.kinotic-servers.yml runs every server with this profile, and supplies the container addresses:
+# Elasticsearch, the Ignite cluster and the observability stack.
+kinotic:
+  managementApi:
+    # Projects' repositories are hosted on the Gitea compose.gitea.yml runs, so a project needs no GitHub
+    repoHost: GITEA
+    # No GitHub App: its webhook secret signs Gitea's push webhooks, and its key is never used
+    github:
+      webhookSecret: "-"
+      appPrivateKey: "-"
+    entityDefinition:
+      # A single-node cluster cannot assign replicas, and every published EntityDefinition costs
+      # numberOfShards * (1 + numberOfReplicas) against the 1000-shard default. 1/0 keeps the cluster
+      # green and lets a developer publish far more definitions before hitting the cap.
+      numberOfShards: 1
+      numberOfReplicas: 0
+  systemApi:
+    uiDeployment:
+      # Published UIs go to the Azurite emulator compose.sites.yml runs, and its local edge serves
+      # them at http://<app>--<ui>.<org>.sites.localhost:8088, as the Cloudflare Worker serves the
+      # sites account at https://<app>--<ui>.<org>.<sites domain>
+      siteStorage: AZURITE
+      # Where the publish and removal workloads reach Azurite: the host alias of a BOXLITE guest, completed over
+      # this machine's loopback, where compose publishes Azurite's port
+      sitesStorageEndpoint: http://192.168.127.254:10000/devstoreaccount1
+    deployment:
+      # A workload runs inside a micro VM, so "localhost" there is the guest, not this machine.
+      # The BOXLITE provider's guests reach the host on the gvisor-tap-vsock host alias; boxlite's
+      # proxy completes the last hop over this machine's loopback, so the servers need no exposure
+      # beyond it.
+      #
+      # A CLOUD_HYPERVISOR node instead puts its workloads on the node's docker bridge, where
+      # they reach the servers at 172.17.0.1.
+      managementServer:
+        host: 192.168.127.254
+      appServer:
+        host: 192.168.127.254
+      # The sync workload fetches the project from Gitea, whose host it is always allowed, and runs bun install
+      syncAllowedHosts:
+        - registry.npmjs.org
+  systemServer:
+    apiBaseUrl: http://localhost:58504
+    # The system console kinotic-ui serves (compose.ui.yml), which system logins return to
+    consoleBaseUrl: http://localhost:9091
+  cors:
+    # The system console kinotic-ui serves, and its vite dev server (pnpm dev:system) a contributor runs from source
+    allowedOriginPattern: "http:\\/\\/localhost:(9091|5174)"
+    allowCredentials: true
+  domain:
+    # The portal kinotic-ui serves, where invitations are accepted
+    portalBaseUrl: http://localhost:9090
+    email:
+      # No mail service: each link a person must open is logged and shown in the UI that asked for it: a
+      # sign-up's verification link, an invitation's accept link, the organizations an address belongs to
+      enabled: false
+    systemSecrets:
+      # Seeded on first boot by DevSystemSecretsGenerator, or by whichever server boots first: every
+      # server on the machine reads the same file. Production uses Azure Key Vault via the Secrets
+      # Store CSI driver — same file layout, different origin.
+      generateMissing: true
+      jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys
+    # What a UI build is handed: the app server as a browser reaches it, not the address a workload
+    # dials above
+    appApiBaseUrl: http://localhost:58505
+    # The domain the local edge serves each published UI's site under, over plain HTTP on its port; with no
+    # Cloudflare zone, each organization's record is logged rather than created, and *.localhost resolves to
+    # this machine in the browser
+    publishedSites:
+      domain: sites.localhost
+      useSsl: false
+      port: 8088
+    secretStorage:
+      backend: IN_MEMORY
+      # The management server's key: SecretNameDeriver must derive the same storage names on every server
+      masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
+  maxNumberOfCoresToUse: 4

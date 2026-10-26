@@ -10,6 +10,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.WatchEventType;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.RepositoryHost;
 import org.kinotic.management.api.model.deployment.ProjectDependencies;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
@@ -82,6 +83,11 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         }
         project.setUpdated(new Date());
         return Future.succeededFuture();
+    }
+
+    @Override
+    public Future<RepositoryHost> getRepositoryHost() {
+        return Future.succeededFuture(repoProvisioner.repositoryHost());
     }
 
     @Override

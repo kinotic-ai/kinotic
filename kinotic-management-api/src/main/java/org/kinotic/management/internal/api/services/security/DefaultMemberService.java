@@ -102,6 +102,13 @@ public class DefaultMemberService implements MemberService {
         return inviteService.cancelInvite(inviteId, participant.getOrganizationId());
     }
 
+    // a scope-composed query, so an invitation into a foreign or unknown application matches nothing
+    @Override
+    public Future<String> findInvitationLink(String email, String applicationId) {
+        Validate.notBlank(email, "email is required");
+        return inviteService.findAcceptUrl(email, requireOrgParticipant().getOrganizationId(), applicationId);
+    }
+
     private OrganizationParticipant requireOrgParticipant() {
         // ApplicationParticipant is a sibling type, so app end-users are rejected here.
         return securityContext.requireParticipant(OrganizationParticipant.class);

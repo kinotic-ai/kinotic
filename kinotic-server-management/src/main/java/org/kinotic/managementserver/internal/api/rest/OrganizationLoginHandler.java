@@ -153,12 +153,13 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
 
     /**
      * {@code GET /api/auth/org/login/find} — what the page must present to have an address's organizations
-     * emailed: {@code {turnstileSiteKey}}, the Cloudflare Turnstile site whose token the {@code POST} requires, or
-     * {@code {}} when the deployment requires none.
+     * emailed: {@code turnstileSiteKey}, the Cloudflare Turnstile site whose token the {@code POST} requires, absent
+     * when the deployment requires none, and {@code showLinksInUI}, {@code true} when the {@code POST} answers with
+     * the organizations in place of an email.
      */
     private void handleFindChallenge(RoutingContext ctx) {
         TurnstileProperties turnstile = properties.getTurnstile();
-        JsonObject challenge = new JsonObject();
+        JsonObject challenge = new JsonObject().put("showLinksInUI", !domainProperties.getDomain().getEmail().isEnabled());
         if (turnstile.isEnabled()) {
             challenge.put("turnstileSiteKey", turnstile.getSiteKey());
         }
@@ -169,7 +170,9 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
      * {@code POST /api/auth/org/login/find {email, turnstileToken}} — emails the address the organizations it may
      * sign in to, each with a link to its login. Always {@code 204} once the token verifies, whether or not the
      * address belongs to any organization, so the response reveals nothing about it; {@code 400} for a token that
-     * is missing or refused, since the route is open to anyone and would otherwise send mail on demand.
+     * is missing or refused, since the route is open to anyone and would otherwise send mail on demand. Where email is
+     * disabled, answers {@code 200} with the organizations instead,
+     * {@code {organizations: [{name, loginUrl}]}}, which reveals them to anyone who asks.
      */
     private void handleFind(RoutingContext ctx) {
         JsonObject body = authEndpointSupport.readJsonBody(ctx);
@@ -182,7 +185,18 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
                          .compose(human -> human
                                  ? organizationService.sendOrganizationsEmail(email)
                                  : Future.failedFuture(new HttpException(400, "Complete the verification and try again")))
-                         .onSuccess(v -> ctx.response().setStatusCode(204).end())
+                         .onSuccess(links -> {
+                             if (links == null) {
+                                 ctx.response().setStatusCode(204).end();
+                             } else {
+                                 JsonArray organizations = new JsonArray();
+                                 links.forEach(link -> organizations.add(new JsonObject().put("name", link.name())
+                                                                                         .put("loginUrl", link.loginUrl())));
+                                 ctx.response()
+                                    .putHeader("Content-Type", "application/json")
+                                    .end(new JsonObject().put("organizations", organizations).encode());
+                             }
+                         })
                          .onFailure(err -> {
                              if (err instanceof HttpException http && http.getStatusCode() == 400) {
                                  authEndpointSupport.respondError(ctx, 400, http.getPayload());

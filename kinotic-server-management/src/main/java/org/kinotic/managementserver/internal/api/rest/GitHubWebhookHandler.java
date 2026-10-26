@@ -54,7 +54,7 @@ public class GitHubWebhookHandler implements SuppliesGatewayRoutes {
     private final GitHubWebhookProcessor webhookProcessor;
 
     public void mountRoutes(Router router) {
-        router.post("/api/github/webhook")
+        router.post(GitHubWebhookProcessor.WEBHOOK_PATH)
               .handler(BodyHandler.create().setBodyLimit(WEBHOOK_BODY_LIMIT_BYTES))
               .handler(this::handleWebhook);
     }

@@ -7,7 +7,7 @@
           <span class="login-icon-badge">
             <span class="pi pi-shield"></span>
           </span>
-          <h2 class="text-2xl font-semibold mb-2 text-center leading-tight">Email verified</h2>
+          <h2 class="text-2xl font-semibold mb-2 text-center leading-tight">Create your organization</h2>
           <p class="mt-1 mb-6 leading-normal text-muted-color text-center">Name your organization and set a password to finish.</p>
         </div>
 

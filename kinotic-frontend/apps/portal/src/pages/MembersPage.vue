@@ -100,12 +100,27 @@
                 :disabled="memberEmail.trim() === '' || !tenancyKnown || (tenantsRequired && memberTenant === null)" />
       </template>
     </FormDrawer>
+
+    <Dialog :visible="invitationLink !== null" modal header="Send this invitation link" :style="{ width: '34rem' }"
+            @update:visible="visible => { if (!visible) invitationLink = null }">
+      <div v-if="invitationLink" class="flex flex-col gap-4">
+        <p class="text-sm text-surface-700 dark:text-surface-200">
+          This demonstration server can't send email, so no invitation reached {{ invitationLink.email }}.
+          Send them this link to accept the invitation, or open it yourself to try it.
+        </p>
+        <CopyableUrl label="Invitation link" :url="invitationLink.url" />
+      </div>
+      <template #footer>
+        <Button type="button" label="Done" @click="invitationLink = null" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, markRaw, onMounted, ref, type Component } from 'vue'
 import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import AutoComplete from 'primevue/autocomplete'
@@ -132,6 +147,7 @@ import { PageHeader, TimePill } from '@kinotic-ai/frontend-common'
 import { statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import type { DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
+import CopyableUrl from '@/components/CopyableUrl.vue'
 import { providerDisplayName } from '@/components/SocialAuthButton.vue'
 import { KinoticStates } from '@/states'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
@@ -184,6 +200,8 @@ const memberFormVisible = ref(false)
 const memberEmail = ref('')
 const memberDisplayName = ref('')
 const sendInvitation = ref(true)
+// The link of an invitation no email delivers, shown for the inviter to send on
+const invitationLink = ref<{ email: string, url: string } | null>(null)
 const memberTenant = ref<TenantOption | null>(null)
 const saving = ref(false)
 const socialProviderKeys = ref<string[]>([])
@@ -385,7 +403,9 @@ async function submitMember() {
           ? `Added ${email} and emailed an invitation`
           : `Added ${email}; they sign in through your organization's provider`
     }
-    toast.add({ severity: 'success', summary: props.applicationId !== null ? 'User added' : 'Member added', detail, life: 6000 })
+    if (!sendInvitation.value || !(await showInvitationLink(email))) {
+      toast.add({ severity: 'success', summary: props.applicationId !== null ? 'User added' : 'Member added', detail, life: 6000 })
+    }
     memberFormVisible.value = false
     // A leftover filter would hide the new Pending row; clearing it reloads the
     // table through CrudTable's search-prop watch, so refresh only when empty.
@@ -402,7 +422,25 @@ async function submitMember() {
 }
 
 function sendInvitationTo(item: MemberRow) {
-  run(() => Kinotic.members.sendInvitation(item.email, props.applicationId), 'Invitation sent', 'Failed to send invitation')
+  run(async () => {
+    await Kinotic.members.sendInvitation(item.email, props.applicationId)
+    await showInvitationLink(item.email)
+  }, 'Invitation sent', 'Failed to send invitation')
+}
+
+// A server that shows links in the UI in place of email returns the invitation's link; shows it and resolves true when it
+// did. The invitation is made by then, so a failed lookup resolves false rather than reporting the invitation failed
+async function showInvitationLink(email: string): Promise<boolean> {
+  let url: string | null = null
+  try {
+    url = await Kinotic.members.findInvitationLink(email, props.applicationId)
+  } catch {
+    // the invitation stands; its link is found again by sending the invitation again
+  }
+  if (url) {
+    invitationLink.value = { email, url }
+  }
+  return Boolean(url)
 }
 
 function rowActions(item: MemberRow): MenuItem[] {

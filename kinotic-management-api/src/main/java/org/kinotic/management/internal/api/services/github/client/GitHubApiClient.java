@@ -104,6 +104,12 @@ public interface GitHubApiClient {
                                    String ref);
 
     /**
+     * Downloads the default branch of the public repo {@code repoFullName} as a gzipped tarball, which needs no
+     * token. The archive wraps all paths in a single root directory.
+     */
+    Future<Buffer> downloadPublicTarball(String repoFullName);
+
+    /**
      * Exchanges a user-authorization {@code code} from an install redirect for a GitHub
      * user access token acting on behalf of the user who authorized in the browser.
      */

@@ -18,6 +18,8 @@ import org.kinotic.management.internal.api.services.github.client.CreatedReposit
 import org.kinotic.management.internal.api.services.github.client.GitHubApiClient;
 import org.kinotic.management.internal.api.services.github.client.GitHubApiException;
 import org.kinotic.management.internal.api.services.github.client.TreeEntry;
+import org.kinotic.management.internal.api.services.template.GraalJsSpawnRenderer;
+import org.kinotic.management.internal.api.services.template.ProjectTemplateRenderer;
 import org.mockito.ArgumentCaptor;
 
 import java.io.ByteArrayOutputStream;
@@ -62,7 +64,7 @@ class GitHubProjectRepoProvisionerTest {
         GithubProperties githubProperties = new GithubProperties().setRepoTemplate("kinotic-ai/project-template");
         vertx = Vertx.vertx();
         provisioner = new GitHubProjectRepoProvisioner(vertx, installationService, apiClient,
-                                                       githubProperties, new GraalJsSpawnRenderer());
+                                                       githubProperties, new ProjectTemplateRenderer(new GraalJsSpawnRenderer()));
 
         GitHubAppInstallation install = new GitHubAppInstallation();
         install.setGithubInstallationId(42L);

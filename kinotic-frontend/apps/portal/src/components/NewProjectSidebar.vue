@@ -16,6 +16,7 @@ import { createDebug } from '@kinotic-ai/frontend-common';
 import { FormDrawer } from '@kinotic-ai/frontend-common'
 import CreationStatus from '@/components/CreationStatus.vue';
 import { useCreationPhase } from '@/composables/useCreationPhase';
+import { requiresGitHubLink } from '@/util/repositoryHost';
 
 const debug = createDebug('new-project-sidebar');
 
@@ -53,7 +54,7 @@ const setupSteps = computed(() => {
     const ready = phase.value === 'ready';
     return [
         { label: `Saving ${form.value.name.trim()}`, done: ready, active: !ready },
-        { label: ready ? `Created ${created.value?.repoFullName}` : 'Creating its GitHub repository', done: ready, active: false },
+        { label: ready ? `Created ${created.value?.repoFullName}` : 'Creating its repository', done: ready, active: false },
         { label: 'Ready', done: ready, active: false }
     ];
 });
@@ -71,8 +72,9 @@ async function onVisibleChanged(isOpen: boolean): Promise<void> {
     linkingState.value = 'idle';
     linkingError.value = null;
     try {
-        const install = await Kinotic.githubAppInstallations.findForCurrentOrg();
-        githubLinked.value = install != null;
+        // a host other than GitHub needs no link, so the form shows at once
+        githubLinked.value = !(await requiresGitHubLink())
+                || (await Kinotic.githubAppInstallations.findForCurrentOrg()) != null;
     } catch (e) {
         debug('Failed to check GitHub link state: %O', e);
         // Treat lookup failure as "linked" — let the create attempt surface the real error
@@ -93,7 +95,7 @@ async function handleSubmit(): Promise<void> {
         project.repoPrivate = form.value.repoPrivate;
 
         // Goes through the server-side ProjectRepoProvisioner, which creates the
-        // backing GitHub repo from the configured template and stamps the repo
+        // backing repo from the configured template and stamps the repo
         // metadata on the project before persisting. Fails if a project with the
         // derived id already exists. createSync so the list re-query the submit
         // handler fires sees the new project rather than a pre-refresh index.
@@ -177,7 +179,7 @@ function resetForm(): void {
     <FormDrawer
         :visible="visible"
         title="New project"
-        description="Each project is backed by a GitHub repository created for it."
+        description="Each project is backed by a Git repository created for it."
         @close="handleClose"
     >
         <!-- Linking flow: redirecting to GitHub -->
@@ -219,7 +221,7 @@ function resetForm(): void {
                     <div>
                         <label for="new-project-private" class="block text-sm font-medium">Private repository</label>
                         <p class="mt-1.5 text-[0.8125rem] text-surface-500 dark:text-surface-400">
-                            Visibility of the GitHub repo created for this project.
+                            Visibility of the repository created for this project.
                         </p>
                     </div>
                     <ToggleSwitch inputId="new-project-private" v-model="form.repoPrivate" />
@@ -229,7 +231,7 @@ function resetForm(): void {
             <CreationStatus
                 :phase="phase"
                 :name="form.name.trim()"
-                hint="Name your project and Kinotic creates its GitHub repository."
+                hint="Name your project and Kinotic creates its repository."
                 next-step="Next, connect it from Claude Code and build."
                 :steps="setupSteps"
             />

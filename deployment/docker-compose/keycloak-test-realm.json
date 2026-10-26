@@ -113,8 +113,8 @@
       "fullScopeAllowed": true,
       "nodeReRegistrationTimeout": -1,
       "redirectUris": [
-        "http://localhost:9090/api/auth/org/login/social/callback/keycloak",
-        "http://localhost:9090/api/auth/org/signup/social/callback/keycloak",
+        "http://localhost:58503/api/auth/org/login/social/callback/keycloak",
+        "http://localhost:58503/api/auth/org/signup/social/callback/keycloak",
         "http://localhost:5173/api/auth/org/login/social/callback/keycloak",
         "http://localhost:5173/api/auth/org/signup/social/callback/keycloak",
         "https://localhost/api/auth/org/login/social/callback/keycloak",

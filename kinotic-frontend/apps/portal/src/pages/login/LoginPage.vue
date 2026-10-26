@@ -50,9 +50,19 @@
       </div>
 
       <div class="login-find">
-        <a v-if="!finding" href="#" class="login-link" @click.prevent="finding = true">Don't know your organization?</a>
+        <!-- The organizations a server that shows links in the UI answered with, in place of an email -->
+        <div v-if="foundOrganizations !== null" class="login-find__found">
+          <p v-if="foundOrganizations.length === 0" class="login-find__hint">This address isn't a member of any organization.</p>
+          <template v-else>
+            <p class="login-find__hint">This address can sign in to:</p>
+            <a v-for="found in foundOrganizations" :key="found.loginUrl" :href="found.loginUrl" class="login-link">{{ found.name }}</a>
+          </template>
+        </div>
+        <a v-if="!finding" href="#" class="login-link" @click.prevent="finding = true; foundOrganizations = null">Don't know your organization?</a>
         <template v-else>
-          <p class="login-find__hint">We'll email you the organizations this address can sign in to.</p>
+          <p class="login-find__hint">
+            {{ showLinksInUI ? 'We\'ll list the organizations this address can sign in to.' : 'We\'ll email you the organizations this address can sign in to.' }}
+          </p>
           <IconField class="login-field login-field--last">
             <InputText
               ref="emailInput"
@@ -66,7 +76,7 @@
           <!-- The Cloudflare Turnstile challenge the server requires with the request, when it names a site -->
           <div v-if="turnstileSiteKey" ref="turnstileEl" class="login-find__challenge"></div>
           <Button
-            label="Email me my organizations"
+            :label="showLinksInUI ? 'Find my organizations' : 'Email me my organizations'"
             class="login-submit"
             severity="secondary"
             :loading="sending"
@@ -109,6 +119,9 @@ const email = ref<string>('')
 const finding = ref<boolean>(false)
 const sending = ref<boolean>(false)
 const turnstileSiteKey = ref<string | null>(null)
+// whether the find route answers with the organizations in place of an email
+const showLinksInUI = ref<boolean>(false)
+const foundOrganizations = ref<{ name: string, loginUrl: string }[] | null>(null)
 const turnstileToken = ref<string>('')
 const turnstileEl = ref<HTMLElement | null>(null)
 let turnstileWidget: string | null = null
@@ -177,6 +190,7 @@ async function presentChallenge() {
     const res = await fetch(apiUrl('/api/auth/org/login/find'), { credentials: 'same-origin' })
     const data = res.ok ? await res.json() : {}
     turnstileSiteKey.value = typeof data?.turnstileSiteKey === 'string' ? data.turnstileSiteKey : null
+    showLinksInUI.value = data?.showLinksInUI === true
   } catch (err) {
     debug('Failed to load the find challenge: %O', err)
     turnstileSiteKey.value = null
@@ -360,7 +374,11 @@ async function findOrganizations() {
     if (!res.ok) {
       throw new Error(await readAuthError(res, 'Could not send the email'))
     }
-    toast.add({ severity: 'success', summary: 'Email sent', detail: `Check ${email.value} for your organizations.`, life: 10000 })
+    if (res.status === 200) {
+      foundOrganizations.value = (await res.json()).organizations ?? []
+    } else {
+      toast.add({ severity: 'success', summary: 'Email sent', detail: `Check ${email.value} for your organizations.`, life: 10000 })
+    }
     finding.value = false
   } catch (err) {
     displayError(err instanceof Error ? err.message : 'Could not send the email')
@@ -451,6 +469,13 @@ function displayError(text: string) {
 .login-find__hint {
   margin: 0 0 1rem;
   color: var(--lp-text);
+}
+
+.login-find__found {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .login-find__challenge {

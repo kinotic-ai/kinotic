@@ -1,6 +1,6 @@
 # Azure Deployment
 
-Two terraform roots for the cloud — **global** (persistent) and **cluster** (disposable) — plus **dev**, a developer's own UI publishing resources, and **dev-server**, the shared development server's Azure side.
+Two terraform roots for the cloud — **global** (persistent) and **cluster** (disposable) — plus **dev-server**, the shared development server's Azure side.
 
 ## Directory Structure
 
@@ -28,10 +28,6 @@ deployment/terraform/azure/
 │   ├── terraform.tfvars
 │   ├── config/
 │   └── helm/
-├── dev/                       # A developer's own environment: the dev-environment module, and .env.local on their machine
-│   ├── README.md              # Getting started on your machine
-│   ├── main.tf
-│   └── terraform.tfvars
 ├── dev-server/                # The shared development server's Azure side: the module plus a server key vault, snapshots, and a hostname
 │   ├── README.md
 │   ├── main.tf
@@ -165,29 +161,6 @@ the upload role.
 ./deploy-ui.sh cluster azure     # pnpm build --mode azure for apps/portal and apps/system, then upload; after every frontend change
 ```
 
-## Developer UI Publishing
-
-The system server on a developer machine publishes UIs to a real subscription with the `dev`
-root: a resource group holding the sites storage account, the sites Worker and domain
-`<environment>.kinotic.io` on Cloudflare, and a service principal for the server holding
-Storage Blob Data Contributor on the account and Contributor on the email service. State is
-local, one environment per developer.
-
-The principal's `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID` are written to
-`.env.local` at the repository root (gitignored) as a commented block after a blank line,
-replacing the block a previous apply wrote and leaving the rest of the file alone; the server
-picks them up through `DefaultAzureCredential`. Its secret is also in this root's local state.
-
-```bash
-cd dev
-terraform init
-terraform apply   # environment = "local" in terraform.tfvars; pick a name of your own
-terraform output -raw application_local_yml > ../../../../kinotic-server-system/src/main/resources/application-local.yml
-```
-
-Then run the system server with `SPRING_PROFILES_ACTIVE=development,local`. [dev/README.md](dev/README.md)
-has the full walkthrough, from prerequisites to teardown.
-
 ## Deploy Options
 
 ```bash
@@ -222,7 +195,6 @@ terraform apply -var="beta_mode=false"
 | Observability (Loki, Tempo, Mimir, Alloy, Grafana) | `cluster/` | Disposable |
 | Firecracker VMs | `cluster/` | Disposable |
 | Sites account, Cloudflare sites Worker (kinotic.io), portal.kinotic.ai and console.kinotic.ai | `cluster/` | Disposable; `deploy-ui.sh cluster azure` uploads the UIs again |
-| Developer sites account + Cloudflare sites Worker (<environment>.kinotic.io) | `dev/` | Per developer, local state |
 | Development server: sites account, Cloudflare sites Worker (dev.kinotic.io), server key vault, snapshot storage | `dev-server/` | One per zone, local state |
 
 ## Additional Docs

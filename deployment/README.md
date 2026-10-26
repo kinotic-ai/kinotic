@@ -4,9 +4,8 @@
 
 | Environment | Directory | Purpose |
 |---|---|---|
-| **Docker Compose** | `docker-compose/` | Local development (Elasticsearch, the observability stack, Keycloak); the development server runs the same images and config files as containers |
+| **Docker Compose** | `docker-compose/` | Local development (Elasticsearch, the observability stack, Keycloak, and Azurite with the local edge that serves published UIs); the development server runs the same images and config files as containers |
 | **Development server** | `terraform/proxmox/` + `terraform/azure/dev-server/` | One Proxmox host with a container per service, workload nodes on their own machines, the sites account and email kept in Azure and the sites on Cloudflare ([design](https://kinotic.ai/platform/development-server)) |
-| **Developer's Azure side** | `terraform/azure/dev/` | The sites account, the Cloudflare sites Worker, and email for the servers on a developer machine |
 | **Azure** | `terraform/azure/` | Production AKS cluster |
 
 Azure is deployed with Terraform and the Helm charts. The development server is deployed with
