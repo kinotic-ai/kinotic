@@ -10,11 +10,15 @@ import org.kinotic.queue.api.model.QueueDefinition;
 import org.springframework.stereotype.Component;
 
 import javax.cache.Cache;
+import javax.cache.event.CacheEntryEvent;
+import javax.cache.event.EventType;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -33,6 +37,8 @@ public class QueueDefinitionRepository {
     private final IgniteCache<String, String> deleted;
     // Counts the changes of the queues this node saw, made on any node
     private final AtomicLong version = new AtomicLong();
+    // The queues by name as findKnown returns them, empty for a deleted queue
+    private final ConcurrentHashMap<String, Optional<StoredQueue>> known = new ConcurrentHashMap<>();
     private final QueryCursor<Cache.Entry<String, QueueRegistration>> changesSeen;
 
     public QueueDefinitionRepository(Ignite ignite) {
@@ -40,7 +46,14 @@ public class QueueDefinitionRepository {
         this.deleted = ignite.getOrCreateCache(ShardPlacement.<String>queueNodeCache(DELETED_CACHE));
         // Every node learns of a queue's deletion or creation as the cache changes, not only at its next lookup
         ContinuousQuery<String, QueueRegistration> changes = new ContinuousQuery<>();
-        changes.setLocalListener(events -> version.incrementAndGet());
+        changes.setLocalListener(events -> {
+            for (CacheEntryEvent<? extends String, ? extends QueueRegistration> event : events) {
+                known.put(event.getKey(), event.getEventType() == EventType.REMOVED
+                        ? Optional.empty()
+                        : Optional.of(event.getValue().toStoredQueue(event.getKey())));
+            }
+            version.incrementAndGet();
+        });
         this.changesSeen = cache.query(changes);
     }
 
@@ -78,13 +91,20 @@ public class QueueDefinitionRepository {
     }
 
     /**
-     * @return the queue as this node's copy of the queues holds it, without blocking; null when the copy holds no queue
-     * of the name, which a node still receiving the queues after joining the cluster may lack
+     * @return the queue as this node last learned of it, without blocking; null when this node knows no queue of the
+     * name, which a node still receiving the queues after joining the cluster may lack
      */
     public StoredQueue findKnown(String name) {
-        // Replicated to every queue node, this one among them, so this node holds every partition, as primary or backup
-        QueueRegistration ret = cache.localPeek(name, CachePeekMode.PRIMARY, CachePeekMode.BACKUP);
-        return ret != null ? ret.toStoredQueue(name) : null;
+        Optional<StoredQueue> ret = known.get(name);
+        if (ret == null) {
+            // Replicated to every queue node, this one among them, so this node holds every partition, as primary or backup
+            QueueRegistration registration = cache.localPeek(name, CachePeekMode.PRIMARY, CachePeekMode.BACKUP);
+            // A change the listener recorded wins over the copy, which can apply a change after the listener receives it
+            ret = registration != null
+                    ? known.computeIfAbsent(name, key -> Optional.of(registration.toStoredQueue(key)))
+                    : Optional.empty();
+        }
+        return ret.orElse(null);
     }
 
     /**
