@@ -1,0 +1,1 @@
+{"id":"8212fd348af619bcc815b4b682506f16.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testSuspendableStreamIsSuspendedUntilItsClientCatchesUp","name":"testSuspendableStreamIsSuspendedUntilItsClientCatchesUp()","status":"passed","testResultsByEnv":{"default":"bc14e87f1e1462b8b88846cee44101ff"}}
