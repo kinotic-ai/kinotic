@@ -1,4 +1,4 @@
--- Fixture rows that give the system console realistic data to render in a development stack:
+-- Fixture rows that give the system console realistic data to render in a demonstration stack:
 -- applications, projects, members, and pending invites for the test-org organization, plus
 -- worker nodes and workloads in every state for the orchestrator views. Development-only — the
 -- e2e suites assert against exact test-org contents and must not see these rows.
@@ -14,19 +14,17 @@ INSERT INTO kinotic_project (id, organizationId, applicationId, name, descriptio
 INSERT INTO kinotic_project (id, organizationId, applicationId, name, description, sourceOfTruth, repoFullName, repoId, repoDefaultBranch, repoPrivate, repoConnectionStatus, updated) VALUES ('helios-ingest', 'test-org', 'helios-analytics', 'helios-ingest', 'Streaming event ingestion pipeline.', 'TYPESCRIPT', 'test-org/helios-ingest', 910000003, 'main', true, 'DISCONNECTED', '2026-07-19T14:55:00Z') WITH REFRESH, ROUTING 'test-org', DOCUMENT_ID 'test-org--helios-ingest';
 INSERT INTO kinotic_project (id, organizationId, applicationId, name, description, sourceOfTruth, repoFullName, repoId, repoDefaultBranch, repoPrivate, repoConnectionStatus, updated) VALUES ('mercury-console', 'test-org', 'mercury-messaging', 'mercury-console', 'Operations console for message delivery.', 'TYPESCRIPT', 'test-org/mercury-console', 910000004, 'main', false, 'INITIALIZATION_FAILED', '2026-08-12T08:25:00Z') WITH REFRESH, ROUTING 'test-org', DOCUMENT_ID 'test-org--mercury-console';
 
--- Organization members (no credentials — fixture identities never log in): an organization user and
--- its membership each; one disabled membership so the Members table renders the Disabled status
-INSERT INTO kinotic_participant_identity (id, type, email, displayName, enabled, created) VALUES ('00000000-0000-0000-0000-0000000000a1', 'ORGANIZATION_USER', 'ava.chen@test-org.dev', 'Ava Chen', true, '2026-05-14T09:15:00Z') WITH REFRESH;
-INSERT INTO kinotic_organization_membership (id, organizationUserId, organizationId, enabled, created, updated) VALUES ('00000000-0000-0000-0000-0000000000a1:test-org', '00000000-0000-0000-0000-0000000000a1', 'test-org', true, '2026-05-14T09:15:00Z', '2026-05-14T09:15:00Z') WITH REFRESH;
-INSERT INTO kinotic_participant_identity (id, type, email, displayName, enabled, created) VALUES ('00000000-0000-0000-0000-0000000000a2', 'ORGANIZATION_USER', 'marcus.reid@test-org.dev', 'Marcus Reid', true, '2026-06-02T13:45:00Z') WITH REFRESH;
-INSERT INTO kinotic_organization_membership (id, organizationUserId, organizationId, enabled, created, updated) VALUES ('00000000-0000-0000-0000-0000000000a2:test-org', '00000000-0000-0000-0000-0000000000a2', 'test-org', true, '2026-06-02T13:45:00Z', '2026-06-02T13:45:00Z') WITH REFRESH;
-INSERT INTO kinotic_participant_identity (id, type, email, displayName, enabled, created) VALUES ('00000000-0000-0000-0000-0000000000a3', 'ORGANIZATION_USER', 'priya.natarajan@test-org.dev', 'Priya Natarajan', true, '2026-06-27T17:05:00Z') WITH REFRESH;
-INSERT INTO kinotic_organization_membership (id, organizationUserId, organizationId, enabled, created, updated) VALUES ('00000000-0000-0000-0000-0000000000a3:test-org', '00000000-0000-0000-0000-0000000000a3', 'test-org', true, '2026-06-27T17:05:00Z', '2026-06-27T17:05:00Z') WITH REFRESH;
-INSERT INTO kinotic_participant_identity (id, type, email, displayName, enabled, created) VALUES ('00000000-0000-0000-0000-0000000000a4', 'ORGANIZATION_USER', 'jonas.weber@test-org.dev', 'Jonas Weber', true, '2026-07-08T10:30:00Z') WITH REFRESH;
-INSERT INTO kinotic_organization_membership (id, organizationUserId, organizationId, enabled, created, updated) VALUES ('00000000-0000-0000-0000-0000000000a4:test-org', '00000000-0000-0000-0000-0000000000a4', 'test-org', false, '2026-07-08T10:30:00Z', '2026-07-08T10:30:00Z') WITH REFRESH;
+-- Organization members (no credentials — fixture identities never log in): users of test-org, one disabled so the
+-- Members table renders the Disabled status
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, created) VALUES ('00000000-0000-0000-0000-0000000000a1', 'ORGANIZATION_USER', 'ava.chen@test-org.dev', 'Ava Chen', 'test-org', true, '2026-05-14T09:15:00Z') WITH REFRESH;
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, created) VALUES ('00000000-0000-0000-0000-0000000000a2', 'ORGANIZATION_USER', 'marcus.reid@test-org.dev', 'Marcus Reid', 'test-org', true, '2026-06-02T13:45:00Z') WITH REFRESH;
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, created) VALUES ('00000000-0000-0000-0000-0000000000a3', 'ORGANIZATION_USER', 'priya.natarajan@test-org.dev', 'Priya Natarajan', 'test-org', true, '2026-06-27T17:05:00Z') WITH REFRESH;
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, created) VALUES ('00000000-0000-0000-0000-0000000000a4', 'ORGANIZATION_USER', 'jonas.weber@test-org.dev', 'Jonas Weber', 'test-org', false, '2026-07-08T10:30:00Z') WITH REFRESH;
 
--- Org-level pending invites (no applicationId). Far-future expiresAt keeps them visible:
--- the pending-invite queries filter out expired rows
+-- Org-level pending invites (no applicationId), each to a pending member an administrator added. Far-future
+-- expiresAt keeps them visible: the pending-invite queries filter out expired rows
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, pending, created) VALUES ('00000000-0000-0000-0000-0000000000a5', 'ORGANIZATION_USER', 'sofia.marino@test-org.dev', 'Sofia Marino', 'test-org', true, true, '2026-08-10T16:00:00Z') WITH REFRESH;
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, pending, created) VALUES ('00000000-0000-0000-0000-0000000000a6', 'ORGANIZATION_USER', 'liam.sullivan@test-org.dev', 'Liam Sullivan', 'test-org', true, true, '2026-08-13T11:20:00Z') WITH REFRESH;
 INSERT INTO kinotic_pending_invite (id, verificationToken, expiresAt, created, email, displayName, organizationId, invitedById, invitedByName) VALUES ('00000000-0000-0000-0000-0000000000b1', 'fixture-invite-token-1', '2036-01-01T00:00:00Z', '2026-08-10T16:00:00Z', 'sofia.marino@test-org.dev', 'Sofia Marino', 'test-org', '00000000-0000-0000-0000-000000000002', 'Kinotic Test') WITH REFRESH;
 INSERT INTO kinotic_pending_invite (id, verificationToken, expiresAt, created, email, displayName, organizationId, invitedById, invitedByName) VALUES ('00000000-0000-0000-0000-0000000000b2', 'fixture-invite-token-2', '2036-01-01T00:00:00Z', '2026-08-13T11:20:00Z', 'liam.sullivan@test-org.dev', 'Liam Sullivan', 'test-org', '00000000-0000-0000-0000-000000000002', 'Kinotic Test') WITH REFRESH;
 

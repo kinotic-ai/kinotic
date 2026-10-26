@@ -12,8 +12,6 @@ import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
-import org.kinotic.domain.api.model.security.identity.OrganizationMembership;
-import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentityType;
 import org.kinotic.domain.api.model.security.identity.ScopedParticipantIdentity;
@@ -372,15 +370,11 @@ public class DomainUtil {
      *   <li>ORGANIZATION → {@link DefaultOrganizationParticipant}</li>
      *   <li>APPLICATION → {@link DefaultApplicationParticipant}, carrying the {@code tenantId} too</li>
      * </ul>
-     * An organization user acts through one of its memberships, by
-     * {@link #createParticipant(OrganizationParticipantIdentity, OrganizationMembership)}.
      *
-     * @param identity the authenticated identity, other than an organization user
+     * @param identity the authenticated identity
      * @return the typed participant for the given identity
      */
     public static Participant createParticipant(ParticipantIdentity identity) {
-        Validate.isTrue(!(identity instanceof OrganizationParticipantIdentity),
-                        "An organization user acts through one of its memberships");
         ParticipantScope scope = scopeOf(identity);
         Map<String, String> metadata = participantMetadata(identity);
         Participant ret;
@@ -475,21 +469,6 @@ public class DomainUtil {
         return "APPLICATION/" + organizationId + "/" + applicationId;
     }
 
-    /**
-     * The participant organization user {@code user} acts as through {@code membership}: an
-     * {@link OrganizationParticipant} of the membership's organization. The participant's id is the user's, so what
-     * the person creates is attributed to them whichever organization they act in.
-     */
-    public static Participant createParticipant(OrganizationParticipantIdentity user, OrganizationMembership membership) {
-        Validate.isTrue(user.getId().equals(membership.getOrganizationUserId()), "The membership is not the user's");
-        return DefaultOrganizationParticipant.builder()
-                                             .id(user.getId())
-                                             .organizationId(membership.getOrganizationId())
-                                             .metadata(participantMetadata(user))
-                                             .roles(List.of())
-                                             .build();
-    }
-
     /** The scope a participant acts in: its own for a scoped participant, the system's (all null) otherwise. */
     public static ParticipantScope scopeOf(Participant participant) {
         return participant instanceof ScopedParticipant scoped ? scoped.getScope() : new ParticipantScope(null, null, null);
@@ -497,7 +476,7 @@ public class DomainUtil {
 
     /**
      * The scope ids an identity carries: a {@link ScopedParticipantIdentity}'s scope, and none (all {@code null}) for
-     * a system user or an organization user.
+     * a system user.
      */
     public static ParticipantScope scopeOf(ParticipantIdentity identity) {
         return identity instanceof ScopedParticipantIdentity scoped ? scoped.scope() : new ParticipantScope(null, null, null);

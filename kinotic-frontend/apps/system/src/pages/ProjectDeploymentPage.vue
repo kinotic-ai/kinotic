@@ -127,8 +127,10 @@ import { Activity, Ban, CircleCheck, CircleX, Clock, CloudUpload, GitCommitHoriz
 
 import { ExecutionStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DashboardSection, DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployResultNames,
-         StatCard, TimePill, TINTS, errorMessage, executionStatusSeverity, scanJobRuns, shortSha, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, PageHeader, StatCard, TimePill, TINTS, errorMessage, shortSha,
+         EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { JobRunProgress, ProjectDeployResultNames, executionStatusSeverity,
+         scanJobRuns } from '@kinotic-ai/frontend-common/management'
 
 import WorkloadsTable from '@/components/WorkloadsTable.vue'
 import { loadNodes } from '@/util/nodes'

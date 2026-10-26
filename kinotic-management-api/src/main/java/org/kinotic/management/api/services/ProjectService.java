@@ -8,6 +8,7 @@ import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.WatchEventType;
 import org.kinotic.domain.api.services.ApplicationScopedCrudService;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.RepositoryHost;
 import org.kinotic.management.api.model.deployment.ProjectDependencies;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.idl.api.annotations.McpTool;
@@ -31,6 +32,13 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @return a {@link Future} emitting the created or existing project
      */
     Future<Project> createProjectIfNotExist(Project project);
+
+    /**
+     * Where projects' repositories are hosted: GitHub, which an organization links by installing the system's GitHub
+     * App before it creates a project, or the Gitea server a demonstration server runs, which needs no linking. Also
+     * gives the base URL of a repository's web page.
+     */
+    Future<RepositoryHost> getRepositoryHost();
 
     /**
      * Looks up projects in the current participant's organization whose backing GitHub repo

@@ -3,6 +3,7 @@
 package org.kinotic.core.internal.utils;
 
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.Metadata;
@@ -63,6 +64,21 @@ public class EventUtil {
             }
         }
         return ret;
+    }
+
+    /**
+     * Creates a control event for a stream, published to the service producing it so the instance holding
+     * the stream acts on it and every other instance ignores it.
+     * @param serviceCri the stream's origin, the {@link EventConstants#ORIGIN_CRI_HEADER} its values carry
+     * @param correlationId the correlation id of the request the stream answers
+     * @param control the control value, such as {@link EventConstants#CONTROL_VALUE_CANCEL}
+     * @return the control {@link Event}, with no body
+     */
+    public static Event<byte[]> createStreamControlEvent(CRI serviceCri, String correlationId, String control) {
+        Metadata metadata = Metadata.create();
+        metadata.put(EventConstants.CONTROL_HEADER, control);
+        metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
+        return Event.create(serviceCri, metadata, null);
     }
 
     /**

@@ -87,7 +87,7 @@
           </form>
         </TabPanel>
         <TabPanel value="sign-in-providers">
-          <OidcConfigurationsPanel :key="applicationId" :application-id="applicationId" />
+          <SignInProvidersPanel :key="applicationId" :application-id="applicationId" />
         </TabPanel>
         <TabPanel value="invitation-email">
           <div class="pt-4">
@@ -113,7 +113,7 @@ import TabPanels from 'primevue/tabpanels'
 import Tabs from 'primevue/tabs'
 import { DashboardSection, PageHeader, TINTS } from '@kinotic-ai/frontend-common'
 import InviteEmailTemplateEditor from '@/components/InviteEmailTemplateEditor.vue'
-import OidcConfigurationsPanel from '@/components/OidcConfigurationsPanel.vue'
+import SignInProvidersPanel from '@/components/SignInProvidersPanel.vue'
 import { useQueryTab } from '@/composables/useQueryTab'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'

@@ -16,6 +16,7 @@ import { DelegateService, type IDelegateService } from '@/api/services/security/
 import { ProfileService, type IProfileService } from '@/api/services/security/IProfileService'
 import { OwnedOidcConfigurationService, type IOwnedOidcConfigurationService } from '@/api/services/security/IOwnedOidcConfigurationService'
 import { MachineService, type IMachineService } from '@/api/services/security/IMachineService'
+import { OwnedPasswordConfigurationService, type IOwnedPasswordConfigurationService } from '@/api/services/security/IOwnedPasswordConfigurationService'
 import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/IGitHubAppInstallationService'
 import { JobMonitoringService, type IJobMonitoringService } from '@/api/services/IJobMonitoringService'
 
@@ -37,6 +38,7 @@ export interface IManagementApiExtension {
     delegates: IDelegateService
     profile: IProfileService
     ownedOidcConfigurations: IOwnedOidcConfigurationService
+    ownedPasswordConfigurations: IOwnedPasswordConfigurationService
     machines: IMachineService
     githubAppInstallations: IGitHubAppInstallationService
 }
@@ -61,6 +63,7 @@ export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
             delegates: new DelegateService(kinotic),
             profile: new ProfileService(kinotic),
             ownedOidcConfigurations: new OwnedOidcConfigurationService(kinotic),
+            ownedPasswordConfigurations: new OwnedPasswordConfigurationService(kinotic),
             machines: new MachineService(kinotic),
             githubAppInstallations: new GitHubAppInstallationService(kinotic),
         }

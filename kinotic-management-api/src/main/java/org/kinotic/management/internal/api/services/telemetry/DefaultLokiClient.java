@@ -1,5 +1,6 @@
 package org.kinotic.management.internal.api.services.telemetry;
 
+import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -82,10 +83,24 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
                         ws.close();
                         return;
                     }
-                    ws.textMessageHandler(message -> sink.next(Buffer.buffer(message)));
+                    // Vert.x counts WebSocket demand in frames and a message can span several, so the socket is
+                    // paused when the sink's demand runs out and resumed when more is requested. Both run on the
+                    // socket's context, so a request cannot land between the handler's check and its pause.
+                    Context context = vertx.getOrCreateContext();
+                    ws.textMessageHandler(message -> {
+                        sink.next(Buffer.buffer(message));
+                        if (sink.requestedFromDownstream() == 0) {
+                            ws.pause();
+                        }
+                    });
                     ws.exceptionHandler(sink::error);
                     ws.closeHandler(unused -> sink.complete());
                     sink.onCancel(ws::close);
+                    sink.onRequest(requested -> context.runOnContext(unused -> {
+                        if (sink.requestedFromDownstream() > 0) {
+                            ws.resume();
+                        }
+                    }));
                 })
                 .onFailure(sink::error));
     }

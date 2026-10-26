@@ -9,7 +9,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.core.api.secret.SecretReferenceResolver;
+import org.kinotic.domain.api.services.SecretReferenceResolver;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;

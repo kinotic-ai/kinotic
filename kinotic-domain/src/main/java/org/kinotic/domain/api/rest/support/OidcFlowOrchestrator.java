@@ -21,9 +21,8 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.secret.SecretReferenceResolver;
+import org.kinotic.domain.api.services.SecretReferenceResolver;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.config.DomainProperties;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
@@ -39,6 +38,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -138,8 +138,8 @@ public class OidcFlowOrchestrator {
                              return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
                          }
                          return getOAuth2Auth(config)
-                                 .compose(oauth2 -> exchangeCode(oauth2, code, callbackUrl, flowSession.pkceVerifier()))
-                                 .compose(user -> verifiedClaims(config, user, flowSession))
+                                 .compose(oauth2 -> exchangeCode(oauth2, code, callbackUrl, flowSession.pkceVerifier())
+                                         .compose(user -> verifiedClaims(config, oauth2, user, flowSession)))
                                  .map(claims -> new CallbackResult<>(config, claims, flowSession.purpose(), flowSession.orgId(),
                                                                    flowSession.applicationId(), flowSession.tenantId(),
                                                                    flowSession.inviteToken(), flowSession.organizationUserId(),
@@ -150,9 +150,10 @@ public class OidcFlowOrchestrator {
     /**
      * Produces the verified identity claims for an exchanged token: id_token claims validated
      * against issuer, audience and nonce for OIDC providers, or claims fetched from the
-     * provider's identity endpoint for a managed registration that sets {@code userInfoUri}.
+     * provider's identity endpoint for a managed registration that sets {@code userInfoUri}. An id_token whose email
+     * the provider states no {@code email_verified} for takes it from the provider's userinfo endpoint.
      */
-    private Future<Map<String, Object>> verifiedClaims(OidcConfiguration config, User user, OidcFlowSession flowSession) {
+    private Future<Map<String, Object>> verifiedClaims(OidcConfiguration config, OAuth2Auth oauth2, User user, OidcFlowSession flowSession) {
         Future<Map<String, Object>> ret;
         if (config instanceof ManagedOidcConfiguration social && social.getUserInfoUri() != null && !social.getUserInfoUri().isBlank()) {
             // A provider configured with an identity endpoint issues no id_token, so there is no
@@ -175,6 +176,10 @@ public class OidcFlowOrchestrator {
                 // id_token to echo it — an absent claim fails the equals and is rejected
                 log.warn("OIDC nonce validation failed for config {}", config.getId());
                 ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN));
+            } else if (OAuth2Util.stringClaim(claims, "email") != null && !claims.containsKey("email_verified")
+                    && !OAuth2Util.issuesOnlyVerifiedEmails(config.getProvider())) {
+                // Okta's id_token from a code exchange leaves email_verified to the userinfo endpoint
+                ret = withUserInfoEmailVerified(config, oauth2, user, claims);
             } else {
                 ret = Future.succeededFuture(claims);
             }
@@ -183,12 +188,47 @@ public class OidcFlowOrchestrator {
     }
 
     /**
+     * {@code claims} with the {@code email_verified} the provider's userinfo endpoint states for the id_token's email,
+     * or as they are when the endpoint answers nothing. A userinfo response for another subject fails with
+     * {@link OidcErrorCodes#INVALID_TOKEN}.
+     */
+    private Future<Map<String, Object>> withUserInfoEmailVerified(OidcConfiguration config,
+                                                                  OAuth2Auth oauth2,
+                                                                  User user,
+                                                                  Map<String, Object> claims) {
+        return oauth2.userInfo(user)
+                     .recover(err -> {
+                         // the provider then states no verification, which the sign-in reports as email_not_verified
+                         log.warn("OIDC userinfo request failed for config {}: {}", config.getId(), err.getMessage());
+                         return Future.succeededFuture(null);
+                     })
+                     .compose(userInfo -> {
+                         Future<Map<String, Object>> ret;
+                         if (userInfo == null) {
+                             ret = Future.succeededFuture(claims);
+                         } else if (!Objects.equals(claims.get("sub"), userInfo.getString("sub"))) {
+                             // OIDC Core 5.3.2: the userinfo response is the id_token's subject only when its sub matches
+                             log.warn("OIDC userinfo subject mismatch for config {}", config.getId());
+                             ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN));
+                         } else {
+                             // email_verified speaks for the userinfo's email, so it applies only to the same address
+                             if (Objects.equals(claims.get("email"), userInfo.getString("email")) && userInfo.containsKey("email_verified")) {
+                                 claims.put("email_verified", userInfo.getValue("email_verified"));
+                             }
+                             ret = Future.succeededFuture(claims);
+                         }
+                         return ret;
+                     });
+    }
+
+    /**
      * The flow the session holds for the callback about to be handled, or {@code null} when it holds none, for
      * a handler to route a failed callback by; {@link #handleCallback} consumes the flow itself.
      */
     public PendingFlow pendingFlow(RoutingContext ctx) {
         OidcFlowSession flowSession = ctx.session().get(OIDC_FLOW_SESSION_KEY);
-        return flowSession == null ? null : new PendingFlow(flowSession.purpose(), flowSession.origin(), flowSession.inviteToken());
+        return flowSession == null ? null : new PendingFlow(flowSession.purpose(), flowSession.orgId(), flowSession.applicationId(),
+                                                            flowSession.origin(), flowSession.inviteToken());
     }
 
     /**
@@ -197,7 +237,7 @@ public class OidcFlowOrchestrator {
      * {@code origin} the completed login is bound to and the browser returns to, builds the IdP authorization URL
      * using the supplied callback URL, and returns the URL. The caller names the origin because a start reached by
      * a link carries no {@code Origin} of its own. An origin that is neither the portal's nor one
-     * {@code kinotic.domain.cors.allowedOriginPattern} trusts is stored as none, so the flow returns to this server's UI.
+     * {@code kinotic.cors.allowedOriginPattern} trusts is stored as none, so the flow returns to this server's UI.
      */
     public Future<String> startFlow(RoutingContext ctx,
                                     OidcConfiguration config,
@@ -225,7 +265,7 @@ public class OidcFlowOrchestrator {
 
     /**
      * Begins a {@link OidcFlowPurpose#SIGN_UP} flow through one of the system's org sign-up registrations, which
-     * returns to the page that sent the request when it is the portal or {@code kinotic.domain.cors.allowedOriginPattern}
+     * returns to the page that sent the request when it is the portal or {@code kinotic.cors.allowedOriginPattern}
      * trusts it, and to this server's UI otherwise.
      */
     public Future<String> startSignUp(RoutingContext ctx, OidcConfiguration config, String callbackUrl) {
@@ -236,7 +276,7 @@ public class OidcFlowOrchestrator {
      * Begins an {@link OidcFlowPurpose#INVITATION} flow accepting the invitation {@code inviteToken} into
      * organization {@code orgId}, stashed for the callback to resolve its configuration by and to complete the
      * acceptance with. It returns to the page that sent the request when it is the portal or
-     * {@code kinotic.domain.cors.allowedOriginPattern} trusts it, and to this server's UI otherwise.
+     * {@code kinotic.cors.allowedOriginPattern} trusts it, and to this server's UI otherwise.
      */
     public Future<String> startInvitation(RoutingContext ctx, OidcConfiguration config, String callbackUrl, String orgId, String inviteToken) {
         Validate.notBlank(inviteToken, "inviteToken cannot be blank");
@@ -247,7 +287,7 @@ public class OidcFlowOrchestrator {
      * Begins a {@link OidcFlowPurpose#CONNECT} flow binding the identity the provider asserts to organization user
      * {@code organizationUserId}; {@code orgId} is the organization whose configuration the flow runs through, or
      * {@code null} for one of the system's registrations. It returns to the page that sent the request when it is the
-     * portal or {@code kinotic.domain.cors.allowedOriginPattern} trusts it, and to this server's UI otherwise.
+     * portal or {@code kinotic.cors.allowedOriginPattern} trusts it, and to this server's UI otherwise.
      */
     public Future<String> startConnect(RoutingContext ctx, OidcConfiguration config, String callbackUrl, String orgId, String organizationUserId) {
         Validate.notBlank(organizationUserId, "organizationUserId cannot be blank");
@@ -258,8 +298,8 @@ public class OidcFlowOrchestrator {
     // returns to, so only the portal or a page the CORS pattern names gets it; the portal is named separately because
     // a portal served from the API's own origin needs no CORS entry
     private String trustedOrigin(String origin) {
-        DomainProperties domain = domainProperties.getDomain();
-        boolean trusted = domain.getCors().trustsOrigin(origin) || (origin != null && origin.equals(domain.portalOrigin()));
+        boolean trusted = domainProperties.getCors().trustsOrigin(origin)
+                          || (origin != null && origin.equals(domainProperties.getDomain().portalOrigin()));
         return trusted ? origin : null;
     }
 
@@ -278,11 +318,6 @@ public class OidcFlowOrchestrator {
         String pkceVerifier = DomainUtil.generateUrlSafeToken(64);
         String pkceChallenge = OAuth2Util.s256Challenge(pkceVerifier);
 
-        Session session = ctx.session();
-        session.regenerateId();
-        session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), purpose, orgId,
-                                                               applicationId, tenantId, inviteToken, organizationUserId, origin));
-
         // Scopes ride as RFC 6749's space-delimited string; a managed registration may name its own, every
         // other configuration gets the standard OIDC triple.
         List<String> scopes = config instanceof ManagedOidcConfiguration social
@@ -298,7 +333,14 @@ public class OidcFlowOrchestrator {
                                 .setState(state)
                                 .setCodeChallenge(pkceChallenge)
                                 .setCodeChallengeMethod("S256")
-                                .putAdditionalParameter("nonce", nonce)));
+                                .putAdditionalParameter("nonce", nonce)))
+                // stored once the provider is reachable, so a start that fails leaves the session's pending flow intact
+                .onSuccess(url -> {
+                    Session session = ctx.session();
+                    session.regenerateId();
+                    session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), purpose, orgId,
+                                                                           applicationId, tenantId, inviteToken, organizationUserId, origin));
+                });
     }
 
     /**

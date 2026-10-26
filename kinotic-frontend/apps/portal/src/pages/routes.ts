@@ -1,9 +1,9 @@
 import type { Component } from 'vue'
-import { type RouteMeta, type RouteRecordRaw } from 'vue-router'
+import { type RouteLocationNormalized, type RouteMeta, type RouteRecordRaw } from 'vue-router'
 import { ChartLine, CloudUpload, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, ListTree, Server, Settings, Table, User, Users, Zap } from '@lucide/vue'
-import { ConnectedAppsPage, OAuthConsentPage, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import { apiUrl, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import { ConnectedAppsPage, OAuthConsentPage } from '@kinotic-ai/frontend-common/management'
 
-import loginPageLeft from '@/assets/login-page-left.svg'
 import { USER_STATE } from '@/states/IUserState'
 
 /**
@@ -41,6 +41,21 @@ function organizationPage(path: string, sidebar: SidebarItemMeta, children: Rout
     meta: { sidebarGroup: 'organization', sidebar } as RouteMeta,
     children
   }
+}
+
+// Sends the browser to the sign-up page the management server offers: the email and password form where it offers
+// one, as a demonstration server does, and GitHub's otherwise. A server that cannot be asked leaves the page as asked for.
+async function toOfferedSignUp(to: RouteLocationNormalized): Promise<true | string> {
+  let offered: string | null = null
+  try {
+    const res = await fetch(apiUrl('/api/auth/org/signup/methods'), { credentials: 'same-origin' })
+    if (res.ok) {
+      offered = (await res.json()).password === true ? '/signup/email' : '/signup'
+    }
+  } catch {
+    // unreachable: the requested page stays
+  }
+  return offered === null || offered === to.path ? true : offered
 }
 
 const pageRoutes: RouteRecordRaw[] = [
@@ -255,6 +270,13 @@ const pageRoutes: RouteRecordRaw[] = [
   {
     path: '/signup',
     component: () => import('@/pages/signup/GithubSignup.vue'),
+    beforeEnter: toOfferedSignUp,
+    meta: { authenticationRequired: false } as RouteMeta
+  },
+  {
+    path: '/signup/email',
+    component: () => import('@/pages/signup/Signup.vue'),
+    beforeEnter: toOfferedSignUp,
     meta: { authenticationRequired: false } as RouteMeta
   },
   {
@@ -281,7 +303,7 @@ const pageRoutes: RouteRecordRaw[] = [
     path: '/oauth/consent',
     meta: { authenticationRequired: true },
     component: OAuthConsentPage,
-    props: { session: USER_STATE, art: loginPageLeft }
+    props: { session: USER_STATE }
   },
   {
     name: 'github-install-callback',

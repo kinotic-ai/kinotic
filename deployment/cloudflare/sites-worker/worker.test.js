@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { cacheTtl, platformUis, resolveFile, resolveHost } from './worker.js'
+import { cacheControl, cacheTtl, platformUis, resolveFile, resolveHost } from './worker.js'
 
 const ZONE = 'kinotic.io'
 
@@ -71,5 +71,12 @@ describe('cacheTtl', () => {
         expect(cacheTtl('/assets/index-abc123.js')).toBe(31536000)
         expect(cacheTtl('/index.html')).toBe(60)
         expect(cacheTtl('/version.json')).toBe(60)
+    })
+})
+
+describe('cacheControl', () => {
+    test('browsers keep hashed assets for good and revalidate everything else', () => {
+        expect(cacheControl('/assets/index-abc123.js')).toBe('public, max-age=31536000, immutable')
+        expect(cacheControl('/index.html')).toBe('no-cache')
     })
 })

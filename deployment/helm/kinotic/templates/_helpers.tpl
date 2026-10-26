@@ -85,10 +85,6 @@ BPL_JMX_ENABLED: "{{ $root.Values.properties.enableJmx }}"
 
 # ── The gateway ───────────────────────────────────────────
 KINOTIC_APIGATEWAY_STOMPPORT: "{{ $server.gatewayPort }}"
-KINOTIC_APIGATEWAY_WEBSERVER_ENABLED: "{{ $server.webServer.enabled }}"
-{{- if $server.webServer.enabled }}
-KINOTIC_APIGATEWAY_WEBSERVER_PORT: "{{ $server.webServer.port }}"
-{{- end }}
 
 # ── Public URLs + email ───────────────────────────────────
 KINOTIC_DOMAIN_APPAPIBASEURL: "{{ $root.Values.kinotic.domain.appApiBaseUrl }}"
@@ -152,7 +148,7 @@ KINOTIC_APIGATEWAY_SSL_KEYPATH: "/certs/tls.key"
 
 # ── Extra environment variables ───────────────────────────
 # Override any Spring property via env var naming convention:
-#   kinotic.apiGateway.webServer.port → KINOTIC_APIGATEWAY_WEBSERVER_PORT
+#   kinotic.apiGateway.stompPort → KINOTIC_APIGATEWAY_STOMPPORT
 {{- range $key, $value := $root.Values.extraEnv }}
 {{ $key }}: {{ $value | quote }}
 {{- end }}

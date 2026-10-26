@@ -74,9 +74,6 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 7
           ports:
-            {{- if $server.webServer.enabled }}
-            - containerPort: {{ $server.webServer.port }} # the portal's static server
-            {{- end }}
             - containerPort: {{ $server.gatewayPort }} # REST, STOMP and MCP
             - containerPort: {{ $.Values.kinotic.cluster.discoveryPort | default 47500 }} # Ignite Discovery Port
             - containerPort: {{ $.Values.kinotic.cluster.communicationPort | default 47100 }} # Ignite Communication Port
@@ -103,7 +100,7 @@ spec:
                 secretKeyRef:
                   name: {{ $.Values.kinotic.elastic.secretName }}
                   key: {{ $.Values.kinotic.elastic.secretKey }}
-            - name: KINOTIC_SYSTEMSECRETS_JWTSIGNINGKEYSPATH
+            - name: KINOTIC_DOMAIN_SYSTEMSECRETS_JWTSIGNINGKEYSPATH
               value: "{{ $.Values.systemSecrets.mountPath }}/jwt-signing-keys"
             # Each file of the system-secrets volume sets the property it is named after
             - name: SPRING_CONFIG_IMPORT

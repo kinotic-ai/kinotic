@@ -1,3 +1,5 @@
+name: kinotic
+
 include:
   - compose.elasticsearch.yml
   - compose.kibana.yml
@@ -5,4 +7,7 @@ include:
   - compose.gen-schemas.yml
   - path: compose.kinotic-migration.yml
     env_file: evaluation.env
+  - compose.sites.yml
+  - compose.gitea.yml
   - compose.kinotic-servers.yml
+  - compose.ui.yml

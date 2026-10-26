@@ -26,7 +26,8 @@ import type { PageState } from 'primevue/paginator'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import type { WatchEvent } from '@kinotic-ai/management-api'
-import { PageHeader, TablePaginator, WatchEventsTimeline, errorMessage } from '@kinotic-ai/frontend-common'
+import { PageHeader, TablePaginator, errorMessage } from '@kinotic-ai/frontend-common'
+import { WatchEventsTimeline } from '@kinotic-ai/frontend-common/management'
 
 const ROWS_PER_PAGE = [25, 50, 100]
 

@@ -20,16 +20,16 @@ kinotic:
       domain: apps.localhost
   maxNumberOfCoresToUse: 4
   systemApi:
-    # no sites account in tests: the site provisioner is the mock
-    disableAzureStorage: true
     deployment:
       # required at boot; no deployment ever runs in tests, workloads would reach the local gateway
       managementServer:
         host: localhost
       appServer:
         host: localhost
-    # placeholder site config, validated at boot; no test deploys a UI
+    # no site storage in tests: nothing is uploaded and every published UI reads ready at once;
+    # the endpoint is a placeholder, validated at boot
     uiDeployment:
+      siteStorage: DISABLED
       sitesStorageEndpoint: "-"
 
 logging:

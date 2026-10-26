@@ -16,6 +16,12 @@ import org.kinotic.management.api.model.github.GitHubWebhookEvent;
 public interface GitHubWebhookProcessor {
 
     /**
+     * The management server's route a repository host delivers its webhooks to: the system's GitHub App, or each
+     * repository's push webhook when Gitea hosts the repositories.
+     */
+    String WEBHOOK_PATH = "/api/github/webhook";
+
+    /**
      * Processes one verified GitHub delivery. Always completes successfully (never
      * failed) so the gateway can return 204 quickly even when downstream resolution
      * can't find a backing project. There is no platform-side delivery dedup —

@@ -167,6 +167,28 @@ if (project.name != 'kinotic-idl') {
     }
 }
 
+// Kinotic RPC, the modules LICENSE.md licenses under the Apache License 2.0, is usable without Kinotic OS, so none of
+// its modules may declare a project dependency on a module outside it
+def kinoticRpcModules = ['kinotic-core', 'kinotic-api-gateway', 'kinotic-idl'] as Set
+project.ext.kinoticRpc = project.name in kinoticRpcModules
+if (project.ext.kinoticRpc) {
+    configurations.configureEach { configuration ->
+        configuration.dependencies.withType(ProjectDependency).configureEach { dependency ->
+            if (!(dependency.path.substring(1) in kinoticRpcModules)) {
+                throw new GradleException("${project.path} is part of Kinotic RPC and may not depend on ${dependency.path}"
+                                                  + " (${configuration.name})")
+            }
+        }
+    }
+    // Every published jar, the sources and javadoc jars included, carries the Apache License 2.0 that governs it
+    tasks.withType(Jar).configureEach {
+        from(rootProject.file('LICENSE-APACHE')) {
+            into 'META-INF'
+            rename { 'LICENSE' }
+        }
+    }
+}
+
 dependencies {
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 

@@ -1,30 +1,29 @@
 package org.kinotic.appserver.internal.api.rest;
 
 import io.vertx.core.Future;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.ApplicationKey;
-import org.kinotic.domain.api.model.TenantManagement;
-import org.kinotic.domain.api.model.security.ApplicationSocialOidcConfiguration;
+import org.kinotic.domain.api.model.security.ApplicationOidcConfiguration;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
-import org.kinotic.domain.api.model.security.TenantOidcConfiguration;
+import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
-import org.kinotic.domain.api.repositories.ApplicationRepository;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.core.api.service.SuppliesGatewayRoutes;
+import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.api.rest.support.CallbackResult;
 import org.kinotic.domain.api.rest.support.OidcCallbackException;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
 import org.kinotic.domain.api.rest.support.OidcErrorCodes;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.rest.support.PendingFlow;
+import org.kinotic.domain.api.services.security.ApplicationSignUpService;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
-import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
@@ -37,20 +36,20 @@ import org.springframework.stereotype.Component;
  * from one of a tenant's sites, or one naming a tenant, is to that tenant: it admits the tenant's users and
  * offers the tenant's own providers as well as the application's (see
  * {@link ApplicationAuthEndpointSupport#loginScope}). A page offers the methods the login supports — email
- * and password, and the configurations {@code GET /api/auth/app/login/providers} lists — without asking
+ * and password, and the providers {@code GET /api/auth/app/login/methods} lists — without asking
  * about an email first, so no endpoint tells whether an email has a user. An OIDC flow started here
- * returns to this handler's own callback at the application's API host; a sign-in through one of the
- * system's social registrations, whose callback every application shares, runs through
- * {@link ApplicationSocialLoginHandler}.
+ * returns to this handler's own callback at the application's API host; a sign-in through a configuration
+ * that uses Kinotic's registration with its provider, whose callback every application shares, runs through
+ * {@link ApplicationSocialLoginHandler}. Sign-up with an email and a password runs through
+ * {@link ApplicationSignUpHandler}.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
 
-    private final ParticipantIdentityService identityService;
     private final OidcConfigurationService oidcConfigurationService;
-    private final ApplicationRepository applicationRepository;
+    private final ApplicationSignUpService signUpService;
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final ApplicationAuthEndpointSupport authEndpointSupport;
@@ -58,23 +57,23 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
 
     @Override
     public void mountRoutes(Router router) {
-        router.get("/api/auth/app/login/providers").handler(this::handleProviders);
+        router.get("/api/auth/app/login/methods").handler(this::handleMethods);
         router.post("/api/auth/app/login/oidc/start/:configId").handler(this::handleStart);
         router.post("/api/auth/app/login").handler(this::handleLogin);
         router.get(OidcCallbacks.APPLICATION_CALLBACK_PATH + ":configId").handler(this::handleCallback);
     }
 
     /**
-     * {@code GET /api/auth/app/login/providers[?tenantId]} — lists the enabled configurations the application's
-     * login offers, or a tenant's login from one of the tenant's sites or when {@code tenantId} names one.
+     * {@code GET /api/auth/app/login/methods[?tenantId]} — the sign-in providers the application's login offers, or a
+     * tenant's login from one of the tenant's sites or when {@code tenantId} names one, in the order to present them:
+     * {@code [{configurationId, type, name, provider, signUp}]}, an email and a password of type {@code PASSWORD} and
+     * an OIDC provider of type {@code OIDC}. {@code 404} for an application that does not exist.
      */
-    private void handleProviders(RoutingContext ctx) {
+    private void handleMethods(RoutingContext ctx) {
         authEndpointSupport.loginScope(ctx, ctx.request().getParam("tenantId"))
-              .compose(scope -> oidcConfigurationService.findEnabledForScope(scope.application().organizationId(),
-                                                                               scope.application().applicationId(),
-                                                                               scope.tenantId()))
-              .onSuccess(configs -> authEndpointSupport.respondProvidersList(ctx, configs))
-              .onFailure(err -> fail(ctx, err, "Failed to list providers"));
+              .compose(signUpService::findLoginProviders)
+              .onSuccess(providers -> ctx.response().putHeader("Content-Type", "application/json").end(Json.encode(providers)))
+              .onFailure(err -> authEndpointSupport.fail(ctx, err, "Failed to list sign-in methods"));
     }
 
     /**
@@ -87,29 +86,28 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
      */
     private void handleStart(RoutingContext ctx) {
         String configId = ctx.pathParam("configId");
-        String origin = SessionBinding.origin(ctx);
+        String origin = authEndpointSupport.requirePageOrigin(ctx);
         if (origin == null) {
-            authEndpointSupport.respondError(ctx, 400, "A sign-in is started by a page");
             return;
         }
 
         authEndpointSupport.loginScope(ctx, ctx.request().getParam("tenantId"))
-              .compose(scope -> oidcConfigurationService.findOffered(configId, scope.application().organizationId(),
-                                                                     scope.application().applicationId(), scope.tenantId())
+              .compose(scope -> oidcConfigurationService.findOffered(configId, scope.applicationKey().organizationId(),
+                                                                     scope.applicationKey().applicationId(), scope.tenantId())
                                                         .compose(config -> {
                   Future<String> ret;
                   switch (config) {
                       case null -> ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
-                      // the registration is shared, so its provider returns to the shared host, not to this one
-                      case ApplicationSocialOidcConfiguration _ -> {
+                      // Kinotic's registration is shared, so its provider returns to the shared host, not to this one
+                      case ApplicationOidcConfiguration managed when OidcConfigurationService.isManaged(managed) -> {
                           // the completion at this host is answered only to the browser whose session holds this value,
                           // so the single-use code the shared host hands back signs in no other browser
                           String binding = DomainUtil.generateUrlSafeToken(32);
                           ctx.session().put(ApplicationAuthEndpointSupport.SOCIAL_LOGIN_BINDING_SESSION_KEY, binding);
                           ret = Future.succeededFuture(authEndpointSupport.socialAuthorizeUrl(scope, configId, origin, binding));
                       }
-                      default -> ret = oidcFlowOrchestrator.startFlow(ctx, config, callbackUrl(scope.application(), configId),
-                                                                      scope.application(), scope.tenantId(), origin);
+                      default -> ret = oidcFlowOrchestrator.startFlow(ctx, config, callbackUrl(scope.applicationKey(), configId),
+                                                                      scope.applicationKey(), scope.tenantId(), origin);
                   }
                   return ret;
               }))
@@ -119,7 +117,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
                   if (err instanceof OidcCallbackException) {
                       authEndpointSupport.respondError(ctx, 400, "The login does not offer " + configId);
                   } else {
-                      fail(ctx, err, "Failed to start sign-in");
+                      authEndpointSupport.fail(ctx, err, "Failed to start sign-in");
                   }
               });
     }
@@ -127,28 +125,25 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     /**
      * {@code POST /api/auth/app/login {email, password[, tenantId]}} — local password auth, scoped to the
      * application, or to the tenant from one of the tenant's sites or when {@code tenantId} names one, so a stray
-     * cross-scope match can't authenticate here. Refused with {@code 403} from a page that is not one of the
-     * application's UIs.
+     * cross-scope match can't authenticate here, at a login that takes a password. Refused with {@code 403} from a
+     * page that is not one of the application's UIs.
      */
     private void handleLogin(RoutingContext ctx) {
         String tenantId = authEndpointSupport.readJsonBody(ctx).getString("tenantId");
         authEndpointSupport.loginScope(ctx, tenantId)
               .onSuccess(scope -> authEndpointSupport.handlePasswordLogin(ctx,
                       (email, password) -> localAuthenticationService.authenticateApplicationUser(
-                              email, password, scope.application().organizationId(), scope.application().applicationId())
+                              email, password, scope.applicationKey().organizationId(), scope.applicationKey().applicationId())
                                                                        .map(user -> scope.memberOf(user) == null ? null : DomainUtil.createParticipant(user))))
-              .onFailure(err -> fail(ctx, err, "Failed to sign in"));
+              .onFailure(err -> authEndpointSupport.fail(ctx, err, "Failed to sign in"));
     }
 
     /**
      * {@code GET /api/auth/app/login/oidc/callback/:configId} — the IdP returns here; validates the callback and
      * logs the user into the scope the flow started for, or returns the browser to the login page of the page
      * that started the flow with the error, to the application's primary UI's when no flow session names one.
-     * An identity no user is bound to becomes a user on its
-     * first sign-in when the configuration creates users on sign-in: a user of the tenant through the tenant's
-     * own configuration, or a user of the application, with a tenant of its own, through the application's
-     * configuration while the platform manages the application's tenants, since under tenant administrators a
-     * user is created by an administrator or an invitation and is never without a tenant.
+     * An identity no user is bound to becomes a user on its first sign-in where the configuration signs people
+     * up and the scope admits them (see {@link ApplicationSignUpService#findOrCreateOidcUser}).
      */
     private void handleCallback(RoutingContext ctx) {
         ApplicationKey applicationKey = authEndpointSupport.applicationKey(ctx);
@@ -160,50 +155,19 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
                 ctx, pathConfigId, callbackUrl(applicationKey, pathConfigId),
                 (_, _, tenantId) -> oidcConfigurationService.findOffered(pathConfigId, applicationKey.organizationId(),
                                                                          applicationKey.applicationId(), tenantId))
-                .onSuccess(result -> completeAppLogin(ctx, result, new LoginScope(applicationKey, result.tenantId())))
+                .onSuccess(result -> completeAppLogin(ctx, result, applicationKey))
                 .onFailure(ex -> authEndpointSupport.redirectCallbackFailure(ctx, flow != null ? flow.origin() : null, ex));
     }
 
     private void completeAppLogin(RoutingContext ctx,
                                   CallbackResult<OidcConfiguration> result,
-                                  LoginScope scope) {
-        authEndpointSupport.completeOidcLogin(ctx, result,
-                sub -> identityService.findApplicationUserByOidcIdentity(result.config().getId(), sub, scope.application().organizationId(),
-                                                                        scope.application().applicationId())
-                                      .map(scope::memberOf),
-                () -> newUserOf(scope, result.config()));
-    }
-
-    // the unsaved user an unknown identity becomes, or null when the scope admits no new user: a tenant admits one
-    // through its own configuration only, and an application only while the platform assigns the user's tenant
-    private Future<ApplicationParticipantIdentity> newUserOf(LoginScope scope, OidcConfiguration config) {
-        ApplicationKey applicationKey = scope.application();
-        Future<ApplicationParticipantIdentity> ret;
-        if (scope.tenantId() != null) {
-            ret = Future.succeededFuture(config instanceof TenantOidcConfiguration ? newUser(applicationKey, scope.tenantId()) : null);
-        } else {
-            ret = applicationRepository.findById(applicationKey.applicationId(), applicationKey.organizationId())
-                                       .map(application -> application != null && application.getTenantManagement() == TenantManagement.SYSTEM
-                                               ? newUser(applicationKey, null) : null);
-        }
-        return ret;
-    }
-
-    private static ApplicationParticipantIdentity newUser(ApplicationKey applicationKey, String tenantId) {
-        ApplicationParticipantIdentity ret = new ApplicationParticipantIdentity();
-        ret.setOrganizationId(applicationKey.organizationId())
-           .setApplicationId(applicationKey.applicationId())
-           .setTenantId(tenantId);
-        return ret;
-    }
-
-    // a failed scope is answered with the status it names, which the router's failure handler renders
-    private void fail(RoutingContext ctx, Throwable err, String message) {
-        if (err instanceof io.vertx.ext.web.handler.HttpException || err instanceof org.kinotic.core.api.exceptions.AuthorizationException) {
-            ctx.fail(err);
-        } else {
-            log.warn("{} at {}: {}", message, ctx.request().authority(), err.getMessage());
-            authEndpointSupport.respondError(ctx, 500, message);
+                                  ApplicationKey applicationKey) {
+        if (authEndpointSupport.verifiedSubject(ctx, result) != null) {
+            // the scope offers only owned configurations at this callback; Kinotic's registration returns to the shared host
+            authEndpointSupport.completeLogin(ctx, result.origin(), result.config().getProvider(),
+                    authEndpointSupport.loginScope(applicationKey, result.tenantId())
+                                       .compose(scope -> authEndpointSupport.findOrCreateUser(scope, (OwnedOidcConfiguration) result.config(), result.claims()))
+                                       .map(user -> user == null ? null : AuthEndpointSupport.participantOf(user)));
         }
     }
 

@@ -1,0 +1,7 @@
+# The e2e stack's profile (SPRING_PROFILES_ACTIVE=e2e in compose.kinotic-e2e-test.yml): the portal kinotic-ui serves
+# on 9090, and this server's API, the OAuth issuer of /mcp, on 58503.
+kinotic:
+  domain:
+    portalBaseUrl: http://localhost:9090
+  managementApi:
+    apiBaseUrl: http://localhost:58503

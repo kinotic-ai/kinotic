@@ -14,10 +14,15 @@
       </TabList>
       <TabPanels>
         <TabPanel value="integrations">
-          <GitHubLinkStatus return-to="/organization-settings" />
+          <GitHubLinkStatus v-if="repoHost?.type === RepoHostType.GITHUB" return-to="/organization-settings" />
+          <p v-else-if="repoHost" class="text-sm text-surface-700 dark:text-surface-200">
+            Projects' repositories are hosted on this server's Gitea, at
+            <a :href="repoHost.webBaseUrl" target="_blank" rel="noopener" class="underline">{{ repoHost.webBaseUrl }}</a>,
+            so there is nothing to link.
+          </p>
         </TabPanel>
         <TabPanel value="authentication">
-          <OidcConfigurationsPanel :application-id="null" />
+          <SignInProvidersPanel :application-id="null" />
         </TabPanel>
         <TabPanel v-for="tab in upcomingTabs" :key="tab.id" :value="tab.id">
           <FeatureEmptyState badge="coming-soon" :icon="tab.icon" :tint="tab.upcoming.tint" :title="tab.upcoming.title"
@@ -80,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { markRaw, type Component } from 'vue'
+import { markRaw, onMounted, ref, type Component } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import { ArrowRight, CircleCheck, CreditCard, IdCard, KeyRound, Minus, Plug, ShieldCheck } from '@lucide/vue'
 import Tab from 'primevue/tab'
@@ -92,7 +97,9 @@ import Tag from 'primevue/tag'
 import { PageHeader, TINTS } from '@kinotic-ai/frontend-common'
 import FeatureEmptyState from '@/components/FeatureEmptyState.vue'
 import GitHubLinkStatus from '@/components/GitHubLinkStatus.vue'
-import OidcConfigurationsPanel from '@/components/OidcConfigurationsPanel.vue'
+import { RepoHostType, type RepositoryHost } from '@kinotic-ai/management-api'
+import { repositoryHost } from '@/util/repositoryHost'
+import SignInProvidersPanel from '@/components/SignInProvidersPanel.vue'
 import { useQueryTab } from '@/composables/useQueryTab'
 import { DOCUMENTATION_URL } from '@/util/externalLinks'
 
@@ -181,6 +188,11 @@ const USAGE_BARS = ['72%', '45%', '28%']
 const upcomingTabs = TABS.filter((tab): tab is SettingsTab & { upcoming: UpcomingFeature } => tab.upcoming !== undefined)
 
 const activeTab = useQueryTab(TABS.map(tab => tab.id))
+
+const repoHost = ref<RepositoryHost | null>(null)
+onMounted(async () => {
+  repoHost.value = await repositoryHost()
+})
 
 function selectTab(value: string | number): void {
   const tab = TABS.find(t => t.id === value)

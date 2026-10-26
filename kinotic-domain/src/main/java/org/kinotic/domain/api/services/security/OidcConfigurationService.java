@@ -6,7 +6,9 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.domain.api.model.security.ApplicationOidcConfiguration;
 import org.kinotic.domain.api.model.security.ApplicationSocialOidcConfiguration;
+import org.kinotic.domain.api.model.security.ClientRegistrationType;
 import org.kinotic.domain.api.model.security.ManagedOidcConfiguration;
+import org.kinotic.domain.api.model.security.ManagedSignIn;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
@@ -25,10 +27,24 @@ import java.util.Collection;
  * {@link ApplicationOidcConfiguration} must name an application of that organization. An organization's
  * configuration must name a provider kind {@link OidcProviderType#offeredToOrganizations() offered to
  * organizations} and its account there in the form the kind expects; its authority is derived from the
- * two on every save. The finders that serve the sign-in flows, which run before a participant is bound,
- * check no participant and say so.
+ * two on every save. An application's configuration that starts signing in through Kinotic's registration
+ * ({@link ClientRegistrationType#MANAGED}) must name a provider kind the system holds an enabled
+ * {@link ApplicationSocialOidcConfiguration} for, and needs no account or client of its own; once it does, it saves
+ * whether or not the system still holds one. An enabled {@link ApplicationSocialOidcConfiguration} is refused while
+ * another of its provider kind is enabled. The finders that serve the sign-in flows, which run before a participant
+ * is bound, check no participant and say so.
  */
 public interface OidcConfigurationService extends IdentifiableCrudService<OidcConfiguration, String> {
+
+    /**
+     * Whether {@code configuration} signs in through one of the system's registrations rather than a client of the
+     * organization's own: an {@link ApplicationOidcConfiguration} using {@link ClientRegistrationType#MANAGED}, which
+     * signs in through the {@link ApplicationSocialOidcConfiguration} of its provider kind.
+     */
+    static boolean isManaged(OidcConfiguration configuration) {
+        return configuration instanceof ApplicationOidcConfiguration forApplication
+                && forApplication.getClientRegistrationType() == ClientRegistrationType.MANAGED;
+    }
 
     /** The configurations among {@code ids} that exist, of any kind, in one read. */
     Future<List<OidcConfiguration>> findAllById(Collection<String> ids);
@@ -55,13 +71,20 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
     Future<OrgSignupOidcConfiguration> findOrgSignupById(String id);
 
     /**
+     * Every enabled registration the system holds for applications' sign-in, one per provider kind: the
+     * registrations an {@link ApplicationOidcConfiguration} using {@link ClientRegistrationType#MANAGED} signs in
+     * through. Checks no participant.
+     */
+    Future<List<ApplicationSocialOidcConfiguration>> findEnabledAppSocialRegistrations();
+
+    /**
      * The enabled configurations a sign-in scope offers, in the order to present them. The organization's
      * own login ({@code applicationId} null) offers the org sign-up registrations followed by the
      * organization's {@link OrganizationOidcConfiguration}s; an application's login offers its
-     * {@link ApplicationOidcConfiguration}s followed by the system's
-     * {@link ApplicationSocialOidcConfiguration}s whose provider kinds the application names; the login of
-     * one tenant of the application offers the tenant's {@link TenantOidcConfiguration}s followed by what
-     * the application's login offers. Empty when the scope offers none. Checks no participant.
+     * {@link ApplicationOidcConfiguration}s, one using {@link ClientRegistrationType#MANAGED} while the system
+     * holds an enabled registration of its provider kind; the login of one tenant of the application offers
+     * the tenant's {@link TenantOidcConfiguration}s followed by what the application's login offers. Empty
+     * when the scope offers none. Checks no participant.
      *
      * @param organizationId the organization the scope belongs to
      * @param applicationId  the application within it, or {@code null} for the organization's own login
@@ -77,9 +100,9 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
     /**
      * The enabled configuration {@code configurationId} when the scope offers it, or {@code null} when the
      * scope does not offer it or it is disabled, for the sign-in starts and callbacks that name a
-     * configuration: an {@link OwnedOidcConfiguration} the organization made for the scope, an
-     * {@link ApplicationSocialOidcConfiguration} the application names, or at an organization's own login
-     * any {@link OrgSignupOidcConfiguration}, which every organization's login offers. A tenant's login
+     * configuration: an {@link OwnedOidcConfiguration} the organization made for the scope, one using
+     * {@link ClientRegistrationType#MANAGED} while the system holds an enabled registration of its kind, or at an
+     * organization's own login any {@link OrgSignupOidcConfiguration}, which every organization's login offers. A tenant's login
      * offers what the application's offers as well as the tenant's own. Checks no participant.
      *
      * @param configurationId the configuration a sign-in names
@@ -93,6 +116,19 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
     default Future<OidcConfiguration> findOffered(String configurationId, String organizationId, String applicationId) {
         return findOffered(configurationId, organizationId, applicationId, null);
     }
+
+    /**
+     * The enabled configuration {@code configurationId} of application {@code applicationId} that signs in through
+     * Kinotic's registration ({@link ClientRegistrationType#MANAGED}), with the system's enabled registration of its
+     * provider kind, or {@code null} when the application has no such enabled configuration or the system holds no
+     * enabled registration of its kind: a configuration {@link #findOffered} offers at the application's login and
+     * every one of its tenants', with the registration it signs in through. Checks no participant.
+     *
+     * @param configurationId the configuration a sign-in names
+     * @param organizationId  the organization the application belongs to
+     * @param applicationId   the application whose login it is
+     */
+    Future<ManagedSignIn> findOfferedManaged(String configurationId, String organizationId, String applicationId);
 
     /**
      * The configuration {@code id} organization {@code organizationId} owns, of any owned kind, enabled or
@@ -117,7 +153,9 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
      * owning organization's scope of the secret storage, keyed by the configuration's id, so it is never a
      * field of the configuration and no other organization's configuration can read it; the configuration's
      * {@code confidentialClient} records whether one is held, whatever the configuration carried. A sign-in
-     * through the configuration picks a new secret up on its next flow.
+     * through the configuration picks a new secret up on its next flow. Disabling an organization's own
+     * configuration, as deleting one, fails with an {@link IllegalStateException} naming the enabled members it would
+     * leave with no way to sign in to the organization.
      *
      * @param configuration the configuration, owned by the caller's organization
      * @param clientSecret  the client secret's value, or {@code null} or blank to keep the secret held for the

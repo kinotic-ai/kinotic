@@ -9,7 +9,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.kinotic.management.api.config.GithubProperties;
 import org.kinotic.management.api.model.github.GitHubWebhookEvent;
 import org.kinotic.management.api.services.github.GitHubWebhookProcessor;
@@ -54,7 +54,7 @@ public class GitHubWebhookHandler implements SuppliesGatewayRoutes {
     private final GitHubWebhookProcessor webhookProcessor;
 
     public void mountRoutes(Router router) {
-        router.post("/api/github/webhook")
+        router.post(GitHubWebhookProcessor.WEBHOOK_PATH)
               .handler(BodyHandler.create().setBodyLimit(WEBHOOK_BODY_LIMIT_BYTES))
               .handler(this::handleWebhook);
     }

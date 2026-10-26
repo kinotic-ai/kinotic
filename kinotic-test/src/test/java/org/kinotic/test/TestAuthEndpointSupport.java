@@ -11,8 +11,8 @@ import org.kinotic.domain.api.services.security.RefreshTokenService;
 import org.springframework.stereotype.Component;
 
 /**
- * The test node's {@link AuthEndpointSupport}: every module runs in this one node, so it presents the UI
- * the management server presents in development.
+ * The test node's {@link AuthEndpointSupport}: every module runs in this one node, so it presents the portal,
+ * on 9090 as kinotic-ui serves it.
  */
 @Component
 public class TestAuthEndpointSupport extends AuthEndpointSupport {

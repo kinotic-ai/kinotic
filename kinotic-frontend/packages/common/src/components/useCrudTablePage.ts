@@ -89,12 +89,12 @@ export function pageNumberOf(pageable: Pageable): number {
   return (pageable as Pageable & { pageNumber?: number }).pageNumber ?? 0
 }
 
-/** Severity of an identity status badge: Active is in good standing, Invited pending, the rest cut off. */
+/** Severity of an identity status badge: Active is in good standing, Pending not yet signed in, the rest cut off. */
 export function statusSeverity(status: string): string {
   let ret: string
   if (status === 'Active') {
     ret = 'success'
-  } else if (status === 'Invited' || status === 'Pending') {
+  } else if (status === 'Pending') {
     ret = 'info'
   } else {
     ret = 'danger'

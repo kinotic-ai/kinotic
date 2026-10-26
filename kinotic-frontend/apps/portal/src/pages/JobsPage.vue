@@ -19,7 +19,8 @@
 import { ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import Button from 'primevue/button'
-import { JobRunsTable, PageHeader } from '@kinotic-ai/frontend-common'
+import { PageHeader } from '@kinotic-ai/frontend-common'
+import { JobRunsTable } from '@kinotic-ai/frontend-common/management'
 import JobRunDetail from '@/components/JobRunDetail.vue'
 
 const jobRunsTable = ref<InstanceType<typeof JobRunsTable>>()

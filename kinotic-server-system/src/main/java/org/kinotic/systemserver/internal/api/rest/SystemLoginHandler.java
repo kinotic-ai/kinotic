@@ -7,7 +7,7 @@ import io.vertx.core.Future;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.springframework.stereotype.Component;
 
 /**

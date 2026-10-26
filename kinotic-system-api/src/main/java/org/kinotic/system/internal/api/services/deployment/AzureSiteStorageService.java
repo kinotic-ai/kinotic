@@ -10,11 +10,11 @@ import com.azure.storage.file.datalake.sas.PathSasPermission;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.config.UiDeploymentProperties;
 import org.kinotic.system.api.services.deployment.SiteStorageService;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -26,13 +26,10 @@ import java.time.ZoneOffset;
  * blob endpoint as the server's Azure identity, which signs each URL with a user delegation
  * key for the site's directory alone.
  */
-@Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(value = "kinotic.systemApi.uiDeployment.siteStorage", havingValue = "AZURE", matchIfMissing = true)
 public class AzureSiteStorageService implements SiteStorageService {
-
-    /** The one container of the sites account. */
-    private static final String CONTAINER = "sites";
 
     /** How far in the past a delegation key starts, so clock skew between server and storage never rejects a fresh SAS. */
     private static final Duration KEY_START_SKEW = Duration.ofMinutes(5);
@@ -62,19 +59,14 @@ public class AzureSiteStorageService implements SiteStorageService {
         Validate.notNull(ttl, "ttl is required");
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         OffsetDateTime expiry = now.plus(ttl);
-        DataLakeDirectoryAsyncClient site = directories().getFileSystemAsyncClient(CONTAINER)
+        DataLakeDirectoryAsyncClient site = directories().getFileSystemAsyncClient(UiDeploymentProperties.SITES_CONTAINER)
                                                          .getDirectoryAsyncClient(hostname);
         DataLakeServiceSasSignatureValues values = new DataLakeServiceSasSignatureValues(expiry, permission);
         return Future.fromCompletionStage(directories().getUserDelegationKey(now.minus(KEY_START_SKEW), expiry)
                                                        .map(key -> site.generateUserDelegationSas(values, key))
                                                        .toFuture(), vertx.getOrCreateContext())
                      // the workloads act through the blob endpoint, which honors the directory SAS
-                     .map(token -> blobEndpoint() + "/" + CONTAINER + "/" + hostname + "?" + token);
-    }
-
-    private String blobEndpoint() {
-        String endpoint = properties().getSitesStorageEndpoint();
-        return endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
+                     .map(token -> properties().resolveSiteDirectoryUrl(hostname) + "?" + token);
     }
 
     // The Data Lake client signs the directory SAS; it takes the blob endpoint and derives the

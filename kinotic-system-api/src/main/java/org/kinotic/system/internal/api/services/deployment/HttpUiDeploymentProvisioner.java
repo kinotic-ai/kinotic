@@ -27,8 +27,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(value = "kinotic.systemApi.disableAzureStorage",
-                       havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(value = "kinotic.systemApi.uiDeployment.siteStorage", havingValue = "AZURE", matchIfMissing = true)
 public class HttpUiDeploymentProvisioner implements UiDeploymentProvisioner {
 
     private static final String VERSION_FILE = "version.json";

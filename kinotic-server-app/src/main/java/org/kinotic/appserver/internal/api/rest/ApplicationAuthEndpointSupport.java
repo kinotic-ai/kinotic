@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import io.vertx.core.net.HostAndPort;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.HttpException;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -17,8 +18,17 @@ import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
+import org.kinotic.domain.api.exceptions.ExistingUserException;
+import org.kinotic.domain.api.exceptions.UnverifiedEmailException;
+import org.kinotic.domain.api.exceptions.UserDisabledException;
+import org.kinotic.domain.api.model.security.LoginScope;
+import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
+import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
+import org.kinotic.domain.api.rest.support.OidcCallbackException;
+import org.kinotic.domain.api.rest.support.OidcErrorCodes;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
+import org.kinotic.domain.api.services.security.ApplicationSignUpService;
 import org.kinotic.domain.api.services.security.KinoticJwtIssuer;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
@@ -29,6 +39,7 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -36,12 +47,13 @@ import java.util.regex.Pattern;
  * application's API host, {@code <organizationId>--<applicationId>} under {@code kinotic.domain.appApiBaseUrl},
  * and {@link #applicationKey} names that application; the browser flows send the user to its primary UI.
  */
+@Slf4j
 @Component
 public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
 
     /**
-     * Path on the shared host, {@code kinotic.domain.appApiBaseUrl}, that begins a sign-in through one of the
-     * system's social registrations; {@link #socialAuthorizeUrl} builds the URL a start answers with.
+     * Path on the shared host, {@code kinotic.domain.appApiBaseUrl}, that begins a sign-in through an application's
+     * configuration that uses one of the system's social registrations; {@link #socialAuthorizeUrl} builds the URL a start answers with.
      */
     public static final String SOCIAL_AUTHORIZE_PATH = "/api/auth/app/login/social/authorize";
 
@@ -56,11 +68,13 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
     private final KinoticDomainProperties domainProperties;
     private final ApplicationRepository applicationRepository;
     private final TenantRepository tenantRepository;
+    private final ApplicationSignUpService signUpService;
 
     public ApplicationAuthEndpointSupport(AppServerProperties properties,
                                           KinoticDomainProperties domainProperties,
                                           ApplicationRepository applicationRepository,
                                           TenantRepository tenantRepository,
+                                          ApplicationSignUpService signUpService,
                                           KinoticJwtIssuer jwtIssuer,
                                           OidcConfigurationService oidcConfigurationService,
                                           OidcFlowOrchestrator oidcFlowOrchestrator,
@@ -71,6 +85,7 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
         this.domainProperties = domainProperties;
         this.applicationRepository = applicationRepository;
         this.tenantRepository = tenantRepository;
+        this.signUpService = signUpService;
     }
 
     /**
@@ -90,7 +105,9 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
 
     /**
      * Whether the page at {@code origin} is one of the application's UIs: one of its published sites, or a
-     * local origin {@code kinotic.appServer.localUiOriginPattern} admits.
+     * local origin {@code kinotic.appServer.localUiOriginPattern} admits. A site is named by its origin alone, an
+     * {@code http} or {@code https} scheme, its host and an optional port, so a value that also carries a path,
+     * query, fragment or user info names none.
      */
     public boolean isApplicationUi(ApplicationKey applicationKey, String origin) {
         Pattern localUiOrigins = properties.getLocalUiOriginPattern();
@@ -102,7 +119,15 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
     private SiteAddress site(ApplicationKey applicationKey, String origin) {
         String host;
         try {
-            host = URI.create(origin).getHost();
+            URI uri = URI.create(origin);
+            // the links and redirects built from a page's origin append paths to it, so anything after the host and
+            // port would carry into them
+            boolean bare = ("https".equals(uri.getScheme()) || "http".equals(uri.getScheme()))
+                    && uri.getRawUserInfo() == null
+                    && StringUtils.isEmpty(uri.getRawPath())
+                    && uri.getRawQuery() == null
+                    && uri.getRawFragment() == null;
+            host = bare ? uri.getHost() : null;
         } catch (IllegalArgumentException e) {
             // the origin may come from a query parameter, and a malformed one names no page
             host = null;
@@ -126,14 +151,28 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
     }
 
     /**
+     * The origin of the page that sent the request, which a browser flow is started and completed from. A request
+     * no page sent is answered with {@code 400}.
+     *
+     * @return the origin, or {@code null} once the request has been answered
+     */
+    public String requirePageOrigin(RoutingContext ctx) {
+        String ret = SessionBinding.origin(ctx);
+        if (ret == null) {
+            respondError(ctx, 400, "The request is sent by a page");
+        }
+        return ret;
+    }
+
+    /**
      * The scope the request signs in to: the application the request was addressed to, from the page that
      * sent it, and the tenant of the application when that page is one of the tenant's sites or, from a page
      * that is no site, when the request names the tenant as {@code requestedTenantId}.
      *
      * @param requestedTenantId the tenant the request names, or {@code null}
      * @return the scope; fails the request with {@code 403} when the page is not one of the application's UIs
-     *         or is a site of another tenant than the one named, and with {@code 404} when the application
-     *         has no such tenant
+     *         or is a site of another tenant than the one named, and with {@code 404} when the application does
+     *         not exist or has no such tenant
      */
     public Future<LoginScope> loginScope(RoutingContext ctx, String requestedTenantId) {
         ApplicationKey applicationKey = applicationKey(ctx);
@@ -162,26 +201,69 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
         return loginScope(applicationKey, siteTenant != null ? siteTenant : requestedTenantId);
     }
 
-    // the scope, once the tenant it names is one of the application's
-    private Future<LoginScope> loginScope(ApplicationKey applicationKey, String tenantId) {
+    /**
+     * The scope of a sign-in to the application's tenant {@code tenantId}, or to the application itself when it is
+     * {@code null}, for a flow returning to the scope its start checked the page of.
+     *
+     * @return the scope; fails the request with {@code 404} when the application does not exist or has no such tenant
+     */
+    public Future<LoginScope> loginScope(ApplicationKey applicationKey, String tenantId) {
+        Future<Application> application = applicationRepository.findById(applicationKey.applicationId(), applicationKey.organizationId());
         Future<Tenant> tenant = tenantId != null
                 ? tenantRepository.findById(tenantId, applicationKey.applicationId(), applicationKey.organizationId())
                 : Future.succeededFuture();
-        return tenant.map(found -> {
-            if (tenantId != null && found == null) {
+        return Future.all(application, tenant).map(v -> {
+            if (application.result() == null) {
+                throw new HttpException(404, "There is no application " + HostLabelUtil.label(applicationKey));
+            }
+            if (tenantId != null && tenant.result() == null) {
                 throw new HttpException(404, "The application has no tenant " + tenantId);
             }
-            return new LoginScope(applicationKey, tenantId);
+            return new LoginScope(application.result(), tenantId);
         });
     }
 
     /**
-     * The URL on the shared host that begins a sign-in to {@code scope} through the system social
-     * registration {@code configId}, for the page at {@code origin}, in the browser whose session at this host
+     * The user of {@code scope} the identity {@code configuration}'s provider verified signs in as, created on its first
+     * sign-in where the configuration signs people up and the scope admits them (see
+     * {@link ApplicationSignUpService#findOrCreateOidcUser}), or {@code null} when there is none. A user that would be
+     * created under an email the application holds under another method fails with an {@link OidcCallbackException}
+     * carrying {@link OidcErrorCodes#USER_EXISTS}, and one under an email the claims do not prove is the person's with
+     * {@link OidcErrorCodes#EMAIL_NOT_VERIFIED}, and a disabled user the identity would claim with {@link OidcErrorCodes#USER_DISABLED}.
+     *
+     * @param claims the claims the provider verified, which {@link #verifiedSubject} has accepted
+     */
+    public Future<ApplicationParticipantIdentity> findOrCreateUser(LoginScope scope, OwnedOidcConfiguration configuration, Map<String, Object> claims) {
+        return signUpService.findOrCreateOidcUser(scope, configuration, claims)
+                            .recover(err -> Future.failedFuture(switch (err) {
+                                case ExistingUserException _ -> new OidcCallbackException(OidcErrorCodes.USER_EXISTS);
+                                case UnverifiedEmailException _ -> new OidcCallbackException(OidcErrorCodes.EMAIL_NOT_VERIFIED, configuration.getProvider());
+                                case UserDisabledException _ -> new OidcCallbackException(OidcErrorCodes.USER_DISABLED);
+                                default -> err;
+                            }));
+    }
+
+    /**
+     * Answers a request whose handling failed: a failure naming a status, such as a scope refused with {@code 403}
+     * or {@code 404}, with that status through the router's failure handler, and any other with {@code 500} and
+     * {@code message}.
+     */
+    public void fail(RoutingContext ctx, Throwable err, String message) {
+        if (err instanceof HttpException || err instanceof AuthorizationException) {
+            ctx.fail(err);
+        } else {
+            log.warn("{} at {}: {}", message, ctx.request().authority(), err.getMessage());
+            respondError(ctx, 500, message);
+        }
+    }
+
+    /**
+     * The URL on the shared host that begins a sign-in to {@code scope} through the application's configuration
+     * {@code configId}, which signs in through Kinotic's registration with its provider, for the page at {@code origin}, in the browser whose session at this host
      * holds {@code binding} under {@link #SOCIAL_LOGIN_BINDING_SESSION_KEY}.
      */
     public String socialAuthorizeUrl(LoginScope scope, String configId, String origin, String binding) {
-        ApplicationKey applicationKey = scope.application();
+        ApplicationKey applicationKey = scope.applicationKey();
         String ret = domainProperties.getDomain().getAppApiBaseUrl() + SOCIAL_AUTHORIZE_PATH
                 + "?organizationId=" + URLEncoder.encode(applicationKey.organizationId(), StandardCharsets.UTF_8)
                 + "&applicationId=" + URLEncoder.encode(applicationKey.applicationId(), StandardCharsets.UTF_8)

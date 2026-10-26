@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/idl",
-  "version": "5.0.0-beta.5",
+  "version": "5.0.0-beta.6",
   "type": "module",
   "files": [
     "dist"
@@ -27,7 +27,7 @@
     "url": "git+https://github.com/kinotic-ai/kinotic.git",
     "directory": "kinotic-js/workspace/packages/idl"
   },
-  "license": "Elastic License 2.0",
+  "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
   },

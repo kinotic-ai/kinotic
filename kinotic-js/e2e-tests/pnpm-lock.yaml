@@ -1,3 +1,161 @@
+---
+lockfileVersion: '9.0'
+
+importers:
+
+  .:
+    configDependencies: {}
+    packageManagerDependencies:
+      pnpm:
+        specifier: 12.10.0
+        version: 12.10.0
+
+packages:
+
+  '@pnpm/exe.android-arm64@12.10.0':
+    resolution: {integrity: sha512-QMMRzOI/7CU4xLbKY6O2BZn3VI4+a8LLyim18H7it8llBWuBPMqDqUURE8045k+7lI8/lI2/tElhyKptEviKDQ==}
+    cpu: [arm64]
+    os: [android]
+
+  '@pnpm/exe.android-x64@12.10.0':
+    resolution: {integrity: sha512-41zwlROW+t523Nfqo4rWp8IPiSK5vnAWrnCey26Je45rX1SMNc4ABY7OFmPw41/t+Y0CE+4tjTj+0s9YGqPM5w==}
+    cpu: [x64]
+    os: [android]
+
+  '@pnpm/exe.darwin-arm64@12.10.0':
+    resolution: {integrity: sha512-L+r7AD8Fjf8Vcc4ZRJl+Pjzc27CIeQ/FiRwPmOluFO2UcXubmGHdW+OuMUxrU0vkoXiGR61Ft0RtaPwTRY4W/g==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@pnpm/exe.darwin-x64@12.10.0':
+    resolution: {integrity: sha512-/TCF1K6E+4PnbkLgqGS1Iqlf5bHp6FDzuXgu6++PMMAFkF7Yk5EF3BcfG1gYYjpkvlJBccvVMsRBnWFbSyqu1w==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@pnpm/exe.freebsd-x64@12.10.0':
+    resolution: {integrity: sha512-k7/WFA91E2qhnR/2EOEv402U8bjP758y2pybbdiB5Hrd4KhgviVOJp5cFrXpKgd8HZJs/RZN7cdmMvU2Q2BVgg==}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@pnpm/exe.linux-arm64-musl@12.10.0':
+    resolution: {integrity: sha512-ChD8bN0lRCRaL+CMOaMUgZQ4WHzEkDXmDHrZgXgdoo6yymQKKzr66Ic7Sl/D7Ky1cVUcFEzHjlq4fGDJwt6Lqg==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@pnpm/exe.linux-arm64@12.10.0':
+    resolution: {integrity: sha512-egl5RUSQFh7kETBdmMhaTuaQKP1pjH6Cxq370zgpFFKJXF+GGkIzK+jLNazrjX9pKIWF3iqn7kUeyP6yKxzBoA==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-ppc64@12.10.0':
+    resolution: {integrity: sha512-YJ6bEZ+stPpv71CGfGQQeyIpMx/zSMEcAXQzG+rjBtzVfyNsxYciRevhJ+PE9b2qKqN78Mh/1tOMmx9ly4VXGw==}
+    cpu: [ppc64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-riscv64@12.10.0':
+    resolution: {integrity: sha512-njfd4euctC1zH1nVBbm6+r1c+0y/TtgqN523rk/KMSxqItpV5QAVa9Yz48Rt5DOIKmuLq7xXOhsQodBlbTk3pw==}
+    cpu: [riscv64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-s390x@12.10.0':
+    resolution: {integrity: sha512-4JI2F8pYGMcsG6ny61OiBSvZeDozc64TbPozbTU2X5uCsaFCsCvcpr/WwyypwCv+/mNjcIhaKhlxpwJYsnteIg==}
+    cpu: [s390x]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-x64-musl@12.10.0':
+    resolution: {integrity: sha512-xayd2iG8ugdvjlGeOvsfm+iSe0bFu9RTX3/8HWOLAQmHdbLKi4hPbxP0S4c9tj8pNej/IxVBQLJksRXFlhNjPw==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@pnpm/exe.linux-x64@12.10.0':
+    resolution: {integrity: sha512-PFkzWEghFLKuocxMHtn57mlJ59f5aBbqjX6FCUtiunEHqxTxOibSduQPs3Llm6VWbAXBjD3VrX29Z+bjU1Dpyw==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.win32-arm64@12.10.0':
+    resolution: {integrity: sha512-0HtTS+TLONWd/dNSczyOkK0UeZ36cbdhC/2ljZ61DPhvc4jTb7ur0yU47On0in7Im3yXwzTY4vtF8ykrDwc+NQ==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@pnpm/exe.win32-x64@12.10.0':
+    resolution: {integrity: sha512-IcW3rehTGzJ7YnmHEWnbnJakjbBmnH0r29qiajK9+6b9psMF9IjocFr0dyitRVSfXxyW/FI5PIK3mOswGoyFTg==}
+    cpu: [x64]
+    os: [win32]
+
+  pnpm@12.10.0:
+    resolution: {integrity: sha512-Eip7bd+dQCaLwNsal4CJm5Xk+out/Ke9RQYVrYz3wmWfX1acIO18U4hrx7CNDVClT0rVBwaEf1aC7GxQSEFlOQ==}
+    engines: {node: '>=18.*'}
+    hasBin: true
+
+snapshots:
+
+  '@pnpm/exe.android-arm64@12.10.0':
+    optional: true
+
+  '@pnpm/exe.android-x64@12.10.0':
+    optional: true
+
+  '@pnpm/exe.darwin-arm64@12.10.0':
+    optional: true
+
+  '@pnpm/exe.darwin-x64@12.10.0':
+    optional: true
+
+  '@pnpm/exe.freebsd-x64@12.10.0':
+    optional: true
+
+  '@pnpm/exe.linux-arm64-musl@12.10.0':
+    optional: true
+
+  '@pnpm/exe.linux-arm64@12.10.0':
+    optional: true
+
+  '@pnpm/exe.linux-ppc64@12.10.0':
+    optional: true
+
+  '@pnpm/exe.linux-riscv64@12.10.0':
+    optional: true
+
+  '@pnpm/exe.linux-s390x@12.10.0':
+    optional: true
+
+  '@pnpm/exe.linux-x64-musl@12.10.0':
+    optional: true
+
+  '@pnpm/exe.linux-x64@12.10.0':
+    optional: true
+
+  '@pnpm/exe.win32-arm64@12.10.0':
+    optional: true
+
+  '@pnpm/exe.win32-x64@12.10.0':
+    optional: true
+
+  pnpm@12.10.0:
+    optionalDependencies:
+      '@pnpm/exe.android-arm64': 12.10.0
+      '@pnpm/exe.android-x64': 12.10.0
+      '@pnpm/exe.darwin-arm64': 12.10.0
+      '@pnpm/exe.darwin-x64': 12.10.0
+      '@pnpm/exe.freebsd-x64': 12.10.0
+      '@pnpm/exe.linux-arm64': 12.10.0
+      '@pnpm/exe.linux-arm64-musl': 12.10.0
+      '@pnpm/exe.linux-ppc64': 12.10.0
+      '@pnpm/exe.linux-riscv64': 12.10.0
+      '@pnpm/exe.linux-s390x': 12.10.0
+      '@pnpm/exe.linux-x64': 12.10.0
+      '@pnpm/exe.linux-x64-musl': 12.10.0
+      '@pnpm/exe.win32-arm64': 12.10.0
+      '@pnpm/exe.win32-x64': 12.10.0
+
+---
 lockfileVersion: '9.0'
 
 settings:
@@ -15,14 +173,14 @@ importers:
   .:
     dependencies:
       '@kinotic-ai/core':
-        specifier: ^5.0.0-beta.28
-        version: 5.0.0-beta.28(supports-color@8.1.1)
+        specifier: ^5.0.0-beta.29
+        version: 5.0.0-beta.29(supports-color@8.1.1)
       '@kinotic-ai/management-api':
-        specifier: ^5.0.0-beta.66
-        version: 5.0.0-beta.66(@kinotic-ai/core@5.0.0-beta.28(supports-color@8.1.1))
+        specifier: ^5.0.0-beta.70
+        version: 5.0.0-beta.70(@kinotic-ai/core@5.0.0-beta.29(supports-color@8.1.1))
       '@kinotic-ai/persistence':
-        specifier: ^5.0.0-beta.18
-        version: 5.0.0-beta.18(@kinotic-ai/core@5.0.0-beta.28(supports-color@8.1.1))
+        specifier: ^5.0.0-beta.19
+        version: 5.0.0-beta.19(@kinotic-ai/core@5.0.0-beta.29(supports-color@8.1.1))
       vue:
         specifier: ^3.5.41
         version: 3.5.41(typescript@5.9.3)
@@ -31,11 +189,11 @@ importers:
         specifier: ^10.5.0
         version: 10.5.0
       '@kinotic-ai/idl':
-        specifier: ^5.0.0-beta.1
-        version: 5.0.0-beta.5
+        specifier: ^5.0.0-beta.6
+        version: 5.0.0-beta.6
       '@kinotic-ai/kinotic-cli':
-        specifier: ^5.2.0-beta.36
-        version: 5.2.0-beta.36(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)
+        specifier: ^5.2.0-beta.40
+        version: 5.2.0-beta.40(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(supports-color@8.1.1)(zod@4.4.3)
@@ -451,26 +609,26 @@ packages:
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
 
-  '@kinotic-ai/core@5.0.0-beta.28':
-    resolution: {integrity: sha512-Ammy02PiWjbSLKb+9al9feOTv90aemxEv319Trv5znqHR7xqaqc1pzoUVfhSuWq8dONeZzfTiU15rDCwdSMSOw==}
+  '@kinotic-ai/core@5.0.0-beta.29':
+    resolution: {integrity: sha512-JwSHA42I5B/lccu/Dn8AFtSw5Ofez84mBhYh2tHQJ9/o1ivmFSA979Xio/jUZVy619tq4aAufu3OvmUinFWUBw==}
 
-  '@kinotic-ai/idl@5.0.0-beta.5':
-    resolution: {integrity: sha512-i1aNnpDKOqD0yf56w3YmZsoK4a2tM3JBjXxrF+DP0tBrf2RTvuj5wURMrKuacKaeLMkHvuWD9Kyq8s9TFcBRmQ==}
+  '@kinotic-ai/idl@5.0.0-beta.6':
+    resolution: {integrity: sha512-GemJ94ptLbrZ642NEqqd7sWVkSyH1ybTGU2WKeiVhvHYDwARt3DKLA/MOcxls6QsafFRisJUl0irGgHC9huQpA==}
 
-  '@kinotic-ai/kinotic-cli@5.2.0-beta.36':
-    resolution: {integrity: sha512-4XnGs3Gz2p3uKlIu5ypdG4Ad/llF/D1NpGMIMaJ24cXedgB8tt69GtVPsCBM5JujaeXfRL2b7nhEpAVGR5Gqcg==}
+  '@kinotic-ai/kinotic-cli@5.2.0-beta.40':
+    resolution: {integrity: sha512-rt/UTHk8xeWj+l3dWUjqP2+0MR/oaPXv568Jt6N0tGscIYw/AGw3+JYiNtXkr676r0EHIXvczNDHD1E1ljm7pg==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  '@kinotic-ai/management-api@5.0.0-beta.66':
-    resolution: {integrity: sha512-ukIqj7Lz/9bLXwPN1fgEcGsISy7vvj6aBMBvMwvg9yCIME0+zPc3s0gy1QEZvvj1PupvEjZQm5MtrfdAGCQdEw==}
+  '@kinotic-ai/management-api@5.0.0-beta.70':
+    resolution: {integrity: sha512-dmFPzK7oPrEf8a64cCBpI0/6YzFfXysg0qmnJEWXcTvl/9GKfdNiJuphWzEV6GcddGTrnu1x447qOseKCVvcCw==}
     peerDependencies:
-      '@kinotic-ai/core': ^5.0.0-beta.28
+      '@kinotic-ai/core': ^5.0.0-beta.29
 
-  '@kinotic-ai/persistence@5.0.0-beta.18':
-    resolution: {integrity: sha512-kpCZjrK7q+ZuFq2OBamDKzH5ppeKS4rN+Ikc6w6RFHldciy0YnSd6k2dZdNKz8jlU5n8UWh2bL7k3UF8uf+qZQ==}
+  '@kinotic-ai/persistence@5.0.0-beta.19':
+    resolution: {integrity: sha512-gyrX3dExOGNwOE3y+dqSsuJK+8B2aXffHP9jVotJUmsmJ4mGQl1ya0lNkN9Mmw0i06+d+mlLmfMcGPSeuy0ydw==}
     peerDependencies:
-      '@kinotic-ai/core': ^5.0.0-beta.28
+      '@kinotic-ai/core': ^5.0.0-beta.29
 
   '@kinotic-ai/spawn@5.0.0-beta.1':
     resolution: {integrity: sha512-54l4rcIo3Z6kYxWCqfpagNm4KZXvDbOdlK6D9Kg9XdImH731nEhiws6OJ/EDHFnEU0ykUJU0vekmaw2Khs/EDw==}
@@ -2536,9 +2694,9 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2': {}
 
-  '@kinotic-ai/core@5.0.0-beta.28(supports-color@8.1.1)':
+  '@kinotic-ai/core@5.0.0-beta.29(supports-color@8.1.1)':
     dependencies:
-      '@kinotic-ai/idl': 5.0.0-beta.5
+      '@kinotic-ai/idl': 5.0.0-beta.6
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.43.0
       '@stomp/rx-stomp': 2.4.0(@stomp/stompjs@7.3.0)(rxjs@7.8.2)(uuid@13.0.2)
@@ -2554,15 +2712,15 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@kinotic-ai/idl@5.0.0-beta.5': {}
+  '@kinotic-ai/idl@5.0.0-beta.6': {}
 
-  '@kinotic-ai/kinotic-cli@5.2.0-beta.36(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)':
+  '@kinotic-ai/kinotic-cli@5.2.0-beta.40(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)':
     dependencies:
       '@inquirer/prompts': 8.5.2(@types/node@25.9.5)
-      '@kinotic-ai/core': 5.0.0-beta.28(supports-color@8.1.1)
-      '@kinotic-ai/idl': 5.0.0-beta.5
-      '@kinotic-ai/management-api': 5.0.0-beta.66(@kinotic-ai/core@5.0.0-beta.28(supports-color@8.1.1))
-      '@kinotic-ai/persistence': 5.0.0-beta.18(@kinotic-ai/core@5.0.0-beta.28(supports-color@8.1.1))
+      '@kinotic-ai/core': 5.0.0-beta.29(supports-color@8.1.1)
+      '@kinotic-ai/idl': 5.0.0-beta.6
+      '@kinotic-ai/management-api': 5.0.0-beta.70(@kinotic-ai/core@5.0.0-beta.29(supports-color@8.1.1))
+      '@kinotic-ai/persistence': 5.0.0-beta.19(@kinotic-ai/core@5.0.0-beta.29(supports-color@8.1.1))
       '@kinotic-ai/spawn': 5.0.0-beta.1
       '@oclif/core': 4.13.3
       c12: 3.3.4(magicast@0.5.4)
@@ -2580,17 +2738,17 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@kinotic-ai/management-api@5.0.0-beta.66(@kinotic-ai/core@5.0.0-beta.28(supports-color@8.1.1))':
+  '@kinotic-ai/management-api@5.0.0-beta.70(@kinotic-ai/core@5.0.0-beta.29(supports-color@8.1.1))':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.28(supports-color@8.1.1)
-      '@kinotic-ai/idl': 5.0.0-beta.5
-      '@kinotic-ai/persistence': 5.0.0-beta.18(@kinotic-ai/core@5.0.0-beta.28(supports-color@8.1.1))
+      '@kinotic-ai/core': 5.0.0-beta.29(supports-color@8.1.1)
+      '@kinotic-ai/idl': 5.0.0-beta.6
+      '@kinotic-ai/persistence': 5.0.0-beta.19(@kinotic-ai/core@5.0.0-beta.29(supports-color@8.1.1))
       rxjs: 7.8.2
 
-  '@kinotic-ai/persistence@5.0.0-beta.18(@kinotic-ai/core@5.0.0-beta.28(supports-color@8.1.1))':
+  '@kinotic-ai/persistence@5.0.0-beta.19(@kinotic-ai/core@5.0.0-beta.29(supports-color@8.1.1))':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.28(supports-color@8.1.1)
-      '@kinotic-ai/idl': 5.0.0-beta.5
+      '@kinotic-ai/core': 5.0.0-beta.29(supports-color@8.1.1)
+      '@kinotic-ai/idl': 5.0.0-beta.6
       rxjs: 7.8.2
 
   '@kinotic-ai/spawn@5.0.0-beta.1':
@@ -2610,7 +2768,7 @@ snapshots:
     dependencies:
       '@hono/node-server': 2.1.0(hono@4.13.0)
       ajv: 8.20.0
-      ajv-formats: 3.0.1
+      ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
       cors: 2.8.6
       cross-spawn: 7.0.6
@@ -2995,8 +3153,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  ajv-formats@3.0.1:
-    dependencies:
+  ajv-formats@3.0.1(ajv@8.20.0):
+    optionalDependencies:
       ajv: 8.20.0
 
   ajv@8.20.0:

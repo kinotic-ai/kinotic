@@ -17,8 +17,10 @@ import org.kinotic.system.api.config.ServerAddressProperties;
 import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Builds the workloads a project runs on its node: the foreground sync and SBOM workloads of a
@@ -67,7 +69,10 @@ public class ProjectWorkloadFactory {
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/workspace")
                                                         .setSizeLimitMb(ProjectWorkloadSizes.SYNC_MOUNT_LIMIT_MB));
-        workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getSyncAllowedHosts(), deployment.getManagementServer()));
+        // The repository is fetched from its clone URL's host, github.com or a demonstration server's Gitea
+        List<String> syncHosts = new ArrayList<>(deployment.getSyncAllowedHosts());
+        syncHosts.add(URI.create(token.getCloneUrl()).getHost());
+        workload.getNetwork().setAllowedHosts(allowedHosts(syncHosts, deployment.getManagementServer()));
         return workload;
     }
 
@@ -154,10 +159,9 @@ public class ProjectWorkloadFactory {
         workload.getSecrets().put("KINOTIC_CLIENT_SECRET", credentials.clientSecret());
     }
 
+    // distinct: a workload's host may be the server's, as a demonstration server's Gitea shares its host alias
     private static List<String> allowedHosts(List<String> workloadHosts, ServerAddressProperties server) {
-        List<String> hosts = new ArrayList<>(workloadHosts);
-        hosts.add(server.getHost());
-        return hosts;
+        return Stream.concat(workloadHosts.stream(), Stream.of(server.getHost())).distinct().toList();
     }
 
     private DeploymentProperties deployment() {

@@ -14,7 +14,7 @@ so humans and AI can build enterprise software at internet scale.
 
 [![Build](https://img.shields.io/endpoint?url=https%3A%2F%2Fkinotic.ai%2Ftest-results%2Fbuild-badge.json&cacheSeconds=300)](https://github.com/kinotic-ai/kinotic/actions/workflows/gradle-build.yml)
 [![Java 25](https://img.shields.io/badge/Java-25-171717)](buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle)
-[![License Elastic 2.0 + Enterprise](https://img.shields.io/badge/license-Elastic%202.0%20%2B%20Enterprise-28FEB4)](LICENSE.md)
+[![License Elastic 2.0 + Apache 2.0 + Enterprise](https://img.shields.io/badge/license-Elastic%202.0%20%2B%20Apache%202.0%20%2B%20Enterprise-28FEB4)](LICENSE.md)
 [![Documentation](https://img.shields.io/badge/docs-kinotic.ai-171717)](https://kinotic.ai/docs/)
 
 [Website](https://kinotic.ai) · [Documentation](https://kinotic.ai/docs/) · [Get Started](https://kinotic.ai/get-started/) · [Test Reports](https://kinotic.ai/test-results)
@@ -377,8 +377,10 @@ Applications should remain inspectable, understandable, and deployable.
 Kinotic provides the higher-level abstractions while allowing developers and organizations to retain visibility into the systems they are building.
 
 The project is licensed under the Elastic License 2.0 with the Kinotic Additional Limitations,
-except the Enterprise Features in [`kinotic-ee/`](kinotic-ee), which are licensed under the
-Kinotic Enterprise License and need an agreement with Minds Ignited for production use. See
+except Kinotic RPC, the service and event layer in `kinotic-core`, `kinotic-api-gateway`,
+`kinotic-idl` and the `@kinotic-ai/core` and `@kinotic-ai/idl` packages, which is licensed under the
+Apache License 2.0, and the Enterprise Features in [`kinotic-ee/`](kinotic-ee), which are licensed
+under the Kinotic Enterprise License and need an agreement with Minds Ignited for production use. See
 [LICENSE.md](LICENSE.md) for the terms governing the project, and [CLA.md](CLA.md) for the
 agreement contributors accept.
 

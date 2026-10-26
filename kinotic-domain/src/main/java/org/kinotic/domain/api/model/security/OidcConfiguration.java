@@ -16,7 +16,7 @@ import java.util.Date;
  * where it is offered, and carries the fields only that owner has: a {@link ManagedOidcConfiguration}
  * is a registration the system holds with a provider, offered as
  * {@link OrgSignupOidcConfiguration} to organization sign-up and sign-in or as
- * {@link ApplicationSocialOidcConfiguration} to the applications that name its provider; an
+ * {@link ApplicationSocialOidcConfiguration} to the applications' configurations that use it; an
  * {@link OwnedOidcConfiguration} is one an organization configures for exactly one of its sign-in
  * scopes. The client secret is never a field of a configuration: each subtype says where its secret
  * is held and who may read it. All subtypes share one id space and one index; {@link #getType()} is

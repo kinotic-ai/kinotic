@@ -26,7 +26,7 @@ import { count, findProjectTeardown, teardownRows } from '@/util/deleteImpact'
 
 /**
  * Confirms deleting an application, listing everything the delete removes: its projects and
- * everything their deployments run, and what it keeps, such as the projects' GitHub repositories.
+ * everything their deployments run, and what it keeps, such as the projects' repositories.
  * Confirming deletes each project, then the application.
  */
 const props = defineProps<{

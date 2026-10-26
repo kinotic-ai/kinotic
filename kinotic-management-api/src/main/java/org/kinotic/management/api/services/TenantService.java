@@ -1,6 +1,8 @@
 package org.kinotic.management.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.services.ApplicationScopedCrudService;
@@ -28,5 +30,16 @@ public interface TenantService extends ApplicationScopedCrudService<Tenant, Stri
      *         applications, since a tenant id is unique within the organization
      */
     Future<Tenant> createTenantIfNotExist(String applicationId, String name, String description);
+
+    /**
+     * Finds the tenants of the application whose name or id starts with {@code prefix}, ignoring case; a blank prefix
+     * finds them all, as {@code findAllForApplication} does.
+     *
+     * @param applicationId the application whose tenants to find, one of the caller's organization's
+     * @param prefix        the start of the name or id to match
+     * @param pageable      the paging parameters
+     * @return {@link Future} emitting a page of the matching tenants
+     */
+    Future<Page<Tenant>> findForApplicationByPrefix(String applicationId, String prefix, Pageable pageable);
 
 }

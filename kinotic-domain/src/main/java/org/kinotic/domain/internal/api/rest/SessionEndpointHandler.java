@@ -4,7 +4,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.SessionBinding;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.springframework.stereotype.Component;
 
 /**

@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell :art="loginArt">
+  <AuthPageShell>
     <div class="login-form">
       <div v-if="providers.length > 0" class="login-providers">
         <SocialAuthButton
@@ -12,16 +12,16 @@
         <div class="login-divider"><span>or</span></div>
       </div>
 
-      <!-- The organizations a social sign-in found the identity a member of; the person picks one. -->
-      <div v-if="memberships.length > 0" class="login-memberships">
-        <p class="login-memberships__hint">You are a member of several organizations. Choose one to sign in to.</p>
+      <!-- The organizations a social sign-in found the identity signs in to; the person picks one. -->
+      <div v-if="organizationChoices.length > 0" class="login-choices">
+        <p class="login-choices__hint">You belong to several organizations. Choose one to sign in to.</p>
         <Button
-          v-for="membership in memberships"
-          :key="membership"
-          :label="membership"
-          class="login-submit login-memberships__choice"
+          v-for="choice in organizationChoices"
+          :key="choice"
+          :label="choice"
+          class="login-submit login-choices__choice"
           severity="secondary"
-          @click="continueTo(membership)"
+          @click="continueTo(choice)"
         />
         <div class="login-divider"><span>or</span></div>
       </div>
@@ -50,9 +50,19 @@
       </div>
 
       <div class="login-find">
-        <a v-if="!finding" href="#" class="login-link" @click.prevent="finding = true">Don't know your organization?</a>
+        <!-- The organizations a server that shows links in the UI answered with, in place of an email -->
+        <div v-if="foundOrganizations !== null" class="login-find__found">
+          <p v-if="foundOrganizations.length === 0" class="login-find__hint">This address isn't a member of any organization.</p>
+          <template v-else>
+            <p class="login-find__hint">This address can sign in to:</p>
+            <a v-for="found in foundOrganizations" :key="found.loginUrl" :href="found.loginUrl" class="login-link">{{ found.name }}</a>
+          </template>
+        </div>
+        <a v-if="!finding" href="#" class="login-link" @click.prevent="finding = true; foundOrganizations = null">Don't know your organization?</a>
         <template v-else>
-          <p class="login-find__hint">We'll email you the organizations this address can sign in to.</p>
+          <p class="login-find__hint">
+            {{ showLinksInUI ? 'We\'ll list the organizations this address can sign in to.' : 'We\'ll email you the organizations this address can sign in to.' }}
+          </p>
           <IconField class="login-field login-field--last">
             <InputText
               ref="emailInput"
@@ -66,7 +76,7 @@
           <!-- The Cloudflare Turnstile challenge the server requires with the request, when it names a site -->
           <div v-if="turnstileSiteKey" ref="turnstileEl" class="login-find__challenge"></div>
           <Button
-            label="Email me my organizations"
+            :label="showLinksInUI ? 'Find my organizations' : 'Email me my organizations'"
             class="login-submit"
             severity="secondary"
             :loading="sending"
@@ -95,9 +105,9 @@ import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
-import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import loginArt from '@/assets/login-background.svg'
-import { organizationLoginPath, organizationSlug, rememberedOrganization } from '@/pages/login/organizationLogin'
+import SocialAuthButton, { providerDisplayName } from '@/components/SocialAuthButton.vue'
+import { organizationLoginPath, organizationSlug, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
+import { emailNotVerifiedMessage } from '@/util/oidcConfigurations'
 
 const debug = createDebug('login')
 
@@ -109,6 +119,9 @@ const email = ref<string>('')
 const finding = ref<boolean>(false)
 const sending = ref<boolean>(false)
 const turnstileSiteKey = ref<string | null>(null)
+// whether the find route answers with the organizations in place of an email
+const showLinksInUI = ref<boolean>(false)
+const foundOrganizations = ref<{ name: string, loginUrl: string }[] | null>(null)
 const turnstileToken = ref<string>('')
 const turnstileEl = ref<HTMLElement | null>(null)
 let turnstileWidget: string | null = null
@@ -132,7 +145,7 @@ declare global {
 const TURNSTILE_SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
 let turnstileLoading: Promise<Turnstile> | null = null
 const providers = ref<string[]>([])
-const memberships = ref<string[]>([])
+const organizationChoices = ref<string[]>([])
 
 const organizationInput = ref<any>()
 const emailInput = ref<any>()
@@ -146,11 +159,15 @@ onMounted(() => {
   const remembered = rememberedOrganization()
   // a returning browser goes straight to the organization it last signed in to, unless a failed
   // sign-in or a choice of organizations must be shown here
-  if (remembered !== null && urlError() === null) {
+  if (remembered !== null && urlParam('error') === null) {
     router.replace({ path: organizationLoginPath(remembered), query: route.query })
   } else {
     void consumeUrlError()
-    organization.value = remembered ?? ''
+    const unknown = unknownOrganization()
+    if (unknown !== null) {
+      displayError(`There is no organization named ${unknown}.`)
+    }
+    organization.value = remembered ?? unknown ?? ''
     nextTick(() => focus(organizationInput))
     // the buttons appear when the list arrives, so a server slow to answer does not hold up the form
     void loadProviders()
@@ -173,6 +190,7 @@ async function presentChallenge() {
     const res = await fetch(apiUrl('/api/auth/org/login/find'), { credentials: 'same-origin' })
     const data = res.ok ? await res.json() : {}
     turnstileSiteKey.value = typeof data?.turnstileSiteKey === 'string' ? data.turnstileSiteKey : null
+    showLinksInUI.value = data?.showLinksInUI === true
   } catch (err) {
     debug('Failed to load the find challenge: %O', err)
     turnstileSiteKey.value = null
@@ -236,35 +254,42 @@ function socialStartUrl(provider: string): string {
 
 /**
  * Every auth flow (login, signup, invite) redirects here with ?error=<code> on failure. A social sign-in
- * that found the identity a member of several organizations left their ids in the session, and the page
+ * that found the identity signs in to several organizations left their ids in the session, and the page
  * offers them instead of an error.
  */
 async function consumeUrlError() {
-  const error = urlError()
+  const error = urlParam('error')
   if (!error) return
+  const provider = urlParam('provider')
 
   // Clean the query string so a refresh doesn't replay the error; the referer stays, for the login
   // the person starts next from here.
   const newQuery = { ...route.query }
   delete newQuery.error
+  delete newQuery.provider
   router.replace({ query: newQuery })
 
   if (error !== 'multiple_organizations') {
-    displayError(errorCodeToMessage(error))
+    displayError(errorCodeToMessage(error, provider))
   } else {
     const choices = await loadChoices()
     if (choices === null) {
       displayError('Could not load your organizations. Please sign in again.')
     } else if (choices.length === 0) {
-      displayError(errorCodeToMessage(error))
+      displayError(errorCodeToMessage(error, provider))
     } else {
-      memberships.value = choices
+      organizationChoices.value = choices
     }
   }
 }
 
-function urlError(): string | null {
-  return (route.query.error as string | undefined) ?? new URLSearchParams(window.location.search).get('error')
+/**
+ * The remembered organization the organization page sent the browser back from because it no longer
+ * exists, or null when the page was reached any other way.
+ */
+function unknownOrganization(): string | null {
+  const name = window.history.state?.[UNKNOWN_ORGANIZATION_STATE]
+  return typeof name === 'string' && name ? name : null
 }
 
 // The organizations the sign-in found, offered for a short while after it; null when the request
@@ -285,14 +310,16 @@ async function loadChoices(): Promise<string[] | null> {
   return ret
 }
 
-function errorCodeToMessage(code: string): string {
+function urlParam(name: string): string | null {
+  return (route.query[name] as string | undefined) ?? new URLSearchParams(window.location.search).get(name)
+}
+
+function errorCodeToMessage(code: string, provider: string | null): string {
   switch (code) {
-    case 'no_user':                return 'That identity signs in to no Kinotic organization. Please sign up first.'
-    case 'multiple_organizations': return 'You are a member of several organizations, but the choice has expired. Please sign in again.'
-    case 'user_exists':            return 'This email or identity is already registered with Kinotic organizations, and a person founds one organization. Sign in, then connect this provider under Sign-in methods on your profile.'
-    case 'user_pending':           return 'An administrator added this email to an organization. Accept the invitation emailed to you, or sign in on that organization\'s sign-in page.'
+    case 'no_user':                return noUserMessage(provider)
+    case 'multiple_organizations': return 'You belong to several organizations, but the choice has expired. Please sign in again.'
     case 'user_disabled':          return 'You cannot sign in to this organization. Ask an administrator to enable your access.'
-    case 'email_not_verified':     return 'Your identity provider has not verified your email address.'
+    case 'email_not_verified':     return emailNotVerifiedMessage(provider)
     case 'state_mismatch':         return 'Login session expired or was tampered with. Please try again.'
     case 'access_denied':          return 'You declined to authorize Kinotic. Please try again to continue.'
     case 'signup_failed':          return 'Sign-up failed. Please try again.'
@@ -303,6 +330,11 @@ function errorCodeToMessage(code: string): string {
     case 'invalid_token':          return 'Sign-in failed. Please try again.'
     default:                       return `Sign-in failed: ${code}`
   }
+}
+
+function noUserMessage(provider: string | null): string {
+  const account = provider ? `your ${providerDisplayName(provider)} account` : 'that sign-in'
+  return `No Kinotic user is linked to ${account}. Sign in the way you joined, or create an organization.`
 }
 
 async function loadProviders() {
@@ -347,7 +379,11 @@ async function findOrganizations() {
     if (!res.ok) {
       throw new Error(await readAuthError(res, 'Could not send the email'))
     }
-    toast.add({ severity: 'success', summary: 'Email sent', detail: `Check ${email.value} for your organizations.`, life: 10000 })
+    if (res.status === 200) {
+      foundOrganizations.value = (await res.json()).organizations ?? []
+    } else {
+      toast.add({ severity: 'success', summary: 'Email sent', detail: `Check ${email.value} for your organizations.`, life: 10000 })
+    }
     finding.value = false
   } catch (err) {
     displayError(err instanceof Error ? err.message : 'Could not send the email')
@@ -381,18 +417,18 @@ function displayError(text: string) {
 }
 
 .login-providers :deep(.social-auth-button-form),
-.login-providers :deep(.social-auth-button--gh) {
+.login-providers :deep(.social-auth-button--mark) {
   width: 100%;
 }
 
-.login-providers :deep(.social-auth-button--gh) {
+.login-providers :deep(.social-auth-button--mark) {
   height: 3.5rem;
   border-radius: 5px;
   border-color: var(--lp-provider-border);
   font-weight: 400;
 }
 
-.login-providers :deep(.social-auth-button--gh:hover) {
+.login-providers :deep(.social-auth-button--mark:hover) {
   border-color: var(--lp-provider-border-hover);
 }
 
@@ -412,20 +448,20 @@ function displayError(text: string) {
   -webkit-text-fill-color: var(--lp-input-color);
 }
 
-.login-memberships {
+.login-choices {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   margin-bottom: 2.25rem;
 }
 
-.login-memberships__hint {
+.login-choices__hint {
   margin: 0 0 0.5rem;
   text-align: center;
   color: var(--lp-text);
 }
 
-.login-memberships .login-divider {
+.login-choices .login-divider {
   margin-top: 1.5rem;
 }
 
@@ -438,6 +474,13 @@ function displayError(text: string) {
 .login-find__hint {
   margin: 0 0 1rem;
   color: var(--lp-text);
+}
+
+.login-find__found {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .login-find__challenge {

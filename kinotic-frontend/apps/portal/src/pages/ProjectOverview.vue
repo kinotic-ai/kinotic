@@ -2,8 +2,9 @@
   <div class="flex flex-col">
     <PageHeader :title="project?.name ?? projectId" :description="project?.description">
       <template #actions>
-        <a v-if="project?.repoFullName" :href="`https://github.com/${project.repoFullName}`" target="_blank" rel="noopener">
-          <Button label="Open repository" icon="pi pi-github" severity="secondary" outlined />
+        <a v-if="repoUrl" :href="repoUrl" target="_blank" rel="noopener">
+          <Button label="Open repository" :icon="repoHost?.type === RepoHostType.GITHUB ? 'pi pi-github' : 'pi pi-external-link'"
+                  severity="secondary" outlined />
         </a>
       </template>
     </PageHeader>
@@ -24,7 +25,7 @@
                 detail="in this project's data model" :to="`${basePath}/entities`" />
       <StatCard :icon="GitBranch" :tint="TINTS.purple" label="Repository" :loading="loading"
                 :detail="project?.repoFullName ?? '—'" mono-detail
-                :href="project?.repoFullName ? `https://github.com/${project.repoFullName}` : undefined">
+                :href="repoUrl">
         <Tag v-if="project?.repoConnectionStatus === RepoStatus.INITIALIZATION_FAILED" value="Init failed" severity="warn" />
         <Tag v-else-if="project?.repoConnectionStatus === RepoStatus.DISCONNECTED" value="Disconnected" severity="danger" />
         <Tag v-else value="Connected" severity="success" />
@@ -129,8 +130,11 @@ import Message from 'primevue/message'
 import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
-import { type MicroserviceDeployment, type Project, type ProjectDeployment, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
-import { createDebug, DatetimeUtil, FactList, HeartbeatIcon, observedPhase, observedPhaseSeverity, PageHeader, StatCard, TINTS, EmptyChartCharacter, HEARTBEAT_TINTS, deploymentHeartbeat, shortSha } from '@kinotic-ai/frontend-common'
+import { type MicroserviceDeployment, type Project, type ProjectDeployment, RepoHostType, type RepositoryHost, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
+import { repositoryHost, repositoryUrl } from '@/util/repositoryHost'
+import { createDebug, DatetimeUtil, FactList, HeartbeatIcon, PageHeader, StatCard, TINTS, EmptyChartCharacter, HEARTBEAT_TINTS,
+         shortSha } from '@kinotic-ai/frontend-common'
+import { observedPhase, observedPhaseSeverity, deploymentHeartbeat } from '@kinotic-ai/frontend-common/management'
 
 /**
  * The landing page of one project: its repository, its deployment state, how many entities
@@ -151,6 +155,10 @@ const cardClass = 'rounded-xl border border-surface-200 bg-surface-0 p-5 dark:bo
 const basePath = computed(() => `/application/${encodeURIComponent(props.applicationId)}/project/${encodeURIComponent(props.projectId)}`)
 
 const project = ref<Project | null>(null)
+const repoHost = ref<RepositoryHost | null>(null)
+const repoUrl = computed(() => project.value?.repoFullName && repoHost.value
+    ? repositoryUrl(repoHost.value, project.value.repoFullName)
+    : undefined)
 const deployment = ref<ProjectDeployment | null>(null)
 /** What the Deployment card's heartbeat shows: beating while running, a dropped beat once failed. */
 const heartbeat = computed(() => deploymentHeartbeat(deployment.value?.state.observed?.phase))
@@ -205,12 +213,14 @@ async function load(): Promise<void> {
   microservices.value = []
   uis.value = []
   try {
-    const [loadedProject, loadedDeployment, loadedMicroservices, loadedUis] = await Promise.all([
+    const [loadedHost, loadedProject, loadedDeployment, loadedMicroservices, loadedUis] = await Promise.all([
+      repositoryHost(),
       Kinotic.projects.findById(props.projectId),
       Kinotic.projects.findDeployment(props.projectId),
       Kinotic.microserviceDeployments.findAllForProject(props.projectId),
       Kinotic.uiDeployments.findAllForProject(props.projectId)
     ])
+    repoHost.value = loadedHost
     project.value = loadedProject
     deployment.value = loadedDeployment
     microservices.value = loadedMicroservices
