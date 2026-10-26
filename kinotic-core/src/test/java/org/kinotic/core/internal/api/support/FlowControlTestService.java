@@ -18,4 +18,10 @@ public interface FlowControlTestService {
      */
     Flux<Integer> controlled();
 
+    /**
+     * Emits 0 up to count, exclusive, in one turn of the context it is invoked on, without waiting to be asked,
+     * dropping any value its subscriber has not asked for.
+     */
+    Flux<Integer> burst(int count);
+
 }

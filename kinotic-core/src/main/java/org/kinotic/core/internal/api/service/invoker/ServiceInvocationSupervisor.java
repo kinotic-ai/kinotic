@@ -679,6 +679,9 @@ public class ServiceInvocationSupervisor {
         // guarded by this: the source ended while values were held, with heldError null for a completion
         private boolean terminalHeld;
         private Throwable heldError;
+        // touched only on the stream's context: a value arriving while this is set comes from a source draining
+        // synchronously inside this subscriber's own request
+        private boolean requesting;
         // touched only by hookOnNext, which the source serializes
         private int sentSinceRefill;
         // sends are serialized: hookOnNext sends directly only while not suspended, and resume clears the flag after its flush
@@ -705,6 +708,9 @@ public class ServiceInvocationSupervisor {
         public void fail(Throwable throwable){
             if(failed.compareAndSet(false, true)){
                 if(!isDisposed()){
+                    synchronized (this){
+                        heldValues.clear();
+                    }
                     sendError(throwable);
                     cancel();
                 }else if(dropHeldTerminal()){
@@ -788,10 +794,11 @@ public class ServiceInvocationSupervisor {
             // demand is replenished only for sent values, so a suspended stream stops its source once the window is held
             if(sent && ++sentSinceRefill == STREAM_DEMAND_WINDOW / 2){
                 sentSinceRefill = 0;
-                if(Vertx.currentContext() == context){
-                    // a source emitting on the stream's own context holds it, so the demand waits for the next turn:
-                    // a suspend queued behind the source is processed before it emits further
-                    context.runOnContext(_ -> request(STREAM_DEMAND_WINDOW / 2));
+                if(Vertx.currentContext() == context && requesting){
+                    // a source draining synchronously inside our own request holds the context, so the demand waits
+                    // for the next turn: a suspend queued behind the source is processed before it emits further.
+                    // A source pushing on its own schedule keeps its demand inline, so a burst is not cut short.
+                    context.runOnContext(_ -> requestOnContext(STREAM_DEMAND_WINDOW / 2));
                 }else{
                     request(STREAM_DEMAND_WINDOW / 2);
                 }
@@ -804,7 +811,17 @@ public class ServiceInvocationSupervisor {
             replyListenerStatusSubscriber = new ReplyListenerStatusSubscriber(this);
             replyListenerStatus.subscribe(replyListenerStatusSubscriber);
 
-            request(STREAM_DEMAND_WINDOW);
+            requestOnContext(STREAM_DEMAND_WINDOW);
+        }
+
+        // only ever called on the stream's context: subscribe, a deferred top-up, or a resume
+        private void requestOnContext(long amount){
+            requesting = true;
+            try {
+                request(amount);
+            } finally {
+                requesting = false;
+            }
         }
 
         private void send(Object value){
@@ -825,6 +842,10 @@ public class ServiceInvocationSupervisor {
             boolean releaseTerminal;
             Throwable error;
             synchronized (this){
+                // a resume racing fail() must not send anything held after the failure's error
+                if(failed.get()){
+                    heldValues.clear();
+                }
                 sent = heldValues.size();
                 while(!heldValues.isEmpty()){
                     send(heldValues.poll());
@@ -843,7 +864,7 @@ public class ServiceInvocationSupervisor {
                 }
                 finish();
             }else if(sent > 0){
-                request(sent);
+                requestOnContext(sent);
             }
         }
 

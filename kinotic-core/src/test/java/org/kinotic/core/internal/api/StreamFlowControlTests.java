@@ -1,5 +1,7 @@
 package org.kinotic.core.internal.api;
 
+import io.vertx.core.Context;
+import io.vertx.core.Vertx;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -22,8 +24,8 @@ import java.util.stream.IntStream;
 
 /**
  * Pins how a Java service's stream answers suspend and resume: a synchronous source pauses at a suspend, a
- * stream whose source ends while values are held keeps its ending until it is resumed, and a cancel drops a
- * stream whose ending is held.
+ * source pushing a burst on the stream's context keeps its demand, a stream whose source ends while values are
+ * held keeps its ending until it is resumed, and a cancel drops a stream whose ending is held.
  */
 @SpringBootTest
 @ActiveProfiles({"test"})
@@ -53,6 +55,22 @@ public class StreamFlowControlTests {
                       .until(probe::completed);
             Assertions.assertEquals(IntStream.range(0, count).boxed().toList(), probe.values());
             Assertions.assertEquals(List.of(), probe.errors());
+        } finally {
+            unregister(serviceIdentifier);
+        }
+    }
+
+    @Test
+    public void testBurstOnTheStreamsContextIsNotCutShort() throws Exception {
+        int count = 100;
+        ServiceIdentifier serviceIdentifier = register(new DefaultFlowControlTestService());
+        try (StreamReplyProbe probe = new StreamReplyProbe(eventBusService, serviceIdentifier.cri(), "burst")) {
+            probe.request("[" + count + "]");
+            Awaitility.await("the burst completes")
+                      .atMost(Duration.ofSeconds(10))
+                      .until(probe::completed);
+            Assertions.assertEquals(IntStream.range(0, count).boxed().toList(), probe.values(),
+                                    "values the source pushed in one turn were dropped for lack of demand");
         } finally {
             unregister(serviceIdentifier);
         }
@@ -169,6 +187,18 @@ public class StreamFlowControlTests {
         @Override
         public Flux<Integer> controlled() {
             return sink.asFlux().doOnSubscribe(_ -> subscribed = true);
+        }
+
+        @Override
+        public Flux<Integer> burst(int count) {
+            Context context = Vertx.currentContext();
+            Sinks.Many<Integer> burst = Sinks.many().multicast().directBestEffort();
+            return burst.asFlux().doOnSubscribe(_ -> context.runOnContext(_ -> {
+                for (int i = 0; i < count; i++) {
+                    burst.tryEmitNext(i);
+                }
+                burst.tryEmitComplete();
+            }));
         }
     }
 
