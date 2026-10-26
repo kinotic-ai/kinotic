@@ -37,10 +37,6 @@ Update every pin to the new versions in the same change as the bump:
 | Workload runner | `workload-runner/package.json`, including `kinotic-cli` | `workload-runner/bun.lock`, installed `--frozen-lockfile` by its Dockerfile |
 | vm-manager's test fixture | `workspace/packages/vm-manager/test/fixtures/echo-project/package.json` | none |
 
-A pin that reads `file:../unpublished/<package>.tgz` installs a version not on the registry yet from a
-tarball packed out of `workspace/` (`unpublished/README.md`); publishing the package returns it to a
-registry version, and the grep below does not find it.
-
 A consumer that pins `kinotic-cli` gets the CLI's exact pins as well, so a CLI left behind
 brings its own `management-api` and `core` into that graph. `load-generator` is out of
 date, pins old majors, and is left out of bumps.

@@ -4,7 +4,6 @@
 !kinotic-frontend/package.json
 !kinotic-frontend/pnpm-lock.yaml
 !kinotic-frontend/pnpm-workspace.yaml
-!kinotic-js/unpublished
 !kinotic-frontend/apps
 !kinotic-frontend/packages
 **/node_modules
