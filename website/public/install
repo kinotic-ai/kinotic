@@ -13,25 +13,32 @@ fail() {
     exit 1
 }
 
-command -v docker >/dev/null 2>&1 || fail "Docker is required. Install Docker Desktop (https://docs.docker.com/get-docker/), start it, and run this again."
-docker info >/dev/null 2>&1 || fail "Docker is not running. Start Docker Desktop or the Docker daemon, and run this again."
-command -v node >/dev/null 2>&1 || fail "Node.js 18 or later is required to run the Kinotic CLI. Install it from https://nodejs.org and run this again."
+# The whole script is one function called on its last line, so a download cut short runs nothing
+main() {
+    command -v docker >/dev/null 2>&1 || fail "Docker is required. Install Docker Desktop (https://docs.docker.com/get-docker/), start it, and run this again."
+    docker info >/dev/null 2>&1 || fail "Docker is not running. Start Docker Desktop or the Docker daemon, and run this again."
+    command -v node >/dev/null 2>&1 || fail "Node.js 18 or later is required to run the Kinotic CLI. Install it from https://nodejs.org and run this again."
 
-if ! command -v bun >/dev/null 2>&1; then
-    printf 'Installing Bun\n'
-    curl -fsSL https://bun.sh/install | bash
-fi
-BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
-ORIGINAL_PATH="$PATH"
-PATH="$BUN_INSTALL/bin:$PATH"
-export PATH
+    BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+    ORIGINAL_PATH="$PATH"
+    PATH="$BUN_INSTALL/bin:$PATH"
+    export PATH
+    if ! command -v bun >/dev/null 2>&1; then
+        printf 'Installing Bun\n'
+        # sh has no pipefail, so the install is judged by whether bun exists afterwards
+        curl -fsSL https://bun.sh/install | bash || true
+        command -v bun >/dev/null 2>&1 || fail "Bun could not be installed. Install it from https://bun.sh and run this again."
+    fi
 
-printf 'Installing the Kinotic CLI\n'
-bun install --global @kinotic-ai/kinotic-cli@beta
+    printf 'Installing the Kinotic CLI\n'
+    bun install --global @kinotic-ai/kinotic-cli@beta
 
-kinotic local up
+    kinotic local up
 
-case ":$ORIGINAL_PATH:" in
-    *":$BUN_INSTALL/bin:"*) ;;
-    *) printf '\nOpen a new terminal, or add %s/bin to your PATH, to run kinotic there.\n' "$BUN_INSTALL" ;;
-esac
+    case ":$ORIGINAL_PATH:" in
+        *":$BUN_INSTALL/bin:"*) ;;
+        *) printf '\nOpen a new terminal, or add %s/bin to your PATH, to run kinotic there.\n' "$BUN_INSTALL" ;;
+    esac
+}
+
+main

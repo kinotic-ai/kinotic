@@ -10,22 +10,27 @@ export const PORTAL_URL = 'http://localhost:9090'
 /** The system console of the local stack, where system users sign in. */
 export const CONSOLE_URL = 'http://localhost:9091'
 
-const SERVER_HEALTH_URLS = ['http://localhost:58503/health', 'http://localhost:58504/health', 'http://localhost:58505/health']
+// compose publishes the servers on 127.0.0.1 alone, which "localhost" may resolve past to ::1 first
+const SERVER_HEALTH_URLS = ['http://127.0.0.1:58503/health', 'http://127.0.0.1:58504/health', 'http://127.0.0.1:58505/health']
+// The project compose.yml names, which labels every container of the stack
+const COMPOSE_PROJECT = 'kinotic'
+const NODE_COMMAND = 'kinotic-vm-manager'
 const RECOMMENDED_MEMORY_BYTES = 12 * 1024 ** 3
 const SERVER_START_TIMEOUT_MS = 15 * 60_000
+const NODE_STARTUP_CHECK_MS = 5000
 const NODE_STOP_TIMEOUT_MS = 15_000
 
 // The node connects to the system server as the SYSTEM-scope machine identity V2__system_identities seeds, and ships
 // its workloads' logs, traces and metrics to the stack's Loki and OTLP collector
 const NODE_ENVIRONMENT = {
     KINOTIC_NODE_ID: 'local-node',
-    KINOTIC_SERVER_HOST: 'localhost',
+    KINOTIC_SERVER_HOST: '127.0.0.1',
     KINOTIC_SERVER_PORT: '58504',
     KINOTIC_CLIENT_ID: '00000000-0000-0000-0000-000000000011',
     KINOTIC_CLIENT_SECRET: 'kinotic',
-    KINOTIC_LOKI_URL: 'http://localhost:3100',
-    KINOTIC_TEMPO_URL: 'http://localhost:4318',
-    KINOTIC_MIMIR_URL: 'http://localhost:4318',
+    KINOTIC_LOKI_URL: 'http://127.0.0.1:3100',
+    KINOTIC_TEMPO_URL: 'http://127.0.0.1:4318',
+    KINOTIC_MIMIR_URL: 'http://127.0.0.1:4318',
 }
 
 /**
@@ -47,6 +52,7 @@ export class LocalStack {
 
     /**
      * @param dataDir the CLI's data directory, under which the stack keeps its files
+     * @throws Error when this CLI holds no bundled stack, as when it runs from its sources unbuilt
      */
     constructor(dataDir: string) {
         this.dir = path.join(dataDir, 'local')
@@ -55,7 +61,11 @@ export class LocalStack {
         this.nodeLog = path.join(this.dir, 'node.log')
         // dist/internal/local/LocalStack.js reads the dist/local the build bundles
         this.bundleDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'local')
-        this.versions = JSON.parse(fs.readFileSync(path.join(this.bundleDir, 'stack.json'), 'utf8'))
+        const versionsFile = path.join(this.bundleDir, 'stack.json')
+        if (!fs.existsSync(versionsFile)) {
+            throw new Error(`This CLI has no bundled local stack at ${this.bundleDir}; build it with: pnpm build`)
+        }
+        this.versions = JSON.parse(fs.readFileSync(versionsFile, 'utf8'))
     }
 
     /** The versions this CLI release runs the stack at. */
@@ -63,10 +73,18 @@ export class LocalStack {
         return this.versions
     }
 
-    /** Whether this machine can run the node: macOS on Apple silicon, or Linux with KVM. */
+    /** Whether this machine can run the node: macOS on Apple silicon, or Linux with KVM this user may open. */
     get canRunNode(): boolean {
-        return (process.platform === 'darwin' && process.arch === 'arm64')
-               || (process.platform === 'linux' && fs.existsSync('/dev/kvm'))
+        let ret = process.platform === 'darwin' && process.arch === 'arm64'
+        if (process.platform === 'linux') {
+            try {
+                fs.accessSync('/dev/kvm', fs.constants.R_OK | fs.constants.W_OK)
+                ret = true
+            } catch {
+                // no KVM, or this user is not in the group that may open it
+            }
+        }
+        return ret
     }
 
     /**
@@ -77,14 +95,23 @@ export class LocalStack {
      */
     checkPrerequisites(): string[] {
         const warnings: string[] = []
-        const info = this.run('docker', ['info', '--format', '{{.MemTotal}}'])
-        if (info.error || info.status !== 0) {
-            throw new Error('Docker is not running. Start Docker Desktop or the Docker daemon, then run this again.')
+        const info = this.run('docker', ['info', '--format', '{{.MemTotal}} {{.DockerRootDir}}'])
+        if (info.error) {
+            throw new Error('Docker is required. Install Docker Desktop or Docker Engine (https://docs.docker.com/get-docker/).')
+        }
+        if (info.status !== 0) {
+            throw new Error('Docker is not running, or this user may not use it: '
+                            + `${info.stderr.trim().split('\n')[0]}. Start Docker, then run this again.`)
+        }
+        const [memTotal, rootDir] = info.stdout.trim().split(' ')
+        if (rootDir.includes('/snap/')) {
+            throw new Error('Docker installed as a snap cannot read the files Kinotic mounts from your home directory.'
+                            + ' Install Docker Engine (https://docs.docker.com/engine/install/) instead.')
         }
         if (this.run('docker', ['compose', 'version']).status !== 0) {
             throw new Error('Docker Compose v2 is required (the `docker compose` command). Install or update Docker.')
         }
-        if (Number(info.stdout.trim()) < RECOMMENDED_MEMORY_BYTES) {
+        if (Number(memTotal) < RECOMMENDED_MEMORY_BYTES) {
             warnings.push('Docker has less than 12 GB of memory; Kinotic may run slowly or its servers may be stopped.'
                           + ' Raise Docker\'s memory limit if they are.')
         }
@@ -95,22 +122,23 @@ export class LocalStack {
             }
         } else {
             warnings.push('This machine cannot run the node deployments run on (it needs macOS on Apple silicon, or Linux'
-                          + ' with KVM), so Kinotic starts without one and projects do not deploy.')
+                          + ' with KVM and a user in its group), so Kinotic starts without one and projects do not deploy.')
         }
         return warnings
     }
 
     /**
-     * Starts the stack's containers and waits for its servers to answer.
+     * Downloads the stack's latest images, keeping those already here when a download fails, then starts its
+     * containers and waits for its servers to answer.
      *
-     * @param pull whether to download the latest images first, rather than reuse those already on this machine
      * @param onWaiting called once the containers are started and the servers are being waited for
      */
-    async start(pull: boolean, onWaiting: () => void): Promise<void> {
-        // A fresh copy, so the containers' mounts never point into a CLI install that an upgrade replaces
-        fs.rmSync(this.composeDir, {recursive: true, force: true})
-        fs.cpSync(path.join(this.bundleDir, 'compose'), this.composeDir, {recursive: true})
-        this.compose(['up', '-d', '--no-build', '--pull', pull ? 'always' : 'missing'])
+    async start(onWaiting: () => void): Promise<void> {
+        // Copied over in place: a running container's bind mounts keep pointing at the same files and directories,
+        // and none of them points into a CLI install that an upgrade replaces
+        fs.cpSync(path.join(this.bundleDir, 'compose'), this.composeDir, {recursive: true, force: true})
+        this.compose(['pull', '--ignore-pull-failures'])
+        this.compose(['up', '-d', '--no-build', '--pull', 'missing'])
         onWaiting()
         await this.waitForServers()
     }
@@ -151,53 +179,73 @@ export class LocalStack {
         let ret: number | null = null
         if (fs.existsSync(this.pidFile)) {
             const pid = Number(fs.readFileSync(this.pidFile, 'utf8').trim())
-            try {
-                process.kill(pid, 0)
+            // the id must still lead a process group running the node, not a process that reused the id
+            if (Number.isInteger(pid) && pid > 0 && this.run('pgrep', ['-g', String(pid), '-f', NODE_COMMAND]).status === 0) {
                 ret = pid
-            } catch {
-                // the process has exited; its id file is stale
             }
         }
         return ret
     }
 
     /**
-     * Starts the node in the background, unless it runs already. It outlives this command, writing to
-     * {@link nodeLog}, and the first start downloads its release.
+     * Starts the node in the background, unless it runs already, and checks that it keeps running. It outlives
+     * this command, writing to {@link nodeLog}, and the first start downloads its release.
      *
      * @returns the node's process id
+     * @throws Error when the node cannot start or exits right away, with the end of its log
      */
-    startNode(): number {
+    async startNode(): Promise<number> {
         let ret = this.nodePid()
         if (ret === null) {
             fs.mkdirSync(this.dir, {recursive: true})
             const log = fs.openSync(this.nodeLog, 'a')
-            const child = spawn('bunx', ['--package', `@kinotic-ai/vm-manager@${this.versions.vmManagerVersion}`,
-                                         'kinotic-vm-manager'],
-                                {detached: true, stdio: ['ignore', log, log], env: {...process.env, ...NODE_ENVIRONMENT}})
-            child.unref()
+            // A shell's or a project's KINOTIC_* settings would point the node elsewhere, and Bun reads any .env in its
+            // working directory, so the node runs from the stack's own directory with only the settings below
+            const env = Object.fromEntries(Object.entries(process.env)
+                                                 .filter(([name]) => !name.startsWith('KINOTIC_') && name !== 'BOXLITE_HOME'))
+            const child = spawn('bun', ['x', '--package', `@kinotic-ai/vm-manager@${this.versions.vmManagerVersion}`, NODE_COMMAND],
+                                {detached: true, cwd: this.dir, stdio: ['ignore', log, log], env: {...env, ...NODE_ENVIRONMENT}})
             fs.closeSync(log)
-            ret = child.pid!
+            if (child.pid === undefined) {
+                throw new Error('The node could not start: Bun did not run. Check that `bun x` works.')
+            }
+            child.unref()
+            ret = child.pid
             fs.writeFileSync(this.pidFile, String(ret))
+            await new Promise(resolve => setTimeout(resolve, NODE_STARTUP_CHECK_MS))
+            if (this.nodePid() === null) {
+                fs.rmSync(this.pidFile, {force: true})
+                const tail = fs.readFileSync(this.nodeLog, 'utf8').trim().split('\n').slice(-10).join('\n')
+                throw new Error(`The node exited as it started. The end of ${this.nodeLog}:\n${tail}`)
+            }
         }
         return ret
     }
 
-    /** Stops the node and waits for it to exit. */
+    /** Stops the node and waits for every process of it to exit. */
     async stopNode(): Promise<void> {
         const pid = this.nodePid()
         if (pid !== null) {
-            // detached made the node the leader of its own process group, which bunx's child process belongs to
-            process.kill(-pid, 'SIGTERM')
+            // detached made the node the leader of its own process group, which `bun x`'s child process belongs to, and
+            // the group outlives its leader while that child shuts down
+            this.signalGroup(pid, 'SIGTERM')
             const deadline = Date.now() + NODE_STOP_TIMEOUT_MS
             while (this.nodePid() !== null && Date.now() < deadline) {
                 await new Promise(resolve => setTimeout(resolve, 250))
             }
             if (this.nodePid() !== null) {
-                process.kill(-pid, 'SIGKILL')
+                this.signalGroup(pid, 'SIGKILL')
             }
         }
         fs.rmSync(this.pidFile, {force: true})
+    }
+
+    private signalGroup(pid: number, signal: NodeJS.Signals): void {
+        try {
+            process.kill(-pid, signal)
+        } catch {
+            // the group exited between the check and the signal
+        }
     }
 
     private async waitForServers(): Promise<void> {
@@ -209,7 +257,8 @@ export class LocalStack {
                                 + ' See why with: kinotic local logs')
             }
             // a server that exits never answers, so its failure ends the wait rather than the deadline
-            const exited = this.run('docker', ['ps', '--all', '--filter', 'name=^kinotic-server-', '--filter', 'status=exited',
+            const exited = this.run('docker', ['ps', '--all', '--filter', `label=com.docker.compose.project=${COMPOSE_PROJECT}`,
+                                               '--filter', 'name=^kinotic-server-', '--filter', 'status=exited',
                                                '--format', '{{.Names}}']).stdout.trim()
             if (exited) {
                 const server = exited.split('\n')[0]

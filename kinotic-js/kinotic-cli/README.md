@@ -252,11 +252,7 @@ Start Kinotic on this machine: its servers, portal and system console, and the n
 
 ```
 USAGE
-  $ kinotic local up [--pull]
-
-FLAGS
-  --pull  Download the latest Kinotic images before starting, rather than reuse
-          those already here
+  $ kinotic local up
 
 DESCRIPTION
   Start Kinotic on this machine: its servers, portal and system console, and the
@@ -264,8 +260,6 @@ DESCRIPTION
 
 EXAMPLES
   $ kinotic local up
-
-  $ kinotic local up --pull
 ```
 
 _See code: [src/commands/local/up.ts](https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-js/kinotic-cli/src/commands/local/up.ts)_
