@@ -194,7 +194,7 @@ function onTabKeydown(event: KeyboardEvent) {
       </div>
 
       <div class="api__cta" data-reveal>
-        <NuxtLink to="/apps/quick-start" class="k-btn k-btn--red">Get Started ↗</NuxtLink>
+        <NuxtLink to="/getting-started/quick-start" class="k-btn k-btn--red">Get Started ↗</NuxtLink>
       </div>
     </div>
   </section>

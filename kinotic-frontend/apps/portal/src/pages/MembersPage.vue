@@ -69,7 +69,6 @@
                 {{ sendInvitation
                     ? 'They accept it to sign in for the first time, with a password or one of the sign-in methods below.'
                     : 'They sign in through one of your organization\'s own sign-in providers, which admits them the first time.' }}
-                People who already sign in to Kinotic organizations always receive an invitation, since joining needs their acceptance.
               </p>
             </div>
           </div>
@@ -110,9 +109,6 @@ import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { Check, Globe, KeyRound, Mail, ShieldCheck, UserRound } from '@lucide/vue'
-import githubLogo from '@/assets/github-icon.svg'
-import googleLogo from '@/assets/google-icon.svg'
-import microsoftLogo from '@/assets/microsoft_online-icon.svg'
 
 import {
   FunctionalIterablePage,
@@ -121,7 +117,7 @@ import {
   type IterablePage,
   type Page
 } from '@kinotic-ai/core'
-import type { ApplicationParticipantIdentity, OrganizationMember, PendingInviteSummary } from '@kinotic-ai/management-api'
+import { OidcProviderType, type ApplicationParticipantIdentity, type OrganizationMember, type PendingInviteSummary } from '@kinotic-ai/management-api'
 
 import { CrudTable, FormDrawer, MemberDetail, SteppingDrawer, TINTS, useSteppingDrawer,
          type MemberSummary } from '@kinotic-ai/frontend-common'
@@ -129,7 +125,9 @@ import { PageHeader, TimePill } from '@kinotic-ai/frontend-common'
 import { statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import type { DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
+import { providerDisplayName } from '@/components/SocialAuthButton.vue'
 import { KinoticStates } from '@/states'
+import { PROVIDER_LOGOS } from '@/util/oidcConfigurations'
 import { apiUrl, showErrorToast } from '@kinotic-ai/frontend-common'
 import { createDebug } from '@kinotic-ai/frontend-common'
 
@@ -167,12 +165,6 @@ interface SignInMethod {
   name: string
   logo?: string
   icon?: Component
-}
-
-const PROVIDER_BRANDS: Record<string, { name: string, logo: string }> = {
-  google: { name: 'Google', logo: googleLogo },
-  'azure-ad': { name: 'Microsoft', logo: microsoftLogo },
-  github: { name: 'GitHub', logo: githubLogo }
 }
 
 const memberFormVisible = ref(false)
@@ -325,10 +317,9 @@ function isSelf(item: MemberRow): boolean {
 }
 
 function providerMethod(key: string): SignInMethod {
-  const brand = PROVIDER_BRANDS[key]
-  return brand
-      ? { name: `Signing in with ${brand.name}`, logo: brand.logo }
-      : { name: `Signing in with ${key.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')}`, icon: markRaw(Globe) }
+  const logo = PROVIDER_LOGOS[key as OidcProviderType]
+  const name = `Signing in with ${providerDisplayName(key)}`
+  return logo ? { name, logo } : { name, icon: markRaw(Globe) }
 }
 
 function openMemberForm() {

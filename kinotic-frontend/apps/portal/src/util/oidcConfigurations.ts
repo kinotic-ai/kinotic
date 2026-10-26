@@ -1,15 +1,17 @@
 import { apiUrl } from '@kinotic-ai/frontend-common'
 import { OidcConfigurationType, OidcProviderType, type OwnedOidcConfiguration, type PasswordConfiguration } from '@kinotic-ai/management-api'
+import githubLogo from '@/assets/github-icon.svg'
 import googleLogo from '@/assets/google-icon.svg'
 import microsoftLogo from '@/assets/microsoft_online-icon.svg'
 import oktaLogo from '@/assets/okta-icon.svg'
 import { providerDisplayName } from '@/components/SocialAuthButton.vue'
 
-/** The logo each provider kind an organization may configure is shown with. */
+/** The logo each provider kind the portal offers a sign-in through is shown with. */
 export const PROVIDER_LOGOS: Partial<Record<OidcProviderType, string>> = {
     [OidcProviderType.GOOGLE]: googleLogo,
     [OidcProviderType.AZURE_AD]: microsoftLogo,
-    [OidcProviderType.OKTA]: oktaLogo
+    [OidcProviderType.OKTA]: oktaLogo,
+    [OidcProviderType.GITHUB]: githubLogo
 }
 
 /**
