@@ -4,12 +4,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 
 @Getter
 @Setter
@@ -48,14 +45,6 @@ public class Application implements OrganizationScoped<String> {
      * by the platform when the primary UI is designated; a value a caller saves is replaced.
      */
     private String primaryUiUrl;
-
-    /**
-     * The system's social registrations this application's login offers, by provider kind, in the order
-     * to present them: Google, Microsoft. The application's users sign in with Kinotic's registration at
-     * the provider, so the application registers nothing of its own; the organization's own providers
-     * for the application are its {@code ApplicationOidcConfiguration}s. Empty offers none.
-     */
-    private List<OidcProviderType> socialProviders = new ArrayList<>();
 
     private Date updated = null;
 

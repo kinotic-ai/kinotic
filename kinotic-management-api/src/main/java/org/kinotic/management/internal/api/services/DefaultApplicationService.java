@@ -8,17 +8,19 @@ import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.TenantManagement;
-import org.kinotic.domain.api.model.security.LoginProviderSummary;
+import org.kinotic.domain.api.model.security.PasswordConfiguration;
+import org.kinotic.domain.api.model.security.ApplicationLoginProvider;
+import org.kinotic.domain.api.model.security.LoginScope;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.ProjectService;
-import org.kinotic.domain.api.services.security.OidcConfigurationService;
+import org.kinotic.domain.api.services.security.ApplicationSignUpService;
+import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -29,18 +31,21 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     private static final int MIN_UI_NAME_LENGTH = 1;
 
     private final ProjectService projectService;
-    private final OidcConfigurationService oidcConfigurationService;
+    private final ApplicationSignUpService applicationSignUpService;
     private final UiDeploymentRepository uiDeploymentRepository;
+    private final PasswordConfigurationService passwordConfigurationService;
 
     public DefaultApplicationService(ApplicationRepository repository,
                                      ProjectService projectService,
-                                     OidcConfigurationService oidcConfigurationService,
+                                     ApplicationSignUpService applicationSignUpService,
                                      UiDeploymentRepository uiDeploymentRepository,
+                                     PasswordConfigurationService passwordConfigurationService,
                                      SecurityContext securityContext) {
         super(repository, securityContext);
         this.projectService = projectService;
-        this.oidcConfigurationService = oidcConfigurationService;
+        this.applicationSignUpService = applicationSignUpService;
         this.uiDeploymentRepository = uiDeploymentRepository;
+        this.passwordConfigurationService = passwordConfigurationService;
     }
 
     @Override
@@ -95,7 +100,9 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
             if(count > 0){
                 throw new IllegalStateException("Cannot delete an application with projects in it.");
             }
-            return Future.succeededFuture();
+            // an application created again under the same id starts with no password sign-in
+            String organizationId = requireOrganizationId();
+            return passwordConfigurationService.deleteById(PasswordConfiguration.idOf(organizationId, id, null), organizationId);
         });
     }
 
@@ -118,12 +125,6 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                         "The application id '%s' leaves no room for a UI name in its sites' labels, which are held to"
                                 + " %d characters so a tenant's name fits in front; shorten the application name",
                         entity.getId(), HostLabelUtil.MAX_SITE_LABEL_LENGTH);
-        if (entity.getSocialProviders() == null) {
-            entity.setSocialProviders(new ArrayList<>());
-        }
-        Validate.noNullElements(entity.getSocialProviders(), "socialProviders cannot hold null");
-        Validate.isTrue(entity.getSocialProviders().stream().distinct().count() == entity.getSocialProviders().size(),
-                        "socialProviders names a provider twice");
         entity.setUpdated(new Date());
         Future<String> primaryUiUrl;
         if (entity.getPrimaryUiId() == null) {
@@ -152,14 +153,12 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     }
 
     @Override
-    public Future<List<LoginProviderSummary>> getLoginProviders(String applicationId) {
+    public Future<List<ApplicationLoginProvider>> getLoginMethods(String applicationId) {
         Validate.notNull(applicationId, "applicationId cannot be null");
-        return findById(applicationId)
-                .compose(application -> {
-                    Validate.isTrue(application != null, "Application not found: %s", applicationId);
-                    return oidcConfigurationService.findEnabledForScope(application.getOrganizationId(), applicationId)
-                                               .map(offered -> offered.stream().map(LoginProviderSummary::of).toList());
-                });
+        return findById(applicationId).compose(application -> {
+            Validate.isTrue(application != null, "The organization has no application %s", applicationId);
+            return applicationSignUpService.findLoginProviders(new LoginScope(application, null));
+        });
     }
 
 }

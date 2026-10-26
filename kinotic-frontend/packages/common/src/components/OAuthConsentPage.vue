@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell :art="art" :show-theme-toggle="false">
+  <AuthPageShell :show-theme-toggle="false">
     <div class="login-form">
       <div v-if="!requestId || failed" class="consent-message">
         <span class="login-status-icon pi pi-exclamation-triangle"></span>
@@ -63,14 +63,10 @@ import { apiUrl } from '../util/helpers'
  * user approves or denies, and either decision returns the client's redirect URL this page
  * navigates to.
  */
-const props = withDefaults(defineProps<{
+const props = defineProps<{
   /** The app's session, whose signed-in participant the approval binds to. */
   session: ISessionState
-  /** Overrides the auth pages' background art when set. */
-  art?: string | null
-}>(), {
-  art: null
-})
+}>()
 
 /** What the server shows about the request awaiting consent. */
 interface PendingOAuthAuthorization {

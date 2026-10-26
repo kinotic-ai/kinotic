@@ -185,7 +185,8 @@ import { Activity, Boxes, ChartGantt, ChartLine, Network, ScrollText, Server, Sh
 import { Kinotic } from '@kinotic-ai/core'
 import type { KinoticClusterInfo, KinoticNodeInfo, ServerVulnerabilities } from '@kinotic-ai/system-api'
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
-import { countSevere, DashboardSection, HeartbeatIcon, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common'
+import { DashboardSection, HeartbeatIcon, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState } from '@kinotic-ai/frontend-common'
+import { countSevere, VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common/management'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
 import ServerLogsDialog from '@/components/ServerLogsDialog.vue'

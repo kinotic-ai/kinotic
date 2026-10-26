@@ -6,7 +6,7 @@ package org.kinotic.domain.api.model.security.participant;
  * routing, and directory queries. Which ids are present follows from the participant's
  * scope layer: SYSTEM carries none, ORGANIZATION carries {@code organizationId} only,
  * APPLICATION carries {@code organizationId} and {@code applicationId} (and
- * {@code tenantId} when the application is multi-tenant).
+ * {@code tenantId}, which every application user has).
  *
  * @param organizationId the owning organization, or {@code null} for SYSTEM scope
  * @param applicationId  the application, or {@code null} unless APPLICATION scope

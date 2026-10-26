@@ -18,3 +18,16 @@ html,
 body {
   overscroll-behavior: none;
 }
+
+/* The console's auth pages take the brand red where the shared auth styles use the portal's mint.
+   :root outranks the preset's .login-page and html.dark .login-page selectors. */
+:root .login-page {
+  --lp-link-color: var(--p-primary-600);
+  --lp-footer-link: var(--p-primary-500);
+}
+
+:root.dark .login-page {
+  --lp-link-color: var(--p-primary-400);
+  --lp-footer-link: var(--p-primary-400);
+  --lp-footer-divider: var(--p-primary-400);
+}

@@ -10,9 +10,10 @@ import io.vertx.ext.auth.jwt.JWTAuth;
 import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.config.VersionedKeySet;
+import org.kinotic.domain.api.config.VersionedKey;
+import org.kinotic.domain.api.config.VersionedKeySet;
 import org.kinotic.domain.api.model.security.KinoticAudience;
-import org.kinotic.core.internal.system.SystemSecretsService;
+import org.kinotic.domain.internal.api.services.secret.SystemSecretsService;
 import org.springframework.stereotype.Component;
 
 import java.util.Base64;
@@ -84,14 +85,14 @@ public class KinoticJwtIssuer {
         State s = state.get();
         if (s == null) {
             throw new IllegalStateException(
-                    "JWT signing keys not mounted — set kinotic.systemSecrets.jwtSigningKeysPath");
+                    "JWT signing keys not mounted — set kinotic.domain.systemSecrets.jwtSigningKeysPath");
         }
         return s;
     }
 
     private State build(VersionedKeySet set) {
         JWTAuthOptions options = new JWTAuthOptions();
-        for (VersionedKeySet.KeyEntry entry : set.getKeys()) {
+        for (VersionedKey entry : set.getKeys()) {
             options.addJwk(new JsonObject()
                                    .put("kty", KEY_TYPE)
                                    .put("kid", entry.getId())

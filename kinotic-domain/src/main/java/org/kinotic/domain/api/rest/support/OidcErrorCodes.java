@@ -31,26 +31,20 @@ public final class OidcErrorCodes {
     public static final String NO_USER = "no_user";
 
     /**
-     * A sign-in through a system social registration that named no organization found the identity a
-     * member of several, so the person chooses one and signs in at its own login; the session that completed
-     * the sign-in holds their ids, which the login page reads from {@code GET /api/auth/org/login/choices}.
+     * A sign-in through a system social registration that named no organization found the identity bound to users of
+     * several, so the person chooses one and signs in at its own login; the session that completed the sign-in holds
+     * their ids, which the login page reads from {@code GET /api/auth/org/login/choices}.
      */
     public static final String MULTIPLE_ORGANIZATIONS = "multiple_organizations";
 
-    /** Found the user, but it or its membership of the organization has {@code enabled=false}. */
+    /** Found the user, but it has {@code enabled=false}. */
     public static final String USER_DISABLED = "user_disabled";
 
     /** ParticipantIdentity lookup failed at the persistence layer — distinct from "not found". */
     public static final String LOOKUP_FAILED = "lookup_failed";
 
-    /** Signup or invitation callback found an existing user for the IdP identity or its email — caller should log in instead. */
+    /** Sign-up or invitation callback found an existing user for the IdP identity or its email — caller should log in instead. */
     public static final String USER_EXISTS = "user_exists";
-
-    /**
-     * Signup found an organization user for the IdP identity or its email that an administrator added as a member and
-     * nobody signs in as yet — the person accepts their invitation or signs in on that organization's sign-in page.
-     */
-    public static final String USER_PENDING = "user_pending";
 
     /** Signup failed during pending sign-up creation. */
     public static final String SIGNUP_FAILED = "signup_failed";

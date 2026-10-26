@@ -39,10 +39,14 @@ publishing {
 
                 licenses {
                     license {
-                        // kinotic-ee holds the Enterprise Features; every other module is ELv2, routed by the root LICENSE.md
+                        // kinotic-ee holds the Enterprise Features and Kinotic RPC is Apache-2.0; every other module is
+                        // ELv2, routed by the root LICENSE.md
                         if (project.name == 'kinotic-ee') {
                             name = 'Kinotic Enterprise License'
                             url = 'https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-ee/LICENSE'
+                        } else if (project.ext.kinoticRpc) {
+                            name = 'The Apache License, Version 2.0'
+                            url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
                         } else {
                             name = 'Elastic License 2.0 with Kinotic Additional Limitations'
                             url = 'https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE.md'

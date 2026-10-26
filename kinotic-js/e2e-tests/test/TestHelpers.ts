@@ -147,9 +147,13 @@ export async function shutdownKinoticClient(): Promise<void> {
  * convention app-<applicationId>-<tenantId>@test.local, password kinotic). The caller is
  * responsible for disconnecting it when done. The instance has {@code ManagementApiPlugin} and
  * {@code PersistencePlugin} installed so it can back an {@code EntityRepository} that acts on the
- * SHARED entity data of its own tenant.
+ * SHARED entity data of its own tenant. The application must exist; its login is made to take a password first.
  */
 export async function initKinoticAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
+    // the fixtures seed the application's email and password, but deleting the application, as the suites do between
+    // tests, deletes it too, so an application created again takes no password until it is saved again
+    await Kinotic.ownedPasswordConfigurations.save({id: null, organizationId: null, applicationId, tenantId: null, enabled: true,
+                                                   createUserOnSignIn: false, created: null, updated: null})
     const appKinotic = new KinoticSingleton()
     appKinotic.use(ManagementApiPlugin).use(PersistencePlugin)
 

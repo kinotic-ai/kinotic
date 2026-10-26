@@ -1,7 +1,7 @@
 import http from 'node:http'
-import {BasicCredentialsResolver, type CredentialsResolver, KinoticSingleton, type ServerInfo} from '@kinotic-ai/core'
+import {BasicCredentialsResolver, type CredentialsResolver, Kinotic, KinoticSingleton, type ServerInfo} from '@kinotic-ai/core'
 import * as allure from 'allure-js-commons'
-import {beforeAll, describe, expect, it} from 'vitest'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {E2E_APP_TENANT,
         E2E_FIXTURE_PASSWORD,
         E2E_ORGANIZATION_ID,
@@ -10,8 +10,10 @@ import {E2E_APP_TENANT,
         appFixtureEmail,
         appServer,
         buildConnectOptions,
+        initKinoticClient,
         managementServer,
         restBase,
+        shutdownKinoticClient,
         systemServer} from '../TestHelpers.js'
 
 // the organization's APP_RUNTIME machine V3__e2e_app_fixtures seeds (clientSecret: kinotic)
@@ -112,7 +114,15 @@ describe('Server planes', () => {
     beforeAll(async () => {
         await allure.suite('e2e-tests/native')
         await allure.subSuite('ServerPlanes')
-    })
+        // the fixtures seed these applications' users and tenants, and a login reads the application itself
+        await initKinoticClient()
+        await Kinotic.applications.createApplicationIfNotExist(APP_ID, 'e2e fixture application for the server planes test')
+        await Kinotic.applications.createApplicationIfNotExist(OTHER_APP_ID, 'e2e fixture application for the server planes test')
+    }, 300000)
+
+    afterAll(async () => {
+        await shutdownKinoticClient()
+    }, 60000)
 
     it('admits each participant only at the server of its plane', async () => {
         expect(await connect(managementServer(), orgUser())).toBe('connected')
@@ -162,9 +172,16 @@ describe('Server planes', () => {
         // the application has no such tenant
         expect((await loginTo('nobody')).status).toBe(404)
         // the tenant's login offers what the application's does
-        const providers = await requestAt(appServer(), apiHost(APP_ID), 'GET', `/api/auth/app/login/providers?tenantId=${E2E_APP_TENANT}`)
-        expect(providers.status).toBe(200)
-        expect(JSON.parse(providers.body)).toEqual([])
+        const methods = await requestAt(appServer(), apiHost(APP_ID), 'GET', `/api/auth/app/login/methods?tenantId=${E2E_APP_TENANT}`)
+        expect(methods.status).toBe(200)
+        // a tenant's login takes the password the application's takes, but signs no one up with it: its administrators
+        // decide who joins
+        expect(JSON.parse(methods.body)).toEqual([{configurationId: `${E2E_ORGANIZATION_ID}:${APP_ID}`, type: 'PASSWORD',
+                                                   name: 'Email and password', provider: null, signUp: false}])
+    })
+
+    it('answers 404 at the API host of an application that does not exist', async () => {
+        expect((await requestAt(appServer(), apiHost('no-such-app'), 'GET', '/api/auth/app/login/methods')).status).toBe(404)
     })
 
     it('authenticates a session only at the server that issued it', async () => {

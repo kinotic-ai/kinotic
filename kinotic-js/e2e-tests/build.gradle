@@ -14,9 +14,9 @@ node {
     // It will be unpacked in the workDir
     version = "24.17.0"
 
-    // Version of Pnpm to use
+    // Version of Pnpm to use: the one package.json pins as its packageManager, which pnpm run by hand switches to as well
     // Any Pnpm task first installs Pnpm in the pnpmWorkDir
-    pnpmVersion = "11"
+    pnpmVersion = new groovy.json.JsonSlurper().parse(file("package.json")).packageManager.split("@")[1]
 
     // Base URL for fetching node distributions
     // Only used if download is true

@@ -3,7 +3,7 @@ import { Application,
          Project,
          SYSTEM_API_ZONE,
          type ApplicationParticipantIdentity,
-         type OrganizationMember,
+         type OrganizationParticipantIdentity,
          type PendingInviteSummary } from '@kinotic-ai/management-api'
 import type { IKinotic, IServiceProxy, Page, Pageable } from '@kinotic-ai/core'
 
@@ -27,9 +27,9 @@ export interface ISystemOrganizationService {
 
     findProjects(organizationId: string, pageable: Pageable): Promise<Page<Project>>
 
-    findMembers(organizationId: string, pageable: Pageable): Promise<Page<OrganizationMember>>
+    findMembers(organizationId: string, pageable: Pageable): Promise<Page<OrganizationParticipantIdentity>>
 
-    searchMembers(searchText: string, organizationId: string, pageable: Pageable): Promise<Page<OrganizationMember>>
+    searchMembers(searchText: string, organizationId: string, pageable: Pageable): Promise<Page<OrganizationParticipantIdentity>>
 
     findApplicationUsers(organizationId: string, applicationId: string, pageable: Pageable): Promise<Page<ApplicationParticipantIdentity>>
 
@@ -71,11 +71,11 @@ export class SystemOrganizationService implements ISystemOrganizationService {
         return this.serviceProxy.invoke('findProjects', [organizationId, pageable])
     }
 
-    public findMembers(organizationId: string, pageable: Pageable): Promise<Page<OrganizationMember>> {
+    public findMembers(organizationId: string, pageable: Pageable): Promise<Page<OrganizationParticipantIdentity>> {
         return this.serviceProxy.invoke('findMembers', [organizationId, pageable])
     }
 
-    public searchMembers(searchText: string, organizationId: string, pageable: Pageable): Promise<Page<OrganizationMember>> {
+    public searchMembers(searchText: string, organizationId: string, pageable: Pageable): Promise<Page<OrganizationParticipantIdentity>> {
         return this.serviceProxy.invoke('searchMembers', [searchText, organizationId, pageable])
     }
 

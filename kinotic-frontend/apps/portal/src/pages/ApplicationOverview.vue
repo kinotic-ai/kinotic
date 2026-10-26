@@ -9,15 +9,15 @@
       </template>
     </PageHeader>
 
-    <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="mb-4 grid grid-cols-2 gap-4 xl:grid-cols-4">
       <StatCard v-for="tile in tiles" :key="tile.label" :icon="tile.icon" :tint="tile.tint" :label="tile.label"
                 :value="tile.value" :loading="tile.value === null" :detail="tile.detail" :to="tile.to" />
     </div>
 
-    <div class="grid gap-4 lg:grid-cols-3">
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <section :class="[cardClass, 'flex flex-col lg:col-span-2']">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex min-w-0 items-center gap-3">
             <span :class="['flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', TINTS.blue]">
               <ProjectsIcon :size="18" :stroke-width="1.75" aria-hidden="true" />
             </span>
@@ -29,7 +29,7 @@
               <p class="text-xs text-muted-color">The projects that make up this application, by their latest deployment.</p>
             </div>
           </div>
-          <RouterLink :to="`${basePath}/projects`" class="flex items-center gap-1 text-xs font-medium text-surface-600 hover:text-surface-950 dark:text-surface-300 dark:hover:text-surface-0">
+          <RouterLink :to="`${basePath}/projects`" class="flex shrink-0 items-center gap-1 text-xs font-medium text-surface-600 hover:text-surface-950 dark:text-surface-300 dark:hover:text-surface-0">
             View all <ChevronRight :size="14" :stroke-width="1.75" aria-hidden="true" />
           </RouterLink>
         </div>
@@ -54,7 +54,7 @@
         <EmptyChartCharacter v-else-if="projects.length === 0" class="py-6" title="No projects yet"
                              hint="Create one from the Projects page." />
         <!-- the cards grow to fill the section, so it stays as tall as the About card beside it -->
-        <ul v-else class="mt-4 grid flex-1 auto-rows-fr gap-3 md:grid-cols-2">
+        <ul v-else class="mt-4 grid flex-1 auto-rows-fr grid-cols-1 gap-3 md:grid-cols-2">
           <li v-for="(project, position) in projects" :key="project.id ?? ''">
             <RouterLink :to="`${basePath}/project/${encodeURIComponent(project.id ?? '')}`"
                         class="group flex h-full flex-col overflow-hidden rounded-xl border border-surface-200 transition-colors hover:border-surface-300 dark:border-surface-700 dark:hover:border-surface-600">
@@ -151,7 +151,9 @@ import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { type Project, DeploymentStatusType, RepositoryConnectionStatus, TenantManagement, type UiDeployment } from '@kinotic-ai/management-api'
-import { createDebug, DatetimeUtil, deploymentStatusSeverity, FactList, InitialsTile, observedPhase, observedPhaseSeverity, PageHeader, ProjectsIcon, StatCard, TINTS, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { createDebug, DatetimeUtil, FactList, InitialsTile, PageHeader, ProjectsIcon, StatCard, TINTS,
+         EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { deploymentStatusSeverity, observedPhase, observedPhaseSeverity } from '@kinotic-ai/frontend-common/management'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 

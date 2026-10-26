@@ -57,8 +57,9 @@ import Tag from 'primevue/tag'
 
 import { StatusConditionType, findStatusCondition, type JobRun, type StatusCondition } from '@kinotic-ai/management-api'
 import { LaptopMinimalCheck } from '@lucide/vue'
-import { DashboardSection, DatetimeUtil, SteppingDrawer, TimePill, executionStatusSeverity, EmptyChartCharacter,
+import { DashboardSection, DatetimeUtil, SteppingDrawer, TimePill, EmptyChartCharacter,
          useSteppingDrawer } from '@kinotic-ai/frontend-common'
+import { executionStatusSeverity } from '@kinotic-ai/frontend-common/management'
 
 import JobRunDetail from '@/components/JobRunDetail.vue'
 import { scopePath, type Scope } from '@/util/scope'

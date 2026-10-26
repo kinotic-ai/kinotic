@@ -17,7 +17,7 @@
           <GitHubLinkStatus return-to="/organization-settings" />
         </TabPanel>
         <TabPanel value="authentication">
-          <OidcConfigurationsPanel :application-id="null" />
+          <SignInProvidersPanel :application-id="null" />
         </TabPanel>
         <TabPanel v-for="tab in upcomingTabs" :key="tab.id" :value="tab.id">
           <FeatureEmptyState badge="coming-soon" :icon="tab.icon" :tint="tab.upcoming.tint" :title="tab.upcoming.title"
@@ -92,7 +92,7 @@ import Tag from 'primevue/tag'
 import { PageHeader, TINTS } from '@kinotic-ai/frontend-common'
 import FeatureEmptyState from '@/components/FeatureEmptyState.vue'
 import GitHubLinkStatus from '@/components/GitHubLinkStatus.vue'
-import OidcConfigurationsPanel from '@/components/OidcConfigurationsPanel.vue'
+import SignInProvidersPanel from '@/components/SignInProvidersPanel.vue'
 import { useQueryTab } from '@/composables/useQueryTab'
 import { DOCUMENTATION_URL } from '@/util/externalLinks'
 

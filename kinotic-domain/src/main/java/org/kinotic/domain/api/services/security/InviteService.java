@@ -5,6 +5,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
+import org.kinotic.domain.api.exceptions.UserDisabledException;
 import org.kinotic.domain.api.exceptions.InviteEmailMismatchException;
 import org.kinotic.domain.api.model.EmailTemplate;
 import org.kinotic.domain.api.model.security.PendingInvite;
@@ -18,11 +19,10 @@ public interface InviteService {
 
     /**
      * Creates an invitation and emails its accept link to the invitee. The invite's scope comes
-     * from {@code organizationId} (required) and {@code applicationId} (null for an org-member
-     * invite). Fails if the email is already a member of the target scope — for org invites an
-     * organization user holding a membership of the organization that a sign-in method signs in, for
-     * app invites a user of that application — or if an invitation is already pending for it in the
-     * scope.
+     * from {@code organizationId} (required), {@code applicationId} (null for an org-member
+     * invite) and {@code tenantId} (the application's tenant the invitee joins, or null for none). Fails if the
+     * email is already a member of the target scope — a user of the organization or of the application that a
+     * sign-in method signs in — or if an invitation is already pending for it in the scope.
      *
      * @param invite carrying email, optional displayName, scope, and inviter attribution;
      *               id, token, and expiry are assigned here
@@ -39,14 +39,16 @@ public interface InviteService {
     Future<PendingInvite> getValidInvite(String token);
 
     /**
-     * Accepts an invitation with a password and consumes it. An invitation into an organization makes the
-     * organization user with the invited email a member: when none exists, it is created with {@code password};
-     * when one exists, {@code password} must be its password, which proves the acceptor owns it, and a mismatch
-     * fails with {@link ExistingUserException} without consuming the invitation. An invitation into an
-     * application creates the application's user with {@code password}.
+     * Accepts an invitation with a password and consumes it. The invitation creates the user of its scope, the
+     * organization's or the application's, with the invited email and {@code password}, or, for the user an
+     * administrator added under it that nobody signs in as yet, gives that user {@code password}; a user someone
+     * already signs in as fails with {@link ExistingUserException}, and a disabled one with
+     * {@link UserDisabledException}. A scope whose login takes no password
+     * ({@link PasswordConfigurationService#findOffered}) refuses the acceptance with an {@link IllegalArgumentException},
+     * leaving the invitation to be accepted through one of the scope's providers.
      *
      * @param token       the accept token from the invitation email
-     * @param password    the password chosen by a new member, or the existing organization user's
+     * @param password    the password chosen by the new member
      * @param displayName optional display name of a new member; the invite's value is used when blank
      * @return the new member as a participant of the invitation's scope, for the session to sign in
      */
@@ -55,11 +57,12 @@ public interface InviteService {
     /**
      * Accepts an invitation into an organization with a verified OIDC identity and consumes it. The
      * provider-verified email must match the invited email (case-insensitive) or the accept fails with
-     * {@link InviteEmailMismatchException}. The organization user the identity is bound to becomes a member, when
-     * its email is the invited one; with no bound organization user, the one with the invited email must not exist
-     * either, unless an administrator added it and nobody signs in as it yet, which the identity then claims, else
-     * the accept fails with {@link ExistingUserException}; with neither, a new organization user bound to the
-     * identity is created. An invitation into an application is accepted with {@link #acceptLocalInvite}.
+     * {@link InviteEmailMismatchException}. The organization's user the identity is bound to signs in, when its email
+     * is the invited one; with no bound user, the organization's user with the invited email must not exist either,
+     * unless an administrator added it and nobody signs in as it yet, which the identity then claims, else the accept
+     * fails with {@link ExistingUserException}; with neither, a new user of the organization bound to the identity is
+     * created. The user an invitation into an application is for is claimed by its first sign-in through one of the
+     * application's providers, at the application's login, or with {@link #acceptLocalInvite}.
      *
      * @param token         the accept token recovered from the OIDC flow session
      * @param oidcSubject   the {@code sub} claim from the IdP
@@ -89,8 +92,18 @@ public interface InviteService {
      */
     Future<Void> cancelInvite(String inviteId, String organizationId);
 
-    /** The live invitation of {@code email} into organization {@code organizationId}, or {@code null} when none is pending. */
-    Future<PendingInvite> findPendingInvite(String email, String organizationId);
+    /**
+     * Deletes the live invitation of {@code email} into organization {@code organizationId}, or into its application
+     * {@code applicationId} when that is set, when there is one: the invitation of a user who has signed in another way,
+     * or who is removed.
+     */
+    Future<Void> deletePendingInvite(String email, String organizationId, String applicationId);
+
+    /**
+     * The live invitation of {@code email} into organization {@code organizationId}, or into its application
+     * {@code applicationId} when that is set, or {@code null} when none is pending.
+     */
+    Future<PendingInvite> findPendingInvite(String email, String organizationId, String applicationId);
 
     /**
      * Emails the invitation {@code inviteId} of organization {@code organizationId} again, to the same address

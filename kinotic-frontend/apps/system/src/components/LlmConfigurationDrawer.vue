@@ -4,18 +4,23 @@
     <form id="llm-configuration-form" class="flex flex-col gap-5" @submit.prevent="submit">
       <div>
         <label for="llm-name" class="mb-2 block text-sm font-medium">Name</label>
-        <InputText id="llm-name" v-model="name" placeholder="app-builder" autocomplete="off" class="w-full font-mono" />
-        <p class="mt-1.5 text-[0.8125rem] text-muted-color">The name a service selects this configuration by, unique in the system.</p>
+        <InputText id="llm-name" v-model="name" placeholder="app-builder" autocomplete="off" :invalid="nameMissing" class="w-full font-mono" />
+        <p v-if="nameMissing" class="mt-1.5 text-[0.8125rem] text-red-700 dark:text-red-400">Enter the name a service selects this configuration by.</p>
+        <p v-else class="mt-1.5 text-[0.8125rem] text-muted-color">The name a service selects this configuration by, unique in the system.</p>
       </div>
 
       <div>
         <label for="llm-provider" class="mb-2 block text-sm font-medium">Provider</label>
-        <Select input-id="llm-provider" v-model="provider" :options="PROVIDERS" option-label="label" option-value="value" class="w-full" />
+        <Select input-id="llm-provider" :model-value="provider" :options="PROVIDERS" option-label="label" option-value="value" class="w-full"
+                @update:model-value="selectProvider" />
       </div>
 
       <div>
         <label for="llm-model" class="mb-2 block text-sm font-medium">Model</label>
-        <InputText id="llm-model" v-model="model" :placeholder="MODEL_PLACEHOLDERS[provider]" autocomplete="off" class="w-full font-mono" />
+        <InputText id="llm-model" v-model="model" autocomplete="off" :invalid="modelMissing" class="w-full font-mono" />
+        <p v-if="modelMissing" class="mt-1.5 text-[0.8125rem] text-red-700 dark:text-red-400">
+          Enter the {{ LLM_PROVIDER_NAMES[provider] }} id of the model, such as {{ DEFAULT_MODELS[provider] }}.
+        </p>
       </div>
 
       <div>
@@ -59,7 +64,7 @@
 
     <template #footer>
       <Button type="button" label="Cancel" severity="secondary" outlined @click="emit('update:visible', false)" />
-      <Button type="submit" form="llm-configuration-form" :label="isNew ? 'Add configuration' : 'Save'" :loading="saving" :disabled="!complete" />
+      <Button type="submit" form="llm-configuration-form" :label="isNew ? 'Add configuration' : 'Save'" :loading="saving" />
     </template>
   </FormDrawer>
 </template>
@@ -98,7 +103,7 @@ const MAX_TEMPERATURES: Record<LlmProviderType, number> = {
   [LlmProviderType.OPENAI]: 2
 }
 
-const MODEL_PLACEHOLDERS: Record<LlmProviderType, string> = {
+const DEFAULT_MODELS: Record<LlmProviderType, string> = {
   [LlmProviderType.ANTHROPIC]: 'claude-opus-5-5',
   [LlmProviderType.OPENAI]: 'gpt-5'
 }
@@ -113,9 +118,13 @@ const endpoint = ref('')
 const maxTokens = ref<number | null>(null)
 const temperature = ref<number | null>(null)
 const saving = ref(false)
+// set by the first submit, so a required field shows as missing only once the user has tried to save without it
+const submitted = ref(false)
 
 const isNew = computed(() => !props.configuration?.id)
 const temperatureInRange = computed(() => temperature.value === null || temperature.value <= MAX_TEMPERATURES[provider.value])
+const nameMissing = computed(() => submitted.value && name.value.trim() === '')
+const modelMissing = computed(() => submitted.value && model.value.trim() === '')
 const complete = computed(() => name.value.trim() !== '' && model.value.trim() !== '' && temperatureInRange.value)
 
 // the fields start from the configuration being edited each time the drawer opens, and the typed key is dropped when it closes
@@ -124,17 +133,28 @@ watch(() => props.visible, visible => {
     const configuration = props.configuration
     name.value = configuration?.name ?? ''
     provider.value = configuration?.provider ?? LlmProviderType.ANTHROPIC
-    model.value = configuration?.model ?? ''
+    model.value = configuration?.model ?? DEFAULT_MODELS[provider.value]
     apiKey.value = ''
     endpoint.value = configuration?.endpoint ?? ''
     maxTokens.value = configuration?.maxTokens ?? null
     temperature.value = configuration?.temperature ?? null
+    submitted.value = false
   } else {
     apiKey.value = ''
   }
 }, { immediate: true })
 
+// the model follows the provider while it is still the previous provider's default, so switching provider never leaves
+// another provider's model id behind
+function selectProvider(selected: LlmProviderType): void {
+  if (model.value.trim() === '' || model.value.trim() === DEFAULT_MODELS[provider.value]) {
+    model.value = DEFAULT_MODELS[selected]
+  }
+  provider.value = selected
+}
+
 async function submit(): Promise<void> {
+  submitted.value = true
   if (!complete.value) {
     return
   }

@@ -65,7 +65,9 @@ import { Boxes, Building2, Gauge, LaptopMinimalCheck, Server } from '@lucide/vue
 import { Kinotic } from '@kinotic-ai/core'
 import { ExecutionStatus, WorkloadStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
 import type { KinoticClusterInfo, VmNode } from '@kinotic-ai/system-api'
-import { DashboardSection, HeartbeatIcon, DatetimeUtil, PageHeader, StatCard, TINTS, accentColor, errorMessage, isDark, scanJobRuns, HEARTBEAT_TINTS, HeartbeatState } from '@kinotic-ai/frontend-common'
+import { DashboardSection, HeartbeatIcon, DatetimeUtil, PageHeader, StatCard, TINTS, accentColor, errorMessage, isDark,
+         HEARTBEAT_TINTS, HeartbeatState } from '@kinotic-ai/frontend-common'
+import { scanJobRuns } from '@kinotic-ai/frontend-common/management'
 
 import AttentionList from '@/components/AttentionList.vue'
 import CapacityRows from '@/components/CapacityRows.vue'

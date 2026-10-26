@@ -57,7 +57,8 @@ import Button from 'primevue/button'
 import { LaptopMinimalCheck } from '@lucide/vue'
 
 import { ExecutionStatus } from '@kinotic-ai/management-api'
-import { countJobRuns, JobRunsTable, PageHeader, executionStatusSeverity, StatusChips, type StatusChip } from '@kinotic-ai/frontend-common'
+import { PageHeader, StatusChips, type StatusChip } from '@kinotic-ai/frontend-common'
+import { countJobRuns, JobRunsTable, executionStatusSeverity } from '@kinotic-ai/frontend-common/management'
 
 import JobRunDetail from '@/components/JobRunDetail.vue'
 import RunSystemJobDrawer from '@/components/RunSystemJobDrawer.vue'

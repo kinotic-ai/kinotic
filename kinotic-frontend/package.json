@@ -3,12 +3,14 @@
   "version": "4.0.1",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@12.10.0",
   "scripts": {
     "dev": "pnpm --filter kinotic-portal dev",
     "dev:tunnel": "pnpm --filter kinotic-portal dev:tunnel",
     "dev:tunnel:build": "pnpm --filter kinotic-portal dev:tunnel:build",
     "build": "pnpm -r build",
     "build:dev": "pnpm -r build:dev",
-    "dev:system": "pnpm --filter kinotic-system-console dev"
+    "dev:system": "pnpm --filter kinotic-system-console dev",
+    "publish": "node --experimental-strip-types scripts/publish.ts"
   }
 }
