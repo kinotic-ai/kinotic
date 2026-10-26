@@ -278,7 +278,7 @@ curl -s -H 'X-Scope-OrgID: kinotic-system' 'http://localhost:3100/loki/api/v1/la
   `service-graphs` processor writing `traces_service_graph_*` into Mimir.
 
 The servers send no email: each link a person must open is logged and shown in the portal
-([Demonstration server](../../website/content/02.platform/03.configuration.md)).
+([Demonstration server](../../website/content/04.platform/03.configuration.md)).
 
 If you also run the Vite frontend (`pnpm dev` on `:5173`), it calls the management server directly at
 `localhost:58503` via `VITE_KINOTIC_HOST`/`VITE_KINOTIC_PORT` — see
@@ -295,7 +295,7 @@ If you also run the Vite frontend (`pnpm dev` on `:5173`), it calls the manageme
 
 A deployment of a project with UIs uploads each built UI to Azurite, as it uploads to the sites
 storage account in Azure: the system server's `demonstration` profile sets
-`kinotic.systemApi.uiDeployment.siteStorage: AZURITE` and point the publish workload at
+`kinotic.systemApi.uiDeployment.siteStorage: AZURITE` and points the publish workload at
 `http://192.168.127.254:10000/devstoreaccount1`, Azurite where a BOXLITE workload reaches this machine's
 loopback. `kinotic-sites-edge` serves each UI at `http://<app>--<ui>.<org>.sites.localhost:8088`
 by running the same `worker.js` the Cloudflare edge runs, over Azurite. On start it creates the
