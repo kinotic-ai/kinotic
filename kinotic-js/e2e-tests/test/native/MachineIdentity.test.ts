@@ -12,7 +12,7 @@ import {E2E_ORGANIZATION_ID,
         shutdownKinoticClient,
         systemServer} from '../TestHelpers.js'
 
-// the APPLICATION-scope machine identity V3__e2e_app_fixtures seeds for these tests (clientSecret: kinotic)
+// the APPLICATION-scope machine identity V4__e2e_app_fixtures seeds for these tests (clientSecret: kinotic)
 const MACHINE_CLIENT_ID = '00000000-0000-0000-0000-000000000010'
 const MACHINE_CLIENT_SECRET = 'kinotic'
 // a test-org org USER — a valid identity + password that must nevertheless be refused

@@ -1,0 +1,15 @@
+# Sample data for the demonstration stack, layered onto compose.yml:
+#
+#   docker compose -f compose.yml -f compose.sample-data.yml up -d
+#
+# The migration adds the `fixtures` profile, which seeds the test-org organization and its user
+# kinotic@kinotic.local (password: kinotic), applications, projects, members and invites in it, and worker nodes
+# and workloads for the system console; kinotic-gen-schemas then publishes the ecommerce and healthcare
+# applications' entity definitions and records into test-org.
+include:
+  - compose.gen-schemas.yml
+
+services:
+  kinotic-migration:
+    environment:
+      SPRING_PROFILES_ACTIVE: demonstration,fixtures

@@ -4,9 +4,8 @@ include:
   - compose.elasticsearch.yml
   - compose.kibana.yml
   - compose-otel.yml
-  - compose.gen-schemas.yml
   - path: compose.kinotic-migration.yml
-    env_file: evaluation.env
+    env_file: demonstration.env
   - compose.sites.yml
   - compose.gitea.yml
   - compose.kinotic-servers.yml

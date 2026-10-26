@@ -47,7 +47,7 @@ services:
       kinotic-elasticsearch-test-settings:
         condition: service_completed_successfully
     environment:
-      # 'e2e' applies the test users (V2) and the e2e fixtures (V3__e2e_app_fixtures.e2e.sql)
+      # 'e2e' applies the system identities (V2), test-org (V3) and the e2e fixtures (V4__e2e_app_fixtures.e2e.sql)
       SPRING_PROFILES_ACTIVE: e2e
   kinotic-server-management:
     environment:

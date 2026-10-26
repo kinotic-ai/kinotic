@@ -16,7 +16,7 @@ import {E2E_APP_TENANT,
         shutdownKinoticClient,
         systemServer} from '../TestHelpers.js'
 
-// the organization's APP_RUNTIME machine V3__e2e_app_fixtures seeds (clientSecret: kinotic)
+// the organization's APP_RUNTIME machine V4__e2e_app_fixtures seeds (clientSecret: kinotic)
 const RUNTIME_CLIENT_ID = '00000000-0000-0000-0000-000000000013'
 // the application whose seeded user signs in, and another application of the same organization
 const APP_ID = 'e2e-mcp'
