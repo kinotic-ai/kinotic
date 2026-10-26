@@ -7,6 +7,7 @@ import io.vertx.core.streams.ReadStream;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.queue.internal.cluster.MonotonicClock;
 import org.kinotic.queue.internal.cluster.QueueFailure;
 
 import java.util.ArrayDeque;
@@ -227,7 +228,7 @@ abstract class ShardPullStream<T, R> implements ReadStream<T> {
     }
 
     private void reportPersistentFailure(int shard, Throwable cause) {
-        long now = System.currentTimeMillis();
+        long now = MonotonicClock.millis();
         if (failingSince[shard] == 0) {
             failingSince[shard] = now;
         }

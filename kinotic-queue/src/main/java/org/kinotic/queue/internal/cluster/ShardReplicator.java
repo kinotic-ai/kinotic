@@ -75,11 +75,11 @@ final class ShardReplicator {
     private long knownEpochOffset = -2;
     private long knownEpoch;
     /**
-     * When the last batch the follower answered was sent, in epoch milliseconds; when the replicator was created until
-     * the follower first answers.
+     * When the last batch the follower answered was sent, as {@link MonotonicClock#millis()} read it; when the
+     * replicator was created until the follower first answers.
      */
     @Getter
-    private long lastAnsweredMillis = System.currentTimeMillis();
+    private long lastAnsweredMillis = MonotonicClock.millis();
 
     void start() {
         nextToSend = shardLog.nextOffset();
@@ -98,7 +98,7 @@ final class ShardReplicator {
      * Sends an empty batch when nothing was sent for {@link #HEARTBEAT_INTERVAL_MS}.
      */
     void heartbeat() {
-        if (System.currentTimeMillis() - lastSentMillis >= HEARTBEAT_INTERVAL_MS) {
+        if (MonotonicClock.millis() - lastSentMillis >= HEARTBEAT_INTERVAL_MS) {
             send();
         }
     }
@@ -110,7 +110,7 @@ final class ShardReplicator {
     private void send() {
         if (!stopped && !inFlight) {
             inFlight = true;
-            long sentMillis = System.currentTimeMillis();
+            long sentMillis = MonotonicClock.millis();
             lastSentMillis = sentMillis;
             // A follower can report an offset past the owner's end when it holds entries the owner does not
             long hint = Math.min(nextToSend, shardLog.nextOffset());

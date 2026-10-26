@@ -73,7 +73,7 @@ final class WorkDispatcher {
     private Promise<Void> saving;
     private Promise<Void> nextSave;
     private boolean stopped;
-    private long lastRequest = System.currentTimeMillis();
+    private long lastRequest = MonotonicClock.millis();
     // When the low watermark was last stored, which keeps the group's position from expiring
     private long lastSaved;
     // Records on their way to the dead-letter queue, held in none of the maps above
@@ -109,7 +109,7 @@ final class WorkDispatcher {
      * there is none to lease.
      */
     Future<LeaseResponse> lease(String workerId, int max, long leaseMillis) {
-        lastRequest = System.currentTimeMillis();
+        lastRequest = MonotonicClock.millis();
         // A group whose workers wait on a shard with no new records makes no progress, so its position is used again
         if (lowWatermark > 0 && lastRequest - lastSaved >= groupOffsets.getRefreshInterval().toMillis()) {
             saveLowWatermark();
@@ -137,7 +137,7 @@ final class WorkDispatcher {
      * it; fails with {@link QueueFailure#LEASE_EXPIRED} when the record is not leased to the worker
      */
     Future<Void> settle(String workerId, Settlement settlement, long offset) {
-        lastRequest = System.currentTimeMillis();
+        lastRequest = MonotonicClock.millis();
         Lease lease = leased.get(offset);
         if (lease == null || !lease.workerId().equals(workerId)) {
             return Future.failedFuture(QueueFailure.LEASE_EXPIRED.exception("Offset " + offset + " of " + shardId
@@ -185,7 +185,7 @@ final class WorkDispatcher {
     }
 
     /**
-     * @param now the current time, in epoch milliseconds
+     * @param now the current {@link MonotonicClock#millis()} reading
      * @return whether no worker of the group holds or waits for a record of the shard, no record is on its way to the
      * dead-letter queue, and no request came for five minutes or half the retention period, whichever is shorter, or
      * for the whole retention period while records wait to be leased again. The group's position is then stored up to
@@ -410,7 +410,7 @@ final class WorkDispatcher {
             saving = save;
             nextSave = null;
             long watermark = lowWatermark;
-            lastSaved = System.currentTimeMillis();
+            lastSaved = MonotonicClock.millis();
             vertx.<Void>executeBlocking(() -> {
                      groupOffsets.save(groupName, shardId.shard(), watermark);
                      return null;

@@ -204,12 +204,12 @@ public class QueueClusterClient {
     }
 
     private Future<Buffer> requestOwnerRetrying(ShardId shardId, QueueAction action, Buffer body) {
-        return retryWhileOwnerless(shardId, action, body, System.currentTimeMillis() + OWNER_DEADLINE_MS);
+        return retryWhileOwnerless(shardId, action, body, MonotonicClock.millis() + OWNER_DEADLINE_MS);
     }
 
     private Future<Buffer> retryWhileOwnerless(ShardId shardId, QueueAction action, Buffer body, long deadline) {
         return requestOwner(shardId, action, body)
-                .recover(e -> isRetryable(e) && System.currentTimeMillis() < deadline
+                .recover(e -> isRetryable(e) && MonotonicClock.millis() < deadline
                         ? vertx.timer(RETRY_DELAY_MS, TimeUnit.MILLISECONDS).compose(v -> retryWhileOwnerless(shardId, action, body, deadline))
                         : Future.failedFuture(e));
     }

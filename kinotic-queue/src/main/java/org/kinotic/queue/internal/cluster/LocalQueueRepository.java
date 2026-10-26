@@ -150,7 +150,7 @@ public class LocalQueueRepository {
      * deletes the positions that expired.
      */
     public void syncIfDue() throws IOException {
-        long now = System.currentTimeMillis();
+        long now = MonotonicClock.millis();
         if (definitions.countDeleted() != deletedQueues.size() || now - syncedAt >= SYNC_INTERVAL_MS) {
             sync();
         }
@@ -194,7 +194,7 @@ public class LocalQueueRepository {
             }
         }
         deletedQueues = deleted.keySet();
-        syncedAt = System.currentTimeMillis();
+        syncedAt = MonotonicClock.millis();
     }
 
     // The incarnation the cluster stores under the copy's name, storing the copy's own when it stores none; read first,
@@ -213,7 +213,7 @@ public class LocalQueueRepository {
                 log.warn("Deleting the expired positions of queue {} failed", queueLog.definition().name(), e);
             }
         }
-        expiredPositionsDeletedAt = System.currentTimeMillis();
+        expiredPositionsDeletedAt = MonotonicClock.millis();
     }
 
     private void delete(String queue, String incarnation) {

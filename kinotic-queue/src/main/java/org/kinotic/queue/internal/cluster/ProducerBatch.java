@@ -10,7 +10,7 @@ import java.util.List;
  * @param sequence the batch's sequence
  * @param written  the offset of each of the batch's records once they are written, -1 for a record the shard does not
  *                 hold
- * @param lastUsed when the producer last sent the batch, in epoch milliseconds
+ * @param lastUsed when the producer last sent the batch, as {@link MonotonicClock#millis()} read it
  */
 record ProducerBatch(long sequence, Future<List<Long>> written, long lastUsed) {
 }

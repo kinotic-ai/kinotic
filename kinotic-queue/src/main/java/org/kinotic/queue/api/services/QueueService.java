@@ -13,17 +13,25 @@ import org.kinotic.queue.api.model.WorkerOptions;
 public interface QueueService {
 
     /**
+     * Ends the name of every {@link #deadLetterQueue dead-letter queue}, and of no queue created through
+     * {@link #createQueueIfNotExist}.
+     */
+    String DEAD_LETTER_SUFFIX = ".dlq";
+
+    /**
      * @return the name of the queue a worker group's rejected records, and records it was leased five times without
-     * accepting, are appended to; created with the source queue's shard count when the first record arrives
+     * accepting, are appended to; created with the source queue's shard count when the first record arrives. Every
+     * queue and group has a dead-letter queue of its own.
      */
     static String deadLetterQueue(String queue, String groupName) {
-        return queue + "." + groupName + ".dlq";
+        return queue + "." + groupName + DEAD_LETTER_SUFFIX;
     }
 
     /**
      * Creates a queue unless a queue with the same name already exists.
      *
-     * @param definition the name and shard count of the queue; at most 1024 shards
+     * @param definition the name and shard count of the queue; at most 1024 shards, and a name that does not end in
+     *                   {@link #DEAD_LETTER_SUFFIX}
      * @return the stored definition, which keeps its original shard count when the queue already existed
      */
     Future<QueueDefinition> createQueueIfNotExist(QueueDefinition definition);
@@ -90,7 +98,7 @@ public interface QueueService {
      * together are too long to name the dead-letter queue.
      *
      * @param queue     the queue name
-     * @param groupName identifies the group; same character rules as a queue name
+     * @param groupName identifies the group; letters, digits, {@code _} and {@code -}, starting with a letter or digit
      * @param options   where the group starts, how many records the worker holds and for how long
      * @return the worker, which delivers on the calling Vert.x context
      */

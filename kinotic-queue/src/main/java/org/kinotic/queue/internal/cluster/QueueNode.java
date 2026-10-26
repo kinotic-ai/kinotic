@@ -253,7 +253,7 @@ public class QueueNode {
             });
             long placementVersion = placement.version();
             long definitionsVersion = definitions.version();
-            long now = System.currentTimeMillis();
+            long now = MonotonicClock.millis();
             boolean due = placementVersion != reconciledPlacement
                     || definitionsVersion != reconciledDefinitions
                     || owners.values().stream().anyMatch(ShardOwner::stopped)

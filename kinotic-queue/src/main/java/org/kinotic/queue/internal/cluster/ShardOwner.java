@@ -182,7 +182,7 @@ final class ShardOwner {
         // A failed write of the batch appended none of its records
         Future<List<Long>> written = resent ? last.written().otherwise(none).compose(offsets -> writeMissing(request, offsets))
                                             : writeMissing(request, none);
-        producerBatches.put(request.producerId(), new ProducerBatch(request.sequence(), written, System.currentTimeMillis()));
+        producerBatches.put(request.producerId(), new ProducerBatch(request.sequence(), written, MonotonicClock.millis()));
         long received = System.nanoTime();
         return written.compose(this::awaitCommitted).onSuccess(offsets -> {
             // A batch sent again was counted when first written
@@ -280,7 +280,7 @@ final class ShardOwner {
                 }
             }
         }
-        long now = System.currentTimeMillis();
+        long now = MonotonicClock.millis();
         Map<Long, ProducerBatch> ret = new HashMap<>();
         sequences.forEach((producerId, sequence) -> ret.put(producerId, new ProducerBatch(sequence, Future.succeededFuture(offsets.get(producerId)), now)));
         return ret;
@@ -648,7 +648,7 @@ final class ShardOwner {
 
     // Completes once a majority of copies confirms what it is keyed by, fails once COMMIT_TIMEOUT_MS passes
     private static Future<Void> awaitMajority(TreeMap<Long, PendingMajority> pending, long key) {
-        return pending.computeIfAbsent(key, k -> new PendingMajority(Promise.promise(), System.currentTimeMillis() + COMMIT_TIMEOUT_MS))
+        return pending.computeIfAbsent(key, k -> new PendingMajority(Promise.promise(), MonotonicClock.millis() + COMMIT_TIMEOUT_MS))
                       .promise()
                       .future();
     }
@@ -684,7 +684,7 @@ final class ShardOwner {
         }
         // A copy counting toward a commit may come back on a node that joined after the last change of followers
         updateTargets();
-        long now = System.currentTimeMillis();
+        long now = MonotonicClock.millis();
         if (membership.committable(copy -> progress(copy, now, ShardReplicator::lastAnsweredMillis)) < now - MAJORITY_SILENCE_MS) {
             log.warn("No majority of the copies of {} answered for {} ms, stepping down", shardId, MAJORITY_SILENCE_MS);
             stepDown();

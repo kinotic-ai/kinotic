@@ -99,6 +99,15 @@ public class QueueWorkerTests {
     }
 
     @Test
+    public void queueNamesEndingAsADeadLetterQueuesAndDottedGroupNamesAreRefused() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition(QUEUE, 1)));
+
+        assertThrows(IllegalArgumentException.class,
+                     () -> await(service.createQueueIfNotExist(new QueueDefinition(QueueService.deadLetterQueue(QUEUE, "billing"), 1))));
+        assertThrows(IllegalArgumentException.class, () -> work("eu.billing", StartPosition.EARLIEST, 1, LONG_LEASE));
+    }
+
+    @Test
     public void aRecordTheHandlerDropsIsLeasedAgainOnceItsLeaseRunsOut() throws Exception {
         await(service.createQueueIfNotExist(new QueueDefinition(QUEUE, 1)));
         appendValues(0, 1);

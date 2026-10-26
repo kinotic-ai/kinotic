@@ -41,6 +41,8 @@ public class DefaultQueueService implements QueueService {
     public Future<QueueDefinition> createQueueIfNotExist(QueueDefinition definition) {
         return vertx.executeBlocking(() -> {
             QueueLog.requireValidName(definition.name());
+            Validate.isTrue(!definition.name().endsWith(DEAD_LETTER_SUFFIX), "Queue names ending in %s are kept for dead-letter queues",
+                            DEAD_LETTER_SUFFIX);
             Validate.isTrue(definition.shardCount() > 0 && definition.shardCount() <= MAX_SHARD_COUNT,
                             "shardCount must be between 1 and %d", MAX_SHARD_COUNT);
             return localQueues.saveIfAbsent(definition).definition();
@@ -83,15 +85,18 @@ public class DefaultQueueService implements QueueService {
 
     @Override
     public Future<QueueWorker> work(String queue, String groupName, WorkerOptions options) {
+        // A group name without dots keeps every queue and group's dead-letter queue name distinct
         if (!QueueLog.isValidName(groupName)
+                || groupName.indexOf('.') >= 0
                 || !QueueLog.isValidName(QueueService.deadLetterQueue(queue, groupName))
                 || options == null
                 || options.startPosition() == null
                 || options.prefetch() < 1
                 || options.leaseDuration() == null
                 || options.leaseDuration().toMillis() < 1) {
-            return Future.failedFuture(new IllegalArgumentException("Invalid group name '" + groupName + "', which with the queue name must also name"
-                                                                            + " a valid dead-letter queue, or invalid options " + options));
+            return Future.failedFuture(new IllegalArgumentException("Invalid group name '" + groupName + "': use letters, digits, '_' or '-', starting"
+                                                                            + " with a letter or digit, few enough that with the queue name"
+                                                                            + " they name a valid dead-letter queue; or invalid options " + options));
         }
         Context context = vertx.getOrCreateContext();
         return definition(queue).compose(stored -> DefaultQueueWorker.open(context, client, stored, groupName, options));
