@@ -14,6 +14,7 @@ import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
 import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.api.rest.support.CallbackResult;
+import org.kinotic.domain.api.rest.support.OidcCallbackException;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.rest.support.OidcFlowPurpose;
@@ -106,7 +107,8 @@ public class OrganizationUserSignInMethodHandler implements SuppliesGatewayRoute
     /**
      * Binds the asserted identity to the organization user that started the flow, then sends the browser back to the
      * profile page with {@code connected=<provider>}, or with {@code error=identity_in_use} when the identity
-     * already signs in another organization user.
+     * already signs in another organization user, and {@code error=email_not_verified&provider=<key>} when the
+     * provider has not verified the identity's email.
      */
     @Override
     public void complete(RoutingContext ctx, CallbackResult<OidcConfiguration> result) {
@@ -118,7 +120,8 @@ public class OrganizationUserSignInMethodHandler implements SuppliesGatewayRoute
               .onFailure(err -> {
                   String code = err instanceof IllegalArgumentException ? IDENTITY_IN_USE : authEndpointSupport.callbackErrorCode(err);
                   log.warn("Could not connect a sign-in method to organization user {}: {}", result.organizationUserId(), err.getMessage());
-                  authEndpointSupport.redirectToUi(ctx, PROFILE_PATH + "?error=" + code);
+                  String provider = err instanceof OidcCallbackException oce ? AuthEndpointSupport.providerParameter(oce.getProvider()) : "";
+                  authEndpointSupport.redirectToUi(ctx, PROFILE_PATH + "?error=" + code + provider);
               });
     }
 

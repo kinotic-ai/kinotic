@@ -38,6 +38,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -137,8 +138,8 @@ public class OidcFlowOrchestrator {
                              return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
                          }
                          return getOAuth2Auth(config)
-                                 .compose(oauth2 -> exchangeCode(oauth2, code, callbackUrl, flowSession.pkceVerifier()))
-                                 .compose(user -> verifiedClaims(config, user, flowSession))
+                                 .compose(oauth2 -> exchangeCode(oauth2, code, callbackUrl, flowSession.pkceVerifier())
+                                         .compose(user -> verifiedClaims(config, oauth2, user, flowSession)))
                                  .map(claims -> new CallbackResult<>(config, claims, flowSession.purpose(), flowSession.orgId(),
                                                                    flowSession.applicationId(), flowSession.tenantId(),
                                                                    flowSession.inviteToken(), flowSession.organizationUserId(),
@@ -149,9 +150,10 @@ public class OidcFlowOrchestrator {
     /**
      * Produces the verified identity claims for an exchanged token: id_token claims validated
      * against issuer, audience and nonce for OIDC providers, or claims fetched from the
-     * provider's identity endpoint for a managed registration that sets {@code userInfoUri}.
+     * provider's identity endpoint for a managed registration that sets {@code userInfoUri}. An id_token whose email
+     * the provider states no {@code email_verified} for takes it from the provider's userinfo endpoint.
      */
-    private Future<Map<String, Object>> verifiedClaims(OidcConfiguration config, User user, OidcFlowSession flowSession) {
+    private Future<Map<String, Object>> verifiedClaims(OidcConfiguration config, OAuth2Auth oauth2, User user, OidcFlowSession flowSession) {
         Future<Map<String, Object>> ret;
         if (config instanceof ManagedOidcConfiguration social && social.getUserInfoUri() != null && !social.getUserInfoUri().isBlank()) {
             // A provider configured with an identity endpoint issues no id_token, so there is no
@@ -174,11 +176,49 @@ public class OidcFlowOrchestrator {
                 // id_token to echo it — an absent claim fails the equals and is rejected
                 log.warn("OIDC nonce validation failed for config {}", config.getId());
                 ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN));
+            } else if (OAuth2Util.stringClaim(claims, "email") != null && !claims.containsKey("email_verified")
+                    && !OAuth2Util.issuesOnlyVerifiedEmails(config.getProvider())) {
+                // Okta's id_token from a code exchange leaves email_verified to the userinfo endpoint
+                ret = withUserInfoEmailVerified(config, oauth2, user, claims);
             } else {
                 ret = Future.succeededFuture(claims);
             }
         }
         return ret;
+    }
+
+    /**
+     * {@code claims} with the {@code email_verified} the provider's userinfo endpoint states for the id_token's email,
+     * or as they are when the endpoint answers nothing. A userinfo response for another subject fails with
+     * {@link OidcErrorCodes#INVALID_TOKEN}.
+     */
+    private Future<Map<String, Object>> withUserInfoEmailVerified(OidcConfiguration config,
+                                                                  OAuth2Auth oauth2,
+                                                                  User user,
+                                                                  Map<String, Object> claims) {
+        return oauth2.userInfo(user)
+                     .recover(err -> {
+                         // the provider then states no verification, which the sign-in reports as email_not_verified
+                         log.warn("OIDC userinfo request failed for config {}: {}", config.getId(), err.getMessage());
+                         return Future.succeededFuture(null);
+                     })
+                     .compose(userInfo -> {
+                         Future<Map<String, Object>> ret;
+                         if (userInfo == null) {
+                             ret = Future.succeededFuture(claims);
+                         } else if (!Objects.equals(claims.get("sub"), userInfo.getString("sub"))) {
+                             // OIDC Core 5.3.2: the userinfo response is the id_token's subject only when its sub matches
+                             log.warn("OIDC userinfo subject mismatch for config {}", config.getId());
+                             ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN));
+                         } else {
+                             // email_verified speaks for the userinfo's email, so it applies only to the same address
+                             if (Objects.equals(claims.get("email"), userInfo.getString("email")) && userInfo.containsKey("email_verified")) {
+                                 claims.put("email_verified", userInfo.getValue("email_verified"));
+                             }
+                             ret = Future.succeededFuture(claims);
+                         }
+                         return ret;
+                     });
     }
 
     /**

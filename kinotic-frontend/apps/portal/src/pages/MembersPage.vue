@@ -351,13 +351,10 @@ async function submitMember() {
       await Kinotic.members.inviteMember(email, displayName, props.applicationId)
       toast.add({ severity: 'success', summary: 'Invitation sent', detail: `Invited ${email}`, life: 5000 })
     } else {
-      const added = await Kinotic.members.addMember(email, displayName, sendInvitation.value)
-      // an address that already had an organization user is invited to accept, whatever the switch said
-      const detail = added.id === null
-          ? `${email} already signs in to Kinotic organizations, so an invitation was emailed for them to accept`
-          : sendInvitation.value
-              ? `Added ${email} and emailed an invitation`
-              : `Added ${email}; they sign in through your organization's provider`
+      await Kinotic.members.addMember(email, displayName, sendInvitation.value)
+      const detail = sendInvitation.value
+          ? `Added ${email} and emailed an invitation`
+          : `Added ${email}; they sign in through your organization's provider`
       toast.add({ severity: 'success', summary: 'Member added', detail, life: 6000 })
     }
     memberFormVisible.value = false

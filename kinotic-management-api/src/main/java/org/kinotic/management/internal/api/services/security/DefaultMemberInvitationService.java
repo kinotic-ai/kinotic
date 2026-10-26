@@ -14,7 +14,6 @@ import org.kinotic.domain.api.model.security.participant.OrganizationParticipant
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
-import org.kinotic.domain.api.services.security.OrganizationMembershipService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.EmailService;
@@ -27,7 +26,6 @@ public class DefaultMemberInvitationService implements MemberInvitationService {
 
     private final SecurityContext securityContext;
     private final ParticipantIdentityService identityService;
-    private final OrganizationMembershipService membershipService;
     private final InviteService inviteService;
     private final OidcConfigurationService oidcConfigurationService;
     private final ApplicationRepository applicationRepository;
@@ -39,38 +37,26 @@ public class DefaultMemberInvitationService implements MemberInvitationService {
         OrganizationParticipant inviter = requireOrgParticipant();
         Validate.notBlank(email, "email is required");
         String address = DomainUtil.normalizeEmail(email);
-        return identityService.findOrganizationUserByEmail(address)
-                              .compose(user -> user == null
-                                      ? provision(inviter, address, displayName, sendInvitation, emailTemplate)
-                                      // the organization user is someone's, or another organization's member to claim: joining
-                                      // it to this organization needs its holder's acceptance, whatever was asked
-                                      : invite(inviter, address, displayName, null, emailTemplate)
-                                              .map(invite -> new OrganizationMember(null, invite.getEmail(), invite.getDisplayName(), true,
-                                                                        invite.getCreated(), true)));
-    }
-
-    // the organization creates the organization user and its membership at once: an invitation lets the address
-    // claim the user, and without one only the organization's own provider can, so it must have one
-    private Future<OrganizationMember> provision(OrganizationParticipant inviter, String address, String displayName,
-                                                 boolean sendInvitation, EmailTemplate emailTemplate) {
         String organizationId = inviter.getOrganizationId();
         if (sendInvitation) {
-            // checked before the organization user and membership the invitation is for are saved
+            // checked before the member the invitation is for is saved
             emailService.validateTemplate(emailTemplate);
         }
+        // an invitation lets the address claim the member, and without one only the organization's own provider can,
+        // so it must have one
         Future<Void> admissible = sendInvitation ? Future.succeededFuture() : requireOwnProvider(organizationId);
         OrganizationParticipantIdentity user = new OrganizationParticipantIdentity();
-        user.setEmail(address)
+        user.setOrganizationId(organizationId)
+            .setEmail(address)
             .setDisplayName(StringUtils.trimToNull(displayName));
         return admissible.compose(v -> identityService.createUser(user, null))
-                         .compose(created -> membershipService.addMembership(created.getId(), organizationId)
-                                 .compose(membership -> {
-                                     Future<Void> invited = sendInvitation
-                                             ? invite(inviter, address, displayName, null, emailTemplate).mapEmpty()
-                                             : Future.succeededFuture();
-                                     return invited.map(v -> new OrganizationMember(created.getId(), created.getEmail(), created.getDisplayName(),
-                                                                        true, membership.getCreated(), true));
-                                 }));
+                         .compose(created -> {
+                             Future<Void> invited = sendInvitation
+                                     ? invite(inviter, address, displayName, null, emailTemplate).mapEmpty()
+                                     : Future.succeededFuture();
+                             return invited.map(v -> new OrganizationMember(created.getId(), created.getEmail(), created.getDisplayName(),
+                                                                            true, created.getCreated(), true));
+                         });
     }
 
     private Future<Void> requireOwnProvider(String organizationId) {
@@ -102,16 +88,13 @@ public class DefaultMemberInvitationService implements MemberInvitationService {
         });
     }
 
-    // the organization user of the organization's member at the address that no sign-in method signs in yet
+    // the organization's member at the address that no sign-in method signs in yet
     private Future<OrganizationParticipantIdentity> pendingMember(String address, String organizationId) {
-        return identityService.findOrganizationUserByEmail(address).compose(user -> {
+        return identityService.findOrganizationUserByEmail(address, organizationId).compose(user -> {
             Validate.isTrue(user != null, "No pending member has this email.");
-            return membershipService.findMembership(user.getId(), organizationId).compose(membership -> {
-                Validate.isTrue(membership != null, "No pending member has this email.");
-                return identityService.hasSignInMethod(user.getId()).map(claimed -> {
-                    Validate.isTrue(!claimed, "This member has already signed in.");
-                    return user;
-                });
+            return identityService.hasSignInMethod(user.getId()).map(claimed -> {
+                Validate.isTrue(!claimed, "This member has already signed in.");
+                return user;
             });
         });
     }

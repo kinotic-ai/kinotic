@@ -1,8 +1,6 @@
 package org.kinotic.domain.api.services.security;
 
 import io.vertx.core.Future;
-import org.kinotic.domain.api.exceptions.ExistingUserException;
-import org.kinotic.domain.api.exceptions.PendingMemberException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.EmailTemplate;
 import org.kinotic.domain.api.model.security.PendingSignUp;
@@ -17,9 +15,8 @@ public interface SignUpService {
 
     /**
      * Starts an email/password sign-up: validates and stores a pending record and emails a
-     * verification link. The organization name and password are collected later, at completion. Fails with
-     * {@link ExistingUserException} when the email has an organization user someone signs in as, and with
-     * {@link PendingMemberException} when it has one an administrator added that nobody signs in as yet.
+     * verification link. The organization name and password are collected later, at completion. Fails while a
+     * sign-up is already pending for the email.
      *
      * @param email           the email to verify
      * @param displayName     the founder's display name
@@ -32,15 +29,14 @@ public interface SignUpService {
     /**
      * Stores a pending sign-up for an identity already verified by an OIDC provider, returning it
      * with its {@code id} and {@code verificationToken} populated. The caller supplies the verified
-     * identity (and, for an existing-org registration, the {@code organizationId}). Fails as
-     * {@link #initiateLocalSignUp} does when the identity, or its verified email, has an organization user.
+     * identity (and, for an existing-org registration, the {@code organizationId}).
      */
     Future<PendingSignUp> createOidcPending(PendingSignUp pending);
 
     /**
      * Completes an email/password sign-up: validates the token, creates the organization with the
-     * given name (failing if it is taken), the founder's organization user with its password and its
-     * membership of the organization, then deletes the pending record.
+     * given name (failing if it is taken) and the founder as its first user, with its password, then deletes the
+     * pending record.
      *
      * @return the founder as the new organization's participant, for the session to sign in
      */
@@ -48,8 +44,7 @@ public interface SignUpService {
 
     /**
      * Completes an OIDC sign-up by creating a new organization with the given name (failing if it is
-     * taken), the founder's organization user bound to the verified identity and its membership of the
-     * organization, then deleting the pending record.
+     * taken) and the founder as its first user, bound to the verified identity, then deleting the pending record.
      *
      * @return the founder as the new organization's participant, for the session to sign in
      */

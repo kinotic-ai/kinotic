@@ -16,8 +16,7 @@ public interface MemberInvitationService {
     /**
      * {@link MemberService#addMember}, emailing any invitation as {@code emailTemplate}.
      *
-     * @return the member as listed, pending until they first sign in; for an address that already has an organization
-     *         user, a pending member with no id yet
+     * @return the member as listed, pending until they first sign in
      * @throws IllegalArgumentException when an invitation is emailed and {@code emailTemplate} is not valid, as
      *                                  {@link EmailTemplate} describes
      */

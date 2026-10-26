@@ -46,15 +46,6 @@ public class Application implements OrganizationScoped<String> {
      */
     private String primaryUiUrl;
 
-    /**
-     * Whether a person may sign up as a new user of the application with an email and a password, the email
-     * verified by a link sent to it, from one of the application's UIs. Taken only while the system manages the
-     * application's tenants, which gives each new user a tenant of its own; a user of an application whose tenants
-     * their administrators manage joins a tenant through an invitation or the tenant's own login. The
-     * application's providers sign people up as each one's {@code createUserOnSignIn} says.
-     */
-    private boolean passwordSignUp;
-
     private Date updated = null;
 
     public Application(String name, String description) {

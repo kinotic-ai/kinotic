@@ -12,7 +12,6 @@ import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIde
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.services.security.InviteService;
-import org.kinotic.domain.api.services.security.OrganizationMembershipService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.PendingInviteSummary;
@@ -20,7 +19,6 @@ import org.kinotic.management.api.services.security.MemberInvitationService;
 import org.kinotic.management.api.services.security.MemberService;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -28,18 +26,17 @@ public class DefaultMemberService implements MemberService {
 
     private final SecurityContext securityContext;
     private final ParticipantIdentityService identityService;
-    private final OrganizationMembershipService membershipService;
     private final InviteService inviteService;
     private final MemberInvitationService memberInvitationService;
 
     @Override
     public Future<Page<OrganizationMember>> findMembers(Pageable pageable) {
-        return membershipService.findMembers(requireOrgParticipant().getOrganizationId(), pageable);
+        return identityService.findOrganizationMembers(requireOrgParticipant().getOrganizationId(), pageable);
     }
 
     @Override
     public Future<Page<OrganizationMember>> searchMembers(String searchText, Pageable pageable) {
-        return membershipService.searchMembers(searchText, requireOrgParticipant().getOrganizationId(), pageable);
+        return identityService.searchOrganizationMembers(searchText, requireOrgParticipant().getOrganizationId(), pageable);
     }
 
     // scope-composed queries, so a foreign or unknown application matches nothing
@@ -71,39 +68,24 @@ public class DefaultMemberService implements MemberService {
 
     @Override
     public Future<Void> setMemberEnabled(String identityId, boolean enabled) {
-        OrganizationParticipant participant = requireOrgParticipant();
-        return loadOwnedMember(identityId, participant)
-                .compose(member -> member instanceof OrganizationParticipantIdentity
-                        ? membershipService.setMembershipEnabled(member.getId(), participant.getOrganizationId(), enabled)
-                        // saveSync so the console's immediate re-query sees the change
-                        : identityService.saveSync(member.setEnabled(enabled)).mapEmpty());
+        return loadOwnedMember(identityId, requireOrgParticipant())
+                // saveSync so the console's immediate re-query sees the change
+                .compose(member -> identityService.saveSync(member.setEnabled(enabled)).mapEmpty());
     }
 
     @Override
     public Future<Void> removeMember(String identityId) {
         OrganizationParticipant participant = requireOrgParticipant();
         return loadOwnedMember(identityId, participant)
+                // cascades the credential, the bindings and the delegates; sync so the console's immediate re-query
+                // no longer shows the member
+                .compose(member -> identityService.deleteByIdSync(member.getId()).map(member))
+                // an organization's member goes with the invitation they never accepted
                 .compose(member -> member instanceof OrganizationParticipantIdentity user
-                        ? removeOrganizationMember(user, participant.getOrganizationId())
-                        // Cascades the IdentityCredential; sync so the console's immediate re-query
-                        // no longer shows the member.
-                        : identityService.deleteByIdSync(member.getId()));
-    }
-
-    // the membership goes, with the invitation the member never accepted, and so does an organization user nobody
-    // signs in as that holds no other membership, which nothing could reach
-    private Future<Void> removeOrganizationMember(OrganizationParticipantIdentity user, String organizationId) {
-        return membershipService.removeMembership(user.getId(), organizationId)
-                .compose(v -> inviteService.findPendingInvite(user.getEmail(), organizationId))
-                .compose(invite -> invite == null
-                        ? Future.<Void>succeededFuture()
-                        : inviteService.cancelInvite(invite.getId(), organizationId))
-                .compose(v -> identityService.hasSignInMethod(user.getId()))
-                .compose(claimed -> claimed
-                        ? Future.succeededFuture(false)
-                        : membershipService.findMemberships(user.getId()).map(List::isEmpty))
-                .compose(orphaned -> orphaned
-                        ? identityService.deleteByIdSync(user.getId())
+                        ? inviteService.findPendingInvite(user.getEmail(), participant.getOrganizationId())
+                                       .compose(invite -> invite == null
+                                               ? Future.<Void>succeededFuture()
+                                               : inviteService.cancelInvite(invite.getId(), participant.getOrganizationId()))
                         : Future.<Void>succeededFuture());
     }
 
@@ -131,8 +113,8 @@ public class DefaultMemberService implements MemberService {
     }
 
     /**
-     * Loads a member of the participant's organization for mutation: an organization user holding a membership of
-     * it, or a user of one of its applications. Rejects acting on the caller themselves, so an admin can't
+     * Loads a member of the participant's organization for mutation: a user of it, or a user of one of its
+     * applications. Rejects acting on the caller themselves, so an admin can't
      * disable or remove themselves out of the org.
      */
     private Future<UserParticipantIdentity> loadOwnedMember(String identityId, OrganizationParticipant participant) {
@@ -141,22 +123,14 @@ public class DefaultMemberService implements MemberService {
             return Future.failedFuture(
                     new IllegalArgumentException("You cannot perform this action on yourself."));
         }
+        // a delegate id gets the same not-found as a foreign one — member management
+        // operates on people; delegates are managed by their owner's revocation flow
         return identityService.findById(identityId)
-                .compose(identity -> {
-                    // a delegate id gets the same not-found as a foreign one — member management
-                    // operates on people; delegates are managed by their owner's revocation flow
-                    UserParticipantIdentity user = DomainUtil.requireOwned(identity, UserParticipantIdentity.class,
-                            found -> found instanceof OrganizationParticipantIdentity
-                                    || (found instanceof ApplicationParticipantIdentity application
-                                        && participant.getOrganizationId().equals(application.getOrganizationId())),
-                            "Member not found.");
-                    // an organization user is the organization's member only through a membership of it
-                    return user instanceof OrganizationParticipantIdentity
-                            ? membershipService.findMembership(user.getId(), participant.getOrganizationId()).map(membership -> {
-                                Validate.isTrue(membership != null, "Member not found.");
-                                return user;
-                            })
-                            : Future.succeededFuture(user);
-                });
+                .map(identity -> DomainUtil.requireOwned(identity, UserParticipantIdentity.class,
+                        found -> (found instanceof OrganizationParticipantIdentity member
+                                  && participant.getOrganizationId().equals(member.getOrganizationId()))
+                                 || (found instanceof ApplicationParticipantIdentity application
+                                     && participant.getOrganizationId().equals(application.getOrganizationId())),
+                        "Member not found."));
     }
 }

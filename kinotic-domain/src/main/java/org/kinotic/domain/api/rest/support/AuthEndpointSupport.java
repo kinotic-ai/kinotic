@@ -20,6 +20,7 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ScopedParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.KinoticAudience;
+import org.kinotic.domain.api.model.security.LoginProviderType;
 import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
@@ -73,8 +74,7 @@ public abstract class AuthEndpointSupport {
      * Vert.x session (see {@link SessionBinding}). The subsequent STOMP WebSocket handshake from that page
      * reads it back, so the browser is authenticated by its session cookie and never handles a token. The
      * participant's type is what scopes its authority: a system user signs in as a SystemParticipant, an
-     * organization user as an OrganizationParticipant through one of its memberships, an application's user as
-     * an ApplicationParticipant.
+     * organization's user as an OrganizationParticipant, an application's user as an ApplicationParticipant.
      */
     public void establishSession(RoutingContext ctx, String origin, Participant participant) {
         // Rotate the session id on the privilege change so a pre-auth (possibly fixed)
@@ -150,10 +150,18 @@ public abstract class AuthEndpointSupport {
      * that started the flow, or of this server's UI when {@code origin} is null.
      */
     public void redirectError(RoutingContext ctx, String origin, String errorCode) {
+        redirectError(ctx, origin, errorCode, null);
+    }
+
+    /**
+     * {@link #redirectError(RoutingContext, String, String)} naming the provider whose answer failed the flow, by its
+     * key, as the page's {@code provider} query parameter, or naming none when {@code provider} is {@code null}.
+     */
+    public void redirectError(RoutingContext ctx, String origin, String errorCode, OidcProviderType provider) {
         // the flow that stored a return path ends here, so it must not outlive it and send an
         // unrelated later login somewhere the user never asked for
         ctx.session().remove(RETURN_PATH_SESSION_KEY);
-        redirectToLogin(ctx, origin, errorCode, null);
+        redirectToPage(ctx, origin, loginErrorPath(errorCode) + providerParameter(provider));
     }
 
     /**
@@ -162,16 +170,26 @@ public abstract class AuthEndpointSupport {
      * starts next lands there.
      */
     public void redirectToContinue(RoutingContext ctx, String origin, String errorCode) {
-        redirectToLogin(ctx, origin, errorCode, ctx.session().remove(RETURN_PATH_SESSION_KEY));
-    }
-
-    private void redirectToLogin(RoutingContext ctx, String origin, String errorCode, String returnPath) {
-        String path = "/login?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8);
+        String returnPath = ctx.session().remove(RETURN_PATH_SESSION_KEY);
+        String path = loginErrorPath(errorCode);
         if (returnPath != null) {
             path += "&referer=" + URLEncoder.encode(returnPath, StandardCharsets.UTF_8);
         }
         redirectToPage(ctx, origin, path);
     }
+
+    private static String loginErrorPath(String errorCode) {
+        return "/login?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * The query parameter, {@code &provider=<key>}, with which an error redirect names the provider whose answer
+     * failed the flow, or an empty string when {@code provider} is {@code null}.
+     */
+    public static String providerParameter(OidcProviderType provider) {
+        return provider == null ? "" : "&provider=" + URLEncoder.encode(provider.key(), StandardCharsets.UTF_8);
+    }
+
 
     /**
      * {@code 302 Location: <origin><path>}, the path on the page at {@code origin} that started the flow, or on
@@ -197,7 +215,7 @@ public abstract class AuthEndpointSupport {
 
     /** {@link #redirectCallbackFailure(RoutingContext, Throwable)} to the login page of the page at {@code origin}. */
     public void redirectCallbackFailure(RoutingContext ctx, String origin, Throwable ex) {
-        redirectError(ctx, origin, callbackErrorCode(ex));
+        redirectError(ctx, origin, callbackErrorCode(ex), ex instanceof OidcCallbackException oce ? oce.getProvider() : null);
     }
 
     /** The error code a failed callback surfaces: the typed code of an {@link OidcCallbackException}, else {@link OidcErrorCodes#EXCHANGE_FAILED}. */
@@ -345,17 +363,13 @@ public abstract class AuthEndpointSupport {
                 .mapEmpty();
     }
 
-    /** Standard {@code [{id, name, provider}]} shape for "list of OIDC configs to choose from". */
-    public void respondProvidersList(RoutingContext ctx, List<? extends OidcConfiguration> configs) {
-        ctx.response().putHeader("Content-Type", "application/json").end(providersJson(configs).encode());
-    }
-
-    /** The {@code [{id, name, provider}]} array behind {@link #respondProvidersList}, for embedding in larger payloads. */
+    /** The {@code [{id, type, name, provider}]} array of OIDC configurations a page offers to choose from, each of type {@code OIDC}. */
     public JsonArray providersJson(List<? extends OidcConfiguration> configs) {
         JsonArray arr = new JsonArray();
         for (OidcConfiguration c : configs) {
             arr.add(new JsonObject()
                     .put("id", c.getId())
+                    .put("type", LoginProviderType.OIDC.name())
                     .put("name", c.getName())
                     .put("provider", c.getProvider() == null ? null : c.getProvider().key()));
         }
@@ -482,7 +496,7 @@ public abstract class AuthEndpointSupport {
         try {
             ret = requireVerifiedSubject(result);
         } catch (OidcCallbackException ex) {
-            redirectError(ctx, result.origin(), ex.getErrorCode());
+            redirectError(ctx, result.origin(), ex.getErrorCode(), ex.getProvider());
             ret = null;
         }
         return ret;
@@ -500,7 +514,7 @@ public abstract class AuthEndpointSupport {
             throw new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN);
         }
         if (!OAuth2Util.isEmailVerified(claims, result.config().getProvider())) {
-            throw new OidcCallbackException(OidcErrorCodes.EMAIL_NOT_VERIFIED);
+            throw new OidcCallbackException(OidcErrorCodes.EMAIL_NOT_VERIFIED, result.config().getProvider());
         }
         return sub;
     }
@@ -524,14 +538,12 @@ public abstract class AuthEndpointSupport {
                   }
               })
               .onFailure(err -> {
-                  String code;
                   if (err instanceof OidcCallbackException oce) {
-                      code = oce.getErrorCode();
+                      redirectError(ctx, origin, oce.getErrorCode(), oce.getProvider());
                   } else {
                       log.warn("Login resolution failed: {}", err.getMessage());
-                      code = OidcErrorCodes.LOOKUP_FAILED;
+                      redirectError(ctx, origin, OidcErrorCodes.LOOKUP_FAILED);
                   }
-                  redirectError(ctx, origin, code);
               });
     }
 }

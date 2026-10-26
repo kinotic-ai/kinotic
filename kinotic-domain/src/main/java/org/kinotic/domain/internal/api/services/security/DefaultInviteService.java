@@ -16,8 +16,7 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.exceptions.UserDisabledException;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.exceptions.InviteEmailMismatchException;
-import org.kinotic.domain.api.services.security.LocalAuthenticationService;
-import org.kinotic.domain.api.services.security.OrganizationMembershipService;
+import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.internal.api.repositories.PendingInviteRepository;
@@ -39,9 +38,8 @@ public class DefaultInviteService implements InviteService {
 
     private final PendingInviteRepository pendingInviteRepository;
     private final ParticipantIdentityService identityService;
-    private final OrganizationMembershipService membershipService;
-    private final LocalAuthenticationService localAuthenticationService;
     private final OrganizationService organizationService;
+    private final PasswordConfigurationService passwordConfigurationService;
     private final EmailService emailService;
 
     @Override
@@ -58,7 +56,9 @@ public class DefaultInviteService implements InviteService {
                         return Future.failedFuture(
                                 new IllegalArgumentException("Organization not found."));
                     }
-                    return checkEmailAvailable(invite).map(org);
+                    // an application's invitation is accepted with a password alone, so one its login refuses could never be
+                    Future<Void> acceptable = invite.getApplicationId() != null ? requirePasswordSignIn(invite) : Future.succeededFuture();
+                    return acceptable.compose(v -> checkEmailAvailable(invite)).map(org);
                 })
                 .compose(org -> {
                     Date now = new Date();
@@ -118,28 +118,18 @@ public class DefaultInviteService implements InviteService {
                 .compose(invite -> {
                     Future<Participant> ret;
                     if (invite.getApplicationId() != null) {
-                        ret = identityService.createUser(newApplicationUser(invite, displayName), password)
-                                             .map(DomainUtil::createParticipant);
+                        ret = requirePasswordSignIn(invite)
+                                .compose(v -> identityService.createUser(newApplicationUser(invite, displayName), password))
+                                .map(DomainUtil::createParticipant);
                     } else {
-                        ret = identityService.findOrganizationUserByEmail(invite.getEmail()).compose(user -> {
-                            Future<Participant> joined;
-                            if (user == null) {
-                                joined = identityService.createUser(newOrganizationUser(invite, displayName), password)
-                                                        .compose(created -> join(created, invite));
-                            } else {
-                                // the invitation's holder owns the email, so a disabled user is refused before the
-                                // password check, which would answer as for a wrong password
-                                joined = requireEnabled(user)
-                                        .compose(v -> identityService.hasSignInMethod(user.getId()))
-                                        .compose(claimed -> claimed
-                                                ? requireOrganizationUserPassword(user, password)
-                                                // an organization user an administrator added that nobody signs in as yet is
-                                                // the invited address's to claim: the password becomes its first sign-in method
-                                                : claim(user, displayName, password))
-                                        .compose(v -> join(user, invite));
-                            }
-                            return joined;
-                        });
+                        ret = requirePasswordSignIn(invite)
+                                .compose(v -> identityService.findOrganizationUserByEmail(invite.getEmail(), invite.getOrganizationId()))
+                                .compose(user -> user == null
+                                        ? identityService.createUser(newOrganizationUser(invite, displayName), password).map(DomainUtil::createParticipant)
+                                        // the member an administrator added is the invited address's to claim: the password
+                                        // becomes its first sign-in method
+                                        : requireUnclaimed(user).compose(v -> claim(user, displayName, password))
+                                                                .map(v -> DomainUtil.createParticipant(user)));
                     }
                     return ret.compose(member -> pendingInviteRepository.deleteById(invite.getId()).map(member));
                 });
@@ -164,33 +154,26 @@ public class DefaultInviteService implements InviteService {
                         return Future.failedFuture(new InviteEmailMismatchException(
                                 "This invitation was sent to a different email address."));
                     }
-                    return identityService.findOrganizationUserByOidcIdentity(oidcConfigId, oidcSubject)
+                    String organizationId = invite.getOrganizationId();
+                    return identityService.findOrganizationUserByOidcIdentity(oidcConfigId, oidcSubject, organizationId)
                             .compose(bound -> {
                                 Future<Participant> joined;
                                 if (bound != null) {
-                                    // the identity proves the acceptor owns the organization user, which must be the invited one
+                                    // the identity already signs in a member of the organization, which must be the invited one
                                     joined = invite.getEmail().equals(bound.getEmail())
-                                            ? join(bound, invite)
+                                            ? requireEnabled(bound).map(v -> DomainUtil.createParticipant(bound))
                                             : Future.failedFuture(new InviteEmailMismatchException(
                                                     "This invitation was sent to a different email address."));
                                 } else {
-                                    joined = identityService.findOrganizationUserByEmail(invite.getEmail()).compose(user -> {
-                                        Future<Participant> ret;
-                                        if (user == null) {
-                                            ret = identityService.createOidcUser(newOrganizationUser(invite, null), oidcConfigId, oidcSubject)
-                                                                 .compose(created -> join(created, invite));
-                                        } else {
-                                            ret = identityService.hasSignInMethod(user.getId()).compose(claimed -> claimed
-                                                    ? Future.failedFuture(new ExistingUserException(
-                                                            "This email already signs in to Kinotic organizations. Accept with its password instead."))
-                                                    // an organization user an administrator added that nobody signs in as yet is the
-                                                    // invited address's to claim: the identity becomes its first sign-in method
-                                                    : requireEnabled(user)
+                                    joined = identityService.findOrganizationUserByEmail(invite.getEmail(), organizationId)
+                                            .compose(user -> user == null
+                                                    ? identityService.createOidcUser(newOrganizationUser(invite, null), oidcConfigId, oidcSubject)
+                                                                     .map(DomainUtil::createParticipant)
+                                                    // the member an administrator added is the invited address's to claim: the
+                                                    // identity becomes its first sign-in method
+                                                    : requireUnclaimed(user)
                                                             .compose(v -> identityService.bindOidcIdentity(user.getId(), oidcConfigId, oidcSubject))
-                                                            .compose(v -> join(user, invite)));
-                                        }
-                                        return ret;
-                                    });
+                                                            .map(v -> DomainUtil.createParticipant(user)));
                                 }
                                 return joined;
                             })
@@ -198,34 +181,32 @@ public class DefaultInviteService implements InviteService {
                 });
     }
 
-    // an application invitee is a user of the application; an organization invitee is an organization user holding a
-    // membership of the organization that a sign-in method signs in, whatever the membership's enabled flag, since a
-    // member an administrator added that nobody has signed in as yet is invited to claim the organization user
+    // an application invitee is a user of the application; an organization invitee is a user of the organization that a
+    // sign-in method signs in, since a member an administrator added that nobody has signed in as yet is invited to
+    // claim it
     private Future<Boolean> isMemberAlready(PendingInvite invite) {
         Future<Boolean> ret;
         if (invite.getApplicationId() != null) {
             ret = identityService.findApplicationUserByEmail(invite.getEmail(), invite.getOrganizationId(), invite.getApplicationId())
                                  .map(Objects::nonNull);
         } else {
-            ret = identityService.findOrganizationUserByEmail(invite.getEmail())
+            ret = identityService.findOrganizationUserByEmail(invite.getEmail(), invite.getOrganizationId())
                                  .compose(user -> user == null
                                          ? Future.succeededFuture(false)
-                                         : membershipService.findMembership(user.getId(), invite.getOrganizationId())
-                                                            .compose(membership -> membership == null
-                                                                    ? Future.succeededFuture(false)
-                                                                    : identityService.hasSignInMethod(user.getId())));
+                                         : identityService.hasSignInMethod(user.getId()));
         }
         return ret;
     }
 
     /**
-     * The unsaved organization user an invitation into an organization creates. Id, dates, the enabled flag and the
-     * sign-in method are applied by the identity service. A concurrent double-accept is safe — the unique-email
-     * check fails the second attempt.
+     * The unsaved user of the invitation's organization that an invitation into an organization creates. Id, dates,
+     * the enabled flag and the sign-in method are applied by the identity service. A concurrent double-accept is
+     * safe — the unique-email check fails the second attempt.
      */
     private static OrganizationParticipantIdentity newOrganizationUser(PendingInvite invite, String displayNameOverride) {
         OrganizationParticipantIdentity user = new OrganizationParticipantIdentity();
-        user.setEmail(invite.getEmail())
+        user.setOrganizationId(invite.getOrganizationId())
+            .setEmail(invite.getEmail())
             .setDisplayName(displayName(invite, displayNameOverride));
         return user;
     }
@@ -244,16 +225,16 @@ public class DefaultInviteService implements InviteService {
         return StringUtils.isNotBlank(displayNameOverride) ? displayNameOverride : invite.getDisplayName();
     }
 
-    // the organization user becomes a member of the invitation's organization and signs in there; a disabled user
-    // joins nothing, and a membership that already exists is reused, so one disabled before the acceptance
-    // refuses the sign-in as a login would
-    private Future<Participant> join(OrganizationParticipantIdentity user, PendingInvite invite) {
+    // a member someone already signs in as has accepted already, and a disabled one is refused as a login would refuse it
+    private Future<Void> requireUnclaimed(OrganizationParticipantIdentity user) {
         return requireEnabled(user)
-                .compose(v -> membershipService.addMembership(user.getId(), invite.getOrganizationId()))
-                .compose(membership -> membershipService.resolveParticipant(user, invite.getOrganizationId()));
+                .compose(v -> identityService.hasSignInMethod(user.getId()))
+                .compose(claimed -> claimed
+                        ? Future.failedFuture(new ExistingUserException("This email is already a member of the organization. Sign in instead."))
+                        : Future.succeededFuture());
     }
 
-    // the invited address makes the organization user its own: the name it gives and the password it sets
+    // the invited address makes the member its own: the name it gives and the password it sets
     private Future<Void> claim(OrganizationParticipantIdentity user, String displayName, String password) {
         Future<?> named = StringUtils.isNotBlank(displayName)
                 ? identityService.save(user.setDisplayName(displayName))
@@ -267,13 +248,15 @@ public class DefaultInviteService implements InviteService {
                 : Future.failedFuture(new UserDisabledException("This user cannot sign in to the organization."));
     }
 
-    // an existing organization user is joined only by someone who knows its password
-    private Future<Void> requireOrganizationUserPassword(OrganizationParticipantIdentity user, String password) {
-        return localAuthenticationService.verifyPassword(user, password)
-                                         .compose(verified -> !verified
-                                                 ? Future.failedFuture(new ExistingUserException(
-                                                         "That password does not match the one this email signs in to Kinotic organizations with."))
-                                                 : Future.succeededFuture());
+    // an invitation is accepted with a password only where the login of its scope takes one
+    private Future<Void> requirePasswordSignIn(PendingInvite invite) {
+        return passwordConfigurationService.findOffered(invite.getOrganizationId(), invite.getApplicationId(), null)
+                                           .compose(offered -> offered == null
+                                                   ? Future.failedFuture(new IllegalArgumentException(invite.getApplicationId() == null
+                                                           ? "This organization does not accept passwords. Accept the invitation with one of its sign-in providers."
+                                                           : "This application's login takes no password, which an invitation into it is accepted with."
+                                                             + " Add Email and password to its sign-in providers first."))
+                                                   : Future.succeededFuture());
     }
 
     @Override

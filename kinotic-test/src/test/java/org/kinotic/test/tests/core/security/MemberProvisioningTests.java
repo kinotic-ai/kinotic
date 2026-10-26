@@ -9,12 +9,12 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
-import org.kinotic.domain.api.exceptions.PendingMemberException;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.security.OrganizationMember;
 import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
 import org.kinotic.domain.api.model.security.PendingInvite;
+import org.kinotic.domain.api.model.security.PasswordConfiguration;
 import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.SystemParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
@@ -22,10 +22,9 @@ import org.kinotic.domain.api.model.security.participant.DefaultOrganizationPart
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.InviteService;
-import org.kinotic.domain.api.services.security.OrganizationMembershipService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
-import org.kinotic.domain.api.services.security.SignUpService;
+import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.kinotic.management.api.services.security.MemberService;
 import org.kinotic.management.api.services.security.OwnedOidcConfigurationService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
@@ -47,12 +46,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verifies how an organization's administrators add members and how those members first sign in: an address with
- * no organization user becomes a pending member at once, with or without an invitation; the organization's own
- * provider claims the pending member it verifies under that address, once, and no one else; an invitation claims a
- * pending member with a password or a provider identity; an address that already has an organization user is
- * invited to accept instead; removing a pending member removes the organization user nobody signed in as; an
- * address added twice at once is one member; and a system user's address is added as a new organization user.
+ * Verifies how an organization's administrators add members and how those members first sign in: an address
+ * becomes a pending member at once, with or without an invitation; the organization's own provider claims the
+ * pending member it verifies under that address, once, and no one else; an invitation claims a pending member with a
+ * password or a provider identity; an address is a member of an organization once, whatever users of other
+ * organizations or the system it has; removing a pending member removes it; and an address added twice at once is
+ * one member.
  */
 @SpringBootTest
 public class MemberProvisioningTests extends KinoticTestBase {
@@ -69,9 +68,6 @@ public class MemberProvisioningTests extends KinoticTestBase {
     private ParticipantIdentityService identities;
 
     @Autowired
-    private OrganizationMembershipService memberships;
-
-    @Autowired
     private InviteService invites;
 
     @Autowired
@@ -81,7 +77,7 @@ public class MemberProvisioningTests extends KinoticTestBase {
     private OrganizationService organizations;
 
     @Autowired
-    private SignUpService signUps;
+    private PasswordConfigurationService passwordConfigurations;
 
     // an invitation names an organization that exists, so each test adds members to one of its own, as its administrator
     private Organization organization;
@@ -105,6 +101,8 @@ public class MemberProvisioningTests extends KinoticTestBase {
                      .setClientId("acme-client")
                      .setEnabled(true);
         okta = (OrganizationOidcConfiguration) await(asAdministrator(() -> ownedConfigurations.save(configuration, null)));
+        // invitations are accepted with a password as well
+        await(asAdministrator(() -> passwordConfigurations.save(passwordSignIn(true))));
         // offered configurations are a search, which sees the row once the index has refreshed
         await(oidcConfigurations.syncIndex());
     }
@@ -122,7 +120,7 @@ public class MemberProvisioningTests extends KinoticTestBase {
         assertTrue(added.enabled());
         assertNull(await(invites.findPendingInvite(email, organization.getId())));
         assertFalse(await(identities.hasSignInMethod(added.id())));
-        assertNotNull(await(memberships.findMembership(added.id(), organization.getId())));
+        assertEquals(organization.getId(), memberOf(added));
         assertTrue(listed(email).pending());
 
         // the organization's provider claims the member under the verified email, binding the identity as the first
@@ -137,20 +135,6 @@ public class MemberProvisioningTests extends KinoticTestBase {
         // once claimed, no other identity under the same email takes the member, and no stranger's email finds one
         assertNull(await(identities.claimProvisionedOrganizationUser(okta.getId(), "sub-" + suffix(), email, organization.getId())));
         assertNull(await(identities.claimProvisionedOrganizationUser(okta.getId(), "sub-" + suffix(), "nobody-" + suffix() + "@example.test", organization.getId())));
-    }
-
-    @Test
-    public void aPendingMembersSignUpIsToldToAcceptTheInvitationUntilTheMemberIsClaimed() throws Exception {
-        String email = "signs-up-" + suffix() + "@example.test";
-        OrganizationMember added = await(asAdministrator(() -> members.addMember(email, "Pat Signs Up", false)));
-        // the sign-up finds the organization user by a search, which sees it once the index has refreshed
-        await(identities.syncIndex());
-
-        assertInstanceOf(PendingMemberException.class, failure(() -> signUps.initiateLocalSignUp(email, "Pat Signs Up", null)));
-
-        await(identities.claimProvisionedOrganizationUser(okta.getId(), "sub-" + suffix(), email, organization.getId()));
-        assertTrue(await(identities.hasSignInMethod(added.id())));
-        assertInstanceOf(ExistingUserException.class, failure(() -> signUps.initiateLocalSignUp(email, "Pat Signs Up", null)));
     }
 
     @Test
@@ -184,24 +168,67 @@ public class MemberProvisioningTests extends KinoticTestBase {
         await(identities.createUser(systemUser, PASSWORD));
         await(identities.syncIndex());
 
-        // the address has no organization user, so the organization adds one, pending, beside the system user
+        // the organization adds a user of its own, pending, beside the system user
         OrganizationMember added = await(asAdministrator(() -> members.addMember(email, "Sam Member", false)));
         assertNotNull(added.id());
         assertNotEquals(systemUser.getId(), added.id());
         assertTrue(added.pending());
-        assertNotNull(await(memberships.findMembership(added.id(), organization.getId())));
+        assertEquals(organization.getId(), memberOf(added));
         assertTrue(await(identities.hasPassword(systemUser.getId())));
-        assertTrue(await(memberships.findMemberships(systemUser.getId())).isEmpty());
     }
 
     @Test
     public void aMemberIsClaimedOnlyWhereTheOrganizationAddedThem() throws Exception {
-        // an organization user nobody signs in as that holds no membership of the organization is no one's to claim here
+        // a member another organization added that nobody signs in as is no one's to claim here
         String email = "elsewhere-" + suffix() + "@example.test";
-        OrganizationParticipantIdentity user = await(identities.createUser(organizationUser(email, "Added elsewhere"), null));
+        OrganizationParticipantIdentity user = await(identities.createUser(organizationUser(email, "Added elsewhere", await(otherOrganization())), null));
         await(identities.syncIndex());
         assertNull(await(identities.claimProvisionedOrganizationUser(okta.getId(), "sub-" + suffix(), email, organization.getId())));
         assertFalse(await(identities.hasSignInMethod(user.getId())));
+    }
+
+    @Test
+    public void passwordSignInTurnsOffOnceEveryMemberWithAPasswordSignsInThroughAProvider() throws Exception {
+        String email = "connects-" + suffix() + "@example.test";
+        OrganizationParticipantIdentity created = await(identities.createUser(organizationUser(email, "Pat Connects", organization), PASSWORD));
+        // a member nobody signs in as yet is claimed through the provider, so it holds nothing back
+        await(asAdministrator(() -> members.addMember("pending-" + suffix() + "@example.test", "Pat Pending", false)));
+
+        ExecutionException refusal = assertThrows(ExecutionException.class, () -> await(asAdministrator(() -> passwordConfigurations.save(passwordSignIn(false)))));
+        assertTrue(refusal.getCause().getMessage().contains(email), refusal.getCause().getMessage());
+
+        await(identities.bindOidcIdentity(created.getId(), okta.getId(), "sub-" + suffix()));
+        assertFalse(await(asAdministrator(() -> passwordConfigurations.save(passwordSignIn(false)))).isEnabled());
+    }
+
+    @Test
+    public void theOrganizationsProviderStaysWhileItIsAMembersOnlyWayIn() throws Exception {
+        String email = "okta-only-" + suffix() + "@example.test";
+        OrganizationParticipantIdentity created = await(identities.createUser(organizationUser(email, "Pat Okta", organization), PASSWORD));
+        await(identities.bindOidcIdentity(created.getId(), okta.getId(), "sub-" + suffix()));
+        // the member signs in with the provider alone once the organization takes no password
+        await(asAdministrator(() -> passwordConfigurations.save(passwordSignIn(false))));
+
+        OrganizationOidcConfiguration disabled = new OrganizationOidcConfiguration();
+        disabled.setProviderAccount(okta.getProviderAccount());
+        disabled.setOrganizationId(organization.getId());
+        disabled.setId(okta.getId());
+        disabled.setName(okta.getName())
+                .setProvider(OidcProviderType.OKTA)
+                .setClientId(okta.getClientId())
+                .setEnabled(false);
+        ExecutionException refusal = assertThrows(ExecutionException.class, () -> await(asAdministrator(() -> ownedConfigurations.save(disabled, null))));
+        assertTrue(refusal.getCause().getMessage().contains(email), refusal.getCause().getMessage());
+        refusal = assertThrows(ExecutionException.class, () -> await(asAdministrator(() -> ownedConfigurations.deleteById(okta.getId()))));
+        assertTrue(refusal.getCause().getMessage().contains(email), refusal.getCause().getMessage());
+
+        // with the password taken again, the provider may go
+        await(asAdministrator(() -> passwordConfigurations.save(passwordSignIn(true))));
+        assertFalse(await(asAdministrator(() -> ownedConfigurations.save(disabled, null))).isEnabled());
+    }
+
+    private PasswordConfiguration passwordSignIn(boolean enabled) {
+        return new PasswordConfiguration().setOrganizationId(organization.getId()).setEnabled(enabled);
     }
 
     @Test
@@ -230,25 +257,23 @@ public class MemberProvisioningTests extends KinoticTestBase {
     }
 
     @Test
-    public void anAddressWithAnOrganizationUserIsInvitedToAcceptInstead() throws Exception {
+    public void anAddressIsAMemberOfAnOrganizationOnce() throws Exception {
         String email = "existing-" + suffix() + "@example.test";
-        OrganizationParticipantIdentity user = await(identities.createUser(organizationUser(email, "Existing person"), PASSWORD));
+        // a user of another organization under the address is that organization's alone
+        OrganizationParticipantIdentity elsewhere = await(identities.createUser(organizationUser(email, "Existing person", await(otherOrganization())), PASSWORD));
         await(identities.syncIndex());
 
-        OrganizationMember invited = await(asAdministrator(() -> members.addMember(email, null, false)));
-        assertNull(invited.id());
-        assertTrue(invited.pending());
-        assertNotNull(await(invites.findPendingInvite(email, organization.getId())));
-        assertNull(await(memberships.findMembership(user.getId(), organization.getId())));
+        OrganizationMember added = await(asAdministrator(() -> members.addMember(email, null, false)));
+        assertNotEquals(elsewhere.getId(), added.id());
+        assertTrue(added.pending());
+        assertEquals(organization.getId(), memberOf(added));
 
-        // a second invitation is refused while one is pending, and the address once it is a member
-        assertTrue(failure(() -> members.addMember(email, null, true)).getMessage().contains("already pending"));
-        await(memberships.addMembership(user.getId(), organization.getId()));
-        assertTrue(failure(() -> members.addMember(email, null, true)).getMessage().contains("already exists in this organization"));
+        // the address is a member here now, so it is not added again
+        assertInstanceOf(ExistingUserException.class, failure(() -> members.addMember(email, null, true)));
     }
 
     @Test
-    public void removingAPendingMemberRemovesTheOrganizationUserNobodySignedInAs() throws Exception {
+    public void removingAPendingMemberRemovesIt() throws Exception {
         String email = "removed-" + suffix() + "@example.test";
         OrganizationMember added = await(asAdministrator(() -> members.addMember(email, "Pat Removed", true)));
 
@@ -256,12 +281,11 @@ public class MemberProvisioningTests extends KinoticTestBase {
         assertNull(await(identities.findById(added.id())));
         assertNull(await(invites.findPendingInvite(email, organization.getId())));
 
-        // the address can be added again: the organization user takes the id the address derives, and nothing of the old one is left
+        // the address can be added again: the member takes the id the address derives, and nothing of the old one is left
         OrganizationMember again = await(asAdministrator(() -> members.addMember(email, "Pat Again", false)));
         assertEquals(added.id(), again.id());
         assertTrue(again.pending());
         assertFalse(await(identities.hasSignInMethod(again.id())));
-        assertNotNull(await(memberships.findMembership(again.id(), organization.getId())));
     }
 
     @Test
@@ -275,9 +299,21 @@ public class MemberProvisioningTests extends KinoticTestBase {
         return page.getContent().stream().filter(member -> email.equals(member.email())).findFirst().orElseThrow();
     }
 
-    private static OrganizationParticipantIdentity organizationUser(String email, String displayName) {
+    // the organization the member's user belongs to
+    private String memberOf(OrganizationMember member) throws Exception {
+        return ((OrganizationParticipantIdentity) await(identities.findById(member.id()))).getOrganizationId();
+    }
+
+    private Future<Organization> otherOrganization() {
+        return organizations.create(new Organization().setName("Member provisioning other " + suffix())
+                                                      .setDescription("Another organization of one member provisioning test"));
+    }
+
+    private static OrganizationParticipantIdentity organizationUser(String email, String displayName, Organization of) {
         OrganizationParticipantIdentity ret = new OrganizationParticipantIdentity();
-        ret.setEmail(email).setDisplayName(displayName);
+        ret.setOrganizationId(of.getId())
+           .setEmail(email)
+           .setDisplayName(displayName);
         return ret;
     }
 

@@ -7,6 +7,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.exceptions.UserDisabledException;
 import org.kinotic.domain.api.model.security.DelegateType;
+import org.kinotic.domain.api.model.security.OrganizationMember;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineType;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
@@ -25,17 +26,20 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     /** The system user with the email, or {@code null}. */
     Future<SystemParticipantIdentity> findSystemUserByEmail(String email);
 
-    /** The organization user with the email, or {@code null}. */
-    Future<OrganizationParticipantIdentity> findOrganizationUserByEmail(String email);
+    /** The user of organization {@code organizationId} with the email, or {@code null}. */
+    Future<OrganizationParticipantIdentity> findOrganizationUserByEmail(String email, String organizationId);
 
     /** The user of application {@code applicationId} of organization {@code organizationId} with the email, or {@code null}. */
     Future<ApplicationParticipantIdentity> findApplicationUserByEmail(String email, String organizationId, String applicationId);
 
     /**
-     * The organization user the OIDC identity {@code (oidcConfigId, subject)} is bound to, or {@code null}. A provider
-     * identity binds to one organization user, which signs in to each organization it holds a membership of.
+     * The user of organization {@code organizationId} the OIDC identity {@code (oidcConfigId, subject)} is bound to,
+     * or {@code null}. A provider identity binds to one user of each organization.
      */
-    Future<OrganizationParticipantIdentity> findOrganizationUserByOidcIdentity(String oidcConfigId, String subject);
+    Future<OrganizationParticipantIdentity> findOrganizationUserByOidcIdentity(String oidcConfigId, String subject, String organizationId);
+
+    /** The users of every organization the OIDC identity {@code (oidcConfigId, subject)} is bound to a user of, one of each. */
+    Future<List<OrganizationParticipantIdentity>> findOrganizationUsersByOidcIdentity(String oidcConfigId, String subject);
 
     /**
      * The user of application {@code applicationId} of organization {@code organizationId} the OIDC identity
@@ -69,18 +73,17 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
 
     /**
      * Signs the identity {@code (oidcConfigId, subject)}, verified by one of organization {@code organizationId}'s
-     * own providers, in as the member the organization added under {@code verifiedEmail}: an organization user that
-     * holds a membership of the organization and that no sign-in method signs in yet, which the identity is bound to
-     * as its first. {@code null} when the organization has no such member: no organization user under the email, no
-     * membership of the organization, or an organization user someone already signs in as, which only its holder may
-     * bind the identity to.
+     * own providers, in as the member the organization added under {@code verifiedEmail}: a user of the organization
+     * that no sign-in method signs in yet, which the identity is bound to as its first. {@code null} when the
+     * organization has no such member: no user of the organization under the email, or one someone already signs in
+     * as, which only its holder may bind the identity to.
      *
      * @param oidcConfigId   the organization's own configuration that verified the identity
      * @param subject        the provider's {@code sub} claim for the identity
      * @param verifiedEmail  the email the provider verified for the identity
      * @param organizationId the organization whose login the identity signs in at
-     * @return the member's participant, or {@code null}; fails with {@link UserDisabledException} when the
-     *         organization user or its membership is disabled
+     * @return the member's participant, or {@code null}; fails with {@link UserDisabledException} when the member is
+     *         disabled
      */
     Future<Participant> claimProvisionedOrganizationUser(String oidcConfigId, String subject, String verifiedEmail, String organizationId);
 
@@ -108,6 +111,15 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     /** The system users whose email or display name matches {@code searchText}; blank text lists them all. */
     Future<Page<SystemParticipantIdentity>> searchSystemUsers(String searchText, Pageable pageable);
 
+    /** The members of organization {@code organizationId}. */
+    Future<Page<OrganizationMember>> findOrganizationMembers(String organizationId, Pageable pageable);
+
+    /**
+     * The members of the organization whose email or display name matches {@code searchText}; blank text lists them
+     * all, as {@link #findOrganizationMembers} does.
+     */
+    Future<Page<OrganizationMember>> searchOrganizationMembers(String searchText, String organizationId, Pageable pageable);
+
     /** The users of application {@code applicationId} of organization {@code organizationId}. */
     Future<Page<ApplicationParticipantIdentity>> findApplicationUsers(String organizationId, String applicationId, Pageable pageable);
 
@@ -123,8 +135,8 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     /**
      * Creates a user of the kind {@code user} is, assigning id and dates and enabling it. A password given becomes
      * the user's credential; {@code null} creates a user that signs in by an OIDC binding, added with
-     * {@link #bindOidcIdentity} or by {@link #createOidcUser}. One user of each kind holds an email, and of an
-     * application's users one per application: the id minted for the user is derived from its kind, its scope and
+     * {@link #bindOidcIdentity} or by {@link #createOidcUser}. One system user holds an email, one user of each
+     * organization and one of each application: the id minted for the user is derived from its kind, its scope and
      * its email, and a creation under an email already held fails with
      * {@link org.kinotic.domain.api.exceptions.ExistingUserException}, two at once included.
      * For APPLICATION-scope users whose application's tenants are {@code TenantManagement.SYSTEM} managed, a
@@ -146,9 +158,8 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
 
     /**
      * The participant identity {@code identityId} acts as in the scope {@code (organizationId, applicationId)},
-     * or {@code null} when it may not: an organization user acts in an organization through its enabled
-     * membership of it; any other identity acts in its own scope only; a delegate acts while its owner may act in the delegate's
-     * scope. A disabled identity acts nowhere.
+     * or {@code null} when it may not: an identity acts in its own scope only, and a delegate while its owner may act
+     * in the delegate's scope. A disabled identity acts nowhere.
      *
      * @param identityId     the identity, as a session or token names it
      * @param organizationId the organization of the scope, or null for the system
@@ -164,8 +175,7 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
 
     /**
      * Resolves the delegate for {@code (owner, clientKey)} in the scope {@code owner} acts in, creating it on
-     * first approval. The delegate carries that scope — for an organization user, the organization it was signed
-     * in to when it approved — and authenticates with DELEGATED tokens only. A re-approval refreshes {@code displayName}
+     * first approval. The delegate carries that scope and authenticates with DELEGATED tokens only. A re-approval refreshes {@code displayName}
      * from the latest client metadata and re-enables a previously revoked delegate — the owner just consented
      * again.
      *

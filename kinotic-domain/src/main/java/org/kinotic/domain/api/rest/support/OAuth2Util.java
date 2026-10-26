@@ -129,8 +129,10 @@ public final class OAuth2Util {
     /**
      * Provider-aware "is the email in this id_token verified?" check.
      *
-     * <p>Most OIDC providers (Google, Keycloak, Auth0, Okta, generic) emit
-     * {@code email_verified} as a boolean and we require it to be {@code true}.
+     * <p>Most OIDC providers (Google, Keycloak, Auth0, Okta, generic) state
+     * {@code email_verified} as a boolean and we require it to be {@code true}. Okta states it
+     * at its userinfo endpoint rather than in the id_token of a code exchange, and
+     * {@link OidcFlowOrchestrator#handleCallback} adds it to the claims from there.
      *
      * <p>Microsoft Entra ({@code azure-ad}) and Apple ({@code apple}) <b>do not emit</b>
      * {@code email_verified}. Their convention is "if the email claim is present at all,
@@ -164,6 +166,14 @@ public final class OAuth2Util {
         if (explicit instanceof Boolean || explicit instanceof String) return isTrue(explicit);
 
         // No explicit claim — fall back to the per-provider trust convention.
+        return issuesOnlyVerifiedEmails(provider);
+    }
+
+    /**
+     * Whether {@code provider} puts an email in its id_token only once it has verified it, and so states no
+     * {@code email_verified} claim: Microsoft Entra and Apple, as {@link #isEmailVerified} describes.
+     */
+    public static boolean issuesOnlyVerifiedEmails(OidcProviderType provider) {
         return provider == OidcProviderType.AZURE_AD || provider == OidcProviderType.APPLE;
     }
 

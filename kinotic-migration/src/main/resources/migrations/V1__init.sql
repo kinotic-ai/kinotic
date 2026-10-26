@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS kinotic_application (
     tenantManagement KEYWORD,
     primaryUiId KEYWORD,
     primaryUiUrl KEYWORD,
-    passwordSignUp BOOLEAN,
     updated DATE
 );
 
@@ -214,13 +213,13 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
 -- system console, ORGANIZATION_USER for organizations, APPLICATION_USER for one application), a client
 -- acting on a person's behalf (type=DELEGATE), or a machine (type=MACHINE). Scope is encoded structurally
 -- by which of organizationId / applicationId is set: organizationId only = ORGANIZATION, both set =
--- APPLICATION, both null = SYSTEM; an ORGANIZATION_USER carries neither and acts in the organizations its
--- kinotic_organization_membership rows name. A user's sign-in methods are its kinotic_identity_credential
+-- APPLICATION, both null = SYSTEM; an ORGANIZATION_USER carries its organizationId. A person in several
+-- organizations is a separate ORGANIZATION_USER of each. A user's sign-in methods are its kinotic_identity_credential
 -- and, for an organization's or an application's user, its kinotic_oidc_binding rows; a delegate
 -- authenticates with the tokens its owner's authorization minted and a machine with its credential, so how
 -- a row authenticates follows from its type.
--- Uniqueness rules (enforced in service layer): one SYSTEM_USER and one ORGANIZATION_USER per email, one
--- APPLICATION_USER per (email, organizationId, applicationId); one DELEGATE per (ownerId, clientKey,
+-- Uniqueness rules (enforced in service layer): one SYSTEM_USER per email, one ORGANIZATION_USER per
+-- (email, organizationId), one APPLICATION_USER per (email, organizationId, applicationId); one DELEGATE per (ownerId, clientKey,
 -- organizationId, applicationId).
 CREATE TABLE IF NOT EXISTS kinotic_participant_identity (
     id KEYWORD,
@@ -245,24 +244,12 @@ CREATE TABLE IF NOT EXISTS kinotic_identity_credential (
     secretHash KEYWORD NOT INDEXED
 );
 
--- Organization Membership: an ORGANIZATION_USER's membership of one organization. id is
--- <organizationUserId>:<organizationId>, so a login reads it by a get and an organization user is a member
--- of an organization at most once. enabled is the user's standing in that organization alone.
-CREATE TABLE IF NOT EXISTS kinotic_organization_membership (
-    id KEYWORD,
-    organizationUserId KEYWORD,
-    organizationId KEYWORD,
-    enabled BOOLEAN,
-    created DATE,
-    updated DATE
-);
-
 -- OIDC Binding: a user's sign-in method through a provider — the sub claim asserted under one OIDC
--- configuration, bound to the user it signs in. id is <oidcConfigId>:<subject> for an organization user
--- and <organizationId>/<applicationId>/<oidcConfigId>:<subject> for an application's user, so a callback
--- reads the binding by a get and a provider identity signs in at most one organization user and one user
--- of each application. organizationId and applicationId are the bound user's scope, null for an
--- organization user. A system user signs in with a password alone and holds no binding.
+-- configuration, bound to the user it signs in. id is <organizationId>/<oidcConfigId>:<subject> for an
+-- organization's user and <organizationId>/<applicationId>/<oidcConfigId>:<subject> for an application's user,
+-- so a callback reads the binding by a get and a provider identity signs in at most one user of each
+-- organization and of each application. organizationId and applicationId are the bound user's scope,
+-- applicationId null for an organization's user. A system user signs in with a password alone and holds no binding.
 CREATE TABLE IF NOT EXISTS kinotic_oidc_binding (
     id KEYWORD,
     identityId KEYWORD,
@@ -316,6 +303,20 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     scopes KEYWORD NOT INDEXED,
     audience KEYWORD NOT INDEXED,
     enabled BOOLEAN,
+    created DATE,
+    updated DATE
+);
+
+-- Sign-in with an email and a password at one sign-in scope of an organization (PasswordConfiguration):
+-- its own login, one of its applications', or one tenant's of an application. A scope has at most one,
+-- whose id derives from the scope: <organizationId>[:<applicationId>[:<tenantId>]].
+CREATE TABLE IF NOT EXISTS kinotic_password_configuration (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    tenantId KEYWORD,
+    enabled BOOLEAN,
+    createUserOnSignIn BOOLEAN,
     created DATE,
     updated DATE
 );

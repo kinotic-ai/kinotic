@@ -236,7 +236,7 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
         return signUpService.findOrCreateOidcUser(scope, configuration, claims)
                             .recover(err -> Future.failedFuture(switch (err) {
                                 case ExistingUserException _ -> new OidcCallbackException(OidcErrorCodes.USER_EXISTS);
-                                case UnverifiedEmailException _ -> new OidcCallbackException(OidcErrorCodes.EMAIL_NOT_VERIFIED);
+                                case UnverifiedEmailException _ -> new OidcCallbackException(OidcErrorCodes.EMAIL_NOT_VERIFIED, configuration.getProvider());
                                 default -> err;
                             }));
     }

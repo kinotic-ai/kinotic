@@ -58,19 +58,6 @@
 
                 <div :class="ROW_CLASS">
                   <div>
-                    <label for="app-password-sign-up" :class="LABEL_CLASS">Email and password sign-up</label>
-                    <p :class="HELP_CLASS">Lets new people create an account from the application's own UIs with an email and a password, after confirming the email through a link sent to it. Needs the system to manage tenants, so each new user gets a tenant of their own. Each sign-in provider says whether it signs people up as well.</p>
-                  </div>
-                  <div>
-                    <ToggleSwitch input-id="app-password-sign-up" v-model="passwordSignUp" :disabled="tenantManagement !== TenantManagement.SYSTEM" />
-                    <p v-if="tenantManagement !== TenantManagement.SYSTEM" class="mt-1.5 text-[0.8125rem] text-muted-color">
-                      Under tenant administrators, people join a tenant by invitation or through the tenant's own sign-in providers.
-                    </p>
-                  </div>
-                </div>
-
-                <div :class="ROW_CLASS">
-                  <div>
                     <label for="app-primary-ui" :class="LABEL_CLASS">Primary UI</label>
                     <p :class="HELP_CLASS">The published UI this application's browser flows, such as OAuth consent, return to. The first UI a deployment publishes is chosen until you pick another.</p>
                   </div>
@@ -100,7 +87,7 @@
           </form>
         </TabPanel>
         <TabPanel value="sign-in-providers">
-          <OidcConfigurationsPanel :key="applicationId" :application-id="applicationId" />
+          <SignInProvidersPanel :key="applicationId" :application-id="applicationId" />
         </TabPanel>
         <TabPanel value="invitation-email">
           <div class="pt-4">
@@ -119,7 +106,6 @@ import { showErrorToast } from '@kinotic-ai/frontend-common'
 import { Textarea, Button } from 'primevue'
 import Select from 'primevue/select'
 import SelectButton from 'primevue/selectbutton'
-import ToggleSwitch from 'primevue/toggleswitch'
 import Tab from 'primevue/tab'
 import TabList from 'primevue/tablist'
 import TabPanel from 'primevue/tabpanel'
@@ -127,7 +113,7 @@ import TabPanels from 'primevue/tabpanels'
 import Tabs from 'primevue/tabs'
 import { DashboardSection, PageHeader, TINTS } from '@kinotic-ai/frontend-common'
 import InviteEmailTemplateEditor from '@/components/InviteEmailTemplateEditor.vue'
-import OidcConfigurationsPanel from '@/components/OidcConfigurationsPanel.vue'
+import SignInProvidersPanel from '@/components/SignInProvidersPanel.vue'
 import { useQueryTab } from '@/composables/useQueryTab'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
@@ -151,7 +137,6 @@ const TENANT_MANAGEMENT_OPTIONS = [
   { label: 'Tenant administrators', value: TenantManagement.TENANT_ADMINISTRATORS },
   { label: 'System, one per user', value: TenantManagement.SYSTEM }
 ]
-const passwordSignUp = ref(false)
 const primaryUiId = ref<string | null>(null)
 const publishedUiNames = ref<string[]>([])
 const loading = ref(false)
@@ -162,10 +147,9 @@ const LABEL_CLASS = 'block text-sm font-medium text-surface-950 dark:text-surfac
 const HELP_CLASS = 'mt-1 text-xs leading-5 text-muted-color'
 
 /** The values last loaded or saved, which the form compares against to know it has changes. */
-const saved = ref({ description: '', tenantManagement: TenantManagement.TENANT_ADMINISTRATORS, passwordSignUp: false, primaryUiId: null as string | null })
+const saved = ref({ description: '', tenantManagement: TenantManagement.TENANT_ADMINISTRATORS, primaryUiId: null as string | null })
 const dirty = computed(() => appDescription.value !== saved.value.description
     || tenantManagement.value !== saved.value.tenantManagement
-    || passwordSignUp.value !== saved.value.passwordSignUp
     || primaryUiId.value !== saved.value.primaryUiId)
 
 // a primary UI whose deployment was removed stays designated, so it stays selectable
@@ -177,18 +161,10 @@ watch(() => APPLICATION_STATE.currentApplication, (newApp) => {
   if (newApp) {
     appDescription.value = newApp.description || ''
     tenantManagement.value = newApp.tenantManagement ?? TenantManagement.TENANT_ADMINISTRATORS
-    passwordSignUp.value = newApp.passwordSignUp ?? false
     primaryUiId.value = newApp.primaryUiId ?? null
-    saved.value = { description: appDescription.value, tenantManagement: tenantManagement.value, passwordSignUp: passwordSignUp.value, primaryUiId: primaryUiId.value }
+    saved.value = { description: appDescription.value, tenantManagement: tenantManagement.value, primaryUiId: primaryUiId.value }
   }
 }, { immediate: true })
-
-// sign-up gives each new user a tenant of its own, which only the system's tenancy does
-watch(tenantManagement, management => {
-  if (management !== TenantManagement.SYSTEM) {
-    passwordSignUp.value = false
-  }
-})
 
 watch(() => props.applicationId, loadPublishedUiNames, { immediate: true })
 
@@ -212,7 +188,6 @@ async function copyId(): Promise<void> {
 function discard(): void {
   appDescription.value = saved.value.description
   tenantManagement.value = saved.value.tenantManagement
-  passwordSignUp.value = saved.value.passwordSignUp
   primaryUiId.value = saved.value.primaryUiId
 }
 
@@ -238,7 +213,6 @@ const saveSettings = async () => {
       organizationId: USER_STATE.getOrganizationId(),
       description: appDescription.value,
       tenantManagement: tenantManagement.value,
-      passwordSignUp: passwordSignUp.value,
       primaryUiId: primaryUiId.value
     }
 

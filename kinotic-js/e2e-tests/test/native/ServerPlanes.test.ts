@@ -174,8 +174,10 @@ describe('Server planes', () => {
         // the tenant's login offers what the application's does
         const methods = await requestAt(appServer(), apiHost(APP_ID), 'GET', `/api/auth/app/login/methods?tenantId=${E2E_APP_TENANT}`)
         expect(methods.status).toBe(200)
-        // a tenant's login signs no one up with a password: its administrators decide who joins
-        expect(JSON.parse(methods.body)).toEqual({passwordSignUp: false, providers: []})
+        // a tenant's login takes the password the application's takes, but signs no one up with it: its administrators
+        // decide who joins
+        expect(JSON.parse(methods.body)).toEqual([{configurationId: `${E2E_ORGANIZATION_ID}:${APP_ID}`, type: 'PASSWORD',
+                                                   name: 'Email and password', provider: null, signUp: false}])
     })
 
     it('answers 404 at the API host of an application that does not exist', async () => {

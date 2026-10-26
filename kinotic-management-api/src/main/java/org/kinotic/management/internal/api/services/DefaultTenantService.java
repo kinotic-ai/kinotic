@@ -5,8 +5,10 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Tenant;
+import org.kinotic.domain.api.model.security.PasswordConfiguration;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.TenantRepository;
+import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
 import org.kinotic.management.api.services.TenantService;
@@ -19,13 +21,27 @@ public class DefaultTenantService extends AbstractApplicationScopedService<Tenan
 
     private final TenantRepository tenantRepository;
     private final ApplicationRepository applications;
+    private final PasswordConfigurationService passwordConfigurationService;
 
     public DefaultTenantService(TenantRepository repository,
                                 ApplicationRepository applications,
+                                PasswordConfigurationService passwordConfigurationService,
                                 SecurityContext securityContext) {
         super(repository, securityContext);
         this.tenantRepository = repository;
         this.applications = applications;
+        this.passwordConfigurationService = passwordConfigurationService;
+    }
+
+    @Override
+    protected Future<Void> beforeDelete(String id) {
+        String organizationId = requireOrganizationId();
+        // a tenant created again under the same id starts with no password sign-in of its own
+        return tenantRepository.findById(id, organizationId)
+                               .compose(tenant -> tenant == null
+                                       ? Future.succeededFuture()
+                                       : passwordConfigurationService.deleteById(PasswordConfiguration.idOf(organizationId, tenant.getApplicationId(), id),
+                                                                                 organizationId));
     }
 
     @Override

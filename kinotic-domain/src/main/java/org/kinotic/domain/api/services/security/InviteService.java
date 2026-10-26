@@ -19,10 +19,10 @@ public interface InviteService {
     /**
      * Creates an invitation and emails its accept link to the invitee. The invite's scope comes
      * from {@code organizationId} (required) and {@code applicationId} (null for an org-member
-     * invite). Fails if the email is already a member of the target scope — for org invites an
-     * organization user holding a membership of the organization that a sign-in method signs in, for
-     * app invites a user of that application — or if an invitation is already pending for it in the
-     * scope.
+     * invite). Fails if the email is already a member of the target scope — for org invites a user of
+     * the organization that a sign-in method signs in, for app invites a user of that application — or
+     * if an invitation is already pending for it in the scope. An app invite fails while the application's login takes no password, which is the only way
+     * one is accepted.
      *
      * @param invite carrying email, optional displayName, scope, and inviter attribution;
      *               id, token, and expiry are assigned here
@@ -39,14 +39,16 @@ public interface InviteService {
     Future<PendingInvite> getValidInvite(String token);
 
     /**
-     * Accepts an invitation with a password and consumes it. An invitation into an organization makes the
-     * organization user with the invited email a member: when none exists, it is created with {@code password};
-     * when one exists, {@code password} must be its password, which proves the acceptor owns it, and a mismatch
-     * fails with {@link ExistingUserException} without consuming the invitation. An invitation into an
-     * application creates the application's user with {@code password}.
+     * Accepts an invitation with a password and consumes it. An invitation into an organization creates the
+     * organization's user with the invited email and {@code password}, or, for the member an administrator added
+     * under it that nobody signs in as yet, gives that member {@code password}; a member someone already signs in as
+     * fails with {@link ExistingUserException}. An invitation into an application creates the application's user
+     * with {@code password}. A scope whose login takes no password
+     * ({@link PasswordConfigurationService#findOffered}) refuses the acceptance with an {@link IllegalArgumentException},
+     * leaving an organization's invitation to be accepted through one of its providers.
      *
      * @param token       the accept token from the invitation email
-     * @param password    the password chosen by a new member, or the existing organization user's
+     * @param password    the password chosen by the new member
      * @param displayName optional display name of a new member; the invite's value is used when blank
      * @return the new member as a participant of the invitation's scope, for the session to sign in
      */
@@ -55,11 +57,11 @@ public interface InviteService {
     /**
      * Accepts an invitation into an organization with a verified OIDC identity and consumes it. The
      * provider-verified email must match the invited email (case-insensitive) or the accept fails with
-     * {@link InviteEmailMismatchException}. The organization user the identity is bound to becomes a member, when
-     * its email is the invited one; with no bound organization user, the one with the invited email must not exist
-     * either, unless an administrator added it and nobody signs in as it yet, which the identity then claims, else
-     * the accept fails with {@link ExistingUserException}; with neither, a new organization user bound to the
-     * identity is created. An invitation into an application is accepted with {@link #acceptLocalInvite}.
+     * {@link InviteEmailMismatchException}. The organization's user the identity is bound to signs in, when its email
+     * is the invited one; with no bound user, the organization's user with the invited email must not exist either,
+     * unless an administrator added it and nobody signs in as it yet, which the identity then claims, else the accept
+     * fails with {@link ExistingUserException}; with neither, a new user of the organization bound to the identity is
+     * created. An invitation into an application is accepted with {@link #acceptLocalInvite}.
      *
      * @param token         the accept token recovered from the OIDC flow session
      * @param oidcSubject   the {@code sub} claim from the IdP

@@ -8,9 +8,9 @@ packages:
 catalog:
   '@kinotic-ai/core': ^5.0.0-beta.29
   '@kinotic-ai/idl': ^5.0.0-beta.6
-  '@kinotic-ai/management-api': ^5.0.0-beta.67
+  '@kinotic-ai/management-api': ^5.0.0-beta.68
   '@kinotic-ai/persistence': ^5.0.0-beta.19
-  '@kinotic-ai/system-api': ^5.0.0-beta.33
+  '@kinotic-ai/system-api': ^5.0.0-beta.34
 
   # The build toolchain the apps and frontend-common's library build share
   '@vitejs/plugin-vue': ^6.0.8

@@ -29,15 +29,15 @@ import java.util.function.BiPredicate;
  * <ol>
  *   <li><b>Client credentials</b> — {@code clientId}/{@code clientSecret} upgrade headers. A {@code clientId}
  *       containing {@code @} is a user email: with an {@code applicationId} header, an application user's,
- *       checked in that application; with an {@code organizationId} header alone, an organization user's, which
- *       acts in that organization through its membership there; with neither, a system user's. Any other {@code clientId} is a {@link MachineParticipantIdentity} id, whose scope comes from
+ *       checked in that application; with an {@code organizationId} header alone, a user of that organization;
+ *       with neither, a system user's. Any other {@code clientId} is a {@link MachineParticipantIdentity} id, whose scope comes from
  *       the identity itself and must agree with the scope headers when they are supplied. Both verify the
  *       bcrypt secret hash.</li>
  *   <li><b>Kinotic JWT</b> — {@code Authorization: Bearer <jwt>} header. The JWT was minted by
  *       {@link KinoticJwtIssuer} through one of the OAuth grants. We validate the JWT signature, then resolve
  *       the identity the {@code sub} claim names in the scope the token's {@code organizationId} and
  *       {@code applicationId} claims carry ({@link ParticipantIdentityService#resolveParticipant}), so a token
- *       outliving the membership or scope it was minted for is refused. The scope headers do not select scope
+ *       outliving the user or scope it was minted for is refused. The scope headers do not select scope
  *       here — the token carries its own.</li>
  * </ol>
  * IdP JWTs are never accepted directly here — the OIDC roundtrip terminates at the gateway,
@@ -117,9 +117,10 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
 
     /**
      * Authenticates a user via email and password: an application's user within the application the headers
-     * select, an organization user, which then acts through its membership of the organization the header
-     * names, or a system user when the headers name no scope. Every failure — unknown email, wrong password,
-     * disabled user, no password, no membership — is the same generic error, matching the machine path: the
+     * select, a user of the organization the header names, or a system user when the headers name no scope; an
+     * organization's or an application's login must take a password. Every failure — unknown email, wrong password,
+     * disabled user, no password, a login
+     * that takes no password — is the same generic error, matching the machine path: the
      * upgrade headers tell no one which emails have users.
      */
     private Future<AuthenticatedIdentity> authenticateEmailPassword(String organizationId,
@@ -134,7 +135,7 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
         if (applicationId != null) {
             verified = localAuthenticationService.authenticateApplicationUser(email, password, organizationId, applicationId);
         } else if (organizationId != null) {
-            verified = localAuthenticationService.authenticateOrganizationUser(email, password);
+            verified = localAuthenticationService.authenticateOrganizationUser(email, password, organizationId);
         } else {
             verified = localAuthenticationService.authenticateSystemUser(email, password);
         }
@@ -180,7 +181,7 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
      * Validates a Kinotic-issued JWT and resolves it to the participant its {@code sub} acts as in the scope
      * the token's {@code organizationId} / {@code applicationId} claims carry: an existing, enabled identity
      * that may act there, a delegate only while its owner may (defense in depth against a token outliving
-     * the membership or scope it was minted for).
+     * the user or scope it was minted for).
      */
     private Future<AuthenticatedIdentity> authenticateKinoticJwt(String token) {
         return jwtIssuer.authenticate(token)

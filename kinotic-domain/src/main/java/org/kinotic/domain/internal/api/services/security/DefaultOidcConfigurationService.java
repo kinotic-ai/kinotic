@@ -43,18 +43,21 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
     private final TenantRepository tenantRepository;
     private final SecretStorageService secretStorageService;
     private final SecurityContext securityContext;
+    private final OrganizationSignInGuard signInGuard;
 
     public DefaultOidcConfigurationService(OidcConfigurationRepository repository,
                                            ApplicationRepository applicationRepository,
                                            TenantRepository tenantRepository,
                                            SecretStorageService secretStorageService,
-                                           SecurityContext securityContext) {
+                                           SecurityContext securityContext,
+                                           OrganizationSignInGuard signInGuard) {
         super(repository);
         this.oidcRepository = repository;
         this.applicationRepository = applicationRepository;
         this.tenantRepository = tenantRepository;
         this.secretStorageService = secretStorageService;
         this.securityContext = securityContext;
+        this.signInGuard = signInGuard;
     }
 
     @Override
@@ -122,9 +125,17 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
         entity.setUpdated(new Date());
         // switching to Kinotic's registration needs an enabled one of the kind; a configuration already using it saves
         // without one, so its organization can still disable, rename or delete the secret of one the system stopped offering
-        return existing.compose(found -> OidcConfigurationService.isManaged(entity) && !OidcConfigurationService.isManaged(found)
+        return existing.compose(found -> (OidcConfigurationService.isManaged(entity) && !OidcConfigurationService.isManaged(found)
                 ? requireManagedRegistration(entity.getProvider())
-                : Future.succeededFuture());
+                : Future.<Void>succeededFuture())
+                .compose(v -> offeredAtOrganizationLogin(found) && !entity.isEnabled()
+                        ? signInGuard.requireMembersKeepSignInWithout(((OrganizationOidcConfiguration) found).getOrganizationId(), found.getId())
+                        : Future.succeededFuture()));
+    }
+
+    // whether configuration is one the organization's own login offers, which members may sign in through
+    private static boolean offeredAtOrganizationLogin(OidcConfiguration configuration) {
+        return configuration instanceof OrganizationOidcConfiguration && configuration.isEnabled();
     }
 
     @Override
@@ -135,9 +146,12 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                 ret = Future.succeededFuture();
             } else {
                 requireOwner(existing);
-                ret = existing instanceof OwnedOidcConfiguration owned
-                        ? secretStorageService.deleteSecret(owned.getOrganizationId(), id)
-                        : Future.succeededFuture();
+                ret = (offeredAtOrganizationLogin(existing)
+                        ? signInGuard.requireMembersKeepSignInWithout(((OrganizationOidcConfiguration) existing).getOrganizationId(), id)
+                        : Future.<Void>succeededFuture())
+                        .compose(v -> existing instanceof OwnedOidcConfiguration owned
+                                ? secretStorageService.deleteSecret(owned.getOrganizationId(), id)
+                                : Future.succeededFuture());
             }
             return ret;
         });

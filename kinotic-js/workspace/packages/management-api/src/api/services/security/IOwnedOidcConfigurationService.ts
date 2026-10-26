@@ -38,8 +38,9 @@ export interface IOwnedOidcConfigurationService {
      * Saves a configuration of the organization, new or changed, and makes `clientSecret`, when given, the secret it
      * sends its provider; null or blank keeps the secret held for the configuration, if any, and a new configuration
      * saved without one is a public client. The configuration's `organizationId` is the caller's and its
-     * `confidentialClient` says whether a secret is held, whatever either carried. Returns the configuration as
-     * saved, with its id.
+     * `confidentialClient` says whether a secret is held, whatever either carried. Disabling an organization's own
+     * configuration rejects, naming the members it would leave with no way to sign in to the organization. Returns
+     * the configuration as saved, with its id.
      */
     save(configuration: OwnedOidcConfiguration, clientSecret: string | null): Promise<OwnedOidcConfiguration>
 
@@ -56,7 +57,7 @@ export interface IOwnedOidcConfigurationService {
      */
     copy(sourceId: string, applicationId: string | null): Promise<OwnedOidcConfiguration>
 
-    /** Deletes the organization's configuration and the client secret held for it. */
+    /** Deletes the organization's configuration and the client secret held for it, rejected as disabling it is by `save`. */
     deleteById(id: string): Promise<void>
 
 }

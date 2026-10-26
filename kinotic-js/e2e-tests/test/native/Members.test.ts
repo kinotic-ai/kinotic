@@ -56,8 +56,8 @@ describe('Members', () => {
 
         await Kinotic.members.sendInvitation(email)
 
-        // the member goes, and with them the organization user nobody signed in as and the invitation they never accepted
-        await Kinotic.members.removeMember(added.id!)
+        // the member goes, and with them the invitation they never accepted
+        await Kinotic.members.removeMember(added.id)
         const afterRemoval = await Kinotic.members.searchMembers(email, Pageable.create(0, 10))
         expect(afterRemoval.content?.some(m => m.id === added.id)).toBe(false)
         expect(await pendingInvitationFor(email)).toBe(false)
@@ -73,7 +73,7 @@ describe('Members', () => {
         await Kinotic.members.sendInvitation(email)
         expect(await pendingInvitationFor(email)).toBe(true)
 
-        await Kinotic.members.removeMember(added.id!)
+        await Kinotic.members.removeMember(added.id)
         expect(await pendingInvitationFor(email)).toBe(false)
     })
 

@@ -154,12 +154,11 @@ public class ApplicationSocialLoginHandler implements SuppliesGatewayRoutes {
                        // a callback that reached here resolved the registration, so the lookup found the configuration
                        .compose(result -> handOff(ctx, result, found.result().configuration())))
                .onFailure(ex -> {
-                   String code = authEndpointSupport.callbackErrorCode(ex);
                    log.warn("Social login callback failed for config {}: {}", pathConfigId, ex.getMessage());
                    if (flow != null && flow.origin() != null) {
-                       authEndpointSupport.redirectError(ctx, flow.origin(), code);
+                       authEndpointSupport.redirectCallbackFailure(ctx, flow.origin(), ex);
                    } else {
-                       authEndpointSupport.respondError(ctx, 400, "Sign-in failed: " + code);
+                       authEndpointSupport.respondError(ctx, 400, "Sign-in failed: " + authEndpointSupport.callbackErrorCode(ex));
                    }
                });
     }

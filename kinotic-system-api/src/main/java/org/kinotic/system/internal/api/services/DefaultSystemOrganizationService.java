@@ -9,7 +9,6 @@ import org.kinotic.domain.api.model.Organization;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.domain.api.model.security.OrganizationMember;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
-import org.kinotic.domain.api.services.security.OrganizationMembershipService;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
@@ -26,7 +25,6 @@ public class DefaultSystemOrganizationService implements SystemOrganizationServi
     private final ApplicationRepository applicationRepository;
     private final ProjectRepository projectRepository;
     private final ParticipantIdentityService identityService;
-    private final OrganizationMembershipService membershipService;
     private final InviteService inviteService;
     private final OrganizationService organizationService;
 
@@ -62,12 +60,12 @@ public class DefaultSystemOrganizationService implements SystemOrganizationServi
 
     @Override
     public Future<Page<OrganizationMember>> findMembers(String organizationId, Pageable pageable) {
-        return membershipService.findMembers(organizationId, pageable);
+        return identityService.findOrganizationMembers(organizationId, pageable);
     }
 
     @Override
     public Future<Page<OrganizationMember>> searchMembers(String searchText, String organizationId, Pageable pageable) {
-        return membershipService.searchMembers(searchText, organizationId, pageable);
+        return identityService.searchOrganizationMembers(searchText, organizationId, pageable);
     }
 
     @Override

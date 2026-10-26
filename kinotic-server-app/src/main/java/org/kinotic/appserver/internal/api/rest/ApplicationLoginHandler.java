@@ -64,15 +64,15 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * {@code GET /api/auth/app/login/methods[?tenantId]} — what the application's login offers, or a tenant's login
-     * from one of the tenant's sites or when {@code tenantId} names one:
-     * {@code {passwordSignUp, providers: [{configurationId, name, provider, signUp}]}}, the providers in the order to
-     * present them. {@code 404} for an application that does not exist.
+     * {@code GET /api/auth/app/login/methods[?tenantId]} — the sign-in providers the application's login offers, or a
+     * tenant's login from one of the tenant's sites or when {@code tenantId} names one, in the order to present them:
+     * {@code [{configurationId, type, name, provider, signUp}]}, an email and a password of type {@code PASSWORD} and
+     * an OIDC provider of type {@code OIDC}. {@code 404} for an application that does not exist.
      */
     private void handleMethods(RoutingContext ctx) {
         authEndpointSupport.loginScope(ctx, ctx.request().getParam("tenantId"))
-              .compose(signUpService::findLoginMethods)
-              .onSuccess(methods -> ctx.response().putHeader("Content-Type", "application/json").end(Json.encode(methods)))
+              .compose(signUpService::findLoginProviders)
+              .onSuccess(providers -> ctx.response().putHeader("Content-Type", "application/json").end(Json.encode(providers)))
               .onFailure(err -> authEndpointSupport.fail(ctx, err, "Failed to list sign-in methods"));
     }
 
@@ -125,8 +125,8 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     /**
      * {@code POST /api/auth/app/login {email, password[, tenantId]}} — local password auth, scoped to the
      * application, or to the tenant from one of the tenant's sites or when {@code tenantId} names one, so a stray
-     * cross-scope match can't authenticate here. Refused with {@code 403} from a page that is not one of the
-     * application's UIs.
+     * cross-scope match can't authenticate here, at a login that takes a password. Refused with {@code 403} from a
+     * page that is not one of the application's UIs.
      */
     private void handleLogin(RoutingContext ctx) {
         String tenantId = authEndpointSupport.readJsonBody(ctx).getString("tenantId");

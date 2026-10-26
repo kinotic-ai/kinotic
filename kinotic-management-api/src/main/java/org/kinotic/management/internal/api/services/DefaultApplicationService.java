@@ -8,7 +8,8 @@ import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.TenantManagement;
-import org.kinotic.domain.api.model.security.ApplicationLoginMethods;
+import org.kinotic.domain.api.model.security.PasswordConfiguration;
+import org.kinotic.domain.api.model.security.ApplicationLoginProvider;
 import org.kinotic.domain.api.model.security.LoginScope;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
@@ -17,9 +18,11 @@ import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.domain.api.services.security.ApplicationSignUpService;
+import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
 
 @Component
 public class DefaultApplicationService extends AbstractOrganizationScopedService<Application> implements ApplicationService {
@@ -30,16 +33,19 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     private final ProjectService projectService;
     private final ApplicationSignUpService applicationSignUpService;
     private final UiDeploymentRepository uiDeploymentRepository;
+    private final PasswordConfigurationService passwordConfigurationService;
 
     public DefaultApplicationService(ApplicationRepository repository,
                                      ProjectService projectService,
                                      ApplicationSignUpService applicationSignUpService,
                                      UiDeploymentRepository uiDeploymentRepository,
+                                     PasswordConfigurationService passwordConfigurationService,
                                      SecurityContext securityContext) {
         super(repository, securityContext);
         this.projectService = projectService;
         this.applicationSignUpService = applicationSignUpService;
         this.uiDeploymentRepository = uiDeploymentRepository;
+        this.passwordConfigurationService = passwordConfigurationService;
     }
 
     @Override
@@ -94,7 +100,9 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
             if(count > 0){
                 throw new IllegalStateException("Cannot delete an application with projects in it.");
             }
-            return Future.succeededFuture();
+            // an application created again under the same id starts with no password sign-in
+            String organizationId = requireOrganizationId();
+            return passwordConfigurationService.deleteById(PasswordConfiguration.idOf(organizationId, id, null), organizationId);
         });
     }
 
@@ -117,11 +125,6 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                         "The application id '%s' leaves no room for a UI name in its sites' labels, which are held to"
                                 + " %d characters so a tenant's name fits in front; shorten the application name",
                         entity.getId(), HostLabelUtil.MAX_SITE_LABEL_LENGTH);
-        // a new user gets a tenant of its own only while the system manages the application's tenants
-        Validate.isTrue(!entity.isPasswordSignUp() || entity.getTenantManagement() == TenantManagement.SYSTEM,
-                        "Sign-up with an email and a password needs the system to manage the application's tenants;"
-                                + " a user of an application whose tenants their administrators manage joins a tenant by invitation"
-                                + " or through the tenant's own sign-in providers");
         entity.setUpdated(new Date());
         Future<String> primaryUiUrl;
         if (entity.getPrimaryUiId() == null) {
@@ -150,11 +153,11 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     }
 
     @Override
-    public Future<ApplicationLoginMethods> getLoginMethods(String applicationId) {
+    public Future<List<ApplicationLoginProvider>> getLoginMethods(String applicationId) {
         Validate.notNull(applicationId, "applicationId cannot be null");
         return findById(applicationId).compose(application -> {
             Validate.isTrue(application != null, "The organization has no application %s", applicationId);
-            return applicationSignUpService.findLoginMethods(new LoginScope(application, null));
+            return applicationSignUpService.findLoginProviders(new LoginScope(application, null));
         });
     }
 

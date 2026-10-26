@@ -15,24 +15,26 @@
       <div v-else-if="managedProvidersLoaded" class="flex flex-col gap-5">
         <div>
           <label for="oidc-provider" class="mb-2 block text-sm font-medium">Provider</label>
-          <Select v-if="isNew" input-id="oidc-provider" v-model="provider" :options="ORGANIZATION_OIDC_PROVIDERS" option-value="provider"
-                  class="w-full">
+          <Select v-if="isNew" input-id="oidc-provider" v-model="choice" :options="choices" class="w-full">
             <template #value="{ value }">
               <span class="flex items-center gap-2.5">
-                <img :src="PROVIDER_LOGOS[value as OidcProviderType]" alt="" class="h-4 w-4" />
-                {{ providerDisplayName(value) }}
+                <KeyRound v-if="value === PASSWORD" :size="16" :stroke-width="1.75" class="text-surface-500" aria-hidden="true" />
+                <img v-else :src="PROVIDER_LOGOS[value as OidcProviderType]" alt="" class="h-4 w-4" />
+                {{ choiceName(value) }}
               </span>
             </template>
             <template #option="{ option }">
               <span class="flex items-center gap-2.5">
-                <img :src="PROVIDER_LOGOS[option.provider as OidcProviderType]" alt="" class="h-4 w-4" />
-                {{ providerDisplayName(option.provider) }}
+                <KeyRound v-if="option === PASSWORD" :size="16" :stroke-width="1.75" class="text-surface-500" aria-hidden="true" />
+                <img v-else :src="PROVIDER_LOGOS[option as OidcProviderType]" alt="" class="h-4 w-4" />
+                {{ choiceName(option) }}
               </span>
             </template>
           </Select>
           <div v-else class="flex items-center gap-2.5 rounded-lg border border-surface-200 bg-surface-50 px-3 py-2 text-sm dark:border-surface-700 dark:bg-surface-800/60">
-            <img :src="PROVIDER_LOGOS[provider]" alt="" class="h-4 w-4" />
-            <span class="flex-1">{{ providerDisplayName(provider) }}</span>
+            <KeyRound v-if="isPassword" :size="16" :stroke-width="1.75" class="text-surface-500" aria-hidden="true" />
+            <img v-else :src="PROVIDER_LOGOS[provider]" alt="" class="h-4 w-4" />
+            <span class="flex-1">{{ choiceName(choice) }}</span>
             <Lock :size="14" :stroke-width="1.75" class="text-surface-400" aria-hidden="true" />
           </div>
         </div>
@@ -48,7 +50,7 @@
           <p class="mt-1.5 text-[0.8125rem] text-muted-color">The application's login, or the login of one of its tenants.</p>
         </div>
 
-        <div v-if="managedOffered" role="radiogroup" aria-label="Credentials" class="flex flex-col gap-2.5">
+        <div v-if="managedOffered && !isPassword" role="radiogroup" aria-label="Credentials" class="flex flex-col gap-2.5">
           <span class="block text-sm font-medium">Credentials</span>
           <label v-for="option in REGISTRATION_OPTIONS" :key="option.value"
                  class="flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3.5"
@@ -64,13 +66,13 @@
           </label>
         </div>
 
-        <div>
+        <div v-if="!isPassword">
           <label for="oidc-name" class="mb-2 block text-sm font-medium">Display name</label>
           <InputText id="oidc-name" v-model="name" placeholder="Acme Okta" autocomplete="off" class="w-full" />
           <p class="mt-1.5 text-[0.8125rem] text-muted-color">What the login page prints on the provider's button.</p>
         </div>
 
-        <template v-if="!managed">
+        <template v-if="!managed && !isPassword">
         <div v-if="offered?.providerAccountLabel">
           <label for="oidc-account" class="mb-2 block text-sm font-medium">{{ offered.providerAccountLabel }}</label>
           <InputText id="oidc-account" v-model="providerAccount" :placeholder="ACCOUNT_PLACEHOLDERS[provider]" autocomplete="off"
@@ -104,15 +106,11 @@
         </div>
         </template>
 
-        <div v-if="applicationId !== null" class="flex items-start gap-3 rounded-xl border border-surface-200 bg-surface-0 px-4 py-3.5 dark:border-surface-700 dark:bg-surface-900">
-          <ToggleSwitch input-id="oidc-create-users" v-model="createUserOnSignIn" class="mt-0.5 shrink-0" />
+        <div v-if="signUpOffered" class="flex items-start gap-3 rounded-xl border border-surface-200 bg-surface-0 px-4 py-3.5 dark:border-surface-700 dark:bg-surface-900">
+          <ToggleSwitch input-id="oidc-create-users" v-model="createUserOnSignIn" :disabled="passwordSignUpUnavailable" class="mt-0.5 shrink-0" />
           <div class="flex flex-col gap-1">
             <label for="oidc-create-users" class="text-sm font-medium text-surface-950 dark:text-surface-0">Let new people sign up</label>
-            <p class="text-[0.8125rem] text-muted-color">
-              {{ createUserOnSignIn
-                  ? 'Someone the provider verifies who is not yet a user here becomes one the first time they sign in, where the system manages the application\'s tenants or at the tenant\'s own login.'
-                  : 'Someone the provider verifies who is not yet a user here is refused until they are invited or created.' }}
-            </p>
+            <p class="text-[0.8125rem] text-muted-color">{{ signUpHelp }}</p>
           </div>
         </div>
 
@@ -120,13 +118,11 @@
           <ToggleSwitch input-id="oidc-enabled" v-model="enabled" class="mt-0.5 shrink-0" />
           <div class="flex flex-col gap-1">
             <label for="oidc-enabled" class="text-sm font-medium text-surface-950 dark:text-surface-0">Enabled</label>
-            <p class="text-[0.8125rem] text-muted-color">
-              {{ enabled ? 'The login page offers this provider.' : 'The login page does not offer this provider, and no one signs in through it.' }}
-            </p>
+            <p class="text-[0.8125rem] text-muted-color">{{ enabledHelp }}</p>
           </div>
         </div>
 
-        <div v-if="!managed">
+        <div v-if="!managed && !isPassword">
           <button type="button" class="flex items-center gap-1.5 text-sm font-medium text-surface-700 hover:text-surface-950 dark:text-surface-200 dark:hover:text-surface-0"
                   :aria-expanded="showAdvanced" @click="showAdvanced = !showAdvanced">
             <ChevronRight :size="16" :stroke-width="1.75" :class="['transition-transform', showAdvanced ? 'rotate-90' : '']" aria-hidden="true" />
@@ -142,7 +138,7 @@
           </div>
         </div>
 
-        <template v-if="!isNew && !managed">
+        <template v-if="!isNew && !managed && !isPassword">
           <CopyableUrl label="Callback URL" :url="callbackUrl" help="The redirect URI registered at the provider." />
           <CopyableUrl v-if="startUrl" label="Direct sign-in link" :url="startUrl" :help="START_URL_HELP" />
         </template>
@@ -170,7 +166,7 @@ import Select from 'primevue/select'
 import ToggleSwitch from 'primevue/toggleswitch'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
-import { ChevronRight, Lock } from '@lucide/vue'
+import { ChevronRight, KeyRound, Lock } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
 import {
   ClientRegistrationType,
@@ -181,16 +177,20 @@ import {
   findOrganizationOidcProvider,
   isProviderAccountValid,
   type OwnedOidcConfiguration,
-  type Tenant
+  type PasswordConfiguration,
+  type Tenant,
+  TenantManagement
 } from '@kinotic-ai/management-api'
 import { FormDrawer, showErrorToast } from '@kinotic-ai/frontend-common'
 import CopyableUrl from '@/components/CopyableUrl.vue'
-import { PROVIDER_LOGOS, START_URL_HELP, startUrlOf } from '@/util/oidcConfigurations'
+import { PASSWORD_PROVIDER_NAME, PROVIDER_LOGOS, START_URL_HELP, startUrlOf, type SignInProvider } from '@/util/oidcConfigurations'
 import { providerDisplayName } from '@/components/SocialAuthButton.vue'
+import { APPLICATION_STATE } from '@/states/IApplicationState'
 
 /**
- * The form an organization adds or edits one of its own OIDC configurations with: of the organization's login when
- * applicationId is null, otherwise of the application's login or one of its tenants'. A new configuration's
+ * The form an organization adds or edits one of its own sign-in providers with: of the organization's login when
+ * applicationId is null, otherwise of the application's login or one of its tenants'. The provider is an OIDC
+ * configuration, or an email and a password, which a scope takes at most once. A new OIDC configuration's
  * callback URL is shown once it is saved; an edited one's alongside its fields. The held client secret is kept
  * unless a new one is entered, and removed only through the confirmed "Make this a public client". An application's
  * configuration of a kind Kinotic manages a registration for chooses between Kinotic's registration, which needs no
@@ -198,8 +198,12 @@ import { providerDisplayName } from '@/components/SocialAuthButton.vue'
  */
 const props = defineProps<{
   visible: boolean
-  /** The configuration to edit, or null to add one. */
+  /** The OIDC configuration to edit, or null. */
   configuration: OwnedOidcConfiguration | null
+  /** The email and password to edit, or null; both null adds a provider. */
+  password: PasswordConfiguration | null
+  /** The scopes that take an email and a password already, by tenant id, null for the scope's own login. */
+  passwordScopes: (string | null)[]
   applicationId: string | null
   /** The application's tenants, any of whose logins a new configuration may be offered at. */
   tenants: Tenant[]
@@ -207,7 +211,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:visible', visible: boolean): void
-  (e: 'saved', configuration: OwnedOidcConfiguration): void
+  (e: 'saved', provider: SignInProvider): void
 }>()
 
 const ACCOUNT_PLACEHOLDERS: Partial<Record<OidcProviderType, string>> = {
@@ -228,9 +232,15 @@ const REGISTRATION_OPTIONS = [
   }
 ]
 
+const PASSWORD = 'password' as const
+/** What the provider list offers: an OIDC provider kind, or an email and a password. */
+type ProviderChoice = OidcProviderType | typeof PASSWORD
+
 const toast = useToast()
 const confirm = useConfirm()
 
+const choice = ref<ProviderChoice>(OidcProviderType.OKTA)
+/** The OIDC provider kind the OIDC fields are for, the last one chosen. */
 const provider = ref<OidcProviderType>(OidcProviderType.OKTA)
 const tenantId = ref<string | null>(null)
 const name = ref('')
@@ -252,7 +262,45 @@ const removingSecret = ref(false)
 const saved = ref<OwnedOidcConfiguration | null>(null)
 const callbackUrl = ref<string | null>(null)
 
-const isNew = computed(() => props.configuration === null)
+const isNew = computed(() => props.configuration === null && props.password === null)
+const isPassword = computed(() => choice.value === PASSWORD)
+/** The scopes a new email and password may be offered at: those that take none yet. */
+const freePasswordScopes = computed(() => [null, ...(props.applicationId === null ? [] : props.tenants.map(tenant => tenant.id))]
+    .filter(scope => !props.passwordScopes.includes(scope)))
+const choices = computed<ProviderChoice[]>(() => [
+  ...ORGANIZATION_OIDC_PROVIDERS.map(offered => offered.provider),
+  ...(freePasswordScopes.value.length > 0 ? [PASSWORD] : [])
+])
+// an OIDC provider signs people up at any of an application's logins it is offered at; a password only at the
+// application's own, which gives each new user a tenant of its own
+const signUpOffered = computed(() => props.applicationId !== null && (!isPassword.value || tenantId.value === null))
+// a password signs a new user up into a tenant of its own, which only the system's tenancy gives
+const passwordSignUpUnavailable = computed(() => isPassword.value && props.applicationId !== null
+    && APPLICATION_STATE.currentApplication?.tenantManagement !== TenantManagement.SYSTEM)
+const signUpHelp = computed(() => {
+  let ret: string
+  if (passwordSignUpUnavailable.value) {
+    ret = 'Needs the system to manage this application\'s tenants, so each new user gets a tenant of their own. Under tenant administrators, people join a tenant by invitation or through the tenant\'s own sign-in providers.'
+  } else if (isPassword.value) {
+    ret = createUserOnSignIn.value
+        ? 'Someone who is not yet a user here can sign up from the application\'s UIs with an email and a password, confirmed through a link sent to the email, while the system manages the application\'s tenants.'
+        : 'Only existing users sign in with a password; new people are invited or created first.'
+  } else {
+    ret = createUserOnSignIn.value
+        ? 'Someone the provider verifies who is not yet a user here becomes one the first time they sign in, where the system manages the application\'s tenants or at the tenant\'s own login.'
+        : 'Someone the provider verifies who is not yet a user here is refused until they are invited or created.'
+  }
+  return ret
+})
+const enabledHelp = computed(() => {
+  let ret: string
+  if (isPassword.value) {
+    ret = enabled.value ? 'The login page takes an email and a password.' : 'The login page takes no password, and no one signs in with one.'
+  } else {
+    ret = enabled.value ? 'The login page offers this provider.' : 'The login page does not offer this provider, and no one signs in through it.'
+  }
+  return ret
+})
 // only an application's own login, not a tenant's, signs in through Kinotic's registration; a configuration already
 // using it keeps the choice while the list loads, so a save never turns it into its own client unasked
 const managedOffered = computed(() => props.applicationId !== null && tenantId.value === null
@@ -269,7 +317,7 @@ const everyDirectoryAccounts = computed(() => props.applicationId !== null && of
     : null)
 const accountInvalid = computed(() => offered.value?.providerAccountLabel != null && providerAccount.value.trim() !== ''
     && !isAccountAccepted(providerAccount.value.trim()))
-const complete = computed(() => name.value.trim() !== '' && (managed.value || (clientId.value.trim() !== ''
+const complete = computed(() => isPassword.value || name.value.trim() !== '' && (managed.value || (clientId.value.trim() !== ''
     && isAccountAccepted(accountValue())
     && (!choosingSecret.value || publicClient.value || clientSecret.value !== ''))))
 
@@ -299,7 +347,7 @@ const secretPlaceholder = computed(() => {
 const scopeOptions = computed(() => [
   { label: 'This application', value: null as string | null },
   ...props.tenants.map(tenant => ({ label: scopeLabel(tenant.id), value: tenant.id }))
-])
+].filter(option => !isNew.value || !isPassword.value || freePasswordScopes.value.includes(option.value)))
 const startUrl = computed(() => {
   const shown = saved.value ?? props.configuration
   return shown ? startUrlOf(shown) : null
@@ -310,6 +358,18 @@ watch(() => props.visible, visible => {
     reset()
   }
 })
+
+watch(choice, chosen => {
+  if (chosen !== PASSWORD) {
+    provider.value = chosen
+  } else if (!freePasswordScopes.value.includes(tenantId.value)) {
+    tenantId.value = freePasswordScopes.value[0] ?? null
+  }
+})
+
+function choiceName(chosen: ProviderChoice): string {
+  return chosen === PASSWORD ? PASSWORD_PROVIDER_NAME : providerDisplayName(chosen)
+}
 
 function scopeLabel(id: string | null): string {
   const tenant = props.tenants.find(t => t.id === id)
@@ -328,16 +388,18 @@ function isAccountAccepted(account: string | null): boolean {
 
 function reset(): void {
   const editing = props.configuration
+  const editingPassword = props.password
   provider.value = editing?.provider ?? (props.applicationId !== null ? OidcProviderType.GOOGLE : OidcProviderType.OKTA)
-  tenantId.value = editing?.tenantId ?? null
+  choice.value = editingPassword ? PASSWORD : provider.value
+  tenantId.value = editingPassword?.tenantId ?? editing?.tenantId ?? null
   name.value = editing?.name ?? ''
   providerAccount.value = editing?.providerAccount ?? ''
   clientId.value = editing?.clientId ?? ''
   clientSecret.value = ''
   publicClient.value = false
   audience.value = editing?.audience ?? ''
-  enabled.value = editing?.enabled ?? true
-  createUserOnSignIn.value = editing?.createUserOnSignIn ?? false
+  enabled.value = editingPassword?.enabled ?? editing?.enabled ?? true
+  createUserOnSignIn.value = editingPassword?.createUserOnSignIn ?? editing?.createUserOnSignIn ?? false
   clientRegistrationType.value = editing?.clientRegistrationType ?? (editing ? ClientRegistrationType.OWN : ClientRegistrationType.MANAGED)
   showAdvanced.value = (editing?.audience ?? '') !== ''
   saved.value = null
@@ -406,6 +468,25 @@ function configurationToSave(): OwnedOidcConfiguration {
   return ret
 }
 
+function passwordToSave(): PasswordConfiguration {
+  const fields = { enabled: enabled.value, createUserOnSignIn: signUpOffered.value && !passwordSignUpUnavailable.value && createUserOnSignIn.value }
+  let ret: PasswordConfiguration
+  if (props.password) {
+    ret = { ...props.password, ...fields }
+  } else {
+    ret = {
+      ...fields,
+      id: null,
+      organizationId: null,
+      applicationId: props.applicationId,
+      tenantId: props.applicationId === null ? null : tenantId.value,
+      created: null,
+      updated: null
+    }
+  }
+  return ret
+}
+
 async function submit(): Promise<void> {
   if (saved.value) {
     emit('update:visible', false)
@@ -416,21 +497,37 @@ async function submit(): Promise<void> {
   }
   saving.value = true
   try {
-    const secret = managed.value || (choosingSecret.value && publicClient.value) ? null : clientSecret.value || null
-    const result = await Kinotic.ownedOidcConfigurations.save(configurationToSave(), secret)
-    emit('saved', result)
-    // Kinotic's registration needs nothing registered at the provider, so there is no callback URL to show
-    if (isNew.value && !managed.value) {
-      saved.value = result
-      await loadCallbackUrl(result.id!)
+    if (isPassword.value) {
+      await savePassword()
     } else {
-      toast.add({ severity: 'success', summary: 'Provider saved', life: 4000 })
-      emit('update:visible', false)
+      await saveOidc()
     }
   } catch (err) {
     showErrorToast(toast, 'Failed to save the provider', err, { life: 8000 })
   } finally {
     saving.value = false
+  }
+}
+
+// an email and a password needs nothing registered anywhere, so the drawer closes on saving it
+async function savePassword(): Promise<void> {
+  const result = await Kinotic.ownedPasswordConfigurations.save(passwordToSave())
+  emit('saved', { kind: 'password', configuration: result })
+  toast.add({ severity: 'success', summary: 'Provider saved', life: 4000 })
+  emit('update:visible', false)
+}
+
+async function saveOidc(): Promise<void> {
+  const secret = managed.value || (choosingSecret.value && publicClient.value) ? null : clientSecret.value || null
+  const result = await Kinotic.ownedOidcConfigurations.save(configurationToSave(), secret)
+  emit('saved', { kind: 'oidc', configuration: result })
+  // Kinotic's registration needs nothing registered at the provider, so there is no callback URL to show
+  if (isNew.value && !managed.value) {
+    saved.value = result
+    await loadCallbackUrl(result.id!)
+  } else {
+    toast.add({ severity: 'success', summary: 'Provider saved', life: 4000 })
+    emit('update:visible', false)
   }
 }
 
@@ -450,7 +547,7 @@ function confirmMakePublic(): void {
       try {
         const result = await Kinotic.ownedOidcConfigurations.deleteClientSecret(editing.id!)
         if (result) {
-          emit('saved', result)
+          emit('saved', { kind: 'oidc', configuration: result })
         }
         toast.add({ severity: 'success', summary: 'Client secret deleted', life: 4000 })
       } catch (err) {

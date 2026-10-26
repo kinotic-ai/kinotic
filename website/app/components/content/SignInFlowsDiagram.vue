@@ -150,7 +150,6 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
       <text class="t-name" x="590" y="320" text-anchor="middle">Application</text>
       <line class="sep" x1="440" y1="328" x2="740" y2="328"></line>
       <text class="t-attr" x="452" y="346">tenantManagement: TenantManagement</text>
-      <text class="t-attr" x="452" y="362">passwordSignUp: boolean</text>
 
       <rect class="cls" x="440" y="396" width="300" height="76" rx="4"></rect>
       <text class="t-name" x="590" y="416" text-anchor="middle">Tenant</text>
@@ -362,7 +361,7 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
     </svg>
 
     <!-- ═══════════════════════════ IDENTITY: the identity and participant classes ═══════════════════════════ -->
-    <svg v-else-if="figure === 'identity'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 884" role="img" aria-label="UML class diagram. ParticipantIdentity, sealed and abstract, holds id, displayName, enabled and timestamps, and getType returns the ParticipantIdentityType discriminator. ApplicationParticipantIdentity, DelegatingParticipantIdentity and MachineParticipantIdentity implement the sealed ScopedParticipantIdentity interface and carry organizationId and applicationId, and an application user and a delegate a tenantId too. Three subclasses: UserParticipantIdentity, sealed and abstract, with email; DelegatingParticipantIdentity with ownerId, clientKey and delegateType; and MachineParticipantIdentity with machineType. A delegate's ownerId points at a user. UserParticipantIdentity has three final subclasses, one per scope: SystemParticipantIdentity, OrganizationParticipantIdentity and ApplicationParticipantIdentity. Every user has zero or one IdentityCredential, organization and application users zero or more OidcBinding rows, and an organization user zero or more OrganizationMembership rows. Below, the sealed ScopedParticipant interface extending the core Participant, with SystemParticipant, OrganizationParticipant and ApplicationParticipant, and the arrow from identity plus scope to participant through resolveParticipant.">
+    <svg v-else-if="figure === 'identity'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 884" role="img" aria-label="UML class diagram. ParticipantIdentity, sealed and abstract, holds id, displayName, enabled and timestamps, and getType returns the ParticipantIdentityType discriminator. OrganizationParticipantIdentity, ApplicationParticipantIdentity, DelegatingParticipantIdentity and MachineParticipantIdentity implement the sealed ScopedParticipantIdentity interface: an organization user carries organizationId, the others organizationId and applicationId, and an application user and a delegate a tenantId too. Three subclasses: UserParticipantIdentity, sealed and abstract, with email; DelegatingParticipantIdentity with ownerId, clientKey and delegateType; and MachineParticipantIdentity with machineType. A delegate's ownerId points at a user. UserParticipantIdentity has three final subclasses, one per scope: SystemParticipantIdentity, OrganizationParticipantIdentity and ApplicationParticipantIdentity. Every user has zero or one IdentityCredential, and organization and application users zero or more OidcBinding rows, each id naming the user's organization, and application for an application user. Below, the sealed ScopedParticipant interface extending the core Participant, with SystemParticipant, OrganizationParticipant and ApplicationParticipant, and the arrow from an identity in its own scope to its participant through resolveParticipant.">
       <defs>
         <marker id="si5-gen" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto"><polygon class="mk-gen" points="1,1 11,6 1,11"></polygon></marker>
         <marker id="si5-mut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon class="mk-mut" points="0,0 10,5 0,10"></polygon></marker>
@@ -435,8 +434,8 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
       <text class="t-ster" x="590" y="478" text-anchor="middle">«final»</text>
       <text class="t-name" x="590" y="494" text-anchor="middle">OrganizationParticipantIdentity</text>
       <line class="sep" x1="420" y1="502" x2="760" y2="502"></line>
-      <text class="t-attr" x="432" y="520">ORGANIZATION_USER</text>
-      <text class="t-attr-mut" x="432" y="538">acts through its memberships</text>
+      <text class="t-attr" x="432" y="520">ORGANIZATION_USER · organizationId</text>
+      <text class="t-attr-mut" x="432" y="538">acts in its organization only</text>
 
       <rect class="cls" x="800" y="460" width="340" height="92" rx="4"></rect>
       <text class="t-ster" x="970" y="478" text-anchor="middle">«final»</text>
@@ -460,34 +459,23 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
       <rect class="cls" x="260" y="590" width="270" height="124" rx="4"></rect>
       <text class="t-name" x="395" y="610" text-anchor="middle">OidcBinding</text>
       <line class="sep" x1="260" y1="618" x2="530" y2="618"></line>
-      <text class="t-attr" x="272" y="636">id = oidcConfigId:subject</text>
-      <text class="t-attr-mut" x="272" y="652">  app user: org/app/ in front</text>
+      <text class="t-attr" x="272" y="636">id = org/oidcConfigId:subject</text>
+      <text class="t-attr-mut" x="272" y="652">  app user: org/app/config:subject</text>
       <text class="t-attr" x="272" y="668">identityId: String</text>
       <text class="t-attr" x="272" y="684">organizationId, applicationId</text>
       <text class="t-attr" x="272" y="700">oidcConfigId, subject · created</text>
-
-      <rect class="cls" x="560" y="590" width="300" height="124" rx="4"></rect>
-      <text class="t-name" x="710" y="610" text-anchor="middle">OrganizationMembership</text>
-      <line class="sep" x1="560" y1="618" x2="860" y2="618"></line>
-      <text class="t-attr" x="572" y="636">id = organizationUserId:organizationId</text>
-      <text class="t-attr" x="572" y="652">organizationUserId: String</text>
-      <text class="t-attr" x="572" y="668">organizationId: String</text>
-      <text class="t-attr" x="572" y="684">enabled: boolean · created, updated</text>
-      <text class="t-attr-mut" x="572" y="702">the user's standing in that org alone</text>
 
       <line class="link" x1="140" y1="552" x2="140" y2="590" marker-start="url(#si5-mut)"></line>
       <text class="t-tiny" x="148" y="576">0..1 password · every user</text>
       <polyline class="link" points="470,552 470,570 395,570 395,590" marker-start="url(#si5-mut)"></polyline>
       <text class="t-tiny" x="300" y="584">0..* bindings</text>
-      <line class="link" x1="710" y1="552" x2="710" y2="590" marker-start="url(#si5-mut)"></line>
-      <text class="t-tiny" x="718" y="576">0..* memberships</text>
 
-      <text class="t-attr-mut" x="884" y="610">every user holds a credential;</text>
+      <text class="t-attr-mut" x="884" y="610">every user may hold a credential;</text>
       <text class="t-attr-mut" x="884" y="626">organization and application users</text>
-      <text class="t-attr-mut" x="884" y="642">hold bindings; only an organization</text>
-      <text class="t-attr-mut" x="884" y="658">user holds memberships. deleting an</text>
-      <text class="t-attr-mut" x="884" y="674">identity cascades to all three and</text>
-      <text class="t-attr-mut" x="884" y="690">to its delegates.</text>
+      <text class="t-attr-mut" x="884" y="642">hold bindings, each in the user's</text>
+      <text class="t-attr-mut" x="884" y="658">own scope. deleting an identity</text>
+      <text class="t-attr-mut" x="884" y="674">cascades to both and to its</text>
+      <text class="t-attr-mut" x="884" y="690">delegates.</text>
 
       <!-- participants -->
       <rect class="wall" x="40" y="750" width="1100" height="118" rx="8"></rect>
@@ -500,116 +488,130 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
 
       <rect class="chip-ind" x="404" y="800" width="356" height="52" rx="6"></rect>
       <text class="t-name" x="582" y="820" text-anchor="middle">OrganizationParticipant · getOrganizationId()</text>
-      <text class="t-tiny" x="582" y="838" text-anchor="middle">organization user + membership of that org · org delegate</text>
+      <text class="t-tiny" x="582" y="838" text-anchor="middle">an organization user · org delegate</text>
 
       <rect class="chip-ind" x="772" y="800" width="356" height="52" rx="6"></rect>
       <text class="t-name" x="950" y="820" text-anchor="middle">ApplicationParticipant · org, app, tenant ids</text>
       <text class="t-tiny" x="950" y="838" text-anchor="middle">an application user · application machine</text>
 
-      <line class="flow-ind" x1="710" y1="714" x2="710" y2="750" marker-end="url(#si5-ind)"></line>
-      <text class="t-lbl-ind" x="722" y="736">resolveParticipant(identityId, orgId, appId) → id stays the identity's id</text>
+      <line class="flow-ind" x1="710" y1="552" x2="710" y2="750" marker-end="url(#si5-ind)"></line>
+      <text class="t-lbl-ind" x="722" y="736">resolveParticipant(identityId, orgId, appId) → the identity in its own scope</text>
     </svg>
 
-    <!-- ═══════════════════════════ ORGANIZATION USER: one organization user, many memberships ═══════════════════════════ -->
-    <svg v-else-if="figure === 'organization-user'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 560" role="img" aria-label="Left: three sign-in methods, a password and two provider bindings, each pointing at one organization user in the middle, Jane's, which carries no organization and no application. Right: two membership rows, acme and globex, both enabled, and a dashed slot for the system console, which no membership reaches. Below, three logins: the password login at acme resolves the organization user and its acme membership into an organization participant; the landing page's GitHub button finds the organization user by its binding, sees two enabled memberships and offers both; a signed-in session switches to globex by re-resolving the same organization user there. At the bottom, separate rows for Jane as a system user and as a user of the orders application, each with its own methods and no memberships, and a red note that a provider's email never selects a user.">
+    <!-- ═══════════════════════════ ORGANIZATION USER: one user per organization ═══════════════════════════ -->
+    <svg v-else-if="figure === 'organization-user'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 596" role="img" aria-label="Two rows, one per organization Jane belongs to. In acme, a password and a GitHub binding sign in Jane's acme user, which carries organizationId acme and belongs to acme alone. In globex, the same GitHub account bound again and a Globex Okta binding sign in Jane's separate globex user, which carries organizationId globex. Below, three logins: the password login at acme authenticates acme's user and resolves its participant; the GitHub button at globex finds globex's user by the binding in globex, refusing a disabled user with user_disabled and an identity bound to no globex user with no_user; the landing page's GitHub button finds the users the identity is bound to in any organization, signing in the one there is and offering the organizations to choose from when there are several. At the bottom, separate rows for Jane as a system user and as a user of the orders application, each with its own methods, and a red note that a provider's email never selects a user.">
       <defs>
         <marker id="si6-grn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-grn" points="0,0 10,5 0,10"></polygon></marker>
         <marker id="si6-amb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-amb" points="0,0 10,5 0,10"></polygon></marker>
       </defs>
 
-      <text class="t-tag" x="40" y="30">SIGN-IN METHODS · PROVE WHICH ORGANIZATION USER</text>
-      <text class="t-tag" x="570" y="30" text-anchor="middle">ONE ORGANIZATION USER</text>
-      <text class="t-tag" x="1100" y="30" text-anchor="end">MEMBERSHIPS · SAY WHERE IT MAY SIGN IN</text>
+      <text class="t-tag" x="40" y="30">SIGN-IN METHODS · BOUND IN ONE ORGANIZATION</text>
+      <text class="t-tag" x="570" y="30" text-anchor="middle">ONE USER PER ORGANIZATION</text>
+      <text class="t-tag" x="1100" y="30" text-anchor="end">WHERE IT SIGNS IN</text>
 
-      <!-- methods -->
-      <rect class="chip-amb" x="40" y="50" width="270" height="48" rx="8"></rect>
-      <text class="t-chip" x="175" y="70" text-anchor="middle">password</text>
-      <text class="t-tiny" x="175" y="86" text-anchor="middle">IdentityCredential u-jane · bcrypt hash</text>
+      <!-- acme: methods -->
+      <rect class="chip-amb" x="40" y="50" width="270" height="44" rx="8"></rect>
+      <text class="t-chip" x="175" y="68" text-anchor="middle">password</text>
+      <text class="t-tiny" x="175" y="84" text-anchor="middle">IdentityCredential u-acme-jane · bcrypt hash</text>
 
-      <rect class="chip-amb" x="40" y="112" width="270" height="48" rx="8"></rect>
-      <text class="t-chip" x="175" y="132" text-anchor="middle">GitHub</text>
-      <text class="t-tiny" x="175" y="148" text-anchor="middle">OidcBinding github-platform:7781 → u-jane</text>
+      <rect class="chip-amb" x="40" y="104" width="270" height="44" rx="8"></rect>
+      <text class="t-chip" x="175" y="122" text-anchor="middle">GitHub · OidcBinding</text>
+      <text class="t-tiny" x="175" y="138" text-anchor="middle">acme/github-platform:7781 → u-acme-jane</text>
 
-      <rect class="chip-amb" x="40" y="174" width="270" height="48" rx="8"></rect>
-      <text class="t-chip" x="175" y="194" text-anchor="middle">Acme Okta</text>
-      <text class="t-tiny" x="175" y="210" text-anchor="middle">OidcBinding acme-okta:jane.d → u-jane</text>
+      <!-- acme: user -->
+      <rect class="chip-ind" x="420" y="50" width="300" height="98" rx="8"></rect>
+      <text class="t-name" x="570" y="72" text-anchor="middle">Jane at acme</text>
+      <text class="t-sub" x="570" y="89" text-anchor="middle">OrganizationParticipantIdentity u-acme-jane</text>
+      <line class="sep" x1="436" y1="99" x2="704" y2="99"></line>
+      <text class="t-mono-ink" x="570" y="118" text-anchor="middle">organizationId: acme · email: jane@acme.com</text>
+      <text class="t-mono-ink" x="570" y="136" text-anchor="middle">enabled: true</text>
 
-      <!-- organization user -->
-      <rect class="chip-ind" x="420" y="50" width="300" height="172" rx="8"></rect>
-      <text class="t-name" x="570" y="76" text-anchor="middle">Jane's organization user</text>
-      <text class="t-sub" x="570" y="94" text-anchor="middle">OrganizationParticipantIdentity u-jane</text>
-      <line class="sep" x1="436" y1="106" x2="704" y2="106"></line>
-      <text class="t-mono-ink" x="570" y="128" text-anchor="middle">organizationId: null · applicationId: null</text>
-      <text class="t-mono-ink" x="570" y="146" text-anchor="middle">email: jane@acme.com</text>
-      <text class="t-tiny" x="570" y="164" text-anchor="middle">unique among organization users</text>
-      <text class="t-mono-ink" x="570" y="188" text-anchor="middle">enabled: true</text>
-      <text class="t-tiny" x="570" y="206" text-anchor="middle">no sign-in field · methods are rows of their own</text>
+      <line class="flow-amb" x1="310" y1="72" x2="420" y2="88" marker-end="url(#si6-amb)"></line>
+      <line class="flow-amb" x1="310" y1="126" x2="420" y2="110" marker-end="url(#si6-amb)"></line>
 
-      <line class="flow-amb" x1="310" y1="74" x2="420" y2="100" marker-end="url(#si6-amb)"></line>
-      <line class="flow-amb" x1="310" y1="136" x2="420" y2="136" marker-end="url(#si6-amb)"></line>
-      <line class="flow-amb" x1="310" y1="198" x2="420" y2="172" marker-end="url(#si6-amb)"></line>
-      <text class="t-lbl-amb" x="365" y="124" text-anchor="middle">any one</text>
-      <text class="t-tiny" x="365" y="156" text-anchor="middle">proves it</text>
+      <!-- acme: organization -->
+      <rect class="chip-grn" x="830" y="50" width="270" height="98" rx="8"></rect>
+      <text class="t-chip" x="965" y="74" text-anchor="middle">acme</text>
+      <text class="t-tiny" x="965" y="94" text-anchor="middle">signs in at /login/acme only</text>
+      <text class="t-tiny" x="965" y="110" text-anchor="middle">removing Jane deletes u-acme-jane</text>
+      <text class="t-tiny" x="965" y="126" text-anchor="middle">and leaves her globex user as it is</text>
 
-      <!-- memberships -->
-      <rect class="chip-grn" x="830" y="50" width="270" height="48" rx="8"></rect>
-      <text class="t-chip" x="965" y="70" text-anchor="middle">acme</text>
-      <text class="t-tiny" x="965" y="86" text-anchor="middle">OrganizationMembership u-jane:acme · enabled</text>
+      <line class="flow-grn" x1="720" y1="99" x2="830" y2="99" marker-end="url(#si6-grn)"></line>
+      <text class="t-lbl-grn" x="775" y="91" text-anchor="middle">member of</text>
 
-      <rect class="chip-grn" x="830" y="112" width="270" height="48" rx="8"></rect>
-      <text class="t-chip" x="965" y="132" text-anchor="middle">globex</text>
-      <text class="t-tiny" x="965" y="148" text-anchor="middle">OrganizationMembership u-jane:globex · enabled</text>
+      <text class="t-lbl-amb" x="175" y="163" text-anchor="middle">the same GitHub account, bound in each</text>
 
-      <rect class="chip-ghost" x="830" y="174" width="270" height="48" rx="8"></rect>
-      <text class="t-sub" x="965" y="194" text-anchor="middle">system console</text>
-      <text class="t-tiny" x="965" y="210" text-anchor="middle">no membership reaches it · a system user is its own row</text>
+      <!-- globex: methods -->
+      <rect class="chip-amb" x="40" y="170" width="270" height="44" rx="8"></rect>
+      <text class="t-chip" x="175" y="188" text-anchor="middle">GitHub · OidcBinding</text>
+      <text class="t-tiny" x="175" y="204" text-anchor="middle">globex/github-platform:7781 → u-globex-jane</text>
 
-      <line class="flow-grn" x1="720" y1="100" x2="830" y2="74" marker-end="url(#si6-grn)"></line>
-      <line class="flow-grn" x1="720" y1="136" x2="830" y2="136" marker-end="url(#si6-grn)"></line>
-      <text class="t-lbl-grn" x="775" y="124" text-anchor="middle">belongs to</text>
-      <text class="t-tiny" x="775" y="156" text-anchor="middle">each its own flag</text>
+      <rect class="chip-amb" x="40" y="224" width="270" height="44" rx="8"></rect>
+      <text class="t-chip" x="175" y="242" text-anchor="middle">Globex Okta · OidcBinding</text>
+      <text class="t-tiny" x="175" y="258" text-anchor="middle">globex/globex-okta:jane.d → u-globex-jane</text>
+
+      <!-- globex: user -->
+      <rect class="chip-ind" x="420" y="170" width="300" height="98" rx="8"></rect>
+      <text class="t-name" x="570" y="192" text-anchor="middle">Jane at globex</text>
+      <text class="t-sub" x="570" y="209" text-anchor="middle">OrganizationParticipantIdentity u-globex-jane</text>
+      <line class="sep" x1="436" y1="219" x2="704" y2="219"></line>
+      <text class="t-mono-ink" x="570" y="238" text-anchor="middle">organizationId: globex · email: jane@acme.com</text>
+      <text class="t-mono-ink" x="570" y="256" text-anchor="middle">enabled: true · no password</text>
+
+      <line class="flow-amb" x1="310" y1="192" x2="420" y2="208" marker-end="url(#si6-amb)"></line>
+      <line class="flow-amb" x1="310" y1="246" x2="420" y2="230" marker-end="url(#si6-amb)"></line>
+
+      <!-- globex: organization -->
+      <rect class="chip-grn" x="830" y="170" width="270" height="98" rx="8"></rect>
+      <text class="t-chip" x="965" y="194" text-anchor="middle">globex</text>
+      <text class="t-tiny" x="965" y="214" text-anchor="middle">signs in at /login/globex only</text>
+      <text class="t-tiny" x="965" y="230" text-anchor="middle">disabling Jane here leaves</text>
+      <text class="t-tiny" x="965" y="246" text-anchor="middle">her acme user as it is</text>
+
+      <line class="flow-grn" x1="720" y1="219" x2="830" y2="219" marker-end="url(#si6-grn)"></line>
+      <text class="t-lbl-grn" x="775" y="211" text-anchor="middle">member of</text>
 
       <!-- logins -->
-      <line class="sep" x1="40" y1="250" x2="1100" y2="250"></line>
-      <text class="t-tag" x="40" y="276">A LOGIN IS ADDRESSED TO A SCOPE · resolveParticipant(user, organizationId, applicationId)</text>
+      <line class="sep" x1="40" y1="290" x2="1100" y2="290"></line>
+      <text class="t-tag" x="40" y="314">A LOGIN IS ADDRESSED TO ONE ORGANIZATION · resolveParticipant(user, organizationId, null)</text>
 
-      <rect class="gw gw-org" x="40" y="292" width="340" height="118" rx="8"></rect>
-      <text class="t-name" x="210" y="316" text-anchor="middle">/login/acme · email + password</text>
-      <line class="sep" x1="56" y1="326" x2="364" y2="326"></line>
-      <text class="t-mono-ink" x="56" y="346">authenticateOrganizationUser(email, pw) → u-jane</text>
-      <text class="t-mono-ink" x="56" y="364">resolveParticipant(u-jane, acme, null)</text>
-      <text class="t-mono-ink" x="56" y="382">  → needs u-jane:acme, enabled</text>
-      <text class="t-lbl-ind" x="56" y="400">→ OrganizationParticipant { sub u-jane, org acme }</text>
+      <rect class="gw gw-org" x="40" y="330" width="340" height="118" rx="8"></rect>
+      <text class="t-name" x="210" y="354" text-anchor="middle">/login/acme · email + password</text>
+      <line class="sep" x1="56" y1="364" x2="364" y2="364"></line>
+      <text class="t-mono-ink" x="56" y="384">authenticateOrganizationUser(email, pw, acme)</text>
+      <text class="t-mono-ink" x="56" y="402">  → u-acme-jane, enabled, password verified</text>
+      <text class="t-mono-ink" x="56" y="420">resolveParticipant(u-acme-jane, acme, null)</text>
+      <text class="t-lbl-ind" x="56" y="438">→ OrganizationParticipant { sub u-acme-jane }</text>
 
-      <rect class="gw gw-org" x="400" y="292" width="340" height="118" rx="8"></rect>
-      <text class="t-name" x="570" y="316" text-anchor="middle">/login · the landing page's GitHub button</text>
-      <line class="sep" x1="416" y1="326" x2="724" y2="326"></line>
-      <text class="t-mono-ink" x="416" y="346">binding github-platform:7781 → u-jane</text>
-      <text class="t-mono-ink" x="416" y="364">enabled memberships → acme, globex</text>
-      <text class="t-mono-ink" x="416" y="382">  one → sign in there · none → no_user</text>
-      <text class="t-lbl-ind" x="416" y="400">→ two: offer both, sign in at the chosen one's page</text>
+      <rect class="gw gw-org" x="400" y="330" width="340" height="118" rx="8"></rect>
+      <text class="t-name" x="570" y="354" text-anchor="middle">/login/globex · GitHub</text>
+      <line class="sep" x1="416" y1="364" x2="724" y2="364"></line>
+      <text class="t-mono-ink" x="416" y="384">binding globex/github-platform:7781</text>
+      <text class="t-mono-ink" x="416" y="402">  → u-globex-jane · disabled → user_disabled</text>
+      <text class="t-mono-ink" x="416" y="420">  bound to no globex user → no_user</text>
+      <text class="t-lbl-ind" x="416" y="438">→ OrganizationParticipant { sub u-globex-jane }</text>
 
-      <rect class="gw gw-org" x="760" y="292" width="340" height="118" rx="8"></rect>
-      <text class="t-name" x="930" y="316" text-anchor="middle">signed in at acme · Organizations → globex</text>
-      <line class="sep" x1="776" y1="326" x2="1084" y2="326"></line>
-      <text class="t-mono-ink" x="776" y="346">POST /api/auth/org/switch { globex }</text>
-      <text class="t-mono-ink" x="776" y="364">resolveParticipant(u-jane, globex, null)</text>
-      <text class="t-mono-ink" x="776" y="382">  → needs u-jane:globex, enabled · else 403</text>
-      <text class="t-lbl-ind" x="776" y="400">→ the session re-established as globex's participant</text>
+      <rect class="gw gw-org" x="760" y="330" width="340" height="118" rx="8"></rect>
+      <text class="t-name" x="930" y="354" text-anchor="middle">/login · the landing page's GitHub button</text>
+      <line class="sep" x1="776" y1="364" x2="1084" y2="364"></line>
+      <text class="t-mono-ink" x="776" y="384">bindings of github-platform:7781 in any org</text>
+      <text class="t-mono-ink" x="776" y="402">  → u-acme-jane, u-globex-jane</text>
+      <text class="t-mono-ink" x="776" y="420">  one → sign in there · none → no_user</text>
+      <text class="t-lbl-ind" x="776" y="438">→ two: offer both, sign in at the chosen one's page</text>
 
       <!-- the other scopes' users -->
-      <rect class="chip-vio" x="40" y="432" width="1060" height="54" rx="8"></rect>
-      <text class="t-chip" x="56" y="454">Jane as a system user, or as a user of acme--orders, is another row each: SystemParticipantIdentity · ApplicationParticipantIdentity acme/orders</text>
-      <text class="t-tiny" x="56" y="472">each with its own password, no memberships; one signs in at the system console only, the other at acme--orders.apps-api.kinotic.io only, and the organization user grants nothing at either</text>
+      <rect class="chip-vio" x="40" y="468" width="1060" height="54" rx="8"></rect>
+      <text class="t-chip" x="56" y="490">Jane as a system user, or as a user of acme--orders, is another row each: SystemParticipantIdentity · ApplicationParticipantIdentity acme/orders</text>
+      <text class="t-tiny" x="56" y="508">each with its own password; one signs in at the system console only, the other at acme--orders.apps-api.kinotic.io only, and her organization users grant nothing at either</text>
 
       <!-- the rule -->
-      <rect class="note-red" x="40" y="500" width="1060" height="44" rx="8"></rect>
-      <text class="t-lbl-red" x="56" y="520">A provider's email never selects a user. Only the binding (configId, sub) does.</text>
-      <text class="t-tiny" x="56" y="536">read once, when the binding is created: sign-up, an invitation, the org's provider claiming a pending member, createUserOnSignIn, or a connect from the Profile page</text>
+      <rect class="note-red" x="40" y="536" width="1060" height="44" rx="8"></rect>
+      <text class="t-lbl-red" x="56" y="556">A provider's email never selects a user. Only a binding of (configId, sub) in the user's own scope does.</text>
+      <text class="t-tiny" x="56" y="572">read once, when the binding is created: sign-up, an invitation, the org's provider claiming a pending member, createUserOnSignIn, or a connect from the Profile page</text>
     </svg>
 
     <!-- ═══════════════════════════ DOORS: the management server ═══════════════════════════ -->
-    <svg v-else-if="figure === 'doors'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 400" role="img" aria-label="Four doors on the management server. Sign up with GitHub produces a new organization, the founder's organization user bound to the GitHub identity, and the founder's membership; it is refused when the identity or its email already has an organization user. Log in has a landing page with a GitHub button, an organization field and a link that emails the person their organizations, and an organization page at /login/<org> with GitHub, the organization's own SSO and a password form. Invited or added: an administrator adds a member from the Members page, which creates the organization user and its membership pending until the organization's own provider claims it on first sign-in; an invitation lets a new email set a password or use a provider the organization offers, which claims the pending organization user or creates one; an organization user already in use joins with its password or a provider it is bound to, and an unbound identity is refused with user_exists; an application invitee becomes a user of that application. Profile, once signed in, connects GitHub or the organization's SSO, sets or changes the password, removes a method while another remains, and switches organization.">
+    <svg v-else-if="figure === 'doors'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 400" role="img" aria-label="Four doors on the management server. Sign up with GitHub always produces a new organization and the founder as its first user, bound to the GitHub identity. Log in has a landing page with a GitHub button, which signs in the user the identity is bound to or offers the organizations of its users, a field that asks for the organization and sends the person to its page, and a link that emails the person their organizations, and an organization page at /login/<org> with GitHub, the organization's own SSO and a password form. Invited or added: an administrator adds a member from the Members page, which creates a pending user of the organization until the organization's own provider or an invitation claims it; an invitation lets the invitee set a password or use a provider the organization offers, which claims the pending member or creates a user; a member who already signs in is refused and signs in instead; an application invitee becomes a user of that application. Profile, once signed in, connects GitHub or the organization's SSO, sets or changes the password, and removes a method but never the last one that signs in; a session acts in one organization, and another is a sign-in at its login.">
       <defs>
         <marker id="si7-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-ink" points="0,0 10,5 0,10"></polygon></marker>
       </defs>
@@ -625,11 +627,11 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
       <line class="flow" x1="165" y1="140" x2="165" y2="176" marker-end="url(#si7-ink)"></line>
       <rect class="chip" x="56" y="176" width="218" height="60" rx="8"></rect>
       <text class="t-chip" x="165" y="196" text-anchor="middle">new organization</text>
-      <text class="t-chip" x="165" y="212" text-anchor="middle">+ founder + membership</text>
-      <text class="t-tiny" x="165" y="228" text-anchor="middle">an organization user bound to GitHub</text>
-      <rect class="note-red" x="56" y="246" width="218" height="42" rx="8"></rect>
-      <text class="t-tiny" x="165" y="263" text-anchor="middle">user_exists when the identity or</text>
-      <text class="t-tiny" x="165" y="277" text-anchor="middle">email already has an organization user</text>
+      <text class="t-chip" x="165" y="212" text-anchor="middle">+ founder, its first user</text>
+      <text class="t-tiny" x="165" y="228" text-anchor="middle">bound to GitHub in that organization</text>
+      <rect class="chip-ghost" x="56" y="246" width="218" height="42" rx="8"></rect>
+      <text class="t-tiny" x="165" y="263" text-anchor="middle">every sign-up founds a new</text>
+      <text class="t-tiny" x="165" y="277" text-anchor="middle">organization and its first user</text>
 
       <!-- log in -->
       <rect class="gw gw-org" x="310" y="50" width="290" height="300" rx="8"></rect>
@@ -637,7 +639,7 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
       <line class="sep" x1="326" y1="84" x2="584" y2="84"></line>
       <text class="t-tiny" x="326" y="102">/login · the landing page</text>
       <rect class="chip-ind" x="326" y="110" width="258" height="30" rx="8"></rect>
-      <text class="t-chip" x="455" y="130" text-anchor="middle">GitHub → the memberships decide where</text>
+      <text class="t-chip" x="455" y="130" text-anchor="middle">GitHub → its users' organizations decide</text>
       <rect class="chip" x="326" y="146" width="258" height="30" rx="8"></rect>
       <text class="t-chip" x="455" y="166" text-anchor="middle">organization → /login/&lt;org&gt;</text>
       <rect class="chip" x="326" y="182" width="258" height="30" rx="8"></rect>
@@ -653,16 +655,16 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
       <line class="sep" x1="636" y1="84" x2="854" y2="84"></line>
       <rect class="chip" x="636" y="100" width="218" height="50" rx="8"></rect>
       <text class="t-chip" x="745" y="118" text-anchor="middle">added on the Members page:</text>
-      <text class="t-chip" x="745" y="134" text-anchor="middle">a pending organization user</text>
+      <text class="t-chip" x="745" y="134" text-anchor="middle">a pending user of the org</text>
       <text class="t-tiny" x="745" y="146" text-anchor="middle">its provider claims it on first sign-in</text>
       <rect class="chip" x="636" y="158" width="218" height="50" rx="8"></rect>
       <text class="t-chip" x="745" y="176" text-anchor="middle">invited: set a password or use</text>
       <text class="t-chip" x="745" y="192" text-anchor="middle">a provider the org offers</text>
       <text class="t-tiny" x="745" y="204" text-anchor="middle">claims the user, or creates one</text>
       <rect class="note-amb" x="636" y="216" width="218" height="50" rx="8"></rect>
-      <text class="t-chip" x="745" y="234" text-anchor="middle">an organization user in use:</text>
-      <text class="t-chip" x="745" y="250" text-anchor="middle">its password or its bound provider</text>
-      <text class="t-tiny" x="745" y="262" text-anchor="middle">an unbound identity: user_exists</text>
+      <text class="t-chip" x="745" y="234" text-anchor="middle">a member who already signs in:</text>
+      <text class="t-chip" x="745" y="250" text-anchor="middle">refused · sign in instead</text>
+      <text class="t-tiny" x="745" y="262" text-anchor="middle">409 · user_exists</text>
       <rect class="chip-vio" x="636" y="274" width="218" height="50" rx="8"></rect>
       <text class="t-chip" x="745" y="292" text-anchor="middle">invited into an application:</text>
       <text class="t-chip" x="745" y="308" text-anchor="middle">a user of that application</text>
@@ -679,12 +681,12 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
       <text class="t-chip" x="995" y="166" text-anchor="middle">Set / change password</text>
       <rect class="chip-amb" x="906" y="182" width="178" height="30" rx="8"></rect>
       <text class="t-chip" x="995" y="202" text-anchor="middle">Remove, never the last</text>
-      <text class="t-tiny" x="906" y="232">Organizations</text>
-      <rect class="chip-grn" x="906" y="240" width="178" height="48" rx="8"></rect>
-      <text class="t-chip" x="995" y="259" text-anchor="middle">Switch → /api/auth/org/switch</text>
-      <text class="t-tiny" x="995" y="276" text-anchor="middle">one enabled membership per row</text>
+      <rect class="chip-ghost" x="906" y="228" width="178" height="60" rx="8"></rect>
+      <text class="t-tiny" x="995" y="248" text-anchor="middle">a session acts in one</text>
+      <text class="t-tiny" x="995" y="262" text-anchor="middle">organization · another is a</text>
+      <text class="t-tiny" x="995" y="276" text-anchor="middle">sign-in at /login/&lt;org&gt;</text>
 
-      <text class="t-tiny" x="24" y="380">Every callback is checked against its flow session; every configuration passes findOffered (which login offers it); every organization user passes resolveParticipant (one organization user, many memberships).</text>
+      <text class="t-tiny" x="24" y="380">Every callback is checked against its flow session; every configuration passes findOffered (which login offers it); every organization user passes resolveParticipant (a user acts in its own organization only).</text>
     </svg>
 
   </div>
