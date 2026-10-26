@@ -3,13 +3,13 @@ import {beforeAll, describe, expect, it} from 'vitest'
 import {E2E_FIXTURE_PASSWORD, E2E_ORG_USER_EMAIL, E2E_ORGANIZATION_ID, managementServer, restBase} from '../TestHelpers.js'
 
 /**
- * An organization the V3 fixtures give a member under the e2e organization user's email that holds no password, whose
+ * An organization the V4 fixtures give a member under the e2e organization user's email that holds no password, whose
  * login takes passwords.
  */
 const SECOND_ORGANIZATION_ID = 'e2e-second'
-/** An organization the V3 fixtures give a login that takes no password. */
+/** An organization the V4 fixtures give a login that takes no password. */
 const SSO_ONLY_ORGANIZATION_ID = 'e2e-sso-only'
-/** The Okta configuration the V3 fixtures give an organization the e2e organization user does not belong to. */
+/** The Okta configuration the V4 fixtures give an organization the e2e organization user does not belong to. */
 const OTHER_ORGANIZATION_CONFIGURATION_ID = 'e2e-other-okta'
 
 /**

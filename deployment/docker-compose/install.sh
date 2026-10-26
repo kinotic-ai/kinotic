@@ -49,7 +49,6 @@ FILES=(
     "compose.elasticsearch.yml"
     "compose.kibana.yml"
     "compose-otel.yml"
-    "compose.gen-schemas.yml"
     "otel-collector-config.yaml"
     "tempo.yml"
     "mimir.yml"

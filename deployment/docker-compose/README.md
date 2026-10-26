@@ -31,8 +31,7 @@ the commit under test rather than whatever the published tag currently holds.
 | `compose.kinotic-servers.yml` | The three Kinotic servers, one Ignite cluster | `kinotic-server-management:58503`, `kinotic-server-system:58504`, `kinotic-server-app:58505` (REST and STOMP) |
 | `compose.ui.yml` | The portal and the system console, the `kinotic-ui` image built from `kinotic-ui.Dockerfile`, which builds `kinotic-frontend` and serves both through `kinotic-ui.ts`. `docker compose up --build` builds it from the working tree | `kinotic-ui:9090` (portal), `kinotic-ui:9091` (system console) |
 | `compose-otel.yml` | OpenTelemetry collector + Grafana + Tempo + Loki + Mimir | `grafana:3000`, `loki:3100`, `tempo:3200`, `mimir:9009` |
-| `compose.sample-data.yml` | Layered onto `compose.yml`: the migration adds the `fixtures` profile, and `compose.gen-schemas.yml` publishes sample entity definitions | See [Sample data](#sample-data) |
-| `compose.gen-schemas.yml` | Load-generator container that pre-populates schemas into `test-org` | One-shot, included by `compose.sample-data.yml` |
+| `compose.sample-data.yml` | Layered onto `compose.yml`: `kinotic-sample-data` runs the migration with the `fixtures` profile, and `kinotic-gen-schemas` publishes sample entity definitions | See [Sample data](#sample-data) |
 | `compose.sites.yml` | Where published UIs are stored and served: the Azurite emulator, and the local edge, the `kinotic-sites-edge` image built from `sites-edge.Dockerfile`, which runs the Cloudflare sites Worker (`../cloudflare/sites-worker/worker.js`) over it through `sites-edge.ts`. `docker compose up --build` builds it from the working tree | `kinotic-azurite:10000`, `kinotic-sites-edge:8088` |
 | `compose.gitea.yml` | The Gitea server the demonstration server hosts projects' repositories on, in place of GitHub: it creates the `kinotic_admin` administrator the servers act as on first start | `kinotic-gitea:3000` |
 | `compose.keycloak.yml` | Local Keycloak as a social sign-in OIDC provider (dev-only secret) | `keycloak:8888` — see `KEYCLOAK_HOSTS_SETUP.md` |
@@ -42,9 +41,9 @@ the commit under test rather than whatever the published tag currently holds.
 ## Common one-liners
 
 ```bash
-# (1) ES and the migration container, which exits when done.
+# (1) ES and the migration container, which exits when done, with the demonstration stack's profile.
 #     Re-run any time you bump kinotic-migration to refresh indices.
-docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up -d
+docker compose --env-file demonstration.env -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up -d
 
 # (2) Full self-contained stack (everything in containers, including the server)
 docker compose up -d
@@ -57,9 +56,10 @@ docker compose logs -f kinotic-server-management
 docker compose up -d --force-recreate --no-deps kinotic-server-management
 
 # (5) Run only the migration container against an already-running ES, then exit
-docker compose -f compose.kinotic-migration.yml run --rm kinotic-migration
+docker compose --env-file demonstration.env -f compose.kinotic-migration.yml run --rm kinotic-migration
 
-# (6) Wipe all state and restart clean (down -v drops the ES named volume)
+# (6) Wipe all state and restart clean (down -v drops the ES named volume). A stack started with the
+#     sample data takes the same -f files: docker compose -f compose.yml -f compose.sample-data.yml down -v
 docker compose down -v && docker compose up -d
 
 # (7) Remove a stack another compose project started, such as `docker-compose`, the project named after
@@ -88,16 +88,17 @@ docker compose -p docker-compose down
 ## Sample data
 
 `compose.yml` starts with no organization: the first one is the one you sign up. To fill the screens with
-sample data, layer on `compose.sample-data.yml`, whose migration adds the `fixtures` profile, seeding the
-`test-org` organization with applications, projects, members and invites, and whose `kinotic-gen-schemas`
-adds the `ecommerce` and `healthcare` applications with entity data:
+sample data, layer on `compose.sample-data.yml`. Its `kinotic-sample-data` runs the migration with the
+`fixtures` profile, seeding the `test-org` organization with applications, projects, members and invites,
+and its `kinotic-gen-schemas` adds the `ecommerce` and `healthcare` applications with entity data:
 
 ```bash
 docker compose -f compose.yml -f compose.sample-data.yml up -d
 ```
 
 Sign in at <http://localhost:9090> as `kinotic@kinotic.local` / `kinotic` to see it. Each migration version
-applies once, so the overlay adds the sample data to a stack that is already running.
+applies once, so the overlay adds the sample data to a stack that is already running. Pass the same `-f`
+files to every later command on that stack (`down`, `pull`, `logs`).
 
 ## Try the auth flow (UI devs)
 
