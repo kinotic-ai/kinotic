@@ -1,0 +1,1 @@
+{"id":"2dd80ffc3b6a1fada64183e81ca4469d.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testBacklogOfOtherStreamsDoesNotCancelAStream","name":"testBacklogOfOtherStreamsDoesNotCancelAStream()","status":"passed","testResultsByEnv":{"default":"e0bd8e32c083f0f5f1e1cb2a556c069f"}}
