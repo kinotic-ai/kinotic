@@ -54,6 +54,11 @@ public class DefaultClientTestService implements ClientTestService {
         return new CompletableFuture<>();
     }
 
+    @Override
+    public CompletableFuture<Shape> shape(double radius) {
+        return CompletableFuture.completedFuture(new Circle().setRadius(radius));
+    }
+
     /**
      * @return the number of {@link #ticks()} streams still running
      */

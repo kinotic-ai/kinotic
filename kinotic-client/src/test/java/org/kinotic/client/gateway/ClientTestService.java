@@ -42,4 +42,9 @@ public interface ClientTestService {
      */
     CompletableFuture<String> never();
 
+    /**
+     * Returns a {@link Circle} of the radius, declared as the {@link Shape} it implements.
+     */
+    CompletableFuture<Shape> shape(double radius);
+
 }

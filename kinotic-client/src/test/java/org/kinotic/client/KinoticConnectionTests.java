@@ -11,9 +11,11 @@ import org.kinotic.client.api.ConnectOptions;
 import org.kinotic.client.api.ConnectionState;
 import org.kinotic.client.api.KinoticConnection;
 import org.kinotic.client.api.ReconnectOptions;
+import org.kinotic.client.gateway.Circle;
 import org.kinotic.client.gateway.ClientTestService;
 import org.kinotic.client.gateway.DefaultClientTestService;
 import org.kinotic.client.gateway.RestrictedService;
+import org.kinotic.client.gateway.Shape;
 import org.kinotic.client.gateway.TestDto;
 import org.kinotic.client.gateway.TestGatewayApplication;
 import org.kinotic.client.gateway.TestGatewaySecurityService;
@@ -23,6 +25,7 @@ import org.kinotic.core.api.exceptions.RpcInvocationException;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.springframework.context.ConfigurableApplicationContext;
+import tools.jackson.databind.module.SimpleModule;
 
 import java.net.ServerSocket;
 import java.time.Duration;
@@ -88,6 +91,22 @@ public class KinoticConnectionTests {
         TestDto described = service.describe(new TestDto().setName("widget").setCount(3)).block(Duration.ofSeconds(TIMEOUT_SECONDS));
         Assertions.assertEquals(new TestDto().setName("widget").setCount(3).setDescription("3 x widget"), described);
         Assertions.assertEquals(List.of(1, 2, 3, 4, 5), service.count(5).collectList().block(Duration.ofSeconds(TIMEOUT_SECONDS)));
+    }
+
+    @Test
+    public void testMapperCustomizerConvertsWhatTheDefaultMapperCannot() throws Exception {
+        // the gateway serializes the Circle; a Shape return type converts only once a module names the Circle
+        KinoticConnection plain = connect(options(TestGatewayApplication.CLIENT_SECRET));
+        ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
+                                                             () -> plain.serviceProxy(ClientTestService.class).getService().shape(2).get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+        Assertions.assertNotNull(failure.getCause());
+
+        KinoticConnection customized = connect(options(TestGatewayApplication.CLIENT_SECRET)
+                                                       .setJsonMapperCustomizer(builder -> builder.addModule(new SimpleModule().addAbstractTypeMapping(Shape.class, Circle.class))));
+
+        Shape shape = customized.serviceProxy(ClientTestService.class).getService().shape(2).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+        Assertions.assertEquals(new Circle().setRadius(2), shape);
     }
 
     @Test

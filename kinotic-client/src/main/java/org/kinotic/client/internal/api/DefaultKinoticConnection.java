@@ -30,6 +30,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.springframework.beans.factory.ObjectProvider;
 import tools.jackson.databind.ObjectReader;
+import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.module.SimpleModule;
 
 import java.net.URI;
@@ -122,7 +123,12 @@ public class DefaultKinoticConnection implements KinoticConnection {
         this.context = vertx.getOrCreateContext();
         this.transport = new StompRpcTransport(context, options.getServerUrl(), NODE_NAME);
         KinoticProperties properties = new KinoticProperties().setMaxEventPayloadSize(options.getMaxFrameSize());
-        this.proxyFactory = new RpcServiceProxyFactory(transport, livenessWatcher, vertx, securityContext, properties, NODE_NAME);
+        JsonMapper.Builder jsonMapperBuilder = RpcServiceProxyFactory.jsonMapperBuilder();
+        if (options.getJsonMapperCustomizer() != null) {
+            options.getJsonMapperCustomizer().accept(jsonMapperBuilder);
+        }
+        this.proxyFactory = new RpcServiceProxyFactory(transport, livenessWatcher, vertx, securityContext, properties,
+                                                       jsonMapperBuilder.build(), NODE_NAME);
         // the gateway's participant model is not on this classpath, so the participant is read as what every participant has
         SimpleModule participantModule = new SimpleModule("KinoticClientModule")
                 .addAbstractTypeMapping(Participant.class, ConnectedParticipant.class);

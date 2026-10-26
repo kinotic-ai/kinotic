@@ -75,6 +75,8 @@ public class RpcServiceProxyFactory {
      * @param securityContext        supplies the participant an invocation is sent as
      * @param properties             the {@link KinoticProperties#getMaxEventPayloadSize()} bounding the replies
      *                               the proxies parse
+     * @param jsonMapper             converts the proxies' arguments and replies; one built from
+     *                               {@link #jsonMapperBuilder()} converts as a cluster member does
      * @param nodeName               names this process in the reply destinations of its proxies
      */
     public RpcServiceProxyFactory(RpcTransport transport,
@@ -82,19 +84,21 @@ public class RpcServiceProxyFactory {
                                   Vertx vertx,
                                   SecurityContext securityContext,
                                   KinoticProperties properties,
+                                  JsonMapper jsonMapper,
                                   String nodeName) {
         Validate.notNull(transport, "transport must not be null");
         Validate.notNull(requestLivenessWatcher, "requestLivenessWatcher must not be null");
         Validate.notNull(vertx, "vertx must not be null");
         Validate.notNull(securityContext, "securityContext must not be null");
         Validate.notNull(properties, "properties must not be null");
+        Validate.notNull(jsonMapper, "jsonMapper must not be null");
         Validate.notBlank(nodeName, "nodeName must not be blank");
         this.transport = transport;
         this.requestLivenessWatcher = requestLivenessWatcher;
         this.vertx = vertx;
         this.securityContext = securityContext;
         this.nodeName = nodeName;
-        this.jsonMapper = jsonMapperBuilder().build();
+        this.jsonMapper = jsonMapper;
         this.traceLogFilter = new TraceLogFilter(properties);
         this.openTelemetry = GlobalOpenTelemetry.get();
 
@@ -116,8 +120,9 @@ public class RpcServiceProxyFactory {
     /**
      * A builder of the Jackson mapper the platform converts service arguments and replies with, as
      * {@code KinoticJacksonConfig} configures a cluster member's: the Vert.x types in their Vert.x wire format,
-     * the platform's own value types, and no constructor parameter detection.
-     * @return the builder, for a process that needs the same mapper with additions of its own
+     * the platform's own value types, and no constructor parameter detection. A process adds the modules its
+     * services' types need before building the mapper it gives the factory.
+     * @return the builder
      */
     public static JsonMapper.Builder jsonMapperBuilder() {
         return JsonMapper.builder()
