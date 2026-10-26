@@ -105,7 +105,7 @@ import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
-import SocialAuthButton from '@/components/SocialAuthButton.vue'
+import SocialAuthButton, { providerDisplayName } from '@/components/SocialAuthButton.vue'
 import { organizationLoginPath, organizationSlug, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
 import { emailNotVerifiedMessage } from '@/util/oidcConfigurations'
 
@@ -316,7 +316,7 @@ function urlParam(name: string): string | null {
 
 function errorCodeToMessage(code: string, provider: string | null): string {
   switch (code) {
-    case 'no_user':                return 'That identity signs in to no Kinotic organization. Please sign up first.'
+    case 'no_user':                return noUserMessage(provider)
     case 'multiple_organizations': return 'You belong to several organizations, but the choice has expired. Please sign in again.'
     case 'user_disabled':          return 'You cannot sign in to this organization. Ask an administrator to enable your access.'
     case 'email_not_verified':     return emailNotVerifiedMessage(provider)
@@ -330,6 +330,11 @@ function errorCodeToMessage(code: string, provider: string | null): string {
     case 'invalid_token':          return 'Sign-in failed. Please try again.'
     default:                       return `Sign-in failed: ${code}`
   }
+}
+
+function noUserMessage(provider: string | null): string {
+  const account = provider ? `your ${providerDisplayName(provider)} account` : 'that sign-in'
+  return `No Kinotic user is linked to ${account}. Sign in the way you joined, or create an organization.`
 }
 
 async function loadProviders() {

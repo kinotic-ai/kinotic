@@ -169,12 +169,12 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                                 "Project for id " + project.getId() + " already exists"));
                     }
                     return repoProvisioner.provision(project)
-                                          .compose(write);
-                })
-                .recover(ex -> AlreadyExistsException.isCause(ex)
-                        ? Future.failedFuture(new IllegalArgumentException(
-                                "Project for id " + project.getId() + " already exists"))
-                        : Future.failedFuture(ex));
+                                          .compose(provisioned -> write.apply(provisioned)
+                                                  .recover(ex -> AlreadyExistsException.isCause(ex)
+                                                          ? Future.failedFuture(new IllegalArgumentException(
+                                                                  "Project for id " + project.getId() + " already exists"))
+                                                          : Future.failedFuture(ex)));
+                });
     }
 
     private void validateAndDeriveId(Project project) {

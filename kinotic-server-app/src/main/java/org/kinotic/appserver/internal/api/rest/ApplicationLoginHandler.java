@@ -164,7 +164,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
                                   ApplicationKey applicationKey) {
         if (authEndpointSupport.verifiedSubject(ctx, result) != null) {
             // the scope offers only owned configurations at this callback; Kinotic's registration returns to the shared host
-            authEndpointSupport.completeLogin(ctx, result.origin(),
+            authEndpointSupport.completeLogin(ctx, result.origin(), result.config().getProvider(),
                     authEndpointSupport.loginScope(applicationKey, result.tenantId())
                                        .compose(scope -> authEndpointSupport.findOrCreateUser(scope, (OwnedOidcConfiguration) result.config(), result.claims()))
                                        .map(user -> user == null ? null : AuthEndpointSupport.participantOf(user)));
