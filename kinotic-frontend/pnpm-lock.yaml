@@ -171,14 +171,14 @@ catalogs:
       specifier: ^5.0.0-beta.6
       version: 5.0.0-beta.6
     '@kinotic-ai/management-api':
-      specifier: ^5.0.0-beta.69
-      version: 5.0.0-beta.69
+      specifier: ^5.0.0-beta.70
+      version: 5.0.0-beta.70
     '@kinotic-ai/persistence':
       specifier: ^5.0.0-beta.19
       version: 5.0.0-beta.19
     '@kinotic-ai/system-api':
-      specifier: ^5.0.0-beta.35
-      version: 5.0.0-beta.35
+      specifier: ^5.0.0-beta.36
+      version: 5.0.0-beta.36
     '@vitejs/plugin-vue':
       specifier: ^6.0.8
       version: 6.0.8
@@ -224,7 +224,7 @@ importers:
         version: 5.0.0-beta.6
       '@kinotic-ai/management-api':
         specifier: 'catalog:'
-        version: 5.0.0-beta.69(@kinotic-ai/core@5.0.0-beta.29)
+        version: 5.0.0-beta.70(@kinotic-ai/core@5.0.0-beta.29)
       '@kinotic-ai/persistence':
         specifier: 'catalog:'
         version: 5.0.0-beta.19(@kinotic-ai/core@5.0.0-beta.29)
@@ -348,10 +348,10 @@ importers:
         version: link:../../packages/common
       '@kinotic-ai/management-api':
         specifier: 'catalog:'
-        version: 5.0.0-beta.69(@kinotic-ai/core@5.0.0-beta.29)
+        version: 5.0.0-beta.70(@kinotic-ai/core@5.0.0-beta.29)
       '@kinotic-ai/system-api':
         specifier: 'catalog:'
-        version: 5.0.0-beta.35(@kinotic-ai/core@5.0.0-beta.29)(@kinotic-ai/management-api@5.0.0-beta.69(@kinotic-ai/core@5.0.0-beta.29))
+        version: 5.0.0-beta.36(@kinotic-ai/core@5.0.0-beta.29)(@kinotic-ai/management-api@5.0.0-beta.70(@kinotic-ai/core@5.0.0-beta.29))
       '@lucide/vue':
         specifier: ^1.48.0
         version: 1.48.0(vue@3.5.41(typescript@5.8.3))
@@ -443,7 +443,7 @@ importers:
         version: 5.0.0-beta.29
       '@kinotic-ai/management-api':
         specifier: 'catalog:'
-        version: 5.0.0-beta.69(@kinotic-ai/core@5.0.0-beta.29)
+        version: 5.0.0-beta.70(@kinotic-ai/core@5.0.0-beta.29)
       '@vitejs/plugin-vue':
         specifier: 'catalog:'
         version: 6.0.8(vite@8.2.1(@types/node@25.9.5)(jiti@2.7.0)(yaml@2.9.0))(vue@3.5.41(typescript@5.8.3))
@@ -546,8 +546,8 @@ packages:
   '@kinotic-ai/idl@5.0.0-beta.6':
     resolution: {integrity: sha512-GemJ94ptLbrZ642NEqqd7sWVkSyH1ybTGU2WKeiVhvHYDwARt3DKLA/MOcxls6QsafFRisJUl0irGgHC9huQpA==}
 
-  '@kinotic-ai/management-api@5.0.0-beta.69':
-    resolution: {integrity: sha512-jFn2KWfdmysDOJXxZah4ucCHqzXUtOw1jAHN+qXVamLLaa0cBBSjZZ+6WSjyki35rTE+R9wyL1Jh4V+lfBxBQw==}
+  '@kinotic-ai/management-api@5.0.0-beta.70':
+    resolution: {integrity: sha512-dmFPzK7oPrEf8a64cCBpI0/6YzFfXysg0qmnJEWXcTvl/9GKfdNiJuphWzEV6GcddGTrnu1x447qOseKCVvcCw==}
     peerDependencies:
       '@kinotic-ai/core': ^5.0.0-beta.29
 
@@ -556,11 +556,11 @@ packages:
     peerDependencies:
       '@kinotic-ai/core': ^5.0.0-beta.29
 
-  '@kinotic-ai/system-api@5.0.0-beta.35':
-    resolution: {integrity: sha512-KLbsevp59Bh/gBGECm1MfPXRzDfTQli2owuNuOTRGDxPKh+k/ioPJZNUtEQPai+aO1QmlOnsPCkhNdUsjH0Aqg==}
+  '@kinotic-ai/system-api@5.0.0-beta.36':
+    resolution: {integrity: sha512-Q+M2Z4d4Fn+BWSQz+LfKjH+53sQ6KOx8mEiG3yAfYf9Kd72lOpdvegMu9644vcW6y2a92ywA0SvhDkJtuAkP3g==}
     peerDependencies:
       '@kinotic-ai/core': ^5.0.0-beta.29
-      '@kinotic-ai/management-api': ^5.0.0-beta.69
+      '@kinotic-ai/management-api': ^5.0.0-beta.70
 
   '@lucide/vue@1.48.0':
     resolution: {integrity: sha512-3/Nwx/RsqQ4ZrrSML1GNsSWCSDyLnBgoF/eEr1q9G6iZymn3+WKtzIj7Dbc/Nxrt9WOPuGrJ58S+CBiamK+36w==}
@@ -1908,7 +1908,7 @@ snapshots:
 
   '@kinotic-ai/idl@5.0.0-beta.6': {}
 
-  '@kinotic-ai/management-api@5.0.0-beta.69(@kinotic-ai/core@5.0.0-beta.29)':
+  '@kinotic-ai/management-api@5.0.0-beta.70(@kinotic-ai/core@5.0.0-beta.29)':
     dependencies:
       '@kinotic-ai/core': 5.0.0-beta.29
       '@kinotic-ai/idl': 5.0.0-beta.6
@@ -1921,10 +1921,10 @@ snapshots:
       '@kinotic-ai/idl': 5.0.0-beta.6
       rxjs: 7.8.2
 
-  '@kinotic-ai/system-api@5.0.0-beta.35(@kinotic-ai/core@5.0.0-beta.29)(@kinotic-ai/management-api@5.0.0-beta.69(@kinotic-ai/core@5.0.0-beta.29))':
+  '@kinotic-ai/system-api@5.0.0-beta.36(@kinotic-ai/core@5.0.0-beta.29)(@kinotic-ai/management-api@5.0.0-beta.70(@kinotic-ai/core@5.0.0-beta.29))':
     dependencies:
       '@kinotic-ai/core': 5.0.0-beta.29
-      '@kinotic-ai/management-api': 5.0.0-beta.69(@kinotic-ai/core@5.0.0-beta.29)
+      '@kinotic-ai/management-api': 5.0.0-beta.70(@kinotic-ai/core@5.0.0-beta.29)
 
   '@lucide/vue@1.48.0(vue@3.5.41(typescript@5.8.3))':
     dependencies:

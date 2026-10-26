@@ -180,8 +180,8 @@ importers:
         specifier: 5.0.0-beta.6
         version: 5.0.0-beta.6
       '@kinotic-ai/management-api':
-        specifier: 5.0.0-beta.69
-        version: 5.0.0-beta.69(@kinotic-ai/core@5.0.0-beta.29(supports-color@8.1.1))
+        specifier: 5.0.0-beta.70
+        version: 5.0.0-beta.70(@kinotic-ai/core@5.0.0-beta.29(supports-color@8.1.1))
       '@kinotic-ai/persistence':
         specifier: 5.0.0-beta.19
         version: 5.0.0-beta.19(@kinotic-ai/core@5.0.0-beta.29(supports-color@8.1.1))
@@ -613,8 +613,8 @@ packages:
   '@kinotic-ai/idl@5.0.0-beta.6':
     resolution: {integrity: sha512-GemJ94ptLbrZ642NEqqd7sWVkSyH1ybTGU2WKeiVhvHYDwARt3DKLA/MOcxls6QsafFRisJUl0irGgHC9huQpA==}
 
-  '@kinotic-ai/management-api@5.0.0-beta.69':
-    resolution: {integrity: sha512-jFn2KWfdmysDOJXxZah4ucCHqzXUtOw1jAHN+qXVamLLaa0cBBSjZZ+6WSjyki35rTE+R9wyL1Jh4V+lfBxBQw==}
+  '@kinotic-ai/management-api@5.0.0-beta.70':
+    resolution: {integrity: sha512-dmFPzK7oPrEf8a64cCBpI0/6YzFfXysg0qmnJEWXcTvl/9GKfdNiJuphWzEV6GcddGTrnu1x447qOseKCVvcCw==}
     peerDependencies:
       '@kinotic-ai/core': ^5.0.0-beta.29
 
@@ -2015,7 +2015,7 @@ snapshots:
 
   '@kinotic-ai/idl@5.0.0-beta.6': {}
 
-  '@kinotic-ai/management-api@5.0.0-beta.69(@kinotic-ai/core@5.0.0-beta.29(supports-color@8.1.1))':
+  '@kinotic-ai/management-api@5.0.0-beta.70(@kinotic-ai/core@5.0.0-beta.29(supports-color@8.1.1))':
     dependencies:
       '@kinotic-ai/core': 5.0.0-beta.29(supports-color@8.1.1)
       '@kinotic-ai/idl': 5.0.0-beta.6
