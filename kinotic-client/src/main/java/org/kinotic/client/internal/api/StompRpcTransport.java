@@ -30,9 +30,11 @@ import java.util.concurrent.CompletableFuture;
  * The {@link RpcTransport} of a gateway connection: requests go out as STOMP SEND frames and replies come back
  * through the connection's reply subscriptions. Every proxy's reply address is subscribed on each connection under
  * a destination the gateway authorizes for it, built from the connection's reply-to id, and the reply-to of every
- * request is rewritten to it. A request is acknowledged by the gateway's RECEIPT for its frame, which the gateway
- * writes once a node of its cluster has taken the request; the acknowledgement names the connection, and a request
- * still pending when the connection ends fails. The connection's state is only touched on its context.
+ * request is rewritten to it; a request waits for the gateway's receipt of that subscription, so its reply is
+ * never sent before the reply destination is known across the cluster. A request is acknowledged by the gateway's
+ * RECEIPT for its frame, which the gateway writes once a node of its cluster has taken the request; the
+ * acknowledgement names the connection, and a request still pending when the connection ends fails. The
+ * connection's state is only touched on its context.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
@@ -98,12 +100,15 @@ public class StompRpcTransport implements RpcTransport {
                         "Not connected to " + serverUrl + ", the request to " + event.cri().raw() + " was not sent"));
             } else {
                 try {
-                    Map<String, String> headers = requestHeaders(event);
+                    StompReplyConsumer consumer = replyConsumerOf(event);
+                    Map<String, String> headers = requestHeaders(event, consumer);
                     headers.put(Frame.RECEIPT, UUID.randomUUID().toString());
                     String acknowledgedBy = connectionId;
-                    connection.send(event.cri().raw(), headers, body(event))
-                              .onSuccess(v -> result.complete(acknowledgedBy))
-                              .onFailure(cause -> result.completeExceptionally(mapSendFailure(cause, event.cri())));
+                    StompClientConnection sentOn = connection;
+                    consumer.ready()
+                            .compose(v -> sentOn.send(event.cri().raw(), headers, body(event)))
+                            .onSuccess(v -> result.complete(acknowledgedBy))
+                            .onFailure(cause -> result.completeExceptionally(mapSendFailure(cause, event.cri())));
                 } catch (Exception e) {
                     result.completeExceptionally(e);
                 }
@@ -120,7 +125,7 @@ public class StompRpcTransport implements RpcTransport {
                 log.debug("Not connected to {}, dropping the control event for {}", serverUrl, event.cri());
             } else {
                 try {
-                    connection.send(event.cri().raw(), requestHeaders(event), body(event))
+                    connection.send(event.cri().raw(), requestHeaders(event, null), body(event))
                               .onFailure(cause -> log.debug("Could not send the control event for {}", event.cri(), cause));
                 } catch (Exception e) {
                     log.warn("Could not send the control event for {}", event.cri(), e);
@@ -155,7 +160,8 @@ public class StompRpcTransport implements RpcTransport {
     }
 
     // A fresh destination per connection: its scope is the connection's reply-to id, which the gateway requires,
-    // followed by a discriminator of this subscription's own, which doubles as the STOMP subscription id
+    // followed by a discriminator of this subscription's own, which doubles as the STOMP subscription id and as
+    // the receipt the gateway answers once the subscription is registered across its cluster
     private void subscribe(StompReplyConsumer consumer) {
         String subscriptionId = UUID.randomUUID().toString();
         CRI address = consumer.listenAddress();
@@ -164,33 +170,39 @@ public class StompRpcTransport implements RpcTransport {
                                      address.resourceName(),
                                      address.path(),
                                      address.version());
-        consumer.subscribed(subscriptionId, destination);
-        connection.subscribe(subscriptionId, destination.raw(), frame -> consumer.deliver(toEvent(frame)))
-                  .onFailure(cause -> log.warn("Could not subscribe to {}", destination, cause));
+        Future<Void> receipt = connection.subscribe(subscriptionId,
+                                                    destination.raw(),
+                                                    Map.of(Frame.RECEIPT, subscriptionId),
+                                                    frame -> consumer.deliver(toEvent(frame)));
+        consumer.subscribed(subscriptionId, destination, receipt);
+    }
+
+    /**
+     * The consumer a request's reply-to names, subscribed on this connection.
+     * @throws IllegalStateException when no consumer listens on the reply-to, since the gateway ends the connection
+     *                               over a reply-to outside its scope
+     */
+    private StompReplyConsumer replyConsumerOf(Event<byte[]> event) {
+        String replyTo = event.metadata().get(EventConstants.REPLY_TO_HEADER);
+        StompReplyConsumer ret = replyTo != null ? consumers.get(replyTo) : null;
+        if (ret == null || ret.destination() == null) {
+            throw new IllegalStateException("No reply subscription on " + serverUrl + " for " + replyTo);
+        }
+        return ret;
     }
 
     /**
      * The STOMP headers of a request: its metadata, with the reply-to rewritten from the address a proxy listens on
-     * to the destination subscribed for it on this connection. A control event names no reply-to of its own and
-     * gets one the gateway accepts, since the gateway refuses every service send without one.
+     * to the consumer's destination on this connection. A control event names no reply-to of its own and gets one
+     * the gateway accepts, since the gateway refuses every service send without one.
+     * @param consumer the consumer the request's reply-to names, or null for a control event
      */
-    private Map<String, String> requestHeaders(Event<byte[]> event) {
+    private Map<String, String> requestHeaders(Event<byte[]> event, StompReplyConsumer consumer) {
         Map<String, String> headers = new LinkedHashMap<>();
         for (Map.Entry<String, String> entry : event.metadata()) {
             headers.put(entry.getKey(), entry.getValue());
         }
-        String replyTo = headers.get(EventConstants.REPLY_TO_HEADER);
-        if (replyTo == null) {
-            headers.put(EventConstants.REPLY_TO_HEADER, controlReplyTo);
-        } else {
-            StompReplyConsumer consumer = consumers.get(replyTo);
-            // the gateway ends the connection over a reply-to outside its scope, so a request whose consumer is not
-            // subscribed fails here instead
-            if (consumer == null || consumer.destination() == null) {
-                throw new IllegalStateException("No reply subscription on " + serverUrl + " for " + replyTo);
-            }
-            headers.put(EventConstants.REPLY_TO_HEADER, consumer.destination().raw());
-        }
+        headers.put(EventConstants.REPLY_TO_HEADER, consumer != null ? consumer.destination().raw() : controlReplyTo);
         return headers;
     }
 
@@ -205,13 +217,11 @@ public class StompRpcTransport implements RpcTransport {
     }
 
     // The gateway answers a request it refuses, such as one to a zone the participant may not address, with an
-    // ERROR frame naming the destination, then closes the connection; every other failure means the connection
-    // ended before the gateway acknowledged the request
+    // ERROR frame naming the request's receipt, so only the refused request fails with the error; every other
+    // failure means the connection ended before the gateway acknowledged the request
     private Throwable mapSendFailure(Throwable cause, CRI destination) {
         Throwable ret;
-        if (cause instanceof StompErrorException error
-                && error.getMessage() != null
-                && error.getMessage().contains(destination.raw())) {
+        if (cause instanceof StompErrorException error) {
             ret = new RpcInvocationException(error.getMessage());
         } else {
             ret = new RpcServiceUnavailableException("The connection to " + serverUrl + " ended before the request to "

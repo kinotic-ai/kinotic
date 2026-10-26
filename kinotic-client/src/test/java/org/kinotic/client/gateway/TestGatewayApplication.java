@@ -12,7 +12,9 @@ import org.springframework.context.annotation.Bean;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.Files;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -43,15 +45,16 @@ public class TestGatewayApplication {
 
     /**
      * Starts the gateway on the port and returns once its STOMP endpoint accepts connections. Ignite discovers on
-     * ports of its own, so a core or gateway test JVM running alongside never joins this node.
+     * free ports and works in a directory of this gateway's own, so a test JVM running alongside, this suite's
+     * included, never joins this node.
      */
     public static ConfigurableApplicationContext start(int port) throws Exception {
         ConfigurableApplicationContext ret = new SpringApplicationBuilder(TestGatewayApplication.class)
                 .properties("kinotic.apiGateway.stompPort=" + port,
                             "kinotic.ignite.discoveryType=LOCAL",
-                            "kinotic.ignite.discoveryPort=48700",
-                            "kinotic.ignite.communicationPort=48300",
-                            "kinotic.ignite.workDirectory=/tmp/ignite-kinotic-client-tests",
+                            "kinotic.ignite.discoveryPort=" + freePort(),
+                            "kinotic.ignite.communicationPort=" + freePort(),
+                            "kinotic.ignite.workDirectory=" + Files.createTempDirectory("ignite-kinotic-client-tests"),
                             "spring.main.banner-mode=off")
                 .run();
         // the gateway verticles bind the port after the context is up
@@ -64,6 +67,15 @@ public class TestGatewayApplication {
             Thread.sleep(100);
         }
         return ret;
+    }
+
+    /**
+     * @return a port nothing listens on at the moment
+     */
+    public static int freePort() throws IOException {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
     }
 
     private static boolean accepting(int port) {

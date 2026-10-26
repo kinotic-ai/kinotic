@@ -376,12 +376,14 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         return ret;
     }
 
-    // Runs on the request's context when the node that took it leaves the cluster. Only the party that
-    // removes the handler signals it, so a reply that finished the request first leaves nothing to fail.
+    // Runs on the request's context when the receiver that took it is gone: a node that left the cluster, or
+    // a gateway connection that ended. Only the party that removes the handler signals it, so a reply that
+    // finished the request first leaves nothing to fail.
     private void failLost(String correlationId, CRI requestCri, String nodeId){
         RpcReturnValueHandler lost = responseMap.remove(correlationId);
         if(lost != null){
-            lost.processError(new RpcServiceUnavailableException("Node " + nodeId + " left the cluster while serving the request to " + requestCri.raw()));
+            lost.processError(new RpcServiceUnavailableException("The request to " + requestCri.raw()
+                                                                         + " was lost: its receiver " + nodeId + " is gone before it replied"));
         }
     }
 

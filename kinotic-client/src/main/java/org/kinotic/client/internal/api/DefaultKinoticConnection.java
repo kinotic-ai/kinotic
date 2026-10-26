@@ -118,7 +118,10 @@ public class DefaultKinoticConnection implements KinoticConnection {
         // locals from the locals registered when it is created, so the SecurityContext comes before the Vertx it reads
         VertxReference vertxReference = new VertxReference();
         SecurityContext securityContext = new SecurityContext(vertxReference);
-        this.vertx = Vertx.vertx(new VertxOptions().setEventLoopPoolSize(1));
+        // one event loop carries the connection, and nothing here runs blocking work
+        this.vertx = Vertx.vertx(new VertxOptions().setEventLoopPoolSize(1)
+                                                   .setWorkerPoolSize(1)
+                                                   .setInternalBlockingPoolSize(1));
         vertxReference.vertx = vertx;
         this.context = vertx.getOrCreateContext();
         this.transport = new StompRpcTransport(context, options.getServerUrl(), NODE_NAME);

@@ -24,10 +24,10 @@ import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.RpcInvocationException;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.springframework.context.ConfigurableApplicationContext;
 import tools.jackson.databind.module.SimpleModule;
 
-import java.net.ServerSocket;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,9 +54,7 @@ public class KinoticConnectionTests {
 
     @BeforeAll
     public static void startGateway() throws Exception {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            port = socket.getLocalPort();
-        }
+        port = TestGatewayApplication.freePort();
         gateway = TestGatewayApplication.start(port);
     }
 
@@ -176,38 +174,45 @@ public class KinoticConnectionTests {
         KinoticConnection bounded = connect(options(TestGatewayApplication.CLIENT_SECRET).setReconnect(reconnectOptions().setMaxAttempts(2)));
 
         CompletableFuture<String> pending = service.never();
-        // wait for the gateway to have taken the request before the gateway goes away
-        Thread.sleep(500);
+        // the gateway watches the request once a node acknowledged it, which is what the outage must cut short
+        RequestLivenessWatcher gatewayWatcher = gateway.getBean(RequestLivenessWatcher.class);
+        Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS).until(() -> gatewayWatcher.watchedCount() == 1);
         gateway.close();
         gateway = null;
         long stopped = System.nanoTime();
-
-        ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
-                                                             () -> pending.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
-        Assertions.assertInstanceOf(RpcServiceUnavailableException.class, failure.getCause());
-        Assertions.assertTrue(TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - stopped) < TIMEOUT_SECONDS);
-        Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS).until(() -> states.contains(ConnectionState.RECONNECTING));
-
-        // a call made while the gateway is down fails at once
-        ExecutionException down = Assertions.assertThrows(ExecutionException.class,
-                                                          () -> service.greet("down").get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
-        Assertions.assertInstanceOf(RpcServiceUnavailableException.class, down.getCause());
-
-        // the bounded connection ends for good; it still closes, and mints no further proxies
-        Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS).until(() -> bounded.state() == ConnectionState.CLOSED);
-        bounded.close().toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        Assertions.assertThrows(IllegalStateException.class, () -> bounded.serviceProxy(ClientTestService.class));
-
-        // the gateway comes back rejecting every connection, as one whose security service is failing does; the
-        // reconnect keeps trying until it is admitted
-        TestGatewaySecurityService.rejectEveryone = true;
-        TestGatewaySecurityService.rejections.set(0);
         try {
-            gateway = TestGatewayApplication.start(port);
-            Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS).until(() -> TestGatewaySecurityService.rejections.get() >= 2);
-            Assertions.assertEquals(ConnectionState.RECONNECTING, connection.state());
+            ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
+                                                                 () -> pending.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+            Assertions.assertInstanceOf(RpcServiceUnavailableException.class, failure.getCause());
+            Assertions.assertTrue(TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - stopped) < TIMEOUT_SECONDS);
+            Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS).until(() -> states.contains(ConnectionState.RECONNECTING));
+
+            // a call made while the gateway is down fails at once
+            ExecutionException down = Assertions.assertThrows(ExecutionException.class,
+                                                              () -> service.greet("down").get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+            Assertions.assertInstanceOf(RpcServiceUnavailableException.class, down.getCause());
+
+            // the bounded connection ends for good; it still closes, and mints no further proxies
+            Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS).until(() -> bounded.state() == ConnectionState.CLOSED);
+            bounded.close().toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            Assertions.assertThrows(IllegalStateException.class, () -> bounded.serviceProxy(ClientTestService.class));
+
+            // the gateway comes back rejecting every connection, as one whose security service is failing does; the
+            // reconnect keeps trying until it is admitted
+            TestGatewaySecurityService.rejectEveryone = true;
+            TestGatewaySecurityService.rejections.set(0);
+            try {
+                gateway = TestGatewayApplication.start(port);
+                Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS).until(() -> TestGatewaySecurityService.rejections.get() >= 2);
+                Assertions.assertEquals(ConnectionState.RECONNECTING, connection.state());
+            } finally {
+                TestGatewaySecurityService.rejectEveryone = false;
+            }
         } finally {
-            TestGatewaySecurityService.rejectEveryone = false;
+            // the other tests need the gateway back whatever this one found
+            if (gateway == null) {
+                gateway = TestGatewayApplication.start(port);
+            }
         }
 
         Awaitility.await().atMost(1, TimeUnit.MINUTES)

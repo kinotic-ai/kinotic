@@ -1,5 +1,6 @@
 package org.kinotic.gateway.internal.endpoints.stomp;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.event.CRI;
@@ -47,8 +48,10 @@ public class IncomingInvocationTracker {
     /**
      * Subscribes the client to one of its reply destinations. A terminal reply passing through finishes the
      * request it answers.
+     * @return completes once the subscription is registered across the cluster, so a reply sent to the
+     *         destination from any node reaches the client
      */
-    public void subscribeReplies(CRI cri, String subscriptionIdentifier, StompSubscriptionHandler subscriptionHandler) {
+    public Future<Void> subscribeReplies(CRI cri, String subscriptionIdentifier, StompSubscriptionHandler subscriptionHandler) {
         EventConsumer eventConsumer = services.eventBusService.listen(cri);
         eventConsumer.handler(event -> {
                          String correlationId = event.metadata().get(EventConstants.CORRELATION_ID_HEADER);
@@ -73,6 +76,7 @@ public class IncomingInvocationTracker {
         if (previous != null) {
             previous.unregister();
         }
+        return eventConsumer.completion();
     }
 
     /**

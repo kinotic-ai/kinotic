@@ -3,6 +3,8 @@ package org.kinotic.client.internal.api;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
@@ -11,11 +13,13 @@ import org.kinotic.core.api.event.EventConsumer;
 /**
  * A proxy's reply consumer over the gateway: it is subscribed on every connection under a reply destination the
  * gateway authorizes for that connection, and delivers the replies to the proxy's handler. The address the proxy
- * listens on stays the same across reconnects; the destination subscribed on the gateway changes with each.
+ * listens on stays the same across reconnects; the destination subscribed on the gateway changes with each, and
+ * is ready once the gateway's receipt confirms the subscription reaches it from every node.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
 @Slf4j
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 public class StompReplyConsumer implements EventConsumer {
 
     private final CRI address;
@@ -28,11 +32,7 @@ public class StompReplyConsumer implements EventConsumer {
     // the subscription on the current connection; touched only on the transport's context
     private String subscriptionId;
     private CRI destination;
-
-    StompReplyConsumer(CRI address, StompRpcTransport transport) {
-        this.address = address;
-        this.transport = transport;
-    }
+    private Future<Void> ready;
 
     /**
      * @return the address the proxy listens on, which its requests name as their reply-to
@@ -52,19 +52,29 @@ public class StompReplyConsumer implements EventConsumer {
         return subscriptionId;
     }
 
+    /**
+     * @return completes once the gateway has receipted the subscription on the current connection, or fails when
+     *         the connection ends first
+     */
+    Future<Void> ready() {
+        return ready;
+    }
+
     boolean hasHandler() {
         return handler != null;
     }
 
-    void subscribed(String subscriptionId, CRI destination) {
+    void subscribed(String subscriptionId, CRI destination, Future<Void> receipt) {
         this.subscriptionId = subscriptionId;
         this.destination = destination;
-        completion.tryComplete();
+        this.ready = receipt;
+        receipt.onSuccess(v -> completion.tryComplete());
     }
 
     void unsubscribed() {
         this.subscriptionId = null;
         this.destination = null;
+        this.ready = null;
     }
 
     void deliver(Event<byte[]> event) {
