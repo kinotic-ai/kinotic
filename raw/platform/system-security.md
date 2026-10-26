@@ -1,49 +1,44 @@
 ---
 title: "System Security"
-description: "Platform-level security architecture in Kinotic OS — scope isolation, credential separation, OIDC model."
+description: "The security model behind Kinotic OS sign-in — scopes, users, credentials, sign-in providers and authorized clients."
 canonical_url: "https://kinotic.ai/platform/system-security"
 ---
 # System Security
 
-> Platform-level security architecture in Kinotic OS — scope isolation, credential separation, OIDC model.
+> The security model behind Kinotic OS sign-in — scopes, users, credentials, sign-in providers and authorized clients.
 
 ## Overview
 
-This page describes the architectural choices behind Kinotic's IAM. It is the *why*; for the operational *how* (signup flows, login flows, endpoint reference) see [Organization Management](https://kinotic.ai/platform/organization-management), and for the layered enforcement applied to every request path see [Defense in Depth](https://kinotic.ai/platform/defense-in-depth).
+This page explains *why* Kinotic's identity model is shaped the way it is. For how to create organizations, add members and configure providers, see [Organization Management](https://kinotic.ai/platform/organization-management); for the checks applied to every request, see [Defense in Depth](https://kinotic.ai/platform/defense-in-depth).
 
-The platform supports email/password and OIDC authentication, gives each person a user of each scope they sign in to — one system user, one user per organization, and one user per application — isolates application user pools by application, stores credentials separately from user records, and uses standalone `OidcConfiguration` entities that are referenced (not embedded) by the scopes that consume them.
+The model rests on a few rules:
 
-## System Users, Organization Users and Application Users
+- A person is a separate user in every scope they sign in to.
+- A login authenticates only its own scope's users.
+- Credentials are stored apart from users and never leave the server.
+- Each sign-in provider belongs to exactly one login, and its owner can never reach anything of the system's.
 
-A person is a `UserParticipantIdentity`, and its concrete type is the scope it signs in to. Each type keeps its own sign-in methods — an optional password (`IdentityCredential`) and, except for a system user, any number of provider bindings (`OidcBinding`) — so one email may be a user of every scope, and a password that signs in at one scope signs in nowhere else.
+## Users and scopes
 
-- A **system user** (`SystemParticipantIdentity`, type `SYSTEM_USER`) is a Kinotic OS user who signs in to the system console with a password. It is unique by email among system users and acts as a `SystemParticipant`.
-- An **organization user** (`OrganizationParticipantIdentity`, type `ORGANIZATION_USER`) is a member of one organization, who uses the portal. It carries `organizationId` and is unique by email within that organization. A person in several organizations is a separate organization user of each, with its own password, bindings and `enabled` flag, so an organization disables or removes its member without touching the person's users of other organizations; removing a member deletes that user with its credential, bindings and delegates.
-- An **application user** (`ApplicationParticipantIdentity`, type `APPLICATION_USER`) carries `organizationId`, `applicationId` and, for an application with tenants, `tenantId`, one row per application, owned by the application the way a customer record is. It has the same sign-in methods — a password and provider bindings — and the application it carries is the only place it signs in.
-
-Every login is addressed to a scope — an organization's page, the system console, or an application — and authenticates only the type of user that scope holds (`LocalAuthenticationService.authenticateSystemUser`, `authenticateOrganizationUser`, `authenticateApplicationUser`), so a system user, an organization's user and another organization's user with the same email never see each other's logins. A password signs in only at a login whose scope takes one, through an enabled `PasswordConfiguration` of the organization's, the application's or the tenant's (see [Organization Management](https://kinotic.ai/platform/organization-management#password-sign-in)). `ParticipantIdentityService.resolveParticipant(identityId, organizationId, applicationId)` is the one place an identity and a scope become a `Participant`: a system user is a `SystemParticipant`, an organization user an `OrganizationParticipant` and an application user an `ApplicationParticipant` of their own scope, a disabled identity acts nowhere, and an identity that may not act in the scope is refused with the same generic answer a wrong password gets. Each organization user is its own participant, so the same person is a different `sub` in each organization they belong to.
-
-## Three Scope Layers
-
-A `Participant` carries its scope structurally, in two optional string fields — `organizationId` and `applicationId`. Which of them is set determines the layer: neither set → `SYSTEM`, `organizationId` only → `ORGANIZATION`, both set → `APPLICATION`. For a user, the scope comes from its own row.
+There are three scopes, each with its own kind of user:
 
 <table>
 <thead>
   <tr>
     <th>
-      Layer
+      Scope
     </th>
     
     <th>
-      Scope fields
+      User
     </th>
     
     <th>
-      Who
+      Signs in at
     </th>
     
     <th>
-      Auth Path
+      Sign-in methods
     </th>
   </tr>
 </thead>
@@ -51,116 +46,92 @@ A `Participant` carries its scope structurally, in two optional string fields �
 <tbody>
   <tr>
     <td>
-      <strong>
-        Organization
-      </strong>
+      System
     </td>
     
     <td>
       <code>
-        organizationId
+        SystemParticipantIdentity
       </code>
       
-       set, <code>
-        applicationId
-      </code>
-      
-       null
+       — runs the deployment
     </td>
     
     <td>
-      A user of the organization
+      The system console
     </td>
     
     <td>
-      Email/password or OIDC (system social or per-org SSO) at the organization's login — see <a href="https://kinotic.ai/platform/organization-management">
-        Organization Management
-      </a>
+      Password
     </td>
   </tr>
   
   <tr>
     <td>
-      <strong>
-        Application
-      </strong>
+      Organization
     </td>
     
     <td>
       <code>
-        organizationId
+        OrganizationParticipantIdentity
       </code>
       
-       and <code>
-        applicationId
-      </code>
-      
-       both set
+       — a member of one organization
     </td>
     
     <td>
-      End-users of an application owned by an org, each a user row of that application
+      The organization's login, <code>
+        /login/<organizationId>
+      </code>
     </td>
     
     <td>
-      Email/password or OIDC — credentials and OIDC configs are scoped to the application
+      Password and providers
     </td>
   </tr>
   
   <tr>
     <td>
-      <strong>
-        System
-      </strong>
+      Application
     </td>
     
     <td>
-      both null
+      <code>
+        ApplicationParticipantIdentity
+      </code>
+      
+       — a user of one application, in one of its tenants
     </td>
     
     <td>
-      System users running the Kinotic servers
+      The application's (or tenant's) login
     </td>
     
     <td>
-      Email/password at the system server; planned to move to Microsoft Entra — see <a href="https://kinotic.ai/platform/organization-management#system-authentication">
-        System Authentication
-      </a>
+      Password and providers
     </td>
   </tr>
 </tbody>
 </table>
 
-A system user, a user of organization A, a user of organization B and a user of Application B, all with email `jane@example.com`, are unrelated identities. They are separate rows with separate `IdentityCredential` rows and separate bindings, and sign in on separate paths, so the same person can hold different methods at each (a password at the system console, GitHub at one organization, that organization's Okta at another, the application's federated SSO at the application), and authenticating at one grants nothing at the others.
+A system user, a member of organization A, a member of organization B and a user of an application, all with `jane@example.com`, are four unrelated users with separate passwords and provider identities. Signing in to one grants nothing at the others. Users are unique by email within their scope, and a user's id is derived from its type, scope and email, so two simultaneous creations of the same user contend for one row.
 
-### How users are differentiated
+Three scopes rather than two, because they are real trust boundaries:
 
-A system user is identified by its email, once across the system. An organization user is identified by **email + organizationId**: an invitation for an email that already has a user of the organization claims or refuses that user rather than creating another, while every sign-up founds a new organization with a new user, whatever other organizations the email or provider identity already signs in to. An application user is identified by **email + organizationId + applicationId**: the same email may be a user of any number of applications, each a separate row with its own methods and enabled state. Each user's id is derived from its type, its scope and its email, so two creations of the same user at once contend for one row.
+- An organization's developers should not automatically be users of every application they build.
+- An application's users should not reach the organization's tooling.
+- Applications of one organization can serve unrelated user populations.
 
-Within an organization, a provider identity is matched to the organization's user by the binding `(oidcConfigId, subject)`, never by the email the provider asserts. A binding belongs to one organization, so one GitHub account may be bound to a user of each organization it signs in to, each binding made separately. A binding is created with the organization user — sign-up by GitHub, an invitation accepted with a provider, or an organization's own provider claiming the pending member an administrator added under the verified email, whom no method signs in yet — or added later only from a session already signed in as that organization user, in the **Sign-in methods** section of the portal's Profile page, which offers the configurations its organization's login offers: the system's org sign-up registrations and the organization's own. A provider sign-in that no binding in the organization answers for is refused with `no_user`, however familiar its email, and an invitation accepted with a provider for an email that is already a member someone signs in as, unbound to that identity, is refused with `user_exists`: its holder signs in instead, and connects the provider once signed in. An organization's own provider never reaches such a member: it signs in the users its identities are bound to and claims the pending members the organization's administrators added, whom the organization created and nobody signs in as yet, and nothing else. Connecting an organization's own configuration from the profile requires being a user of that organization, so an organization's directory can vouch only for users the organization admitted, and no link can start a connect for anyone else's.
-
-A login is addressed to an organization (`/login/<organizationId>`), and signs in the organization's enabled user there. The portal's landing page, which names none, asks for the organization and sends the person to its login, or signs in with GitHub: the user the GitHub identity is bound to when it is bound in exactly one organization, otherwise a choice of the organizations it is bound in, which it has just proven it owns, each signed in to at that organization's own login. A session acts in that one organization; using another is a sign-in at that organization's login, with a method its login offers.
-
-### Why three layers
-
-Two layers (system vs tenant) would force organizations and their applications to share a user pool. That doesn't work because:
-
-- An organization's developers should not automatically be end-users of every application they manage.
-- Application end-users should not have access to organization-level tooling.
-- Different applications under the same organization may serve completely different user populations.
-
-Three layers map directly to real-world trust boundaries: system users trust the infrastructure, the organization trusts its developers, and the application trusts its users.
+A signed-in caller is a `Participant` whose type is its scope — `SystemParticipant`, `OrganizationParticipant` or `ApplicationParticipant` — so authority follows from the type, never from a header the client sends. `ParticipantIdentityService.resolveParticipant` is the one place an identity becomes a participant: a disabled identity, or one outside the requested scope, is refused with the same answer a wrong password gets.
 
 ## Authentication Methods
 
-Both methods are available at the Organization and Application layers:
+- **Password** — verified against a bcrypt hash kept in a separate `IdentityCredential` index, which no published service exposes. A login takes a password only while its scope has an enabled **Email and password** provider.
+- **Provider** — an OIDC sign-in, whose token is validated for signature, issuer, audience and expiry; GitHub, which is OAuth 2.0 only, is identified through its user and email endpoints. A provider identity signs in the user it is bound to, never a user matched by email.
 
-- **Email/Password** — Credentials are verified against bcrypt hashes. Password hashes are stored in a separate `IdentityCredential` entity (a different Elasticsearch index) and are architecturally invisible to the rest of the system. User CRUD operations have no way to accidentally expose credentials.
-- **OIDC** — JWT tokens are validated against the `OidcConfiguration` the target scope offers. The platform verifies signature, issuer, audience, and expiration via JWKS.
+**Browsers** never hold a token. A login sets a session cookie, and the WebSocket upgrade reads the signed-in participant back out of the session. Each login in a session is bound to the page that made it (see [Defense in Depth](https://kinotic.ai/platform/defense-in-depth#browser-sessions)). Each server has its own cookie, `__Host-kinotic-<server>-session`, and its own session store, so a session one server issued means nothing to another. The `__Host-` prefix means a sibling host, such as a published site, cannot set or override it. The cookie is `SameSite=Lax` by default; `kinotic.apiGateway.sessionCookieSameSite: NONE` is for deployments whose sites and API live on unrelated domains.
 
-A browser authenticates over HTTP and carries a session cookie; the STOMP WebSocket upgrade reads the logged-in `Participant` back out of that session, so the browser never handles a token. Each login in the session is bound to the page that made it, and the upgrade reads the login of the page opening the socket (see [Defense in Depth](https://kinotic.ai/platform/defense-in-depth#browser-sessions)). Scope is structural rather than header-supplied: an organization login establishes an `OrganizationParticipant`, an application login an `ApplicationParticipant`, and that participant type is what scopes the caller's authority for the rest of the connection. A non-browser client presents a Kinotic JWT instead, whose `organizationId` / `applicationId` claims carry the same scope. Each server names its session cookie `__Host-kinotic-<server>-session` (the management server's is `__Host-kinotic-management-session`) and keeps its sessions in a cluster map of its own, `<server>.vertx-web.sessions`, so a session one server issued is unknown to the others, even on a development machine where they share `localhost` and cookies ignore the port. Browsers accept a `__Host-` cookie only when it is Secure, scoped to path `/` and set without a `Domain`, so a page on a sibling host of the API, such as a published UI under the sites domain, can neither plant nor override it. The cookie is `SameSite=Lax`, which sends it from the API's own site, the one the sites domain shares with the application API hosts in production (`<app>--<ui>.<org>.kinotic.io` and `<org>--<app>.apps-api.kinotic.io`); `kinotic.apiGateway.sessionCookieSameSite: NONE` sends it from any origin the CORS pattern admits, for an environment whose published sites and API live on unrelated domains.
-
-Each server authenticates only its own kind of caller. A client outside a browser presents a Kinotic access token (`Authorization: Bearer`), or a `clientId` and `clientSecret`: a user's email and password, checked in the scope the `organizationId` and `applicationId` headers select, or a machine's id and secret. The server resolves the identity the credentials prove and admits it only when it is one of its own; any other identity fails as invalid credentials, the same answer a wrong password gets:
+**Other clients** present, at the upgrade, either a Kinotic access token (`Authorization: Bearer`) or a `clientId` and `clientSecret` — a user's email and password with scope headers, or a machine's id and secret. Each server admits only its own kind of caller, and anything else fails as invalid credentials:
 
 <table>
 <thead>
@@ -178,15 +149,11 @@ Each server authenticates only its own kind of caller. A client outside a browse
 <tbody>
   <tr>
     <td>
-      org
+      management
     </td>
     
     <td>
-      An organization's users, the clients they have authorized, and its machines other than application runtimes (<code>
-        OrganizationParticipant
-      </code>
-      
-      )
+      Organization users, the clients they authorized, and the organization's machines other than application runtimes
     </td>
   </tr>
   
@@ -196,11 +163,7 @@ Each server authenticates only its own kind of caller. A client outside a browse
     </td>
     
     <td>
-      System users, the clients they have authorized, and the system's machines such as the vm-manager (<code>
-        SystemParticipant
-      </code>
-      
-      )
+      System users, the clients they authorized, and system machines such as the vm-manager
     </td>
   </tr>
   
@@ -210,35 +173,21 @@ Each server authenticates only its own kind of caller. A client outside a browse
     </td>
     
     <td>
-      An application's users, the clients they have authorized, and its machines (<code>
-        ApplicationParticipant
-      </code>
-      
-      ), and the runtime workloads of an organization's applications (<code>
-        OrganizationParticipant
-      </code>
-      
-      ); on an application's API host, only that application's identities and its organization's runtimes
+      Application users, the clients they authorized, the application's machines, and its organization's runtime workloads — on an application's API host, only that application's
     </td>
   </tr>
 </tbody>
 </table>
 
-## OIDC Configuration
+## Sign-in providers
 
-Provider configurations share a shape but not an owner. Every kind extends the sealed `OidcConfiguration` — `name`, `provider`, `clientId`, `authority`, `audience`, `enabled` — and is stored the way the kinds of `ParticipantIdentity` are: one index, `kinotic_oidc_configuration`, holding every kind as a polymorphic document whose persisted `type` discriminator selects the subtype it is read back as, each subtype carrying the fields only its owner has. The system's registrations are the abstract `ManagedOidcConfiguration`, which carries the fields only a system user sets (`secretNameRef`, and the explicit endpoints `authorizationUri`, `tokenUri`, `userInfoUri`, `userEmailsUri`, `scopes` for a provider such as GitHub with no discovery document); its two concrete kinds differ in whom they sign in. An organization's own are the abstract `OwnedOidcConfiguration`, which carries the organization's fields (`organizationId`, `providerAccount`, `confidentialClient`, `createUserOnSignIn`); its concrete kinds differ in which of the organization's sign-in scopes offers them.
+Every provider is an `OidcConfiguration`, stored in one index under a `type` discriminator. The kinds differ by owner and by the one scope they are offered at:
 
 <table>
 <thead>
   <tr>
     <th>
-      Type
-    </th>
-    
-    <th>
-      <code>
-        type
-      </code>
+      Kind
     </th>
     
     <th>
@@ -246,7 +195,7 @@ Provider configurations share a shape but not an owner. Every kind extends the s
     </th>
     
     <th>
-      Lifecycle
+      Offered at
     </th>
     
     <th>
@@ -261,28 +210,24 @@ Provider configurations share a shape but not an owner. Every kind extends the s
       <code>
         OrgSignupOidcConfiguration
       </code>
+      
+       (GitHub)
     </td>
     
     <td>
-      <code>
-        ORG_SIGNUP
-      </code>
+      The system
     </td>
     
     <td>
-      The system, for organization users signing up and in; belongs to no organization
+      Every organization's login and sign-up
     </td>
     
     <td>
-      Seeded by SQL migration; saved by a system participant only
-    </td>
-    
-    <td>
-      <code>
+      Named by <code>
         secretNameRef
       </code>
       
-       names one placed in the system's secret storage
+       in the system's secret storage
     </td>
   </tr>
   
@@ -291,40 +236,24 @@ Provider configurations share a shape but not an owner. Every kind extends the s
       <code>
         ApplicationSocialOidcConfiguration
       </code>
-    </td>
-    
-    <td>
-      <code>
-        APP_SOCIAL
-      </code>
-    </td>
-    
-    <td>
-      The system, for the users of any organization's applications; belongs to no organization
-    </td>
-    
-    <td>
-      Seeded by SQL migration; saved by a system participant only, at most one enabled per provider kind. Never offered on its own: an <code>
-        ApplicationOidcConfiguration
-      </code>
       
-       of its provider kind whose <code>
-        clientRegistrationType
-      </code>
-      
-       is <code>
+       (Google, Microsoft)
+    </td>
+    
+    <td>
+      The system
+    </td>
+    
+    <td>
+      Nowhere directly — an application's <code>
         MANAGED
       </code>
       
-       signs in through it
+       configuration signs in through it
     </td>
     
     <td>
-      <code>
-        secretNameRef
-      </code>
-      
-      , as above
+      As above
     </td>
   </tr>
   
@@ -336,41 +265,15 @@ Provider configurations share a shape but not an owner. Every kind extends the s
     </td>
     
     <td>
-      <code>
-        ORGANIZATION
-      </code>
+      An organization
     </td>
     
     <td>
-      One organization (<code>
-        organizationId
-      </code>
-      
-      , enforced by <code>
-        OidcConfigurationService
-      </code>
-      
-       against the saving participant), for its own login
+      Its own login
     </td>
     
     <td>
-      Managed by the owning org, which names its <code>
-        providerAccount
-      </code>
-      
-       at a provider kind offered to organizations; the <code>
-        authority
-      </code>
-      
-       is derived from the kind's template on every save
-    </td>
-    
-    <td>
-      Held in the organization's scope of the secret storage, keyed by the configuration's id; the row's <code>
-        confidentialClient
-      </code>
-      
-       says one is held and nothing on it names it
+      Held in the organization's secret storage, keyed by the configuration
     </td>
   </tr>
   
@@ -382,50 +285,16 @@ Provider configurations share a shape but not an owner. Every kind extends the s
     </td>
     
     <td>
-      <code>
-        APPLICATION
-      </code>
+      An organization
     </td>
     
     <td>
-      One organization, for the login of one of its applications (<code>
-        applicationId
-      </code>
-      
-      , held to the organization's own)
+      One application's login
     </td>
     
     <td>
-      As above; with <code>
-        clientRegistrationType
-      </code>
-      
-       <code>
+      As above; unused while <code>
         MANAGED
-      </code>
-      
-       it signs in through the system's <code>
-        ApplicationSocialOidcConfiguration
-      </code>
-      
-       of its provider kind, which must be enabled when the configuration switches to <code>
-        MANAGED
-      </code>
-      
-      , and needs no account or client of its own. Once <code>
-        MANAGED
-      </code>
-      
-       it saves whether or not the system still holds one, and is offered only while it does
-    </td>
-    
-    <td>
-      As above, unused while <code>
-        MANAGED
-      </code>
-      
-       and kept for a switch back to <code>
-        OWN
       </code>
     </td>
   </tr>
@@ -438,29 +307,11 @@ Provider configurations share a shape but not an owner. Every kind extends the s
     </td>
     
     <td>
-      <code>
-        TENANT
-      </code>
+      An organization
     </td>
     
     <td>
-      One organization, for the login of one <code>
-        Tenant
-      </code>
-      
-       of one of its applications (<code>
-        applicationId
-      </code>
-      
-      , <code>
-        tenantId
-      </code>
-      
-      , held to the application's own tenants)
-    </td>
-    
-    <td>
-      As above
+      One tenant's login
     </td>
     
     <td>
@@ -470,81 +321,49 @@ Provider configurations share a shape but not an owner. Every kind extends the s
 </tbody>
 </table>
 
-Kinotic's own GitHub registration is an `OrgSignupOidcConfiguration` — it powers the "Continue with GitHub" button on org signup and org login, and belongs to no organization because signup happens before one exists. Kinotic's Google and Microsoft registrations are `ApplicationSocialOidcConfiguration`s: one registration per provider, which an application's `ApplicationOidcConfiguration` of that kind signs in through when its `clientRegistrationType` is `MANAGED`, so the application's users sign in with Google or Microsoft without the organization registering with either. The application's configuration is the provider the login offers, the key its users are bound under and the switch that signs people up, whichever registration it uses, so switching it to the organization's own client (`OWN`) is an edit of the same row that leaves its users where they are. A user who revokes the app's access at the provider revokes it for every application offering that registration, the trade one shared registration makes. Because the registration is shared and a provider returns only to a redirect URI registered in advance, its sign-ins return to the app server's own host rather than the application's API host, and the verified identity is handed to the application's host under a single-use code — see the app routes in [Organization Management](https://kinotic.ai/platform/organization-management#endpoint-reference). Everything an organization configures for itself is the third kind.
+**Why separate types instead of one with a flag.** Ownership and scope are what must never go wrong, so the types carry them: only a system registration has a `secretNameRef`, so nothing an organization writes can name a system secret; only an organization's configurations have an `organizationId`, and only application and tenant ones an `applicationId`, each required. Every write is held to its kind's owner and every lookup filters on the kind, so an organization's SSO can never appear as a global button and a system registration can never change an organization's settings.
 
-### Why types rather than one with a flag
+**One configuration, one scope.** A configuration is offered only where its kind says. A tenant's login offers the tenant's configurations first, then the application's. To use one Okta application at both the organization's login and an application's, copy the configuration (`OwnedOidcConfigurationService.copy`); the copy has its own callback URL and its own copy of the secret. `OidcConfigurationService.findEnabledForScope` answers which providers a login page shows, and `findOffered` checks that a start or callback names one of them, so a page and its endpoints cannot disagree.
 
-The difference between the kinds is *ownership* and *scope*, and those are exactly what must never be got wrong. The subtypes keep the fields apart: only a `ManagedOidcConfiguration` has a `secretNameRef`, so no row an organization can write has a field that names a system secret, only an `OwnedOidcConfiguration` has an `organizationId`, only an `ApplicationOidcConfiguration` and a `TenantOidcConfiguration` have an `applicationId`, and only the latter a `tenantId`, each required rather than nullable because the kind is the scope. `OidcConfigurationService` holds every write to its kind's owner — a system participant for a managed registration, a participant of the named organization for an organization's, and for an application's kind an application of that organization — and its finders filter on the discriminator, so an org sign-up lookup never answers with an organization's SSO and an application's lookup never answers with the organization's portal SSO. A single type with an `isSystem` boolean and nullable scope fields would put that guarantee back in the hands of every caller.
+**Creating users.** A configuration's `createUserOnSignIn` lets a verified identity no user is bound to become a new user. It is refused on an organization's configuration — organizations add their members — and it creates a user only where that user gets a tenant: at an application's login while the system manages its tenants, or at a tenant's login through the tenant's own configuration. A configuration that admits every Microsoft directory creates a user only under an email the token proves (`email_verified` or `xms_edov`, or a personal account), since any directory's administrator can set its users' emails.
 
-### One configuration, one scope
+**Claiming pending users.** A user an administrator added is claimed by its first sign-in through a provider of its own login under the same email; at an organization, only through the organization's own provider. After that, only the binding identifies the user.
 
-An organization's configuration is offered at exactly the scope its kind names and nowhere else: an `OrganizationOidcConfiguration` at the organization's own login, an `ApplicationOidcConfiguration` at that application's login, a `TenantOidcConfiguration` at the login of that tenant of the application. A tenant's login is the application's narrowed to the tenant, so it offers the application's configurations too, and admits only the tenant's users through them; the tenant's own configuration is the one that may create a user into the tenant on first sign-in. There is no sharing across scopes. An organization that uses one Okta application for its portal and for one of its own applications copies the configuration with `OwnedOidcConfigurationService.copy(sourceId, applicationId)`, the published service an organization manages its own configurations through, which creates a configuration of the target scope's kind carrying the source's provider, account, client id and client secret, under an id of its own. Each copy therefore has its own callback URL, which the provider must be given, and a client secret the provider rotates is updated on each copy. That is the trade for every callback trusting only the row it loaded: the configuration says where it is offered, and nothing but the row decides what a sign-in through it may do.
+**Where the server connects.** An organization never enters a URL. It picks a provider type and gives its account there (an Entra directory id, an Okta domain); the server fills the type's issuer template on every save, and account patterns admit no scheme, port, path or foreign host. So every host the server fetches belongs to the provider. Identity endpoints are fetched without following redirects, and the deployment's egress policy blocks the node's metadata addresses.
 
-Each owned configuration also decides, with `createUserOnSignIn`, what happens to an identity its provider verifies that no user of the scope is bound to: refused, or created as a user of the scope from the provider's verified email and name and bound to the identity. An email the scope already holds under another method is refused either way. Off by default, and refused on an `OrganizationOidcConfiguration`: an organization's members are added by its administrators, whom its provider then signs in, so no organization user is ever created on an organization's provider's word. An application's or a tenant's configuration takes it for any kind, which with Google is sign-up with Google for that scope. It creates a user only where the new user gets a valid tenant: at an application's own login while the system manages the application's tenants, which gives each new user a tenant of their own, and at a tenant's login through the tenant's own configuration, into that tenant. Where a configuration admits every directory at the provider — Kinotic's registration, or an organization's own naming Entra's `common` or `organizations` — it creates a user only under an email the provider proves is the person's (`OAuth2Util.isEmailProven`): Microsoft Entra lets the administrator of any directory set its users' email claim, so such an Entra email signs up only for a personal Microsoft account, or with an `xms_edov` or `email_verified` claim that is true, and is otherwise refused with `email_not_verified`. A configuration naming one directory trusts that directory's administrator, as the organization that chose it does; Kinotic's own Entra registration and an organization's multi-tenant one emit `xms_edov` once it is added as an optional ID-token claim. Signing in an existing user needs no such proof, since the user is found by the binding, never the email. An application's configuration signs no one up at a tenant's login, nor at the login of an application whose tenants their administrators manage, since there an administrator decides who joins a tenant. `ApplicationSignUpService` holds that rule and reports it as each provider's `signUp` in `GET /api/auth/app/login/methods`.
+**Where secrets live.** No secret is stored on a configuration row. A system registration's secret is fetched from the system's secret storage at sign-in time. An organization's secret is given on save, stored in the organization's own scope keyed by the configuration, and never read back through any service; `confidentialClient` only says whether one is held. A save without a secret keeps the one held.
 
-### Resolving what a scope offers
+## Sign-up
 
-`OidcConfigurationService.findEnabledForScope(organizationId, applicationId, tenantId)` is the single answer to "which providers may this login page show", keyed on the same scope the rest of the platform scopes by. The organization's own login offers the enabled org sign-up registrations followed by its enabled `OrganizationOidcConfiguration`s; an application's login offers its enabled `ApplicationOidcConfiguration`s, one that is `MANAGED` while the system holds an enabled registration of its kind; a tenant's login offers the tenant's enabled `TenantOidcConfiguration`s followed by what the application's login offers. The login, invite-accept, and signup pages all read it, so what a page renders and what its start endpoint accepts cannot drift apart. A sign-in start or callback that names a configuration asks `findOffered(configurationId, organizationId, applicationId, tenantId)` the matching question for one configuration, so a configuration an organization owns at one scope cannot sign anyone in at another.
+Organization sign-up always founds a new organization with the founder as its first user, whatever other organizations the person belongs to. People join an existing organization only by being added.
 
-### Where client secrets live
-
-Client secrets are never stored on a configuration row, and the kinds keep theirs apart, so a row an organization controls can never reach a secret of the system's.
-
-A managed registration's `secretNameRef` names a secret placed in the system's secret storage, which `SecretReferenceResolver` fetches at flow time — Azure Key Vault in a deployed environment, `KINOTIC_AKV_*` properties (environment variables or keys in any loaded config file) in development. Only `ManagedOidcConfiguration` has the field.
-
-An `OwnedOidcConfiguration` has no secret name at all. Its secret is given on save, `OwnedOidcConfigurationService.save(configuration, clientSecret)` for an organization and the domain's `OidcConfigurationService.save(configuration, clientSecret)` beneath it, which stores it through `SecretStorageService` in the organization's scope (`organizationId`), keyed by the configuration's id, and sets the row's `confidentialClient` to say a secret is held; a save with a `null` or blank secret keeps the one held, and a new configuration saved without one is a public client. `deleteClientSecret(id)` deletes the stored secret and clears the flag, making the configuration a public client, and deleting the configuration deletes the secret too. The flag is always the server's: a save sets it from what the secret storage holds, whatever the configuration sent. A copy of a configuration stores the secret again under the copy's id. At flow time `OidcFlowOrchestrator` reads it back through `OidcConfigurationService.findClientSecret`, never through `SecretReferenceResolver`, and a public client's flag answers without a read of the secret storage. Because the secret is addressed by the owner and the row rather than by a name on the row, a configuration returned by any service carries nothing a client could use to find or name it, and `ApplicationService.getLoginMethods` answers with an `ApplicationLoginMethods` (for each provider its `configurationId`, name, provider kind and whether it signs people up) rather than the configuration at all.
-
-### Where the server is willing to connect
-
-An organization never names a URL. It chooses a provider type that `OidcProviderType.offeredToOrganizations()` admits and gives its account at that provider in the form the type asks for: the directory (tenant) id for Entra, or, for an application's or a tenant's login, `common` or `organizations` for a registration whose users come from any directory, the Okta domain for Okta, nothing for Google. `OidcConfigurationService` fills the type's issuer template with that account on every save and stores the result as the `authority`, replacing whatever was sent, and each type's account pattern admits no scheme, port, path, userinfo or foreign host. So every host the sign-in flow fetches — the discovery document and JWKS at the authority, the token endpoint the discovery document names, and the identity endpoints — is one of the provider's own, and there is nothing an organization can point the server at. An organization's own login refuses `common` and `organizations`: it claims a pending member on the email the provider asserts, which only the organization's own directory may vouch for, while any directory's administrator sets its users' emails. Types with no template, such as Keycloak or a generic OIDC server at a customer's own host, are not offered to organizations. The curated social rows are the system's and may name endpoints explicitly.
-
-The identity endpoints (`userInfoUri`, `userEmailsUri`) are fetched with no redirects followed. The deployment's egress policy denies the server pods the node's instance-metadata and WireServer addresses (see the terraform under `deployment/terraform/azure/cluster`), which is what protects the one kind of destination that answers a plain unauthenticated request with the node's own identity.
-
-## Sign-Up
-
-Self-service signup is wired up for the Organization scope. Both email/password and social-IdP entry points create a new `Organization` together with the founder as its first user — with its password or GitHub binding — whatever other organizations the person already belongs to; a person joins an existing organization by invitation or by being added as a member — see [Organization Management](https://kinotic.ai/platform/organization-management) for the step-by-step.
-
-For the Application scope, an org admin (or the application's own admin tooling) creates user rows in the application's scope, or invites them — see [Organization Management](https://kinotic.ai/platform/organization-management) — and an application may also let people sign up from its own UIs, as `ApplicationSignUpService` decides. An application whose tenants the system manages may let an `ApplicationOidcConfiguration` with `createUserOnSignIn` create a user on the first sign-in of an identity its provider verifies, and may let people sign up with an email and a password, through the `createUserOnSignIn` of the application's `PasswordConfiguration`: a person posts an email to the application's API host, which answers alike for every email, emails a single-use token valid for a day to the `/signup/verify` page of the UI that asked, and sends nothing to an email the application already has a user under; the token comes back with a password and creates the user (`PendingApplicationSignUp` holds the sign-up meanwhile). Either way the new user gets a tenant of their own. `OwnedPasswordConfigurationService.save` refuses that sign-up on an application whose tenants their administrators manage: there a user is never without a tenant, so a user is created by an administrator, an invitation, or a `TenantOidcConfiguration` with `createUserOnSignIn`, which creates the identity its provider verifies as a user of that tenant on its first sign-in at the tenant's login. Sign-up is made only from a page that is one of the application's UIs, as a sign-in is.
+An application may let people sign up from its own UIs: through a provider with `createUserOnSignIn`, or with an email and a password verified by an emailed link — both only while the system manages its tenants, so each new user gets a tenant of their own. Where the application's administrators manage tenants, users are added by an administrator, who names the tenant, or created by a tenant's own provider at the tenant's login. From a browser, sign-up and sign-in are accepted only from a page that is one of the application's UIs. See [Authentication](https://kinotic.ai/apps/security/authentication#user-management).
 
 ## Design Decisions
 
 ### Credential separation
 
-Authentication secrets — user password hashes and machine client-secret hashes — are stored in a separate `IdentityCredential` entity, keyed by identity id and not exposed through any published service interface. The identity entity is part of the public API — returned by CRUD operations, displayed in UIs, passed around in service calls. Storing credentials separately means secret hashes are architecturally invisible to the rest of the system.
+Password hashes and machine secret hashes live in `IdentityCredential`, keyed by identity id and exposed by no published service. Identities are returned by CRUD calls and shown in UIs; keeping secrets elsewhere means no such path can leak one.
 
-### Scope as string fields
+### One identity hierarchy
 
-An identity that acts in a scope of its own — an application user, a delegate or a machine, each a `ScopedParticipantIdentity` — stores `organizationId` and `applicationId` as plain string fields rather than typed references, and the layer is read structurally from which ids are set. This avoids coupling `ParticipantIdentity` to `Organization`/`Application`, keeps queries simple (term filters on keyword fields), and lets the scope model evolve without migrating user records.
+System users, organization users, application users, delegates and machines share the sealed `ParticipantIdentity` hierarchy and one index, discriminated by `type`. Each subtype holds only its own fields — a system user has no scope fields — while the services that find, authenticate and resolve identities stay one set. Scoped identities store `organizationId` and `applicationId` as plain strings rather than references, which keeps queries to term filters and decouples users from the organization and application models.
 
-### Single identity entity for all scopes
+### Bindings as separate rows
 
-System users, organization users, application users, delegates and machines share the sealed `ParticipantIdentity` hierarchy and one index, discriminated by `type`. Each subtype holds only the fields its kind has, so a system user has no scope fields at all and an organization user only `organizationId`, while the services that find, authenticate and resolve identities stay one set, named by the scope they serve.
+A provider identity is an `OidcBinding` row, keyed by `(oidcConfigId, subject)` plus the user's scope — never by email, which is mutable and can belong to different people at different providers. The key makes "one identity signs in at most one user per organization and per application" a constraint the store enforces, and a login reads the binding by id, so a new binding is visible at once. An application's users are bound by an identifier stable across client registrations (Entra's `<tid>/<oid>`, elsewhere `sub`), so switching a configuration between Kinotic's registration and the organization's own keeps them.
 
-### Bindings as separate entities
+### Delegates
 
-A user's provider identities are rows of their own, `OidcBinding`, rather than a list on the identity. A binding's id names the scope of the user it binds: `<organizationId>/<oidcConfigId>:<subject>` for an organization's user and `<organizationId>/<applicationId>/<oidcConfigId>:<subject>` for an application's, since the system's GitHub and Google registrations are each one configuration for every scope and a person may be a user of several. A binding is read by its id at a login — the one lookup the login makes — so it is visible the moment it is written, with no index refresh in the login path, and its id makes the rule that a provider identity signs in one user of each organization and one of each application a uniqueness constraint the store enforces.
+A client a person authorizes — the CLI through the device-code grant, or an MCP host through the authorization-code grant — acts as a `DelegatingParticipantIdentity`. It carries the exact scope of the login that approved it, is unique per owner, client and scope, and authenticates only with Kinotic tokens whose `sub` is its own id, so every request records which client acted.
 
-### Users, delegates, and machines
-
-A `ParticipantIdentity` is a person of one scope (a `UserParticipantIdentity`: system user, organization user or application user), a client a person has authorized to act on their behalf (`DelegatingParticipantIdentity`) — the Kinotic CLI via the device-code grant, or an MCP host such as an LLM assistant via the PKCE authorization-code grant — or a non-human caller with its own credential (`MachineParticipantIdentity`), such as a system daemon or an external client of an organization's application API. A delegate carries the exact scope of the login that approved it — the organization the owner was signed in to, or the system for a system login — and is unique per `(owner, client, scope)`: approving the same client twice reuses one delegate, each approval issuing a fresh refresh-token lineage under it — and authenticates only with Kinotic-issued tokens whose `sub` is the delegate's own id, so every request records *which client* acted, not just whose authority it used.
-
-Both grants are bound to the server that started them. The authorization request and the device-code flow record the OAuth issuer of the server whose endpoint began them, and on the app server each application's API host is an issuer of its own; only that issuer's token endpoint redeems the code: an authorization code presented to another server's or another application's token endpoint is refused and burned, and a device code polled there reads as unknown.
-
-Revocation follows from the model: authentication re-reads the identity on every token validation, so disabling a delegate cuts that client off on its next request even if its access token has not expired, and a delegate authenticates only while its owner may still act in the delegate's scope — disabling a user revokes every client authorized on its behalf with no cascade to miss. Deleting an identity, as removing a member does, deletes its credential, bindings and delegates outright.
-
-Each approval issues a refresh-token lineage under the delegate — a *session*, labeled with the device name the client supplied (the CLI sends one with `device_name` on the device-authorization request). The published `DelegateService` gives the signed-in user their own delegates and sessions — list them, end a single session, or revoke a delegate entirely. Alongside it, `ProfileService` reads and writes the calling user — a system user from the system console, an organization user from the portal: `findMyProfile` returns it, `updateDisplayName` sets the name shown wherever they appear, `findMySignInMethods` lists the password and provider bindings the user signs in with, `setPassword` sets or changes the password (the current one is required when there is one), `findConnectableProviders` lists the configurations its organization's login offers that the user has not bound yet, and `removeSignInMethod` drops a provider binding, never the last method that still signs the user in: its password, or a binding to a configuration its organization's login offers. Both services address the calling user rather than taking an id, and admit only a person — a delegate cannot read or edit the user that authorized it. The portal surfaces them as the **Profile** and **Connected apps** pages under the account menu. Because `DelegateService` keys on the calling participant alone, it serves each scope its servers admit: the system console carries the same **Connected apps** page under its account menu, so a system user revokes the clients authorized on their own behalf there. It is a `management-api` service, which the app server neither hosts nor reaches, so an application's users have no listing or revocation of the clients the app server authorizes on their behalf.
+- A grant can be redeemed only at the server (and, on the app server, the application host) that started it.
+- Authentication re-reads the delegate on every request, and a delegate works only while its owner may act in its scope, so disabling a user or a delegate takes effect at once.
+- Users list and revoke their clients on the **Connected apps** page (`DelegateService`) and manage their own profile and sign-in methods on **Profile** (`ProfileService`). Application users have neither page yet.
 
 ### Machine identities
 
-A machine connects the same way every Kinotic client does — over the STOMP gateway, authenticated by credentials on the WebSocket upgrade: its identity id as `clientId` and the secret issued at provisioning as `clientSecret`. A `clientId` containing `@` is a user email; anything else resolves only to a `MachineParticipantIdentity`, so a user's id and password can never authenticate as a machine. The machine's scope comes structurally from its own identity — no scope headers needed. There is no token to manage: the client library owns connect and reconnect, re-presenting the same static credentials, so any crash or restart self-heals.
-
-```typescript
-await Kinotic.connect({server: {host, port}, credentials: new BasicCredentialsResolver(machineId, machineSecret)})
-```
-
-Provisioning generates the secret — it is returned in plaintext exactly once and stored only as a hash, in the same credential store that holds user password hashes. The secret is verified on every handshake, so disabling the machine identity cuts it off on its next connection, and rotating the secret invalidates the old one immediately.
-
-Every machine carries a `machineType`, set when it is provisioned, naming what its credential is for:
+A machine connects like any client, with its identity id as `clientId` and the secret issued at provisioning as `clientSecret`; its scope comes from its own identity. A `clientId` containing `@` is a user's email, so a user's credentials can never authenticate as a machine. The secret is shown once and stored only as a hash, so disabling the machine or rotating the secret takes effect at its next connection.
 
 <table>
 <thead>
@@ -560,7 +379,7 @@ Every machine carries a `machineType`, set when it is provisioned, naming what i
     </th>
     
     <th>
-      Provisioned by
+      Managed by
     </th>
   </tr>
 </thead>
@@ -574,13 +393,19 @@ Every machine carries a `machineType`, set when it is provisioned, naming what i
     </td>
     
     <td>
-      SYSTEM: a system daemon such as the vm-manager
+      System — a daemon such as the vm-manager
     </td>
     
     <td>
-      the system console, through <code>
+      The system console, <strong>
+        Members → Machines
+      </strong>
+      
+       (<code>
         SystemMemberService
       </code>
+      
+      )
     </td>
   </tr>
   
@@ -592,13 +417,19 @@ Every machine carries a `machineType`, set when it is provisioned, naming what i
     </td>
     
     <td>
-      APPLICATION: an API client of one application, acting with that application's scope, exactly the position an application end-user occupies
+      Application — an API client of one application
     </td>
     
     <td>
-      an org member, through <code>
+      Organization members, the application's <strong>
+        Machines
+      </strong>
+      
+       page (<code>
         MachineService
       </code>
+      
+      )
     </td>
   </tr>
   
@@ -610,11 +441,11 @@ Every machine carries a `machineType`, set when it is provisioned, naming what i
     </td>
     
     <td>
-      ORGANIZATION: a project deployment's sync workload
+      Organization — a deployment's sync workload
     </td>
     
     <td>
-      the deployment
+      The deployment
     </td>
   </tr>
   
@@ -626,39 +457,27 @@ Every machine carries a `machineType`, set when it is provisioned, naming what i
     </td>
     
     <td>
-      ORGANIZATION: the runtime workload of one of a project's microservices
+      Organization — a microservice's runtime workload
     </td>
     
     <td>
-      the deployment
+      The deployment
     </td>
   </tr>
 </tbody>
 </table>
 
-Org members manage the machines of their applications through the published `MachineService` — create (disclosing the generated secret once), list, rotate the secret, disable/enable, and remove — surfaced in the SPA as the **Machines** page under each application. Every operation proves the application belongs to the caller's organization; machines of other organizations are invisible.
+### Organization ids
 
-SYSTEM-scope machines are the system's own, so they are managed from the system console instead, at **Members → Machines**, through `SystemMemberService` in the system zone. It carries the same lifecycle as `MachineService` under the same method names — create, list, rotate the secret, disable/enable, and remove — so each console's **Machines** page is the same `MachinesTable` component, bound to whichever service owns the scope it lists. The page is how a worker node's vm-manager gets the `KINOTIC_CLIENT_ID` and `KINOTIC_CLIENT_SECRET` it connects with. `SystemMemberService` works on SYSTEM scope alone: an organization's machines are not reachable from it even though a SYSTEM participant may address it.
-
-### Provider identities keyed by `(oidcConfigId, subject)`
-
-A provider identity is bound to a user by the OIDC `sub` claim plus the configId — **not** email. Email is mutable at the IdP and the same email across two IdP tenants is two different people. The `sub` is stable within an issuer, and pairing it with the configId disambiguates issuers. An application's user is bound by the identifier the provider gives the person under every client registered with it (`OAuth2Util.stableSubject`): the `sub` for Google and every other provider, but for Microsoft Entra, whose `sub` differs per client registration, the directory and object ids `<tid>/<oid>`. So an application configuration switched between Kinotic's registration and the organization's own finds the users it signed in before, without ever matching on an email. The email a provider asserts is used exactly once, when a binding is created: a sign-up or a `createUserOnSignIn` login takes it as the new user's email, and an invitation accepted with a provider requires it to match the invited address. After that, only the binding says whose identity it is.
-
-### Auto-derived organization id
-
-The `Organization.id` is derived from the user-supplied name (slugified) at signup time. It is the organization's label on the customer domain, its own host `<organizationId>.kinotic.io` and the subdomain its sites are under, so no UUID appears in a URL. Every id beginning with `kinotic` is reserved, so no organization named Kinotic, or anything that slugifies to a `kinotic` prefix, can be founded or saved: the platform's name never appears on a customer's hosts, `<org>--<app>` under the apps-api domain or `*.<org>` under the sites domain. The system owns no organization of its own. The id `xn` is reserved: an application's host labels begin with `<organizationId>--`, and DNS reserves labels beginning `xn--` for internationalized names. `system` is reserved as well: it is the system's own id wherever a scope's id names an owner, such as the secret scope of the system's LLM keys, so an organization of that id would share them. So are the segments the organization login's own routes claim under `/api/auth/org/login/`, `find`, `social`, `sso`, `providers` and `choices`, which an organization's id would be mistaken for, and the labels the platform holds under its domains, which the sites Worker refuses as hosts for the same reason.
+An organization's id is its slugified name and the label of its hosts, so no UUID appears in a URL. Reserved ids: anything beginning `kinotic`; `xn` (application host labels begin `<organizationId>--`, and DNS reserves `xn--`); `system`, the system's own owner id; the organization login's route segments `find`, `social`, `sso`, `providers` and `choices`; and the labels the platform holds under its domains.
 
 ### Client identity is a domain, not a string
 
-MCP hosts identify themselves with an [OAuth Client ID Metadata Document](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-client-id-metadata-document-01): the `client_id` is an HTTPS URL, and the gateway fetches the JSON document it names on each authorization request (cached for `kinotic.domain.oauth.clientMetadataCacheTtl`). The document registers the client's `redirect_uris` and `client_name`.
+MCP hosts identify themselves with an [OAuth Client ID Metadata Document](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-client-id-metadata-document-01): the `client_id` is an HTTPS URL whose JSON document registers the client's name and redirect URIs. A client must control that host to serve the document, so the consent page shows the `client_id`'s host beside the claimed name — no one can pose as `claude.ai` without owning it. The page also names the account the approval binds to, and warns a system user that a system-scoped approval reaches every organization's MCP tools.
 
-The security property is that the client had to control that host to serve the document there, so the consent page displays the `client_id` host alongside the claimed name — a client cannot present itself as `claude.ai` without owning `claude.ai`. The page also names the account the approval would bind to: the login the browser session holds for the consent page's own origin. A system-scoped session carries no organization, so a delegate approved under it reaches every organization's MCP tools; the page warns about that before the system user approves. Under the dynamic registration this replaces, `client_name` was self-asserted by whoever called the registration endpoint.
+The document is fetched on each authorization request (cached for `kinotic.domain.oauth.clientMetadataCacheTtl`) and validated as the draft requires: an `https` URL with a path and no fragment, userinfo or dot segments; a host that resolves to no special-use address; a `200` answer with no redirects, under `clientMetadataMaxBytes`; and a document that names its own URL, carries no secret, and supports the `none` token endpoint authentication method. Failures abort the request and are never cached.
 
-Validation, per the draft: the URL must be `https` with a path component and no fragment, userinfo, or dot segments (§3); the host must not resolve to a special-use address (§6.5); the fetch must answer `200` with no redirects followed (§4) and stay under `clientMetadataMaxBytes` (§6.6); and the document must name its own URL as `client_id`, carry no client secret, and support the `none` token endpoint authentication method, as its `token_endpoint_auth_method` or among its `token_endpoint_auth_methods_supported` (§4.1). Failures abort the authorization request and are never cached (§4.3, §4.4).
-
-`kinotic.domain.oauth.allowedClientIds` lists the document URLs that may start a flow, and is required — a deployment names the clients it accepts or fails to start. A `client_id` that is not listed is rejected, so clients are onboarded explicitly, the deployment pattern of §6.10. A host that validates against the rules above still needs its document URL added before it can connect.
-
-The servers ship these client metadata document URLs. The OpenAI and xAI clients are admitted only by the management server, where organization users build applications:
+`kinotic.domain.oauth.allowedClientIds` lists the documents that may start a flow; it is required, so every client is onboarded explicitly. The servers ship these:
 
 <table>
 <thead>
@@ -778,41 +597,23 @@ The servers ship these client metadata document URLs. The OpenAI and xAI clients
 </tbody>
 </table>
 
-The authorization server advertises `authorization_response_iss_parameter_supported: true`
-and returns its issuer as `iss` on both approval and denial callbacks (RFC 9207).
-Codex and ChatGPT can therefore use their shared metadata documents and callbacks across
-Kinotic environments. The registered loopback redirect host and path must match;
-the port may vary under RFC 8252. Client metadata validation, PKCE, and explicit
-consent apply to every client.
-
-Grok connectors and Grok Bot sign in with Cursor's client, whose document registers the
-Grok connector callback `https://grok.com/connectors-oauth-exchange-code/` and the Grok Bot
-callback. Grok Build has no client metadata document of its own and, without a configured
-client ID, registers a client dynamically, which Kinotic does not offer. Kinotic therefore
-publishes a document for it at `https://kinotic.ai/oauth/grok-build-client.json`, registering
-Grok Build's loopback callback, and the Kinotic plugin and a manually added server configure
-that URL as the server's OAuth client ID. A document under `kinotic.ai` may register only
-loopback redirect URIs, and one that registers any other is rejected, so a change to the
-website cannot send authorization codes off the user's machine.
+The authorization server returns its issuer as `iss` on every callback (RFC 9207), so a client can share one document across Kinotic environments; loopback redirect ports may vary (RFC 8252). Grok Build has no document of its own, so Kinotic publishes one at `kinotic.ai`; a document under `kinotic.ai` may register only loopback redirect URIs, so a website change can never send authorization codes off the user's machine.
 
 ## Bootstrap
 
-`kinotic-migration` runs to completion before the servers start. Migrations are versioned SQL applied once per version: `V1__init.sql` creates the Elasticsearch indices and seeds the system's registrations into `kinotic_oidc_configuration`: GitHub as the `ORG_SIGNUP` row, Google and Microsoft as `APP_SOCIAL` rows. A migration whose filename carries environment suffixes — `V2__kinotic_test_users.development.test.sql` — is applied only in those environments, which is how test fixtures stay out of production.
-
-There is no startup bootstrap step for OIDC. A seeded provider row carries only a `secretNameRef`; the client secret itself is placed in external secret storage and read at flow time, so no secret passes through a migration or a config file.
+`kinotic-migration` runs before the servers start, applying each versioned SQL migration once. `V1__init.sql` creates the indices and seeds the system's registrations — GitHub as `ORG_SIGNUP`, Google and Microsoft as `APP_SOCIAL`. A migration with environment suffixes, such as `V2__kinotic_test_users.development.test.sql`, runs only in those environments, which keeps fixtures out of production. Seeded rows name their secrets; the secrets themselves live in secret storage, so none passes through a migration or a config file.
 
 ## Network Security
 
-- All client-to-server communication occurs over WebSocket with TLS in any non-local environment.
-- Each server's api-gateway port (default org `58503`, system `58504`, app `58505`) carries the auth REST endpoints on `/api/*` and STOMP/WebSocket on `/api/v1`; the OAuth discovery documents stay at the root under `/.well-known/`. A later generation of the client protocol would be served at `/api/v2` beside the first, while the auth routes and their registered callback URLs never move.
-- TLS terminates in each server's gateway (Azure: a cert-manager certificate, behind a layer-4 LoadBalancer; the development server: a certificate per server, behind an SNI edge that passes TLS through unopened).
+- Every client connection uses TLS outside local development, terminated at each server's gateway.
+- Each server's gateway port (management `58503`, system `58504`, app `58505` by default) serves the auth routes under `/api/*`, the WebSocket at `/api/v1`, and OAuth discovery under `/.well-known/`.
 
-## What This Design Does Not Cover
+## Not yet covered
 
-- **Authorization** — Roles and policies. The authenticated session currently carries an empty roles list; future work populates it from the policy system.
-- **Groups** — Group entities and membership management.
-- **System-scope OIDC** — System users do not authenticate through any of the OIDC flows above. Their sign-in to the system console, planned to move to Microsoft Entra, is a separate thing from how organization users sign up and in, and will be its own kind of `OidcConfiguration` beside the two above rather than a reuse of `OrgSignupOidcConfiguration` (deferred).
-- **Account linking** — Linking an existing local account to a social identity is on the roadmap but not built.
+- **Authorization** — roles and policies; a session's roles list is empty today.
+- **Groups.**
+- **System-scope SSO** — system users sign in with a password; moving them to Microsoft Entra would add a new kind of system registration.
+- **More sign-in methods for application users** — organization users connect providers from their Profile page; application users have no such page.
 
 
 ## Sitemap

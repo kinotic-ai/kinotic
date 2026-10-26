@@ -48,7 +48,7 @@ Every page below is available as raw markdown.
 - [Enterprise License](https://kinotic.ai/raw/platform/enterprise-license.md): Which parts of Kinotic are Enterprise Features, what running them in production requires, and how the license treats substitute implementations.
 - [MCP Tools](https://kinotic.ai/raw/platform/mcp-tools.md): Expose published service functions as Model Context Protocol tools.
 - [Observability](https://kinotic.ai/raw/platform/observability.md): Monitoring, tracing, and logging across your Kinotic applications.
-- [Organization Management](https://kinotic.ai/raw/platform/organization-management.md): How organizations are created, how their users authenticate, and how OIDC providers are wired up.
+- [Organization Management](https://kinotic.ai/raw/platform/organization-management.md): How organizations are created, how their members are added and sign in, and how sign-in providers are configured.
 - [CRI Format](https://kinotic.ai/raw/platform/reference/cri-format.md): Kinotic Resource Identifier specification.
 - [Grind Jobs](https://kinotic.ai/raw/platform/reference/grind-jobs.md): The declarative job framework for long-running platform work.
 - [Project Publishing Design](https://kinotic.ai/raw/platform/reference/project-publishing-design.md): How a project's microservices and UIs are deployed, stored, and served, and how far the build has come.
@@ -56,4 +56,4 @@ Every page below is available as raw markdown.
 - [Service Call Liveness](https://kinotic.ai/raw/platform/service-call-liveness.md): How a call through a service proxy fails when the node serving it dies, instead of waiting forever — without a timeout anywhere.
 - [Supply Chain Security](https://kinotic.ai/raw/platform/supply-chain-security.md): How Kinotic inventories, scans and gates the container images it publishes, and where the evidence for each control is kept.
 - [System Migrations](https://kinotic.ai/raw/platform/system-migrations.md): Writing and maintaining migration scripts for Kinotic's internal system indices.
-- [System Security](https://kinotic.ai/raw/platform/system-security.md): Platform-level security architecture in Kinotic OS — scope isolation, credential separation, OIDC model.
+- [System Security](https://kinotic.ai/raw/platform/system-security.md): The security model behind Kinotic OS sign-in — scopes, users, credentials, sign-in providers and authorized clients.
