@@ -1,5 +1,6 @@
 package org.kinotic.gateway.internal.endpoints.stomp;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
@@ -28,6 +29,7 @@ import java.util.UUID;
  * Created by Navíd Mitchell 🤪 on 9/9/26.
  */
 @Slf4j
+@RequiredArgsConstructor
 public class IncomingInvocationTracker {
 
     private final Services services;
@@ -38,14 +40,9 @@ public class IncomingInvocationTracker {
     private final Map<String, EventConsumer> replySubscriptions = new HashMap<>();
     // by correlation id; touched only on the connection's event loop
     private final Map<String, IncomingInvocation> awaitingReply = new HashMap<>();
-    // streams cancelled because the client fell too far behind, whose values in flight are dropped. A cancelled
-    // producer sends no terminal reply, so the ids stay until the connection closes; overflows on one connection are few.
+    // streams cancelled because the client fell too far behind, whose values in flight are dropped until the
+    // terminal reply the gateway answers the client with passes through
     private final Set<String> overflowedStreams = new HashSet<>();
-
-    public IncomingInvocationTracker(Services services, ReplyFlowControl replyFlowControl) {
-        this.services = services;
-        this.replyFlowControl = replyFlowControl;
-    }
 
     /**
      * Subscribes the client to one of its reply destinations. A terminal reply passing through finishes the
@@ -55,9 +52,15 @@ public class IncomingInvocationTracker {
         EventConsumer eventConsumer = services.eventBusService.listen(cri);
         eventConsumer.handler(event -> {
                          String correlationId = event.metadata().get(EventConstants.CORRELATION_ID_HEADER);
+                         boolean terminal = EventUtil.isTerminalReply(event.metadata());
                          if (correlationId != null && overflowedStreams.contains(correlationId)) {
-                             log.trace("Dropping a value of stream {}, cancelled after its client fell behind", correlationId);
-                         } else if (EventUtil.isTerminalReply(event.metadata())) {
+                             if (terminal) {
+                                 overflowedStreams.remove(correlationId);
+                                 subscriptionHandler.handleEvent(event);
+                             } else {
+                                 log.trace("Dropping a value of stream {}, cancelled after its client fell behind", correlationId);
+                             }
+                         } else if (terminal) {
                              requestFinished(correlationId);
                              subscriptionHandler.handleEvent(event);
                          } else if (admit(correlationId, event)) {
@@ -90,7 +93,9 @@ public class IncomingInvocationTracker {
     public void requestSent(Event<byte[]> request) {
         String correlationId = request.metadata().get(EventConstants.CORRELATION_ID_HEADER);
         if (correlationId != null) {
-            awaitingReply.put(correlationId, new IncomingInvocation(EventUtil.replyMetadataOf(request.metadata())));
+            awaitingReply.put(correlationId, new IncomingInvocation(EventUtil.replyMetadataOf(request.metadata()), request.cri()));
+            // a client may reuse the id of a request whose stream overflowed
+            overflowedStreams.remove(correlationId);
         }
     }
 
@@ -150,32 +155,27 @@ public class IncomingInvocationTracker {
         IncomingInvocation invocation = correlationId != null ? awaitingReply.get(correlationId) : null;
         if (invocation != null && !replyFlowControl.admit(correlationId, invocation, value)) {
             ret = false;
-            overflowed(correlationId, value);
+            overflowed(correlationId, invocation);
         }
         return ret;
     }
 
     // the client is too far behind a stream that cannot be suspended: cancel it and answer the client in its place
-    private void overflowed(String correlationId, Event<byte[]> value) {
-        IncomingInvocation invocation = awaitingReply.get(correlationId);
-        long behind = replyFlowControl.unsentBytes();
+    private void overflowed(String correlationId, IncomingInvocation invocation) {
+        long behind = replyFlowControl.unsentBytes(correlationId);
+        String destination = invocation.getDestination().raw();
+        log.warn("Cancelled stream {} from {}: it cannot be suspended and {} bytes of it wait unsent",
+                 correlationId, destination, behind);
         requestFinished(correlationId);
         overflowedStreams.add(correlationId);
-        String originCri = value.metadata().get(EventConstants.ORIGIN_CRI_HEADER);
-        log.warn("Cancelled stream {} from {}: it cannot be suspended and its client is {} bytes behind",
-                 correlationId, originCri, behind);
+        RpcStreamOverflowException cause = new RpcStreamOverflowException(
+                "The stream from " + destination + " cannot be suspended and " + behind
+                        + " bytes of it were still waiting to reach the client, so it was cancelled");
         try {
-            if (originCri != null) {
-                services.eventBusService.publish(EventUtil.createStreamControlEvent(CRI.create(originCri),
-                                                                                    correlationId,
-                                                                                    EventConstants.CONTROL_VALUE_CANCEL));
-            }
-            RpcStreamOverflowException cause = new RpcStreamOverflowException(
-                    "The stream from " + originCri + " cannot be suspended and the client fell " + behind
-                            + " bytes behind it, so it was cancelled");
+            replyFlowControl.cancel(correlationId, invocation);
             services.eventBusService.send(services.exceptionConverter.convert(invocation.getReplyMetadata(), cause));
         } catch (Exception e) {
-            log.error("Could not cancel stream {} from {} after its client fell behind", correlationId, originCri, e);
+            log.error("Could not cancel stream {} from {} after its client fell behind", correlationId, destination, e);
         }
     }
 }

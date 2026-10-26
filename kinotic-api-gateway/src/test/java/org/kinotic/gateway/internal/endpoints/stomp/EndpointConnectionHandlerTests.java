@@ -505,6 +505,33 @@ public class EndpointConnectionHandlerTests {
         // values the stream had in flight when it was cancelled never reach the client
         deliverStreamValue(replyTo, "corr-u", 10 * MIB, false);
         Assertions.assertEquals(2, delivered.size(), "a value of the cancelled stream reached the client");
+
+        // the error the gateway answered with comes back on the client's reply destination and reaches it
+        replyDelivery.get().handle(sent.getValue());
+        Assertions.assertEquals(3, delivered.size(), "the overflow error never reached the client");
+        Assertions.assertTrue(delivered.getLast().metadata().contains(EventConstants.ERROR_HEADER));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testBacklogOfOtherStreamsDoesNotCancelAStream() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        List<Promise<Void>> writes = new ArrayList<>();
+        List<Event<byte[]>> delivered = new ArrayList<>();
+        String replyTo = subscribeSlowReplies(handler, writes, delivered);
+        handler.send(request(replyTo, "corr-big")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        handler.send(request(replyTo, "corr-small")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // a suspendable stream puts the client 40 MiB behind
+        deliverStreamValue(replyTo, "corr-big", 40 * MIB, true);
+        // a stream that cannot be suspended has sent little of that backlog itself, so it keeps going
+        deliverStreamValue(replyTo, "corr-small", 1024, false);
+        deliverStreamValue(replyTo, "corr-small", 1024, false);
+
+        Assertions.assertEquals(3, delivered.size());
+        verify(eventBusService, never()).send(any());
+        ArgumentCaptor<Event<byte[]>> published = ArgumentCaptor.forClass(Event.class);
+        verify(eventBusService, never()).publish(published.capture());
     }
 
     @Test
@@ -544,7 +571,7 @@ public class EndpointConnectionHandlerTests {
 
         // past the grace period a value still arrives: the stream is resumed and treated as unsuspendable
         Thread.sleep(5_100);
-        deliverStreamValue(replyTo, "corr-m", 31 * MIB, false);
+        deliverStreamValue(replyTo, "corr-m", 33 * MIB, false);
         verify(eventBusService, times(2)).publish(published.capture());
         assertStreamControl(published.getValue(), "corr-m", EventConstants.CONTROL_VALUE_RESUME);
 
@@ -567,7 +594,7 @@ public class EndpointConnectionHandlerTests {
                 delivered.add(event);
                 Promise<Void> write = Promise.promise();
                 writes.add(write);
-                replyFlowControl.written(write.future(), event.data().length);
+                replyFlowControl.written(write.future(), event.data().length, event.metadata().get(EventConstants.CORRELATION_ID_HEADER));
             }
 
             @Override
@@ -576,9 +603,10 @@ public class EndpointConnectionHandlerTests {
         return replyTo;
     }
 
+    // the value names another organization's service as its origin, which the gateway must never send control events to
     private void deliverStreamValue(String replyTo, String correlationId, int size, boolean declaresSuspendable) {
         Metadata metadata = Metadata.create(Map.of(EventConstants.CORRELATION_ID_HEADER, correlationId,
-                                                   EventConstants.ORIGIN_CRI_HEADER, SERVICE_DESTINATION));
+                                                   EventConstants.ORIGIN_CRI_HEADER, "srv://app.other-org.victim-app~VictimService/watch#1.0.0"));
         if (declaresSuspendable) {
             metadata.put(EventConstants.SUSPENDABLE_HEADER, "true");
         }
