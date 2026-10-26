@@ -20,6 +20,7 @@ import org.kinotic.domain.api.model.security.TenantOidcConfiguration;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
 import org.kinotic.domain.api.rest.support.OAuth2Util;
 import org.kinotic.domain.api.services.security.ApplicationSignUpService;
+import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
@@ -44,6 +45,7 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     private final OidcConfigurationService oidcConfigurationService;
     private final PasswordConfigurationService passwordConfigurationService;
     private final ParticipantIdentityService identityService;
+    private final InviteService inviteService;
     private final PendingApplicationSignUpRepository pendingRepository;
     private final EmailService emailService;
 
@@ -82,13 +84,31 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                                   Future<ApplicationParticipantIdentity> ret;
                                   if (found != null) {
                                       ret = Future.succeededFuture(scope.memberOf(found));
-                                  } else if (signsUp(scope, configuration)) {
-                                      ret = createOidcUser(scope, configuration, subject, verifiedClaims);
                                   } else {
-                                      ret = Future.succeededFuture();
+                                      ret = claim(scope, configuration, subject, verifiedClaims)
+                                              .compose(claimed -> claimed != null || !signsUp(scope, configuration)
+                                                      ? Future.succeededFuture(claimed)
+                                                      : createOidcUser(scope, configuration, subject, verifiedClaims));
                                   }
                                   return ret;
                               });
+    }
+
+    // the user an administrator added to scope under the email the claims prove, which the identity claims on its first
+    // sign-in, spending the invitation it was sent
+    private Future<ApplicationParticipantIdentity> claim(LoginScope scope,
+                                                         OwnedOidcConfiguration configuration,
+                                                         String subject,
+                                                         Map<String, Object> verifiedClaims) {
+        String email = OAuth2Util.stringClaim(verifiedClaims, "email");
+        // an email a stranger's directory can set claims no one, as it signs no one up
+        boolean proven = email != null && (!admitsEveryDirectory(configuration) || OAuth2Util.isEmailProven(verifiedClaims, configuration.getProvider()));
+        return proven
+                ? identityService.claimProvisionedApplicationUser(configuration.getId(), subject, email, scope)
+                                 .compose(claimed -> claimed != null
+                                         ? inviteService.deletePendingInvite(claimed.getEmail(), claimed.getOrganizationId(), claimed.getApplicationId()).map(claimed)
+                                         : Future.succeededFuture())
+                : Future.succeededFuture();
     }
 
     private Future<ApplicationParticipantIdentity> createOidcUser(LoginScope scope,

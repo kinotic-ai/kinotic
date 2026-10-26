@@ -9,7 +9,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.DelegateType;
-import org.kinotic.domain.api.model.security.OrganizationMember;
+import org.kinotic.domain.api.model.security.LoginScope;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
@@ -34,9 +34,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.Objects;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -218,6 +216,13 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
+    public Future<UserParticipantIdentity> findUserByEmail(String email, String organizationId, String applicationId) {
+        return applicationId != null
+                ? findApplicationUserByEmail(email, organizationId, applicationId).map(UserParticipantIdentity.class::cast)
+                : findOrganizationUserByEmail(email, organizationId).map(UserParticipantIdentity.class::cast);
+    }
+
+    @Override
     public Future<OrganizationParticipantIdentity> findOrganizationUserByOidcIdentity(String oidcConfigId, String subject, String organizationId) {
         Validate.notBlank(organizationId, "organizationId cannot be blank");
         return findByOidcIdentity(oidcConfigId, subject, organizationId, null)
@@ -285,10 +290,16 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                                                                   .setApplicationId(scope.applicationId())
                                                                   .setOidcConfigId(oidcConfigId)
                                                                   .setSubject(subject)
-                                                                  .setCreated(new Date()));
+                                                                  .setCreated(new Date()))
+                                        .compose(binding -> signsIn(user).map(binding));
             }
             return ret;
         });
+    }
+
+    // a user with a sign-in method is pending no longer; sync so the member list shows it at once
+    private Future<Void> signsIn(UserParticipantIdentity user) {
+        return user.isPending() ? saveSync(user.setPending(false)).mapEmpty() : Future.succeededFuture();
     }
 
     // a system user signs in to the system console with a password alone
@@ -302,31 +313,43 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    public Future<Boolean> hasSignInMethod(String identityId) {
-        Validate.notBlank(identityId, "identityId cannot be blank");
-        return hasPassword(identityId).compose(has -> has
-                ? Future.succeededFuture(true)
-                : bindingRepository.findByIdentity(identityId).map(bindings -> !bindings.isEmpty()));
-    }
-
-    @Override
     public Future<Participant> claimProvisionedOrganizationUser(String oidcConfigId, String subject, String verifiedEmail, String organizationId) {
         Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
         Validate.notBlank(subject, "subject cannot be blank");
         Validate.notBlank(verifiedEmail, "verifiedEmail cannot be blank");
         Validate.notBlank(organizationId, "organizationId cannot be blank");
-        return findOrganizationUserByEmail(verifiedEmail, organizationId).compose(user -> {
-            Future<Participant> ret;
-            if (user == null) {
+        return findOrganizationUserByEmail(verifiedEmail, organizationId)
+                .compose(user -> claim(user, oidcConfigId, subject))
+                .map(claimed -> claimed != null ? DomainUtil.createParticipant(claimed) : null);
+    }
+
+    @Override
+    public Future<ApplicationParticipantIdentity> claimProvisionedApplicationUser(String oidcConfigId, String subject, String verifiedEmail, LoginScope scope) {
+        Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
+        Validate.notBlank(subject, "subject cannot be blank");
+        Validate.notBlank(verifiedEmail, "verifiedEmail cannot be blank");
+        Validate.notNull(scope, "scope cannot be null");
+        return findApplicationUserByEmail(verifiedEmail, scope.applicationKey().organizationId(), scope.applicationKey().applicationId())
+                .compose(user -> claim(scope.memberOf(user), oidcConfigId, subject))
+                .map(ApplicationParticipantIdentity.class::cast);
+    }
+
+    // user bound to the identity as its first sign-in method, or null when there is no user or someone signs in as it
+    private Future<UserParticipantIdentity> claim(UserParticipantIdentity found, String oidcConfigId, String subject) {
+        // found is a search hit, which may predate an administrator's latest change, and the claim saves the user
+        Future<UserParticipantIdentity> current = found != null
+                ? identityRepository.findById(found.getId()).map(UserParticipantIdentity.class::cast)
+                : Future.succeededFuture();
+        return current.compose(user -> {
+            Future<UserParticipantIdentity> ret;
+            if (user == null || !user.isPending()) {
                 ret = Future.succeededFuture();
             } else if (!user.isEnabled()) {
-                ret = Future.failedFuture(new UserDisabledException("This user cannot sign in to the organization."));
+                ret = Future.failedFuture(new UserDisabledException("This user cannot sign in."));
             } else {
-                ret = hasSignInMethod(user.getId()).compose(claimed -> claimed
-                        ? Future.succeededFuture()
-                        // the organization created the user and nobody else can sign in as it, so its own directory's
-                        // word on the email is what claims it
-                        : bind(user, oidcConfigId, subject).map(DomainUtil.createParticipant(user)));
+                // an administrator created the user and nobody else can sign in as it, so the scope's own provider's
+                // word on the email is what claims it
+                ret = bind(user, oidcConfigId, subject).map(user);
             }
             return ret;
         });
@@ -366,24 +389,13 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    public Future<Page<OrganizationMember>> findOrganizationMembers(String organizationId, Pageable pageable) {
-        return identityRepository.findOrganizationUsers(organizationId, pageable).compose(this::members);
+    public Future<Page<OrganizationParticipantIdentity>> findOrganizationUsers(String organizationId, Pageable pageable) {
+        return identityRepository.findOrganizationUsers(organizationId, pageable);
     }
 
     @Override
-    public Future<Page<OrganizationMember>> searchOrganizationMembers(String searchText, String organizationId, Pageable pageable) {
-        return identityRepository.searchOrganizationUsers(searchText, organizationId, pageable).compose(this::members);
-    }
-
-    private Future<Page<OrganizationMember>> members(Page<OrganizationParticipantIdentity> users) {
-        List<String> ids = users.getContent().stream().map(ParticipantIdentity::getId).toList();
-        return Future.all(credentialRepository.findAllById(ids), bindingRepository.findByIdentities(ids)).map(cf -> {
-            Set<String> claimed = new HashSet<>();
-            cf.<List<IdentityCredential>>resultAt(0).forEach(credential -> claimed.add(credential.getId()));
-            cf.<List<OidcBinding>>resultAt(1).forEach(binding -> claimed.add(binding.getIdentityId()));
-            return users.map(user -> new OrganizationMember(user.getId(), user.getEmail(), user.getDisplayName(), user.isEnabled(),
-                                                            user.getCreated(), !claimed.contains(user.getId())));
-        });
+    public Future<Page<OrganizationParticipantIdentity>> searchOrganizationUsers(String searchText, String organizationId, Pageable pageable) {
+        return identityRepository.searchOrganizationUsers(searchText, organizationId, pageable);
     }
 
     @Override
@@ -416,10 +428,13 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         user.setCreated(now);
         user.setUpdated(now);
         user.setEnabled(true);
+        if (password != null) {
+            user.setPending(false);
+        }
 
         return applyTenantPolicy(user)
                 // sync: the caller's next step finds the user by email, a search that misses a user written within the
-                // index's refresh window (MemberService.sendInvitation right after addMember, an invitation's acceptance)
+                // index's refresh window (MemberService.sendInvitation right after addOrganizationUser, an invitation's acceptance)
                 .compose(this::createSync)
                 // beforeSave's lookup is a search, which misses a user written within the index's refresh window; the
                 // create refuses an id already held, which the index guarantees whatever its shards, so of two creations
@@ -497,6 +512,9 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                     }
                     if (app.getTenantManagement() == TenantManagement.SYSTEM) {
                         applicationUser.setTenantId(UUID.randomUUID().toString());
+                    } else {
+                        throw new IllegalArgumentException("A user of application " + app.getId() + " belongs to one of its tenants,"
+                                                           + " which its administrators manage, so the tenant must be named.");
                     }
                     return user;
                 });

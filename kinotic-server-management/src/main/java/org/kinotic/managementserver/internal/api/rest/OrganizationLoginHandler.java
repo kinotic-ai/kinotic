@@ -30,6 +30,7 @@ import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.rest.support.OidcFlowPurpose;
 import org.kinotic.domain.api.rest.support.PendingFlow;
 import org.kinotic.domain.api.services.OrganizationService;
+import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.PasswordConfigurationService;
@@ -67,6 +68,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
     private final KinoticDomainProperties domainProperties;
     private final KinoticManagementApiProperties managementApiProperties;
     private final ParticipantIdentityService identityService;
+    private final InviteService inviteService;
     private final OrganizationService organizationService;
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcConfigurationService oidcConfigurationService;
@@ -365,7 +367,11 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
                             // only the organization's own directory may claim the member the organization provisioned
                             ret = identityService.claimProvisionedOrganizationUser(result.config().getId(), sub, email, result.orgId())
                                                  .recover(err -> Future.failedFuture(err instanceof UserDisabledException
-                                                         ? new OidcCallbackException(OidcErrorCodes.USER_DISABLED) : err));
+                                                         ? new OidcCallbackException(OidcErrorCodes.USER_DISABLED) : err))
+                                                 // the claim spends the invitation the member was sent
+                                                 .compose(claimed -> claimed != null
+                                                         ? inviteService.deletePendingInvite(email, result.orgId(), null).map(claimed)
+                                                         : Future.succeededFuture());
                         } else {
                             ret = Future.succeededFuture();
                         }

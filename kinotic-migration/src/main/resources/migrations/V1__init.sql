@@ -215,7 +215,8 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
 -- by which of organizationId / applicationId is set: organizationId only = ORGANIZATION, both set =
 -- APPLICATION, both null = SYSTEM; an ORGANIZATION_USER carries its organizationId. A person in several
 -- organizations is a separate ORGANIZATION_USER of each. A user's sign-in methods are its kinotic_identity_credential
--- and, for an organization's or an application's user, its kinotic_oidc_binding rows; a delegate
+-- and, for an organization's or an application's user, its kinotic_oidc_binding rows, and pending marks a user an
+-- administrator added that has neither yet; a delegate
 -- authenticates with the tokens its owner's authorization minted and a machine with its credential, so how
 -- a row authenticates follows from its type.
 -- Uniqueness rules (enforced in service layer): one SYSTEM_USER per email, one ORGANIZATION_USER per
@@ -234,6 +235,7 @@ CREATE TABLE IF NOT EXISTS kinotic_participant_identity (
     applicationId KEYWORD,
     tenantId KEYWORD,
     enabled BOOLEAN,
+    pending BOOLEAN,
     created DATE,
     updated DATE
 );
@@ -377,7 +379,8 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_application_sign_up (
 );
 
 -- Pending member invitations (PendingInvite) awaiting acceptance: the invitee's identity, the
--- scope they join (organizationId always set; applicationId only for app-member invites), and
+-- scope they join (organizationId always set; applicationId only for app-member invites, with the
+-- application's tenantId when the invitee joins one), and
 -- inviter attribution for the email/accept page. No sign-in method: the invitee chooses password
 -- or OIDC at accept. Single-use: consumed and deleted when accepted, cancelled, or found expired.
 CREATE TABLE IF NOT EXISTS kinotic_pending_invite (
@@ -389,6 +392,7 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_invite (
     displayName KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
+    tenantId KEYWORD,
     invitedById KEYWORD,
     invitedByName KEYWORD
 );

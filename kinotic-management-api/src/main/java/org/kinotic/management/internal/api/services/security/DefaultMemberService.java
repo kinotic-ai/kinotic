@@ -6,7 +6,6 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.model.security.OrganizationMember;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
@@ -14,6 +13,7 @@ import org.kinotic.domain.api.model.security.participant.OrganizationParticipant
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.management.api.model.AddApplicationUserRequest;
 import org.kinotic.management.api.model.PendingInviteSummary;
 import org.kinotic.management.api.services.security.MemberInvitationService;
 import org.kinotic.management.api.services.security.MemberService;
@@ -30,13 +30,13 @@ public class DefaultMemberService implements MemberService {
     private final MemberInvitationService memberInvitationService;
 
     @Override
-    public Future<Page<OrganizationMember>> findMembers(Pageable pageable) {
-        return identityService.findOrganizationMembers(requireOrgParticipant().getOrganizationId(), pageable);
+    public Future<Page<OrganizationParticipantIdentity>> findMembers(Pageable pageable) {
+        return identityService.findOrganizationUsers(requireOrgParticipant().getOrganizationId(), pageable);
     }
 
     @Override
-    public Future<Page<OrganizationMember>> searchMembers(String searchText, Pageable pageable) {
-        return identityService.searchOrganizationMembers(searchText, requireOrgParticipant().getOrganizationId(), pageable);
+    public Future<Page<OrganizationParticipantIdentity>> searchMembers(String searchText, Pageable pageable) {
+        return identityService.searchOrganizationUsers(searchText, requireOrgParticipant().getOrganizationId(), pageable);
     }
 
     // scope-composed queries, so a foreign or unknown application matches nothing
@@ -51,19 +51,18 @@ public class DefaultMemberService implements MemberService {
     }
 
     @Override
-    public Future<OrganizationMember> addMember(String email, String displayName, boolean sendInvitation) {
-        return memberInvitationService.addMember(email, displayName, sendInvitation, null);
+    public Future<OrganizationParticipantIdentity> addOrganizationUser(String email, String displayName, boolean sendInvitation) {
+        return memberInvitationService.addOrganizationUser(email, displayName, sendInvitation, null);
     }
 
     @Override
-    public Future<Void> sendInvitation(String email) {
-        return memberInvitationService.sendInvitation(email, null);
+    public Future<ApplicationParticipantIdentity> addApplicationUser(AddApplicationUserRequest request) {
+        return memberInvitationService.addApplicationUser(request, null);
     }
 
     @Override
-    public Future<PendingInviteSummary> inviteMember(String email, String displayName, String applicationId) {
-        return memberInvitationService.inviteMember(email, displayName, applicationId, null)
-                                      .map(PendingInviteSummary::from);
+    public Future<Void> sendInvitation(String email, String applicationId) {
+        return memberInvitationService.sendInvitation(email, applicationId, null);
     }
 
     @Override
@@ -80,13 +79,9 @@ public class DefaultMemberService implements MemberService {
                 // cascades the credential, the bindings and the delegates; sync so the console's immediate re-query
                 // no longer shows the member
                 .compose(member -> identityService.deleteByIdSync(member.getId()).map(member))
-                // an organization's member goes with the invitation they never accepted
-                .compose(member -> member instanceof OrganizationParticipantIdentity user
-                        ? inviteService.findPendingInvite(user.getEmail(), participant.getOrganizationId())
-                                       .compose(invite -> invite == null
-                                               ? Future.<Void>succeededFuture()
-                                               : inviteService.cancelInvite(invite.getId(), participant.getOrganizationId()))
-                        : Future.<Void>succeededFuture());
+                // a member goes with the invitation they never accepted
+                .compose(member -> inviteService.deletePendingInvite(member.getEmail(), participant.getOrganizationId(),
+                                                                     member instanceof ApplicationParticipantIdentity user ? user.getApplicationId() : null));
     }
 
     @Override

@@ -13,9 +13,9 @@ import java.util.Date;
  * A sign-in method of an {@link OrganizationParticipantIdentity} or an {@link ApplicationParticipantIdentity}:
  * the identity a provider asserts for the person, the {@code sub} claim under one OIDC configuration, bound to the
  * user it signs in. A user may hold any number of bindings beside its password. A provider identity is bound to at
- * most one user of each organization and one of each application, so a person signs in to several organizations and
- * applications with the same Google identity while the system's registration for Google is one configuration for
- * all of them. A system user signs in with a password alone and holds no binding.
+ * most one user of each organization and one of each application, so a person signs in to several organizations with
+ * the same GitHub identity while the system's GitHub registration is one configuration for all of them. A system user
+ * signs in with a password alone and holds no binding.
  *
  * <p>The id is derived from the configuration, the subject and the user's scope ({@link #idOf}), so a
  * callback to one organization's or application's login resolves a binding by a get, which sees a binding the

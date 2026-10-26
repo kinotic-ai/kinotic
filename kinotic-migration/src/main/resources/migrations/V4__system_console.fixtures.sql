@@ -21,8 +21,10 @@ INSERT INTO kinotic_participant_identity (id, type, email, displayName, organiza
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, created) VALUES ('00000000-0000-0000-0000-0000000000a3', 'ORGANIZATION_USER', 'priya.natarajan@test-org.dev', 'Priya Natarajan', 'test-org', true, '2026-06-27T17:05:00Z') WITH REFRESH;
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, created) VALUES ('00000000-0000-0000-0000-0000000000a4', 'ORGANIZATION_USER', 'jonas.weber@test-org.dev', 'Jonas Weber', 'test-org', false, '2026-07-08T10:30:00Z') WITH REFRESH;
 
--- Org-level pending invites (no applicationId). Far-future expiresAt keeps them visible:
--- the pending-invite queries filter out expired rows
+-- Org-level pending invites (no applicationId), each to a pending member an administrator added. Far-future
+-- expiresAt keeps them visible: the pending-invite queries filter out expired rows
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, pending, created) VALUES ('00000000-0000-0000-0000-0000000000a5', 'ORGANIZATION_USER', 'sofia.marino@test-org.dev', 'Sofia Marino', 'test-org', true, true, '2026-08-10T16:00:00Z') WITH REFRESH;
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, pending, created) VALUES ('00000000-0000-0000-0000-0000000000a6', 'ORGANIZATION_USER', 'liam.sullivan@test-org.dev', 'Liam Sullivan', 'test-org', true, true, '2026-08-13T11:20:00Z') WITH REFRESH;
 INSERT INTO kinotic_pending_invite (id, verificationToken, expiresAt, created, email, displayName, organizationId, invitedById, invitedByName) VALUES ('00000000-0000-0000-0000-0000000000b1', 'fixture-invite-token-1', '2036-01-01T00:00:00Z', '2026-08-10T16:00:00Z', 'sofia.marino@test-org.dev', 'Sofia Marino', 'test-org', '00000000-0000-0000-0000-000000000002', 'Kinotic Test') WITH REFRESH;
 INSERT INTO kinotic_pending_invite (id, verificationToken, expiresAt, created, email, displayName, organizationId, invitedById, invitedByName) VALUES ('00000000-0000-0000-0000-0000000000b2', 'fixture-invite-token-2', '2036-01-01T00:00:00Z', '2026-08-13T11:20:00Z', 'liam.sullivan@test-org.dev', 'Liam Sullivan', 'test-org', '00000000-0000-0000-0000-000000000002', 'Kinotic Test') WITH REFRESH;
 

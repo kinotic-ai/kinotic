@@ -42,8 +42,9 @@ import java.util.Map;
  * Unauthenticated invitation-accept routes. The invitee arrives from the emailed accept link and accepts with
  * a password or, for an invitation into an organization, through any provider the organization's login
  * offers; that flow returns to the configuration's own callback at {@link OrganizationOidcCallbackHandler},
- * which hands it back here to complete. An invitation into an application is accepted with a password: its
- * providers return to the app server, which holds no invitation.
+ * which hands it back here to complete. An invitation into an application is accepted here with a password, or by
+ * signing in to the application through one of its providers, whose login claims the invited user: its providers
+ * return to the app server, which holds no invitation.
  */
 @Slf4j
 @Component
@@ -71,7 +72,9 @@ public class InviteHandler implements SuppliesGatewayRoutes, OidcFlowCompleter {
 
     /**
      * {@code GET /api/auth/invite/details?token=} — invitation details plus the scope's live provider
-     * list, for rendering the accept page.
+     * list, for rendering the accept page: the organization's, or the application's own for an application's
+     * invitation, which also names {@code signInUrl}, the application's primary UI, where a first sign-in through one
+     * of those providers accepts it, {@code null} while the application has none.
      */
     private void handleDetails(RoutingContext ctx) {
         String token = ctx.request().getParam("token");
@@ -85,13 +88,17 @@ public class InviteHandler implements SuppliesGatewayRoutes, OidcFlowCompleter {
                   Future<String> orgName = organizationService.findById(invite.getOrganizationId())
                           .map(org -> org == null ? null : org.getName());
                   Future<PasswordConfiguration> password = passwordConfigurationService.findOffered(invite.getOrganizationId(),
-                                                                                                    invite.getApplicationId(), null);
-                  // an application's providers return to the app server, which holds no invitation, so an
-                  // application invitee accepts with a password
-                  Future<List<OidcConfiguration>> providers = invite.getApplicationId() != null
-                          ? Future.succeededFuture(List.of())
-                          : oidcConfigurationService.findEnabledForScope(invite.getOrganizationId(), null);
-                  return Future.all(orgName, password, providers)
+                                                                                                    invite.getApplicationId(),
+                                                                                                    invite.getTenantId());
+                  // an application's invitation names the providers of its primary UI's login, the application's own
+                  Future<List<OidcConfiguration>> providers = oidcConfigurationService.findEnabledForScope(invite.getOrganizationId(),
+                                                                                                           invite.getApplicationId());
+                  // an application's providers return to the app server, so its invitee signs in at the application
+                  Future<String> signInUrl = invite.getApplicationId() != null
+                          ? applicationRepository.findById(invite.getApplicationId(), invite.getOrganizationId())
+                                                 .map(application -> application != null ? application.getPrimaryUiUrl() : null)
+                          : Future.succeededFuture();
+                  return Future.all(orgName, password, providers, signInUrl)
                                .map(v -> new JsonObject()
                                        .put("email", invite.getEmail())
                                        .put("displayName", invite.getDisplayName())
@@ -100,7 +107,8 @@ public class InviteHandler implements SuppliesGatewayRoutes, OidcFlowCompleter {
                                        .put("invitedByName", invite.getInvitedByName())
                                        .put("expiresAt", invite.getExpiresAt().toInstant())
                                        .put("localEnabled", password.result() != null)
-                                       .put("providers", authEndpointSupport.providersJson(providers.result())));
+                                       .put("providers", authEndpointSupport.providersJson(providers.result()))
+                                       .put("signInUrl", signInUrl.result()));
               })
               .onSuccess(json -> ctx.response().putHeader("Content-Type", "application/json").end(json.encode()))
               .onFailure(err -> respondInviteFailure(ctx, err, "Failed to load invitation"));

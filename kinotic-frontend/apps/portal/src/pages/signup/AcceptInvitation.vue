@@ -32,7 +32,16 @@
         <strong>{{ details.applicationId || details.organizationName }}</strong><template v-if="details.applicationId">, provided by {{ details.organizationName }}</template>.
       </p>
 
-      <div v-if="details.providers.length > 0" class="w-full max-w-80 flex flex-col gap-3 mt-2 mb-6">
+      <!-- an application's providers return to the application, whose login claims the invited user on the first sign-in -->
+      <div v-if="details.applicationId && details.providers.length > 0" class="w-full max-w-80 flex flex-col gap-3 mt-2 mb-6">
+        <p class="login-form__subtitle">
+          Sign in to <strong>{{ details.applicationId }}</strong> with {{ providerNames }} as <strong>{{ details.email }}</strong>;
+          your first sign-in accepts this invitation.
+        </p>
+        <Button v-if="details.signInUrl" as="a" :href="details.signInUrl" :label="`Continue to ${details.applicationId}`" class="login-submit" />
+        <div v-if="details.localEnabled" class="login-divider"><span>or set a password</span></div>
+      </div>
+      <div v-else-if="details.providers.length > 0" class="w-full max-w-80 flex flex-col gap-3 mt-2 mb-6">
         <SocialAuthButton
           v-for="provider in details.providers"
           :key="provider.id"
@@ -43,16 +52,16 @@
         <div v-if="details.localEnabled" class="login-divider"><span>or set a password</span></div>
       </div>
 
-      <!-- an application's invitation is accepted with a password alone, so one whose login stopped taking it waits for that -->
-      <p v-if="!details.localEnabled && details.applicationId" class="login-form__subtitle">
-        <strong>{{ details.applicationId }}</strong> does not take passwords right now, so this invitation cannot be accepted.
-        Ask {{ details.invitedByName }} to turn on email and password sign-in for it, then open this link again.
+      <!-- an application with no provider and no password left takes the invitation once one is turned back on -->
+      <p v-if="!details.localEnabled && details.applicationId && details.providers.length === 0" class="login-form__subtitle">
+        <strong>{{ details.applicationId }}</strong> offers no way to sign in right now, so this invitation cannot be accepted.
+        Ask {{ details.invitedByName }} to turn on a sign-in method for it, then open this link again.
       </p>
-      <p v-else-if="!details.localEnabled" class="login-form__subtitle">
+      <p v-else-if="!details.localEnabled && !details.applicationId" class="login-form__subtitle">
         {{ details.organizationName }} accepts invitations through its sign-in providers. Continue with one of them as
         <strong>{{ details.email }}</strong> to join.
       </p>
-      <div v-else class="login-form__step">
+      <div v-else-if="details.localEnabled" class="login-form__step">
         <div class="login-field">
           <InputText
             v-model="displayName"
@@ -108,9 +117,11 @@ interface InviteDetails {
   organizationName: string | null
   applicationId: string | null
   invitedByName: string
-  /** Whether the invitation may be accepted with a password, which an organization allows only with password sign-in on. */
+  /** Whether the invitation may be accepted with a password, which a scope allows only with password sign-in on. */
   localEnabled: boolean
   providers: InviteProvider[]
+  /** An application's primary UI, where signing in through one of its providers accepts its invitation; null otherwise. */
+  signInUrl: string | null
 }
 
 type Phase = 'loading' | 'ready' | 'appAccepted' | 'invalid'
@@ -118,13 +129,14 @@ type Phase = 'loading' | 'ready' | 'appAccepted' | 'invalid'
 /**
  * The unauthenticated invitation-accept page, reached from the emailed accept link
  * (`/invite/accept?token=…`). Shows who invited the visitor and into what, then lets them
- * accept with a password, into an organization that allows password sign-in, or any provider the organization's login
+ * accept with a password, into a scope that allows password sign-in, or any provider the organization's login
  * offers; an application invitee sets a password and is sent to the application's primary UI,
- * or sees a confirmation while the application has none. The OIDC route returns here with
+ * or sees a confirmation while the application has none, or signs in to the application through one of its
+ * providers, whose first sign-in accepts the invitation. The OIDC route returns here with
  * `?error=<code>` on failure.
  */
 const phase = ref<Phase>('loading')
-const details = ref<InviteDetails>({ email: '', displayName: null, organizationName: null, applicationId: null, invitedByName: '', localEnabled: false, providers: [] })
+const details = ref<InviteDetails>({ email: '', displayName: null, organizationName: null, applicationId: null, invitedByName: '', localEnabled: false, providers: [], signInUrl: null })
 const displayName = ref('')
 const password = ref('')
 const confirmPassword = ref('')
@@ -142,6 +154,11 @@ const route = useRoute()
 const router = useRouter()
 
 const canSubmit = computed<boolean>(() => !!password.value && !!confirmPassword.value && password.value === confirmPassword.value)
+// the application's providers by name, as its login page shows them: "Google, Okta or GitHub"
+const providerNames = computed<string>(() => {
+  const names = details.value.providers.map(provider => provider.name)
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}` : names.join('')
+})
 
 onMounted(async () => {
   const query = route.query
@@ -180,7 +197,8 @@ async function loadDetails() {
       applicationId: data.applicationId ?? null,
       invitedByName: data.invitedByName,
       localEnabled: data.localEnabled === true,
-      providers: Array.isArray(data.providers) ? data.providers : []
+      providers: Array.isArray(data.providers) ? data.providers : [],
+      signInUrl: data.signInUrl ?? null
     }
     displayName.value = details.value.displayName ?? ''
     phase.value = 'ready'

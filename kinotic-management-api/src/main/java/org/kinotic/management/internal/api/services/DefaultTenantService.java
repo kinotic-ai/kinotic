@@ -1,6 +1,8 @@
 package org.kinotic.management.internal.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.crud.Page;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
@@ -42,6 +44,11 @@ public class DefaultTenantService extends AbstractApplicationScopedService<Tenan
                                        ? Future.succeededFuture()
                                        : passwordConfigurationService.deleteById(PasswordConfiguration.idOf(organizationId, tenant.getApplicationId(), id),
                                                                                  organizationId));
+    }
+
+    @Override
+    public Future<Page<Tenant>> findForApplicationByPrefix(String applicationId, String prefix, Pageable pageable) {
+        return tenantRepository.findForApplicationByPrefix(applicationId, prefix, requireOrganizationId(), pageable);
     }
 
     @Override

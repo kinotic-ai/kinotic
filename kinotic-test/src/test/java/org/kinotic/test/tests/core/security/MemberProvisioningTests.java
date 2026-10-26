@@ -10,7 +10,6 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.model.Organization;
-import org.kinotic.domain.api.model.security.OrganizationMember;
 import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
 import org.kinotic.domain.api.model.security.PendingInvite;
@@ -114,23 +113,21 @@ public class MemberProvisioningTests extends KinoticTestBase {
     @Test
     public void aMemberAddedWithoutAnInvitationIsClaimedByTheOrganizationsProviderOnce() throws Exception {
         String email = "pending-" + suffix() + "@example.test";
-        OrganizationMember added = await(asAdministrator(() -> members.addMember(email, "Pat Pending", false)));
-        assertNotNull(added.id());
-        assertTrue(added.pending());
-        assertTrue(added.enabled());
-        assertNull(await(invites.findPendingInvite(email, organization.getId())));
-        assertFalse(await(identities.hasSignInMethod(added.id())));
+        OrganizationParticipantIdentity added = await(asAdministrator(() -> members.addOrganizationUser(email, "Pat Pending", false)));
+        assertNotNull(added.getId());
+        assertTrue(added.isPending());
+        assertTrue(added.isEnabled());
+        assertNull(await(invites.findPendingInvite(email, organization.getId(), null)));
         assertEquals(organization.getId(), memberOf(added));
-        assertTrue(listed(email).pending());
+        assertTrue(listed(email).isPending());
 
         // the organization's provider claims the member under the verified email, binding the identity as the first
         // method; the organization user is found by a search, which sees it once the index has refreshed
         await(identities.syncIndex());
         Participant claimed = await(identities.claimProvisionedOrganizationUser(okta.getId(), "sub-" + suffix(), email, organization.getId()));
         assertNotNull(claimed);
-        assertEquals(added.id(), claimed.getId());
-        assertTrue(await(identities.hasSignInMethod(added.id())));
-        assertFalse(listed(email).pending());
+        assertEquals(added.getId(), claimed.getId());
+        assertFalse(listed(email).isPending());
 
         // once claimed, no other identity under the same email takes the member, and no stranger's email finds one
         assertNull(await(identities.claimProvisionedOrganizationUser(okta.getId(), "sub-" + suffix(), email, organization.getId())));
@@ -143,7 +140,7 @@ public class MemberProvisioningTests extends KinoticTestBase {
         // both calls look the address up before either organization user is written, so the index tells neither of the
         // other; the organization user's id is derived from the address, so the create of one of them is refused
         CompositeFuture both = await(asAdministrator(() -> {
-            CompositeFuture joined = Future.join(members.addMember(email, "Pat Twice", false), members.addMember(email, "Pat Twice", false));
+            CompositeFuture joined = Future.join(members.addOrganizationUser(email, "Pat Twice", false), members.addOrganizationUser(email, "Pat Twice", false));
             return joined.transform(v -> Future.succeededFuture(joined));
         }));
         int added = 0;
@@ -156,8 +153,8 @@ public class MemberProvisioningTests extends KinoticTestBase {
         }
         assertEquals(1, added, "exactly one addition succeeds");
         await(identities.syncIndex());
-        Page<OrganizationMember> page = await(asAdministrator(() -> members.findMembers(Pageable.ofSize(1000))));
-        assertEquals(added, page.getContent().stream().filter(member -> email.equals(member.email())).count());
+        Page<OrganizationParticipantIdentity> page = await(asAdministrator(() -> members.findMembers(Pageable.ofSize(1000))));
+        assertEquals(added, page.getContent().stream().filter(member -> email.equals(member.getEmail())).count());
     }
 
     @Test
@@ -169,10 +166,10 @@ public class MemberProvisioningTests extends KinoticTestBase {
         await(identities.syncIndex());
 
         // the organization adds a user of its own, pending, beside the system user
-        OrganizationMember added = await(asAdministrator(() -> members.addMember(email, "Sam Member", false)));
-        assertNotNull(added.id());
-        assertNotEquals(systemUser.getId(), added.id());
-        assertTrue(added.pending());
+        OrganizationParticipantIdentity added = await(asAdministrator(() -> members.addOrganizationUser(email, "Sam Member", false)));
+        assertNotNull(added.getId());
+        assertNotEquals(systemUser.getId(), added.getId());
+        assertTrue(added.isPending());
         assertEquals(organization.getId(), memberOf(added));
         assertTrue(await(identities.hasPassword(systemUser.getId())));
     }
@@ -184,7 +181,7 @@ public class MemberProvisioningTests extends KinoticTestBase {
         OrganizationParticipantIdentity user = await(identities.createUser(organizationUser(email, "Added elsewhere", await(otherOrganization())), null));
         await(identities.syncIndex());
         assertNull(await(identities.claimProvisionedOrganizationUser(okta.getId(), "sub-" + suffix(), email, organization.getId())));
-        assertFalse(await(identities.hasSignInMethod(user.getId())));
+        assertTrue(await(identities.findOidcBindings(user.getId())).isEmpty());
     }
 
     @Test
@@ -192,7 +189,7 @@ public class MemberProvisioningTests extends KinoticTestBase {
         String email = "connects-" + suffix() + "@example.test";
         OrganizationParticipantIdentity created = await(identities.createUser(organizationUser(email, "Pat Connects", organization), PASSWORD));
         // a member nobody signs in as yet is claimed through the provider, so it holds nothing back
-        await(asAdministrator(() -> members.addMember("pending-" + suffix() + "@example.test", "Pat Pending", false)));
+        await(asAdministrator(() -> members.addOrganizationUser("pending-" + suffix() + "@example.test", "Pat Pending", false)));
 
         ExecutionException refusal = assertThrows(ExecutionException.class, () -> await(asAdministrator(() -> passwordConfigurations.save(passwordSignIn(false)))));
         assertTrue(refusal.getCause().getMessage().contains(email), refusal.getCause().getMessage());
@@ -234,26 +231,26 @@ public class MemberProvisioningTests extends KinoticTestBase {
     @Test
     public void aMemberAddedWithAnInvitationClaimsTheOrganizationUserByAccepting() throws Exception {
         String withPassword = "accepts-" + suffix() + "@example.test";
-        OrganizationMember added = await(asAdministrator(() -> members.addMember(withPassword, "Pat Accepts", true)));
+        OrganizationParticipantIdentity added = await(asAdministrator(() -> members.addOrganizationUser(withPassword, "Pat Accepts", true)));
         await(identities.syncIndex());
-        PendingInvite invite = await(invites.findPendingInvite(withPassword, organization.getId()));
+        PendingInvite invite = await(invites.findPendingInvite(withPassword, organization.getId(), null));
         assertNotNull(invite);
-        await(asAdministrator(() -> members.sendInvitation(withPassword)));
+        await(asAdministrator(() -> members.sendInvitation(withPassword, null)));
 
         Participant member = await(invites.acceptLocalInvite(invite.getVerificationToken(), PASSWORD, "Pat Herself"));
-        assertEquals(added.id(), member.getId());
-        assertTrue(await(identities.hasPassword(added.id())));
-        assertEquals("Pat Herself", ((UserParticipantIdentity) await(identities.findById(added.id()))).getDisplayName());
-        assertFalse(listed(withPassword).pending());
+        assertEquals(added.getId(), member.getId());
+        assertTrue(await(identities.hasPassword(added.getId())));
+        assertEquals("Pat Herself", ((UserParticipantIdentity) await(identities.findById(added.getId()))).getDisplayName());
+        assertFalse(listed(withPassword).isPending());
 
         // or through one of the organization's providers, which binds the identity
         String withProvider = "binds-" + suffix() + "@example.test";
-        OrganizationMember bound = await(asAdministrator(() -> members.addMember(withProvider, "Pat Binds", true)));
+        OrganizationParticipantIdentity bound = await(asAdministrator(() -> members.addOrganizationUser(withProvider, "Pat Binds", true)));
         await(identities.syncIndex());
-        PendingInvite providerInvite = await(invites.findPendingInvite(withProvider, organization.getId()));
+        PendingInvite providerInvite = await(invites.findPendingInvite(withProvider, organization.getId(), null));
         Participant viaProvider = await(invites.acceptOidcInvite(providerInvite.getVerificationToken(), "sub-" + suffix(), okta.getId(), withProvider));
-        assertEquals(bound.id(), viaProvider.getId());
-        assertTrue(await(identities.hasSignInMethod(bound.id())));
+        assertEquals(bound.getId(), viaProvider.getId());
+        assertFalse(listed(withProvider).isPending());
     }
 
     @Test
@@ -263,45 +260,40 @@ public class MemberProvisioningTests extends KinoticTestBase {
         OrganizationParticipantIdentity elsewhere = await(identities.createUser(organizationUser(email, "Existing person", await(otherOrganization())), PASSWORD));
         await(identities.syncIndex());
 
-        OrganizationMember added = await(asAdministrator(() -> members.addMember(email, null, false)));
-        assertNotEquals(elsewhere.getId(), added.id());
-        assertTrue(added.pending());
+        OrganizationParticipantIdentity added = await(asAdministrator(() -> members.addOrganizationUser(email, null, false)));
+        assertNotEquals(elsewhere.getId(), added.getId());
+        assertTrue(added.isPending());
         assertEquals(organization.getId(), memberOf(added));
 
         // the address is a member here now, so it is not added again
-        assertInstanceOf(ExistingUserException.class, failure(() -> members.addMember(email, null, true)));
+        assertInstanceOf(ExistingUserException.class, failure(() -> members.addOrganizationUser(email, null, true)));
     }
 
     @Test
     public void removingAPendingMemberRemovesIt() throws Exception {
         String email = "removed-" + suffix() + "@example.test";
-        OrganizationMember added = await(asAdministrator(() -> members.addMember(email, "Pat Removed", true)));
+        OrganizationParticipantIdentity added = await(asAdministrator(() -> members.addOrganizationUser(email, "Pat Removed", true)));
 
-        await(asAdministrator(() -> members.removeMember(added.id())));
-        assertNull(await(identities.findById(added.id())));
-        assertNull(await(invites.findPendingInvite(email, organization.getId())));
+        await(asAdministrator(() -> members.removeMember(added.getId())));
+        assertNull(await(identities.findById(added.getId())));
+        assertNull(await(invites.findPendingInvite(email, organization.getId(), null)));
 
         // the address can be added again: the member takes the id the address derives, and nothing of the old one is left
-        OrganizationMember again = await(asAdministrator(() -> members.addMember(email, "Pat Again", false)));
-        assertEquals(added.id(), again.id());
-        assertTrue(again.pending());
-        assertFalse(await(identities.hasSignInMethod(again.id())));
-    }
-
-    @Test
-    public void anInvitationIntoAnApplicationNamesOne() throws Exception {
-        assertInstanceOf(IllegalArgumentException.class, failure(() -> members.inviteMember("someone-" + suffix() + "@example.test", null, null)));
+        OrganizationParticipantIdentity again = await(asAdministrator(() -> members.addOrganizationUser(email, "Pat Again", false)));
+        assertEquals(added.getId(), again.getId());
+        assertTrue(again.isPending());
+        assertFalse(await(identities.hasPassword(again.getId())));
     }
 
     // the member at email as the organization's members page lists them
-    private OrganizationMember listed(String email) throws Exception {
-        Page<OrganizationMember> page = await(asAdministrator(() -> members.findMembers(Pageable.ofSize(1000))));
-        return page.getContent().stream().filter(member -> email.equals(member.email())).findFirst().orElseThrow();
+    private OrganizationParticipantIdentity listed(String email) throws Exception {
+        Page<OrganizationParticipantIdentity> page = await(asAdministrator(() -> members.findMembers(Pageable.ofSize(1000))));
+        return page.getContent().stream().filter(member -> email.equals(member.getEmail())).findFirst().orElseThrow();
     }
 
     // the organization the member's user belongs to
-    private String memberOf(OrganizationMember member) throws Exception {
-        return ((OrganizationParticipantIdentity) await(identities.findById(member.id()))).getOrganizationId();
+    private String memberOf(OrganizationParticipantIdentity member) throws Exception {
+        return ((OrganizationParticipantIdentity) await(identities.findById(member.getId()))).getOrganizationId();
     }
 
     private Future<Organization> otherOrganization() {

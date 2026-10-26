@@ -4,15 +4,17 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.security.OrganizationMember;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
+import org.kinotic.management.api.model.AddApplicationUserRequest;
 import org.kinotic.management.api.model.PendingInviteSummary;
 
 /**
  * Member management for the caller's organization and its applications, used by the web app. Every
  * method derives the organization from the authenticated participant — only org members may
  * call, and a supplied {@code applicationId} must belong to that organization. The organization's members are
- * {@link OrganizationMember}s; an application's members are its {@link ApplicationParticipantIdentity}s.
+ * its {@link OrganizationParticipantIdentity}s; an application's members are its
+ * {@link ApplicationParticipantIdentity}s. Each is {@code pending} until it first signs in.
  * Invitations are scoped: {@code applicationId} null addresses the organization's, set addresses that
  * application's.
  */
@@ -20,13 +22,13 @@ import org.kinotic.management.api.model.PendingInviteSummary;
 public interface MemberService {
 
     /** Lists the caller's organization's members: its users. */
-    Future<Page<OrganizationMember>> findMembers(Pageable pageable);
+    Future<Page<OrganizationParticipantIdentity>> findMembers(Pageable pageable);
 
     /**
      * Searches the caller's organization's members by free text over email and display name. Blank
      * {@code searchText} is equivalent to {@link #findMembers}.
      */
-    Future<Page<OrganizationMember>> searchMembers(String searchText, Pageable pageable);
+    Future<Page<OrganizationParticipantIdentity>> searchMembers(String searchText, Pageable pageable);
 
     /** Lists the users of application {@code applicationId} of the caller's organization. */
     Future<Page<ApplicationParticipantIdentity>> findApplicationUsers(String applicationId, Pageable pageable);
@@ -50,47 +52,52 @@ public interface MemberService {
      * @param sendInvitation whether to email an invitation
      * @return the member as listed, pending until they first sign in
      */
-    Future<OrganizationMember> addMember(String email, String displayName, boolean sendInvitation);
+    Future<OrganizationParticipantIdentity> addOrganizationUser(String email, String displayName, boolean sendInvitation);
 
     /**
-     * Emails an invitation to a pending member of the caller's organization: the one they have, again, or a new
-     * one for a member added without. Fails for an address that is not a pending member's.
+     * Adds a person to one of the caller's organization's applications by email: a user of the application with no
+     * sign-in method yet, listed as pending. The person's first sign-in at their login, their tenant's or the
+     * application's, through one of its providers under the same address claims the user. With an invitation the
+     * person also claims it with a password, or signs in at the application's primary UI. Fails for an address that
+     * already has a user in the application, for a tenant missing or one the application does not have, and when the
+     * person would have no way to claim the user: without an invitation, no provider at their login; with one, no
+     * password there and no provider of the application's own at a primary UI.
      *
-     * @param email the pending member's address
+     * @param request the person and the application, and whether to email an invitation
+     * @return the user as listed, pending until they first sign in
      */
-    Future<Void> sendInvitation(String email);
+    Future<ApplicationParticipantIdentity> addApplicationUser(AddApplicationUserRequest request);
 
     /**
-     * Invites someone into one of the caller's organization's applications by email. Sends the invitation email
-     * and returns the pending invitation, whose acceptance creates the application's user. Fails if the email
-     * already has a user in the application or an invitation is already pending for it.
+     * Emails an invitation to a pending member of the caller's organization, or to a pending user of its application
+     * {@code applicationId} when that is set: the one they have, again, or a new one for someone added without.
+     * Fails for an address that is not a pending member's or user's.
      *
-     * @param email         where to send the invitation
-     * @param displayName   optional display name for the invitee
-     * @param applicationId the application to invite into, one of the caller's organization's
+     * @param email         the pending member's or user's address
+     * @param applicationId the application whose user is invited, or {@code null} for a member of the organization
      */
-    Future<PendingInviteSummary> inviteMember(String email, String displayName, String applicationId);
+    Future<Void> sendInvitation(String email, String applicationId);
 
     /**
      * Enables or disables a member of the caller's organization or of one of its applications: a user of the
      * organization, or an application user. Disabling gates future logins to that scope;
      * established sessions last until they expire. Callers cannot disable themselves.
      *
-     * @param identityId the member's id: an {@link OrganizationMember#id()} or an application user's id
+     * @param identityId the member's id: an organization user's or an application user's
      */
     Future<Void> setMemberEnabled(String identityId, boolean enabled);
 
     /**
-     * Removes a member: a user of the caller's organization, along with the invitation it never accepted, or an
-     * application user, each with its stored credentials. Callers cannot remove themselves.
+     * Removes a member: a user of the caller's organization or an application user, each with its stored credentials
+     * and the invitation it never accepted. Callers cannot remove themselves.
      *
-     * @param identityId the member's id: an {@link OrganizationMember#id()} or an application user's id
+     * @param identityId the member's id: an organization user's or an application user's
      */
     Future<Void> removeMember(String identityId);
 
     /**
      * Lists the scope's live (unexpired) pending invitations: for the organization, those of pending members sent one;
-     * for an application, those of its invited users.
+     * for an application, those of its pending users sent one.
      */
     Future<Page<PendingInviteSummary>> findPendingInvites(String applicationId, Pageable pageable);
 

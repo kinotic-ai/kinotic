@@ -20,6 +20,7 @@ import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.exceptions.UnverifiedEmailException;
+import org.kinotic.domain.api.exceptions.UserDisabledException;
 import org.kinotic.domain.api.model.security.LoginScope;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
@@ -228,7 +229,7 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
      * {@link ApplicationSignUpService#findOrCreateOidcUser}), or {@code null} when there is none. A user that would be
      * created under an email the application holds under another method fails with an {@link OidcCallbackException}
      * carrying {@link OidcErrorCodes#USER_EXISTS}, and one under an email the claims do not prove is the person's with
-     * {@link OidcErrorCodes#EMAIL_NOT_VERIFIED}.
+     * {@link OidcErrorCodes#EMAIL_NOT_VERIFIED}, and a disabled user the identity would claim with {@link OidcErrorCodes#USER_DISABLED}.
      *
      * @param claims the claims the provider verified, which {@link #verifiedSubject} has accepted
      */
@@ -237,6 +238,7 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
                             .recover(err -> Future.failedFuture(switch (err) {
                                 case ExistingUserException _ -> new OidcCallbackException(OidcErrorCodes.USER_EXISTS);
                                 case UnverifiedEmailException _ -> new OidcCallbackException(OidcErrorCodes.EMAIL_NOT_VERIFIED, configuration.getProvider());
+                                case UserDisabledException _ -> new OidcCallbackException(OidcErrorCodes.USER_DISABLED);
                                 default -> err;
                             }));
     }

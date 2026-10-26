@@ -3,6 +3,7 @@ package org.kinotic.domain.api.services.security;
 import io.vertx.core.Future;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.exceptions.UnverifiedEmailException;
+import org.kinotic.domain.api.exceptions.UserDisabledException;
 import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.security.ApplicationLoginProvider;
 import org.kinotic.domain.api.model.security.LoginScope;
@@ -41,8 +42,11 @@ public interface ApplicationSignUpService {
      * The user of {@code scope} that the identity {@code configuration}'s provider verified signs in as: the user
      * bound to the identity, whichever registration with the provider verified it, so switching a configuration
      * between Kinotic's registration and the organization's own leaves its users as they were. An identity no user is
-     * bound to becomes a new user, bound to it and created from its verified email and name, when the configuration
-     * signs new people up and the scope admits them, as {@link #findLoginProviders} reports.
+     * bound to claims the user an administrator added to the scope under its email that nobody signs in as yet,
+     * where the claims prove the email as sign-up requires, and is bound to it, spending the invitation the user was
+     * sent; otherwise it becomes a new user, bound
+     * to it and created from its verified email and name, when the configuration signs new people up and the scope
+     * admits them, as {@link #findLoginProviders} reports.
      *
      * @param scope          the login signed in to
      * @param configuration  the configuration the login offers that the person chose
@@ -53,7 +57,8 @@ public interface ApplicationSignUpService {
      *         holds under another sign-in method, and with {@link UnverifiedEmailException} when the configuration
      *         admits every directory at the provider (Kinotic's registration, or Microsoft Entra's {@code common} or
      *         {@code organizations}) and the claims do not prove the email belongs to the person: a Microsoft Entra
-     *         email needs {@code email_verified} or {@code xms_edov}, or a personal Microsoft account
+     *         email needs {@code email_verified} or {@code xms_edov}, or a personal Microsoft account; fails with
+     *         {@link UserDisabledException} when the user the identity claims is disabled
      */
     Future<ApplicationParticipantIdentity> findOrCreateOidcUser(LoginScope scope,
                                                                 OwnedOidcConfiguration configuration,

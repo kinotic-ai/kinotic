@@ -46,9 +46,8 @@ const facts = computed(() => {
   const member = props.member
   return [
     { label: 'Email', icon: markRaw(Mail), value: member.email, mono: true },
-    { label: member.invite ? 'Invited' : 'Joined', icon: markRaw(CalendarPlus),
-      value: member.created ? DatetimeUtil.formatDateTime(member.created) : null },
-    { label: member.invite ? 'Invitation id' : 'User id', icon: markRaw(Hash), value: member.id, mono: true }
+    { label: 'Joined', icon: markRaw(CalendarPlus), value: member.created ? DatetimeUtil.formatDateTime(member.created) : null },
+    { label: 'User id', icon: markRaw(Hash), value: member.id, mono: true }
   ]
 })
 </script>

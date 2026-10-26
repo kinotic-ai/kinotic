@@ -10,9 +10,7 @@ import org.kinotic.domain.api.exceptions.UserDisabledException;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.security.PasswordConfiguration;
-import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
-import org.kinotic.domain.api.model.security.OrganizationMember;
 import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.SystemParticipantIdentity;
@@ -22,7 +20,6 @@ import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.PasswordConfigurationService;
-import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -71,9 +68,6 @@ public class InvitationTests extends KinoticTestBase {
     @Autowired
     private PasswordConfigurationService passwordConfigurations;
 
-    @Autowired
-    private ApplicationService applications;
-
     // an invitation names an organization that exists, so each test invites into one of its own, which allows password sign-in
     private Organization organization;
 
@@ -96,7 +90,9 @@ public class InvitationTests extends KinoticTestBase {
     public void anInvitationAcceptedByADisabledMemberSignsNoOneIn() throws Exception {
         String email = "disabled-" + suffix() + "@example.test";
         // an administrator adds the member, invites them and disables them while the invitation is still out
-        OrganizationParticipantIdentity user = await(identities.createUser(organizationUser(email, "Disabled member", organization), null));
+        OrganizationParticipantIdentity added = organizationUser(email, "Disabled member", organization);
+        added.setPending(true);
+        OrganizationParticipantIdentity user = await(identities.createUser(added, null));
         PendingInvite invite = await(invites.createInvite(invite(email), null));
         await(identities.saveSync(user.setEnabled(false)));
 
@@ -198,23 +194,6 @@ public class InvitationTests extends KinoticTestBase {
         assertNull(await(passwordConfigurations.findOffered(organization.getId(), null, null)));
     }
 
-    @Test
-    public void anApplicationsInvitationIsMadeOnlyWhileItsLoginTakesAPassword() throws Exception {
-        String appId = "invited-app-" + suffix();
-        await(runAs(administratorOf(organization), () -> applications.createApplicationIfNotExist(appId, "Invitation application", null)));
-        PendingInvite invite = invite("app-user-" + suffix() + "@example.test");
-        invite.setApplicationId(appId);
-
-        assertInstanceOf(IllegalArgumentException.class, failure(() -> invites.createInvite(invite, null)));
-
-        await(runAs(administratorOf(organization), () -> passwordConfigurations.save(new PasswordConfiguration().setOrganizationId(organization.getId())
-                                                                                                                 .setApplicationId(appId)
-                                                                                                                 .setEnabled(true))));
-        PendingInvite created = await(invites.createInvite(invite, null));
-        Participant user = await(invites.acceptLocalInvite(created.getVerificationToken(), PASSWORD, null));
-        assertEquals(appId, assertInstanceOf(ApplicationParticipant.class, user).getApplicationId());
-    }
-
     private Future<Organization> createOrganization(boolean passwordSignIn) {
         return organizations.create(new Organization().setName("Invitation tests " + suffix())
                                                       .setDescription("Organization of one invitation test"))
@@ -244,9 +223,9 @@ public class InvitationTests extends KinoticTestBase {
         await(identities.createUser(organizationUser("zq-other-" + suffix() + "@example.test", name, await(createOrganization(true))), PASSWORD));
 
         // the search reads the index, which sees a write only once it has refreshed
-        Page<OrganizationMember> found = awaitUntil(() -> identities.searchOrganizationMembers(name, organization.getId(), Pageable.ofSize(10)),
+        Page<OrganizationParticipantIdentity> found = awaitUntil(() -> identities.searchOrganizationUsers(name, organization.getId(), Pageable.ofSize(10)),
                                         page -> !page.getContent().isEmpty());
-        assertEquals(List.of(member.getId()), found.getContent().stream().map(OrganizationMember::id).toList());
+        assertEquals(List.of(member.getId()), found.getContent().stream().map(OrganizationParticipantIdentity::getId).toList());
         assertEquals(1, found.getTotalElements());
     }
 

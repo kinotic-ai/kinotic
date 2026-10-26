@@ -334,7 +334,7 @@ function facts(provider: SignInProvider) {
       ...offeredAt,
       ...(signsUp ? [{
         label: 'New users', icon: UsersRound,
-        value: provider.configuration.createUserOnSignIn ? 'Sign up with an email and a password' : 'Invited or created first'
+        value: provider.configuration.createUserOnSignIn ? 'Sign up with an email and a password' : 'Added by an administrator first'
       }] : []),
       created
     ]
@@ -352,7 +352,7 @@ function facts(provider: SignInProvider) {
       ...(isManaged(oidc) ? [{ label: 'Credentials', icon: KeyRound, value: 'Managed by Kinotic' }] : own),
       ...(props.applicationId === null ? [] : [{
         label: 'New users', icon: UsersRound,
-        value: oidc.createUserOnSignIn ? 'Sign up on first sign-in' : 'Invited or created first'
+        value: oidc.createUserOnSignIn ? 'Sign up on first sign-in' : 'Added by an administrator first'
       }]),
       created
     ]

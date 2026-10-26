@@ -7,7 +7,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.exceptions.UserDisabledException;
 import org.kinotic.domain.api.model.security.DelegateType;
-import org.kinotic.domain.api.model.security.OrganizationMember;
+import org.kinotic.domain.api.model.security.LoginScope;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineType;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
@@ -33,6 +33,12 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     Future<ApplicationParticipantIdentity> findApplicationUserByEmail(String email, String organizationId, String applicationId);
 
     /**
+     * The user with the email of organization {@code organizationId}, or of its application {@code applicationId} when
+     * that is set, or {@code null}.
+     */
+    Future<UserParticipantIdentity> findUserByEmail(String email, String organizationId, String applicationId);
+
+    /**
      * The user of organization {@code organizationId} the OIDC identity {@code (oidcConfigId, subject)} is bound to,
      * or {@code null}. A provider identity binds to one user of each organization.
      */
@@ -53,8 +59,9 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
 
     /**
      * Binds the OIDC identity {@code (oidcConfigId, subject)} to user {@code identityId} as one of its sign-in
-     * methods, so a sign-in asserting that identity signs the user in. Binding an identity already bound to
-     * the same user changes nothing.
+     * methods, so a sign-in asserting that identity signs the user in, and the user is no longer
+     * {@link UserParticipantIdentity#isPending() pending}. Binding an identity already bound to the same user
+     * changes nothing.
      *
      * @return the binding, readable at once; fails with {@link IllegalArgumentException} when the identity is
      *         bound to another user of the same scope, or {@code identityId} is not an organization's or an
@@ -66,17 +73,11 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     Future<List<OidcBinding>> findOidcBindings(String identityId);
 
     /**
-     * Whether a sign-in method signs user {@code identityId} in: a password, or a provider identity bound to it.
-     * An organization user an administrator added as a member that nobody has signed in as yet has none.
-     */
-    Future<Boolean> hasSignInMethod(String identityId);
-
-    /**
      * Signs the identity {@code (oidcConfigId, subject)}, verified by one of organization {@code organizationId}'s
-     * own providers, in as the member the organization added under {@code verifiedEmail}: a user of the organization
-     * that no sign-in method signs in yet, which the identity is bound to as its first. {@code null} when the
-     * organization has no such member: no user of the organization under the email, or one someone already signs in
-     * as, which only its holder may bind the identity to.
+     * own providers, in as the member the organization added under {@code verifiedEmail}: a
+     * {@link UserParticipantIdentity#isPending() pending} user of the organization, which the identity is bound to as
+     * its first sign-in method. {@code null} when the organization has no such member: no user of the organization
+     * under the email, or one someone already signs in as, which only its holder may bind the identity to.
      *
      * @param oidcConfigId   the organization's own configuration that verified the identity
      * @param subject        the provider's {@code sub} claim for the identity
@@ -86,6 +87,22 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      *         disabled
      */
     Future<Participant> claimProvisionedOrganizationUser(String oidcConfigId, String subject, String verifiedEmail, String organizationId);
+
+    /**
+     * Signs the identity {@code (oidcConfigId, subject)}, verified by one of the application's providers, in as the
+     * user an administrator added to {@code scope} under {@code verifiedEmail}: a
+     * {@link UserParticipantIdentity#isPending() pending} user of the scope, which the identity is bound to as its
+     * first sign-in method. {@code null} when the scope has no such
+     * user: no user of the application under the email, one of another tenant than a tenant's login admits, or one
+     * someone already signs in as, which only its holder may bind the identity to.
+     *
+     * @param oidcConfigId  the application's or the tenant's configuration that verified the identity
+     * @param subject       the identifier the binding names the identity by
+     * @param verifiedEmail the email the provider verified for the identity
+     * @param scope         the application, or its tenant, whose login the identity signs in at
+     * @return the user, or {@code null}; fails with {@link UserDisabledException} when the user is disabled
+     */
+    Future<ApplicationParticipantIdentity> claimProvisionedApplicationUser(String oidcConfigId, String subject, String verifiedEmail, LoginScope scope);
 
     /**
      * Removes binding {@code bindingId} from user {@code identityId}'s sign-in methods.
@@ -111,14 +128,14 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     /** The system users whose email or display name matches {@code searchText}; blank text lists them all. */
     Future<Page<SystemParticipantIdentity>> searchSystemUsers(String searchText, Pageable pageable);
 
-    /** The members of organization {@code organizationId}. */
-    Future<Page<OrganizationMember>> findOrganizationMembers(String organizationId, Pageable pageable);
+    /** The users of organization {@code organizationId}: its members. */
+    Future<Page<OrganizationParticipantIdentity>> findOrganizationUsers(String organizationId, Pageable pageable);
 
     /**
-     * The members of the organization whose email or display name matches {@code searchText}; blank text lists them
-     * all, as {@link #findOrganizationMembers} does.
+     * The users of the organization whose email or display name matches {@code searchText}; blank text lists them
+     * all, as {@link #findOrganizationUsers} does.
      */
-    Future<Page<OrganizationMember>> searchOrganizationMembers(String searchText, String organizationId, Pageable pageable);
+    Future<Page<OrganizationParticipantIdentity>> searchOrganizationUsers(String searchText, String organizationId, Pageable pageable);
 
     /** The users of application {@code applicationId} of organization {@code organizationId}. */
     Future<Page<ApplicationParticipantIdentity>> findApplicationUsers(String organizationId, String applicationId, Pageable pageable);
@@ -135,12 +152,14 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     /**
      * Creates a user of the kind {@code user} is, assigning id and dates and enabling it. A password given becomes
      * the user's credential; {@code null} creates a user that signs in by an OIDC binding, added with
-     * {@link #bindOidcIdentity} or by {@link #createOidcUser}. One system user holds an email, one user of each
+     * {@link #bindOidcIdentity} or by {@link #createOidcUser}, or, {@link UserParticipantIdentity#isPending() pending}
+     * as {@code user} is marked, one an administrator added that its first sign-in method claims. One system user holds an email, one user of each
      * organization and one of each application: the id minted for the user is derived from its kind, its scope and
      * its email, and a creation under an email already held fails with
      * {@link org.kinotic.domain.api.exceptions.ExistingUserException}, two at once included.
-     * For APPLICATION-scope users whose application's tenants are {@code TenantManagement.SYSTEM} managed, a
-     * unique {@code tenantId} is auto-generated unless one was supplied.
+     * Every APPLICATION-scope user belongs to a tenant: one whose application's tenants are
+     * {@code TenantManagement.SYSTEM} managed gets a unique {@code tenantId} generated unless one was supplied, and
+     * one of any other application must name its tenant or the creation fails with {@link IllegalArgumentException}.
      *
      * @param user     the unsaved user carrying email, scope, and optional display name
      * @param password the password for a user that signs in with one, or null

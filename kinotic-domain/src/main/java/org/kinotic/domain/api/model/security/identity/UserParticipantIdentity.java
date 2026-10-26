@@ -22,4 +22,11 @@ public abstract sealed class UserParticipantIdentity extends ParticipantIdentity
     /** Email address, unique among the users of the same scope. */
     private String email;
 
+    /**
+     * Whether the user has yet to sign in for the first time: an administrator added it and no sign-in method signs
+     * it in yet, so its invitation, or a first sign-in through one of its scope's providers under its email, is what
+     * claims it. Cleared once the user has a password or a bound provider identity.
+     */
+    private boolean pending;
+
 }
