@@ -7,15 +7,19 @@ import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.TraceLogFilter;
 import io.vertx.ext.stomp.lite.StompServerConnection;
+import lombok.RequiredArgsConstructor;
 import io.vertx.ext.stomp.lite.frame.Frame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.util.Map;
+
 
 /**
  * Handles messages sent to the event bus for a stomp based subscription
  */
+@RequiredArgsConstructor
 public class StompSubscriptionEventSubscriber implements StompSubscriptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(StompSubscriptionEventSubscriber.class);
@@ -23,20 +27,9 @@ public class StompSubscriptionEventSubscriber implements StompSubscriptionHandle
     private final String destination;
     private final String subscriptionId;
     private final StompServerConnection connection;
+    private final ReplyFlowControl replyFlowControl;
     private final JsonMapper jsonMapper;
     private final TraceLogFilter traceLogFilter;
-
-    public StompSubscriptionEventSubscriber(String destination,
-                                            String subscriptionId,
-                                            StompServerConnection connection,
-                                            JsonMapper jsonMapper,
-                                            TraceLogFilter traceLogFilter) {
-        this.destination = destination;
-        this.subscriptionId = subscriptionId;
-        this.connection = connection;
-        this.jsonMapper = jsonMapper;
-        this.traceLogFilter = traceLogFilter;
-    }
 
     @Override
     public void handleEvent(Event<byte[]> event) {
@@ -59,13 +52,25 @@ public class StompSubscriptionEventSubscriber implements StompSubscriptionHandle
                 }
             }
 
-            connection.write(frame);
+            replyFlowControl.written(connection.write(frame), frameSize(frame), event.metadata().get(EventConstants.CORRELATION_ID_HEADER));
 
         } catch (Exception e) {
             log.error("Unexpected Error in Handler {}", e.getMessage(), e);
             log.error("Closing connection");
             connection.close();
         }
+    }
+
+    // approximates the encoded size without encoding the frame twice: it counts characters, not UTF-8 bytes, and ignores header escaping
+    private static int frameSize(Frame frame) {
+        int ret = frame.getCommand().name().length() + 3;
+        for (Map.Entry<String, String> header : frame.getHeaders().entrySet()) {
+            ret += header.getKey().length() + header.getValue().length() + 2;
+        }
+        if (frame.getBody() != null) {
+            ret += frame.getBody().length();
+        }
+        return ret;
     }
 
     @Override

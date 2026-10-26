@@ -29,12 +29,14 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
     private static final Logger log = LoggerFactory.getLogger(DefaultStompServerHandler.class);
 
     private final EndpointConnectionHandler endpointConnectionHandler;
+    private final ReplyFlowControl replyFlowControl;
     private final JsonMapper jsonMapper;
     private final TraceLogFilter traceLogFilter;
 
 
     public DefaultStompServerHandler(Services services) {
-        this.endpointConnectionHandler = new EndpointConnectionHandler(services);
+        this.replyFlowControl = new ReplyFlowControl(services);
+        this.endpointConnectionHandler = new EndpointConnectionHandler(services, replyFlowControl);
         this.jsonMapper = services.jsonMapper;
         this.traceLogFilter = services.traceLogFilter;
     }
@@ -91,7 +93,7 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
 
             CRI cri = CRI.create(frame.getDestination());
 
-            StompSubscriptionEventSubscriber subscriber = new StompSubscriptionEventSubscriber(cri.raw(), subscriptionId, stompServerConnection, jsonMapper, traceLogFilter);
+            StompSubscriptionEventSubscriber subscriber = new StompSubscriptionEventSubscriber(cri.raw(), subscriptionId, stompServerConnection, replyFlowControl, jsonMapper, traceLogFilter);
             endpointConnectionHandler.subscribe(cri, subscriptionId, subscriber);
 
         } catch (Exception e) {

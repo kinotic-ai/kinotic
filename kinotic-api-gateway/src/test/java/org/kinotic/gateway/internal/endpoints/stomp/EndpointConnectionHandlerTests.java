@@ -3,6 +3,7 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.ext.web.RoutingContext;
@@ -66,8 +67,9 @@ import static org.mockito.Mockito.when;
  * cluster is answered on the client's reply destination with the typed error, a reply that settles a
  * request releases it, a session under an open connection outlives its timeout, and a connection that closes
  * answers every invocation still outstanding on the services it published, a stream whose requester is
- * gone is cancelled on the connection producing it, and a sender header a client wrote never leaves the
- * connection.
+ * gone is cancelled on the connection producing it, a sender header a client wrote never leaves the
+ * connection, and a client that falls behind a stream has the stream suspended until it catches up, or
+ * cancelled when the stream cannot be suspended.
  *
  * Created by Navíd Mitchell 🤪 on 9/9/26.
  */
@@ -76,6 +78,7 @@ public class EndpointConnectionHandlerTests {
     private static final long SESSION_TIMEOUT_MS = 1000;
     private static final String APP_ZONE = "app.acme-org";
     private static final String SERVICE_DESTINATION = "srv://app.acme-org.orders-app~OrderService/create#1.0.0";
+    private static final int MIB = 1024 * 1024;
 
     private static Ignite ignite;
     private static Vertx vertx;
@@ -84,6 +87,7 @@ public class EndpointConnectionHandlerTests {
     private RequestLivenessWatcher requestLivenessWatcher;
     private EventConsumer replyConsumer;
     private final AtomicReference<Handler<Event<byte[]>>> replyDelivery = new AtomicReference<>();
+    private ReplyFlowControl replyFlowControl;
 
     // The clustered session store needs a clustered Vert.x; one Ignite node on ports of its own, so a
     // core test JVM running alongside never joins it
@@ -443,6 +447,178 @@ public class EndpointConnectionHandlerTests {
         Assertions.assertNull(storedSession(session.id()), "a NONE session survived its connection");
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testSuspendableStreamIsSuspendedUntilItsClientCatchesUp() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        List<Promise<Void>> writes = new ArrayList<>();
+        List<Event<byte[]>> delivered = new ArrayList<>();
+        String replyTo = subscribeSlowReplies(handler, writes, delivered);
+        handler.send(request(replyTo, "corr-s")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // the first value declares the stream suspendable and leaves the client 2 MiB behind
+        deliverStreamValue(replyTo, "corr-s", 2 * MIB, true);
+        verify(eventBusService, never()).publish(any());
+
+        deliverStreamValue(replyTo, "corr-s", 1024, false);
+        ArgumentCaptor<Event<byte[]>> published = ArgumentCaptor.forClass(Event.class);
+        verify(eventBusService).publish(published.capture());
+        assertStreamControl(published.getValue(), "corr-s", EventConstants.CONTROL_VALUE_SUSPEND);
+        // values in flight when the suspend went out still reach the client
+        Assertions.assertEquals(2, delivered.size());
+
+        // the socket sends what the client was behind on
+        writes.forEach(Promise::complete);
+        verify(eventBusService, times(2)).publish(published.capture());
+        assertStreamControl(published.getValue(), "corr-s", EventConstants.CONTROL_VALUE_RESUME);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testStreamThatCannotBeSuspendedIsCancelledPastTheCap() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        List<Promise<Void>> writes = new ArrayList<>();
+        List<Event<byte[]>> delivered = new ArrayList<>();
+        String replyTo = subscribeSlowReplies(handler, writes, delivered);
+        handler.send(request(replyTo, "corr-u")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // a producer that ignores suspend, such as a TS service, declares nothing and is never sent one
+        deliverStreamValue(replyTo, "corr-u", 2 * MIB, false);
+        deliverStreamValue(replyTo, "corr-u", 31 * MIB, false);
+        Assertions.assertEquals(2, delivered.size());
+        verify(eventBusService, never()).publish(any());
+        verify(eventBusService, never()).send(any());
+
+        // the client is now 33 MiB behind, past the 32 MiB cap
+        deliverStreamValue(replyTo, "corr-u", 1024, false);
+        Assertions.assertEquals(2, delivered.size(), "a value past the cap reached the client");
+        ArgumentCaptor<Event<byte[]>> published = ArgumentCaptor.forClass(Event.class);
+        verify(eventBusService).publish(published.capture());
+        assertStreamControl(published.getValue(), "corr-u", EventConstants.CONTROL_VALUE_CANCEL);
+        ArgumentCaptor<Event<byte[]>> sent = ArgumentCaptor.forClass(Event.class);
+        verify(eventBusService).send(sent.capture());
+        Assertions.assertEquals(replyTo, sent.getValue().cri().raw());
+        Assertions.assertEquals("corr-u", sent.getValue().metadata().get(EventConstants.CORRELATION_ID_HEADER));
+        Assertions.assertTrue(new String(sent.getValue().data(), StandardCharsets.UTF_8).contains("RpcStreamOverflowException"));
+        verify(requestLivenessWatcher).unwatch(endsWith(":corr-u"));
+
+        // values the stream had in flight when it was cancelled never reach the client
+        deliverStreamValue(replyTo, "corr-u", 10 * MIB, false);
+        Assertions.assertEquals(2, delivered.size(), "a value of the cancelled stream reached the client");
+
+        // the error the gateway answered with comes back on the client's reply destination and reaches it
+        replyDelivery.get().handle(sent.getValue());
+        Assertions.assertEquals(3, delivered.size(), "the overflow error never reached the client");
+        Assertions.assertTrue(delivered.getLast().metadata().contains(EventConstants.ERROR_HEADER));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testBacklogOfOtherStreamsDoesNotCancelAStream() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        List<Promise<Void>> writes = new ArrayList<>();
+        List<Event<byte[]>> delivered = new ArrayList<>();
+        String replyTo = subscribeSlowReplies(handler, writes, delivered);
+        handler.send(request(replyTo, "corr-big")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        handler.send(request(replyTo, "corr-small")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // a suspendable stream puts the client 40 MiB behind
+        deliverStreamValue(replyTo, "corr-big", 40 * MIB, true);
+        // a stream that cannot be suspended has sent little of that backlog itself, so it keeps going
+        deliverStreamValue(replyTo, "corr-small", 1024, false);
+        deliverStreamValue(replyTo, "corr-small", 1024, false);
+
+        Assertions.assertEquals(3, delivered.size());
+        verify(eventBusService, never()).send(any());
+        ArgumentCaptor<Event<byte[]>> published = ArgumentCaptor.forClass(Event.class);
+        verify(eventBusService, never()).publish(published.capture());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testOnlyTheFirstValueDeclaresAStreamSuspendable() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        List<Promise<Void>> writes = new ArrayList<>();
+        List<Event<byte[]>> delivered = new ArrayList<>();
+        String replyTo = subscribeSlowReplies(handler, writes, delivered);
+        handler.send(request(replyTo, "corr-f")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // the first value declares nothing, so a later declaration cannot make the stream suspendable
+        deliverStreamValue(replyTo, "corr-f", 2 * MIB, false);
+        deliverStreamValue(replyTo, "corr-f", 31 * MIB, true);
+        deliverStreamValue(replyTo, "corr-f", 1024, true);
+
+        ArgumentCaptor<Event<byte[]>> published = ArgumentCaptor.forClass(Event.class);
+        verify(eventBusService).publish(published.capture());
+        assertStreamControl(published.getValue(), "corr-f", EventConstants.CONTROL_VALUE_CANCEL);
+        Assertions.assertEquals(2, delivered.size());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testSuspendableStreamThatKeepsSendingIsTreatedAsUnsuspendable() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        List<Promise<Void>> writes = new ArrayList<>();
+        List<Event<byte[]>> delivered = new ArrayList<>();
+        String replyTo = subscribeSlowReplies(handler, writes, delivered);
+        handler.send(request(replyTo, "corr-m")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        deliverStreamValue(replyTo, "corr-m", 2 * MIB, true);
+        deliverStreamValue(replyTo, "corr-m", 1024, false);
+        ArgumentCaptor<Event<byte[]>> published = ArgumentCaptor.forClass(Event.class);
+        verify(eventBusService).publish(published.capture());
+        assertStreamControl(published.getValue(), "corr-m", EventConstants.CONTROL_VALUE_SUSPEND);
+
+        // past the grace period a value still arrives: the stream is resumed and treated as unsuspendable
+        Thread.sleep(5_100);
+        deliverStreamValue(replyTo, "corr-m", 33 * MIB, false);
+        verify(eventBusService, times(2)).publish(published.capture());
+        assertStreamControl(published.getValue(), "corr-m", EventConstants.CONTROL_VALUE_RESUME);
+
+        // so the cap applies to it
+        deliverStreamValue(replyTo, "corr-m", 1024, false);
+        verify(eventBusService, times(3)).publish(published.capture());
+        assertStreamControl(published.getValue(), "corr-m", EventConstants.CONTROL_VALUE_CANCEL);
+        Assertions.assertEquals(3, delivered.size());
+    }
+
+    // Subscribes the connection's reply destination with a handler standing in for a socket that sends nothing
+    // until the test completes the writes it records; returns the reply destination's CRI
+    private String subscribeSlowReplies(EndpointConnectionHandler handler,
+                                        List<Promise<Void>> writes,
+                                        List<Event<byte[]>> delivered) throws Exception {
+        String replyTo = EventConstants.REPLY_DESTINATION_SCHEME + "://" + replyToId(handler) + ":replies@kinotic.js.EventBus/replyHandler";
+        handler.subscribe(CRI.create(replyTo), "sub-1", new StompSubscriptionHandler() {
+            @Override
+            public void handleEvent(Event<byte[]> event) {
+                delivered.add(event);
+                Promise<Void> write = Promise.promise();
+                writes.add(write);
+                replyFlowControl.written(write.future(), event.data().length, event.metadata().get(EventConstants.CORRELATION_ID_HEADER));
+            }
+
+            @Override
+            public void handleError(Throwable throwable) {}
+        });
+        return replyTo;
+    }
+
+    // the value names another organization's service as its origin, which the gateway must never send control events to
+    private void deliverStreamValue(String replyTo, String correlationId, int size, boolean declaresSuspendable) {
+        Metadata metadata = Metadata.create(Map.of(EventConstants.CORRELATION_ID_HEADER, correlationId,
+                                                   EventConstants.ORIGIN_CRI_HEADER, "srv://app.other-org.victim-app~VictimService/watch#1.0.0"));
+        if (declaresSuspendable) {
+            metadata.put(EventConstants.SUSPENDABLE_HEADER, "true");
+        }
+        replyDelivery.get().handle(Event.create(CRI.create(replyTo), metadata, new byte[size]));
+    }
+
+    private static void assertStreamControl(Event<byte[]> event, String correlationId, String control) {
+        Assertions.assertEquals(SERVICE_DESTINATION, event.cri().raw());
+        Assertions.assertEquals(correlationId, event.metadata().get(EventConstants.CORRELATION_ID_HEADER));
+        Assertions.assertEquals(control, event.metadata().get(EventConstants.CONTROL_HEADER));
+    }
+
     // Subscribes the connection to a service address it publishes and delivers one invocation to it; returns
     // everything the subscription delivers to the connection, the invocation first
     private List<Event<byte[]>> deliverInvocation(EndpointConnectionHandler handler, String replyTo, String correlationId) {
@@ -473,7 +649,8 @@ public class EndpointConnectionHandlerTests {
         when(routingContext.session()).thenReturn(session);
         when(routingContext.request()).thenReturn(request);
 
-        EndpointConnectionHandler handler = new EndpointConnectionHandler(services);
+        replyFlowControl = new ReplyFlowControl(services);
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, replyFlowControl);
         handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
         handler.connect(connectHeaders).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
         return handler;
