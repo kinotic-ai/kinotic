@@ -1,0 +1,1 @@
+{"id":"f45be867f42528c84cddf1052b7b6f43.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.core.internal.api.StreamFlowControlTests.testCancelDropsAStreamWhoseEndingIsHeld","name":"testCancelDropsAStreamWhoseEndingIsHeld()","status":"passed","testResultsByEnv":{"default":"d79e54894b095d1c39faa786d06ad643"}}
