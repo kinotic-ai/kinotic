@@ -1,0 +1,37 @@
+#!/bin/sh
+# Installs the Kinotic CLI and starts Kinotic on this machine:
+#
+#   curl -fsSL https://kinotic.ai/install | sh
+#
+# Kinotic runs in Docker, which must be installed and running. Bun is installed when missing; the CLI runs on
+# Node.js, which must be installed. `kinotic local up` then starts the servers, the portal and the node your
+# projects deploy to, and `kinotic local down` stops them.
+set -eu
+
+fail() {
+    printf 'Error: %s\n' "$1" >&2
+    exit 1
+}
+
+command -v docker >/dev/null 2>&1 || fail "Docker is required. Install Docker Desktop (https://docs.docker.com/get-docker/), start it, and run this again."
+docker info >/dev/null 2>&1 || fail "Docker is not running. Start Docker Desktop or the Docker daemon, and run this again."
+command -v node >/dev/null 2>&1 || fail "Node.js 18 or later is required to run the Kinotic CLI. Install it from https://nodejs.org and run this again."
+
+if ! command -v bun >/dev/null 2>&1; then
+    printf 'Installing Bun\n'
+    curl -fsSL https://bun.sh/install | bash
+fi
+BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+ORIGINAL_PATH="$PATH"
+PATH="$BUN_INSTALL/bin:$PATH"
+export PATH
+
+printf 'Installing the Kinotic CLI\n'
+bun install --global @kinotic-ai/kinotic-cli@beta
+
+kinotic local up
+
+case ":$ORIGINAL_PATH:" in
+    *":$BUN_INSTALL/bin:"*) ;;
+    *) printf '\nOpen a new terminal, or add %s/bin to your PATH, to run kinotic there.\n' "$BUN_INSTALL" ;;
+esac

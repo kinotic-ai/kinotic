@@ -123,7 +123,10 @@
     },
     "packages/vm-manager": {
       "name": "@kinotic-ai/vm-manager",
-      "version": "5.0.0-beta.34",
+      "version": "5.0.0-beta.35",
+      "bin": {
+        "kinotic-vm-manager": "./bin/kinotic-vm-manager.js",
+      },
       "dependencies": {
         "@boxlite-ai/boxlite": "^0.10.0",
         "dockerode": "^5.0.1",
