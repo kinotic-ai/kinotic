@@ -29,7 +29,9 @@ public interface LokiClient {
      * same start reads the entries before it, with none read twice. The WebSocket is closed when the
      * returned {@link Flux} is cancelled or completed, and the Flux fails on a frame larger than 10 MB.
      * Frames are read from the WebSocket only as the subscriber requests them, so a subscriber that stops
-     * requesting holds Loki back rather than buffering its frames.
+     * requesting holds Loki back rather than buffering its frames. Loki drops the entries it cannot send
+     * meanwhile and reports them in the {@code dropped_entries} of the next frame; they remain readable
+     * through {@link #queryRange}.
      *
      * @param tenant the Loki tenant ({@code X-Scope-OrgID})
      * @param query  the LogQL query to follow
