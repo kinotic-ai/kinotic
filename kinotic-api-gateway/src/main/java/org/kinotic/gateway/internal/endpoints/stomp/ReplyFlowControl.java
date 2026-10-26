@@ -1,6 +1,7 @@
 package org.kinotic.gateway.internal.endpoints.stomp;
 
 import io.vertx.core.Future;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
@@ -19,6 +20,7 @@ import java.util.Map;
  * suspended is to be cancelled when one of its values arrives with the backlog over its cap.
  */
 @Slf4j
+@RequiredArgsConstructor
 public class ReplyFlowControl {
 
     private static final long HIGH_WATER_MARK_BYTES = 1024 * 1024;
@@ -33,10 +35,6 @@ public class ReplyFlowControl {
     private long unsentBytes;
     // by correlation id
     private final Map<String, SuspendedStream> suspendedStreams = new HashMap<>();
-
-    public ReplyFlowControl(Services services) {
-        this.services = services;
-    }
 
     /**
      * Counts a frame written to the client until the socket has sent it.
@@ -64,8 +62,9 @@ public class ReplyFlowControl {
      */
     public boolean admit(String correlationId, IncomingInvocation invocation, Event<byte[]> value) {
         boolean ret = true;
-        if (Boolean.parseBoolean(value.metadata().get(EventConstants.SUSPENDABLE_HEADER))) {
-            invocation.setSuspendable(true);
+        if (!invocation.isValueSeen()) {
+            invocation.setValueSeen(true);
+            invocation.setSuspendable(Boolean.parseBoolean(value.metadata().get(EventConstants.SUSPENDABLE_HEADER)));
         }
         if (unsentBytes >= HIGH_WATER_MARK_BYTES) {
             String originCri = value.metadata().get(EventConstants.ORIGIN_CRI_HEADER);
@@ -110,6 +109,8 @@ public class ReplyFlowControl {
                              + "it is treated as one that cannot be suspended",
                      correlationId, originCri.raw(), now - suspended.suspendedAt());
             invocation.setSuspendable(false);
+            // the warning above names the stream, so admit adds no second one for it
+            invocation.setUnsuspendableWarned(true);
             suspendedStreams.remove(correlationId);
             // a producer whose late values were only delayed would otherwise stay suspended with nothing to resume it
             sendControl(originCri, correlationId, EventConstants.CONTROL_VALUE_RESUME);

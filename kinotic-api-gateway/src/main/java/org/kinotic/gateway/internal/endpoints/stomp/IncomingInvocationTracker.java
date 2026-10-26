@@ -11,7 +11,9 @@ import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.endpoints.Services;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -36,6 +38,9 @@ public class IncomingInvocationTracker {
     private final Map<String, EventConsumer> replySubscriptions = new HashMap<>();
     // by correlation id; touched only on the connection's event loop
     private final Map<String, IncomingInvocation> awaitingReply = new HashMap<>();
+    // streams cancelled because the client fell too far behind, whose values in flight are dropped. A cancelled
+    // producer sends no terminal reply, so the ids stay until the connection closes; overflows on one connection are few.
+    private final Set<String> overflowedStreams = new HashSet<>();
 
     public IncomingInvocationTracker(Services services, ReplyFlowControl replyFlowControl) {
         this.services = services;
@@ -50,7 +55,9 @@ public class IncomingInvocationTracker {
         EventConsumer eventConsumer = services.eventBusService.listen(cri);
         eventConsumer.handler(event -> {
                          String correlationId = event.metadata().get(EventConstants.CORRELATION_ID_HEADER);
-                         if (EventUtil.isTerminalReply(event.metadata())) {
+                         if (correlationId != null && overflowedStreams.contains(correlationId)) {
+                             log.trace("Dropping a value of stream {}, cancelled after its client fell behind", correlationId);
+                         } else if (EventUtil.isTerminalReply(event.metadata())) {
                              requestFinished(correlationId);
                              subscriptionHandler.handleEvent(event);
                          } else if (admit(correlationId, event)) {
@@ -117,6 +124,7 @@ public class IncomingInvocationTracker {
     public void dispose() {
         awaitingReply.keySet().forEach(correlationId -> services.requestLivenessWatcher.unwatch(watchKeyPrefix + correlationId));
         awaitingReply.clear();
+        overflowedStreams.clear();
         replySubscriptions.values().forEach(EventConsumer::unregister);
         replySubscriptions.clear();
     }
@@ -152,6 +160,7 @@ public class IncomingInvocationTracker {
         IncomingInvocation invocation = awaitingReply.get(correlationId);
         long behind = replyFlowControl.unsentBytes();
         requestFinished(correlationId);
+        overflowedStreams.add(correlationId);
         String originCri = value.metadata().get(EventConstants.ORIGIN_CRI_HEADER);
         log.warn("Cancelled stream {} from {}: it cannot be suspended and its client is {} bytes behind",
                  correlationId, originCri, behind);

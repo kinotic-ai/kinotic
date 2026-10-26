@@ -20,6 +20,12 @@ public class IncomingInvocation {
     private final Metadata replyMetadata;
 
     /**
+     * Whether a value of the stream answering the request has arrived; only the first one may declare the
+     * stream suspendable.
+     */
+    private boolean valueSeen;
+
+    /**
      * Whether the stream answering the request may be suspended: its first value declared it, and it has not
      * kept sending after a suspend.
      */

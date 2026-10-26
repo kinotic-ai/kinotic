@@ -501,6 +501,30 @@ public class EndpointConnectionHandlerTests {
         Assertions.assertEquals("corr-u", sent.getValue().metadata().get(EventConstants.CORRELATION_ID_HEADER));
         Assertions.assertTrue(new String(sent.getValue().data(), StandardCharsets.UTF_8).contains("RpcStreamOverflowException"));
         verify(requestLivenessWatcher).unwatch(endsWith(":corr-u"));
+
+        // values the stream had in flight when it was cancelled never reach the client
+        deliverStreamValue(replyTo, "corr-u", 10 * MIB, false);
+        Assertions.assertEquals(2, delivered.size(), "a value of the cancelled stream reached the client");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testOnlyTheFirstValueDeclaresAStreamSuspendable() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        List<Promise<Void>> writes = new ArrayList<>();
+        List<Event<byte[]>> delivered = new ArrayList<>();
+        String replyTo = subscribeSlowReplies(handler, writes, delivered);
+        handler.send(request(replyTo, "corr-f")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // the first value declares nothing, so a later declaration cannot make the stream suspendable
+        deliverStreamValue(replyTo, "corr-f", 2 * MIB, false);
+        deliverStreamValue(replyTo, "corr-f", 31 * MIB, true);
+        deliverStreamValue(replyTo, "corr-f", 1024, true);
+
+        ArgumentCaptor<Event<byte[]>> published = ArgumentCaptor.forClass(Event.class);
+        verify(eventBusService).publish(published.capture());
+        assertStreamControl(published.getValue(), "corr-f", EventConstants.CONTROL_VALUE_CANCEL);
+        Assertions.assertEquals(2, delivered.size());
     }
 
     @Test
