@@ -60,6 +60,11 @@ docker compose -f compose.kinotic-migration.yml run --rm kinotic-migration
 
 # (6) Wipe all state and restart clean (down -v drops the ES named volume)
 docker compose down -v && docker compose up -d
+
+# (7) Remove a stack another compose project started, such as `docker-compose`, the project named after
+#     this directory: every service has a fixed container_name, so its containers block `up` until they
+#     are gone (add -v to drop its volumes too)
+docker compose -p docker-compose down
 ```
 
 ## Service URLs (when the full stack is up)

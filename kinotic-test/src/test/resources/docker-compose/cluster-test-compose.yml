@@ -60,8 +60,6 @@ services:
       <<: *kinotic-env
       KINOTIC_IGNITE_DISCOVERYPORT: 47501
       KINOTIC_IGNITE_COMMUNICATIONPORT: 47101
-      KINOTIC_MANAGEMENTAPI_APIBASEURL: "http://localhost:9091"
-      KINOTIC_DOMAIN_PORTALBASEURL: "http://localhost:9091"
       OTEL_SERVICE_NAME: kinotic-server-management
       THC_PORT: 58503
     ports:

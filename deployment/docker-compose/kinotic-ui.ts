@@ -1,9 +1,11 @@
 /**
- * Serves the compose stack's UIs, built into this image from kinotic-frontend, the way the sites storage
- * account and its Worker serve them in production: the portal on 9090 and the system console on 9091. A
- * path naming no file answers with the UI's index.html, so the UI's router resolves every route.
+ * Serves the compose stack's UIs, built into this image from kinotic-frontend, by the rules the Cloudflare
+ * sites Worker serves them by in production: the portal on 9090 and the system console on 9091. A path that
+ * names a file is that file, or 404 when the build holds none; any other path is a route of the UI and is
+ * served its index.html. Hashed assets are cached for good and everything else is revalidated.
  */
 import { resolve, sep } from 'node:path'
+import { cacheControl, resolveFile } from '../cloudflare/sites-worker/worker.js'
 
 const UIS = [
     { name: 'portal', root: resolve(import.meta.dir, 'portal'), port: 9090 },
@@ -11,15 +13,21 @@ const UIS = [
 ]
 
 for (const ui of UIS) {
-    const index = Bun.file(`${ui.root}/index.html`)
     Bun.serve({
         port: ui.port,
         hostname: '0.0.0.0',
         async fetch(request) {
-            const path = resolve(ui.root, '.' + new URL(request.url).pathname)
-            // A path resolving outside the UI's directory is answered with index.html like any other unknown path
-            const file = path.startsWith(ui.root + sep) ? Bun.file(path) : index
-            return new Response(await file.exists() ? file : index)
+            const file = resolveFile(new URL(request.url).pathname)
+            const path = resolve(ui.root, '.' + file)
+            // a path resolving outside the UI's directory is answered as a file the build does not hold
+            const found = path.startsWith(ui.root + sep) ? Bun.file(path) : null
+            let ret
+            if (found !== null && await found.exists()) {
+                ret = new Response(found, { headers: { 'cache-control': cacheControl(file) } })
+            } else {
+                ret = new Response('Not found', { status: 404 })
+            }
+            return ret
         },
     })
     console.log(`Serving the ${ui.name} from ${ui.root} on port ${ui.port}`)

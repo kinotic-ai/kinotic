@@ -1,4 +1,5 @@
-# The build context is the repository root, and the image is built from kinotic-frontend's sources and its server
+# The build context is the repository root, and the image is built from kinotic-frontend's sources, its server and
+# the Worker whose rules the server serves by
 *
 !kinotic-frontend/package.json
 !kinotic-frontend/pnpm-lock.yaml
@@ -8,3 +9,4 @@
 **/node_modules
 **/dist
 !deployment/docker-compose/kinotic-ui.ts
+!deployment/cloudflare/sites-worker/worker.js
