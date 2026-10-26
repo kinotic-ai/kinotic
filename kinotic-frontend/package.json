@@ -3,6 +3,7 @@
   "version": "4.0.1",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@12.10.0",
   "scripts": {
     "dev": "pnpm --filter kinotic-portal dev",
     "dev:tunnel": "pnpm --filter kinotic-portal dev:tunnel",

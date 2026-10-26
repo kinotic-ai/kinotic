@@ -59,7 +59,10 @@ last day is refused.
 2. Refresh each lockfile in the table only after its packages are on the registry: CI and
    the workload runner's image install with frozen lockfiles, so a pin the lockfile does
    not resolve fails the build. Merge the change after the lockfiles are refreshed, since
-   a push to `develop` that touches `workload-runner/` rebuilds its image.
+   a push to `develop` that touches `workload-runner/` rebuilds its image. Each pnpm
+   consumer pins pnpm with `packageManager` in its `package.json`; `pnpm` run by hand
+   switches to that version and the Gradle builds read it, so refresh with plain
+   `pnpm install` in the consumer's directory and CI's frozen install reads what it wrote.
 3. Check, from `kinotic-js/`, that each lockfile holds one version of every `@kinotic-ai` package:
 
    ```bash

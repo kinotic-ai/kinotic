@@ -75,6 +75,7 @@
     "engines": {
         "node": ">=18.0.0"
     },
+    "packageManager": "pnpm@12.10.0",
     "keywords": [],
     "types": "dist/index.d.ts"
 }
