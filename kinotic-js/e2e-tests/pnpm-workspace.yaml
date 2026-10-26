@@ -6,6 +6,8 @@ allowBuilds:
 # Transitive advisories with no direct dependency to bump. Keyed per major so each
 # consumer keeps the API it was built against.
 overrides:
+  # The CLI pins the published management-api; every copy in this graph is the packed one (see ../unpublished)
+  '@kinotic-ai/management-api': file:../unpublished/kinotic-ai-management-api-5.0.0-beta.70.tgz
   brace-expansion@1: '^1.1.16'
   brace-expansion@2: '^2.1.2'
   brace-expansion@5: '^5.0.7'

@@ -9,7 +9,10 @@ WORKDIR /kinotic-frontend
 # corepack runs the pnpm release package.json pins as its packageManager, downloading it without asking
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
-# The dependencies are fetched from the lockfile alone, so a change to the sources reuses this layer
+# The dependencies are fetched from the lockfile alone, so a change to the sources reuses this layer. The
+# lockfile resolves the first-party packages not on the registry yet from kinotic-js/unpublished, at the
+# path it holds relative to kinotic-frontend
+COPY kinotic-js/unpublished/ /kinotic-js/unpublished/
 COPY kinotic-frontend/package.json kinotic-frontend/pnpm-lock.yaml kinotic-frontend/pnpm-workspace.yaml ./
 RUN pnpm fetch
 COPY kinotic-frontend/ ./
