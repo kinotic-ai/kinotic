@@ -280,22 +280,15 @@ public class ServiceInvocationSupervisor {
     }
 
     private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result) {
-        convertAndSend(incomingMetadata, handlerMethod, result, null, true);
+        convertAndSend(incomingMetadata, handlerMethod, result, Map.of(), true);
     }
 
-    private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result, String originCri) {
-        convertAndSend(incomingMetadata, handlerMethod, result, originCri, false);
-    }
-
-    private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result, String originCri, boolean terminal) {
+    private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result, Map<String, String> replyHeaders, boolean terminal) {
         try {
             Event<byte[]> resultEvent = returnValueConverter.convert(incomingMetadata,
                                                                      handlerMethod.getReturnType(),
                                                                      result);
-            // Set the origin CRI on the reply so a streaming client can route a cancel back to this service.
-            if (originCri != null) {
-                resultEvent.metadata().put(EventConstants.ORIGIN_CRI_HEADER, originCri);
-            }
+            replyHeaders.forEach(resultEvent.metadata()::put);
             // A single-value reply is the end of its request, so it carries the completion marker itself.
             // This lets any hop holding per-request state (client, gateway) release it on this one event
             // without knowing the invoked method's shape. Stream values stay unmarked; their completion
@@ -667,6 +660,10 @@ public class ServiceInvocationSupervisor {
         private final Metadata incomingMetadata;
         private final Flux<ListenerStatus> replyListenerStatus;
         private final String originCri;
+        // the origin CRI lets a streaming client route control events back to this service; the first value
+        // also tells the gateway this stream honors suspend
+        private final Map<String, String> valueHeaders;
+        private final Map<String, String> firstValueHeaders;
         private final Span span;
         // stop() and the reply listener monitor can fail the stream from different threads at once
         private final AtomicBoolean failed = new AtomicBoolean(false);
@@ -677,6 +674,8 @@ public class ServiceInvocationSupervisor {
         private final ArrayDeque<Object> heldValues = new ArrayDeque<>();
         // touched only by hookOnNext, which the source serializes
         private int sentSinceRefill;
+        // sends are serialized: hookOnNext sends directly only while not suspended, and resume clears the flag after its flush
+        private boolean suspendableDeclared;
 
         public StreamSubscriber(Metadata incomingMetadata,
                                 HandlerMethod handlerMethod,
@@ -687,6 +686,9 @@ public class ServiceInvocationSupervisor {
             this.handlerMethod = handlerMethod;
             this.replyListenerStatus = replyListenerStatus;
             this.originCri = originCri;
+            this.valueHeaders = Map.of(EventConstants.ORIGIN_CRI_HEADER, originCri);
+            this.firstValueHeaders = Map.of(EventConstants.ORIGIN_CRI_HEADER, originCri,
+                                            EventConstants.SUSPENDABLE_HEADER, Boolean.TRUE.toString());
             this.span = span;
         }
 
@@ -768,11 +770,11 @@ public class ServiceInvocationSupervisor {
                         heldValues.add(value);
                         sent = false;
                     }else{
-                        convertAndSend(incomingMetadata, handlerMethod, value, originCri);
+                        send(value);
                     }
                 }
             }else{
-                convertAndSend(incomingMetadata, handlerMethod, value, originCri);
+                send(value);
             }
             // demand is replenished only for sent values, so a suspended stream stops its source once the window is held
             if(sent && ++sentSinceRefill == STREAM_DEMAND_WINDOW / 2){
@@ -790,6 +792,12 @@ public class ServiceInvocationSupervisor {
             request(STREAM_DEMAND_WINDOW);
         }
 
+        private void send(Object value){
+            Map<String, String> headers = suspendableDeclared ? valueHeaders : firstValueHeaders;
+            suspendableDeclared = true;
+            convertAndSend(incomingMetadata, handlerMethod, value, headers, false);
+        }
+
         private void resume(){
             int sent;
             synchronized (this){
@@ -805,7 +813,7 @@ public class ServiceInvocationSupervisor {
         private synchronized int sendHeldValues(){
             int sent = heldValues.size();
             while(!heldValues.isEmpty()){
-                convertAndSend(incomingMetadata, handlerMethod, heldValues.poll(), originCri);
+                send(heldValues.poll());
             }
             return sent;
         }

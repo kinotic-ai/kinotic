@@ -523,6 +523,49 @@ public class RpcTests {
         }
     }
 
+    /**
+     * Pins the suspendable declaration: the first value of a stream tells the gateway its producer honors
+     * {@link EventConstants#CONTROL_VALUE_SUSPEND}, and later values do not repeat it.
+     */
+    @Test
+    public void testFirstStreamValueDeclaresItSuspendable() throws Exception {
+        CRI replyCri = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME,
+                                  UUID.randomUUID().toString(),
+                                  "org.kinotic.tests.SuspendableProbe");
+        List<Event<byte[]>> values = Collections.synchronizedList(new ArrayList<>());
+        CompletableFuture<Void> completed = new CompletableFuture<>();
+        EventConsumer replyConsumer = eventBusService.listen(replyCri);
+        replyConsumer.handler(reply -> {
+            if(EventConstants.CONTROL_VALUE_COMPLETE.equals(reply.metadata().get(EventConstants.CONTROL_HEADER))){
+                completed.complete(null);
+            }else{
+                values.add(reply);
+            }
+        });
+        replyConsumer.completion().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+        try {
+            Metadata metadata = Metadata.create();
+            metadata.put(EventConstants.REPLY_TO_HEADER, replyCri.raw());
+            metadata.put(EventConstants.CORRELATION_ID_HEADER, UUID.randomUUID().toString());
+            metadata.put(EventConstants.CONTENT_TYPE_HEADER, "application/json");
+            CRI streamCri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
+                                       null,
+                                       "org.kinotic.core.internal.api.support.RpcTestService",
+                                       "/getLimitedFlux",
+                                       null);
+            eventBusService.send(Event.create(streamCri, metadata, new byte[0]));
+            completed.get(10, TimeUnit.SECONDS);
+
+            Assertions.assertEquals(5, values.size());
+            Assertions.assertEquals("true", values.getFirst().metadata().get(EventConstants.SUSPENDABLE_HEADER));
+            for(Event<byte[]> value : values.subList(1, values.size())){
+                Assertions.assertFalse(value.metadata().contains(EventConstants.SUSPENDABLE_HEADER));
+            }
+        } finally {
+            replyConsumer.unregister();
+        }
+    }
+
     private static Event<byte[]> streamControlEvent(CRI streamCri, String correlationId, String control){
         Metadata metadata = Metadata.create();
         metadata.put(EventConstants.CONTROL_HEADER, control);
