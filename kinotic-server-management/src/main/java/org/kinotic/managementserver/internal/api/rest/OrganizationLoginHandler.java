@@ -315,8 +315,8 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
         if (sub != null) {
             identityService.findOrganizationUsersByOidcIdentity(result.config().getId(), sub)
                            .map(OrganizationLoginHandler::enabledUsers)
-                           .onSuccess(users -> signInOrOffer(ctx, result.origin(), users))
-                           .onFailure(err -> authEndpointSupport.completeLogin(ctx, result.origin(), Future.failedFuture(err)));
+                           .onSuccess(users -> signInOrOffer(ctx, result, users))
+                           .onFailure(err -> authEndpointSupport.completeLogin(ctx, result.origin(), result.config().getProvider(), Future.failedFuture(err)));
         }
     }
 
@@ -333,7 +333,8 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
     // an identity bound to users of several organizations has proven who it is, so the landing page may offer those
     // organizations for the person to choose from, where a stranger learns nothing; the page that started the
     // sign-in reads them from handleChoices, so the redirect itself carries no ids
-    private void signInOrOffer(RoutingContext ctx, String origin, List<OrganizationParticipantIdentity> users) {
+    private void signInOrOffer(RoutingContext ctx, CallbackResult<OidcConfiguration> result, List<OrganizationParticipantIdentity> users) {
+        String origin = result.origin();
         if (users.size() > 1) {
             // read without being removed, since a concurrent request on the session would make the removal
             // unreliable: the offer expires by its timestamp and ends when the page starts an organization's login
@@ -343,7 +344,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
             ctx.session().put(choicesKey(origin), offer);
             authEndpointSupport.redirectToContinue(ctx, origin, OidcErrorCodes.MULTIPLE_ORGANIZATIONS);
         } else {
-            authEndpointSupport.completeLogin(ctx, origin, users.isEmpty() ? Future.succeededFuture() : signIn(users.getFirst()));
+            authEndpointSupport.completeLogin(ctx, origin, result.config().getProvider(), users.isEmpty() ? Future.succeededFuture() : signIn(users.getFirst()));
         }
     }
 
@@ -377,7 +378,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
                         }
                         return ret;
                     });
-            authEndpointSupport.completeLogin(ctx, result.origin(), participant);
+            authEndpointSupport.completeLogin(ctx, result.origin(), result.config().getProvider(), participant);
         }
     }
 

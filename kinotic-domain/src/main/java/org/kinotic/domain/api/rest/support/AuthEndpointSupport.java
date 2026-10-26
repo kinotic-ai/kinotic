@@ -522,17 +522,18 @@ public abstract class AuthEndpointSupport {
     /**
      * Finishes a sign-in from the participant a verified identity resolves to: the participant is signed
      * in, bound to the page at {@code origin}, and the browser sent back to it; no participant sends the
-     * browser to that page's error page with {@link OidcErrorCodes#NO_USER}, and a failed resolution
-     * with the {@link OidcCallbackException}'s code, or {@link OidcErrorCodes#LOOKUP_FAILED} for any
-     * other failure.
+     * browser to that page's error page with {@link OidcErrorCodes#NO_USER} naming {@code provider}, and a
+     * failed resolution with the {@link OidcCallbackException}'s code, or {@link OidcErrorCodes#LOOKUP_FAILED}
+     * for any other failure.
      *
      * @param origin      the page the sign-in belongs to, or {@code null} for this server's UI
+     * @param provider    the provider that verified the identity, or {@code null} when it is not known
      * @param participant the participant the identity signs in as, or {@code null} when there is none
      */
-    public void completeLogin(RoutingContext ctx, String origin, Future<Participant> participant) {
+    public void completeLogin(RoutingContext ctx, String origin, OidcProviderType provider, Future<Participant> participant) {
         participant.onSuccess(found -> {
                   if (found == null) {
-                      redirectError(ctx, origin, OidcErrorCodes.NO_USER);
+                      redirectError(ctx, origin, OidcErrorCodes.NO_USER, provider);
                   } else {
                       redirectSuccess(ctx, origin, found);
                   }

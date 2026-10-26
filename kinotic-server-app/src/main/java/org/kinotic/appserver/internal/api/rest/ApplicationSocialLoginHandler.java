@@ -171,7 +171,7 @@ public class ApplicationSocialLoginHandler implements SuppliesGatewayRoutes {
                     .compose(scope -> authEndpointSupport.findOrCreateUser(scope, configuration, result.claims()))
                     .map(user -> {
                         if (user == null) {
-                            authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.NO_USER);
+                            authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.NO_USER, result.config().getProvider());
                         } else {
                             String code = handoffService.stage(new SocialLoginHandoff()
                                                                        .setOrganizationId(applicationKey.organizationId())
@@ -207,7 +207,7 @@ public class ApplicationSocialLoginHandler implements SuppliesGatewayRoutes {
                 || binding == null || !binding.equals(handoff.getBinding())) {
             authEndpointSupport.redirectError(ctx, null, OidcErrorCodes.HANDOFF_INVALID);
         } else {
-            authEndpointSupport.completeLogin(ctx, handoff.getOrigin(),
+            authEndpointSupport.completeLogin(ctx, handoff.getOrigin(), null,
                     // the callback staged a user of the sign-in's scope, so only its application is checked here, against the host
                     identityService.findById(handoff.getIdentityId())
                                    .map(identity -> identity instanceof ApplicationParticipantIdentity user

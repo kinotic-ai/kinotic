@@ -17,6 +17,7 @@ import io.vertx.ext.web.client.WebClientOptions;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.management.api.model.github.GitHubToken;
 import org.springframework.stereotype.Component;
 
@@ -188,6 +189,14 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                                 json.getLong("id"),
                                 json.getString("full_name"),
                                 json.getString("default_branch")));
+                    }
+                    if (resp.statusCode() == 422) {
+                        String respBody = resp.bodyAsString();
+                        if (respBody != null && respBody.contains("Name already exists on this account")) {
+                            return Future.failedFuture(new AlreadyExistsException(
+                                    "A repository named '" + name + "' already exists in the GitHub account '" + owner
+                                    + "'. Choose another name, or rename or delete that repository on GitHub."));
+                        }
                     }
                     return Future.failedFuture(httpError("createRepoFromTemplate", resp));
                 });

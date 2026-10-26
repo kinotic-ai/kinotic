@@ -2,6 +2,7 @@ package org.kinotic.management.internal.api.services.github.client;
 
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.management.api.model.github.GitHubToken;
 
 import java.util.List;
@@ -63,7 +64,8 @@ public interface GitHubApiClient {
     /**
      * Creates a new repository under {@code owner} from {@code templateFullName}.
      * The App must have {@code Administration: Write} permission on the target
-     * owner. Fails if a repo with the given name already exists under the owner.
+     * owner. Fails with an {@link AlreadyExistsException} if a repo with the given
+     * name already exists under the owner.
      *
      * @param installationToken token with {@link #CREATE_REPOSITORY} scope on an
      *                          installation that has access to the template and the
