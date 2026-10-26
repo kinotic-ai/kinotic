@@ -85,9 +85,10 @@ public class DefaultKinoticConnection implements KinoticConnection {
     private int connections = 0;
     private int failedAttempts = 0;
     private long reconnectTimer = -1;
-    private boolean closing = false;
-    private Future<Void> closed;
     private Promise<KinoticConnection> initialConnect;
+    // written on the context, read by serviceProxy() and close() from any thread
+    private volatile boolean closing = false;
+    private volatile Future<Void> closed;
 
     /**
      * Connects to the gateway the options name.
@@ -100,7 +101,13 @@ public class DefaultKinoticConnection implements KinoticConnection {
         Validate.notNull(options.getAuthHeaders(), "authHeaders must not be null");
         Validate.notNull(options.getReconnect(), "reconnect must not be null");
         URI serverUri = URI.create(options.getServerUrl());
-        Validate.isTrue(WEBSOCKET_SCHEMES.contains(serverUri.getScheme()), "serverUrl must be a ws:// or wss:// URL but was '%s'", options.getServerUrl());
+        Validate.isTrue(serverUri.getScheme() != null && WEBSOCKET_SCHEMES.contains(serverUri.getScheme()),
+                        "serverUrl must be a ws:// or wss:// URL but was '%s'", options.getServerUrl());
+        ReconnectOptions reconnect = options.getReconnect();
+        Validate.notNull(reconnect.getInitialDelay(), "reconnect.initialDelay must not be null");
+        Validate.notNull(reconnect.getMaxDelay(), "reconnect.maxDelay must not be null");
+        Validate.notNull(reconnect.getMaxJitter(), "reconnect.maxJitter must not be null");
+        Validate.notNull(reconnect.getConnectionTimeout(), "reconnect.connectionTimeout must not be null");
         return new DefaultKinoticConnection(options).start();
     }
 
@@ -139,6 +146,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
     @Override
     public <T> RpcServiceProxyHandle<T> serviceProxy(Class<T> serviceInterface) {
         Validate.notNull(serviceInterface, "serviceInterface must not be null");
+        requireOpen();
         return track(proxyFactory.serviceProxy(serviceInterface));
     }
 
@@ -146,6 +154,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
     public <T> RpcServiceProxyHandle<T> serviceProxy(ServiceIdentifier serviceIdentifier, Class<T> serviceInterface) {
         Validate.notNull(serviceIdentifier, "serviceIdentifier must not be null");
         Validate.notNull(serviceInterface, "serviceInterface must not be null");
+        requireOpen();
         return track(proxyFactory.serviceProxy(serviceIdentifier, serviceInterface));
     }
 
@@ -167,14 +176,22 @@ public class DefaultKinoticConnection implements KinoticConnection {
 
     @Override
     public Future<Void> close() {
-        Promise<Void> promise = Promise.promise();
-        context.runOnContext(v -> closeOnContext().onComplete(promise));
-        return promise.future();
+        Future<Void> ret = closed;
+        // the Vert.x instance closes with the connection, so a close that already ran is answered off its context
+        if (ret == null) {
+            Promise<Void> promise = Promise.promise();
+            context.runOnContext(v -> closeOnContext().onComplete(promise));
+            ret = promise.future();
+        }
+        return ret;
+    }
+
+    private void requireOpen() {
+        Validate.validState(!closing, "The connection to %s is closed", options.getServerUrl());
     }
 
     // Held until released, so close() ends every proxy the connection minted
     private <T> RpcServiceProxyHandle<T> track(RpcServiceProxyHandle<T> handle) {
-        Validate.validState(closed == null, "The connection to %s is closed", options.getServerUrl());
         RpcServiceProxyHandle<T> ret = new RpcServiceProxyHandle<>() {
             @Override
             public T getService() {
@@ -188,6 +205,11 @@ public class DefaultKinoticConnection implements KinoticConnection {
             }
         };
         handles.add(ret);
+        // a close() that ran between requireOpen() and this add has released the handles it found
+        if (closing) {
+            ret.release();
+        }
+        requireOpen();
         return ret;
     }
 
@@ -310,9 +332,11 @@ public class DefaultKinoticConnection implements KinoticConnection {
         return ret;
     }
 
-    // Rejected credentials and a refused CONNECT frame do not change on a retry
+    // Rejected credentials and a refused CONNECT frame end the initial connect, since neither changes on a retry.
+    // After an established connection the same answers can be a gateway recovering, whose security service maps a
+    // failure of its own to a 401, so a reconnect keeps retrying within the attempt budget
     private boolean isFatal(Throwable failure) {
-        return failure instanceof AuthenticationException || failure instanceof StompErrorException;
+        return connections == 0 && (failure instanceof AuthenticationException || failure instanceof StompErrorException);
     }
 
     private void scheduleAttempt() {

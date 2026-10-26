@@ -16,6 +16,7 @@ import org.kinotic.client.gateway.DefaultClientTestService;
 import org.kinotic.client.gateway.RestrictedService;
 import org.kinotic.client.gateway.TestDto;
 import org.kinotic.client.gateway.TestGatewayApplication;
+import org.kinotic.client.gateway.TestGatewaySecurityService;
 import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.RpcInvocationException;
@@ -152,6 +153,8 @@ public class KinoticConnectionTests {
         RpcServiceProxyHandle<ClientTestService> handle = connection.serviceProxy(ClientTestService.class);
         ClientTestService service = handle.getService();
         Assertions.assertEquals("Hello Bob", service.greet("Bob").get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+        // a second connection whose attempt budget the outage exhausts
+        KinoticConnection bounded = connect(options(TestGatewayApplication.CLIENT_SECRET).setReconnect(reconnectOptions().setMaxAttempts(2)));
 
         CompletableFuture<String> pending = service.never();
         // wait for the gateway to have taken the request before the gateway goes away
@@ -171,7 +174,22 @@ public class KinoticConnectionTests {
                                                           () -> service.greet("down").get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
         Assertions.assertInstanceOf(RpcServiceUnavailableException.class, down.getCause());
 
-        gateway = TestGatewayApplication.start(port);
+        // the bounded connection ends for good; it still closes, and mints no further proxies
+        Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS).until(() -> bounded.state() == ConnectionState.CLOSED);
+        bounded.close().toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Assertions.assertThrows(IllegalStateException.class, () -> bounded.serviceProxy(ClientTestService.class));
+
+        // the gateway comes back rejecting every connection, as one whose security service is failing does; the
+        // reconnect keeps trying until it is admitted
+        TestGatewaySecurityService.rejectEveryone = true;
+        TestGatewaySecurityService.rejections.set(0);
+        try {
+            gateway = TestGatewayApplication.start(port);
+            Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS).until(() -> TestGatewaySecurityService.rejections.get() >= 2);
+            Assertions.assertEquals(ConnectionState.RECONNECTING, connection.state());
+        } finally {
+            TestGatewaySecurityService.rejectEveryone = false;
+        }
 
         Awaitility.await().atMost(1, TimeUnit.MINUTES)
                   .ignoreExceptions()
@@ -194,9 +212,13 @@ public class KinoticConnectionTests {
     private static ConnectOptions options(String clientSecret) {
         return new ConnectOptions().setServerUrl("ws://localhost:" + port)
                                    .setAuthHeaders(Map.of("clientId", "java-client", "clientSecret", clientSecret))
-                                   .setReconnect(new ReconnectOptions().setInitialDelay(Duration.ofMillis(200))
-                                                                       .setMaxDelay(Duration.ofSeconds(1))
-                                                                       .setMaxJitter(Duration.ZERO));
+                                   .setReconnect(reconnectOptions());
+    }
+
+    private static ReconnectOptions reconnectOptions() {
+        return new ReconnectOptions().setInitialDelay(Duration.ofMillis(200))
+                                     .setMaxDelay(Duration.ofSeconds(1))
+                                     .setMaxJitter(Duration.ZERO);
     }
 
 }

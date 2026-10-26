@@ -11,9 +11,11 @@ import org.kinotic.core.api.service.ServiceIdentifier;
  * A connection to a Kinotic gateway, through which a Java program outside the gateway's cluster calls the
  * services published there with the same typed proxies a cluster member uses. The connection authenticates with
  * the headers of its {@link ConnectOptions}, keeps itself alive with STOMP heartbeats, reconnects when it is lost
- * and reports its {@link ConnectionState}. A call pending when the connection is lost fails with an
- * {@link org.kinotic.core.api.exceptions.RpcServiceUnavailableException}, since nothing the gateway held for the
- * connection survives it.
+ * and reports its {@link ConnectionState}. A reconnect retries every failure, rejected credentials included,
+ * within the attempt budget of its {@link ReconnectOptions}. A call pending when the connection is lost fails with
+ * an {@link org.kinotic.core.api.exceptions.RpcServiceUnavailableException}, since nothing the gateway held for the
+ * connection survives it. Every handler the connection invokes, and every proxy result it completes, runs on the
+ * connection's own event loop and must not block it.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
