@@ -46,6 +46,8 @@ if (!config.mimirUrl) {
 
 let heartbeatTimer: Timer | null = null
 let shuttingDown = false
+// The node's service and its link to the server, once registration has made them, for shutdown to end its workloads
+let registered: { vmManager: DefaultVmManager, nodeOrchestrator: VmNodeOrchestrationServiceProxy } | null = null
 let reconnecting = false
 
 // The reconnect delay doubles from the initial value up to the maximum. The jitter is added
@@ -249,9 +251,32 @@ async function start() {
     console.log(`  CPUs: ${registration.totalCpus}, Memory: ${registration.totalMemoryMb}MB, `
                 + `Disk: ${registration.totalDiskMb}MB`)
 
+    registered = { vmManager, nodeOrchestrator }
+
     // Start sending periodic heartbeats
     startHeartbeat(nodeOrchestrator, vmManager, provider)
     console.log(`Heartbeat started (every ${config.heartbeatIntervalMs / 1000}s)`)
+}
+
+/**
+ * Stops every workload still running, reports each one's end to the server, then destroys every workload, leaving
+ * nothing on the node for a later vm-manager process to reattach to.
+ */
+async function endWorkloads(vmManager: DefaultVmManager, nodeOrchestrator: VmNodeOrchestrationServiceProxy) {
+    const workloads = await vmManager.listWorkloads()
+    for (const workload of workloads) {
+        try {
+            if (workload.status !== WorkloadStatus.STOPPED && workload.status !== WorkloadStatus.FAILED) {
+                await vmManager.stopWorkload(workload.id!)
+                // a server already gone answers no report, so the wait is capped as the disconnect's is
+                await Promise.race([nodeOrchestrator.reportWorkloadStatus(nodeId!, [toStatusReport(await vmManager.getWorkload(workload.id!))]),
+                                    Bun.sleep(DISCONNECT_TIMEOUT_MS)])
+            }
+            await vmManager.destroyWorkload(workload.id!)
+        } catch (error) {
+            console.error(`Failed to end workload ${workload.id}:`, error)
+        }
+    }
 }
 
 // Graceful shutdown
@@ -260,6 +285,10 @@ async function shutdown() {
     shuttingDown = true
     if (heartbeatTimer) {
         clearTimeout(heartbeatTimer)
+    }
+    // Before the shipper stops, so destroying a workload first ships what its logs still hold
+    if (config.stopWorkloadsOnShutdown && registered) {
+        await endWorkloads(registered.vmManager, registered.nodeOrchestrator)
     }
     await alloyManager?.stop()
     await Promise.race([Kinotic.disconnect(), Bun.sleep(DISCONNECT_TIMEOUT_MS)])

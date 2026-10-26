@@ -178,7 +178,7 @@ _See code: [src/commands/login.ts](https://github.com/kinotic-ai/kinotic/blob/de
 
 ## `kinotic local down`
 
-Stop Kinotic on this machine, keeping its data for the next kinotic local up.
+Stop Kinotic on this machine and every app it deployed here, keeping its data for the next kinotic local up.
 
 ```
 USAGE
@@ -186,10 +186,11 @@ USAGE
 
 FLAGS
   --delete-data  Also delete everything Kinotic stored: its organizations,
-                 projects and data
+                 projects, data and deployed apps' files
 
 DESCRIPTION
-  Stop Kinotic on this machine, keeping its data for the next kinotic local up
+  Stop Kinotic on this machine and every app it deployed here, keeping its data
+  for the next kinotic local up
 
 EXAMPLES
   $ kinotic local down

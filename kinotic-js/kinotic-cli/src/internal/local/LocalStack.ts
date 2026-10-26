@@ -18,11 +18,13 @@ const NODE_COMMAND = 'kinotic-vm-manager'
 const RECOMMENDED_MEMORY_BYTES = 12 * 1024 ** 3
 const SERVER_START_TIMEOUT_MS = 15 * 60_000
 const NODE_STARTUP_CHECK_MS = 5000
-const NODE_STOP_TIMEOUT_MS = 15_000
+// Stopping the node stops and destroys each of its micro VMs first
+const NODE_STOP_TIMEOUT_MS = 120_000
 
-// The node connects to the system server as the SYSTEM-scope machine identity V2__system_identities seeds, and ships
-// its workloads' logs, traces and metrics to the stack's Loki and OTLP collector
+// The node connects to the system server as the SYSTEM-scope machine identity V2__system_identities seeds, ships its
+// workloads' logs, traces and metrics to the stack's Loki and OTLP collector, and ends every workload when it stops
 const NODE_ENVIRONMENT = {
+    KINOTIC_STOP_WORKLOADS_ON_SHUTDOWN: 'true',
     KINOTIC_NODE_ID: 'local-node',
     KINOTIC_SERVER_HOST: '127.0.0.1',
     KINOTIC_SERVER_PORT: '58504',
@@ -36,7 +38,7 @@ const NODE_ENVIRONMENT = {
 /**
  * Kinotic on this machine: the docker-compose stack of its servers, portal, system console, Git server and
  * storage, and the vm-manager node that runs each deployment's workloads as micro VMs. Its files live under
- * {@link dir}: the compose files the stack runs from, the node's process id and its log.
+ * {@link dir}: the compose files the stack runs from, the node's process id, its log, and its workloads' data and logs.
  */
 export class LocalStack {
 
@@ -46,6 +48,7 @@ export class LocalStack {
     readonly nodeLog: string
 
     private readonly composeDir: string
+    private readonly nodeDir: string
     private readonly pidFile: string
     private readonly bundleDir: string
     private readonly versions: LocalStackVersions
@@ -57,6 +60,7 @@ export class LocalStack {
     constructor(dataDir: string) {
         this.dir = path.join(dataDir, 'local')
         this.composeDir = path.join(this.dir, 'compose')
+        this.nodeDir = path.join(this.dir, 'node')
         this.pidFile = path.join(this.dir, 'node.pid')
         this.nodeLog = path.join(this.dir, 'node.log')
         // dist/internal/local/LocalStack.js reads the dist/local the build bundles
@@ -146,10 +150,14 @@ export class LocalStack {
     /**
      * Stops the stack's containers.
      *
-     * @param deleteData whether to delete everything the stack stored, its organizations, projects and data
+     * @param deleteData whether to delete everything the stack and its node stored: its organizations, projects and
+     *                   data, and its workloads' data and logs
      */
     stop(deleteData: boolean): void {
         this.compose(deleteData ? ['down', '--volumes'] : ['down'])
+        if (deleteData) {
+            fs.rmSync(this.nodeDir, {recursive: true, force: true})
+        }
     }
 
     /** Prints the state of each of the stack's containers. */
@@ -204,7 +212,10 @@ export class LocalStack {
             const env = Object.fromEntries(Object.entries(process.env)
                                                  .filter(([name]) => !name.startsWith('KINOTIC_') && name !== 'BOXLITE_HOME'))
             const child = spawn('bun', ['x', '--package', `@kinotic-ai/vm-manager@${this.versions.vmManagerVersion}`, NODE_COMMAND],
-                                {detached: true, cwd: this.dir, stdio: ['ignore', log, log], env: {...env, ...NODE_ENVIRONMENT}})
+                                {detached: true, cwd: this.dir, stdio: ['ignore', log, log],
+                                 env: {...env, ...NODE_ENVIRONMENT,
+                                       KINOTIC_WORKLOAD_DATA_DIR: path.join(this.nodeDir, 'workloads'),
+                                       KINOTIC_VM_LOGS_DIR: path.join(this.nodeDir, 'vm-logs')}})
             fs.closeSync(log)
             if (child.pid === undefined) {
                 throw new Error('The node could not start: Bun did not run. Check that `bun x` works.')
@@ -222,7 +233,7 @@ export class LocalStack {
         return ret
     }
 
-    /** Stops the node and waits for every process of it to exit. */
+    /** Stops the node, which stops and destroys every workload it runs, and waits for every process of it to exit. */
     async stopNode(): Promise<void> {
         const pid = this.nodePid()
         if (pid !== null) {
