@@ -228,12 +228,19 @@ The provider now appears as **Enabled** in Kinotic:
 
 ![Okta provider enabled](https://kinotic.ai/images/docs/okta/12-kinotic-provider-enabled.png)
 
-## 5. Test sign-in
+## 5. Give people access
+
+Okta decides who may authenticate, and Kinotic decides who belongs to your organization. An Okta sign-in gets in only when it matches a member of your organization, so assigning someone to the Okta app alone does not let them in.
+
+- **New members.** In Kinotic, open **Members** and click **Add member**, using the email address the person has in Okta. With **Send an invitation email** off, their first **Sign in with Okta** admits them: Kinotic matches the email Okta verified to the member you added and links their Okta account to it.
+- **People who already sign in.** Someone who already signs in to your organization another way, such as you after creating the organization with GitHub, is not matched by email. They sign in as they do now, open **Profile**, and under **Sign-in methods** choose Okta from **Connect another way to sign in**. From then on, either method signs them in.
+
+Each person must also be assigned to the Okta app in Okta, as set up in step 1.
+
+## 6. Test sign-in
 
 1. Open your organization's login page, `https://<portal-host>/login/<org>`. It now shows **Sign in with Okta** (using your display name).
-2. Sign in with a user who is assigned to the Okta app.
-
-To add more users, create or assign them in Okta (**Directory > People**, or through the groups assigned to the app).
+2. Sign in as one of the people from step 5.
 
 ## Troubleshooting
 
@@ -291,6 +298,46 @@ To add more users, create or assign them in Okta (**Directory > People**, or thr
       
        under <strong>
         Organization settings > Authentication providers
+      </strong>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      "That identity signs in to no Kinotic organization"
+    </td>
+    
+    <td>
+      The Okta account matches no member of your organization. Add the person under <strong>
+        Members
+      </strong>
+      
+       with the email address they have in Okta, or, if they already sign in another way, have them connect Okta from their <strong>
+        Profile
+      </strong>
+      
+       (step 5)
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      "Okta has not verified your email address"
+    </td>
+    
+    <td>
+      Okta reports the person's email address as unverified. Have them verify it in Okta, for example by completing Okta's activation or password-reset email, then sign in again
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      "You cannot sign in to this organization"
+    </td>
+    
+    <td>
+      The member is disabled. Enable them under <strong>
+        Members
       </strong>
     </td>
   </tr>

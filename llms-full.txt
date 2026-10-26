@@ -4403,7 +4403,7 @@ Kinotic supports multiple authentication methods to secure your applications. Ev
 
 ### Authentication Methods
 
-- **Email and Password** — Built-in user management with secure credential storage. Ideal for getting started quickly or for applications that manage their own user base.
+- **Email and Password** — Built-in user management with secure credential storage, offered once your organization admin adds it as one of the application's sign-in providers. Ideal for getting started quickly or for applications that manage their own user base.
 - **OIDC Providers** — Connect any standard OpenID Connect provider including Google, Microsoft, Okta, and others. Your organization admin enables OIDC configurations for your application; Google and Microsoft can be managed by Kinotic, with no setup, or use your own credentials.
 - **Sign-up** — New people can create their own account, through a provider or with an email and a password verified by email, when the application turns it on.
 
@@ -4540,9 +4540,11 @@ A UI that offers sign-in serves a `/login` page; one that offers sign-up also se
 
 ```text
 GET /api/auth/app/login/methods
-→ 200 { "passwordSignUp": true,
-        "providers": [ { "configurationId": "4f1c…", "name": "Google", "provider": "google", "signUp": true } ] }
+→ 200 [ { "configurationId": "acme:orders", "type": "PASSWORD", "name": "Email and password", "provider": null, "signUp": true },
+        { "configurationId": "4f1c…", "type": "OIDC", "name": "Google", "provider": "google", "signUp": true } ]
 ```
+
+The answer is the login's sign-in providers, in the order to show them:
 
 <table>
 <thead>
@@ -4561,28 +4563,24 @@ GET /api/auth/app/login/methods
   <tr>
     <td>
       <code>
-        passwordSignUp
+        type
       </code>
     </td>
     
-    <td>
-      New people may sign up with an email and a password: show the sign-up form
-    </td>
-  </tr>
-  
-  <tr>
     <td>
       <code>
-        providers[]
+        PASSWORD
       </code>
-    </td>
-    
-    <td>
-      The sign-in providers, in the order to show them: one "Continue with <code>
+      
+      : an email and a password, shown as the password form. <code>
+        OIDC
+      </code>
+      
+      : an identity provider, shown as one "Continue with <code>
         name
       </code>
       
-      " button each, branded by <code>
+      " button, branded by <code>
         provider
       </code>
       
@@ -4607,18 +4605,26 @@ GET /api/auth/app/login/methods
   <tr>
     <td>
       <code>
-        providers[].signUp
+        signUp
       </code>
     </td>
     
     <td>
-      The provider creates the user of a person it verifies on their first sign-in, so its button belongs on the sign-up page too
+      New people may sign up: for <code>
+        PASSWORD
+      </code>
+      
+      , with an email and a password, so the sign-up page shows its form; for <code>
+        OIDC
+      </code>
+      
+      , the provider creates the user of a person it verifies on their first sign-in, so its button belongs on the sign-up page too
     </td>
   </tr>
 </tbody>
 </table>
 
-An existing user can always sign in with their email and password, whatever `passwordSignUp` says.
+A login takes an email and a password only while the application has the **Email and password** provider (a `PasswordConfiguration`, below), so the list has a `PASSWORD` entry; otherwise `POST /api/auth/app/login` and a connection presenting an email and a password answer as for a wrong password.
 
 ```typescript
 import { Kinotic } from '@kinotic-ai/core'
@@ -4634,9 +4640,10 @@ const post = (path: string, body: object) => fetch(`${api}${path}`, {
 })
 
 // what the login offers, for both the /login and the /signup page
-const methods = await (await fetch(`${api}/app/login/methods`, { credentials: 'include' })).json()
+const providers = await (await fetch(`${api}/app/login/methods`, { credentials: 'include' })).json()
+const password = providers.find(provider => provider.type === 'PASSWORD')
 
-// /login: the password form
+// /login, while the login takes a password: the password form
 if ((await post('/app/login', { email, password })).status === 204) {
     await Kinotic.connect({ server })
 }
@@ -4647,7 +4654,7 @@ async function continueWith(provider: { configurationId: string }) {
     window.location.assign(start.redirect)
 }
 
-// /signup, while methods.passwordSignUp: always answers 202, then the person checks their inbox
+// /signup, while password?.signUp: always answers 202, then the person checks their inbox
 await post('/app/signup', { email })
 
 // /signup/verify?token=…: the person chooses a password, and optionally a name, and is signed in
@@ -4660,28 +4667,28 @@ if (done.status === 204) {
 
 #### Signing in
 
-The login page offers every method the application supports and lets the user choose: the password form, posting to `POST /api/auth/app/login`, which answers `204` with the cookie or a generic `401`, and a button for each provider. A button posts the provider's `id` to `POST /api/auth/app/login/oidc/start/:id`, whose answer carries the `redirect` to send the browser to. The provider returns the browser to `/` on the page that started the sign-in, signed in, or to that page's `/login` with an `error` parameter (`no_user`, `user_exists`, `user_disabled`, `email_not_verified`, `config_not_found`, …). No endpoint takes an email before the user has chosen a method, so a login page cannot be used to learn which emails have a user.
+The login page offers every method the application supports and lets the user choose: the password form, posting to `POST /api/auth/app/login`, which answers `204` with the cookie or a generic `401`, and a button for each provider. A button posts the provider's `id` to `POST /api/auth/app/login/oidc/start/:id`, whose answer carries the `redirect` to send the browser to. The provider returns the browser to `/` on the page that started the sign-in, signed in, or to that page's `/login` with an `error` parameter (`no_user`, `user_exists`, `user_disabled`, `email_not_verified`, `config_not_found`, …). An `email_not_verified` redirect also names the provider by its key in a `provider` parameter (`google`, `azure-ad`, `okta`, …), so the page can tell the user which provider to verify the email with. No endpoint takes an email before the user has chosen a method, so a login page cannot be used to learn which emails have a user.
 
 `GET /api/auth/me` answers `204` while the page is signed in, and `POST /api/auth/logout` signs it out.
 
 #### Signing up
 
-A person gets a user of your application without an invitation in two ways, each switched on by your organization administrator on the application's settings:
+A person gets a user of your application without an invitation in two ways, each switched on by your organization administrator on the application's sign-in providers:
 
 - **Through a provider.** A provider whose `signUp` is true makes a person it verifies a user on their first sign-in, from the provider's verified email and name. There is no separate sign-up call: the same "Continue with Google" button signs a new person up and an existing user in. A person whose email already has a user under another method is refused with `user_exists`, and signs in the way they did before. Microsoft lets the administrator of any directory set its users' email, so a Microsoft provider that admits every directory — managed by Kinotic, or your own credentials naming `common` or `organizations` — signs up a personal Microsoft account, or a work account whose token carries `xms_edov` (email domain owner verified) or `email_verified` as true; any other Microsoft account is refused with `email_not_verified` and joins by invitation or another method. A Microsoft registration of your own emits `xms_edov` once you add it as an optional claim of the ID token in its Entra app registration. A provider naming one directory, your own or a tenant's, signs up that directory's users as its administrator set them.
-- **With an email and a password.** While `passwordSignUp` is true, the sign-up page posts `{email}` to `POST /api/auth/app/signup`; the email it sends carries only the application's name and the link. It answers `202` for every email, before anything is sent, and an email that already has a user is sent nothing, so the page cannot learn whether an account exists; tell the person to check their inbox. The email is matched trimmed and lowercased. The email links to `/signup/verify?token=…` on the same UI the sign-up started from and is valid for 24 hours; while a link sent to the address is still valid, asking again sends nothing more, and once it has expired, asking again sends a new one. That page posts `{token, password, displayName}` to `POST /api/auth/app/signup/complete`, where the optional `displayName`, at most 200 characters, is the user's name: it is asked for here, of the person who holds the email, so whoever asked for the link cannot choose it. The call creates the user and answers `204` with the session cookie. It answers `400` for an unknown, used or expired token, or one sent for another application, a missing password or a longer name, `403` from a tenant's site or once the application no longer offers password sign-up, and `409` when the email got a user meanwhile, in which case the person signs in instead.
+- **With an email and a password.** While the `PASSWORD` provider's `signUp` is true — the application's **Email and password** provider has `createUserOnSignIn` on — the sign-up page posts `{email}` to `POST /api/auth/app/signup`; the email it sends carries only the application's name and the link. It answers `202` for every email, before anything is sent, and an email that already has a user is sent nothing, so the page cannot learn whether an account exists; tell the person to check their inbox. The email is matched trimmed and lowercased. The email links to `/signup/verify?token=…` on the same UI the sign-up started from and is valid for 24 hours; while a link sent to the address is still valid, asking again sends nothing more, and once it has expired, asking again sends a new one. That page posts `{token, password, displayName}` to `POST /api/auth/app/signup/complete`, where the optional `displayName`, at most 200 characters, is the user's name: it is asked for here, of the person who holds the email, so whoever asked for the link cannot choose it. The call creates the user and answers `204` with the session cookie. It answers `400` for an unknown, used or expired token, or one sent for another application, a missing password or a longer name, `403` from a tenant's site or once the application no longer offers password sign-up, and `409` when the email got a user meanwhile, in which case the person signs in instead.
 
 The sign-up endpoints answer `403` while the application does not offer password sign-up, and from a tenant's site.
 
-Every new user ends up in a tenant. An application signs people up at its own login only while the system manages its tenants (`TenantManagement.SYSTEM`), which gives each new user a tenant of their own; a provider's `signUp` and `passwordSignUp` are always false at the login of an application whose tenants their administrators manage. There a person joins a tenant by invitation, or through one of the tenant's own providers that signs people up, at the tenant's login (below).
+Every new user ends up in a tenant. An application signs people up at its own login only while the system manages its tenants (`TenantManagement.SYSTEM`), which gives each new user a tenant of their own; every provider's `signUp` is false at the login of an application whose tenants their administrators manage. There a person joins a tenant by invitation, or through one of the tenant's own providers that signs people up, at the tenant's login (below).
 
 ### Signing in to a tenant
 
-An application whose tenants its administrators manage gives each tenant a login of its own. A page served at one of the tenant's sites, `<tenantId>--<applicationId>--<uiName>` under your organization's subdomain of the sites domain (see [Multi-Tenancy](https://kinotic.ai/apps/persistence/multi-tenancy#tenants-and-their-sites)), signs in to that tenant with the same calls as above: the API host reads the tenant from the page's host, so `/app/login/methods` lists what the tenant's login offers — the tenant's own providers, then the application's — and `/app/login` admits only the tenant's users. Only the tenant's own providers can sign people up there, into the tenant; the application's providers sign in the tenant's existing users, and password sign-up is not offered. A page that is not one of the tenant's sites, such as a UI running locally, names the tenant instead, with `?tenantId=` on the `GET` and the start, and `tenantId` in the login body; the API host answers `404` for a tenant the application does not have, and `403` when a tenant's site names another tenant.
+An application whose tenants its administrators manage gives each tenant a login of its own. A page served at one of the tenant's sites, `<tenantId>--<applicationId>--<uiName>` under your organization's subdomain of the sites domain (see [Multi-Tenancy](https://kinotic.ai/apps/persistence/multi-tenancy#tenants-and-their-sites)), signs in to that tenant with the same calls as above: the API host reads the tenant from the page's host, so `/app/login/methods` lists what the tenant's login offers — the tenant's own providers, then the application's — and `/app/login` admits only the tenant's users. Only the tenant's own providers can sign people up there, into the tenant; the application's providers sign in the tenant's existing users, and password sign-up is not offered. The tenant's login takes an email and a password while the tenant's own **Email and password** provider, or the application's, is enabled; a user's password signs in wherever their own tenant's, else the application's, provider is enabled. Deleting the application or the tenant deletes its **Email and password**. A page that is not one of the tenant's sites, such as a UI running locally, names the tenant instead, with `?tenantId=` on the `GET` and the start, and `tenantId` in the login body; the API host answers `404` for a tenant the application does not have, and `403` when a tenant's site names another tenant.
 
 ### Sign-in providers
 
-Your organization administrator adds the application's sign-in providers in the portal under the application's **Settings → Sign-in providers** tab, each an `ApplicationOidcConfiguration` (or a `TenantOidcConfiguration` for one tenant's login), or a product built on Kinotic saves them through `OwnedOidcConfigurationService.save`. For Google and Microsoft — the kinds `OwnedOidcConfigurationService.findManagedProviders()` lists — each provider chooses whose registration with the provider it signs in through, its `clientRegistrationType`:
+Your organization administrator adds the application's sign-in providers in the portal under the application's **Settings → Sign-in providers** tab, each an `ApplicationOidcConfiguration` (or a `TenantOidcConfiguration` for one tenant's login), or a product built on Kinotic saves them through `OwnedOidcConfigurationService.save`. **Email and password** is a provider of the same list, a `PasswordConfiguration` of the application's login or of one tenant's, saved through `OwnedPasswordConfigurationService.save`: a scope has at most one, `enabled` decides whether its login takes a password, and `createUserOnSignIn`, taken by the application's own only and only while the system manages its tenants, turns on password sign-up. For Google and Microsoft — the kinds `OwnedOidcConfigurationService.findManagedProviders()` lists — each provider chooses whose registration with the provider it signs in through, its `clientRegistrationType`:
 
 <table>
 <thead>
@@ -4763,13 +4770,13 @@ How a sign-in through a provider runs:
 2. The provider returns the browser to the API host, which validates the provider's response, finds the user bound to the identity in your application, or in the tenant the sign-in is to, creating it where the provider signs people up, and sets the session cookie. A provider using Kinotic's registration returns the browser to the app server's shared host instead, which validates the response, finds or creates the user, and hands the sign-in to your application's API host under a single-use code, which completes only in the browser that started the sign-in; that host sets the cookie
 3. The browser returns to `/` on the site that started the sign-in, which connects with the session; a sign-in that fails returns instead to the `/login` page of that site with an `error` parameter, so every UI that offers sign-in serves a `/login` route. A failure that no longer knows which site started it — the flow's session expired, or a shared registration's single-use code was refused with `handoff_invalid` — returns to the `/login` page of your application's [primary UI](https://kinotic.ai/apps/application-structure/applications-and-projects#applications)
 
-An AI assistant building the pages can ask what the login offers through the `ApplicationService.getLoginMethods` MCP tool, which answers what `GET /api/auth/app/login/methods` answers for the application's own login. All provider kinds are `OidcConfiguration`s — see [System Security](https://kinotic.ai/platform/system-security) for how ownership is captured by the subtype.
+An AI assistant building the pages can ask what the login offers through the `ApplicationService.getLoginMethods` MCP tool, which answers what `GET /api/auth/app/login/methods` answers for the application's own login. Every identity provider is an `OidcConfiguration`, and the email and password a `PasswordConfiguration` — see [System Security](https://kinotic.ai/platform/system-security) for how ownership is captured by the subtype.
 
 ## User Management
 
-Besides signing up, an application's users are **invited** by an administrator. Your organization administrator manages your application's users on the application's **Users** page in the portal. **Invite user** emails an invitation (`MemberService.inviteMember(email, displayName, applicationId)`); the invitee accepts it by choosing a password, which creates the application's user, and is then sent to your application's [primary UI](https://kinotic.ai/apps/application-structure/applications-and-projects#applications), where they sign in with that email and password from then on. The first UI one of your projects publishes becomes the primary UI unless you have chosen one; while the application has none, the accept page confirms the new user instead. An invitation into an application is accepted with a password only, and a user created this way has no OIDC identity bound to it, so it signs in with the password even when the email matches an identity at one of the application's providers.
+Besides signing up, an application's users are **invited** by an administrator. Your organization administrator manages your application's users on the application's **Users** page in the portal. **Invite user**, which needs the application's **Email and password** provider, emails an invitation (`MemberService.inviteMember(email, displayName, applicationId)`); the invitee accepts it by choosing a password, which creates the application's user, and is then sent to your application's [primary UI](https://kinotic.ai/apps/application-structure/applications-and-projects#applications), where they sign in with that email and password from then on. The first UI one of your projects publishes becomes the primary UI unless you have chosen one; while the application has none, the accept page confirms the new user instead. An invitation into an application is accepted with a password only, and a user created this way has no OIDC identity bound to it, so it signs in with the password even when the email matches an identity at one of the application's providers.
 
-Sign-up is configured per application, by the organization in the portal or by any product built on Kinotic through the management API: `Application.passwordSignUp`, saved with `ApplicationService.save`, turns on sign-up with an email and a password, and each provider's `createUserOnSignIn` and `clientRegistrationType`, saved with `OwnedOidcConfigurationService.save`, say whether it signs people up and whose registration it uses. A builder that creates applications for its own users can create each one with `TenantManagement.SYSTEM`, add a Google provider managed by Kinotic with `createUserOnSignIn` on, turn `passwordSignUp` on when the owner wants it, and later save the same provider with `OWN` and the owner's client ID and secret.
+Sign-in and sign-up are configured per application, by the organization in the portal or by any product built on Kinotic through the management API: the application's `PasswordConfiguration`, saved with `OwnedPasswordConfigurationService.save`, turns on sign-in with an email and a password, and with `createUserOnSignIn` sign-up with them, and each provider's `createUserOnSignIn` and `clientRegistrationType`, saved with `OwnedOidcConfigurationService.save`, say whether it signs people up and whose registration it uses. A builder that creates applications for its own users can create each one with `TenantManagement.SYSTEM`, add a Google provider managed by Kinotic with `createUserOnSignIn` on, add an email and a password when the owner wants it, and later save the same provider with `OWN` and the owner's client ID and secret.
 
 For details on user and OIDC configuration management, see the [Organization Management](https://kinotic.ai/platform/organization-management) platform guide.
 
@@ -5728,12 +5735,19 @@ The provider now appears as **Enabled** in Kinotic:
 
 ![Okta provider enabled](https://kinotic.ai/images/docs/okta/12-kinotic-provider-enabled.png)
 
-## 5. Test sign-in
+## 5. Give people access
+
+Okta decides who may authenticate, and Kinotic decides who belongs to your organization. An Okta sign-in gets in only when it matches a member of your organization, so assigning someone to the Okta app alone does not let them in.
+
+- **New members.** In Kinotic, open **Members** and click **Add member**, using the email address the person has in Okta. With **Send an invitation email** off, their first **Sign in with Okta** admits them: Kinotic matches the email Okta verified to the member you added and links their Okta account to it.
+- **People who already sign in.** Someone who already signs in to your organization another way, such as you after creating the organization with GitHub, is not matched by email. They sign in as they do now, open **Profile**, and under **Sign-in methods** choose Okta from **Connect another way to sign in**. From then on, either method signs them in.
+
+Each person must also be assigned to the Okta app in Okta, as set up in step 1.
+
+## 6. Test sign-in
 
 1. Open your organization's login page, `https://<portal-host>/login/<org>`. It now shows **Sign in with Okta** (using your display name).
-2. Sign in with a user who is assigned to the Okta app.
-
-To add more users, create or assign them in Okta (**Directory > People**, or through the groups assigned to the app).
+2. Sign in as one of the people from step 5.
 
 ## Troubleshooting
 
@@ -5791,6 +5805,46 @@ To add more users, create or assign them in Okta (**Directory > People**, or thr
       
        under <strong>
         Organization settings > Authentication providers
+      </strong>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      "That identity signs in to no Kinotic organization"
+    </td>
+    
+    <td>
+      The Okta account matches no member of your organization. Add the person under <strong>
+        Members
+      </strong>
+      
+       with the email address they have in Okta, or, if they already sign in another way, have them connect Okta from their <strong>
+        Profile
+      </strong>
+      
+       (step 5)
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      "Okta has not verified your email address"
+    </td>
+    
+    <td>
+      Okta reports the person's email address as unverified. Have them verify it in Okta, for example by completing Okta's activation or password-reset email, then sign in again
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      "You cannot sign in to this organization"
+    </td>
+    
+    <td>
+      The member is disabled. Enable them under <strong>
+        Members
       </strong>
     </td>
   </tr>
@@ -12751,7 +12805,7 @@ System users sign in to the system server, separately from everything described 
 
 ## Mental Model
 
-Eight persistent entities carry the auth state, and a short-lived entity bridges each signup. The [Sign-In Design](https://kinotic.ai/platform/reference/sign-in-design) reference draws them and the flows between them.
+Ten persistent entities carry the auth state, and a short-lived entity bridges each signup. The [Sign-In Design](https://kinotic.ai/platform/reference/sign-in-design) reference draws them and the flows between them.
 
 <table>
 <thead>
@@ -12929,31 +12983,15 @@ Eight persistent entities carry the auth state, and a short-lived entity bridges
     </td>
     
     <td>
-      A person who signs in to organizations (type <code>
+      A member of one organization (type <code>
         ORGANIZATION_USER
       </code>
       
-      ), unique by email among organization users
-    </td>
-    
-    <td>
-      Created at signup, by an administrator adding a member, or by invitation
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        OrganizationMembership
-      </code>
-    </td>
-    
-    <td>
-      An organization user's membership of one organization (<code>
-        <organizationUserId>:<organizationId>
+      ): carries <code>
+        organizationId
       </code>
       
-      ), with its own <code>
+       and is unique by email within that organization. A person in several organizations is a separate organization user of each, with its own password, bindings and <code>
         enabled
       </code>
       
@@ -13013,7 +13051,7 @@ Eight persistent entities carry the auth state, and a short-lived entity bridges
         (oidcConfigId, subject)
       </code>
       
-       → identity id, where an application user's <code>
+       → identity id, at most once among each organization's users and once among each application's users, so one GitHub account may sign in a user of every organization it is bound in; an application user's <code>
         subject
       </code>
       
@@ -13025,7 +13063,7 @@ Eight persistent entities carry the auth state, and a short-lived entity bridges
         <tid>/<oid>
       </code>
       
-      ), once among organization users and once per application among the application's users. With the optional password these are the user's sign-in methods
+      ). With the optional password these are the user's sign-in methods
     </td>
     
     <td>
@@ -13223,7 +13261,7 @@ An `ApplicationSocialOidcConfiguration` is never offered on its own: it is the c
 
 ## Org Creation
 
-There are two entry points, both producing an `Organization` and an admin `ParticipantIdentity` scoped to it. The SPA's `/signup` page currently offers **GitHub only** (a hardcoded button — every Kinotic project is backed by a GitHub repository, so the founding user signs up with GitHub and installs the GitHub App right after). The email/password signup entry point remains fully mounted on the backend; its previous UI (`Signup.vue`) is kept in the tree unrouted until other methods return. Login is not restricted: invitees must be able to sign back in however they joined, so an organization's login page keeps every provider the organization offers plus a password form.
+There are two entry points, both producing an `Organization` and an admin `ParticipantIdentity` scoped to it. Every sign-up founds a new organization with the founder as its first user, whether or not the email or the provider identity already signs in to another organization. The SPA's `/signup` page currently offers **GitHub only** (a hardcoded button — every Kinotic project is backed by a GitHub repository, so the founding user signs up with GitHub and installs the GitHub App right after). The email/password signup entry point remains fully mounted on the backend; its previous UI (`Signup.vue`) is kept in the tree unrouted until other methods return. Login is not restricted: invitees must be able to sign back in however they joined, so an organization's login page keeps every provider the organization offers plus a password form.
 
 ### Email/password signup (backend flow — not currently reachable from the SPA)
 
@@ -13231,11 +13269,7 @@ There are two entry points, both producing an `Organization` and an admin `Parti
 1. User loads /signup, enters email + displayName
 2. POST /api/auth/org/signup
 3. SignUpService.initiateLocalSignUp:
-   - rejects if a sign-up is already pending for this email, or if an organization user
-     already exists for this email: a person founds one organization at most, and joins
-     others by invitation. When that organization user is a member an administrator added
-     that nobody signs in as yet, the refusal (PendingMemberException) says to accept the
-     invitation or sign in on that organization's sign-in page
+   - rejects if a sign-up is already pending for this email
    - creates a PendingSignUp with a 24h verification token
    - EmailService sends the verification link (logs it instead when email is disabled), which
      opens the portal
@@ -13245,17 +13279,16 @@ There are two entry points, both producing an `Organization` and an admin `Parti
 7. SignUpService.completeLocalSignUp:
    - validates token, rejects if expired
    - creates Organization (auto-derived id from name)
-   - creates the founder's organization user (OrganizationParticipantIdentity,
-     enabled=true) with an IdentityCredential (bcrypt hash, separate index keyed by the
-     organization user's id)
-   - creates the founder's OrganizationMembership of the organization
+   - creates the founder as the organization's first user (OrganizationParticipantIdentity,
+     organizationId = the new organization, enabled=true) with an IdentityCredential (bcrypt
+     hash, separate index keyed by the organization user's id)
    - links Organization.createdBy = the organization user's id
    - deletes the PendingSignUp
 8. The gateway establishes the browser session (204 + Set-Cookie); the frontend then calls
    userState.login() to open the realtime connection, authenticated by that session cookie.
 ```
 
-Email verification is the security gate — no `Organization`, organization user or membership exists until the link is clicked. With `KINOTIC_EMAIL_ENABLED=false` (the local default) the verification URL is logged to the management server's console instead of sent; copy it into the browser to finish the flow.
+Email verification is the security gate — no `Organization` or organization user exists until the link is clicked. With `KINOTIC_EMAIL_ENABLED=false` (the local default) the verification URL is logged to the management server's console instead of sent; copy it into the browser to finish the flow.
 
 ### Social-IdP signup
 
@@ -13272,16 +13305,10 @@ Email verification is the security gate — no `Organization`, organization user
    registration is registered with; the flow's purpose, recorded at its start, routes it
 6. OrganizationOidcCallbackHandler → OrganizationSignupHandler.complete:
    - validates state/nonce/PKCE, exchanges code for id_token + access_token
-   - rejects if email_verified=false in the id_token
-   - SignUpService.createOidcPending rejects with user_exists if an organization user is
-     already bound to (configId, sub) or holds the verified email: a person founds one
-     organization at most, and joins others by invitation. It rejects with user_pending when
-     that organization user is a member an administrator added that nobody signs in as yet,
-     who gets in through their invitation or the organization's own provider. SignUpService
-     checks again at completion, so two sign-ups of one identity
-     in flight at once cannot both found an organization, and the organization is never
-     created for an organization user that cannot be
-   - creates a PendingSignUp with the verified subject, configId, email, displayName
+   - rejects with 302 /login?error=email_not_verified&provider=<key> unless the provider
+     verified the email (see Provider-Specific Quirks)
+   - SignUpService.createOidcPending creates a PendingSignUp with the verified subject,
+     configId, email, displayName
    - 302 to /register?token=<verificationToken> on the UI the sign-up started from, when
      kinotic.cors.allowedOriginPattern names its origin other than through *, and on the portal otherwise
 7. /register prompts for orgName (CompleteOrg.vue)
@@ -13289,9 +13316,8 @@ Email verification is the security gate — no `Organization`, organization user
 9. SignUpService.completeOidcWithNewOrg:
    - validates the pending token
    - creates Organization
-   - creates the founder's organization user (enabled=true) with an OidcBinding of
-     (configId, sub) to it
-   - creates the founder's OrganizationMembership of the organization
+   - creates the founder as the organization's first user (enabled=true) with an
+     OidcBinding of (configId, sub) to it in the new organization
    - links Organization.createdBy
    - deletes the PendingSignUp
 10. The gateway establishes the browser session (204 + Set-Cookie). CompleteOrg.vue then
@@ -13331,9 +13357,9 @@ GitHub follows the same flow with one difference in step 6: GitHub is OAuth 2.0 
 
 An organization's administrators add its members on the Members page, one action for every case: **Add member**, with the person's email, an optional display name and a switch, on by default, that sends them an invitation email (`MemberService.addMember(email, displayName, sendInvitation)`, `Kinotic.members.addMember`).
 
-- **An address with no organization user yet** gets one, with no sign-in method, and its membership at once, so the person appears among the members as *Pending*. With the switch on, the invitation they receive claims the organization user: they set a password, or sign in through one of the organization's providers under the same address. With the switch off, nothing is sent and the person signs in through one of the organization's own providers (`OrganizationOidcConfiguration`), whose first sign-in under the invited address claims the organization user — so the switch can only be off when the organization has one, and the server refuses the request otherwise, revealing nothing about the address.
-- **An address that already has an organization user** is emailed an invitation whatever the switch says, since joining someone's organization user to an organization needs their acceptance; they appear once they accept, and the administrator is told an invitation was sent. Accepting with that organization user's password, or through one of the organization's providers whose verified email is the invited one, joins it. A system user or an application's user with the same address is a different identity, which neither the invitation nor the member list sees: the address joins as a new organization user with a password of its own.
-- **Pending members** are listed with the invitations alike, each with *Send invitation* (`MemberService.sendInvitation(email)`, which sends the one they have again or a new one for a member added without) and *Remove*. Removing a pending member deletes the organization user nobody signed in as and the invitation it never accepted; removing a member who has signed in leaves their organization user and other organizations as they are.
+- **The person** becomes a user of the organization at once, with no sign-in method, so the person appears among the members as *Pending*. With the switch on, the invitation they receive claims that user: they set a password, or sign in through one of the organization's providers under the same address. With the switch off, nothing is sent and the person signs in through one of the organization's own providers (`OrganizationOidcConfiguration`), whose first sign-in under the invited address claims the user — so the switch can only be off when the organization has one, and the server refuses the request otherwise. An address that is already a member of the organization is refused. A user of another organization, a system user or an application's user with the same address is a different identity, which neither the invitation nor the member list sees.
+- **Pending members** are listed with the invitations alike, each with *Send invitation* (`MemberService.sendInvitation(email)`, which sends the one they have again or a new one for a member added without) and *Remove*.
+- **Removing a member** deletes the organization's user, with its password, its bindings and its delegates, and cancels the invitation it never accepted. The person's users of other organizations are unaffected.
 - **An application's users** are still invited (`MemberService.inviteMember(email, displayName, applicationId)`), since their rows belong to the application and are created when the invitation is accepted.
 
 ### Email templates
@@ -13414,50 +13440,53 @@ HTML-escaped.
 </table>
 
 That UI's invitation page calls the `/api/auth/invite/*` routes below. An acceptance through a provider
-returns to the page that started it, and a failed one to that page's `/invite/accept?error=`, when
+returns to the page that started it, and a failed one to that page's `/invite/accept?error=` (`email_not_verified` also names the provider's key in `provider`), when
 that page is the portal or `kinotic.cors.allowedOriginPattern` names it, and to the portal otherwise. An
 application invitation whose application has its own invitation template is sent with that template's
 content, and its link still opens the passed template's UI.
 
-The Members page lists the organization's members as `OrganizationMember` rows (`MemberService.findMembers` / `searchMembers`): each joins an organization user with its membership, so `enabled` is the membership's standing, `joined` its creation, and `pending` marks a member who has not signed in yet. An application's Users page lists the application's users themselves, `ApplicationParticipantIdentity` rows (`MemberService.findApplicationUsers` / `searchApplicationUsers`), whose standing is the user's own.
+The Members page lists the organization's members as `OrganizationMember` rows (`MemberService.findMembers` / `searchMembers`): each is one of the organization's users, so `enabled` is the user's own flag, `joined` its creation, and `pending` marks a member who has not signed in yet. An application's Users page lists the application's users themselves, `ApplicationParticipantIdentity` rows (`MemberService.findApplicationUsers` / `searchApplicationUsers`), whose standing is the user's own.
 
-An organization's own provider therefore signs in only the members its administrators added: a person the provider verifies whose address no pending member holds gets `no_user`, and `createUserOnSignIn` is refused on an `OrganizationOidcConfiguration`. Nothing an organization's provider asserts can reach an organization user the organization did not create, and an organization user someone already signs in as joins only by its holder's acceptance.
+An organization's own provider therefore signs in only the members its administrators added: a person the provider verifies whose address no pending member holds gets `no_user`, and `createUserOnSignIn` is refused on an `OrganizationOidcConfiguration`. Nothing an organization's provider asserts can reach a user of another organization.
 
 ## User Login
 
-A login is addressed to an organization. An organization user may be a member of any number of organizations, each an `OrganizationMembership` of its own, so nothing about the person alone says where they are signing in; the organization's id, the slug of its hostnames (see [Applications and Projects](https://kinotic.ai/apps/application-structure/applications-and-projects#applications)), is what every login route and page is addressed by. The portal has two login pages:
+A login is addressed to an organization and signs in one of its users. A person in several organizations is a separate user of each, so nothing about the person alone says where they are signing in; the organization's id, the slug of its hostnames (see [Applications and Projects](https://kinotic.ai/apps/application-structure/applications-and-projects#applications)), is what every login route and page is addressed by. The portal has two login pages:
 
-- `/login`, the landing page, for someone whose organization is not yet known: the system's social buttons, which sign in without naming an organization when the identity belongs to exactly one and otherwise offer the ones it belongs to; an organization field that leads to that organization's page; and a "Don't know your organization?" link that emails the person the organizations their address belongs to.
-- `/login/<organizationId>`, the organization's page (`OrganizationLoginPage.vue`), which offers exactly what that organization's login supports: one button per configuration `GET /api/auth/org/login/<organizationId>/providers` lists — the system's org sign-up registrations (GitHub) followed by the organization's own `OrganizationOidcConfiguration`s — and an email + password form. The organization's own host, `<organizationId>.<sitesDomain>`, redirects here.
+- `/login`, the landing page, for someone whose organization is not yet known: the system's social buttons (GitHub), which sign in without naming an organization when the identity is bound to a user of exactly one and otherwise offer the organizations of its users ([below](#social-button-on-the-landing-page)); an organization field that leads to that organization's page; a "Don't know your organization?" link that emails the person the organizations their address belongs to; and a **Create Organization** link that opens sign-up.
+- `/login/<organizationId>`, the organization's page (`OrganizationLoginPage.vue`), which offers exactly what that organization's login supports, as `GET /api/auth/org/login/<organizationId>/providers` lists it: one button per configuration — the system's org sign-up registrations (GitHub) followed by the organization's own `OrganizationOidcConfiguration`s — and, only while the organization's login takes a password ([password sign-in](#password-sign-in)), an email + password form. The organization's own host, `<organizationId>.<sitesDomain>`, redirects here.
 
-The browser remembers, in `localStorage`, the organization it last signed in to, whichever method signed it in: password, GitHub, an organization's own provider, sign-up, an accepted invitation or a switch of organizations. A returning browser that opens `/login` is sent on to that organization's page, keeping the query and so the `referer`. The landing page stays put when nothing is remembered, and when its query carries `?error=`, so a failed sign-in or a choice of organizations is shown there; its organization field is then prefilled with the remembered organization. The organization page's **Not your organization?** link forgets the remembered organization before it returns to `/login`, so the landing page stays put. When the remembered organization no longer exists, the organization page forgets it and returns to the landing page itself, which reports that there is no organization by that name and leaves the name in its organization field to correct; an organization that was typed and does not exist is reported on its own page.
+The browser remembers, in `localStorage`, the organization it last signed in to, whichever method signed it in: password, GitHub, an organization's own provider, sign-up or an accepted invitation. A returning browser that opens `/login` is sent on to that organization's page, keeping the query and so the `referer`. The landing page stays put when nothing is remembered, and when its query carries `?error=`, so a failed sign-in or a choice of organizations is shown there; its organization field is then prefilled with the remembered organization. The organization page's **Not your organization?** link forgets the remembered organization before it returns to `/login`, so the landing page stays put. When the remembered organization no longer exists, the organization page forgets it and returns to the landing page itself, which reports that there is no organization by that name and leaves the name in its organization field to correct; an organization that was typed and does not exist is reported on its own page.
 
-No route asks about an email first: the page offers every method up front, and the password login answers a generic `401`, so nothing tells whether an email has a user anywhere. What the page does disclose, to anyone who knows an organization's id, is that the organization exists and the names and provider kinds of the configurations its login offers, as any SSO login page does; the id is already public as the organization's hostname, and the configurations are the buttons the page shows. A signed-in member of several organizations switches between them without signing in again: the account menu's **Organizations** list posts `POST /api/auth/org/switch { organizationId }`, which re-establishes the session for the chosen membership and reloads the portal.
+No route asks about an email first: the page offers every method up front, and the password login answers a generic `401`, so nothing tells whether an email has a user anywhere. What the page does disclose, to anyone who knows an organization's id, is that the organization exists and the names and provider kinds of the configurations its login offers, as any SSO login page does; the id is already public as the organization's hostname, and the configurations are the buttons the page shows. A session acts in one organization. To use another, the person signs in at that organization's page, `/login/<organizationId>`, with a method that organization's login offers.
 
 ### Password
 
-The form posts email + password to the organization's login route, which verifies the credential and **establishes a browser session** — there is no client-held token. The `fetch` uses `credentials: 'include'` so the gateway's `Set-Cookie` is stored even cross-origin:
+The form, shown while the organization's login takes a password ([password sign-in](#password-sign-in)), posts email + password to the organization's login route, which verifies the credential and **establishes a browser session** — there is no client-held token. The `fetch` uses `credentials: 'include'` so the gateway's `Set-Cookie` is stored even cross-origin:
 
 ```text
 1. POST /api/auth/org/login/<organizationId> { email, password }   (credentials: 'include')
 2. OrganizationLoginHandler.handleLogin → AuthEndpointSupport.handlePasswordLogin:
-   - LocalAuthenticationService.authenticateOrganizationUser(email, password)
-       finds the organization user with that email (a system user or an application
-       user with the same email is another row and never signs in here), requires it
-       enabled, loads its IdentityCredential and verifies the bcrypt hash; an
-       organization user with no password fails here
-   - ParticipantIdentityService.resolveParticipant(user.id, organizationId, null)
-       requires the organization user's enabled OrganizationMembership of that
-       organization and makes the OrganizationParticipant from the two
+   - LocalAuthenticationService.authenticateOrganizationUser(email, password, organizationId)
+       requires the organization's login to take a password, finds the organization's
+       user with that email (a user of another organization, a system user or an
+       application user with the same email is another row and never signs in here),
+       requires it enabled, loads its IdentityCredential and verifies the bcrypt hash; a
+       user with no password fails here
+   - ParticipantIdentityService.resolveParticipant(user, organizationId, null)
+       makes the OrganizationParticipant of the organization's user
    - on success: establishSession(ctx, participant) puts it on the Vert.x session
                  (regenerating the session id), then 204 + Set-Cookie
    - on any failure: 401 "Invalid credentials"
                      (deliberately generic — covers unknown email, wrong password,
-                      no password, disabled user or membership, not a member)
+                      no password, disabled user, an organization whose login takes
+                      no password)
 3. OrganizationLoginPage.vue calls userState.login() → Kinotic.connect().
    The default resolution supplies no auth headers in a browser, so the
    WebSocket upgrade is authenticated by the session cookie set in step 2.
 ```
+
+The same check holds for a client that presents an email and password at the WebSocket upgrade with an organization's scope header: an organization whose login takes no password refuses it with the same generic error.
 
 The SPA never exchanges the password for a token and never sends raw passwords over the WebSocket. Non-UI clients (CLI, automation) do not use this path — they authenticate directly at the upgrade instead; the table in "The WebSocket upgrade" below covers what each client type presents.
 
@@ -13485,17 +13514,16 @@ Each button on the organization's page is a form posting to the organization's s
      GET /api/auth/org/login/social/callback/<configId>   an org sign-up registration
      GET /api/auth/org/login/sso/callback/<configId>      the organization's own configuration
 4. OrganizationLoginHandler.completeOrganizationLogin:
-   - validates state/nonce, exchanges code, validates id_token (sub + email_verified)
-   - looks up the organization user bound to (configId, sub) (ParticipantIdentityService.
-     findOrganizationUserByOidcIdentity) and its OrganizationMembership of the stashed
-     organization
-   - no organization user bound to the identity: through the organization's own
-                 configuration, the member an administrator added under the identity's
-                 verified email that nobody has signed in as yet is claimed — the identity
-                 is bound to that organization user as its first sign-in method and it
-                 signs in; otherwise 302 /login?error=no_user
-   - no membership: 302 /login?error=no_user
-   - a disabled organization user or membership: 302 /login?error=user_disabled
+   - validates state/nonce, exchanges code, validates id_token (sub + email_verified);
+     an unverified email: 302 /login?error=email_not_verified&provider=<key>
+   - looks up the stashed organization's user bound to (configId, sub)
+     (ParticipantIdentityService.findOrganizationUserByOidcIdentity)
+   - no user bound to the identity: through the organization's own configuration, the
+                 member an administrator added under the identity's verified email that
+                 nobody has signed in as yet is claimed — the identity is bound to that
+                 user as its first sign-in method and it signs in; otherwise
+                 302 /login?error=no_user
+   - a disabled user: 302 /login?error=user_disabled
    - otherwise: establishSession(ctx, participant), then redirectSuccess → 302 to the
        stored referer, or the SPA root when the flow stored none, with Set-Cookie.
        No token travels in the URL.
@@ -13505,7 +13533,7 @@ Each button on the organization's page is a form posting to the organization's s
 
 ### Social button on the landing page
 
-The landing page's buttons are populated from `GET /api/auth/org/login/providers`, which lists the unique provider keys present in the org sign-up configs (the invite-hint UI on `MembersPage` reads the same endpoint). A sign-in there names no organization, so its callback finds the one organization the identity is a member of:
+The landing page's buttons are populated from `GET /api/auth/org/login/providers`, which lists the unique provider keys present in the org sign-up configs (the Members page reads the same endpoint). Every organization's login offers those registrations, so a sign-in there needs no organization named: its callback finds the users the identity is bound to, one in each organization at most.
 
 ```text
 1. POST /api/auth/org/login/social/start/github?referer=<spa-path>
@@ -13515,24 +13543,24 @@ The landing page's buttons are populated from `GET /api/auth/org/login/providers
    - same flow-session setup as above, with no organization stashed, then 302 to the IdP
 3. IdP returns to GET /api/auth/org/login/social/callback/<configId>
 4. OrganizationLoginHandler.completeLandingLogin:
-   - finds the organization user bound to (configId, sub) and its enabled memberships
-     (OrganizationMembershipService.findMemberships)
-   - exactly one: signs in to that organization as above
-   - no organization user, or no membership: 302 /login?error=no_user
-   - a disabled organization user, or one whose every membership is disabled:
-     302 /login?error=user_disabled
-   - several: their ids are kept in the session for the page that started the flow and
-     302 /login?error=multiple_organizations&referer=<spa-path> — the user has proven who
-     it is, so the landing page reads the ids from GET /api/auth/org/login/choices, answered
-     for two minutes and until the page starts a login at an organization, and offers those
-     organizations to choose from; the person signs in at the chosen one's own page, which
-     lands on the referer. The redirect carries no ids, so the page that started the flow
-     learns only the code
+   - validates the callback as above
+   - finds every organization's user bound to (configId, sub) and keeps the enabled ones
+     (ParticipantIdentityService.findOrganizationUsersByOidcIdentity)
+   - exactly one: signs in to that user's organization as above
+   - none bound: 302 /login?error=no_user
+   - every bound user disabled: 302 /login?error=user_disabled
+   - several: their organizations' ids are kept in the session for the page that started
+     the flow and 302 /login?error=multiple_organizations&referer=<spa-path> — the person
+     has proven who they are, so the landing page reads the ids from
+     GET /api/auth/org/login/choices, answered for two minutes and until the page starts a
+     login at an organization, and offers those organizations to choose from; the person
+     signs in at the chosen one's own page, which lands on the referer. The redirect
+     carries no ids, so the page that started the flow learns only the code
 ```
 
 ### Finding one's organizations
 
-`POST /api/auth/org/login/find { email, turnstileToken }` emails the address every organization its organization user holds an enabled membership of, each with a link to that organization's login page (`OrganizationService.sendMembershipsEmail`); a disabled organization user is told of none, as it can sign in to none. The route always answers `204` and the email is sent whether or not the address belongs to any organization — one that belongs to none says so — so the request reveals nothing about the address. With `KINOTIC_EMAIL_ENABLED=false` the links are logged to the management server's console instead of sent.
+`POST /api/auth/org/login/find { email, turnstileToken }` emails the address every organization it is an enabled member of, each with a link to that organization's login page (`OrganizationService.sendOrganizationsEmail`); an organization where the address's user is disabled is left out, as it cannot sign in there. The route always answers `204` and the email is sent whether or not the address belongs to any organization — one that belongs to none says so — so the request reveals nothing about the address. With `KINOTIC_EMAIL_ENABLED=false` the links are logged to the management server's console instead of sent.
 
 The route is open to anyone and sends an email on every call, so it requires a person at the browser: a Cloudflare Turnstile token earned on the page, verified by the management server with the site's secret (`TurnstileVerifier`, configured under `kinotic.managementServer.turnstile.*`). `GET /api/auth/org/login/find` answers `{turnstileSiteKey}`, the site whose challenge the landing page renders before it enables the button, and a request whose token is missing, already verified or refused answers `400`. An environment with no Turnstile site, such as the e2e stack, turns the requirement off with `kinotic.managementServer.turnstile.enabled=false`, and the `GET` answers `{}`; development uses Cloudflare's always-passing test site.
 
@@ -13871,7 +13899,11 @@ OIDC is a standard, but providers diverge on a few details. The validation helpe
     </td>
     
     <td>
-      Emitted as boolean — required <code>
+      Not in the id_token of a code exchange — read from the discovered <code>
+        userinfo_endpoint
+      </code>
+      
+       with the access token, then required <code>
         true
       </code>
     </td>
@@ -13914,6 +13946,8 @@ OIDC is a standard, but providers diverge on a few details. The validation helpe
       Emitted as boolean — required <code>
         true
       </code>
+      
+      ; read from the userinfo endpoint when the id_token states none
     </td>
     
     <td>
@@ -13923,13 +13957,19 @@ OIDC is a standard, but providers diverge on a few details. The validation helpe
 </tbody>
 </table>
 
-`isEmailVerified` and `isIssuerValid` are the only places these differences live in code. Adding a curated provider doesn't require code changes — an OIDC-compliant provider seeds a row with an `authority`, and a plain-OAuth2 provider seeds a row with explicit endpoint fields; only providers with non-standard claim quirks (Apple's first-login-only email, Microsoft's `/common` issuer template) need to be classified explicitly in those helpers. Offering a type to organizations is one line on `OidcProviderType`: its issuer template and the pattern the organization's account must match.
+An id_token that carries an email but no `email_verified`, from a provider other than Entra or Apple, takes `email_verified` from the provider's userinfo endpoint (`OidcFlowOrchestrator`): the response's `sub` must equal the id_token's, or the sign-in fails with `invalid_token`, and its `email_verified` counts only when its `email` is the id_token's. An endpoint that answers nothing, or none at all, leaves the claims as the id_token gave them, so the sign-in fails with `email_not_verified`, and the failure is logged. `isEmailVerified` and `isIssuerValid` are the only places the other differences live in code. Adding a curated provider doesn't require code changes — an OIDC-compliant provider seeds a row with an `authority`, and a plain-OAuth2 provider seeds a row with explicit endpoint fields; only providers with non-standard claim quirks (Apple's first-login-only email, Microsoft's `/common` issuer template) need to be classified explicitly in those helpers. Offering a type to organizations is one line on `OidcProviderType`: its issuer template and the pattern the organization's account must match.
+
+### Password sign-in
+
+An email and a password is a sign-in provider like the others: a `PasswordConfiguration` of one sign-in scope — the organization's own login, one of its applications', or one tenant's — listed among the scope's providers in the portal as **Email and password**, and saved through the published `OwnedPasswordConfigurationService` (`Kinotic.ownedPasswordConfigurations` in `@kinotic-ai/management-api`, and an MCP tool), which acts for the caller's organization alone. A scope has at most one, whose id is derived from the scope (`<organizationId>[:<applicationId>[:<tenantId>]]`); `enabled` decides whether the scope's login takes a password, and `createUserOnSignIn`, taken by an application's own configuration only and only while the system manages its tenants, turns on password sign-up there (see [Authentication](https://kinotic.ai/apps/security/authentication#signing-up)). A login takes a password only while `PasswordConfigurationService.findOffered` finds one: the organization's own login its configuration, an application's its own, and a tenant's the tenant's, else the application's. No organization has one until an administrator adds it, except an organization founded through the email and password sign-up routes, which gets an enabled one with the organization, since its founder has no other way in.
+
+While an organization's login takes no password, its login page shows no password form and its password login answers `401`, and its invitations are accepted only through its providers: `GET /api/auth/invite/details` answers `localEnabled: false` and the accept page offers no password, and `POST /api/auth/invite/accept` answers `400`. Disabling or deleting the organization's own configuration is refused, naming the members, while an enabled member holds a password and no identity bound through a configuration the organization's login offers, since that member would have no way in; a member nobody signs in as yet is claimed through the organization's provider and holds nothing back. The same rule holds the other way: disabling or deleting one of the organization's own OIDC configurations is refused while it is the only way in for an enabled member who signs in today (`OrganizationSignInGuard`). An application's user's password signs in where the user's own login takes one: its tenant's, else its application's, whichever login it names, so a connection's headers, which name no tenant, find it too. Deleting an application or a tenant deletes its configuration, so one created again under the same id starts with none. An application's invitations are accepted with a password alone, so one is made, and accepted, only while the application's login takes one.
 
 ## Per-Org SSO Configuration
 
 An `OrganizationOidcConfiguration` is offered at the org's own login page, `/login/<organizationId>`, by existing. An organization admin manages the organization's configurations in the portal under **Organization settings → Authentication providers**, or through the published `OwnedOidcConfigurationService` the page calls (`Kinotic.ownedOidcConfigurations` in `@kinotic-ai/management-api`, and an MCP tool), which acts for the caller's organization alone.
 
-1. **Add provider** opens the form in a drawer on the right. Pick the provider (Google, Microsoft or Okta) and enter the display name the login page prints on its button, the organization's account at the provider where the kind takes one (the **Directory (tenant) ID** for Microsoft Entra ID, never `common` or `organizations`, which an application's provider may name, the **Okta domain** on `okta.com`, `oktapreview.com` or `okta-emea.com` for Okta), the client ID and the client secret, or tick **Public client (no secret)**. The form checks the account against the kind's pattern before it saves, and shows the server's message when the server still refuses. The audience is optional, under **Advanced**. Saving calls `OwnedOidcConfigurationService.save(configuration, clientSecret)`: the authority is derived from the kind's template, so no URL is given, and the `organizationId` is the caller's whatever was sent. A secret is held in the organization's own scope of the secret storage — the row itself never names one, and nothing reads it back through the service; `confidentialClient` says whether one is held. `createUserOnSignIn` is refused on an organization's configuration, and the form does not offer it: the organization's administrators add its members (see [Members](#members)), and the provider signs in the member it verifies under a pending member's address, claiming that organization user on the first sign-in, or the organization user its identity is already bound to. A person the provider verifies whose address is no member's gets `no_user`; one whose address already has an organization user that someone signs in as is not claimed, and joins by accepting the invitation the administrator's Add member sent.
+1. **Add provider** opens the form in a drawer on the right. Pick the provider (Google, Microsoft or Okta) and enter the display name the login page prints on its button, the organization's account at the provider where the kind takes one (the **Directory (tenant) ID** for Microsoft Entra ID, never `common` or `organizations`, which an application's provider may name, the **Okta domain** on `okta.com`, `oktapreview.com` or `okta-emea.com` for Okta), the client ID and the client secret, or tick **Public client (no secret)**. The form checks the account against the kind's pattern before it saves, and shows the server's message when the server still refuses. The audience is optional, under **Advanced**. Saving calls `OwnedOidcConfigurationService.save(configuration, clientSecret)`: the authority is derived from the kind's template, so no URL is given, and the `organizationId` is the caller's whatever was sent. A secret is held in the organization's own scope of the secret storage — the row itself never names one, and nothing reads it back through the service; `confidentialClient` says whether one is held. `createUserOnSignIn` is refused on an organization's configuration, and the form does not offer it: the organization's administrators add its members (see [Members](#members)), and the provider signs in the member it verifies under a pending member's address, claiming that organization user on the first sign-in, or the organization user its identity is already bound to. A person the provider verifies whose address is no member's gets `no_user`, and so does one whose address is a member someone already signs in as: that member connects the provider from the Profile page.
 2. Once saved, the form shows the configuration's **callback URL**, `<kinotic.managementApi.apiBaseUrl>/api/auth/org/login/sso/callback/<configId>`, which `OwnedOidcConfigurationService.findCallbackUrl(configId)` returns. Add it to the IdP app registration as a redirect URI; sign-ins through the configuration fail until it is there. It is the only one the configuration needs: a login, an invitation accepted through the provider, and a member connecting the provider to their organization user from the Profile page all return to it, and the flow's purpose, recorded on the session when it starts, says which it is. For a same-origin deploy that base is the portal's own origin; for a split-origin deploy (the SPA on the sites Worker, the backend on AKS) it is the backend's hostname, so the IdP returns the browser to the management server, not the SPA. The provider's row, its **Edit** form and its details all show the same URL again.
 3. Editing a configuration leaves its kind fixed, since the kind is the scope it is offered at and the server refuses a save that changes it. The client secret field starts empty: a save with it empty keeps the secret held (`save` with a null or blank secret keeps it), and a secret entered replaces it. **Make this a public client**, which asks for confirmation, deletes the held secret with `OwnedOidcConfigurationService.deleteClientSecret(configId)`.
 4. The row menu also enables or disables the configuration (a disabled one is listed on no login page and signs no one in), deletes it after a confirmation (sign-ins through it stop at once and its held secret is deleted), and copies it to an application: **Copy to application** calls `OwnedOidcConfigurationService.copy(configurationId, applicationId)`, which makes an `ApplicationOidcConfiguration` with the source's provider, account, client ID and secret, and shows the copy's own callback URL, `<the application's API host>/api/auth/app/login/oidc/callback/<copyId>`, to register with the provider as well. The application's API host is its label under `kinotic.domain.appApiBaseUrl`.
@@ -14182,7 +14222,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      Unique social provider keys for the landing page's button row
+      Unique provider keys of the system's org sign-up registrations, for the landing and sign-up pages' button rows and the Members page
     </td>
   </tr>
   
@@ -14206,7 +14246,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      The organization ids the last landing-page sign-in the requesting page started found the identity a member of, for two minutes and until the page starts a login at an organization; <code>
+      The ids of the organizations whose users the last landing-page sign-in the requesting page started found the identity bound to, for two minutes and until the page starts a login at an organization; <code>
         []
       </code>
       
@@ -14274,7 +14314,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
         {email, turnstileToken}
       </code>
       
-      ; emails the address its organizations' login links; <code>
+      ; emails the address the login links of the organizations it is an enabled member of; <code>
         204
       </code>
       
@@ -14330,7 +14370,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      The one callback a system registration is registered with: a login signs in to the stashed organization, or the one organization the identity is a member of; a sign-up, an invitation or a connect is completed by its own handler, as the flow's recorded purpose says
+      The one callback a system registration is registered with: a login signs in to the stashed organization, or, from the landing page, to the one organization whose user the identity is bound to; a sign-up, an invitation or a connect is completed by its own handler, as the flow's recorded purpose says
     </td>
   </tr>
   
@@ -14378,11 +14418,19 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      Enabled configurations the organization's login offers, <code>
-        [{id, name, provider}]
+      The sign-in providers the organization's login offers, <code>
+        [{id, type, name, provider}]
       </code>
       
-      ; <code>
+      : its email and password (<code>
+        PASSWORD
+      </code>
+      
+      ) when it takes one, then its configurations (<code>
+        OIDC
+      </code>
+      
+      ); <code>
         404
       </code>
       
@@ -14410,7 +14458,11 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      Email + password, scoped to the organization; on success establishes the browser session (204 + Set-Cookie)
+      Email + password, scoped to the organization; on success establishes the browser session (204 + Set-Cookie); <code>
+        401
+      </code>
+      
+       for any failure, including an organization whose login takes no password
     </td>
   </tr>
   
@@ -14455,46 +14507,6 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     
     <td>
       <code>
-        /api/auth/org/switch
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        OrganizationLoginHandler
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        {organizationId}
-      </code>
-      
-      ; re-establishes the signed-in organization user's session for another of its enabled memberships (204); <code>
-        401
-      </code>
-      
-       without a login, <code>
-        403
-      </code>
-      
-       for an organization it is not a member of, <code>
-        400
-      </code>
-      
-       without an id
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        POST
-      </code>
-    </td>
-    
-    <td>
-      <code>
         /api/auth/org/methods/start/:configurationId
       </code>
     </td>
@@ -14518,7 +14530,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
         ?error=<code>
       </code>
       
-       when it is bound to another organization user (<code>
+       when it is bound to another user of the organization (<code>
         identity_in_use
       </code>
       
@@ -14528,6 +14540,10 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
       
       , <code>
         email_not_verified
+      </code>
+      
+      , which also names the provider's key in <code>
+        provider
       </code>
       
       )
@@ -14578,7 +14594,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      Verify token + orgName + password; creates Organization, the founder's organization user and membership; establishes session
+      Verify token + orgName + password; creates the Organization and the founder as its first user; establishes session
     </td>
   </tr>
   
@@ -14626,7 +14642,7 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      Consume PendingSignUp; create Org, the founder's organization user bound to the GitHub identity, and membership; establishes session
+      Consume PendingSignUp; create the Organization and the founder as its first user, bound to the GitHub identity; establishes session
     </td>
   </tr>
   
@@ -14674,11 +14690,15 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      What the application's login offers, <code>
-        {passwordSignUp, providers: [{configurationId, name, provider, signUp}]}
+      The sign-in providers the application's login offers, <code>
+        [{configurationId, type, name, provider, signUp}]
       </code>
       
-      , or the tenant's login from one of the tenant's sites or when <code>
+      , its email and password (<code>
+        PASSWORD
+      </code>
+      
+      ) first, or the tenant's login from one of the tenant's sites or when <code>
         tenantId
       </code>
       
@@ -15304,15 +15324,15 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      Invitation details, the organization's live provider list (empty for an application invitation), <code>
-        organizationUserExists
+      Invitation details, the organization's live provider list (empty for an application invitation), and <code>
+        localEnabled
       </code>
       
-       — whether the invited email already has an organization user that a sign-in method signs in; a pending member, whom none does yet, is the invitee's to claim and counts as none — and <code>
-        organizationUserHasPassword
-      </code>
+       — whether it may be accepted with a password, only while the login of its scope takes one (<a href="#password-sign-in">
+        password sign-in
+      </a>
       
-      , without which that organization user joins through a provider it is bound to
+      )
     </td>
   </tr>
   
@@ -15336,15 +15356,19 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      Accept with a password: sets it on the new organization user or application user, or on a pending member as its first sign-in method, or, when the invited email already has an organization user someone signs in as, must be that user's password (<code>
-        401
+      Accept with a password, refused with <code>
+        400
       </code>
       
-       otherwise), and the organization user and its membership of the organization must be enabled (<code>
+       while the login of the invitation's scope takes none: sets it on the new user of the organization or application, or on a pending member as its first sign-in method; <code>
+        409
+      </code>
+      
+       when the invited email is a member someone already signs in as, who signs in instead, and <code>
         403
       </code>
       
-       otherwise); an organization member's session is established, while an application member's response names the application's <code>
+       for a disabled member; an organization member's session is established, while an application member's response names the application's <code>
         primaryUiUrl
       </code>
       
@@ -15376,15 +15400,15 @@ Routes are namespaced under `/api/auth/...`. Organization login and signup are t
     </td>
     
     <td>
-      Accept an organization invitation through a configuration the organization's login offers; redirects to the IdP, whose callback completes the acceptance: the identity's verified email must be the invited one; it joins the organization user it is bound to, binds a pending member as its first sign-in method, or creates and binds one, and establishes an organization member's session; <code>
+      Accept an organization invitation through a configuration the organization's login offers; redirects to the IdP, whose callback completes the acceptance: the identity's verified email must be the invited one; it signs in the organization's user it is bound to, binds a pending member as its first sign-in method, or creates and binds a new user of the organization, and establishes an organization member's session; <code>
         user_exists
       </code>
       
-       when the email's organization user is one someone already signs in as and has no binding for the identity, so the holder accepts with the password instead; <code>
+       when the email is a member someone already signs in as and the identity is not bound to it, who signs in instead; <code>
         user_disabled
       </code>
       
-       when the organization user or its membership is disabled. An application invitation is accepted with a password
+       when the user is disabled. An application invitation is accepted with a password
     </td>
   </tr>
   
@@ -16809,7 +16833,7 @@ gateway's session handler and to the `SessionBinding` that resolves each page's 
 
 ## Overview
 
-Seven pictures of how sign-up and sign-in fit together: who owns a provider configuration and where its secret lives, the configuration classes, how a configuration's kind decides which login offers it, the two routes a browser can take through the app server, the identity and participant classes, what one person's organization user is made of, and the doors on the management server. [Organization Management](https://kinotic.ai/platform/organization-management) walks the same flows endpoint by endpoint and [System Security](https://kinotic.ai/platform/system-security) states the rules they enforce; this page is the map.
+Seven pictures of how sign-up and sign-in fit together: who owns a provider configuration and where its secret lives, the configuration classes, how a configuration's kind decides which login offers it, the two routes a browser can take through the app server, the identity and participant classes, how one person is a separate user of each organization, and the doors on the management server. [Organization Management](https://kinotic.ai/platform/organization-management) walks the same flows endpoint by endpoint and [System Security](https://kinotic.ai/platform/system-security) states the rules they enforce; this page is the map.
 
 ## Two owners, two keys into one vault
 
@@ -16855,7 +16879,7 @@ Nothing is embedded in an organization or an application, and there is no join r
 What reaches each login and why: an org sign-up registration by right, an owned configuration at the one scope its kind names, and a social registration through an application's `MANAGED` configuration only, never at the organization's own login.
 
 - Every read and write of an owned configuration is held to the caller's organization, and a copy is refused for an application or tenant the organization does not have.
-- A `createUserOnSignIn` flag on an application's or a tenant's configuration creates the identity its provider verifies as a user of that scope on the first sign-in: a user of the application, with a tenant of its own while the system manages the application's tenants, or a user of the tenant for a `TENANT` kind. An application whose tenants the system manages may also let people sign up with an email and a password (`Application.passwordSignUp`), verified by an emailed link. `GET /api/auth/app/login/methods` tells a page which of its providers sign people up and whether the password sign-up is open. An organization's configuration refuses the flag: its members are added by administrators, and its provider then signs them in.
+- A `createUserOnSignIn` flag on an application's or a tenant's configuration creates the identity its provider verifies as a user of that scope on the first sign-in: a user of the application, with a tenant of its own while the system manages the application's tenants, or a user of the tenant for a `TENANT` kind. Email and password is a provider of the same lists, a `PasswordConfiguration` of an organization's, an application's or a tenant's login, which takes a password only while one of its scope is enabled; an application whose tenants the system manages may let people sign up with it, with the configuration's own `createUserOnSignIn`, verified by an emailed link. `GET /api/auth/app/login/methods` tells a page whether its login takes a password, whether the password sign-up is open, and which of its providers sign people up. An organization's configuration refuses the flag: its members are added by administrators, and its provider then signs them in.
 
 ## Where the provider sends the browser back
 
@@ -16876,7 +16900,7 @@ Same start, same ending. Path B adds the shared host between the provider and th
 
 ## The identity and participant model
 
-Three kinds of identity share one sealed root, and a person is one of three kinds of user, each the user of one scope: a system user, an organization user and an application user. An application user, a delegate and a machine are each a `ScopedParticipantIdentity`, which carries the scope it acts in as `organizationId` and `applicationId`; a system user acts in the system scope and an organization user through its memberships, so neither has those fields. A user's sign-in methods and an organization user's memberships are rows of their own that point back at the user. What a request runs as is a `Participant`, which an identity becomes only together with a scope: a system user's or an application user's own, or for an organization user the membership the login resolved.
+Three kinds of identity share one sealed root, and a person is one of three kinds of user, each the user of one scope: a system user, an organization user and an application user. An organization user, an application user, a delegate and a machine are each a `ScopedParticipantIdentity`, which carries the scope it acts in: `organizationId` for an organization user, `organizationId` and `applicationId` for the others. A system user acts in the system scope and has neither. A user's sign-in methods are rows of their own that point back at the user. What a request runs as is a `Participant`: the identity acting in its scope.
 
 <sign-in-flows-diagram figure="identity">
 
@@ -16884,15 +16908,15 @@ Three kinds of identity share one sealed root, and a person is one of three kind
 
 </sign-in-flows-diagram>
 
-An identity row says who; a participant says who, acting where. For a system user, an application user, a delegate or a machine the two coincide and `createParticipant(identity)` suffices; for an organization user the scope comes from a membership, which is why `createParticipant(organizationUser)` refuses and the login resolves the pair.
+An identity row says who; a participant says who, acting where. Every identity carries its own scope, so `createParticipant(identity)` makes its participant, and `resolveParticipant(identityId, organizationId, applicationId)` admits it only in the scope it carries, a delegate only while its owner may act there, and a disabled identity nowhere.
 
-- The index mappings follow the classes one to one: `kinotic_participant_identity` for the sealed root with its subclass fields, `kinotic_identity_credential`, `kinotic_oidc_binding` and `kinotic_organization_membership`.
+- The index mappings follow the classes one to one: `kinotic_participant_identity` for the sealed root with its subclass fields, `kinotic_identity_credential` and `kinotic_oidc_binding`.
 - `ParticipantIdentityType` {SYSTEM_USER, ORGANIZATION_USER, APPLICATION_USER, DELEGATE, MACHINE} is the discriminator the index stores for the root, as `OidcConfigurationType` is for configurations. A delegate and a machine authenticate as their type says; a user's methods are its credential and binding rows, and `AuthType` {PASSWORD, OIDC} names one of them on the Profile page.
 - Each login authenticates the kind of user its scope holds, so one email may be a user of every scope, each with its own password: the system console finds system users, an organization's login organization users, an application's login that application's users.
 
-## One organization user, many memberships
+## One user per organization
 
-A person who uses the portal holds one organization user, unique by email among organization users. Its sign-in methods prove which organization user is signing in; its memberships say where it may sign in. Every login is addressed to a scope, and one method, `resolveParticipant`, turns the proven organization user plus the addressed organization into the participant for the session. The organization user's id is the participant's id in every organization it belongs to.
+A person who uses the portal holds a separate organization user in each organization they belong to, unique by email within that organization, each with its own password, bindings and `enabled` flag. Every login is addressed to one organization and signs in that organization's user, and a session acts in that organization alone; using another is a sign-in at that organization's login.
 
 <sign-in-flows-diagram figure="organization-user">
 
@@ -16900,15 +16924,15 @@ A person who uses the portal holds one organization user, unique by email among 
 
 </sign-in-flows-diagram>
 
-Three rows of three: what proves the organization user, the organization user, and where it belongs. Each login below reads one binding or credential and one membership, so nothing in the login path waits on an index refresh.
+Two rows, one per organization: the methods that sign the user in, the user, and the organization it belongs to. One GitHub account is bound separately in each organization. Each login below reads one binding or credential, so nothing in the login path waits on an index refresh.
 
-- Disabling a membership removes one organization from the organization user; disabling the organization user removes them all. Removing a member deletes the membership and the delegates approved in that organization, and an organization user nobody has signed in as that is left with no membership is deleted with it.
-- A delegate (the CLI, an MCP host) is unique per owner, client and organization, and authenticates only while its owner may still act in that organization.
-- The system console takes no membership: it signs in system users, a separate row for the same person with a password of its own.
+- Disabling or removing a member touches that organization's user alone. Removing a member deletes the user with its credential, bindings and delegates, and the person's users of other organizations stay as they are.
+- A delegate (the CLI, an MCP host) is unique per owner and client, carries its owner's organization, and authenticates only while its owner may still act there.
+- The system console signs in system users, a separate row for the same person with a password of its own.
 
 ## The doors on the management server
 
-Organization users sign up and in on the management server. Every door produces or finds an organization user and a membership; none of them asks about an email before a method is chosen, and a signed-in organization user manages its own methods and organizations from the Profile page. An administrator adds a member from the Members page: the organization user and its membership exist at once, pending, until an invitation or the organization's own provider claims it.
+Organization users sign up and in on the management server. Every door produces or finds a user of one organization; none of them asks about an email before a method is chosen, and a signed-in organization user manages its own methods from the Profile page. An administrator adds a member from the Members page: the organization's user exists at once, pending, until an invitation or the organization's own provider claims it.
 
 <sign-in-flows-diagram figure="doors">
 
@@ -16916,7 +16940,7 @@ Organization users sign up and in on the management server. Every door produces 
 
 </sign-in-flows-diagram>
 
-Four doors on one host. A new organization user appears through the first three: founded at sign-up, added by an administrator, or created by an invitation. The fourth is where a signed-in organization user adds a method; the only other way a provider identity joins an organization user that already exists is the organization's own provider claiming a pending member.
+Four doors on one host. A new organization user appears through the first three: founded with a new organization at sign-up, added by an administrator, or created by an invitation. The fourth is where a signed-in organization user adds a method; the only other ways a provider identity joins a user that already exists are an invitation or the organization's own provider claiming a pending member.
 
 
 # Service Call Liveness
@@ -17735,21 +17759,21 @@ Data streams are **append-only**: Elasticsearch accepts only the `create` op-typ
 
 This page describes the architectural choices behind Kinotic's IAM. It is the *why*; for the operational *how* (signup flows, login flows, endpoint reference) see [Organization Management](https://kinotic.ai/platform/organization-management), and for the layered enforcement applied to every request path see [Defense in Depth](https://kinotic.ai/platform/defense-in-depth).
 
-The platform supports email/password and OIDC authentication, gives each person a user of each scope they sign in to — one system user, one organization user with a membership per organization, and one user per application — isolates application user pools by application, stores credentials separately from user records, and uses standalone `OidcConfiguration` entities that are referenced (not embedded) by the scopes that consume them.
+The platform supports email/password and OIDC authentication, gives each person a user of each scope they sign in to — one system user, one user per organization, and one user per application — isolates application user pools by application, stores credentials separately from user records, and uses standalone `OidcConfiguration` entities that are referenced (not embedded) by the scopes that consume them.
 
 ## System Users, Organization Users and Application Users
 
 A person is a `UserParticipantIdentity`, and its concrete type is the scope it signs in to. Each type keeps its own sign-in methods — an optional password (`IdentityCredential`) and, except for a system user, any number of provider bindings (`OidcBinding`) — so one email may be a user of every scope, and a password that signs in at one scope signs in nowhere else.
 
 - A **system user** (`SystemParticipantIdentity`, type `SYSTEM_USER`) is a Kinotic OS user who signs in to the system console with a password. It is unique by email among system users and acts as a `SystemParticipant`.
-- An **organization user** (`OrganizationParticipantIdentity`, type `ORGANIZATION_USER`) is the person who uses the portal. It is unique by email among organization users, and what it belongs to is recorded beside it as `OrganizationMembership` rows, one per organization it is a member of. A membership carries its own `enabled` flag, so an organization disables a member without touching the organization user, and removing a member removes the membership and the delegates approved in that organization, nothing else.
-- An **application user** (`ApplicationParticipantIdentity`, type `APPLICATION_USER`) carries `organizationId`, `applicationId` and, for an application with tenants, `tenantId`, one row per application, owned by the application the way a customer record is. It has the same sign-in methods — a password and provider bindings — but no memberships; the application it carries is the only place it signs in.
+- An **organization user** (`OrganizationParticipantIdentity`, type `ORGANIZATION_USER`) is a member of one organization, who uses the portal. It carries `organizationId` and is unique by email within that organization. A person in several organizations is a separate organization user of each, with its own password, bindings and `enabled` flag, so an organization disables or removes its member without touching the person's users of other organizations; removing a member deletes that user with its credential, bindings and delegates.
+- An **application user** (`ApplicationParticipantIdentity`, type `APPLICATION_USER`) carries `organizationId`, `applicationId` and, for an application with tenants, `tenantId`, one row per application, owned by the application the way a customer record is. It has the same sign-in methods — a password and provider bindings — and the application it carries is the only place it signs in.
 
-An organization user's sign-in therefore has two halves: a method proves which organization user is signing in, and a membership says which organization it may sign in to. Every login is addressed to a scope — an organization's page, the system console, or an application — and authenticates only the type of user that scope holds (`LocalAuthenticationService.authenticateSystemUser`, `authenticateOrganizationUser`, `authenticateApplicationUser`), so a system user and an organization user with the same email never see each other's logins. `ParticipantIdentityService.resolveParticipant(identityId, organizationId, applicationId)` is the one place an identity and a scope become a `Participant`: an organization user's enabled membership of that organization yields an `OrganizationParticipant`, a system user is a `SystemParticipant` and an application user an `ApplicationParticipant` of their own scope, and an identity that may not act in the scope is refused with the same generic answer a wrong password gets. An organization user's participant id is its own id in every organization, so the same person is the same `sub` in each organization they belong to.
+Every login is addressed to a scope — an organization's page, the system console, or an application — and authenticates only the type of user that scope holds (`LocalAuthenticationService.authenticateSystemUser`, `authenticateOrganizationUser`, `authenticateApplicationUser`), so a system user, an organization's user and another organization's user with the same email never see each other's logins. A password signs in only at a login whose scope takes one, through an enabled `PasswordConfiguration` of the organization's, the application's or the tenant's (see [Organization Management](https://kinotic.ai/platform/organization-management#password-sign-in)). `ParticipantIdentityService.resolveParticipant(identityId, organizationId, applicationId)` is the one place an identity and a scope become a `Participant`: a system user is a `SystemParticipant`, an organization user an `OrganizationParticipant` and an application user an `ApplicationParticipant` of their own scope, a disabled identity acts nowhere, and an identity that may not act in the scope is refused with the same generic answer a wrong password gets. Each organization user is its own participant, so the same person is a different `sub` in each organization they belong to.
 
 ## Three Scope Layers
 
-A `Participant` carries its scope structurally, in two optional string fields — `organizationId` and `applicationId`. Which of them is set determines the layer: neither set → `SYSTEM`, `organizationId` only → `ORGANIZATION`, both set → `APPLICATION`. For an organization user the scope comes from the membership the login resolved; for a system user or an application user, from its own row.
+A `Participant` carries its scope structurally, in two optional string fields — `organizationId` and `applicationId`. Which of them is set determines the layer: neither set → `SYSTEM`, `organizationId` only → `ORGANIZATION`, both set → `APPLICATION`. For a user, the scope comes from its own row.
 
 <table>
 <thead>
@@ -17793,7 +17817,7 @@ A `Participant` carries its scope structurally, in two optional string fields �
     </td>
     
     <td>
-      An organization user with a membership of the organization
+      A user of the organization
     </td>
     
     <td>
@@ -17855,15 +17879,15 @@ A `Participant` carries its scope structurally, in two optional string fields �
 </tbody>
 </table>
 
-A system user, an organization user and a user of Application B, all with email `jane@example.com`, are unrelated identities. They are separate rows with separate `IdentityCredential` rows and separate bindings, and sign in on separate paths, so the same person can hold different methods at each (a password at the system console, GitHub at the portal, the application's federated SSO at the application), and authenticating at one grants nothing at the others.
+A system user, a user of organization A, a user of organization B and a user of Application B, all with email `jane@example.com`, are unrelated identities. They are separate rows with separate `IdentityCredential` rows and separate bindings, and sign in on separate paths, so the same person can hold different methods at each (a password at the system console, GitHub at one organization, that organization's Okta at another, the application's federated SSO at the application), and authenticating at one grants nothing at the others.
 
 ### How users are differentiated
 
-A system user and an organization user are each identified by their email, once across the platform: a sign-up or an invitation for an email that already has an organization user signs that organization user in rather than creating another, and a second sign-up by the same email or the same provider identity is refused. An application user is identified by **email + organizationId + applicationId**: the same email may be a user of any number of applications, each a separate row with its own methods and enabled state. Each user's id is derived from its type, its scope and its email, so two creations of the same user at once contend for one row.
+A system user is identified by its email, once across the system. An organization user is identified by **email + organizationId**: an invitation for an email that already has a user of the organization claims or refuses that user rather than creating another, while every sign-up founds a new organization with a new user, whatever other organizations the email or provider identity already signs in to. An application user is identified by **email + organizationId + applicationId**: the same email may be a user of any number of applications, each a separate row with its own methods and enabled state. Each user's id is derived from its type, its scope and its email, so two creations of the same user at once contend for one row.
 
-Within an organization user, a provider identity is matched to the organization user by the binding `(oidcConfigId, subject)`, never by the email the provider asserts. A binding is created with the organization user — sign-up by GitHub, an invitation accepted with a provider, or an organization's own provider claiming the pending member an administrator added under the verified email, whom no method signs in yet — or added later only from a session already signed in as that organization user, in the **Sign-in methods** section of the portal's Profile page, which offers the system's registrations and the own configurations of the organizations it may sign in to. A provider sign-in that no binding answers for is refused with `no_user`, however familiar its email, and an invitation accepted with a provider for an email that already has an unbound organization user is refused with `user_exists`: its holder proves it with the password instead, and connects the provider once signed in. An organization's own provider never reaches such an organization user: it signs in the organization users its identities are bound to and claims the pending members the organization's administrators added, whom the organization created and nobody signs in as yet, and nothing else. Connecting an organization's configuration from the profile requires membership of that organization, so an organization's directory can vouch only for organization users the organization admitted, and no link can start a connect for anyone else's.
+Within an organization, a provider identity is matched to the organization's user by the binding `(oidcConfigId, subject)`, never by the email the provider asserts. A binding belongs to one organization, so one GitHub account may be bound to a user of each organization it signs in to, each binding made separately. A binding is created with the organization user — sign-up by GitHub, an invitation accepted with a provider, or an organization's own provider claiming the pending member an administrator added under the verified email, whom no method signs in yet — or added later only from a session already signed in as that organization user, in the **Sign-in methods** section of the portal's Profile page, which offers the configurations its organization's login offers: the system's org sign-up registrations and the organization's own. A provider sign-in that no binding in the organization answers for is refused with `no_user`, however familiar its email, and an invitation accepted with a provider for an email that is already a member someone signs in as, unbound to that identity, is refused with `user_exists`: its holder signs in instead, and connects the provider once signed in. An organization's own provider never reaches such a member: it signs in the users its identities are bound to and claims the pending members the organization's administrators added, whom the organization created and nobody signs in as yet, and nothing else. Connecting an organization's own configuration from the profile requires being a user of that organization, so an organization's directory can vouch only for users the organization admitted, and no link can start a connect for anyone else's.
 
-A login is addressed to an organization (`/login/<organizationId>`), and signs the organization user in there when it holds an enabled membership of that organization. The portal's landing page, which names none, signs the organization user in when it is a member of exactly one organization and otherwise offers the organizations it is a member of, which it has just proven it owns, for the person to choose from. Once signed in, the account menu's **Organizations** list switches the session to another membership without signing in again.
+A login is addressed to an organization (`/login/<organizationId>`), and signs in the organization's enabled user there. The portal's landing page, which names none, asks for the organization and sends the person to its login, or signs in with GitHub: the user the GitHub identity is bound to when it is bound in exactly one organization, otherwise a choice of the organizations it is bound in, which it has just proven it owns, each signed in to at that organization's own login. A session acts in that one organization; using another is a sign-in at that organization's login, with a method its login offers.
 
 ### Why three layers
 
@@ -18226,9 +18250,9 @@ The identity endpoints (`userInfoUri`, `userEmailsUri`) are fetched with no redi
 
 ## Sign-Up
 
-Self-service signup is wired up for the Organization scope. Both email/password and social-IdP entry points create the `Organization` together with the founder's organization user — its password or GitHub binding — and the founder's membership of the new organization; a person who already has an organization user cannot sign up a second one and joins further organizations by invitation — see [Organization Management](https://kinotic.ai/platform/organization-management) for the step-by-step.
+Self-service signup is wired up for the Organization scope. Both email/password and social-IdP entry points create a new `Organization` together with the founder as its first user — with its password or GitHub binding — whatever other organizations the person already belongs to; a person joins an existing organization by invitation or by being added as a member — see [Organization Management](https://kinotic.ai/platform/organization-management) for the step-by-step.
 
-For the Application scope, an org admin (or the application's own admin tooling) creates user rows in the application's scope, or invites them — see [Organization Management](https://kinotic.ai/platform/organization-management) — and an application may also let people sign up from its own UIs, as `ApplicationSignUpService` decides. An application whose tenants the system manages may let an `ApplicationOidcConfiguration` with `createUserOnSignIn` create a user on the first sign-in of an identity its provider verifies, and may turn on `Application.passwordSignUp`: a person posts an email to the application's API host, which answers alike for every email, emails a single-use token valid for a day to the `/signup/verify` page of the UI that asked, and sends nothing to an email the application already has a user under; the token comes back with a password and creates the user (`PendingApplicationSignUp` holds the sign-up meanwhile). Either way the new user gets a tenant of their own. `ApplicationService.save` refuses `passwordSignUp` on an application whose tenants their administrators manage: there a user is never without a tenant, so a user is created by an administrator, an invitation, or a `TenantOidcConfiguration` with `createUserOnSignIn`, which creates the identity its provider verifies as a user of that tenant on its first sign-in at the tenant's login. Sign-up is made only from a page that is one of the application's UIs, as a sign-in is.
+For the Application scope, an org admin (or the application's own admin tooling) creates user rows in the application's scope, or invites them — see [Organization Management](https://kinotic.ai/platform/organization-management) — and an application may also let people sign up from its own UIs, as `ApplicationSignUpService` decides. An application whose tenants the system manages may let an `ApplicationOidcConfiguration` with `createUserOnSignIn` create a user on the first sign-in of an identity its provider verifies, and may let people sign up with an email and a password, through the `createUserOnSignIn` of the application's `PasswordConfiguration`: a person posts an email to the application's API host, which answers alike for every email, emails a single-use token valid for a day to the `/signup/verify` page of the UI that asked, and sends nothing to an email the application already has a user under; the token comes back with a password and creates the user (`PendingApplicationSignUp` holds the sign-up meanwhile). Either way the new user gets a tenant of their own. `OwnedPasswordConfigurationService.save` refuses that sign-up on an application whose tenants their administrators manage: there a user is never without a tenant, so a user is created by an administrator, an invitation, or a `TenantOidcConfiguration` with `createUserOnSignIn`, which creates the identity its provider verifies as a user of that tenant on its first sign-in at the tenant's login. Sign-up is made only from a page that is one of the application's UIs, as a sign-in is.
 
 ## Design Decisions
 
@@ -18242,21 +18266,21 @@ An identity that acts in a scope of its own — an application user, a delegate 
 
 ### Single identity entity for all scopes
 
-System users, organization users, application users, delegates and machines share the sealed `ParticipantIdentity` hierarchy and one index, discriminated by `type`. Each subtype holds only the fields its kind has, so a system or organization user has no scope fields at all, while the services that find, authenticate and resolve identities stay one set, named by the scope they serve.
+System users, organization users, application users, delegates and machines share the sealed `ParticipantIdentity` hierarchy and one index, discriminated by `type`. Each subtype holds only the fields its kind has, so a system user has no scope fields at all and an organization user only `organizationId`, while the services that find, authenticate and resolve identities stay one set, named by the scope they serve.
 
-### Memberships and bindings as separate entities
+### Bindings as separate entities
 
-An organization user's organizations and its provider identities are rows of their own, `OrganizationMembership` (id `<organizationUserId>:<organizationId>`) and `OidcBinding` (id `<oidcConfigId>:<subject>` for an organization user, with `<organizationId>/<applicationId>/` in front for an application's user, since the system's Google registration is one configuration for every application and a person may be a user of several), rather than lists on the identity. Each is read by its id at an organization's login — the one lookup the login makes — so a membership or binding is visible the moment it is written, with no index refresh in the login path; a binding's id makes the rule that a provider identity signs in one organization user, and one user per application, a uniqueness constraint the store enforces; and an organization's member list is a filter on `OrganizationMembership.organizationId` rather than a scan of every organization user's list.
+A user's provider identities are rows of their own, `OidcBinding`, rather than a list on the identity. A binding's id names the scope of the user it binds: `<organizationId>/<oidcConfigId>:<subject>` for an organization's user and `<organizationId>/<applicationId>/<oidcConfigId>:<subject>` for an application's, since the system's GitHub and Google registrations are each one configuration for every scope and a person may be a user of several. A binding is read by its id at a login — the one lookup the login makes — so it is visible the moment it is written, with no index refresh in the login path, and its id makes the rule that a provider identity signs in one user of each organization and one of each application a uniqueness constraint the store enforces.
 
 ### Users, delegates, and machines
 
-A `ParticipantIdentity` is a person of one scope (a `UserParticipantIdentity`: system user, organization user or application user), a client a person has authorized to act on their behalf (`DelegatingParticipantIdentity`) — the Kinotic CLI via the device-code grant, or an MCP host such as an LLM assistant via the PKCE authorization-code grant — or a non-human caller with its own credential (`MachineParticipantIdentity`), such as a system daemon or an external client of an organization's application API. A delegate carries the exact scope of the login that approved it — the organization the owner was signed in to, or the system for a system login — and is unique per `(owner, client, scope)`: approving the same client twice in the same organization reuses one delegate, each approval issuing a fresh refresh-token lineage under it, while an approval in another of the owner's organizations creates a delegate of that organization — and authenticates only with Kinotic-issued tokens whose `sub` is the delegate's own id, so every request records *which client* acted, not just whose authority it used.
+A `ParticipantIdentity` is a person of one scope (a `UserParticipantIdentity`: system user, organization user or application user), a client a person has authorized to act on their behalf (`DelegatingParticipantIdentity`) — the Kinotic CLI via the device-code grant, or an MCP host such as an LLM assistant via the PKCE authorization-code grant — or a non-human caller with its own credential (`MachineParticipantIdentity`), such as a system daemon or an external client of an organization's application API. A delegate carries the exact scope of the login that approved it — the organization the owner was signed in to, or the system for a system login — and is unique per `(owner, client, scope)`: approving the same client twice reuses one delegate, each approval issuing a fresh refresh-token lineage under it — and authenticates only with Kinotic-issued tokens whose `sub` is the delegate's own id, so every request records *which client* acted, not just whose authority it used.
 
 Both grants are bound to the server that started them. The authorization request and the device-code flow record the OAuth issuer of the server whose endpoint began them, and on the app server each application's API host is an issuer of its own; only that issuer's token endpoint redeems the code: an authorization code presented to another server's or another application's token endpoint is refused and burned, and a device code polled there reads as unknown.
 
-Revocation follows from the model: authentication re-reads the identity on every token validation, so disabling a delegate cuts that client off on its next request even if its access token has not expired, and a delegate authenticates only while its owner may still act in the delegate's scope — disabling an organization user, or its membership of the delegate's organization, revokes every client authorized on its behalf there with no cascade to miss. Removing a member deletes the delegates approved in that organization, and deleting an identity deletes its credential, bindings, memberships and delegates outright.
+Revocation follows from the model: authentication re-reads the identity on every token validation, so disabling a delegate cuts that client off on its next request even if its access token has not expired, and a delegate authenticates only while its owner may still act in the delegate's scope — disabling a user revokes every client authorized on its behalf with no cascade to miss. Deleting an identity, as removing a member does, deletes its credential, bindings and delegates outright.
 
-Each approval issues a refresh-token lineage under the delegate — a *session*, labeled with the device name the client supplied (the CLI sends one with `device_name` on the device-authorization request). The published `DelegateService` gives the signed-in user their own delegates and sessions — list them, end a single session, or revoke a delegate entirely. Alongside it, `ProfileService` reads and writes the calling user — a system user from the system console, an organization user from the portal: `findMyProfile` returns it, `updateDisplayName` sets the name shown wherever they appear, `findMySignInMethods` lists the password and provider bindings the user signs in with, `setPassword` sets or changes the password (the current one is required when there is one), `removeSignInMethod` drops a method as long as another remains, and `findMyOrganizations` lists the memberships an organization user can switch to. Both services address the calling user rather than taking an id, and admit only a person — a delegate cannot read or edit the user that authorized it. The portal surfaces them as the **Profile** and **Connected apps** pages under the account menu. Because `DelegateService` keys on the calling participant alone, it serves each scope its servers admit: the system console carries the same **Connected apps** page under its account menu, so a system user revokes the clients authorized on their own behalf there. It is a `management-api` service, which the app server neither hosts nor reaches, so an application's users have no listing or revocation of the clients the app server authorizes on their behalf.
+Each approval issues a refresh-token lineage under the delegate — a *session*, labeled with the device name the client supplied (the CLI sends one with `device_name` on the device-authorization request). The published `DelegateService` gives the signed-in user their own delegates and sessions — list them, end a single session, or revoke a delegate entirely. Alongside it, `ProfileService` reads and writes the calling user — a system user from the system console, an organization user from the portal: `findMyProfile` returns it, `updateDisplayName` sets the name shown wherever they appear, `findMySignInMethods` lists the password and provider bindings the user signs in with, `setPassword` sets or changes the password (the current one is required when there is one), `findConnectableProviders` lists the configurations its organization's login offers that the user has not bound yet, and `removeSignInMethod` drops a provider binding, never the last method that still signs the user in: its password, or a binding to a configuration its organization's login offers. Both services address the calling user rather than taking an id, and admit only a person — a delegate cannot read or edit the user that authorized it. The portal surfaces them as the **Profile** and **Connected apps** pages under the account menu. Because `DelegateService` keys on the calling participant alone, it serves each scope its servers admit: the system console carries the same **Connected apps** page under its account menu, so a system user revokes the clients authorized on their own behalf there. It is a `management-api` service, which the app server neither hosts nor reaches, so an application's users have no listing or revocation of the clients the app server authorizes on their behalf.
 
 ### Machine identities
 
