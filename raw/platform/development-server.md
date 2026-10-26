@@ -142,11 +142,11 @@ node is.
 
 ### Azure keeps the sites account, email, DNS, and a server Key Vault; Cloudflare the sites
 
-The developer root `deployment/terraform/azure/dev` already builds everything a server off Azure
-needs to publish UIs and send email: a resource group, the sites storage account, the sites
-Worker and domain `<environment>.kinotic.io`, and a service principal whose `AZURE_CLIENT_ID`,
-`AZURE_CLIENT_SECRET`, and `AZURE_TENANT_ID` `DefaultAzureCredential` takes before anything
-else. A `dev-server` root is that root plus four things: a Key Vault for the servers, the
+The `deployment/terraform/azure/dev-server` root builds what the servers off Azure need to publish
+UIs and send email through the `dev-environment` module: a resource group, the sites storage
+account, the sites Worker and domain `<environment>.kinotic.io`, and a service principal whose
+`AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, and `AZURE_TENANT_ID` `DefaultAzureCredential` takes
+before anything else. Beyond the module it adds four things: a Key Vault for the servers, the
 portal and the system console on the sites Worker at hostnames of the platform zone, the
 servers' hostnames, and a container for Elasticsearch snapshots.
 
@@ -549,10 +549,10 @@ kinotic-{org,system,app}-server/src/main/resources/
 /var/lib/kinotic/{config,data}/<service>, /es{1,2,3}/data   # each container's files and state
 ```
 
-Each server runs with `SPRING_PROFILES_ACTIVE=dev-server`. Leaving out `development` is what
-takes it off the development conveniences: no auto-seeded system secrets
-(`kinotic.domain.systemSecrets.generateMissing` is set by the development profile alone), the halting Ignite failure handler, the
-production shard defaults — which `dev-server` then overrides. Its environment is composed by
+Each server runs with `SPRING_PROFILES_ACTIVE=dev-server`, on the production defaults where the profile
+sets nothing: no auto-seeded system secrets (`kinotic.domain.systemSecrets.generateMissing` is set by the
+`demonstration` profile alone), the halting Ignite failure handler, and the production shard defaults,
+which `dev-server` then overrides. Its environment is composed by
 terraform from what the three share — the compose services', the Azure root's outputs, and the
 addresses only the proxmox root knows — and what is its own; its secrets arrive through
 `secrets.yml`, which the profile imports, and the env file the applier merges. The one-shot
@@ -1119,11 +1119,11 @@ What differs between the three:
   <tr>
     <td>
       <code>
-        kinotic.systemApi.disableAzureStorage
+        kinotic.systemApi.uiDeployment.siteStorage
       </code>
       
-      , <code>
-        uiDeployment.sitesStorageEndpoint
+       / <code>
+        sitesStorageEndpoint
       </code>
       
       , <code>
@@ -1136,8 +1136,8 @@ What differs between the three:
     </td>
     
     <td>
-      <code>
-        false
+      the default <code>
+        AZURE
       </code>
       
       , so the sites Worker serves the published UIs; the development server's sites account; <code>
@@ -1282,24 +1282,6 @@ What the three share:
     
     <td>
       Vert.x terminates TLS, matching Azure; the edge passes each connection through unopened
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        kinotic.apiGateway.webServer.enabled
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        false
-      </code>
-    </td>
-    
-    <td>
-      Nothing is served from a jar's webroot; the gateway port is the only one a server listens on, as in the cluster
     </td>
   </tr>
   
@@ -1814,9 +1796,9 @@ which the service waits for:
 
 ## Azure: the `dev-server` terraform root
 
-`deployment/terraform/azure/dev-server` shares `modules/dev-environment` with the `dev/` root
-a developer uses for their own machine — the resource group, the sites module, the sites key
-vault, and the service principal — and adds what a server peers depend on needs. Local state,
+`deployment/terraform/azure/dev-server` builds its resource group, sites module, sites key vault
+and service principal from `modules/dev-environment`, and adds what a server peers depend on
+needs. Local state,
 `environment = "dev"`, creating:
 
 <table>
@@ -2332,8 +2314,9 @@ read-only for a week, then tear it down.
 
 The same pieces serve a developer's machine, without the Proxmox host: the compose stack
 from `deployment/docker-compose` with the `BOXLITE` vm-manager beside it, as the
-[contributing guide](https://kinotic.ai/platform/contributing#running-workloads-on-your-machine) describes, and
-the `dev/` root for the sites account, the Cloudflare side, and email. Every
+[contributing guide](https://kinotic.ai/platform/contributing#running-workloads-on-your-machine) describes, with
+published UIs stored in Azurite and served by the local edge in place of the sites account and
+Cloudflare. Every
 development environment shares one GitHub App. An App has one webhook URL, and it points at
 the development server, so a developer's own server sees no push events: deployments there
 start from the re-run path, and a developer who needs the webhook registers an App of their

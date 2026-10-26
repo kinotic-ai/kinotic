@@ -475,7 +475,7 @@ export default defineConfig({
 })
 ```
 
-The app server's development profile admits a page on any `http://localhost` port as a UI of
+The app server's `demonstration` profile admits a page on any `http://localhost` port as a UI of
 every application; elsewhere an application's users sign in only from its published sites.
 
 ## Typical Setup
@@ -1029,6 +1029,11 @@ deployed as a tracked job you can watch live.
 
 Only pushes to the default branch deploy. Pushes to other branches, branch deletions, and
 tag operations are ignored.
+
+A coding agent connected to Kinotic over MCP pushes with a token from the
+`ProjectRepoCredentialService` issue write token tool: it may write the one project's repository,
+is good for an hour, and comes with the repository's clone URL and default branch. Git presents it
+over HTTP as the password of the user `x-access-token`.
 
 ## What a deployment does
 
@@ -5409,7 +5414,7 @@ The rise of AI-assisted development has unlocked a new paradigm -- rapid iterati
 
 This documentation walks through everything you need to build and ship a Kinotic App:
 
-1. **Quick Start** -- Scaffold a project and persist your first entity in under five minutes.
+1. **Quick Start** -- Run Kinotic on your machine and build your first app with Claude Code.
 2. **Application Structure** -- Understand how organizations, applications, projects, and artifacts fit together.
 3. **Services** -- Publish and consume services across your application.
 4. **Persistence** -- Define entities, configure indexes, and run queries.
@@ -5419,167 +5424,88 @@ This documentation walks through everything you need to build and ship a Kinotic
 Ready to build something? Head to the [Quick Start](https://kinotic.ai/getting-started/quick-start) to create your first Kinotic App.
 
 
-# Local-Only Setup
-
-> Run Kinotic entirely on your own machine, without a Kinotic OS Cloud organization.
-
-<alert type="info">
-
-**Coming soon.** A local-only setup is in development. This page will cover installing and running Kinotic on your own machine without a cloud organization.
-
-</alert>
-
-Until then, follow the [Quick Start](https://kinotic.ai/getting-started/quick-start) to build an App in a Kinotic OS Cloud organization.
-
-
 # Quick Start
 
-> Get started building your first Kinotic App -- from a provisioned project to a running CRUD service in under five minutes.
+> Run Kinotic on your own machine, create your organization, and build your first app with Claude Code.
 
-This guide walks you through creating a Kinotic App, defining an entity, generating its repository, and using the repository to read and write data.
+Kinotic runs on your own machine today. Kinotic OS Cloud, where Kinotic runs for you, is coming soon.
 
-## Prerequisites
+<tabs sync="kinotic-install">
+<tabs-item icon="i-lucide-laptop" label="Local">
 
-- **Bun** -- Install from [https://bun.sh](https://bun.sh)
-- **A Kinotic organization** you are a member of, with a linked GitHub organization
+The local install runs the whole of Kinotic OS in Docker on your machine: its servers, the portal, the
+Git server that holds your projects' repositories, and the storage your apps' data and UIs live in.
+Nothing leaves your machine except the downloads.
 
-## Create Your Application
+#### Prerequisites
 
-Kinotic OS creates your Application and Project and provisions a GitHub repository for it, already scaffolded as a Bun workspace with the Kinotic CLI vendored as a dev dependency -- there is nothing to install globally.
+- **Docker** with Compose, and at least 12 GB of memory available to it
+- **Bun**, from [bun.sh](https://bun.sh)
+- **macOS on Apple silicon, or Linux with KVM** (`/dev/kvm`), where your apps' deployments run as micro VMs
+- **Claude Code**, which builds your app with the Kinotic plugin
+- An internet connection for the first start, which downloads Kinotic's images, and for each new project, whose starting code comes from GitHub
 
-The fastest way is the official Kinotic plugin, which drives the whole flow conversationally. In Claude Code:
+<steps level="4">
 
-```text
-/plugin marketplace add kinotic-ai/agent-plugin
-/plugin install kinotic@kinotic
-/kinotic:new-app my-app
-```
-
-In Codex (the CLI, the IDE extension, or the ChatGPT desktop app), install the same plugin and ask Codex to create a Kinotic app:
-
-```bash
-codex plugin marketplace add kinotic-ai/agent-plugin
-codex plugin add kinotic@kinotic
-```
-
-In Grok Build, install it and run `/new-app my-app`:
+#### Install and launch Kinotic
 
 ```bash
-grok plugin install kinotic-ai/agent-plugin --trust
+git clone https://github.com/kinotic-ai/kinotic.git
+cd kinotic/deployment/docker-compose
+docker compose up -d
 ```
 
-You can also create the Application and Project from the Kinotic OS dashboard; either way you end up with a provisioned repository.
+The first start downloads the images and prepares the database, which takes a few minutes. The portal
+opens at [http://localhost:9090](http://localhost:9090) once `docker compose ps` lists the three
+`kinotic-server-*` containers as `healthy`.
 
-## Clone and Install
+#### Start the node that runs your deployments
+
+Every push to a project deploys it onto a node on your machine. In another terminal, from the folder you
+ran `git clone` in:
 
 ```bash
-git clone <your-provisioned-repo> && cd <your-repo>
-bun install
+cd kinotic/kinotic-js/workspace
+bun install && bun run build
+cd packages/vm-manager
+bun run dev
 ```
 
-The repository comes with a `.config/kinotic.config.ts` already wired to your organization, application, and project, pointing entity discovery at `packages/domain/model` and repository generation at `packages/domain/repositories`.
+Leave it running; it connects to Kinotic and takes each deployment as it comes.
 
-## Define an Entity
+#### Create your organization
 
-Create a file at `packages/domain/model/Person.ts`:
+Open [http://localhost:9090/signup](http://localhost:9090/signup), enter your name and email, then name
+your organization and set a password. A local install sends no email, so the page goes straight on, and
+you are signed in to your new organization.
 
-```typescript
-import { Entity, AutoGeneratedId, NotNull, Precision, PrecisionType, MultiTenancyType } from '@kinotic-ai/persistence'
+#### Follow the Quickstart in the portal
 
-@Entity(MultiTenancyType.NONE)
-export class Person {
-    @AutoGeneratedId
-    id: string | null = null
+Open **Quickstart** in the portal's sidebar. It walks you through installing the Kinotic plugin in Claude
+Code, connecting Claude to your local Kinotic, and asking for your app. Claude creates the application
+and its project, writes the entities, services and UIs, and pushes to the project's repository; every
+push deploys.
 
-    @NotNull
-    firstName: string = ''
+</steps>
 
-    @NotNull
-    lastName: string = ''
+`docker compose stop` stops Kinotic and keeps your data for the next `docker compose up -d`;
+`docker compose down -v` deletes it. [Developing Kinotic](https://kinotic.ai/platform/contributing) covers what the
+stack runs and how to work on Kinotic itself.
 
-    @Precision(PrecisionType.SHORT)
-    age: number = 0
-}
-```
+</tabs-item>
 
-A few things to note:
+<tabs-item icon="i-lucide-cloud" label="Cloud">
+<cloud-waitlist>
 
-- `@Entity(MultiTenancyType.NONE)` marks the class as a persisted entity with no multi-tenancy.
-- `@AutoGeneratedId` tells the platform to generate an ID when one is not provided.
-- `@NotNull` enforces that a field must have a value.
-- `@Precision(PrecisionType.SHORT)` tells the platform this number is a short integer, which influences how it is stored and indexed.
 
-## Generate the Repository
 
-```bash
-bun run generate
-bun run type-check
-```
-
-This writes `packages/domain/repositories/PersonRepository.ts` (yours to extend) along with a generated base class, and saves the entity's schema under `.config/c3/`. Export both from the domain package's entry so other packages can import them:
-
-```typescript
-// packages/domain/index.ts
-export * from './model/Person.js'
-export * from './repositories/PersonRepository.js'
-```
-
-## Push to Sync
-
-```bash
-git add . && git commit -m "Add Person entity" && git push
-```
-
-Kinotic OS reads entity definitions from the connected GitHub repository and synchronizes them for you -- publishing the entity creates the backing storage and registers its services. There is nothing to log in to or push from your machine besides git.
-
-## Use the Generated Repository
-
-The provisioned repository ships a starter microservice at `packages/microservices/main` that already sets the zone and connects. Extend its `src/main.ts` to try the repository out:
-
-```typescript
-import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { PersistencePlugin } from '@kinotic-ai/persistence'
-import { PersonRepository } from '@my-app/domain'
-import { appZone } from '@kinotic-ai/management-api'
-import config from '../../../../.config/kinotic.config'
-
-Kinotic.use(PersistencePlugin)
-Kinotic.zonePrefix = appZone(config.organizationId, config.applicationId)
-
-// server and credentials resolve from the environment: KINOTIC_SERVER_HOST/PORT/USE_SSL,
-// KINOTIC_CLIENT_ID/KINOTIC_CLIENT_SECRET, which a deployment sets to the app server and the
-// microservice's own machine identity. With nothing set it dials https://api.kinotic.ai, the org
-// server, which admits no runtime
-await Kinotic.connect()
-
-const personRepository = new PersonRepository()
-
-// Create a person
-const person = await personRepository.save({
-    id: null,
-    firstName: 'Jane',
-    lastName: 'Doe',
-    age: 28
-})
-
-console.log('Saved:', person)
-
-// Find all people
-const page = await personRepository.findAll(Pageable.create(0, 10))
-console.log('People:', page.content)
-```
-
-Run it with Bun:
-
-```bash
-bun run packages/microservices/main/src/main.ts
-```
-
-You should see the saved person printed to the console, followed by a page of results containing that person.
+</cloud-waitlist>
+</tabs-item>
+</tabs>
 
 ## What's Next?
 
-Now that you have a working application, explore the rest of the documentation:
+Once your first app is deployed, explore the rest of the documentation:
 
 - [Application Structure](https://kinotic.ai/apps/application-structure/overview) -- Understand how organizations, applications, projects, and artifacts are organized.
 - [Services](https://kinotic.ai/apps/services/overview) -- Learn how to publish and consume services across your application.
@@ -7051,23 +6977,15 @@ configured under `kinotic.systemApi.deployment.*`:
     </td>
     
     <td>
-      Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond the management server — typically <code>
-        github.com
-      </code>
-      
-       and <code>
+      Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond the management server and the host of the repository's clone URL, which its egress policy always permits — typically <code>
         registry.npmjs.org
       </code>
       
       , so <code>
-        git fetch
-      </code>
-      
-       and <code>
         bun install
       </code>
       
-       work under default-deny egress
+       works under default-deny egress
     </td>
   </tr>
   
@@ -7093,11 +7011,39 @@ configured under `kinotic.systemApi.deployment.*`:
 
 The VMs are the same size in every environment; what differs between nodes is how many fit. The sync VM gets half a core, 2 GB of memory and a 2 GB root filesystem, where the package manager keeps its cache, with the project checkout mount (clone plus installs) capped at 4 GB; each runtime VM, and each site publish or removal VM and SBOM VM, gets half a core, 1 GB of memory and a 512 MB root filesystem — the checkout is a read-only mount, so the root holds only what the microservice writes. The disk caps are enforced where the node's filesystem carries project quotas.
 
-The pipeline also requires the GitHub module (it mints the short-lived fetch token from
-the org's App installation) and at least one online node advertising a workload data
+The pipeline also requires the project's [repository host](#repository-host), which mints the
+short-lived fetch token, and at least one online node advertising a workload data
 directory — the project's checkout lives at `<workloadDataDir>/projects/<projectId>` on
 the node that first deployed it, mounted read-write into the sync VM and read-only into
 the runtime VMs.
+
+## Repository host
+
+`kinotic.managementApi.repoHost` names where each project's Git repository is hosted, and so
+how a project is created, fetched by its sync workload, and pushed to:
+
+- `GITHUB`, the default: the repository is created from the template
+`kinotic.managementApi.github.repoTemplate` in the GitHub account the organization linked by
+installing the system's GitHub App, and the App mints the fetch and write tokens.
+- `GITEA`, which the `demonstration` profile sets: the management and system servers administer
+a Gitea server (`deployment/docker-compose/compose.gitea.yml`). Each Kinotic organization is a
+private Gitea organization of the same id, so nothing is linked. Each repository is created
+holding one commit of the template, downloaded from GitHub and rendered for the project, and given
+a push webhook to the management server's `/api/github/webhook`, signed with
+`kinotic.managementApi.github.webhookSecret`; Gitea sends the same headers and signature GitHub
+does. A repository is fetched through a Gitea account that may only read it and pushed to
+through one that may only write it (`ProjectRepoCredentialService.issueWriteToken`, which a coding
+agent calls as an MCP tool), each with
+tokens good for an hour. Gitea names an organization in at most 40 characters and reserves some
+names, among them `admin`, `api`, `explore`, `org` and `user`, so an organization whose id is longer
+or reserved cannot create a project there: the creation fails with Gitea's reason.
+
+`ProjectService.getRepositoryHost` tells the portal and coding agents which it is. Gitea has no
+configuration of its own: the servers reach it at `kinotic-gitea:3000` on the compose network and
+act as the `kinotic_admin` administrator `compose.gitea.yml` creates; a person's browser and Git
+client reach it at `http://localhost:3001`, a deployment's sync workload at
+`http://192.168.127.254:3001`, the host alias of a BOXLITE guest; and Gitea delivers its webhooks to
+`kinotic-server-management:58503`.
 
 ## Application API hosts
 
@@ -7165,7 +7111,11 @@ management-api. The Helm chart sets all three from the same paths in its values:
         OwnedOidcConfigurationService.findCallbackUrl
       </code>
       
-       gives an application's or a tenant's OIDC configuration. The base URL itself is the shared host a sign-in through one of the system's social registrations returns to. The development profiles set <code>
+       gives an application's or a tenant's OIDC configuration. The base URL itself is the shared host a sign-in through one of the system's social registrations returns to. The <code>
+        demonstration
+      </code>
+      
+       profile sets <code>
         http://localhost:58505
       </code>
     </td>
@@ -7191,17 +7141,19 @@ management-api. The Helm chart sets all three from the same paths in its values:
         kinotic.managementServer.issuerBaseUrl
       </code>
       
-       is set. The management server's development profile sets <code>
-        http://localhost:5173
+       is set. The management server's <code>
+        e2e
       </code>
       
-      , the portal's vite dev server, and its <code>
-        compose
+       and <code>
+        demonstration
       </code>
       
-       profile <code>
-        http://localhost:9090
+       profiles set <code>
+        http://localhost:58503
       </code>
+      
+      , its gateway port
     </td>
   </tr>
   
@@ -7229,15 +7181,15 @@ management-api. The Helm chart sets all three from the same paths in its values:
         *
       </code>
       
-      , returns to that UI instead. The development profiles set <code>
-        http://localhost:5173
+      , returns to that UI instead. The <code>
+        e2e
       </code>
       
-      , and the management server's <code>
-        compose
+       and <code>
+        demonstration
       </code>
       
-       profile <code>
+       profiles set <code>
         http://localhost:9090
       </code>
     </td>
@@ -7265,7 +7217,7 @@ management-api. The Helm chart sets all three from the same paths in its values:
         *
       </code>
       
-      , are also the only UIs the management server's browser flows return to, with their logins, social sign-up tokens, GitHub App install codes and errors, so name only origins you control. The local development profile's ngrok wildcard is the one exception, acceptable only on a developer's machine
+      , are also the only UIs the management server's browser flows return to, with their logins, social sign-up tokens, GitHub App install codes and errors, so name only origins you control.
     </td>
   </tr>
   
@@ -7281,7 +7233,11 @@ management-api. The Helm chart sets all three from the same paths in its values:
     </td>
     
     <td>
-      Origins admitted as a UI of every application, for UIs a developer serves from their own machine; the development profile sets <code>
+      Origins admitted as a UI of every application, for UIs a developer serves from their own machine; the <code>
+        demonstration
+      </code>
+      
+       profile sets <code>
         http:\/\/localhost:\d+
       </code>
       
@@ -7323,6 +7279,38 @@ Worker. The account is configured under `kinotic.systemApi.uiDeployment.*`:
   <tr>
     <td>
       <code>
+        siteStorage
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        AZURE
+      </code>
+    </td>
+    
+    <td>
+      Where published UIs are stored: <code>
+        AZURE
+      </code>
+      
+      , the sites storage account; <code>
+        AZURITE
+      </code>
+      
+      , the emulator a demonstration server runs (<a href="#site-storage-on-one-machine">
+        site storage on one machine
+      </a>
+      
+      ); or <code>
+        DISABLED
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
         sitesStorageEndpoint
       </code>
     </td>
@@ -7336,18 +7324,16 @@ Worker. The account is configured under `kinotic.systemApi.uiDeployment.*`:
         sites/<hostname>/
       </code>
       
-      . Required
+      , as the publish and removal workloads reach it. Required
     </td>
   </tr>
 </tbody>
 </table>
 
-The endpoint is validated at boot, like the GitHub App settings, so an environment
-[without Azure storage](#without-azure-storage) still sets it, to a placeholder. In the Azure
+The endpoint is validated at boot, like the GitHub App settings, so an environment whose site
+storage is `DISABLED` still sets it, to a placeholder. In the Azure
 deployment terraform creates the account and the Cloudflare side and passes the account and
-domain to the server (see the [deployment guide](https://kinotic.ai/platform/deployment-guide)); the `local`
-profile of the [contributing guide](https://kinotic.ai/platform/contributing#publishing-uis-against-azure) names
-a developer's own. The server never reads or writes the account itself: it holds Storage Blob
+domain to the server (see the [deployment guide](https://kinotic.ai/platform/deployment-guide)). The server never reads or writes the account itself: it holds Storage Blob
 Data Contributor on it only to sign the URLs, scoped to one site's directory, that the publish
 and removal workloads act through. The sites Worker reads the account over its blob endpoint
 with a read-only SAS on the container, which terraform mints and binds to the Worker as a
@@ -7400,6 +7386,40 @@ organization is created and again before its first site is published:
       </code>
       
       . Required on the system server to publish a UI; an application's login admits pages under it
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        useSsl
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+    </td>
+    
+    <td>
+      Whether a browser reaches the sites over TLS, which sets the scheme of each site's URL
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        port
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      The port a browser reaches the sites on, in each site's URL; unset for the scheme's default port
     </td>
   </tr>
   
@@ -7505,7 +7525,7 @@ request and verifies it with the site's secret, under `kinotic.managementServer.
         false
       </code>
       
-       accepts every request, for an environment with no Turnstile site such as the e2e stack
+       accepts every request, for an environment with no Turnstile site such as the e2e stack or a demonstration server
     </td>
   </tr>
   
@@ -7549,8 +7569,8 @@ request and verifies it with the site's secret, under `kinotic.managementServer.
 </tbody>
 </table>
 
-The `development` and `dev-server` profiles use Cloudflare's always-passing test site, so the form
-works with no site of one's own.
+The `dev-server` profile uses Cloudflare's always-passing test site, so the form works with no site of
+its own.
 
 ## LLM configurations
 
@@ -7675,10 +7695,18 @@ keeps the key held, and deleting the configuration deletes its key. `findApiKey(
 a system service that calls the model: only a cluster member calling as itself, with no participant
 bound, can read it, so no gateway connection can, the system console's users included.
 
-## Without Azure storage
+## Demonstration server
 
-An environment without the sites storage account, such as development and the tests, turns off
-everything that uses it with one property:
+The `demonstration` profile runs the whole platform on one machine from `deployment/docker-compose`
+(`compose.yml` runs every server with it, and the migration with `demonstration,fixtures`), so Kinotic
+can be tried, and developed, with no Azure, no GitHub and no mail service. Each server's
+`application-demonstration.yml` holds the localhost URLs of the servers, Azurite and the local edge,
+in-memory secret storage, generated system secrets, and no mail service. The UIs are served by
+`kinotic-ui` (`compose.ui.yml`), the portal on `http://localhost:9090` and the system console on
+`http://localhost:9091`. The management server's CORS pattern admits the portal, its vite dev server
+on `5173`, and `http://localhost:9092`, where [Summit 42](https://github.com/kinotic-ai/summit-42)'s
+own compose file serves its UI beside the stack; the system server's admits the console and its vite
+dev server on `5174`. These settings make the demonstration server work:
 
 <table>
 <thead>
@@ -7701,7 +7729,37 @@ everything that uses it with one property:
   <tr>
     <td>
       <code>
-        kinotic.systemApi.disableAzureStorage
+        kinotic.domain.email.enabled
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+      
+       sends no email: each link a person must open is logged and returned to the UI that asked for it, which shows it. A sign-up's response carries its verification link, which the portal opens at once, an inviter is shown each invitation's accept link to send on (<code>
+        MemberService.findInvitationLink
+      </code>
+      
+      ), and the landing page's find-my-organizations form lists the address's organizations. Nothing then proves an address belongs to the person using it, so email is disabled only on a server no one but the people trying it can reach, as the <code>
+        demonstration
+      </code>
+      
+       profile does
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.managementServer.passwordSignUp
       </code>
     </td>
     
@@ -7712,15 +7770,88 @@ everything that uses it with one property:
     </td>
     
     <td>
-      When true nothing is written to or deleted from the account: every published UI is marked ready at once and nothing serves it, and a removed UI's record is deleted without a removal workload
+      Whether signing up with an email and a password is offered: the portal's sign-up page offers it (<code>
+        /signup/email
+      </code>
+      
+      ) in place of GitHub alone, and <code>
+        POST /api/auth/org/signup
+      </code>
+      
+       refuses it with 403 when unset
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.managementServer.turnstile.enabled
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+      
+       on a demonstration server: the find-my-organizations form presents no Cloudflare Turnstile challenge, so the stack calls no Cloudflare service
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.managementApi.repoHost
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        GITHUB
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        GITEA
+      </code>
+      
+       on a demonstration server: projects' repositories are hosted on the Gitea <code>
+        compose.gitea.yml
+      </code>
+      
+       runs (see <a href="#repository-host">
+        Repository host
+      </a>
+      
+      )
     </td>
   </tr>
 </tbody>
 </table>
 
-The development profile and the tests set it; the `local` profile of the
-[contributing guide](https://kinotic.ai/platform/contributing#publishing-uis-against-azure) turns it off against
-a developer's own subscription.
+## Site storage on one machine
+
+`kinotic.systemApi.uiDeployment.siteStorage` names what stands in for the sites storage account
+where there is none:
+
+- `AZURITE`, which the `demonstration` profile sets, uploads to the Azurite emulator that
+`deployment/docker-compose/compose.sites.yml` runs, with `sitesStorageEndpoint` at
+`http://192.168.127.254:10000/devstoreaccount1`, where a BOXLITE workload reaches the emulator.
+The local edge runs the sites Worker over the emulator, so a published UI opens at
+`http://<app>--<ui>.<org>.sites.localhost:8088` (`kinotic.domain.publishedSites.domain: sites.localhost`, `useSsl: false`, `port: 8088`). Each upload and removal URL names its site's directory and
+carries a SAS for the whole `sites` container, signed with the emulator's well-known development
+key, since the emulator honors no directory SAS. A site
+reads ready as soon as its upload finished, since the edge reads the emulator on every request.
+- `DISABLED`, which the tests and the e2e stack set, writes nothing and deletes nothing: every
+published UI is marked ready at once with nothing serving it, and a removed UI's record is
+deleted without a removal workload.
 
 ## Workload storage and log limits
 
@@ -8052,24 +8183,16 @@ bun run dev
 
 ## Local development environment
 
-There are two ways to run Kinotic locally, for two different people. Evaluating Kinotic, the
-whole platform runs in Docker and you use the portal the management server serves on
-`http://localhost:9090`. Developing Kinotic, only the backing services run in Docker, you run
-the org, system and app servers from your IDE, and the portal runs from source on vite's
-`http://localhost:5173`. Anything involving GitHub — linking an organization, creating
-projects, deployments on push — needs an ngrok tunnel and a GitHub App of your own with
-either setup, because the App names your tunnel in its callback and webhook URLs, and a
-GitHub App has only one of each.
+Kinotic runs locally in Docker, from `deployment/docker-compose`, whether you are evaluating it or
+developing it: the servers run the `demonstration` profile, host every project's repository on the
+stack's own Gitea, and send no email, so nothing local needs Azure or GitHub. Evaluating, you run the
+published images. Developing, you build the images of what you change from your working tree and run
+the portal and system console from source against the stack.
 
 ### Prerequisites
 
 - Docker
-- For development, [Bun](https://bun.sh), pnpm, JDK 25 (the shared IntelliJ run configurations
-use `graalvm-ce-25`), and IntelliJ's EnvFile plugin, which loads `.env.local` into the
-server's environment
-- For GitHub, Bun and pnpm, and an [ngrok](https://ngrok.com) account with its free static
-domain, e.g. `you.ngrok-free.dev`, and the `ngrok` CLI signed in to it
-(`ngrok config add-authtoken <token>`)
+- For development, [Bun](https://bun.sh), pnpm and JDK 25
 
 ### Evaluating Kinotic
 
@@ -8135,7 +8258,7 @@ That brings up the whole platform from published images:
   <tr>
     <td>
       <code>
-        kinotic-server-management
+        kinotic-ui
       </code>
     </td>
     
@@ -8145,12 +8268,32 @@ That brings up the whole platform from published images:
       </code>
       
       , <code>
+        localhost:9091
+      </code>
+    </td>
+    
+    <td>
+      The portal on 9090 and the system console on 9091, built from <code>
+        kinotic-frontend
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic-server-management
+      </code>
+    </td>
+    
+    <td>
+      <code>
         localhost:58503
       </code>
     </td>
     
     <td>
-      The portal build baked into the image on 9090, and the org API and STOMP gateway on 58503
+      The org API and STOMP gateway the portal calls
     </td>
   </tr>
   
@@ -8205,6 +8348,72 @@ That brings up the whole platform from published images:
     
     <td>
       Publishes a set of sample entity definitions through the management server, then exits
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic-azurite
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        localhost:10000
+      </code>
+    </td>
+    
+    <td>
+      The Azurite emulator every published UI is uploaded to, in place of the sites storage account
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic-sites-edge
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        localhost:8088
+      </code>
+    </td>
+    
+    <td>
+      Serves each published UI from Azurite at <code>
+        <app>--<ui>.<org>.sites.localhost:8088
+      </code>
+      
+      , running the Cloudflare sites Worker itself
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic-gitea
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        localhost:3001
+      </code>
+    </td>
+    
+    <td>
+      The Gitea every project's repository is created on, in place of GitHub; sign in as <code>
+        kinotic_admin
+      </code>
+      
+       / <code>
+        kinotic-gitea-admin
+      </code>
+      
+       to browse them
     </td>
   </tr>
   
@@ -8279,42 +8488,49 @@ Signing up instead creates an organization of your own, which starts empty.
     </td>
     
     <td>
-      Deployments, and the deployment sections of the application and project overviews; jobs; observability and traces; the organization's GitHub link
+      Deployments, and the deployment sections of the application and project overviews; jobs; observability and traces
     </td>
   </tr>
 </tbody>
 </table>
 
 The empty screens fill only from what a deployed project produces: a deployment starts when a
-push reaches the management server from GitHub, runs as workloads on a vm-manager node, and sends the
-telemetry the observability screens read. Using Kinotic locally for real, rather than walking
-its screens, takes [your own tunnel and GitHub App](#your-tunnel-and-github-app) and a
+push to the project's repository reaches the management server, runs as workloads on a vm-manager
+node, and sends the telemetry the observability screens read. The compose stack hosts every
+project's repository on its own Gitea ([Repository host](https://kinotic.ai/platform/configuration#repository-host)),
+so creating and deploying a project takes no GitHub, only a
 [vm-manager node](#running-workloads-on-your-machine) to run the workloads.
 
-Email is off in the compose servers, so a sign-up's verification link is in the management server's
-log (`docker compose logs -f kinotic-server-management`). `docker compose pull` refreshes the images, and
+The compose servers run the `demonstration` profile, which sends no email: signing up at
+`http://localhost:9090/signup` goes straight to naming your organization and setting a password, and
+adding a member shows the invitation's link to send on ([Demonstration server](https://kinotic.ai/platform/configuration#demonstration-server)).
+A coding agent on the same machine (Claude Code, Codex or Grok Build) connects to its MCP server at
+`http://localhost:58503/mcp`, added beside the Kinotic plugin; `deployment/docker-compose/README.md`
+walks through it.
+`docker compose pull` refreshes the images, and
 `docker compose down -v` wipes Elasticsearch; the next `up` migrates and seeds it again.
 `deployment/docker-compose/README.md` lists the other combinations of the stack.
 
 ### Developing Kinotic
 
-Start only the backing services, including the observability stack the shared run
-configuration exports traces to:
+Build the images of the servers you change, and the migration's when you change it, from your working
+tree. Each is tagged `kinoticai/<module>:<version>`, the image compose runs, which it takes from your
+machine rather than pulling it:
 
 ```bash
+./gradlew :kinotic-server-management:bootBuildImage :kinotic-server-system:bootBuildImage \
+          :kinotic-server-app:bootBuildImage :kinotic-migration:bootBuildImage
 cd deployment/docker-compose
-docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml -f compose-otel.yml up -d
+docker compose up -d
 ```
 
-Run the servers from the `ManagementServerApplication`, `SystemServerApplication` and
-`AppServerApplication` run configurations. They run the `development` profile, the system
-server with `local` as well, and load `.env.local` from the repository root, which must exist
-(`touch .env.local`). The management server's `development` profile sends email through the platform's
-Azure Communication Services; add `KINOTIC_DOMAIN_EMAIL_ENABLED=false` to `.env.local` to log
-verification links instead. When you change the migration, run `KinoticMigrationApplication`
-from the IDE instead of the container.
+Rebuild an image and `docker compose up -d` again to replace its container. `kinotic-ui` and
+`kinotic-sites-edge` run the `kinoticai/kinotic-ui` and `kinoticai/kinotic-sites-edge` images the CI
+builds with the servers; after changing `kinotic-frontend`, the sites Worker
+(`deployment/cloudflare/sites-worker/worker.js`) or the edge (`deployment/docker-compose/sites-edge.ts`),
+add `--build` to build them from your working tree.
 
-Then run the portal from source:
+Run the portal from source against the stack:
 
 ```bash
 cd kinotic-frontend
@@ -8322,158 +8538,19 @@ pnpm install
 pnpm dev
 ```
 
-The portal on `http://localhost:5173` talks to the management server on `localhost:58503`, and the
-links the management server's `development` profile builds point at it.
-
-### Your tunnel and GitHub App
-
-Register the App once, naming your ngrok domain:
-
-```bash
-bun dev-tools/github-app/dev-github-app.ts create --domain you.ngrok-free.dev
-```
-
-A browser page opens on GitHub with the App filled in; confirm it. The App is named
-`kinotic-dev-<your username>` unless you pass `--name` (App names are unique across GitHub),
-and it belongs to your account unless you pass `--org <organization>`. It is private, so it
-can be installed only on the account that owns it, and that account is where the projects
-you create get their repositories. It carries:
-
-<table>
-<thead>
-  <tr>
-    <th>
-      Setting
-    </th>
-    
-    <th>
-      Value
-    </th>
-  </tr>
-</thead>
-
-<tbody>
-  <tr>
-    <td>
-      Webhook URL
-    </td>
-    
-    <td>
-      <code>
-        https://<domain>/api/github/webhook
-      </code>
-      
-      , subscribed to <code>
-        push
-      </code>
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      Callback URLs
-    </td>
-    
-    <td>
-      <code>
-        https://<domain>/api/github/install/callback
-      </code>
-      
-       first, then the <code>
-        github-platform
-      </code>
-      
-       sign-in callback under <code>
-        /api/auth/org/login/social/callback/
-      </code>
-      
-      , which every flow through the registration returns to
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      Request user authorization (OAuth) during installation
-    </td>
-    
-    <td>
-      on
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      Repository permissions
-    </td>
-    
-    <td>
-      Administration: write, Contents: write, Metadata: read
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      Account permissions
-    </td>
-    
-    <td>
-      Email addresses: read
-    </td>
-  </tr>
-</tbody>
-</table>
-
-The script writes the [override files](#the-override-files), an `application.yml` for each of
-the org and system servers under `~/.kinotic/dev-environment/kinotic-server-management` and
-`~/.kinotic/dev-environment/kinotic-server-system`, and beside them `github-app.json` with every
-credential GitHub returned. It then runs `sync-es`, below, and restarts the compose
-`kinotic-server-management` and `kinotic-server-system` containers that are running so they load the
-App; servers run from the IDE need restarting by hand.
-
-The App lives on GitHub, so it outlasts every wipe of your stack; register it once. What a fresh
-migration loses is its link to Kinotic: the migration seeds the `github-platform` sign-in row
-with the kinotic-ai App's client id, and an organization's link to your App's installation is a
-row in Elasticsearch. After every fresh migration (`docker compose down -v`, or a new cluster),
-restore both:
-
-```bash
-bun dev-tools/github-app/dev-github-app.ts sync-es
-```
-
-`sync-es` points the sign-in row at your App's client id and, once the App is installed, links
-its installation to the `test-org` organization (`--organization-id` for another), which is
-what linking GitHub in the portal does. It reads the App from `github-app.json` and asks GitHub
-for the installation with the App's own key, so nothing is registered or installed again.
-
-To register the App again, for a new domain say, delete the old one on GitHub (**Settings →
-Developer settings → GitHub Apps**) and run `create` with `--force`.
-
-With the servers running, from compose or the IDE, start the tunnel and the portal from source
-behind it; the tunnel fronts vite's dev server, whose proxy reaches the management server, since the
-portal on 9090 is static files alone:
-
-```bash
-ngrok http --url=you.ngrok-free.dev 5173
-cd kinotic-frontend && pnpm install && pnpm dev:tunnel
-```
-
-`pnpm dev:tunnel` makes the portal call its own origin, and its dev server forwards `/api`,
-(REST and the STOMP WebSocket at `/api/v1`), `/.well-known` and `/mcp` to the management server on port 58503, so the portal, the API, OAuth
-callbacks, the GitHub webhook and the MCP endpoint all answer on `https://you.ngrok-free.dev`.
-
-Open that origin and sign in as `kinotic@kinotic.local` with the password `kinotic`. The first
-time, link GitHub when creating a project: GitHub installs your App, returns to
-`/api/github/install/callback`, which forwards to the portal's `/github/install/callback`, and the management server verifies the installation belongs to you before
-storing it; after a wipe, `sync-es` restores that link. Projects you create get a repository
-under the account the App is installed on, and pushes to them reach your management server through the
-webhook.
+The portal on `http://localhost:5173` calls the management server on `localhost:58503`, whose
+`demonstration` profile accepts its origin. The links the server
+builds, a sign-up's verification link or an invitation's accept link, open the portal `kinotic-ui`
+serves on `http://localhost:9090`. `pnpm dev:system` runs the system console on
+`http://localhost:5174`, which the system server's `demonstration` profile accepts too; its sign-ins
+return to the console `kinotic-ui` serves on `http://localhost:9091`.
 
 ### Running workloads on your machine
 
 A deployment runs its workloads on a vm-manager node. For local development that is the `BOXLITE`
 provider on your own machine, which runs each workload as a micro VM: macOS on Apple silicon, or
-Linux with `/dev/kvm`. The node works beside the servers from compose or the IDE alike, since
-the system server answers on `localhost:58504` in both and runs the `development` profile.
+Linux with `/dev/kvm`. The node works beside the compose servers: the system server answers on
+`localhost:58504` and runs the `demonstration` profile.
 
 ```bash
 cd kinotic-js/workspace
@@ -8483,11 +8560,11 @@ bun run dev
 ```
 
 `.env.development`, which Bun loads for `bun run dev`, supplies the rest: the node id
-`dev-node-1`, the SYSTEM machine identity the development migration seeds, and compose's Loki
+`dev-node-1`, the SYSTEM machine identity the demonstration migration seeds, and compose's Loki
 and OTLP collector for workload logs, traces and metrics. The node registers with the system
 server and shows `ONLINE` in the system console under **System → Worker nodes**. Guests reach
 the org and app servers at `192.168.127.254`, boxlite's alias for the host, which the system
-server's `development` profile sets as `kinotic.systemApi.deployment.managementServer.host` and
+server's `demonstration` profile sets as `kinotic.systemApi.deployment.managementServer.host` and
 `appServer.host`.
 
 A push to a project's repository then deploys it: a sync workload checks the commit out, installs
@@ -8496,143 +8573,14 @@ pulls `kinoticai/workload-runner`, which takes about a minute. A workload's logs
 `/tmp/kinotic-vm-logs/<workload id>` and shipped to Loki, where the logs on a project's deployment
 page read them. A deployment that fails records why on its job run, under **Jobs** in the portal.
 
-- The system server's `development` profile marks a project's UIs deployed without serving
-them; microservices run for real.
+- A project's UIs are published to the Azurite emulator `compose.sites.yml` runs, and the local
+edge beside it serves each at `http://<app>--<ui>.<org>.sites.localhost:8088`, the URL the
+project's deployment page links. Chrome, Edge and Firefox resolve every `*.localhost` name to
+this machine; a client that does not needs the hostname in its hosts file.
 - The node keeps its image cache in `~/.boxlite`, which one process can hold at a time: stop the
 node before running the vm-manager tests, or give the tests their own `BOXLITE_HOME`.
 - The evaluator stack's sample nodes are marked unreachable on the system server's first
 heartbeat pass, so deployments land on your node.
-
-### The override files
-
-The files under `~/.kinotic/dev-environment` are ordinary Spring configuration, one for each
-server that uses the App, and the one place your tunnel and App reach the servers. Each
-server's `application-development.yml` imports its own, the management server's:
-
-```yaml
-spring:
-  config:
-    import: optional:file:${user.home}/.kinotic/dev-environment/kinotic-server-management/application.yml
-```
-
-and the system server's, under `kinotic-server-system`. The compose servers load the same files:
-`compose.kinotic-servers.yml` mounts each server's directory read-only at `/workspace/config`,
-and Spring reads `./config/application.yml` from the server's working directory ahead of every
-file packaged in the jar, so the management server's file replaces the compose profile's
-`http://localhost:9090` origin too. Change a file and restart its server, however you run it.
-
-`create` writes the management server's like this. The system server's holds the `managementApi`
-block alone: the system server keeps its own origins, and uses the App to mint the tokens
-deployments fetch their repositories with.
-
-```yaml
-# The github-platform sign-in row's OAuth client secret
-KINOTIC_AKV_GITHUB_PLATFORM: "<client secret>"
-kinotic:
-  domain:
-    portalBaseUrl: https://you.ngrok-free.dev
-  managementApi:
-    apiBaseUrl: https://you.ngrok-free.dev
-    github:
-      appId: "1234567"
-      appSlug: kinotic-dev-you
-      webhookSecret: "<generated by GitHub>"
-      appPrivateKey: |
-        -----BEGIN RSA PRIVATE KEY-----
-        ...
-        -----END RSA PRIVATE KEY-----
-```
-
-In a server run from the IDE an imported file takes precedence over the file that imports it,
-so these values replace the `development` profile's `http://localhost:5173` origin and its
-placeholder App key; `application-local.yml` (the system server's `local` profile comes after
-`development`) and environment variables still win over it. Without the files the servers run
-on their localhost origins, from the IDE or compose. In development, named secrets such as
-the sign-in row's `github-platform` resolve from `KINOTIC_AKV_<NAME>` properties, which is
-why the client secret can sit at the top of the management server's file rather than in an
-environment variable.
-
-You can edit the files by hand, for example to put your own values in place of what `create`
-wrote. The origins must match the App's URLs on GitHub, so moving to another domain means
-editing both the management server's file and the App's callback and webhook URLs, or registering a
-new App.
-
-On Linux the compose servers read their files as their image's own user, so `create` makes each
-`application.yml` readable to other users there; elsewhere they and `github-app.json` are yours
-alone. If compose starts before `create` has run, Docker creates the directories it mounts
-under `~/.kinotic/dev-environment` owned by root, and `create` says so and prints the `chown`
-that fixes it.
-
-### Publishing UIs against Azure
-
-The development profile marks every published UI ready without uploading or serving it. To
-exercise the real path — sites published into a sites account and served by the Cloudflare
-sites Worker — point the server at a subscription and a Cloudflare zone of your own.
-
-Create what the server cannot create itself, once:
-
-```bash
-az login
-cd deployment/terraform/azure/dev
-terraform init
-terraform apply   # environment = "local" in terraform.tfvars; the cloudflare_* variables in local.auto.tfvars
-terraform output -raw application_local_yml > ../../../../kinotic-server-system/src/main/resources/application-local.yml
-terraform output -raw app_server_application_local_yml > ../../../../kinotic-server-app/src/main/resources/application-local.yml
-```
-
-That is a resource group with the sites storage account, the sites Worker and settings on
-the `kinotic.io` zone serving `<app>--<ui>.<org>.<environment>.kinotic.io` from the account,
-and a service principal for the server with the roles it needs: Storage Blob Data Contributor
-on the account, with which it signs each site's upload and removal URLs, and Contributor on
-the email service, so it sends mail too. The written files are the git-ignored `local` profiles:
-the system server's turns the site provisioner on, names the domain and the account, and turns on
-the Cloudflare provisioner that creates each organization's record under your subdomain; the app
-server's names the sites domain, from whose pages alone it admits a sign-in, so both servers run
-with `development,local`. The
-`environment` is yours alone: it is your label under the zone, so two developers sharing one
-would collide. The zone's id and account id, a token terraform applies the zone with, and a
-token holding DNS edit on the zone alone go in `local.auto.tfvars`.
-
-The principal's `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID`, and the DNS
-token as `KINOTIC_DOMAIN_PUBLISHEDSITES_CLOUDFLARE_APITOKEN`, are written to `.env.local` at the
-repository root, which git ignores, as a commented block after a blank line. When the file exists its other lines are kept and the block a previous apply wrote is
-replaced, or appended if absent. Run the server with that file in its environment;
-`DefaultAzureCredential` takes those variables before anything else, so the server signs as
-the principal whatever `az login` is signed in as. A role assignment takes a minute or two to
-become visible; a publish before that fails with `AuthorizationFailed` on the workload, and
-the next deploy of the project succeeds.
-
-Run the system server, which publishes the UIs, with both profiles (the IDE's
-`SystemServerApplication` run configuration does):
-
-```bash
-SPRING_PROFILES_ACTIVE=development,local
-```
-
-A developer machine is outside any platform VNet, so the publish workload reaches the sites
-account over its public endpoint, which the workload's egress allowlist names.
-
-Before involving the server, publish a site against your subscription from a test. It does
-what a deployment does for a site under `<environment>.<zone>`, uploading through an
-upload URL and reading back through the edge what it published, and checks that the URLs
-it issues act on one site's directory alone, so a step Azure rejects fails naming the call:
-
-```bash
-./gradlew :kinotic-system-api:test --tests '*AzureProvisioningIntegrationTest*'
-```
-
-The module's test task puts `.env.local` in the test's environment, and the test reads your
-`application-local.yml`; without either it skips. What it publishes is left in place, so a
-second run is quick, and `terraform destroy` removes it with the account.
-
-Then deploy a project that contains a UI; the deployment publishes it into the sites account
-and the site serves at `https://<app>--<ui>.<org>.<environment>.<zone>` as soon as its files
-are up and the organization's record, created at sign-up or by this publish, has its
-certificate, which shows as the deployment turning from provisioning to ready within moments.
-
-`terraform destroy` removes the resource group with the account, the Worker and its routes.
-The organizations' records the server created under your subdomain stay in the zone until
-removed by hand.
 
 ## Testing
 
@@ -9008,12 +8956,8 @@ server as `KINOTIC_SYSTEMAPI_UIDEPLOYMENT_*`, the app server's `apps-api.<zone>`
 `KINOTIC_DOMAIN_PUBLISHEDSITES_*` settings every server provisions organizations with (see
 [Configuration](https://kinotic.ai/platform/configuration#ui-sites)). The cluster root takes the zone's id, the
 account id and two tokens as variables: the operator's, which terraform applies the zone and
-the Worker with, and the DNS token. The system server's development profile disables the
-provisioner instead.
-
-A developer machine gets the same modules from `deployment/terraform/azure/dev`, under
-`<environment>.<zone>`. The [contributing guide](https://kinotic.ai/platform/contributing#publishing-uis-against-azure)
-walks through it.
+the Worker with, and the DNS token. The `demonstration` profile sets no zone, so each organization's
+record is logged rather than created.
 
 
 # Development Server
@@ -9155,11 +9099,11 @@ node is.
 
 ### Azure keeps the sites account, email, DNS, and a server Key Vault; Cloudflare the sites
 
-The developer root `deployment/terraform/azure/dev` already builds everything a server off Azure
-needs to publish UIs and send email: a resource group, the sites storage account, the sites
-Worker and domain `<environment>.kinotic.io`, and a service principal whose `AZURE_CLIENT_ID`,
-`AZURE_CLIENT_SECRET`, and `AZURE_TENANT_ID` `DefaultAzureCredential` takes before anything
-else. A `dev-server` root is that root plus four things: a Key Vault for the servers, the
+The `deployment/terraform/azure/dev-server` root builds what the servers off Azure need to publish
+UIs and send email through the `dev-environment` module: a resource group, the sites storage
+account, the sites Worker and domain `<environment>.kinotic.io`, and a service principal whose
+`AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, and `AZURE_TENANT_ID` `DefaultAzureCredential` takes
+before anything else. Beyond the module it adds four things: a Key Vault for the servers, the
 portal and the system console on the sites Worker at hostnames of the platform zone, the
 servers' hostnames, and a container for Elasticsearch snapshots.
 
@@ -9562,10 +9506,10 @@ kinotic-{org,system,app}-server/src/main/resources/
 /var/lib/kinotic/{config,data}/<service>, /es{1,2,3}/data   # each container's files and state
 ```
 
-Each server runs with `SPRING_PROFILES_ACTIVE=dev-server`. Leaving out `development` is what
-takes it off the development conveniences: no auto-seeded system secrets
-(`kinotic.domain.systemSecrets.generateMissing` is set by the development profile alone), the halting Ignite failure handler, the
-production shard defaults — which `dev-server` then overrides. Its environment is composed by
+Each server runs with `SPRING_PROFILES_ACTIVE=dev-server`, on the production defaults where the profile
+sets nothing: no auto-seeded system secrets (`kinotic.domain.systemSecrets.generateMissing` is set by the
+`demonstration` profile alone), the halting Ignite failure handler, and the production shard defaults,
+which `dev-server` then overrides. Its environment is composed by
 terraform from what the three share — the compose services', the Azure root's outputs, and the
 addresses only the proxmox root knows — and what is its own; its secrets arrive through
 `secrets.yml`, which the profile imports, and the env file the applier merges. The one-shot
@@ -10132,11 +10076,11 @@ What differs between the three:
   <tr>
     <td>
       <code>
-        kinotic.systemApi.disableAzureStorage
+        kinotic.systemApi.uiDeployment.siteStorage
       </code>
       
-      , <code>
-        uiDeployment.sitesStorageEndpoint
+       / <code>
+        sitesStorageEndpoint
       </code>
       
       , <code>
@@ -10149,8 +10093,8 @@ What differs between the three:
     </td>
     
     <td>
-      <code>
-        false
+      the default <code>
+        AZURE
       </code>
       
       , so the sites Worker serves the published UIs; the development server's sites account; <code>
@@ -10295,24 +10239,6 @@ What the three share:
     
     <td>
       Vert.x terminates TLS, matching Azure; the edge passes each connection through unopened
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        kinotic.apiGateway.webServer.enabled
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        false
-      </code>
-    </td>
-    
-    <td>
-      Nothing is served from a jar's webroot; the gateway port is the only one a server listens on, as in the cluster
     </td>
   </tr>
   
@@ -10827,9 +10753,9 @@ which the service waits for:
 
 ## Azure: the `dev-server` terraform root
 
-`deployment/terraform/azure/dev-server` shares `modules/dev-environment` with the `dev/` root
-a developer uses for their own machine — the resource group, the sites module, the sites key
-vault, and the service principal — and adds what a server peers depend on needs. Local state,
+`deployment/terraform/azure/dev-server` builds its resource group, sites module, sites key vault
+and service principal from `modules/dev-environment`, and adds what a server peers depend on
+needs. Local state,
 `environment = "dev"`, creating:
 
 <table>
@@ -11345,8 +11271,9 @@ read-only for a week, then tear it down.
 
 The same pieces serve a developer's machine, without the Proxmox host: the compose stack
 from `deployment/docker-compose` with the `BOXLITE` vm-manager beside it, as the
-[contributing guide](https://kinotic.ai/platform/contributing#running-workloads-on-your-machine) describes, and
-the `dev/` root for the sites account, the Cloudflare side, and email. Every
+[contributing guide](https://kinotic.ai/platform/contributing#running-workloads-on-your-machine) describes, with
+published UIs stored in Azurite and served by the local edge in place of the sites account and
+Cloudflare. Every
 development environment shares one GitHub App. An App has one webhook URL, and it points at
 the development server, so a developer's own server sees no push events: deployments there
 start from the re-run path, and a developer who needs the webhook registers an App of their
@@ -13121,7 +13048,9 @@ Every sign-up founds a new organization with the founder as its first user. The 
 3. The organization and its founder are created, the founder bound to their GitHub identity, and the browser is signed in.
 4. The page then offers **Continue to GitHub** to install the Kinotic GitHub App, which project creation needs.
 
-An email and password sign-up also exists on the backend (`POST /api/auth/org/signup`, then a verification link to `/signup/verify`), though no portal page links to it. Its organization takes passwords from the start. When `kinotic.domain.email.enabled` is `false`, as in the docker-compose stack, verification and invitation links are logged to the management server's console instead of sent.
+Where the management server sets `kinotic.managementServer.passwordSignUp`, as the `demonstration` profile does, the `/signup` page offers an email and a password in place of GitHub (`/signup/email`): `POST /api/auth/org/signup` sends a verification link to `/signup/verify`, where the founder names the organization and sets a password, and the organization takes passwords from the start. Without the property the route answers `403`, and `GET /api/auth/org/signup/methods` tells the portal which page to show. A pending sign-up that has expired gives way to a new one.
+
+When `kinotic.domain.email.enabled` is `false`, as on a demonstration server, nothing is sent: the sign-up's response carries its verification link as `verificationUrl`, which the portal opens at once, so the address is never proven to be the founder's, and asking again for an address with a pending sign-up returns the same link. Each link is also logged to the management server's console.
 
 A UI other than the portal can install the GitHub App itself: it calls `startInstall` with the absolute URL of one of its own pages as `returnTo`, on an origin `kinotic.cors.allowedOriginPattern` names, and calls `completeInstall` when GitHub returns there.
 
@@ -13133,6 +13062,7 @@ Administrators add people on the **Members** page with **Add member**: an email,
 - **With an invitation**, they claim it by setting a password (while the organization takes passwords) or by signing in through one of its providers under the invited address.
 - **Without one**, they claim it on their first sign-in through one of the organization's own providers under that address, so the switch can only be off when the organization has such a provider.
 - **Send invitation** sends a pending member their invitation again, or a first one. **Remove member** deletes the user with its sign-in methods, delegates and any unaccepted invitation.
+- **Where email is disabled** (`kinotic.domain.email.enabled=false`, as on a demonstration server), each invitation's accept link is the administrator's to send on: after adding a member or user with an invitation, or sending one again, the page shows the link in a dialog to copy (`MemberService.findInvitationLink(email, applicationId)`). Anyone holding the link can accept the invitation as the invited address.
 
 An application's users are added the same way on its **Users** page (`MemberService.addApplicationUser`); see [Authentication](https://kinotic.ai/apps/security/authentication#user-management).
 
@@ -13225,7 +13155,9 @@ No route asks about an email before a method is chosen, and a failed password lo
 
 ### Finding one's organizations
 
-**Don't know your organization?** emails the address a link to each organization it is an enabled member of (`POST /api/auth/org/login/find`). The answer is the same whether or not the address belongs to any, so nothing is revealed. Because it sends mail, it requires a Cloudflare Turnstile token, configured under `kinotic.managementServer.turnstile.*`; set `kinotic.managementServer.turnstile.enabled=false` where there is no Turnstile site, as in the e2e stack.
+**Don't know your organization?** emails the address a link to each organization it is an enabled member of (`POST /api/auth/org/login/find`). The answer is the same whether or not the address belongs to any, so nothing is revealed. Because it sends mail, it requires a Cloudflare Turnstile token, configured under `kinotic.managementServer.turnstile.*`; set `kinotic.managementServer.turnstile.enabled=false` where there is no Turnstile site, as in the e2e stack or on a demonstration server.
+
+Where email is disabled, nothing is sent: the `POST` answers `200` with `{organizations: [{name, loginUrl}]}` and the landing page lists them, so anyone who asks learns which organizations the address belongs to. The `GET` reports this as `showLinksInUI`.
 
 ### Clients outside a browser
 
@@ -13656,7 +13588,11 @@ The app server answers at each application's own API host, `<organizationId>--<a
     </td>
     
     <td>
-      Turnstile site key; email the address its organizations
+      Turnstile site key and <code>
+        showLinksInUI
+      </code>
+      
+      ; email the address its organizations, or answer with them where email is disabled
     </td>
   </tr>
   
@@ -13717,6 +13653,28 @@ The app server answers at each application's own API host, `<organizationId>--<a
   <tr>
     <td>
       <code>
+        GET
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/org/signup/methods
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        {password}
+      </code>
+      
+      : whether the sign-up page offers an email and a password
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
         POST
       </code>
     </td>
@@ -13732,7 +13690,19 @@ The app server answers at each application's own API host, `<organizationId>--<a
     </td>
     
     <td>
-      Email and password sign-up
+      Email and password sign-up, where <code>
+        kinotic.managementServer.passwordSignUp
+      </code>
+      
+       is set (<code>
+        403
+      </code>
+      
+       otherwise); the response carries <code>
+        verificationUrl
+      </code>
+      
+       where email is disabled
     </td>
   </tr>
   
@@ -15149,8 +15119,9 @@ the system zone's `DeploymentOperationsService` (`restartMicroservice`, `removeM
 `removeUiSite`), each of which writes intent that the deployment's worker carries out. The
 management services authorize a request against the caller's organization, then delegate; the
 operations service trusts its callers. A user of an organization, or a service acting for one, that
-commits to a project's repository gets a GitHub installation token with contents write access to that
-one repository from the management zone's `ProjectRepoCredentialService.issueWriteToken(projectId)`,
+commits to a project's repository gets a token with contents write access to that one repository,
+from the repository host (a GitHub installation token, or a Gitea token of an account that may write
+that repository alone), through the management zone's `ProjectRepoCredentialService.issueWriteToken(projectId)`,
 which issues tokens only for the projects of the caller's organization.
 `ProjectDeployment` keeps the sync identity and loses `runtimeWorkloadId` and
 `runtimeMachineIdentityId`, which move to the per-microservice rows.
@@ -15460,16 +15431,16 @@ deployment is not orphaned.
 
 ## Properties and dependencies
 
-`kinotic.domain.publishedSites.domain`, the sites domain every server shares;
-`kinotic.systemApi.uiDeployment.sitesStorageEndpoint`; and
-`kinotic.systemApi.disableAzureStorage`, which turns off the sites account's uses for an
-environment without it. Nothing else is a property; an organization has no storage of its own,
+`kinotic.domain.publishedSites.domain`, the sites domain every server shares, and `useSsl` and
+`port`, which with it make each site's URL; `kinotic.systemApi.uiDeployment.sitesStorageEndpoint`;
+and `kinotic.systemApi.uiDeployment.siteStorage`, which names the sites account (`AZURE`), the
+Azurite emulator of a developer's machine (`AZURITE`) or no storage (`DISABLED`). Nothing else is a property; an organization has no storage of its own,
 and nothing is provisioned when one is created.
 
 Managed artifacts, each a `*Version` in `gradle.properties` and one line in the conventions
 `dependencyManagement` block: `com.azure:azure-storage-file-datalake`, which signs the
-directory SAS, and `com.azure:azure-storage-blob`, which only the integration test reads
-with. `azure-identity` is already managed; no management-plane SDK is.
+directory SAS, and `com.azure:azure-storage-blob`, which it builds on, pinned at the version it
+is built against. `azure-identity` is already managed; no management-plane SDK is.
 
 ## Deferred
 
@@ -15505,11 +15476,8 @@ split from the `KINOTIC_UI_SERVER_URL` placed on the sync workload from
 - **UI deployments and the storage credentials.** `UiDeployment` rows keyed by the site's
 hostname label, `SiteStorageService` (`issueUploadUrl`, `issueRemovalUrl`) signing
 directory-scoped SAS through the Data Lake SDK on the sites account, each site's directory
-named by its hostname, and the `UiDeploymentProvisioner` contract with a mock that marks
-sites ready at once.
-`AzureProvisioningIntegrationTest` in system-api publishes a site and checks the scope of
-the URLs against a developer's subscription, from the `local` profile and `.env.local`, and
-skips elsewhere.
+named by its hostname, and the `UiDeploymentProvisioner` contract with a local provisioner
+that marks sites ready at once.
 - **The publish task.** The deploy job's fifth task, **Publish UIs**, mints the hostname
 `{app}--{ui}.{org}` under the sites domain for each UI published for the first time, then runs
 `project-ui-publish-<projectId>` under `DeployTarget.uiPublishWorkloadId` with
@@ -15517,8 +15485,8 @@ skips elsewhere.
 `KINOTIC_UI_UPLOAD_URLS` (one one-hour directory SAS per site, by UI name) and the sites
 account's hosts as its only egress, then finalizes: waits for new sites to serve, adopts
 returning ones and orphans vanished ones; the workload itself deletes the files of other
-commits once the index has switched. Without Azure storage
-(`kinotic.systemApi.disableAzureStorage`) nothing serves, so nothing is uploaded. The exit
+commits once the index has switched. With site storage `DISABLED`
+(`kinotic.systemApi.uiDeployment.siteStorage`) nothing serves, so nothing is uploaded. The exit
 check is shared with the sync task, and the previous publish workload is retired by the next
 run's target resolution.
 `SiteWorkloadFactory` builds the publish workload and the removal workload alike.
@@ -17081,7 +17049,7 @@ The authorization server returns its issuer as `iss` on every callback (RFC 9207
 
 ## Bootstrap
 
-`kinotic-migration` runs before the servers start, applying each versioned SQL migration once. `V1__init.sql` creates the indices and seeds the system's registrations — GitHub as `ORG_SIGNUP`, Google and Microsoft as `APP_SOCIAL`. A migration with environment suffixes, such as `V2__kinotic_test_users.development.test.sql`, runs only in those environments, which keeps fixtures out of production. Seeded rows name their secrets; the secrets themselves live in secret storage, so none passes through a migration or a config file.
+`kinotic-migration` runs before the servers start, applying each versioned SQL migration once. `V1__init.sql` creates the indices and seeds the system's registrations — GitHub as `ORG_SIGNUP`, Google and Microsoft as `APP_SOCIAL`. A migration with environment suffixes, such as `V2__kinotic_test_users.demonstration.test.e2e.sql`, runs only in those environments, which keeps fixtures out of production. `V5__system_sign_in.demonstration.sql` turns the three registrations off on a demonstration server, which holds none of their secrets, so its sign-up and sign-in pages offer an email and a password alone. Seeded rows name their secrets; the secrets themselves live in secret storage, so none passes through a migration or a config file.
 
 ## Network Security
 

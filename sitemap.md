@@ -29,7 +29,6 @@
 ## Getting started
 
 - [Introduction](https://kinotic.ai/raw/getting-started/introduction.md)
-- [Local-Only Setup](https://kinotic.ai/raw/getting-started/local-only-setup.md)
 - [Quick Start](https://kinotic.ai/raw/getting-started/quick-start.md)
 
 ## Organizations

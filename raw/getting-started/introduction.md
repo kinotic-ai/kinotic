@@ -126,7 +126,7 @@ The rise of AI-assisted development has unlocked a new paradigm -- rapid iterati
 
 This documentation walks through everything you need to build and ship a Kinotic App:
 
-1. **Quick Start** -- Scaffold a project and persist your first entity in under five minutes.
+1. **Quick Start** -- Run Kinotic on your machine and build your first app with Claude Code.
 2. **Application Structure** -- Understand how organizations, applications, projects, and artifacts fit together.
 3. **Services** -- Publish and consume services across your application.
 4. **Persistence** -- Define entities, configure indexes, and run queries.

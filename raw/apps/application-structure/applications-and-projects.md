@@ -463,7 +463,7 @@ export default defineConfig({
 })
 ```
 
-The app server's development profile admits a page on any `http://localhost` port as a UI of
+The app server's `demonstration` profile admits a page on any `http://localhost` port as a UI of
 every application; elsewhere an application's users sign in only from its published sites.
 
 ## Typical Setup

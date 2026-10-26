@@ -232,7 +232,9 @@ Every sign-up founds a new organization with the founder as its first user. The 
 3. The organization and its founder are created, the founder bound to their GitHub identity, and the browser is signed in.
 4. The page then offers **Continue to GitHub** to install the Kinotic GitHub App, which project creation needs.
 
-An email and password sign-up also exists on the backend (`POST /api/auth/org/signup`, then a verification link to `/signup/verify`), though no portal page links to it. Its organization takes passwords from the start. When `kinotic.domain.email.enabled` is `false`, as in the docker-compose stack, verification and invitation links are logged to the management server's console instead of sent.
+Where the management server sets `kinotic.managementServer.passwordSignUp`, as the `demonstration` profile does, the `/signup` page offers an email and a password in place of GitHub (`/signup/email`): `POST /api/auth/org/signup` sends a verification link to `/signup/verify`, where the founder names the organization and sets a password, and the organization takes passwords from the start. Without the property the route answers `403`, and `GET /api/auth/org/signup/methods` tells the portal which page to show. A pending sign-up that has expired gives way to a new one.
+
+When `kinotic.domain.email.enabled` is `false`, as on a demonstration server, nothing is sent: the sign-up's response carries its verification link as `verificationUrl`, which the portal opens at once, so the address is never proven to be the founder's, and asking again for an address with a pending sign-up returns the same link. Each link is also logged to the management server's console.
 
 A UI other than the portal can install the GitHub App itself: it calls `startInstall` with the absolute URL of one of its own pages as `returnTo`, on an origin `kinotic.cors.allowedOriginPattern` names, and calls `completeInstall` when GitHub returns there.
 
@@ -244,6 +246,7 @@ Administrators add people on the **Members** page with **Add member**: an email,
 - **With an invitation**, they claim it by setting a password (while the organization takes passwords) or by signing in through one of its providers under the invited address.
 - **Without one**, they claim it on their first sign-in through one of the organization's own providers under that address, so the switch can only be off when the organization has such a provider.
 - **Send invitation** sends a pending member their invitation again, or a first one. **Remove member** deletes the user with its sign-in methods, delegates and any unaccepted invitation.
+- **Where email is disabled** (`kinotic.domain.email.enabled=false`, as on a demonstration server), each invitation's accept link is the administrator's to send on: after adding a member or user with an invitation, or sending one again, the page shows the link in a dialog to copy (`MemberService.findInvitationLink(email, applicationId)`). Anyone holding the link can accept the invitation as the invited address.
 
 An application's users are added the same way on its **Users** page (`MemberService.addApplicationUser`); see [Authentication](https://kinotic.ai/apps/security/authentication#user-management).
 
@@ -336,7 +339,9 @@ No route asks about an email before a method is chosen, and a failed password lo
 
 ### Finding one's organizations
 
-**Don't know your organization?** emails the address a link to each organization it is an enabled member of (`POST /api/auth/org/login/find`). The answer is the same whether or not the address belongs to any, so nothing is revealed. Because it sends mail, it requires a Cloudflare Turnstile token, configured under `kinotic.managementServer.turnstile.*`; set `kinotic.managementServer.turnstile.enabled=false` where there is no Turnstile site, as in the e2e stack.
+**Don't know your organization?** emails the address a link to each organization it is an enabled member of (`POST /api/auth/org/login/find`). The answer is the same whether or not the address belongs to any, so nothing is revealed. Because it sends mail, it requires a Cloudflare Turnstile token, configured under `kinotic.managementServer.turnstile.*`; set `kinotic.managementServer.turnstile.enabled=false` where there is no Turnstile site, as in the e2e stack or on a demonstration server.
+
+Where email is disabled, nothing is sent: the `POST` answers `200` with `{organizations: [{name, loginUrl}]}` and the landing page lists them, so anyone who asks learns which organizations the address belongs to. The `GET` reports this as `showLinksInUI`.
 
 ### Clients outside a browser
 
@@ -767,7 +772,11 @@ The app server answers at each application's own API host, `<organizationId>--<a
     </td>
     
     <td>
-      Turnstile site key; email the address its organizations
+      Turnstile site key and <code>
+        showLinksInUI
+      </code>
+      
+      ; email the address its organizations, or answer with them where email is disabled
     </td>
   </tr>
   
@@ -828,6 +837,28 @@ The app server answers at each application's own API host, `<organizationId>--<a
   <tr>
     <td>
       <code>
+        GET
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/org/signup/methods
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        {password}
+      </code>
+      
+      : whether the sign-up page offers an email and a password
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
         POST
       </code>
     </td>
@@ -843,7 +874,19 @@ The app server answers at each application's own API host, `<organizationId>--<a
     </td>
     
     <td>
-      Email and password sign-up
+      Email and password sign-up, where <code>
+        kinotic.managementServer.passwordSignUp
+      </code>
+      
+       is set (<code>
+        403
+      </code>
+      
+       otherwise); the response carries <code>
+        verificationUrl
+      </code>
+      
+       where email is disabled
     </td>
   </tr>
   

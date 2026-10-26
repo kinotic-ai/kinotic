@@ -241,12 +241,8 @@ server as `KINOTIC_SYSTEMAPI_UIDEPLOYMENT_*`, the app server's `apps-api.<zone>`
 `KINOTIC_DOMAIN_PUBLISHEDSITES_*` settings every server provisions organizations with (see
 [Configuration](https://kinotic.ai/platform/configuration#ui-sites)). The cluster root takes the zone's id, the
 account id and two tokens as variables: the operator's, which terraform applies the zone and
-the Worker with, and the DNS token. The system server's development profile disables the
-provisioner instead.
-
-A developer machine gets the same modules from `deployment/terraform/azure/dev`, under
-`<environment>.<zone>`. The [contributing guide](https://kinotic.ai/platform/contributing#publishing-uis-against-azure)
-walks through it.
+the Worker with, and the DNS token. The `demonstration` profile sets no zone, so each organization's
+record is logged rather than created.
 
 
 ## Sitemap

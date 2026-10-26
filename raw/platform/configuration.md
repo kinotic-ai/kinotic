@@ -907,23 +907,15 @@ configured under `kinotic.systemApi.deployment.*`:
     </td>
     
     <td>
-      Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond the management server — typically <code>
-        github.com
-      </code>
-      
-       and <code>
+      Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond the management server and the host of the repository's clone URL, which its egress policy always permits — typically <code>
         registry.npmjs.org
       </code>
       
       , so <code>
-        git fetch
-      </code>
-      
-       and <code>
         bun install
       </code>
       
-       work under default-deny egress
+       works under default-deny egress
     </td>
   </tr>
   
@@ -949,11 +941,39 @@ configured under `kinotic.systemApi.deployment.*`:
 
 The VMs are the same size in every environment; what differs between nodes is how many fit. The sync VM gets half a core, 2 GB of memory and a 2 GB root filesystem, where the package manager keeps its cache, with the project checkout mount (clone plus installs) capped at 4 GB; each runtime VM, and each site publish or removal VM and SBOM VM, gets half a core, 1 GB of memory and a 512 MB root filesystem — the checkout is a read-only mount, so the root holds only what the microservice writes. The disk caps are enforced where the node's filesystem carries project quotas.
 
-The pipeline also requires the GitHub module (it mints the short-lived fetch token from
-the org's App installation) and at least one online node advertising a workload data
+The pipeline also requires the project's [repository host](#repository-host), which mints the
+short-lived fetch token, and at least one online node advertising a workload data
 directory — the project's checkout lives at `<workloadDataDir>/projects/<projectId>` on
 the node that first deployed it, mounted read-write into the sync VM and read-only into
 the runtime VMs.
+
+## Repository host
+
+`kinotic.managementApi.repoHost` names where each project's Git repository is hosted, and so
+how a project is created, fetched by its sync workload, and pushed to:
+
+- `GITHUB`, the default: the repository is created from the template
+`kinotic.managementApi.github.repoTemplate` in the GitHub account the organization linked by
+installing the system's GitHub App, and the App mints the fetch and write tokens.
+- `GITEA`, which the `demonstration` profile sets: the management and system servers administer
+a Gitea server (`deployment/docker-compose/compose.gitea.yml`). Each Kinotic organization is a
+private Gitea organization of the same id, so nothing is linked. Each repository is created
+holding one commit of the template, downloaded from GitHub and rendered for the project, and given
+a push webhook to the management server's `/api/github/webhook`, signed with
+`kinotic.managementApi.github.webhookSecret`; Gitea sends the same headers and signature GitHub
+does. A repository is fetched through a Gitea account that may only read it and pushed to
+through one that may only write it (`ProjectRepoCredentialService.issueWriteToken`, which a coding
+agent calls as an MCP tool), each with
+tokens good for an hour. Gitea names an organization in at most 40 characters and reserves some
+names, among them `admin`, `api`, `explore`, `org` and `user`, so an organization whose id is longer
+or reserved cannot create a project there: the creation fails with Gitea's reason.
+
+`ProjectService.getRepositoryHost` tells the portal and coding agents which it is. Gitea has no
+configuration of its own: the servers reach it at `kinotic-gitea:3000` on the compose network and
+act as the `kinotic_admin` administrator `compose.gitea.yml` creates; a person's browser and Git
+client reach it at `http://localhost:3001`, a deployment's sync workload at
+`http://192.168.127.254:3001`, the host alias of a BOXLITE guest; and Gitea delivers its webhooks to
+`kinotic-server-management:58503`.
 
 ## Application API hosts
 
@@ -1021,7 +1041,11 @@ management-api. The Helm chart sets all three from the same paths in its values:
         OwnedOidcConfigurationService.findCallbackUrl
       </code>
       
-       gives an application's or a tenant's OIDC configuration. The base URL itself is the shared host a sign-in through one of the system's social registrations returns to. The development profiles set <code>
+       gives an application's or a tenant's OIDC configuration. The base URL itself is the shared host a sign-in through one of the system's social registrations returns to. The <code>
+        demonstration
+      </code>
+      
+       profile sets <code>
         http://localhost:58505
       </code>
     </td>
@@ -1047,17 +1071,19 @@ management-api. The Helm chart sets all three from the same paths in its values:
         kinotic.managementServer.issuerBaseUrl
       </code>
       
-       is set. The management server's development profile sets <code>
-        http://localhost:5173
+       is set. The management server's <code>
+        e2e
       </code>
       
-      , the portal's vite dev server, and its <code>
-        compose
+       and <code>
+        demonstration
       </code>
       
-       profile <code>
-        http://localhost:9090
+       profiles set <code>
+        http://localhost:58503
       </code>
+      
+      , its gateway port
     </td>
   </tr>
   
@@ -1085,15 +1111,15 @@ management-api. The Helm chart sets all three from the same paths in its values:
         *
       </code>
       
-      , returns to that UI instead. The development profiles set <code>
-        http://localhost:5173
+      , returns to that UI instead. The <code>
+        e2e
       </code>
       
-      , and the management server's <code>
-        compose
+       and <code>
+        demonstration
       </code>
       
-       profile <code>
+       profiles set <code>
         http://localhost:9090
       </code>
     </td>
@@ -1121,7 +1147,7 @@ management-api. The Helm chart sets all three from the same paths in its values:
         *
       </code>
       
-      , are also the only UIs the management server's browser flows return to, with their logins, social sign-up tokens, GitHub App install codes and errors, so name only origins you control. The local development profile's ngrok wildcard is the one exception, acceptable only on a developer's machine
+      , are also the only UIs the management server's browser flows return to, with their logins, social sign-up tokens, GitHub App install codes and errors, so name only origins you control.
     </td>
   </tr>
   
@@ -1137,7 +1163,11 @@ management-api. The Helm chart sets all three from the same paths in its values:
     </td>
     
     <td>
-      Origins admitted as a UI of every application, for UIs a developer serves from their own machine; the development profile sets <code>
+      Origins admitted as a UI of every application, for UIs a developer serves from their own machine; the <code>
+        demonstration
+      </code>
+      
+       profile sets <code>
         http:\/\/localhost:\d+
       </code>
       
@@ -1179,6 +1209,38 @@ Worker. The account is configured under `kinotic.systemApi.uiDeployment.*`:
   <tr>
     <td>
       <code>
+        siteStorage
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        AZURE
+      </code>
+    </td>
+    
+    <td>
+      Where published UIs are stored: <code>
+        AZURE
+      </code>
+      
+      , the sites storage account; <code>
+        AZURITE
+      </code>
+      
+      , the emulator a demonstration server runs (<a href="#site-storage-on-one-machine">
+        site storage on one machine
+      </a>
+      
+      ); or <code>
+        DISABLED
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
         sitesStorageEndpoint
       </code>
     </td>
@@ -1192,18 +1254,16 @@ Worker. The account is configured under `kinotic.systemApi.uiDeployment.*`:
         sites/<hostname>/
       </code>
       
-      . Required
+      , as the publish and removal workloads reach it. Required
     </td>
   </tr>
 </tbody>
 </table>
 
-The endpoint is validated at boot, like the GitHub App settings, so an environment
-[without Azure storage](#without-azure-storage) still sets it, to a placeholder. In the Azure
+The endpoint is validated at boot, like the GitHub App settings, so an environment whose site
+storage is `DISABLED` still sets it, to a placeholder. In the Azure
 deployment terraform creates the account and the Cloudflare side and passes the account and
-domain to the server (see the [deployment guide](https://kinotic.ai/platform/deployment-guide)); the `local`
-profile of the [contributing guide](https://kinotic.ai/platform/contributing#publishing-uis-against-azure) names
-a developer's own. The server never reads or writes the account itself: it holds Storage Blob
+domain to the server (see the [deployment guide](https://kinotic.ai/platform/deployment-guide)). The server never reads or writes the account itself: it holds Storage Blob
 Data Contributor on it only to sign the URLs, scoped to one site's directory, that the publish
 and removal workloads act through. The sites Worker reads the account over its blob endpoint
 with a read-only SAS on the container, which terraform mints and binds to the Worker as a
@@ -1256,6 +1316,40 @@ organization is created and again before its first site is published:
       </code>
       
       . Required on the system server to publish a UI; an application's login admits pages under it
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        useSsl
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+    </td>
+    
+    <td>
+      Whether a browser reaches the sites over TLS, which sets the scheme of each site's URL
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        port
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      The port a browser reaches the sites on, in each site's URL; unset for the scheme's default port
     </td>
   </tr>
   
@@ -1361,7 +1455,7 @@ request and verifies it with the site's secret, under `kinotic.managementServer.
         false
       </code>
       
-       accepts every request, for an environment with no Turnstile site such as the e2e stack
+       accepts every request, for an environment with no Turnstile site such as the e2e stack or a demonstration server
     </td>
   </tr>
   
@@ -1405,8 +1499,8 @@ request and verifies it with the site's secret, under `kinotic.managementServer.
 </tbody>
 </table>
 
-The `development` and `dev-server` profiles use Cloudflare's always-passing test site, so the form
-works with no site of one's own.
+The `dev-server` profile uses Cloudflare's always-passing test site, so the form works with no site of
+its own.
 
 ## LLM configurations
 
@@ -1531,10 +1625,18 @@ keeps the key held, and deleting the configuration deletes its key. `findApiKey(
 a system service that calls the model: only a cluster member calling as itself, with no participant
 bound, can read it, so no gateway connection can, the system console's users included.
 
-## Without Azure storage
+## Demonstration server
 
-An environment without the sites storage account, such as development and the tests, turns off
-everything that uses it with one property:
+The `demonstration` profile runs the whole platform on one machine from `deployment/docker-compose`
+(`compose.yml` runs every server with it, and the migration with `demonstration,fixtures`), so Kinotic
+can be tried, and developed, with no Azure, no GitHub and no mail service. Each server's
+`application-demonstration.yml` holds the localhost URLs of the servers, Azurite and the local edge,
+in-memory secret storage, generated system secrets, and no mail service. The UIs are served by
+`kinotic-ui` (`compose.ui.yml`), the portal on `http://localhost:9090` and the system console on
+`http://localhost:9091`. The management server's CORS pattern admits the portal, its vite dev server
+on `5173`, and `http://localhost:9092`, where [Summit 42](https://github.com/kinotic-ai/summit-42)'s
+own compose file serves its UI beside the stack; the system server's admits the console and its vite
+dev server on `5174`. These settings make the demonstration server work:
 
 <table>
 <thead>
@@ -1557,7 +1659,37 @@ everything that uses it with one property:
   <tr>
     <td>
       <code>
-        kinotic.systemApi.disableAzureStorage
+        kinotic.domain.email.enabled
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+      
+       sends no email: each link a person must open is logged and returned to the UI that asked for it, which shows it. A sign-up's response carries its verification link, which the portal opens at once, an inviter is shown each invitation's accept link to send on (<code>
+        MemberService.findInvitationLink
+      </code>
+      
+      ), and the landing page's find-my-organizations form lists the address's organizations. Nothing then proves an address belongs to the person using it, so email is disabled only on a server no one but the people trying it can reach, as the <code>
+        demonstration
+      </code>
+      
+       profile does
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.managementServer.passwordSignUp
       </code>
     </td>
     
@@ -1568,15 +1700,88 @@ everything that uses it with one property:
     </td>
     
     <td>
-      When true nothing is written to or deleted from the account: every published UI is marked ready at once and nothing serves it, and a removed UI's record is deleted without a removal workload
+      Whether signing up with an email and a password is offered: the portal's sign-up page offers it (<code>
+        /signup/email
+      </code>
+      
+      ) in place of GitHub alone, and <code>
+        POST /api/auth/org/signup
+      </code>
+      
+       refuses it with 403 when unset
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.managementServer.turnstile.enabled
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+      
+       on a demonstration server: the find-my-organizations form presents no Cloudflare Turnstile challenge, so the stack calls no Cloudflare service
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.managementApi.repoHost
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        GITHUB
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        GITEA
+      </code>
+      
+       on a demonstration server: projects' repositories are hosted on the Gitea <code>
+        compose.gitea.yml
+      </code>
+      
+       runs (see <a href="#repository-host">
+        Repository host
+      </a>
+      
+      )
     </td>
   </tr>
 </tbody>
 </table>
 
-The development profile and the tests set it; the `local` profile of the
-[contributing guide](https://kinotic.ai/platform/contributing#publishing-uis-against-azure) turns it off against
-a developer's own subscription.
+## Site storage on one machine
+
+`kinotic.systemApi.uiDeployment.siteStorage` names what stands in for the sites storage account
+where there is none:
+
+- `AZURITE`, which the `demonstration` profile sets, uploads to the Azurite emulator that
+`deployment/docker-compose/compose.sites.yml` runs, with `sitesStorageEndpoint` at
+`http://192.168.127.254:10000/devstoreaccount1`, where a BOXLITE workload reaches the emulator.
+The local edge runs the sites Worker over the emulator, so a published UI opens at
+`http://<app>--<ui>.<org>.sites.localhost:8088` (`kinotic.domain.publishedSites.domain: sites.localhost`, `useSsl: false`, `port: 8088`). Each upload and removal URL names its site's directory and
+carries a SAS for the whole `sites` container, signed with the emulator's well-known development
+key, since the emulator honors no directory SAS. A site
+reads ready as soon as its upload finished, since the edge reads the emulator on every request.
+- `DISABLED`, which the tests and the e2e stack set, writes nothing and deletes nothing: every
+published UI is marked ready at once with nothing serving it, and a removed UI's record is
+deleted without a removal workload.
 
 ## Workload storage and log limits
 

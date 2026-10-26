@@ -34,8 +34,7 @@ Every page below is available as raw markdown.
 - [Service Proxies](https://kinotic.ai/raw/apps/services/service-proxies.md): How to call remote services using service proxies in Kinotic.
 - [Streaming](https://kinotic.ai/raw/apps/services/streaming.md): Real-time data streaming between services and clients.
 - [Introduction](https://kinotic.ai/raw/getting-started/introduction.md): Learn what Kinotic is, why it exists, and how it helps developers and AI agents build enterprise-grade applications at scale.
-- [Local-Only Setup](https://kinotic.ai/raw/getting-started/local-only-setup.md): Run Kinotic entirely on your own machine, without a Kinotic OS Cloud organization.
-- [Quick Start](https://kinotic.ai/raw/getting-started/quick-start.md): Get started building your first Kinotic App -- from a provisioned project to a running CRUD service in under five minutes.
+- [Quick Start](https://kinotic.ai/raw/getting-started/quick-start.md): Run Kinotic on your own machine, create your organization, and build your first app with Claude Code.
 - [Authentication Providers](https://kinotic.ai/raw/organizations/authentication-providers.md): Let your organization's members sign in to the Kinotic portal with your own identity provider.
 - [Okta SSO Setup](https://kinotic.ai/raw/organizations/okta-sso-setup.md): Configure Okta as a single sign-on provider for your Kinotic organization.
 - [Overview](https://kinotic.ai/raw/organizations/overview.md): Set up a Kinotic organization -- its members, how they sign in, and the Apps it builds.
