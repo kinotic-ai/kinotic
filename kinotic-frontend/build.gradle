@@ -34,7 +34,10 @@ node {
     // The directory where Node.js is unpacked (when download is true)
     workDir = file("${project.projectDir}/.gradle/nodejs")
 
-    // The directory where yarn is installed (when a Yarn task is used)
+    // Version of Pnpm to use: the one package.json pins as its packageManager, which pnpm run by hand switches to as well
+    pnpmVersion = new groovy.json.JsonSlurper().parse(file("package.json")).packageManager.split("@")[1]
+
+    // The directory where pnpm is installed (when a pnpm task is used)
     pnpmWorkDir = file("${project.projectDir}/.gradle/pnpm")
 
 }

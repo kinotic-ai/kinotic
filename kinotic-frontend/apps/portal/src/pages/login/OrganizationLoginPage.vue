@@ -13,20 +13,20 @@
         <p class="login-unknown">There is no organization named <strong>{{ organizationId }}</strong>.</p>
       </template>
       <template v-else>
-        <div v-if="providers.length > 0" class="login-providers">
+        <div v-if="oidcProviders.length > 0" class="login-providers">
           <SocialAuthButton
-            v-for="provider in providers"
+            v-for="provider in oidcProviders"
             :key="provider.id"
-            :provider="provider.provider"
+            :provider="provider.provider!"
             :action="startUrl(provider.id)"
             intent="sign-in"
           />
-          <div class="login-divider"><span>or</span></div>
+          <div v-if="passwordSignIn" class="login-divider"><span>or</span></div>
         </div>
 
         <!-- Single-step email + password; the login answers a generic 401, so this form
              exposes no user-existence oracle. -->
-        <div class="login-form__step">
+        <div v-if="passwordSignIn" class="login-form__step">
           <IconField class="login-field">
             <InputText
               ref="emailInput"
@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
@@ -88,11 +88,15 @@ import { forgetOrganization, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE 
 
 const debug = createDebug('login')
 
-/** A configuration the organization's login offers, as `GET /api/auth/org/login/:orgId/providers` lists it. */
+const PROVIDERS_UNAVAILABLE = 'Could not load the ways to sign in to this organization. Refresh the page to try again.'
+
+/** A sign-in provider the organization's login offers, as `GET /api/auth/org/login/:orgId/providers` lists it. */
 interface LoginProvider {
   id: string
+  /** PASSWORD for an email and a password, which the page offers as its form, OIDC for a provider's button. */
+  type: 'PASSWORD' | 'OIDC'
   name: string
-  provider: string
+  provider: string | null
 }
 
 const props = defineProps<{ organizationId: string }>()
@@ -102,6 +106,8 @@ const password = ref<string>('')
 const loading = ref<boolean>(false)
 const unknown = ref<boolean>(false)
 const providers = ref<LoginProvider[]>([])
+const passwordSignIn = computed(() => providers.value.some(provider => provider.type === 'PASSWORD'))
+const oidcProviders = computed(() => providers.value.filter(provider => provider.type === 'OIDC'))
 
 const emailInput = ref<any>()
 const passwordInput = ref<any>()
@@ -113,8 +119,6 @@ const route = useRoute()
 const router = useRouter()
 
 onMounted(() => {
-  nextTick(() => focusEmailInput())
-  // the buttons appear when the list arrives, so a server slow to answer does not hold up the form
   void loadProviders()
 })
 
@@ -144,16 +148,21 @@ async function loadProviders() {
       } else {
         unknown.value = true
       }
-      return
-    }
-    if (!res.ok) {
+    } else if (!res.ok) {
       debug('Provider list returned %d', res.status)
-      return
+      displayError(PROVIDERS_UNAVAILABLE)
+    } else {
+      const data = await res.json()
+      if (Array.isArray(data)) providers.value = data
+      if (passwordSignIn.value) {
+        // the form renders once the list says it is offered
+        await nextTick()
+        focusEmailInput()
+      }
     }
-    const data = await res.json()
-    if (Array.isArray(data)) providers.value = data
   } catch (err) {
     debug('Failed to load providers: %O', err)
+    displayError(PROVIDERS_UNAVAILABLE)
   }
 }
 

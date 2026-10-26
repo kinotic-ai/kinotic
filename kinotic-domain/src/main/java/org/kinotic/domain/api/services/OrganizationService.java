@@ -13,7 +13,7 @@ public interface OrganizationService extends IdentifiableCrudService<Organizatio
     Future<List<Organization>> findAllById(Collection<String> ids);
 
     /**
-     * Emails the person at {@code email} the organizations the address is a member of, each with a link
+     * Emails the person at {@code email} the organizations the address is an enabled member of, each with a link
      * to that organization's login, for someone who does not remember where to sign in. The email is
      * sent whether or not the address is a member of any organization, so the caller learns nothing
      * about the address.
@@ -25,6 +25,6 @@ public interface OrganizationService extends IdentifiableCrudService<Organizatio
      * @return a future emitting the organizations' login links when the UI shows them, possibly none, or
      *         {@code null} once the email has been sent
      */
-    Future<List<OrganizationLoginLink>> sendMembershipsEmail(String email);
+    Future<List<OrganizationLoginLink>> sendOrganizationsEmail(String email);
 
 }

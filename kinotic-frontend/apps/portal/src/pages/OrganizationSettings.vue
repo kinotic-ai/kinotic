@@ -22,7 +22,7 @@
           </p>
         </TabPanel>
         <TabPanel value="authentication">
-          <OidcConfigurationsPanel :application-id="null" />
+          <SignInProvidersPanel :application-id="null" />
         </TabPanel>
         <TabPanel v-for="tab in upcomingTabs" :key="tab.id" :value="tab.id">
           <FeatureEmptyState badge="coming-soon" :icon="tab.icon" :tint="tab.upcoming.tint" :title="tab.upcoming.title"
@@ -99,7 +99,7 @@ import FeatureEmptyState from '@/components/FeatureEmptyState.vue'
 import GitHubLinkStatus from '@/components/GitHubLinkStatus.vue'
 import { RepoHostType, type RepositoryHost } from '@kinotic-ai/management-api'
 import { repositoryHost } from '@/util/repositoryHost'
-import OidcConfigurationsPanel from '@/components/OidcConfigurationsPanel.vue'
+import SignInProvidersPanel from '@/components/SignInProvidersPanel.vue'
 import { useQueryTab } from '@/composables/useQueryTab'
 import { DOCUMENTATION_URL } from '@/util/externalLinks'
 

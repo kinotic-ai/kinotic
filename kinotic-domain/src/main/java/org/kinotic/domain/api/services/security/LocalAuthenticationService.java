@@ -20,15 +20,19 @@ public interface LocalAuthenticationService {
     Future<SystemParticipantIdentity> authenticateSystemUser(String email, String password);
 
     /**
-     * Verifies {@code password} against the organization user with {@code email}, which then signs in to an
-     * organization through its membership there, which the caller resolves.
+     * Verifies {@code password} against the user of organization {@code organizationId} with {@code email}, whose
+     * login must take a password ({@link PasswordConfigurationService#findOffered}).
      */
-    Future<OrganizationParticipantIdentity> authenticateOrganizationUser(String email, String password);
+    Future<OrganizationParticipantIdentity> authenticateOrganizationUser(String email, String password, String organizationId);
 
     /** Whether {@code password} is the password of {@code user}, an enabled user of any scope. */
     Future<Boolean> verifyPassword(UserParticipantIdentity user, String password);
 
-    /** Verifies {@code password} against the user of application {@code applicationId} of organization {@code organizationId} with {@code email}. */
+    /**
+     * Verifies {@code password} against the user of application {@code applicationId} of organization
+     * {@code organizationId} with {@code email}, whose own login, its tenant's or else the application's, must take a
+     * password ({@link PasswordConfigurationService#findOffered}).
+     */
     Future<ApplicationParticipantIdentity> authenticateApplicationUser(String email, String password,
                                                                          String organizationId, String applicationId);
 }

@@ -4,9 +4,9 @@ import { ParticipantIdentityType } from '@/api/model/security/ParticipantIdentit
 /**
  * A persisted identity that can authenticate — a person of one scope ({@link UserParticipantIdentity}),
  * a client acting on a person's behalf ({@link DelegatingParticipantIdentity}) or a machine
- * ({@link MachineParticipantIdentity}), discriminated by {@link type}. A system user acts in the SYSTEM scope and
- * an organization user in the organizations its memberships name; an application's user, a delegate and a
- * machine carry the scope they act in, encoded by which of their organizationId / applicationId is set:
+ * ({@link MachineParticipantIdentity}), discriminated by {@link type}. A system user acts in the SYSTEM scope; an
+ * organization's user, an application's user, a delegate and a machine carry the scope they act in, encoded by
+ * which of their organizationId / applicationId is set:
  *
  * - both null → SYSTEM
  * - organizationId only → ORGANIZATION

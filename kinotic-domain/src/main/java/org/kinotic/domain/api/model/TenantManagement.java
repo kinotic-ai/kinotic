@@ -13,8 +13,8 @@ public enum TenantManagement {
 
     /**
      * Tenant administrators: a customer signing up, or the organization in the portal, creates a tenant;
-     * its administrator decides who joins and what they hold, within what the application allows. An
-     * application whose administrators create no tenant has users with none, who share its data.
+     * its administrator decides who joins and what they hold, within what the application allows. Every user
+     * belongs to one of the application's tenants, named when the user is added.
      */
     TENANT_ADMINISTRATORS
 }

@@ -1,3 +1,10 @@
+// The docs moved: the introduction and quick start now live under Getting Started. These keep the
+// old URLs working (each is prerendered below so the static site emits a redirect page for it).
+const docsRedirects: Record<string, string> = {
+  '/apps/introduction': '/getting-started/introduction',
+  '/apps/quick-start': '/getting-started/quick-start',
+}
+
 export default defineNuxtConfig({
   extends: ['docus'],
   // Canonical site URL for nuxt-site-config consumers (robots, sitemap, OG images, canonical
@@ -17,12 +24,15 @@ export default defineNuxtConfig({
   agentDiscovery: {
     robots: { aiPolicy: false },
   },
+  routeRules: Object.fromEntries(
+    Object.entries(docsRedirects).map(([from, to]) => [from, { redirect: to }]),
+  ),
   // /V2, /V3 and /vc are unlinked pages shared by URL, so prerendering never discovers them
   // by crawling — without this, `nuxt generate` emits no page for them and the deployed URLs 404.
   // Their own `noindex` meta tag keeps them out of search results and out of /sitemap.xml.
   nitro: {
     prerender: {
-      routes: ['/V2', '/V3', '/vc'],
+      routes: ['/V2', '/V3', '/vc', ...Object.keys(docsRedirects)],
     },
   },
   // The docus sitemap lists content pages only; these are the indexable pages in app/pages.

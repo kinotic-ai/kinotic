@@ -68,7 +68,7 @@ public class ScopedParticipantZoneRulesResolverTest {
 
         // the organization management surface, other applications, other organizations, the
         // system internals, and un-zoned addresses
-        assertFalse(rules.sendAllowed(CRI.create("srv://management-api~org.kinotic.management.api.services.iam.MemberService/inviteMember#1.0.0")));
+        assertFalse(rules.sendAllowed(CRI.create("srv://management-api~org.kinotic.management.api.services.iam.MemberService/addOrganizationUser#1.0.0")));
         assertFalse(rules.sendAllowed(CRI.create("srv://app.acme-org.other-app~OrderService/create#1.0.0")));
         assertFalse(rules.sendAllowed(CRI.create("srv://app.other-org.orders-app~OrderService/create#1.0.0")));
         assertFalse(rules.sendAllowed(CRI.create("srv://system-api~org.kinotic.system.api.workload.WorkloadOrchestrationService/startWorkload#0.1.0")));
@@ -225,7 +225,7 @@ public class ScopedParticipantZoneRulesResolverTest {
         // a scope carrying the zone delimiter cannot even be constructed (see CRITests)
         assertThrows(IllegalArgumentException.class,
                      () -> CRI.create("srv://app.acme-org.orders-app~x@app.acme-org.other-app~OrderService/create#1.0.0"));
-        assertFalse(rules.sendAllowed(CRI.create("srv://app.acme-org.orders-app@management-api~org.kinotic.management.api.services.iam.MemberService/inviteMember#1.0.0")));
+        assertFalse(rules.sendAllowed(CRI.create("srv://app.acme-org.orders-app@management-api~org.kinotic.management.api.services.iam.MemberService/addOrganizationUser#1.0.0")));
         assertFalse(rules.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.x@app.acme-org.other-app~OrderService#1.0.0")));
         assertFalse(rules.sendAllowed(CRI.create("stream://app.acme-org.orders-app.x@app.acme-org.other-app~OrderEvents")));
     }

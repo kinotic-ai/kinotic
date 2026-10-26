@@ -7,9 +7,9 @@ import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.OrganizationLoginLink;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.internal.api.repositories.OrganizationRepository;
-import org.kinotic.domain.internal.api.repositories.OrganizationMembershipRepository;
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
-import org.kinotic.domain.api.model.security.identity.OrganizationMembership;
+import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
@@ -20,16 +20,13 @@ import java.util.List;
 public class DefaultOrganizationService extends AbstractCrudService<Organization> implements OrganizationService {
 
     private final ParticipantIdentityRepository identityRepository;
-    private final OrganizationMembershipRepository membershipRepository;
     private final EmailService emailService;
 
     public DefaultOrganizationService(OrganizationRepository repository,
                                       ParticipantIdentityRepository identityRepository,
-                                      OrganizationMembershipRepository membershipRepository,
                                       EmailService emailService) {
         super(repository);
         this.identityRepository = identityRepository;
-        this.membershipRepository = membershipRepository;
         this.emailService = emailService;
     }
 
@@ -66,17 +63,13 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
     }
 
     @Override
-    public Future<List<OrganizationLoginLink>> sendMembershipsEmail(String email) {
+    public Future<List<OrganizationLoginLink>> sendOrganizationsEmail(String email) {
         Validate.notBlank(email, "email cannot be blank");
-        return identityRepository.findOrganizationUserByEmail(email)
-                                 // a disabled organization user signs in nowhere, so it is told of no organizations, as the landing page tells it
-                                 .compose(user -> user == null || !user.isEnabled()
-                                         ? Future.succeededFuture(List.<OrganizationMembership>of())
-                                         : membershipRepository.findByOrganizationUser(user.getId()))
-                                 .compose(memberships -> findAllById(memberships.stream()
-                                                                                .filter(OrganizationMembership::isEnabled)
-                                                                                .map(OrganizationMembership::getOrganizationId)
-                                                                                .toList()))
+        return identityRepository.findOrganizationUsersByEmail(email)
+                                 .compose(users -> findAllById(users.stream()
+                                                                    .filter(ParticipantIdentity::isEnabled)
+                                                                    .map(OrganizationParticipantIdentity::getOrganizationId)
+                                                                    .toList()))
                                  .compose(organizations -> emailService.sendOrganizationsEmail(email, organizations));
     }
 }

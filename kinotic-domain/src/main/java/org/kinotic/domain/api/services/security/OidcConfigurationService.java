@@ -153,7 +153,9 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
      * owning organization's scope of the secret storage, keyed by the configuration's id, so it is never a
      * field of the configuration and no other organization's configuration can read it; the configuration's
      * {@code confidentialClient} records whether one is held, whatever the configuration carried. A sign-in
-     * through the configuration picks a new secret up on its next flow.
+     * through the configuration picks a new secret up on its next flow. Disabling an organization's own
+     * configuration, as deleting one, fails with an {@link IllegalStateException} naming the enabled members it would
+     * leave with no way to sign in to the organization.
      *
      * @param configuration the configuration, owned by the caller's organization
      * @param clientSecret  the client secret's value, or {@code null} or blank to keep the secret held for the

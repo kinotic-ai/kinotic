@@ -21,6 +21,8 @@ public class OidcBindingRepository extends AbstractRepository<OidcBinding> {
     private static final int MAX_BINDINGS = 50;
     // MAX_BINDINGS bindings each keeps a read under Elasticsearch's default result window of 10,000 hits
     private static final int IDENTITIES_PER_READ = 100;
+    // the most organizations one provider identity signs in to
+    private static final int MAX_ORGANIZATIONS = 100;
 
     public OidcBindingRepository(CrudServiceTemplate crudServiceTemplate) {
         super("kinotic_oidc_binding", OidcBinding.class, crudServiceTemplate);
@@ -31,6 +33,16 @@ public class OidcBindingRepository extends AbstractRepository<OidcBinding> {
         Validate.notBlank(identityId, "identityId cannot be blank");
         return findAll(Pageable.ofSize(MAX_BINDINGS), b -> b.query(termFilter("identityId", identityId))
                                                              .sort(s -> s.field(f -> f.field("created"))))
+                .map(Page::getContent);
+    }
+
+    /** The bindings of the provider identity {@code (oidcConfigId, subject)} to organizations' users, one in each organization at most. */
+    public Future<List<OidcBinding>> findOrganizationBindings(String oidcConfigId, String subject) {
+        Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
+        Validate.notBlank(subject, "subject cannot be blank");
+        return findAll(Pageable.ofSize(MAX_ORGANIZATIONS), b -> b.query(composeFilter(termFilter("oidcConfigId", oidcConfigId),
+                                                                                       termFilter("subject", subject),
+                                                                                       missingFilter("applicationId"))))
                 .map(Page::getContent);
     }
 

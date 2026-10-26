@@ -3,10 +3,10 @@ import type { HeaderLink } from '~~/page-meta'
 
 const SITE_LINKS: HeaderLink[] = [
   { label: 'Home', to: '/' },
-  { label: 'Docs', to: '/apps/introduction' },
+  { label: 'Docs', to: '/getting-started/introduction' },
   { label: 'Test Reports', to: '/test-results/', external: true },
 ]
-const SITE_CTA: HeaderLink = { label: 'Get Started', to: '/apps/quick-start' }
+const SITE_CTA: HeaderLink = { label: 'Get Started', to: '/getting-started/quick-start' }
 
 // How far below the viewport top a section has to reach before its link counts as current.
 const SPY_LINE = 140

@@ -54,7 +54,8 @@ public interface OwnedOidcConfigurationService {
      * no account, client id or secret; any it holds are kept for a switch back to {@code OWN}, under which the
      * application's users are the same users. Its {@code organizationId} is the
      * caller's, whatever it carried, and its {@code confidentialClient} says whether a secret is held, whatever it
-     * carried. A sign-in through the configuration picks a new secret up on its next flow.
+     * carried. A sign-in through the configuration picks a new secret up on its next flow. Disabling an organization's
+     * own configuration fails, naming the members it would leave with no way to sign in to the organization.
      *
      * @param configuration the configuration
      * @param clientSecret  the client secret's value, or {@code null} or blank to keep the secret held for the
@@ -82,7 +83,10 @@ public interface OwnedOidcConfigurationService {
      */
     Future<OwnedOidcConfiguration> copy(String sourceId, String applicationId);
 
-    /** Deletes the organization's configuration {@code id} and the client secret held for it; nothing happens for an id the organization owns no configuration by. */
+    /**
+     * Deletes the organization's configuration {@code id} and the client secret held for it, refused as disabling it is
+     * by {@link #save}; nothing happens for an id the organization owns no configuration by.
+     */
     Future<Void> deleteById(String id);
 
 }

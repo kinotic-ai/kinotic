@@ -32,7 +32,16 @@
         <strong>{{ details.applicationId || details.organizationName }}</strong><template v-if="details.applicationId">, provided by {{ details.organizationName }}</template>.
       </p>
 
-      <div v-if="details.providers.length > 0" class="w-full max-w-80 flex flex-col gap-3 mt-2 mb-6">
+      <!-- an application's providers return to the application, whose login claims the invited user on the first sign-in -->
+      <div v-if="details.applicationId && details.providers.length > 0" class="w-full max-w-80 flex flex-col gap-3 mt-2 mb-6">
+        <p class="login-form__subtitle">
+          Sign in to <strong>{{ details.applicationId }}</strong> with {{ providerNames }} as <strong>{{ details.email }}</strong>;
+          your first sign-in accepts this invitation.
+        </p>
+        <Button v-if="details.signInUrl" as="a" :href="details.signInUrl" :label="`Continue to ${details.applicationId}`" class="login-submit" />
+        <div v-if="details.localEnabled" class="login-divider"><span>or set a password</span></div>
+      </div>
+      <div v-else-if="details.providers.length > 0" class="w-full max-w-80 flex flex-col gap-3 mt-2 mb-6">
         <SocialAuthButton
           v-for="provider in details.providers"
           :key="provider.id"
@@ -40,21 +49,20 @@
           :action="startUrl(provider.id)"
           intent="sign-up"
         />
-        <div v-if="!details.organizationUserExists || details.organizationUserHasPassword" class="login-divider"><span>{{ details.organizationUserExists ? 'or use your password' : 'or set a password' }}</span></div>
+        <div v-if="details.localEnabled" class="login-divider"><span>or set a password</span></div>
       </div>
 
-      <!-- An invited address that already has an organization user joins as that user: the person proves it
-           is theirs with its password, or with a provider it signs in through when it has no password, and keeps
-           the one organization user across every organization. -->
-      <p v-if="details.organizationUserExists && !details.organizationUserHasPassword" class="login-form__subtitle">
-        You already sign in to Kinotic organizations as <strong>{{ details.email }}</strong> with a provider.
-        Continue with that provider to join.
+      <!-- an application with no provider and no password left takes the invitation once one is turned back on -->
+      <p v-if="!details.localEnabled && details.applicationId && details.providers.length === 0" class="login-form__subtitle">
+        <strong>{{ details.applicationId }}</strong> offers no way to sign in right now, so this invitation cannot be accepted.
+        Ask {{ details.invitedByName }} to turn on a sign-in method for it, then open this link again.
       </p>
-      <div v-else class="login-form__step">
-        <p v-if="details.organizationUserExists" class="login-form__subtitle">
-          You already sign in to Kinotic organizations as <strong>{{ details.email }}</strong>. Enter that password to join.
-        </p>
-        <div v-else class="login-field">
+      <p v-else-if="!details.localEnabled && !details.applicationId" class="login-form__subtitle">
+        {{ details.organizationName }} accepts invitations through its sign-in providers. Continue with one of them as
+        <strong>{{ details.email }}</strong> to join.
+      </p>
+      <div v-else-if="details.localEnabled" class="login-form__step">
+        <div class="login-field">
           <InputText
             v-model="displayName"
             class="login-input"
@@ -63,19 +71,7 @@
           />
         </div>
 
-        <div v-if="details.organizationUserExists" class="login-field login-field--last">
-          <Password
-            v-model="password"
-            input-class="login-password-input"
-            class="login-password"
-            placeholder="Your password"
-            toggleMask
-            :feedback="false"
-            @keyup.enter="handleAccept"
-          />
-        </div>
         <SetPasswordFields
-          v-else
           ref="passwordFields"
           v-model:password="password"
           v-model:confirm="confirmPassword"
@@ -99,13 +95,13 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
-import Password from 'primevue/password'
 import { useToast } from 'primevue/usetoast'
 
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SetPasswordFields from '@/components/SetPasswordFields.vue'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
 import { KINOTIC_UI } from '@/IKinoticUI'
+import { emailNotVerifiedMessage } from '@/util/oidcConfigurations'
 import { KinoticStates } from '@/states'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 
@@ -121,11 +117,11 @@ interface InviteDetails {
   organizationName: string | null
   applicationId: string | null
   invitedByName: string
-  /** Whether an organization user already signs in with the invited email, which then joins as itself. */
-  organizationUserExists: boolean
-  /** Whether that organization user has a password to prove itself with; without one it joins through a provider it is bound to. */
-  organizationUserHasPassword: boolean
+  /** Whether the invitation may be accepted with a password, which a scope allows only with password sign-in on. */
+  localEnabled: boolean
   providers: InviteProvider[]
+  /** An application's primary UI, where signing in through one of its providers accepts its invitation; null otherwise. */
+  signInUrl: string | null
 }
 
 type Phase = 'loading' | 'ready' | 'appAccepted' | 'invalid'
@@ -133,13 +129,14 @@ type Phase = 'loading' | 'ready' | 'appAccepted' | 'invalid'
 /**
  * The unauthenticated invitation-accept page, reached from the emailed accept link
  * (`/invite/accept?token=…`). Shows who invited the visitor and into what, then lets them
- * accept with a password or, into an organization, any provider the organization's login
+ * accept with a password, into a scope that allows password sign-in, or any provider the organization's login
  * offers; an application invitee sets a password and is sent to the application's primary UI,
- * or sees a confirmation while the application has none. The OIDC route returns here with
+ * or sees a confirmation while the application has none, or signs in to the application through one of its
+ * providers, whose first sign-in accepts the invitation. The OIDC route returns here with
  * `?error=<code>` on failure.
  */
 const phase = ref<Phase>('loading')
-const details = ref<InviteDetails>({ email: '', displayName: null, organizationName: null, applicationId: null, invitedByName: '', organizationUserExists: false, organizationUserHasPassword: false, providers: [] })
+const details = ref<InviteDetails>({ email: '', displayName: null, organizationName: null, applicationId: null, invitedByName: '', localEnabled: false, providers: [], signInUrl: null })
 const displayName = ref('')
 const password = ref('')
 const confirmPassword = ref('')
@@ -156,10 +153,11 @@ const passwordFields = ref<InstanceType<typeof SetPasswordFields>>()
 const route = useRoute()
 const router = useRouter()
 
-const canSubmit = computed<boolean>(() => {
-  return details.value.organizationUserExists
-      ? !!password.value
-      : !!password.value && !!confirmPassword.value && password.value === confirmPassword.value
+const canSubmit = computed<boolean>(() => !!password.value && !!confirmPassword.value && password.value === confirmPassword.value)
+// the application's providers by name, as its login page shows them: "Google, Okta or GitHub"
+const providerNames = computed<string>(() => {
+  const names = details.value.providers.map(provider => provider.name)
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}` : names.join('')
 })
 
 onMounted(async () => {
@@ -168,10 +166,11 @@ onMounted(async () => {
   token.value = (query.token as string) || ''
   const error = query.error as string | undefined
   if (error) {
-    toast.add({ severity: 'error', summary: 'Error', detail: errorCodeToMessage(error), life: 10000 })
+    toast.add({ severity: 'error', summary: 'Error', detail: errorCodeToMessage(error, query.provider as string | undefined), life: 10000 })
     // Drop the error from the URL so a refresh doesn't replay it.
     const newQuery = { ...query }
     delete newQuery.error
+    delete newQuery.provider
     router.replace({ query: newQuery })
   }
 
@@ -197,9 +196,9 @@ async function loadDetails() {
       organizationName: data.organizationName ?? null,
       applicationId: data.applicationId ?? null,
       invitedByName: data.invitedByName,
-      organizationUserExists: data.organizationUserExists === true,
-      organizationUserHasPassword: data.organizationUserHasPassword === true,
-      providers: Array.isArray(data.providers) ? data.providers : []
+      localEnabled: data.localEnabled === true,
+      providers: Array.isArray(data.providers) ? data.providers : [],
+      signInUrl: data.signInUrl ?? null
     }
     displayName.value = details.value.displayName ?? ''
     phase.value = 'ready'
@@ -266,13 +265,13 @@ async function handleAccept() {
   }
 }
 
-function errorCodeToMessage(code: string): string {
+function errorCodeToMessage(code: string, provider: string | undefined): string {
   switch (code) {
     case 'invite_invalid':     return 'This invitation is invalid, expired, or already used. Ask for a new invitation.'
     case 'email_mismatch':     return "That account's email doesn't match the invited address. Sign in with the matching account, or use your password instead."
-    case 'user_exists':        return 'The invited email already signs in to Kinotic organizations. Enter that password to join.'
+    case 'user_exists':        return 'This email is already a member of the organization. Sign in instead.'
     case 'user_disabled':      return 'You cannot sign in to this organization. Ask an administrator to enable your access.'
-    case 'email_not_verified': return 'Your identity provider has not verified your email address.'
+    case 'email_not_verified': return emailNotVerifiedMessage(provider)
     case 'state_mismatch':     return 'The sign-in attempt expired or was tampered with. Please try again.'
     case 'access_denied':      return 'You declined to authorize the sign-in. Please try again to continue.'
     default:                   return 'Sign-in failed. Please try again or set a password instead.'

@@ -2,15 +2,20 @@ import * as allure from 'allure-js-commons'
 import {beforeAll, describe, expect, it} from 'vitest'
 import {E2E_FIXTURE_PASSWORD, E2E_ORG_USER_EMAIL, E2E_ORGANIZATION_ID, managementServer, restBase} from '../TestHelpers.js'
 
-/** The second organization the V3 fixtures make the e2e organization user a member of. */
+/**
+ * An organization the V3 fixtures give a member under the e2e organization user's email that holds no password, whose
+ * login takes passwords.
+ */
 const SECOND_ORGANIZATION_ID = 'e2e-second'
+/** An organization the V3 fixtures give a login that takes no password. */
+const SSO_ONLY_ORGANIZATION_ID = 'e2e-sso-only'
 /** The Okta configuration the V3 fixtures give an organization the e2e organization user does not belong to. */
 const OTHER_ORGANIZATION_CONFIGURATION_ID = 'e2e-other-okta'
 
 /**
  * The organization login's REST surface on the management server: a login addressed to an organization by its
- * id, the configurations each login offers, the landing page's find-my-organizations email and organization
- * choices, and a signed-in member switching between the organizations it belongs to.
+ * id, which signs in a user of that organization alone, the configurations each login offers, and the landing
+ * page's find-my-organizations email and organization choices.
  */
 describe('Organization login routes', () => {
 
@@ -57,16 +62,29 @@ describe('Organization login routes', () => {
         expect((await login(E2E_ORGANIZATION_ID, E2E_ORG_USER_EMAIL, 'wrong-password')).status).toBe(401)
     })
 
-    it('lists the configurations an organization\'s login offers, the system\'s GitHub registration among them', async () => {
+    it('lists the providers an organization\'s login offers, its email and password and the system\'s GitHub registration among them', async () => {
         const res = await get(`/api/auth/org/login/${E2E_ORGANIZATION_ID}/providers`)
         expect(res.status).toBe(200)
-        const providers = await res.json() as {id: string, name: string, provider: string}[]
-        expect(providers.some(p => p.id === 'github-platform' && p.provider === 'github')).toBe(true)
+        const providers = await res.json() as {id: string, type: string, name: string, provider: string | null}[]
+        expect(providers[0]).toEqual({id: E2E_ORGANIZATION_ID, type: 'PASSWORD', name: 'Email and password', provider: null})
+        expect(providers.some(p => p.id === 'github-platform' && p.type === 'OIDC' && p.provider === 'github')).toBe(true)
 
         expect((await get('/api/auth/org/login/nobody/providers')).status).toBe(404)
     })
 
-    it('lists the provider keys the landing page offers', async () => {
+    it('offers no password at an organization that allows no password sign-in', async () => {
+        const res = await get(`/api/auth/org/login/${SSO_ONLY_ORGANIZATION_ID}/providers`)
+        expect(res.status).toBe(200)
+        expect((await res.json() as {type: string}[]).some(p => p.type === 'PASSWORD')).toBe(false)
+        expect((await login(SSO_ONLY_ORGANIZATION_ID)).status).toBe(401)
+    })
+
+    it('signs in with one organization\'s password there alone, though another has a member under the same email', async () => {
+        expect((await login(E2E_ORGANIZATION_ID)).status).toBe(204)
+        expect((await login(SECOND_ORGANIZATION_ID)).status).toBe(401)
+    })
+
+    it('lists the provider keys the landing and sign-up pages offer', async () => {
         const res = await get('/api/auth/org/login/providers')
         expect(res.status).toBe(200)
         expect(await res.json()).toContain('github')
@@ -100,11 +118,11 @@ describe('Organization login routes', () => {
         expect(await signedIn.json()).toEqual([])
     })
 
-    it('connects a sign-in method for the system\'s registrations and the configurations of organizations the user belongs to only', async () => {
+    it('connects a sign-in method for the configurations the user\'s organization offers only', async () => {
         expect((await post('/api/auth/org/methods/start/github-platform', {})).status).toBe(401)
         const cookie = sessionCookie(await login(E2E_ORGANIZATION_ID))
 
-        // another organization's configuration is refused, so a link cannot bind its directory's identities to an
+        // another organization's configuration is refused, so a link cannot bind its directory's identities to a
         // user that organization never admitted
         expect((await post(`/api/auth/org/methods/start/${OTHER_ORGANIZATION_CONFIGURATION_ID}`, {}, cookie)).status).toBe(403)
         expect((await post('/api/auth/org/methods/start/no-such-configuration', {}, cookie)).status).toBe(400)
@@ -114,24 +132,5 @@ describe('Organization login routes', () => {
                                     {method: 'POST', headers: {Cookie: cookie}, redirect: 'manual'})
         expect(started.status).toBe(302)
         expect(started.headers.get('location')).toContain('github.com/login/oauth/authorize')
-    })
-
-    it('switches a signed-in member to another organization it belongs to and refuses the rest', async () => {
-        expect((await post('/api/auth/org/switch', {organizationId: SECOND_ORGANIZATION_ID})).status).toBe(401)
-
-        let cookie = sessionCookie(await login(E2E_ORGANIZATION_ID))
-        const switched = await post('/api/auth/org/switch', {organizationId: SECOND_ORGANIZATION_ID}, cookie)
-        expect(switched.status).toBe(204)
-        // the switch re-establishes the session, so the page continues with the cookie it set
-        cookie = sessionCookie(switched)
-        expect((await get('/api/auth/me', cookie)).status).toBe(204)
-        // and back
-        const back = await post('/api/auth/org/switch', {organizationId: E2E_ORGANIZATION_ID}, cookie)
-        expect(back.status).toBe(204)
-        cookie = sessionCookie(back)
-
-        expect((await post('/api/auth/org/switch', {organizationId: 'nobody'}, cookie)).status).toBe(403)
-        expect((await post('/api/auth/org/switch', {organizationId: 'system'}, cookie)).status).toBe(403)
-        expect((await post('/api/auth/org/switch', {}, cookie)).status).toBe(400)
     })
 })

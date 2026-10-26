@@ -8,25 +8,30 @@ import org.kinotic.domain.api.exceptions.UnverifiedEmailException;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.TenantManagement;
-import org.kinotic.domain.api.model.security.ApplicationLoginMethods;
 import org.kinotic.domain.api.model.security.ApplicationLoginProvider;
 import org.kinotic.domain.api.model.security.ApplicationOidcConfiguration;
+import org.kinotic.domain.api.model.security.LoginProviderType;
 import org.kinotic.domain.api.model.security.LoginScope;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
+import org.kinotic.domain.api.model.security.PasswordConfiguration;
 import org.kinotic.domain.api.model.security.PendingApplicationSignUp;
 import org.kinotic.domain.api.model.security.TenantOidcConfiguration;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
 import org.kinotic.domain.api.rest.support.OAuth2Util;
 import org.kinotic.domain.api.services.security.ApplicationSignUpService;
+import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
+import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.internal.api.repositories.PendingApplicationSignUpRepository;
 import org.kinotic.domain.internal.api.services.EmailService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -38,23 +43,29 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     private static final int MAX_DISPLAY_NAME_LENGTH = 200;
 
     private final OidcConfigurationService oidcConfigurationService;
+    private final PasswordConfigurationService passwordConfigurationService;
     private final ParticipantIdentityService identityService;
+    private final InviteService inviteService;
     private final PendingApplicationSignUpRepository pendingRepository;
     private final EmailService emailService;
 
     @Override
-    public Future<ApplicationLoginMethods> findLoginMethods(LoginScope scope) {
+    public Future<List<ApplicationLoginProvider>> findLoginProviders(LoginScope scope) {
         Validate.notNull(scope, "scope cannot be null");
         ApplicationKey application = scope.applicationKey();
-        return oidcConfigurationService.findEnabledForScope(application.organizationId(), application.applicationId(), scope.tenantId())
-                                       .map(offered -> new ApplicationLoginMethods(
-                                               offersPasswordSignUp(scope),
-                                               offered.stream()
-                                                      .map(configuration -> new ApplicationLoginProvider(configuration.getId(),
-                                                                                                         configuration.getName(),
-                                                                                                         configuration.getProvider(),
-                                                                                                         signsUp(scope, configuration)))
-                                                      .toList()));
+        Future<PasswordConfiguration> password = passwordConfigurationService.findOffered(application.organizationId(), application.applicationId(), scope.tenantId());
+        Future<List<OidcConfiguration>> providers = oidcConfigurationService.findEnabledForScope(application.organizationId(), application.applicationId(), scope.tenantId());
+        return Future.all(password, providers).map(v -> {
+            List<ApplicationLoginProvider> ret = new ArrayList<>();
+            if (password.result() != null) {
+                ret.add(new ApplicationLoginProvider(password.result().getId(), LoginProviderType.PASSWORD, PasswordConfiguration.NAME,
+                                                     null, signsUp(scope, password.result())));
+            }
+            providers.result().forEach(configuration -> ret.add(new ApplicationLoginProvider(configuration.getId(), LoginProviderType.OIDC,
+                                                                                             configuration.getName(), configuration.getProvider(),
+                                                                                             signsUp(scope, configuration))));
+            return ret;
+        });
     }
 
     @Override
@@ -73,13 +84,31 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                                   Future<ApplicationParticipantIdentity> ret;
                                   if (found != null) {
                                       ret = Future.succeededFuture(scope.memberOf(found));
-                                  } else if (signsUp(scope, configuration)) {
-                                      ret = createOidcUser(scope, configuration, subject, verifiedClaims);
                                   } else {
-                                      ret = Future.succeededFuture();
+                                      ret = claim(scope, configuration, subject, verifiedClaims)
+                                              .compose(claimed -> claimed != null || !signsUp(scope, configuration)
+                                                      ? Future.succeededFuture(claimed)
+                                                      : createOidcUser(scope, configuration, subject, verifiedClaims));
                                   }
                                   return ret;
                               });
+    }
+
+    // the user an administrator added to scope under the email the claims prove, which the identity claims on its first
+    // sign-in, spending the invitation it was sent
+    private Future<ApplicationParticipantIdentity> claim(LoginScope scope,
+                                                         OwnedOidcConfiguration configuration,
+                                                         String subject,
+                                                         Map<String, Object> verifiedClaims) {
+        String email = OAuth2Util.stringClaim(verifiedClaims, "email");
+        // an email a stranger's directory can set claims no one, as it signs no one up
+        boolean proven = email != null && (!admitsEveryDirectory(configuration) || OAuth2Util.isEmailProven(verifiedClaims, configuration.getProvider()));
+        return proven
+                ? identityService.claimProvisionedApplicationUser(configuration.getId(), subject, email, scope)
+                                 .compose(claimed -> claimed != null
+                                         ? inviteService.deletePendingInvite(claimed.getEmail(), claimed.getOrganizationId(), claimed.getApplicationId()).map(claimed)
+                                         : Future.succeededFuture())
+                : Future.succeededFuture();
     }
 
     private Future<ApplicationParticipantIdentity> createOidcUser(LoginScope scope,
@@ -104,14 +133,14 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
         Validate.notNull(scope, "scope cannot be null");
         Validate.isTrue(email != null && email.contains("@"), "A valid email is required");
         Validate.notBlank(uiOrigin, "The UI the verification link opens is required");
-        requirePasswordSignUp(scope);
         String address = DomainUtil.normalizeEmail(email);
         ApplicationKey application = scope.applicationKey();
-        return identityService.findApplicationUserByEmail(address, application.organizationId(), application.applicationId())
-                              .compose(existing -> existing != null
-                                      // the caller learns nothing either way; the person who holds the email signs in
-                                      ? Future.succeededFuture()
-                                      : sendVerification(scope.application(), address, uiOrigin));
+        return requirePasswordSignUp(scope)
+                .compose(v -> identityService.findApplicationUserByEmail(address, application.organizationId(), application.applicationId()))
+                .compose(existing -> existing != null
+                        // the caller learns nothing either way; the person who holds the email signs in
+                        ? Future.succeededFuture()
+                        : sendVerification(scope.application(), address, uiOrigin));
     }
 
     // one sign-up per email is pending at a time, so repeated requests for an address send it one link a day
@@ -158,9 +187,9 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
         Validate.isTrue(StringUtils.isNotBlank(password), "A password is required");
         Validate.isTrue(displayName == null || displayName.length() <= MAX_DISPLAY_NAME_LENGTH,
                         "A display name is at most %d characters", MAX_DISPLAY_NAME_LENGTH);
-        requirePasswordSignUp(scope);
         ApplicationKey application = scope.applicationKey();
-        return pendingRepository.findValidByToken(token)
+        return requirePasswordSignUp(scope)
+                .compose(v -> pendingRepository.findValidByToken(token))
                 .compose(pending -> {
                     // a token carried to another application's host signs up no one there
                     Validate.isTrue(application.equals(new ApplicationKey(pending.getOrganizationId(), pending.getApplicationId())),
@@ -170,14 +199,23 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                 });
     }
 
-    private static void requirePasswordSignUp(LoginScope scope) {
-        if (!offersPasswordSignUp(scope)) {
-            throw new IllegalStateException("The login does not offer sign-up with an email and a password");
-        }
+    @Override
+    public Future<Boolean> offersPasswordSignUp(LoginScope scope) {
+        Validate.notNull(scope, "scope cannot be null");
+        ApplicationKey application = scope.applicationKey();
+        return passwordConfigurationService.findOffered(application.organizationId(), application.applicationId(), scope.tenantId())
+                                           .map(offered -> signsUp(scope, offered));
     }
 
-    private static boolean offersPasswordSignUp(LoginScope scope) {
-        return scope.application().isPasswordSignUp() && admitsNewUsers(scope);
+    private Future<Void> requirePasswordSignUp(LoginScope scope) {
+        return offersPasswordSignUp(scope).compose(offered -> offered
+                ? Future.<Void>succeededFuture()
+                : Future.failedFuture(new IllegalStateException("The login does not offer sign-up with an email and a password")));
+    }
+
+    // whether a new person signs up with an email and a password at the login of scope, which offers password
+    private static boolean signsUp(LoginScope scope, PasswordConfiguration offered) {
+        return offered != null && offered.isCreateUserOnSignIn() && admitsNewUsers(scope);
     }
 
     // whether a new person signs up through configuration at the login of scope: a tenant's own configuration admits

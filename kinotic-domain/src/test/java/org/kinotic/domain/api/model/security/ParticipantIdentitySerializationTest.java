@@ -27,7 +27,9 @@ class ParticipantIdentitySerializationTest {
         SystemParticipantIdentity systemUser = new SystemParticipantIdentity();
         systemUser.setEmail("jane@example.com").setId("system-user-1");
         OrganizationParticipantIdentity organizationUser = new OrganizationParticipantIdentity();
-        organizationUser.setEmail("jane@example.com").setId("organization-user-1");
+        organizationUser.setOrganizationId("acme")
+                        .setEmail("jane@example.com")
+                        .setId("organization-user-1");
         ApplicationParticipantIdentity applicationUser = new ApplicationParticipantIdentity();
         applicationUser.setOrganizationId("acme")
                        .setApplicationId("orders")
@@ -35,7 +37,7 @@ class ParticipantIdentitySerializationTest {
                        .setId("application-user-1");
 
         assertRoundTrips(systemUser, "SYSTEM_USER", SystemParticipantIdentity.class);
-        assertRoundTrips(organizationUser, "ORGANIZATION_USER", OrganizationParticipantIdentity.class);
+        assertEquals("acme", assertRoundTrips(organizationUser, "ORGANIZATION_USER", OrganizationParticipantIdentity.class).getOrganizationId());
         ApplicationParticipantIdentity read = assertRoundTrips(applicationUser, "APPLICATION_USER", ApplicationParticipantIdentity.class);
         assertEquals("acme", read.getOrganizationId());
         assertEquals("orders", read.getApplicationId());

@@ -75,13 +75,12 @@ import {
   type IterablePage,
   type Page
 } from '@kinotic-ai/core'
-import type { ApplicationParticipantIdentity, OrganizationMember, PendingInviteSummary, SystemParticipantIdentity } from '@kinotic-ai/management-api'
+import type { ApplicationParticipantIdentity, OrganizationParticipantIdentity, SystemParticipantIdentity } from '@kinotic-ai/management-api'
 import {
   CrudTable,
   InitialsTile,
   PageHeader,
   TimePill,
-  pageNumberOf,
   statusSeverity,
   MemberDetail,
   SteppingDrawer,
@@ -96,7 +95,7 @@ import { scopeTint, type Scope } from '@/util/scope'
 
 /**
  * The system users when no scope is given, otherwise the people with access to an
- * organization or the users of one of its applications, with pending invitations inline.
+ * organization or the users of one of its applications, each pending until they first sign in.
  * Read-only: an organization's people are the organization's to manage, and the system's are
  * the identity provider's.
  */
@@ -105,10 +104,6 @@ const props = defineProps<{
   applicationId?: string
 }>()
 
-/** How many pending invitations the first page lists ahead of the members. */
-const INVITE_PAGE_SIZE = 100
-
-/** One table row — a member or, when {@link invite} is true, a pending invitation. */
 const headers: CrudHeader[] = [
   { field: 'email', header: 'Person', sortable: false, width: '40%' },
   { field: 'status', header: 'Status', sortable: false, width: '16%' },
@@ -123,9 +118,9 @@ const description = computed(() => {
   if (!props.organizationId) {
     ret = 'System users who sign in to this console.'
   } else if (props.applicationId) {
-    ret = 'Everyone who signs in to this application, including pending invitations. Inviting, disabling and removing are the organization\'s to do.'
+    ret = 'Everyone who signs in to this application, including people who have not signed in yet. Adding, disabling and removing are the organization\'s to do.'
   } else {
-    ret = 'People with access to this organization, including pending invitations.'
+    ret = 'People with access to this organization, including people who have not signed in yet.'
   }
   return ret
 })
@@ -168,38 +163,19 @@ async function systemUsers(pageable: Pageable, searchText: string | null): Promi
   }
 }
 
-// Mirrors the portal MembersPage: pending invitations render inline ahead of the members
-// on the first page; member search is server-side, invite filtering client-side.
+// The scope's people, each pending until they first sign in; the summary also counts the invitations still out
 async function organizationMembers(organizationId: string,
                                    pageable: Pageable,
                                    searchText: string | null): Promise<Page<DescriptiveIdentifiable>> {
   const applicationId = props.applicationId ?? null
   const membersPage = await scopeMembers(organizationId, applicationId, pageable, searchText)
-
-  const invites = await Kinotic.systemOrganizations.findPendingInvites(organizationId, applicationId, Pageable.create(0, INVITE_PAGE_SIZE, null))
-  let inviteRows = (invites.content ?? []).map(invite => toInviteRow(invite))
-  let inviteCount = invites.totalElements ?? inviteRows.length
   // the summary counts what exists, so a search leaves it as it was
   if (!searchText) {
+    const invites = await Kinotic.systemOrganizations.findPendingInvites(organizationId, applicationId, Pageable.create(0, 1, null))
     peopleTotal.value = membersPage.totalElements ?? 0
-    inviteTotal.value = inviteCount
+    inviteTotal.value = invites.totalElements ?? 0
   }
-  if (searchText) {
-    const needle = searchText.trim().toLowerCase()
-    inviteRows = inviteRows.filter(row =>
-        row.email.toLowerCase().includes(needle) ||
-        (row.displayName ?? '').toLowerCase().includes(needle))
-    inviteCount = inviteRows.length
-  }
-  if (pageNumberOf(pageable) !== 0) {
-    inviteRows = []
-  }
-
-  return {
-    content: [...inviteRows, ...(membersPage.content ?? [])],
-    totalElements: (membersPage.totalElements ?? 0) + inviteCount,
-    cursor: undefined
-  }
+  return membersPage
 }
 
 /** The organization's members, or the users of one of its applications. */
@@ -217,33 +193,32 @@ async function scopeMembers(organizationId: string,
     const page = searchText
         ? await Kinotic.systemOrganizations.searchApplicationUsers(searchText, organizationId, applicationId, pageable)
         : await Kinotic.systemOrganizations.findApplicationUsers(organizationId, applicationId, pageable)
-    ret = { ...page, content: (page.content ?? []).map(user => toUserSummary(user)) }
+    ret = { ...page, content: (page.content ?? []).map(user => toApplicationUserSummary(user)) }
   }
   return ret
 }
 
-function toInviteRow(invite: PendingInviteSummary): MemberSummary {
-  return {
-    id: invite.id ?? '',
-    email: invite.email,
-    displayName: invite.displayName,
-    status: 'Invited',
-    created: invite.created,
-    invite: true
-  }
-}
-
-function toMemberSummary(member: OrganizationMember): MemberSummary {
+function toMemberSummary(member: OrganizationParticipantIdentity): MemberSummary {
   return {
     id: member.id ?? '',
     email: member.email,
     displayName: member.displayName,
-    status: member.enabled ? 'Active' : 'Disabled',
-    created: member.joined
+    status: member.pending ? 'Pending' : member.enabled ? 'Active' : 'Disabled',
+    created: member.created
   }
 }
 
-function toUserSummary(user: SystemParticipantIdentity | ApplicationParticipantIdentity): MemberSummary {
+function toApplicationUserSummary(user: ApplicationParticipantIdentity): MemberSummary {
+  return {
+    id: user.id ?? '',
+    email: user.email,
+    displayName: user.displayName,
+    status: user.pending ? 'Pending' : user.enabled ? 'Active' : 'Disabled',
+    created: user.created
+  }
+}
+
+function toUserSummary(user: SystemParticipantIdentity): MemberSummary {
   return {
     id: user.id ?? '',
     email: user.email,

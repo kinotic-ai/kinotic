@@ -52,8 +52,17 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
         JsonObject body = authEndpointSupport.readJsonBody(ctx);
         String email = AuthEndpointSupport.stringField(body, "email");
 
+        // whether the login offers sign-up is the same for every email, so asking first keeps the answer's timing from
+        // depending on the email
         authEndpointSupport.loginScope(ctx, null)
-              .onSuccess(scope -> startSignUp(ctx, scope, email, origin))
+              .compose(scope -> signUpService.offersPasswordSignUp(scope).map(offered -> {
+                  if (offered) {
+                      startSignUp(ctx, scope, email, origin);
+                  } else {
+                      authEndpointSupport.respondError(ctx, 403, "The login does not offer sign-up with an email and a password");
+                  }
+                  return null;
+              }))
               .onFailure(err -> authEndpointSupport.fail(ctx, err, "Failed to start sign-up"));
     }
 
@@ -61,9 +70,6 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
         Future<Void> started;
         try {
             started = signUpService.initiatePasswordSignUp(scope, email, origin);
-        } catch (IllegalStateException e) {
-            authEndpointSupport.respondError(ctx, 403, e.getMessage());
-            return;
         } catch (IllegalArgumentException e) {
             authEndpointSupport.respondError(ctx, 400, e.getMessage());
             return;

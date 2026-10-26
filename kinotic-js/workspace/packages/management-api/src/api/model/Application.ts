@@ -39,14 +39,6 @@ export class Application implements Identifiable<string> {
      */
     public primaryUiUrl: string | null = null
 
-    /**
-     * Whether a person may sign up as a new user of the application with an email and a password, the email verified
-     * by a link sent to it, from one of the application's UIs. Taken only while the system manages the application's
-     * tenants, which gives each new user a tenant of its own. The application's providers sign people up as each
-     * one's `createUserOnSignIn` says.
-     */
-    public passwordSignUp: boolean = false
-
     public updated: string | null = null
 
     constructor(name: string, description: string) {
