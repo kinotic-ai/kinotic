@@ -23,6 +23,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
+import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.kinotic.core.internal.utils.TelemetryUtil;
 import org.slf4j.Logger;
@@ -244,10 +245,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     // Published, not sent: the instance producing the stream is whichever one round-robin gave the request,
     // so every instance of the service gets the cancel and the ones without the stream ignore it
     private void sendCancel(CRI serviceCri, String correlationId){
-        Metadata metadata = Metadata.create();
-        metadata.put(EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL);
-        metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
-        eventBusService.publish(Event.create(serviceCri, metadata, null));
+        eventBusService.publish(EventUtil.createStreamControlEvent(serviceCri, correlationId, EventConstants.CONTROL_VALUE_CANCEL));
     }
 
     /**

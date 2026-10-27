@@ -39,7 +39,8 @@ public interface ApplicationService extends OrganizationScopedCrudService<Applic
      * host: {@code GET /api/auth/app/login/methods} answers the same for the page that asks. A provider of type
      * {@code PASSWORD} is an email and a password: the sign-in page shows a form that posts {@code {email, password}}
      * to {@code POST /api/auth/app/login}, and while its {@code signUp} is true the sign-up page posts {@code {email}}
-     * to {@code POST /api/auth/app/signup}, the person follows the emailed link to the UI's
+     * to {@code POST /api/auth/app/signup}, the person follows the emailed link (shown on the page instead where the
+     * server sends no email, which answers with it as {@code verificationUrl}) to the UI's
      * {@code /signup/verify?token=} page, and that page posts {@code {token, password[, displayName]}} to
      * {@code POST /api/auth/app/signup/complete}, which signs the person in. A provider of type {@code OIDC} is offered
      * as a "Continue with &lt;name&gt;" button on both pages: the page posts to

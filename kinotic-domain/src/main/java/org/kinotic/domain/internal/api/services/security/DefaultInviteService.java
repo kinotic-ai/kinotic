@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.EmailTemplate;
@@ -41,6 +42,7 @@ public class DefaultInviteService implements InviteService {
     private final OrganizationService organizationService;
     private final PasswordConfigurationService passwordConfigurationService;
     private final EmailService emailService;
+    private final KinoticDomainProperties domainProperties;
 
     @Override
     public Future<PendingInvite> createInvite(PendingInvite invite, EmailTemplate emailTemplate) {
@@ -276,6 +278,20 @@ public class DefaultInviteService implements InviteService {
         Validate.notBlank(email, "email is required");
         Validate.notBlank(organizationId, "organizationId is required");
         return pendingInviteRepository.findByEmailAndScope(email, organizationId, applicationId);
+    }
+
+    @Override
+    public Future<String> findAcceptUrl(String email, String organizationId, String applicationId) {
+        Validate.notBlank(email, "email is required");
+        Validate.notBlank(organizationId, "organizationId is required");
+        Future<String> ret;
+        if (!domainProperties.getDomain().getEmail().isEnabled()) {
+            ret = pendingInviteRepository.findByEmailAndScope(email, organizationId, applicationId)
+                                         .map(invite -> invite == null ? null : emailService.inviteAcceptUrl(invite));
+        } else {
+            ret = Future.succeededFuture();
+        }
+        return ret;
     }
 
     @Override

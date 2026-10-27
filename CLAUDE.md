@@ -17,7 +17,7 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
   -Porg.gradle.java.installations.paths=/tmp/jdk25
 ```
 
-If the build fails resolving jreleaser or node-gradle plugins (403 from the Gradle plugin portal), add `CLAUDE_CLOUD_COMPILE=true`. This swaps to convention plugins that omit jreleaser/publishing and excludes kinotic-frontend:
+If the build fails resolving the jreleaser plugin (403 from the Gradle plugin portal), add `CLAUDE_CLOUD_COMPILE=true`. This swaps to convention plugins that omit jreleaser/publishing:
 
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
@@ -25,7 +25,7 @@ CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-core:compileJava \
   -Porg.gradle.java.installations.paths=/tmp/jdk25
 ```
 
-This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing and frontend support.
+This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing support.
 
 ## Branch and pull request workflow
 
@@ -150,7 +150,7 @@ it a credential.
 
 While `kinoticVersion` in `gradle.properties` is a `-SNAPSHOT`, no released artifact depends on this code, so there is nothing to stay backwards-compatible with: rename fields, break APIs, and reshape wire contracts freely. Deprecation shims and compatibility fallbacks start when the first release exists — building them sooner is Speculative Generality.
 
-Migrations follow the same rule while the cluster can be rebuilt: a schema change edits the table in `V1__init.sql`, a change to seeded rows edits the environment file that seeds them (`V2__kinotic_test_users.development.test.sql`, `V3__e2e_app_fixtures.test.sql`, `V4__system_console.fixtures.sql`), and the cluster is rebuilt to take it. Append-only discipline starts with the first release, for the development server with the first peer sign-up (`website/content/02.platform/13.development-server.md`): from then on a change is a new versioned file, never an edit of one already applied, and since Elasticsearch cannot retype a mapped field, a column that changes type is a new column beside the old one, which stays mapped and unused.
+Migrations follow the same rule while the cluster can be rebuilt: a schema change edits the table in `V1__init.sql`, a change to seeded rows edits the environment file that seeds them (`V2__system_identities.demonstration.test.e2e.sql`, `V3__test_org.fixtures.test.e2e.sql`, `V4__e2e_app_fixtures.e2e.sql`, `V5__system_console.fixtures.sql`), and the cluster is rebuilt to take it. Append-only discipline starts with the first release, for the development server with the first peer sign-up (`website/content/04.platform/13.development-server.md`): from then on a change is a new versioned file, never an edit of one already applied, and since Elasticsearch cannot retype a mapped field, a column that changes type is a new column beside the old one, which stays mapped and unused.
 
 ## Keep migrations in sync with persisted entities
 

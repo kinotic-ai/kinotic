@@ -1,6 +1,6 @@
 {
     "name": "@kinotic-ai/kinotic-cli",
-    "version": "5.2.0-beta.39",
+    "version": "5.2.0-beta.44",
     "description": "Kinotic CLI provides the ability to build, deploy, and manage Kinotic applications that run on the Kinotic OS.",
     "author": "Kinotic Developers",
     "bin": {
@@ -24,7 +24,7 @@
         "@inquirer/prompts": "^8.5.2",
         "@kinotic-ai/core": "5.0.0-beta.29",
         "@kinotic-ai/idl": "5.0.0-beta.6",
-        "@kinotic-ai/management-api": "5.0.0-beta.69",
+        "@kinotic-ai/management-api": "5.0.0-beta.71",
         "@kinotic-ai/persistence": "5.0.0-beta.19",
         "@kinotic-ai/spawn": "5.0.0-beta.1",
         "@oclif/core": "^4.13.3",
@@ -57,13 +57,16 @@
         "commands": "./dist/commands",
         "topicSeparator": " ",
         "topics": {
+            "local": {
+                "description": "Runs Kinotic on this machine: its servers, portal and a node for deployments"
+            },
             "spawn": {
                 "description": "Works with Kinotic spawn templates"
             }
         }
     },
     "scripts": {
-        "build": "shx rm -rf dist && tsc -b && tsc-alias -f && pnpm run copy-files",
+        "build": "shx rm -rf dist && tsc -b && tsc-alias -f && pnpm run copy-files && node scripts/bundle-local-stack.mjs",
         "lint": "eslint . --ext .ts --config .eslintrc",
         "prepack": "pnpm build",
         "test": "mocha --forbid-only \"test/**/*.test.ts\"",

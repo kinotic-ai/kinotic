@@ -17,7 +17,7 @@ import {
     shutdownKinoticClient,
 } from '../TestHelpers.js'
 
-// The app user for (APP_ID, 'tenant01') is seeded by the V3__e2e_app_fixtures migration.
+// The app user for (APP_ID, 'tenant01') is seeded by the V4__e2e_app_fixtures migration.
 const APP_ID = 'e2e-admin-named-query'
 
 /** The row every write returns: the number of documents it wrote. */

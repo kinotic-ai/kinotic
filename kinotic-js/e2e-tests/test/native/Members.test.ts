@@ -1,7 +1,7 @@
 import {Kinotic, Pageable} from '@kinotic-ai/core'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
-import {E2E_ORG_USER_EMAIL, generateRandomString, initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
+import {E2E_ORG_USER_EMAIL, generateRandomString, initKinoticClient, managementServer, restBase, shutdownKinoticClient} from '../TestHelpers.js'
 
 /**
  * An organization's members over STOMP, as one of them: the member list and search built from memberships, and a
@@ -75,6 +75,25 @@ describe('Members', () => {
 
         await Kinotic.members.removeMember(added.id!)
         expect(await pendingInvitationFor(email)).toBe(false)
+    })
+
+    // the e2e stack sends no email, as a demonstration server does
+    it('gives the inviter the link of an invitation no email delivers, which opens the invitation', async () => {
+        const email = address()
+        const added = await Kinotic.members.addOrganizationUser(email, null, true)
+
+        const link = await Kinotic.members.findInvitationLink(email, null)
+        expect(link).toMatch(/\/invite\/accept\?token=/)
+        const details = await fetch(`${restBase(managementServer())}/api/auth/invite/details?token=${new URL(link!).searchParams.get('token')}`)
+        expect(details.status).toBe(200)
+        expect((await details.json()).email).toBe(email)
+
+        await Kinotic.members.sendInvitation(email, null)
+        expect(await Kinotic.members.findInvitationLink(email, null)).toBe(link)
+        expect(await Kinotic.members.findInvitationLink(address(), null)).toBeNull()
+
+        await Kinotic.members.removeMember(added.id!)
+        expect(await Kinotic.members.findInvitationLink(email, null)).toBeNull()
     })
 
     it('refuses an address that is already a member, and a user of no application', async () => {

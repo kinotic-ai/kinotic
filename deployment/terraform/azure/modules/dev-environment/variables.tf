@@ -4,7 +4,7 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "Names everything this module creates and the <environment>.<cloudflare zone> sites domain; unique across every developer and server, since each takes that label of the zone and names its Worker after it"
+  description = "Names everything this module creates and the <environment>.<cloudflare zone> sites domain; unique across every environment, since each takes that label of the zone and names its Worker after it"
   type        = string
 }
 
@@ -25,7 +25,7 @@ variable "platform_zone_id" {
 }
 
 variable "ui_hostnames" {
-  description = "The platform's own UIs the sites Worker serves from the sites account, by hostname in the platform zone: dev-portal.<zone> and dev-console.<zone> on the development server, none on a developer's machine"
+  description = "The platform's own UIs the sites Worker serves from the sites account, by hostname in the platform zone: dev-portal.<zone> and dev-console.<zone> on the development server"
   type        = set(string)
   default     = []
 }
@@ -50,7 +50,7 @@ variable "cloudflare_account_id" {
 }
 
 variable "app_server_address" {
-  description = "The public IPv4 address the environment's app server is reached at, for the apps-api records, or null on a developer machine with no reachable app server"
+  description = "The public IPv4 address the environment's app server is reached at, for the apps-api records, or null for an environment with no reachable app server"
   type        = string
   default     = null
 }

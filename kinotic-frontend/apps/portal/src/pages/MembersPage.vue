@@ -78,10 +78,10 @@
               <p class="text-[0.8125rem] text-muted-color">{{ invitationHelp }}</p>
             </div>
           </div>
-          <div v-if="sendInvitation"
+          <div v-if="sendInvitation || applicationId === null"
                class="rounded-xl border border-surface-200 bg-surface-0 px-4 pt-3.5 pb-1 dark:border-surface-700 dark:bg-surface-900">
-            <p class="mb-2.5 text-sm font-semibold text-surface-950 dark:text-surface-0">They can accept by</p>
-            <ul>
+            <p class="mb-2.5 text-sm font-semibold text-surface-950 dark:text-surface-0">{{ sendInvitation ? 'They can accept by' : 'They can sign in by' }}</p>
+            <ul v-if="signInMethods.length > 0">
               <li v-for="method in signInMethods" :key="method.name"
                   class="flex items-center gap-3 border-t border-surface-100 py-2.5 dark:border-surface-800">
                 <img v-if="method.logo" :src="method.logo" alt="" class="h-5 w-5 shrink-0" />
@@ -90,6 +90,7 @@
                 <Check :size="16" :stroke-width="2" class="shrink-0 text-emerald-500" aria-hidden="true" />
               </li>
             </ul>
+            <p v-else class="border-t border-surface-100 pt-2.5 pb-3 text-[0.8125rem] text-muted-color dark:border-surface-800">{{ noSignInMethodHelp }}</p>
           </div>
         </div>
       </form>
@@ -97,15 +98,30 @@
       <template #footer>
         <Button type="button" label="Cancel" severity="secondary" outlined @click="memberFormVisible = false" />
         <Button type="submit" form="member-form" :label="addLabel" icon="pi pi-user-plus" :loading="saving"
-                :disabled="memberEmail.trim() === '' || !tenancyKnown || (tenantsRequired && memberTenant === null)" />
+                :disabled="memberEmail.trim() === '' || !tenancyKnown || (tenantsRequired && memberTenant === null) || unreachable" />
       </template>
     </FormDrawer>
+
+    <Dialog :visible="invitationLink !== null" modal header="Send this invitation link" :style="{ width: '34rem' }"
+            @update:visible="visible => { if (!visible) invitationLink = null }">
+      <div v-if="invitationLink" class="flex flex-col gap-4">
+        <p class="text-sm text-surface-700 dark:text-surface-200">
+          This demonstration server can't send email, so no invitation reached {{ invitationLink.email }}.
+          Send them this link to accept the invitation, or open it yourself to try it.
+        </p>
+        <CopyableUrl label="Invitation link" :url="invitationLink.url" />
+      </div>
+      <template #footer>
+        <Button type="button" label="Done" @click="invitationLink = null" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, markRaw, onMounted, ref, type Component } from 'vue'
 import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import AutoComplete from 'primevue/autocomplete'
@@ -132,14 +148,12 @@ import { PageHeader, TimePill } from '@kinotic-ai/frontend-common'
 import { statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import type { DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
-import { providerDisplayName } from '@/components/SocialAuthButton.vue'
+import CopyableUrl from '@/components/CopyableUrl.vue'
 import { KinoticStates } from '@/states'
+import { findLoginProviders, type LoginProvider } from '@/pages/login/organizationLogin'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { PROVIDER_LOGOS } from '@/util/oidcConfigurations'
-import { apiUrl, showErrorToast } from '@kinotic-ai/frontend-common'
-import { createDebug } from '@kinotic-ai/frontend-common'
-
-const debug = createDebug('members')
+import { showErrorToast } from '@kinotic-ai/frontend-common'
 
 /** One table row: a member, or an application's user, pending while nobody has signed in as them yet. */
 interface MemberRow extends MemberSummary {
@@ -184,9 +198,14 @@ const memberFormVisible = ref(false)
 const memberEmail = ref('')
 const memberDisplayName = ref('')
 const sendInvitation = ref(true)
+// The link of an invitation no email delivers, shown for the inviter to send on
+const invitationLink = ref<{ email: string, url: string } | null>(null)
 const memberTenant = ref<TenantOption | null>(null)
 const saving = ref(false)
-const socialProviderKeys = ref<string[]>([])
+// what the organization's login offers, every one of which accepts an invitation
+const loginProviders = ref<LoginProvider[]>([])
+// the ids of the organization's own configurations, the only providers whose first sign-in admits a member with no invitation
+const ownConfigurationIds = ref<Set<string>>(new Set())
 // whether the application's administrators manage its tenants, so each new user joins one of them; known at once
 // for the organization's page, and once the application has loaded for an application's
 const tenantsRequired = ref(false)
@@ -225,7 +244,7 @@ const addDescription = computed<string>(() => {
 const invitationHelp = computed<string>(() => {
   let ret: string
   if (sendInvitation.value) {
-    ret = 'They accept it to sign in for the first time, with a password or one of the sign-in methods below.'
+    ret = 'They accept it to sign in for the first time, with one of the sign-in methods below.'
   } else if (props.applicationId !== null) {
     ret = 'They sign in to the application through one of its sign-in providers, which admits them the first time.'
   } else {
@@ -234,30 +253,46 @@ const invitationHelp = computed<string>(() => {
   return ret
 })
 
-// The ways an invitee can accept, one row each in the add form
+// The ways the new person can first sign in, one row each in the add form
 const signInMethods = computed<SignInMethod[]>(() => {
-  return props.applicationId !== null
-      ? [{ name: 'Setting a password, where the application takes one', icon: markRaw(KeyRound) },
-         { name: 'Signing in to the application with one of its providers', icon: markRaw(ShieldCheck) }]
-      : [{ name: 'Setting a password', icon: markRaw(KeyRound) }, ...socialProviderKeys.value.map(providerMethod)]
+  let ret: SignInMethod[]
+  if (props.applicationId !== null) {
+    ret = [{ name: 'Setting a password, where the application takes one', icon: markRaw(KeyRound) },
+           { name: 'Signing in to the application with one of its providers', icon: markRaw(ShieldCheck) }]
+  } else {
+    ret = loginProviders.value.filter(provider => sendInvitation.value || ownConfigurationIds.value.has(provider.id))
+                              .map(loginMethod)
+  }
+  return ret
 })
+
+// without an invitation, a member the organization's own providers cannot admit has no way in, which the server refuses
+const unreachable = computed(() => props.applicationId === null && !sendInvitation.value && signInMethods.value.length === 0)
+
+const noSignInMethodHelp = computed<string>(() => sendInvitation.value
+    ? 'Your organization\'s login offers no way to sign in yet. Add a sign-in provider in Organization settings first.'
+    : 'Your organization has no sign-in provider of its own, so a new member needs an invitation to sign in.')
 
 onMounted(async () => {
   if (props.applicationId !== null) {
     await loadTenancy(props.applicationId)
   } else {
-    // Same source the login page uses for its social buttons; org invitees are offered these.
-    try {
-      const res = await fetch(apiUrl('/api/auth/org/login/providers'), { credentials: 'same-origin' })
-      if (res.ok) {
-        const data = await res.json()
-        if (Array.isArray(data)) socialProviderKeys.value = data
-      }
-    } catch (err) {
-      debug('Failed to load providers: %O', err)
-    }
+    await loadLoginProviders()
   }
 })
+
+async function loadLoginProviders() {
+  try {
+    const [offered, owned] = await Promise.all([
+      findLoginProviders(userState.getOrganizationId()),
+      Kinotic.ownedOidcConfigurations.findAll(Pageable.create(0, 1000))
+    ])
+    loginProviders.value = offered
+    ownConfigurationIds.value = new Set((owned.content ?? []).map(configuration => configuration.id ?? ''))
+  } catch (err) {
+    showErrorToast(toast, 'Failed to load your organization\'s sign-in providers', err)
+  }
+}
 
 // opening the add form tries again after a failure, so a passing error does not keep the form disabled
 async function loadTenancy(applicationId: string) {
@@ -341,10 +376,16 @@ function isSelf(item: MemberRow): boolean {
   return item.id === userState.connectedInfo?.participant?.id
 }
 
-function providerMethod(key: string): SignInMethod {
-  const logo = PROVIDER_LOGOS[key as OidcProviderType]
-  const name = `Signing in with ${providerDisplayName(key)}`
-  return logo ? { name, logo } : { name, icon: markRaw(Globe) }
+function loginMethod(provider: LoginProvider): SignInMethod {
+  let ret: SignInMethod
+  if (provider.type === 'PASSWORD') {
+    ret = { name: 'Setting a password', icon: markRaw(KeyRound) }
+  } else {
+    const logo = PROVIDER_LOGOS[provider.provider as OidcProviderType]
+    const name = `Signing in with ${provider.name}`
+    ret = logo ? { name, logo } : { name, icon: markRaw(Globe) }
+  }
+  return ret
 }
 
 function openMemberForm() {
@@ -385,7 +426,9 @@ async function submitMember() {
           ? `Added ${email} and emailed an invitation`
           : `Added ${email}; they sign in through your organization's provider`
     }
-    toast.add({ severity: 'success', summary: props.applicationId !== null ? 'User added' : 'Member added', detail, life: 6000 })
+    if (!sendInvitation.value || !(await showInvitationLink(email))) {
+      toast.add({ severity: 'success', summary: props.applicationId !== null ? 'User added' : 'Member added', detail, life: 6000 })
+    }
     memberFormVisible.value = false
     // A leftover filter would hide the new Pending row; clearing it reloads the
     // table through CrudTable's search-prop watch, so refresh only when empty.
@@ -402,7 +445,25 @@ async function submitMember() {
 }
 
 function sendInvitationTo(item: MemberRow) {
-  run(() => Kinotic.members.sendInvitation(item.email, props.applicationId), 'Invitation sent', 'Failed to send invitation')
+  run(async () => {
+    await Kinotic.members.sendInvitation(item.email, props.applicationId)
+    await showInvitationLink(item.email)
+  }, 'Invitation sent', 'Failed to send invitation')
+}
+
+// A server that shows links in the UI in place of email returns the invitation's link; shows it and resolves true when it
+// did. The invitation is made by then, so a failed lookup resolves false rather than reporting the invitation failed
+async function showInvitationLink(email: string): Promise<boolean> {
+  let url: string | null = null
+  try {
+    url = await Kinotic.members.findInvitationLink(email, props.applicationId)
+  } catch {
+    // the invitation stands; its link is found again by sending the invitation again
+  }
+  if (url) {
+    invitationLink.value = { email, url }
+  }
+  return Boolean(url)
 }
 
 function rowActions(item: MemberRow): MenuItem[] {

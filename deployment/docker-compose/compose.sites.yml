@@ -1,0 +1,41 @@
+# Where published UIs are stored and served on this machine, in place of the Azure sites storage account
+# and the Cloudflare Worker: the Azurite emulator holds every site's files, which the publish and removal
+# workloads upload and delete, and the local edge runs the Worker itself in front of it. The system
+# server's `demonstration` profile uploads to it
+# (kinotic.systemApi.uiDeployment.siteStorage: AZURITE), and a published UI opens at
+# http://<app>--<ui>.<org>.sites.kinotic.localhost:8088.
+
+services:
+  kinotic-azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.37.0
+    container_name: kinotic-azurite
+    # The Azure SDK the system server signs with names a newer service version than the emulator knows
+    command: ["azurite-blob", "--blobHost", "0.0.0.0", "--blobPort", "10000", "--location", "/data", "--skipApiVersionCheck"]
+    ports:
+      # Where the publish and removal workloads upload: a BOXLITE guest's host alias, 192.168.127.254, is
+      # completed over this machine's loopback
+      - "127.0.0.1:10000:10000"
+    volumes:
+      - kinotic-azurite-data:/data
+
+  kinotic-sites-edge:
+    image: kinoticai/kinotic-sites-edge:${kinoticVersion:-5.0.0-SNAPSHOT}
+    # KINOTIC_PULL_POLICY, as compose.kinotic-servers.yml describes
+    pull_policy: ${KINOTIC_PULL_POLICY:-missing}
+    # From a checkout, `docker compose up --build` builds it from the working tree instead of pulling it
+    build:
+      context: ..
+      dockerfile: docker-compose/sites-edge.Dockerfile
+    container_name: kinotic-sites-edge
+    depends_on:
+      - kinotic-azurite
+    environment:
+      SITES_DOMAIN: sites.kinotic.localhost
+      AZURITE_ENDPOINT: http://kinotic-azurite:10000/devstoreaccount1
+      PORTAL_BASE_URL: http://localhost:9090
+    ports:
+      # The sites, as a browser opens them
+      - "127.0.0.1:8088:8088"
+
+volumes:
+  kinotic-azurite-data:

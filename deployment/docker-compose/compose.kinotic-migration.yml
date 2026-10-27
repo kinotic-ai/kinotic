@@ -1,7 +1,8 @@
 services:
   kinotic-migration:
     container_name: kinotic-migration
-    pull_policy: missing
+    # KINOTIC_PULL_POLICY, as compose.kinotic-servers.yml describes
+    pull_policy: ${KINOTIC_PULL_POLICY:-missing}
     image: kinoticai/kinotic-migration:${kinoticVersion:-5.0.0-SNAPSHOT}
     depends_on:
       kinotic-elasticsearch:
@@ -10,6 +11,6 @@ services:
       KINOTIC_MIGRATION_ELASTIC_SCHEME: http
       KINOTIC_MIGRATION_ELASTIC_HOST: kinotic-elasticsearch
       KINOTIC_MIGRATION_ELASTIC_PORT: 9200
-      # compose.yml adds `fixtures` through evaluation.env, seeding sample data for evaluators;
-      # the test stacks include this file without it
-      SPRING_PROFILES_ACTIVE: ${KINOTIC_MIGRATION_PROFILES:-development,compose}
+      # compose.yml runs the demonstration through demonstration.env, compose.sample-data.yml extends it with `fixtures`, and
+      # compose.kinotic-e2e-test.yml runs `e2e`; the integration tests' compose.kinotic-test.yml takes the default
+      SPRING_PROFILES_ACTIVE: ${KINOTIC_MIGRATION_PROFILES:-test}

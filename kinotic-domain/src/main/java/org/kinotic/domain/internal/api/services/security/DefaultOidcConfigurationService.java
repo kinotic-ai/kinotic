@@ -208,7 +208,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
     private Future<Void> requireTenant(String orgId, String applicationId, String tenantId) {
         Validate.isTrue(StringUtils.isNotBlank(applicationId), "Application id must be set on TenantOidcConfiguration");
         Validate.isTrue(StringUtils.isNotBlank(tenantId), "Tenant id must be set on TenantOidcConfiguration");
-        return tenantRepository.findById(tenantId, applicationId, orgId).map(tenant -> {
+        return tenantRepository.findById(applicationId, tenantId, orgId).map(tenant -> {
             Validate.isTrue(tenant != null, "Application %s of organization %s has no tenant %s", applicationId, orgId, tenantId);
             return null;
         });

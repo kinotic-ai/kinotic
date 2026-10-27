@@ -106,6 +106,19 @@ export function cacheTtl(file) {
     return file.startsWith(IMMUTABLE_PREFIX) ? IMMUTABLE_TTL_SECONDS : MUTABLE_TTL_SECONDS
 }
 
+/**
+ * The cache-control header a browser receives with a file: hashed assets kept forever, everything else
+ * revalidated on each use, so a new release's index is never served from a stale copy.
+ *
+ * @param {string} file the file's path within the site
+ * @returns {string} the header's value
+ */
+export function cacheControl(file) {
+    return cacheTtl(file) === IMMUTABLE_TTL_SECONDS
+            ? 'public, max-age=' + IMMUTABLE_TTL_SECONDS + ', immutable'
+            : 'no-cache'
+}
+
 export default {
     async fetch(request, env) {
         const url = new URL(request.url)
@@ -142,9 +155,7 @@ export default {
                 headers.set(name, value)
             }
         }
-        headers.set('cache-control', ttl === IMMUTABLE_TTL_SECONDS
-                ? 'public, max-age=' + IMMUTABLE_TTL_SECONDS + ', immutable'
-                : 'no-cache')
+        headers.set('cache-control', cacheControl(file))
         return new Response(answer.body, { status: answer.status, headers })
     },
 }

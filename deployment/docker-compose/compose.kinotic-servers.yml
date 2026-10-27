@@ -1,12 +1,12 @@
-# The three Kinotic servers, one Ignite cluster: kinotic-server-management (the portal and the org API),
+# The three Kinotic servers, one Ignite cluster: kinotic-server-management (the org API),
 # kinotic-server-system (the system's own API) and kinotic-server-app (every application's API).
 
 # What every server container shares; each service below adds its image, ports and identity.
 x-kinotic-server: &kinotic-server
-  # Matches kinotic-migration: a locally present image wins, so CI can point the stack at the
-  # image built from this commit by tagging it here. Run `docker compose pull` to refresh from
-  # Docker Hub.
-  pull_policy: missing
+  # Every Kinotic image takes KINOTIC_PULL_POLICY: by default a locally present image wins, so CI can point the
+  # stack at the image built from this commit by tagging it here. `kinotic local up` sets `always`, so the stack
+  # never starts from a stale copy. Run `docker compose pull` to refresh from Docker Hub.
+  pull_policy: ${KINOTIC_PULL_POLICY:-missing}
   depends_on:
     kinotic-elasticsearch:
       condition: service_healthy
@@ -38,7 +38,6 @@ x-kinotic-server-environment: &kinotic-server-environment
   KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_SCHEME: http
   KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_HOST: kinotic-elasticsearch
   KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_PORT: 9200
-  KINOTIC_DOMAIN_EMAIL_ENABLED: "false"
   # The servers find each other over this static address list and form one Ignite cluster
   KINOTIC_IGNITE_DISCOVERYTYPE: LOCAL
   KINOTIC_IGNITE_LOCALADDRESSES: kinotic-server-management:47500,kinotic-server-system:47500,kinotic-server-app:47500
@@ -57,7 +56,7 @@ x-kinotic-server-environment: &kinotic-server-environment
   # Names the far end of the bare PUT/GET/POST spans of each Elasticsearch call and of each
   # Loki, Tempo and Mimir query, which otherwise carry only an HTTP method in the waterfall.
   OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING: "kinotic-elasticsearch:9200=elasticsearch,loki:3100=loki,tempo:3200=tempo,mimir:9009=mimir"
-  SPRING_PROFILES_ACTIVE: development,compose
+  SPRING_PROFILES_ACTIVE: demonstration
   THC_PATH: /health # THC defaults to "/", which 404s; the api-gateway only mounts /health
 
 services:
@@ -66,22 +65,15 @@ services:
     container_name: kinotic-server-management
     image: kinoticai/kinotic-server-management:${kinoticVersion:-5.0.0-SNAPSHOT}
     ports:
-      - "127.0.0.1:9090:9090" # The portal
       - "127.0.0.1:58503:58503" # REST and STOMP
     environment:
       <<: *kinotic-server-environment
       KINOTIC_MANAGEMENTAPI_LOKIURL: http://loki:3100
       KINOTIC_MANAGEMENTAPI_TEMPOURL: http://tempo:3200
       KINOTIC_MANAGEMENTAPI_MIMIRURL: http://mimir:9009
-      KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9090
       OTEL_SERVICE_NAME: kinotic-server-management
       OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-management,service.instance.id=kinotic-server-management
       THC_PORT: 58503 # Paketo health-check probe — health endpoint is mounted on the api-gateway router
-    volumes:
-      # The developer's tunnel origin and GitHub App (dev-tools/github-app/dev-github-app.ts).
-      # Spring loads ./config/application.yml from the working directory, /workspace, above every
-      # packaged file, so it replaces application-compose.yml's localhost:9090 origin
-      - ${HOME}/.kinotic/dev-environment/kinotic-server-management:/workspace/config:ro
 
   kinotic-server-system:
     <<: *kinotic-server
@@ -97,11 +89,6 @@ services:
       OTEL_SERVICE_NAME: kinotic-server-system
       OTEL_RESOURCE_ATTRIBUTES: service.name=kinotic-server-system,service.instance.id=kinotic-server-system
       THC_PORT: 58504
-    volumes:
-      # The developer's GitHub App (dev-tools/github-app/dev-github-app.ts), with which this server
-      # mints the tokens deployments fetch their repositories with; Spring loads it as
-      # ./config/application.yml
-      - ${HOME}/.kinotic/dev-environment/kinotic-server-system:/workspace/config:ro
 
   kinotic-server-app:
     <<: *kinotic-server

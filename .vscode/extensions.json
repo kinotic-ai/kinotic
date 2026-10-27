@@ -9,6 +9,7 @@
         "vscjava.vscode-java-dependency",
         "vscjava.vscode-spring-initializr",
         "vscjava.vscode-spring-boot",
-        "vscjava.vscode-lombok"
+        "vscjava.vscode-lombok",
+        "Vue.volar"
     ]
 }

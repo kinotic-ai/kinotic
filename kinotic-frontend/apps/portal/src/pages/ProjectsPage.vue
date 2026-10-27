@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col">
     <PageHeader title="Projects"
-                description="The functional units that make up this application. Each is backed by a GitHub repository." />
+                description="The functional units that make up this application. Each is backed by a Git repository." />
     <ProjectList :applicationId="applicationId" />
   </div>
 </template>

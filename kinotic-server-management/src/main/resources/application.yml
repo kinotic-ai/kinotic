@@ -23,10 +23,8 @@ kinotic:
       appSlug: kinotic-ai
       repoTemplate: kinotic-ai/kinotic-tpl-isomorphic-ts
 
-
 logging:
   level:
     com:
       kinotic: INFO
-
 

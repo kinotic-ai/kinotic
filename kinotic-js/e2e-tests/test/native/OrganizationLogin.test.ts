@@ -3,13 +3,13 @@ import {beforeAll, describe, expect, it} from 'vitest'
 import {E2E_FIXTURE_PASSWORD, E2E_ORG_USER_EMAIL, E2E_ORGANIZATION_ID, managementServer, restBase} from '../TestHelpers.js'
 
 /**
- * An organization the V3 fixtures give a member under the e2e organization user's email that holds no password, whose
+ * An organization the V4 fixtures give a member under the e2e organization user's email that holds no password, whose
  * login takes passwords.
  */
 const SECOND_ORGANIZATION_ID = 'e2e-second'
-/** An organization the V3 fixtures give a login that takes no password. */
+/** An organization the V4 fixtures give a login that takes no password. */
 const SSO_ONLY_ORGANIZATION_ID = 'e2e-sso-only'
-/** The Okta configuration the V3 fixtures give an organization the e2e organization user does not belong to. */
+/** The Okta configuration the V4 fixtures give an organization the e2e organization user does not belong to. */
 const OTHER_ORGANIZATION_CONFIGURATION_ID = 'e2e-other-okta'
 
 /**
@@ -90,16 +90,21 @@ describe('Organization login routes', () => {
         expect(await res.json()).toContain('github')
     })
 
-    it('emails a person their organizations for an address alone, behind no challenge in this stack', async () => {
-        // the e2e stack configures no Turnstile site, so the page is told to present nothing
+    it('lists a person their organizations for an address alone, behind no challenge in this stack', async () => {
+        // the e2e stack configures no Turnstile site and shows links in the UI in place of email
         const challenge = await get('/api/auth/org/login/find')
         expect(challenge.status).toBe(200)
-        expect(await challenge.json()).toEqual({})
+        expect(await challenge.json()).toEqual({showLinksInUI: true})
 
         expect((await post('/api/auth/org/login/find', {})).status).toBe(400)
-        // email sending is disabled in the stack, so the send logs the links; the response is the same either way
-        expect((await post('/api/auth/org/login/find', {email: E2E_ORG_USER_EMAIL})).status).toBe(204)
-        expect((await post('/api/auth/org/login/find', {email: 'nobody@example.test'})).status).toBe(204)
+        const member = await post('/api/auth/org/login/find', {email: E2E_ORG_USER_EMAIL})
+        expect(member.status).toBe(200)
+        const {organizations} = await member.json()
+        expect(organizations).toContainEqual({name: expect.any(String), loginUrl: expect.stringMatching(new RegExp(`/login/${E2E_ORGANIZATION_ID}$`))})
+
+        const nobody = await post('/api/auth/org/login/find', {email: 'nobody@example.test'})
+        expect(nobody.status).toBe(200)
+        expect(await nobody.json()).toEqual({organizations: []})
     })
 
     it('offers no organization choices to a page whose session completed no landing sign-in', async () => {

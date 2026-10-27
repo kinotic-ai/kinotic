@@ -51,8 +51,6 @@ public class ApiGatewayVertcleFactory {
         // (kinotic.cors.*) lets the cross-origin login fetch store it.
         Router router = ApiGatewayUtil.createRouterWithCors(vertx, properties.getCors());
 
-        // Health check on the api-gateway port so probes work even when the static
-        // web-server (9090) is disabled in Azure.
         router.get("/health")
               .handler(HealthCheckHandler.createWithHealthChecks(healthChecks));
 
@@ -99,9 +97,5 @@ public class ApiGatewayVertcleFactory {
         ApiGatewayUtil.applySsl(serverOptions, properties.getApiGateway().getSsl());
 
         return StompServerVerticleFactory.create(serverOptions, stompServerOptions, stompServerHandlerFactory, router);
-    }
-
-    public WebServerVerticle createWebServerVerticle(){
-        return new WebServerVerticle(properties.getApiGateway().getWebServer(), properties.getApiGateway().getSsl());
     }
 }

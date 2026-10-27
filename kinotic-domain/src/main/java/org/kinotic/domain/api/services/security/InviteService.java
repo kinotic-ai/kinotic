@@ -106,6 +106,18 @@ public interface InviteService {
     Future<PendingInvite> findPendingInvite(String email, String organizationId, String applicationId);
 
     /**
+     * The accept link of the live invitation of {@code email} into the scope, for the inviter to hand over when no
+     * invitation email reaches the invitee: {@code kinotic.domain.email.enabled} is {@code false}. Anyone holding the
+     * link can accept the invitation as the invited address.
+     *
+     * @param email          the invited address
+     * @param organizationId the organization of the scope
+     * @param applicationId  the application of the scope, or {@code null} for an invitation into the organization
+     * @return a future emitting the link, or {@code null} when links are not shown in the UI or no invitation is pending
+     */
+    Future<String> findAcceptUrl(String email, String organizationId, String applicationId);
+
+    /**
      * Emails the invitation {@code inviteId} of organization {@code organizationId} again, to the same address
      * with the same accept token, as the invitation email {@code emailTemplate}, or Kinotic's when it is {@code null}.
      * Fails when the organization has no such invitation.

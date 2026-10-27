@@ -56,6 +56,32 @@
                 </div>
               </div>
 
+              <!-- Claude Code's /mcp list, where the plugin's own server sits beside the one added for this Kinotic -->
+              <div v-if="step.id === 'authorize' && LOCAL_MCP_SERVER && !loading"
+                   class="mt-3 rounded-lg bg-surface-950 px-3.5 py-3 font-mono text-xs text-surface-300 dark:ring-1 dark:ring-surface-700">
+                <div class="text-sky-300">Manage MCP servers</div>
+                <div class="mt-2 font-semibold text-surface-100">User MCPs</div>
+                <div class="mt-1 rounded-md bg-green-400/10 px-2 py-1 ring-1 ring-green-400/40">
+                  <div class="flex items-center gap-2">
+                    <span class="text-green-400">❯</span>
+                    <span class="text-amber-400">⚠</span>
+                    <span class="min-w-0 truncate font-semibold text-surface-0">kinotic-local</span>
+                    <span class="hidden whitespace-nowrap text-surface-400 sm:inline">needs authentication</span>
+                  </div>
+                  <div class="mt-0.5 pl-7 font-sans text-[11px] font-medium text-green-400">For local use: authenticate it</div>
+                </div>
+                <div class="mt-2 font-semibold text-surface-100">Built-in MCPs</div>
+                <div class="mt-1 px-2 py-1">
+                  <div class="flex items-center gap-2 opacity-60">
+                    <span class="invisible">❯</span>
+                    <span class="text-amber-400">⚠</span>
+                    <span class="min-w-0 truncate">plugin:kinotic:kinotic-os</span>
+                    <span class="hidden whitespace-nowrap text-surface-400 sm:inline">needs authentication</span>
+                  </div>
+                  <div class="mt-0.5 pl-7 font-sans text-[11px] text-surface-400">For Kinotic Cloud: not needed locally</div>
+                </div>
+              </div>
+
               <p v-if="!loading && !step.done && index === currentIndex && step.hint" class="mt-3 text-sm leading-6 text-muted-color">{{ step.hint }}</p>
               <div v-if="!loading && !step.done && index === currentIndex && step.actions.length" class="mt-3 flex flex-wrap gap-2">
                 <Button v-for="action in step.actions" :key="action.label" :label="action.label"
@@ -253,7 +279,7 @@
     <section :class="CARD_CLASS">
       <h2 class="text-lg font-semibold text-surface-950 dark:text-surface-0">Before you start</h2>
       <div class="mt-5 grid gap-4 md:grid-cols-3">
-        <a v-for="tool in PREREQUISITES" :key="tool.name" :href="tool.href" target="_blank" rel="noopener"
+        <a v-for="tool in prerequisites" :key="tool.name" :href="tool.href" target="_blank" rel="noopener"
            class="group flex items-start gap-4 rounded-xl border border-surface-200 p-4 transition-colors hover:border-surface-300 hover:bg-surface-50 dark:border-surface-700 dark:hover:bg-surface-800">
           <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-950 dark:ring-1 dark:ring-surface-700">
             <img v-if="tool.logo" :src="tool.logo" alt="" :class="['h-5 w-5', { invert: tool.invertLogo }]" />
@@ -287,11 +313,12 @@
 import { computed, markRaw, onMounted, ref, type Component } from 'vue'
 import Button from 'primevue/button'
 import Skeleton from 'primevue/skeleton'
-import { ArrowRight, ArrowUpRight, BookOpen, Boxes, Braces, ChartLine, Check, CloudUpload, Copy, Database, FileCode, FolderGit2, GitBranch,
+import { ArrowRight, ArrowUpRight, BookOpen, Boxes, ChartLine, Check, CloudUpload, Copy, Database, FolderGit2, GitBranch,
          GitCommitHorizontal, Globe, Layers, Library, Package, Table, Terminal } from '@lucide/vue'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { DelegateType, type DelegatingParticipantIdentity, type GitHubAppInstallation, type Project } from '@kinotic-ai/management-api'
-import { createDebug, PageHeader, TINTS } from '@kinotic-ai/frontend-common'
+import { DelegateType, type DelegatingParticipantIdentity, type GitHubAppInstallation, type Project, RepoHostType, type RepositoryHost } from '@kinotic-ai/management-api'
+import { apiUrl, createDebug, PageHeader, TINTS } from '@kinotic-ai/frontend-common'
+import { repositoryHost } from '@/util/repositoryHost'
 import { DOCUMENTATION_URL } from '@/util/externalLinks'
 import githubLogo from '@/assets/github-icon.svg'
 import claudeCodeIcon from '@/assets/claude-code.svg'
@@ -305,9 +332,14 @@ import claudeCodeIcon from '@/assets/claude-code.svg'
 
 const debug = createDebug('quickstart')
 
-const QUICK_START_URL = 'https://kinotic.ai/apps/quick-start'
+const QUICK_START_URL = 'https://kinotic.ai/getting-started/quick-start'
 const PLUGIN_COMMANDS = ['/plugin marketplace add kinotic-ai/agent-plugin', '/plugin install kinotic@kinotic']
 const AUTHORIZE_COMMANDS = ['/mcp']
+// This deployment's MCP server
+const MCP_URL = new URL(apiUrl('/mcp'), window.location.origin).toString()
+// The plugin's own MCP server is Kinotic Cloud's, so a Kinotic running on this machine is added beside it
+const LOCAL_MCP_SERVER = ['localhost', '127.0.0.1'].includes(new URL(MCP_URL).hostname)
+const LOCAL_AUTHORIZE_COMMANDS = [`claude mcp add -s user --transport http kinotic-local ${MCP_URL}`, '/mcp']
 const NEW_APP_COMMANDS = ['/kinotic:new-app my-app']
 // How many projects the checklist reads to find the most recently updated one
 const PROJECT_SAMPLE_SIZE = 20
@@ -320,7 +352,7 @@ type FeatureId = 'data' | 'deploy' | 'observe'
 
 const FEATURES: { id: FeatureId, title: string, icon: Component, bar: string, href: string, description: string }[] = [
   { id: 'data', title: 'Model your data', icon: markRaw(Table), bar: 'bg-purple-500', href: 'https://kinotic.ai/apps/persistence/overview',
-    description: 'Define entities in TypeScript and get typed repositories, backing storage, and GraphQL and OpenAPI endpoints for them.' },
+    description: 'Define entities in TypeScript and get typed repositories and backing storage for them.' },
   { id: 'deploy', title: 'Deploy on every push', icon: markRaw(CloudUpload), bar: 'bg-sky-500', href: 'https://kinotic.ai/apps/deployment/push-to-deploy',
     description: 'Pushing to a project\'s default branch builds and deploys its microservices and publishes its UIs.' },
   { id: 'observe', title: 'See it running', icon: markRaw(ChartLine), bar: 'bg-green-500', href: 'https://kinotic.ai/apps/services/overview',
@@ -337,9 +369,7 @@ const CLAUDE_OUTPUTS = [
 
 // Placeholders for the feature illustrations
 const DATA_OUTPUTS = [
-  { label: 'PersonRepository', icon: markRaw(Database), tint: TINTS.purple },
-  { label: 'GraphQL API', icon: markRaw(Braces), tint: TINTS.red },
-  { label: 'OpenAPI', icon: markRaw(FileCode), tint: TINTS.green }
+  { label: 'PersonRepository', icon: markRaw(Database), tint: TINTS.purple }
 ]
 const DEPLOY_STEPS = [
   { label: 'Sync', icon: markRaw(FolderGit2) },
@@ -348,8 +378,8 @@ const DEPLOY_STEPS = [
   { label: 'Publish', icon: markRaw(Globe) }
 ]
 const LOG_LINES = [
-  { level: 'INFO', time: '12:04:31', text: 'PersonRepository.save 12ms' },
-  { level: 'INFO', time: '12:04:32', text: 'GET /api/people 200 8ms' },
+  { level: 'INFO', time: '12:04:31', text: 'PersonService.createPerson 12ms' },
+  { level: 'INFO', time: '12:04:32', text: 'PersonRepository.save 8ms' },
   { level: 'WARN', time: '12:04:35', text: 'slow query findAll 412ms' }
 ]
 
@@ -395,6 +425,7 @@ const linking = ref(false)
 const error = ref<string | null>(null)
 const copied = ref<string | null>(null)
 const installation = ref<GitHubAppInstallation | null>(null)
+const repoHost = ref<RepositoryHost | null>(null)
 const projects = ref<Project[]>([])
 const mcpClient = ref<DelegatingParticipantIdentity | null>(null)
 
@@ -405,6 +436,12 @@ const latestProject = computed(() => [...projects.value]
 function projectPath(project: Project): string {
   return `/application/${encodeURIComponent(project.applicationId)}/project/${encodeURIComponent(project.id ?? '')}`
 }
+
+// GitHub must be linked before Claude can create a project's repository there; another host needs no link
+const linkRequired = computed(() => repoHost.value?.type === RepoHostType.GITHUB && installation.value === null)
+
+// GitHub is the person's own to bring only where it hosts the repositories
+const prerequisites = computed(() => PREREQUISITES.filter(tool => tool.name !== 'GitHub' || repoHost.value?.type === RepoHostType.GITHUB))
 
 const steps = computed<Step[]>(() => [
   {
@@ -419,24 +456,26 @@ const steps = computed<Step[]>(() => [
   {
     id: 'authorize',
     title: 'Connect Claude to Kinotic',
-    description: 'Run /mcp in Claude Code, select kinotic-os and choose Authenticate, then approve the consent screen that opens in your browser.',
+    description: LOCAL_MCP_SERVER
+        ? 'For local use, add the kinotic-local server from a terminal, then run /mcp in Claude Code, authenticate kinotic-local, and approve the consent screen that opens in your browser. Don\'t worry about plugin:kinotic:kinotic-os: the plugin adds it for use with Kinotic Cloud.'
+        : 'Run /mcp in Claude Code, select plugin:kinotic:kinotic-os and choose Authenticate, then approve the consent screen that opens in your browser.',
     done: mcpClient.value !== null,
     doneDetail: mcpClient.value?.displayName ? `${mcpClient.value.displayName} connected` : undefined,
-    commands: AUTHORIZE_COMMANDS,
+    commands: LOCAL_MCP_SERVER ? LOCAL_AUTHORIZE_COMMANDS : AUTHORIZE_COMMANDS,
     actions: [],
     revisit: { label: 'Connected apps', to: '/account/connected-apps' }
   },
   {
     id: 'ask',
     title: 'Ask Claude for your app',
-    description: 'Describe the app you want, or run /kinotic:new-app. Claude creates the application and its project with a GitHub repository, writes the entities, services and UIs, and pushes. Every push deploys.',
+    description: 'Describe the app you want, or run /kinotic:new-app. Claude creates the application and its project with a Git repository, writes the entities, services and UIs, and pushes. Every push deploys.',
     done: projects.value.length > 0,
     doneDetail: latestProject.value?.name,
     commands: NEW_APP_COMMANDS,
-    hint: installation.value === null
+    hint: linkRequired.value
         ? 'Claude creates your project\'s repository under the GitHub account you link, so link GitHub before you ask.'
         : undefined,
-    actions: installation.value === null
+    actions: linkRequired.value
         ? [{ label: 'Link GitHub', icon: markRaw(GitBranch), primary: true, run: linkGitHub }]
         : [],
     revisit: latestProject.value ? { label: 'Open project', to: projectPath(latestProject.value) } : undefined
@@ -483,6 +522,10 @@ async function loadInstallation(): Promise<void> {
   }
 }
 
+async function loadRepositoryHost(): Promise<void> {
+  repoHost.value = await repositoryHost()
+}
+
 async function loadProjects(): Promise<void> {
   const page = await Kinotic.projects.findAll(Pageable.create(0, PROJECT_SAMPLE_SIZE))
   projects.value = page.content ?? []
@@ -495,7 +538,7 @@ async function loadMcpClient(): Promise<void> {
 
 onMounted(async () => {
   try {
-    await Promise.all([loadInstallation(), loadProjects(), loadMcpClient()])
+    await Promise.all([loadInstallation(), loadProjects(), loadMcpClient(), loadRepositoryHost()])
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {

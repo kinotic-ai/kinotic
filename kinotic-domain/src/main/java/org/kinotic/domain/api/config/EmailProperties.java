@@ -19,8 +19,11 @@ import java.time.Duration;
 public class EmailProperties {
 
     /**
-     * When {@code false}, {@code EmailService} will log the verification URL instead of sending.
-     * Useful for local development without an Azure login.
+     * When {@code false}, no email is sent: each link a person must open is logged and returned to the UI that asked
+     * for it, which shows it: the verification link to the one signing up, an invitation's accept link to the inviter
+     * and the login links of the organizations an address belongs to, as a demonstration server does. Nothing then
+     * proves an address belongs to the person using it, so email is never disabled on a server reachable by anyone
+     * but the people trying it.
      */
     private boolean enabled = true;
 

@@ -1,6 +1,7 @@
 import { MANAGEMENT_API_ZONE } from '@/api/Zones'
 import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import { Project } from '@/api/model/Project'
+import type { RepositoryHost } from '@/api/model/RepositoryHost'
 import type { ProjectDependencies } from '@/api/model/deployment/ProjectDependencies'
 import type { ProjectDeployment } from '@/api/model/deployment/ProjectDeployment'
 import type { WatchEvent } from '@/api/model/reconcile/WatchEvent'
@@ -69,6 +70,13 @@ export interface IProjectService extends ICrudServiceProxy<Project> {
     findDependencies(projectId: string): Promise<ProjectDependencies | null>
 
     /**
+     * Where projects' repositories are hosted: GitHub, which an organization links by installing the system's GitHub
+     * App before it creates a project, or the Gitea server a demonstration server runs, which needs no linking. Also
+     * gives the base URL of a repository's web page.
+     */
+    getRepositoryHost(): Promise<RepositoryHost>
+
+    /**
      * Re-runs repository initialization for a project left
      * {@link RepositoryConnectionStatus.INITIALIZATION_FAILED} by creation.
      * @param projectId the id of the project to retry
@@ -134,6 +142,10 @@ export class ProjectService extends CrudServiceProxy<Project> implements IProjec
 
     public findDependencies(projectId: string): Promise<ProjectDependencies | null> {
         return this.serviceProxy.invoke('findDependencies', [projectId])
+    }
+
+    public getRepositoryHost(): Promise<RepositoryHost> {
+        return this.serviceProxy.invoke('getRepositoryHost', [])
     }
 
     public retryRepoInitialization(projectId: string): Promise<Project> {

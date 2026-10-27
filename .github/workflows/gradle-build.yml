@@ -153,6 +153,18 @@ jobs:
       - name: Build server images
         run: ./gradlew :kinotic-server-management:bootBuildImage :kinotic-server-system:bootBuildImage :kinotic-server-app:bootBuildImage :kinotic-server-test:bootBuildImage
 
+      # The local edge of the compose stack, versioned and promoted with the servers
+      - name: Build the sites edge image
+        run: |
+          version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
+          docker build -f deployment/docker-compose/sites-edge.Dockerfile -t "kinoticai/kinotic-sites-edge:${version}" deployment
+
+      # The compose stack's portal and system console, versioned and promoted with the servers
+      - name: Build the UI image
+        run: |
+          version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
+          docker build -f deployment/docker-compose/kinotic-ui.Dockerfile -t "kinoticai/kinotic-ui:${version}" .
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
         with:
@@ -163,8 +175,56 @@ jobs:
       - name: Stage server images on ghcr.io
         run: |
           version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
-          for image in kinotic-server-management kinotic-server-system kinotic-server-app kinotic-server-test; do
+          for image in kinotic-server-management kinotic-server-system kinotic-server-app kinotic-server-test kinotic-sites-edge kinotic-ui; do
             staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}"
+            docker tag "kinoticai/${image}:${version}" "$staged"
+            docker push "$staged"
+          done
+
+  # The arm64 builds of every image the results job promotes, on a native arm64 runner, so Apple silicon and arm64
+  # Linux run them without emulation. bootBuildImage builds for the platform of the Docker daemon it runs against.
+  # Staged as sha-<commit>-arm64 beside the amd64 images the suites run against, and joined with them into one
+  # multi-platform tag on promotion; kinotic-server-test runs only in CI, so it has no arm64 build.
+  arm64_images:
+    name: Arm64 Images
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build the migration and server images
+        run: ./gradlew :kinotic-migration:bootBuildImage :kinotic-server-management:bootBuildImage :kinotic-server-system:bootBuildImage :kinotic-server-app:bootBuildImage
+
+      - name: Build the sites edge and UI images
+        run: |
+          version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
+          docker build -f deployment/docker-compose/sites-edge.Dockerfile -t "kinoticai/kinotic-sites-edge:${version}" deployment
+          docker build -f deployment/docker-compose/kinotic-ui.Dockerfile -t "kinoticai/kinotic-ui:${version}" .
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stage the arm64 images on ghcr.io
+        run: |
+          version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
+          for image in kinotic-migration kinotic-server-management kinotic-server-system kinotic-server-app kinotic-sites-edge kinotic-ui; do
+            staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}-arm64"
             docker tag "kinoticai/${image}:${version}" "$staged"
             docker push "$staged"
           done
@@ -225,8 +285,8 @@ jobs:
   # and its third-party actions are pinned to commit SHAs, so a compromised scanner release has
   # neither a repointed tag to arrive through nor a credential to take.
   sbom_scan:
-    name: SBOM and Vulnerability Scan (${{ matrix.image }})
-    needs: [server_images, migration_image]
+    name: SBOM and Vulnerability Scan (${{ matrix.image }}, ${{ matrix.platform }})
+    needs: [server_images, migration_image, arm64_images]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -236,6 +296,13 @@ jobs:
       fail-fast: false
       matrix:
         image: [kinotic-migration, kinotic-server-management, kinotic-server-system, kinotic-server-app]
+        # Each platform of a promoted tag is its own image, so each is inventoried and gated on its own
+        platform: [amd64, arm64]
+    env:
+      # The amd64 build is staged as sha-<commit>, the arm64 build as sha-<commit>-arm64. The amd64 scan keeps the
+      # artifact and code scanning category names that predate arm64, so its alerts keep their history.
+      STAGED_TAG: sha-${{ github.sha }}${{ matrix.platform == 'arm64' && '-arm64' || '' }}
+      SCAN_NAME: ${{ matrix.image }}${{ matrix.platform == 'arm64' && '-arm64' || '' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -243,19 +310,19 @@ jobs:
       - name: Generate CycloneDX SBOM
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
-          image: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:sha-${{ github.sha }}
+          image: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ env.STAGED_TAG }}
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.GITHUB_TOKEN }}
           format: cyclonedx-json
-          output-file: ${{ matrix.image }}.cdx.json
-          artifact-name: sbom-${{ matrix.image }}.cdx.json
+          output-file: ${{ env.SCAN_NAME }}.cdx.json
+          artifact-name: sbom-${{ env.SCAN_NAME }}.cdx.json
           upload-artifact-retention: 90
 
       - name: Scan SBOM for known vulnerabilities
         id: scan
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
         with:
-          sbom: ${{ matrix.image }}.cdx.json
+          sbom: ${{ env.SCAN_NAME }}.cdx.json
           fail-build: false
           # With fail-build off this sets only the annotation and SARIF result levels, so the run warns
           # only on a Critical. Code scanning ranks the alerts by their security-severity instead.
@@ -267,7 +334,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ${{ steps.scan.outputs.sarif }}
-          category: image-${{ matrix.image }}
+          category: image-${{ env.SCAN_NAME }}
 
       # A second pass because only-fixed also filters what is reported; the pass above records
       # everything, this one gates on the findings a dependency upgrade can remediate.
@@ -275,20 +342,20 @@ jobs:
         id: gate
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
         with:
-          sbom: ${{ matrix.image }}.cdx.json
+          sbom: ${{ env.SCAN_NAME }}.cdx.json
           fail-build: true
           severity-cutoff: critical
           only-fixed: true
           output-format: table
-          output-file: fixable-${{ matrix.image }}.txt
+          output-file: fixable-${{ env.SCAN_NAME }}.txt
 
       - name: Summarize fixable vulnerabilities
         if: ${{ !cancelled() }}
         run: |
           {
-            echo "### Fixable vulnerabilities in ${{ matrix.image }}"
+            echo "### Fixable vulnerabilities in ${{ matrix.image }} (${{ matrix.platform }})"
             echo '```'
-            cat "fixable-${{ matrix.image }}.txt" 2>/dev/null || echo "No report produced"
+            cat "fixable-${{ env.SCAN_NAME }}.txt" 2>/dev/null || echo "No report produced"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -480,7 +547,7 @@ jobs:
   # here so the promotion is the last thing the pipeline does and can gate on every suite at once.
   results:
     name: Build Result
-    needs: [migration_image, build, server_images, sbom_scan, kinotic_test, js_workspace_tests, e2e_tests, publish]
+    needs: [migration_image, build, server_images, arm64_images, sbom_scan, kinotic_test, js_workspace_tests, e2e_tests, publish]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
@@ -492,7 +559,7 @@ jobs:
       # outage should not hold back an image every suite has already validated. The ref guard keeps a
       # workflow_dispatch run on some other branch from advancing the published tag to a build off
       # that branch.
-      PROMOTE: ${{ (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && needs.migration_image.result == 'success' && needs.build.result == 'success' && needs.server_images.result == 'success' && needs.sbom_scan.result == 'success' && needs.kinotic_test.result == 'success' && needs.js_workspace_tests.result == 'success' && needs.e2e_tests.result == 'success' }}
+      PROMOTE: ${{ (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && needs.migration_image.result == 'success' && needs.build.result == 'success' && needs.server_images.result == 'success' && needs.arm64_images.result == 'success' && needs.sbom_scan.result == 'success' && needs.kinotic_test.result == 'success' && needs.js_workspace_tests.result == 'success' && needs.e2e_tests.result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -512,15 +579,14 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
+      # Each tag names both platforms, so Docker on an amd64 or an arm64 machine pulls its own build
       - name: Promote validated images to Docker Hub
         if: ${{ env.PROMOTE == 'true' }}
         run: |
           version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
-          for image in kinotic-migration kinotic-server-management kinotic-server-system kinotic-server-app; do
+          for image in kinotic-migration kinotic-server-management kinotic-server-system kinotic-server-app kinotic-sites-edge kinotic-ui; do
             staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}"
-            docker pull "$staged"
-            docker tag "$staged" "kinoticai/${image}:${version}"
-            docker push "kinoticai/${image}:${version}"
+            docker buildx imagetools create -t "kinoticai/${image}:${version}" "$staged" "${staged}-arm64"
           done
 
       # `skipped` is a pass: the publish job is skipped on every develop push by design.
@@ -536,6 +602,7 @@ jobs:
           check "Migration image" "${{ needs.migration_image.result }}"
           check "Build" "${{ needs.build.result }}"
           check "Server images" "${{ needs.server_images.result }}"
+          check "Arm64 images" "${{ needs.arm64_images.result }}"
           check "SBOM and vulnerability scan" "${{ needs.sbom_scan.result }}"
           check "Kinotic integration tests" "${{ needs.kinotic_test.result }}"
           check "JS workspace tests" "${{ needs.js_workspace_tests.result }}"

@@ -50,8 +50,8 @@ export function teardownRows(teardowns: ProjectTeardown[]): { removes: DeleteImp
         removes.push({
             icon: markRaw(Rocket),
             label: several
-                ? `${count(deployed.length, 'deployment')} and the workloads syncing them from GitHub`
-                : 'Its deployment and the workload syncing it from GitHub'
+                ? `${count(deployed.length, 'deployment')} and the workloads syncing them from their repositories`
+                : 'Its deployment and the workload syncing it from its repository'
         })
     }
     if (microservices.length > 0) {
@@ -72,7 +72,7 @@ export function teardownRows(teardowns: ProjectTeardown[]): { removes: DeleteImp
 
     const kept: DeleteImpactRow[] = []
     if (repositories.length > 0) {
-        kept.push({ icon: markRaw(GitBranch), label: several ? 'Their GitHub repositories' : 'Its GitHub repository', items: repositories })
+        kept.push({ icon: markRaw(GitBranch), label: several ? 'Their repositories' : 'Its repository', items: repositories })
     }
     return { removes, kept }
 }

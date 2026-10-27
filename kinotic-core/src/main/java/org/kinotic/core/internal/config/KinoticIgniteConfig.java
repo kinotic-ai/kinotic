@@ -6,7 +6,6 @@ import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.calcite.CalciteQueryEngineConfiguration;
 import org.apache.ignite.configuration.*;
 import org.apache.ignite.failure.FailureHandler;
-import org.apache.ignite.failure.NoOpFailureHandler;
 import org.apache.ignite.failure.StopNodeOrHaltFailureHandler;
 import org.apache.ignite.kubernetes.configuration.KubernetesConnectionConfiguration;
 import org.apache.ignite.logger.slf4j.Slf4jLogger;
@@ -26,17 +25,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.ignite.failure.FailureType.*;
 
 /**
  * Class provides environment agnostic configuration for Ignite
@@ -177,19 +172,6 @@ public class KinoticIgniteConfig {
     }
 
     @Bean
-    @Profile("development")
-    FailureHandler noopFailureHandler() {
-        NoOpFailureHandler ret = new NoOpFailureHandler();
-        ret.setIgnoredFailureTypes(Collections.unmodifiableSet(EnumSet.of(SEGMENTATION,
-                SYSTEM_WORKER_TERMINATION,
-                SYSTEM_WORKER_BLOCKED,
-                CRITICAL_ERROR,
-                SYSTEM_CRITICAL_OPERATION_TIMEOUT)));
-        return ret;
-    }
-
-    @Bean
-    @Profile("!development")
     FailureHandler haltFailureHandler() {
         return new StopNodeOrHaltFailureHandler();
     }

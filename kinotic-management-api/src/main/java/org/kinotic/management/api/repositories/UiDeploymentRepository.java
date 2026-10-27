@@ -89,4 +89,14 @@ public class UiDeploymentRepository extends AbstractReconcilableRepository<UiDep
         return crudServiceTemplate.partialUpdateSync(indexName, id, fields, false);
     }
 
+    /** Records where the site is served, leaving every other field as it is. */
+    public Future<Void> recordUrl(String id, String url) {
+        Validate.notBlank(id, "id cannot be blank");
+        Validate.notBlank(url, "url cannot be blank");
+        Map<String, Object> fields = new HashMap<>();
+        fields.put("url", url);
+        fields.put("updated", new Date());
+        return crudServiceTemplate.partialUpdateSync(indexName, id, fields, false);
+    }
+
 }

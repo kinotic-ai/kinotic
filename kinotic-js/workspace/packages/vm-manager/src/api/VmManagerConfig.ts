@@ -79,6 +79,13 @@ export class VmManagerConfig {
     /** BOXLITE_HOME — boxlite's store for box records and guest rootfs disks. */
     readonly boxliteHome: string = process.env.BOXLITE_HOME ?? path.join(os.homedir(), '.boxlite')
 
+    /**
+     * KINOTIC_STOP_WORKLOADS_ON_SHUTDOWN — when "true", the node stops and destroys every workload it runs as it shuts
+     * down, as a node `kinotic local` starts does; otherwise its workloads keep running and the next vm-manager
+     * process reattaches to them.
+     */
+    readonly stopWorkloadsOnShutdown: boolean = process.env.KINOTIC_STOP_WORKLOADS_ON_SHUTDOWN === 'true'
+
     /** Workload state persisted for recovery across vm-manager restarts. Fixed location, not per-environment. */
     readonly vmStateDir: string = path.join(os.homedir(), '.kinotic', 'vm-state')
 

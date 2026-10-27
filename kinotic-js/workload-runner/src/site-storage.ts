@@ -107,15 +107,23 @@ export async function deleteFilesOfOtherCommits(site: SiteTarget, commitSha: str
 
 /** Deletes the site's directory and everything under it; one already gone is not a failure. */
 export async function deleteDirectory(site: SiteTarget): Promise<void> {
-    await deletePath(site, site.directory, true, [404])
+    // an account without the hierarchical namespace, such as Azurite, has no directory the recursive delete
+    // removes and answers 404, so the files are deleted one by one
+    if (await deletePath(site, site.directory, true, [404]) === 404) {
+        for (const blob of await listBlobs(site)) {
+            await deleteBlob(site, blob.name)
+        }
+    }
 }
 
-async function deletePath(site: SiteTarget, path: string, recursive: boolean, tolerated: number[]): Promise<void> {
+/** Deletes a path through the Data Lake endpoint, resolving with the response's status. */
+async function deletePath(site: SiteTarget, path: string, recursive: boolean, tolerated: number[]): Promise<number> {
     const response = await fetch(`${site.dfsContainerUrl}/${path.split('/').map(encodeURIComponent).join('/')}?recursive=${recursive}&${site.query}`,
                                  { method: 'DELETE' })
     if (!response.ok && !tolerated.includes(response.status)) {
         throw new Error(`deleting ${path} failed with ${response.status} ${await response.text()}`)
     }
+    return response.status
 }
 
 function unescapeXml(text: string): string {

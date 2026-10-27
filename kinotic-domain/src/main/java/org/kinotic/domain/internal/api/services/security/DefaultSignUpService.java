@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.EmailTemplate;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.security.AuthType;
@@ -37,10 +38,11 @@ public class DefaultSignUpService implements SignUpService {
     private final ParticipantIdentityService identityService;
     private final OrganizationService organizationService;
     private final EmailService emailService;
+    private final KinoticDomainProperties domainProperties;
     private final OrganizationDnsRecordProvisioner dnsRecordProvisioner;
 
     @Override
-    public Future<Void> initiateLocalSignUp(String email, String displayName, EmailTemplate emailTemplate) {
+    public Future<String> initiateLocalSignUp(String email, String displayName, EmailTemplate emailTemplate) {
         Validate.notBlank(email, "Email is required");
         Validate.notBlank(displayName, "Display name is required");
         emailService.validateTemplate(emailTemplate);
@@ -57,14 +59,26 @@ public class DefaultSignUpService implements SignUpService {
                 .setExpiresAt(new Date(now.getTime() + LOCAL_TTL_MS));
         return pendingSignUpRepository.findByEmail(email)
                 .compose(existing -> {
-                    if (existing != null) {
-                        return Future.failedFuture(new IllegalArgumentException(
+                    Future<String> ret;
+                    if (existing == null || existing.getExpiresAt().before(now)) {
+                        // an expired record is never completed, so it gives way to the new one
+                        Future<Void> cleared = existing == null
+                                ? Future.succeededFuture()
+                                : pendingSignUpRepository.deleteById(existing.getId());
+                        // saveSync: a link the UI shows in place of an email is opened at once, and the record must
+                        // be searchable by then, as it must for a repeated request to find it
+                        ret = cleared.compose(v -> pendingSignUpRepository.saveSync(pending))
+                                     .compose(saved -> emailService.sendVerificationEmail(email, displayName, token, emailTemplate));
+                    } else if (existing.getAuthType() == AuthType.PASSWORD && !domainProperties.getDomain().getEmail().isEnabled()) {
+                        // no email carries the link, so asking again is the only way back to it
+                        ret = emailService.sendVerificationEmail(existing.getEmail(), existing.getDisplayName(),
+                                                                 existing.getVerificationToken(), emailTemplate);
+                    } else {
+                        ret = Future.failedFuture(new IllegalArgumentException(
                                 "A sign-up is already pending for this email. Check your inbox for the verification link."));
                     }
-                    return Future.succeededFuture();
-                })
-                .compose(v -> pendingSignUpRepository.save(pending))
-                .compose(saved -> emailService.sendVerificationEmail(email, displayName, token, emailTemplate));
+                    return ret;
+                });
     }
 
     @Override

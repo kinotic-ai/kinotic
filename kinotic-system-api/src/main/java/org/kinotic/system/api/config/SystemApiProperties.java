@@ -39,14 +39,6 @@ public class SystemApiProperties {
     private UiDeploymentProperties uiDeployment = new UiDeploymentProperties();
 
     /**
-     * When true, for an environment without the sites storage account, a deployment uploads no UI,
-     * a removed UI's site is deleted without touching storage, and
-     * {@code MockUiDeploymentProvisioner} marks every published UI ready at once, so deployments
-     * complete in development and tests without Azure.
-     */
-    private boolean disableAzureStorage = false;
-
-    /**
      * When true, for an environment without access to OSV, no vulnerability advisories are read and
      * SBOMs are checked against the advisories already stored.
      */

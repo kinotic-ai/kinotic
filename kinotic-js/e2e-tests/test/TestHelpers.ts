@@ -41,13 +41,13 @@ type SchemaCreationResult ={
 }
 let schemas: Map<string, SchemaCreationResult> = new Map<string, SchemaCreationResult>()
 
-/** Organization that owns every e2e fixture user (V3 test users + V5 app fixtures). */
+/** Organization that owns every e2e fixture user (V3 test-org + V4 app fixtures). */
 export const E2E_ORGANIZATION_ID = 'test-org'
 
 /** Password of every user the e2e migrations seed. */
 export const E2E_FIXTURE_PASSWORD = 'kinotic'
 
-/** Tenant id of the V5-seeded APPLICATION-scope fixture users. */
+/** Tenant id of the V4-seeded APPLICATION-scope fixture users. */
 export const E2E_APP_TENANT = 'kinotic'
 
 /** The seeded ORGANIZATION-scope admin of the e2e organization. */
@@ -56,7 +56,7 @@ export const E2E_ORG_USER_EMAIL = 'kinotic@kinotic.local'
 /** The seeded SYSTEM-scope admin. */
 export const E2E_SYSTEM_USER_EMAIL = 'admin@kinotic.local'
 
-/** Email convention of the V5-seeded APPLICATION-scope fixture users. */
+/** Email convention of the V4-seeded APPLICATION-scope fixture users. */
 export function appFixtureEmail(applicationId: string, tenantId: string): string {
     return `app-${applicationId}-${tenantId}@test.local`
 }
@@ -143,7 +143,7 @@ export async function shutdownKinoticClient(): Promise<void> {
 
 /**
  * Creates a fresh {@link KinoticSingleton} connected to the app server as the APPLICATION-scoped user
- * seeded for the given (applicationId, tenantId) pair by the V3__e2e_app_fixtures migration (email
+ * seeded for the given (applicationId, tenantId) pair by the V4__e2e_app_fixtures migration (email
  * convention app-<applicationId>-<tenantId>@test.local, password kinotic). The caller is
  * responsible for disconnecting it when done. The instance has {@code ManagementApiPlugin} and
  * {@code PersistencePlugin} installed so it can back an {@code EntityRepository} that acts on the

@@ -1,0 +1,17 @@
+# The UIs, as a browser opens them: the portal (organization users) on 9090 and the system console (system
+# users) on 9091, both built from kinotic-frontend. Each calls its server's API directly, the portal
+# kinotic-server-management's on 58503 and the console kinotic-server-system's on 58504.
+
+services:
+  kinotic-ui:
+    image: kinoticai/kinotic-ui:${kinoticVersion:-5.0.0-SNAPSHOT}
+    # KINOTIC_PULL_POLICY, as compose.kinotic-servers.yml describes
+    pull_policy: ${KINOTIC_PULL_POLICY:-missing}
+    # From a checkout, `docker compose up --build` builds it from the working tree instead of pulling it
+    build:
+      context: ../..
+      dockerfile: deployment/docker-compose/kinotic-ui.Dockerfile
+    container_name: kinotic-ui
+    ports:
+      - "127.0.0.1:9090:9090" # The portal
+      - "127.0.0.1:9091:9091" # The system console

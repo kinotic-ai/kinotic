@@ -1,0 +1,55 @@
+# The demonstration server: the whole platform on one machine from deployment/docker-compose
+# (compose.yml), to try Kinotic, or develop it, with no Azure, no GitHub and no mail service.
+# compose.kinotic-servers.yml runs every server with this profile, and supplies the container addresses:
+# Elasticsearch, the Ignite cluster and the observability stack.
+kinotic:
+  managementApi:
+    # This server's API as a browser and Claude Code reach it: the OAuth issuer of /mcp, and the base of the
+    # OIDC callbacks
+    apiBaseUrl: http://localhost:58503
+    # Projects' repositories are hosted on the Gitea compose.gitea.yml runs, so a project needs no GitHub
+    repoHost: GITEA
+    # No GitHub App: its webhook secret signs Gitea's push webhooks, and its key is never used
+    github:
+      webhookSecret: "-"
+      appPrivateKey: "-"
+    entityDefinition:
+      # A single-node cluster cannot assign replicas, and every published EntityDefinition costs
+      # numberOfShards * (1 + numberOfReplicas) against the 1000-shard default. 1/0 keeps the cluster
+      # green and lets a developer publish far more definitions before hitting the cap.
+      numberOfShards: 1
+      numberOfReplicas: 0
+  managementServer:
+    # The portal's sign-up page offers an email and a password, which needs neither GitHub nor a mail service
+    passwordSignUp: true
+    turnstile:
+      # No bot check on a server only the people trying it can reach, so the find-my-organizations form calls no
+      # Cloudflare service
+      enabled: false
+  cors:
+    # The portal kinotic-ui serves (compose.ui.yml), the portal's vite dev server (pnpm dev) a contributor runs
+    # from source, and Summit 42's UI, which its own compose file adds to this stack
+    allowedOriginPattern: "http:\\/\\/localhost:(9090|5173|9092)"
+    allowCredentials: true
+  domain:
+    # The portal kinotic-ui serves
+    portalBaseUrl: http://localhost:9090
+    email:
+      # No mail service: each link a person must open is logged and shown in the UI that asked for it: a
+      # sign-up's verification link, an invitation's accept link, the organizations an address belongs to
+      enabled: false
+    systemSecrets:
+      # Seeded on first boot by DevSystemSecretsGenerator, or by whichever server boots first: every server on the
+      # machine reads the same file, and none of it is committed. Production uses Azure Key Vault via the Secrets
+      # Store CSI driver — same file layout, different origin.
+      generateMissing: true
+      jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys
+    # The app server on this machine: the host of an application's or a tenant's OIDC callback
+    appApiBaseUrl: http://apps-api.kinotic.localhost:58505
+    secretStorage:
+      backend: IN_MEMORY
+      # Base64-encoded 32-byte key used by SecretNameDeriver to derive opaque, deterministic storage names; every
+      # server on the machine must derive the same ones. A demonstration value — production supplies this via
+      # Azure Key Vault.
+      masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
+  maxNumberOfCoresToUse: 4

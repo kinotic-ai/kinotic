@@ -20,8 +20,6 @@ kinotic:
       domain: apps.localhost
   maxNumberOfCoresToUse: 4
   systemApi:
-    # no sites account in tests: the site provisioner is the mock
-    disableAzureStorage: true
     # tests store the advisories they check SBOMs against; OSV is never read
     disableOsvImport: true
     deployment:
@@ -30,8 +28,10 @@ kinotic:
         host: localhost
       appServer:
         host: localhost
-    # placeholder site config, validated at boot; no test deploys a UI
+    # no site storage in tests: nothing is uploaded and every published UI reads ready at once;
+    # the endpoint is a placeholder, validated at boot
     uiDeployment:
+      siteStorage: DISABLED
       sitesStorageEndpoint: "-"
 
 logging:

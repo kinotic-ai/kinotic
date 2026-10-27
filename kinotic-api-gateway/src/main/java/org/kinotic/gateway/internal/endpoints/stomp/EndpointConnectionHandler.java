@@ -52,10 +52,10 @@ public class EndpointConnectionHandler {
     private boolean sessionCreatedHere;
     private long sessionTimer = -1;
 
-    public EndpointConnectionHandler(Services services) {
+    public EndpointConnectionHandler(Services services, ReplyFlowControl replyFlowControl) {
         this.services = services;
         this.securityService = services.securityService;
-        this.incomingInvocationTracker = new IncomingInvocationTracker(services);
+        this.incomingInvocationTracker = new IncomingInvocationTracker(services, replyFlowControl);
         this.outgoingInvocationTracker = new OutgoingInvocationTracker(services);
     }
 

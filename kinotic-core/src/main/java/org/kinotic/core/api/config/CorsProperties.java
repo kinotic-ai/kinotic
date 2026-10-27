@@ -22,8 +22,7 @@ public class CorsProperties {
      * <p>
      * Security: the origins this pattern names, other than through "*", are also the only pages the server's sign-in,
      * sign-up, invitation and GitHub App install flows return to, with their logins, tokens, codes and errors (see
-     * {@link #trustsOrigin(String)}), so name only origins you control. The local development profile's ngrok wildcard is the one exception: it admits anyone's ngrok tunnel,
-     * which is acceptable only on a developer's machine.
+     * {@link #trustsOrigin(String)}), so name only origins you control.
      * @see java.util.regex.Pattern
      */
     private String allowedOriginPattern = "http://localhost(:\\d+)?";

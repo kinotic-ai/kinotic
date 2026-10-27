@@ -17,6 +17,7 @@ import io.vertx.ext.web.client.WebClientOptions;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.management.api.model.github.GitHubToken;
 import org.springframework.stereotype.Component;
 
@@ -52,6 +53,8 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     private static final Duration MIN_RETURNED_TOKEN_LIFETIME = Duration.ofMinutes(10);
     /** User-authorization token exchange lives on github.com, not api.github.com. */
     private static final String OAUTH_HOST = "github.com";
+    // GitHub's archive host, which serves a public repo's tarball outside the REST API's anonymous rate limit
+    private static final String ARCHIVE_HOST = "codeload.github.com";
     private static final String USER_AGENT = "kinotic-platform";
     /** GitHub's per_page maximum for the /user/installations collection. */
     private static final int USER_INSTALLATIONS_PAGE_SIZE = 100;
@@ -189,6 +192,14 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                                 json.getString("full_name"),
                                 json.getString("default_branch")));
                     }
+                    if (resp.statusCode() == 422) {
+                        String respBody = resp.bodyAsString();
+                        if (respBody != null && respBody.contains("Name already exists on this account")) {
+                            return Future.failedFuture(new AlreadyExistsException(
+                                    "A repository named '" + name + "' already exists in the GitHub account '" + owner
+                                    + "'. Choose another name, or rename or delete that repository on GitHub."));
+                        }
+                    }
                     return Future.failedFuture(httpError("createRepoFromTemplate", resp));
                 });
     }
@@ -235,6 +246,16 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                             }
                             return Future.failedFuture(httpError("downloadTarball", resp));
                         });
+    }
+
+    @Override
+    public Future<Buffer> downloadPublicTarball(String repoFullName) {
+        return webClient.get(API_PORT, ARCHIVE_HOST, "/" + repoFullName + "/tar.gz/HEAD")
+                        .ssl(true)
+                        .send()
+                        .compose(resp -> resp.statusCode() == 200
+                                ? Future.succeededFuture(resp.body())
+                                : Future.failedFuture(httpError("downloadPublicTarball", resp)));
     }
 
     @Override

@@ -17,11 +17,6 @@ servers:
       sha: ""
     # kinotic.apiGateway.stompPort: REST, STOMP and MCP
     gatewayPort: 58503
-    # kinotic.apiGateway.webServer.*: the portal's files, served from the jar. Disabled where the
-    # portal is hosted outside the cluster.
-    webServer:
-      enabled: true
-      port: 9090
     # kinotic.managementServer.*: the Turnstile site this server's open routes are guarded by; the
     # URLs of its API and the portal are kinotic.managementApi.apiBaseUrl and kinotic.domain.portalBaseUrl below
     managementServer:
@@ -53,8 +48,6 @@ servers:
       repository: kinoticai/kinotic-server-system
       sha: ""
     gatewayPort: 58504
-    webServer:
-      enabled: false
     # kinotic.systemServer.*: the URLs this server is reached at (no trailing slashes)
     systemServer:
       # this server's REST endpoints, the base of its OIDC redirect_uris and its OAuth issuer
@@ -78,8 +71,6 @@ servers:
       repository: kinoticai/kinotic-server-app
       sha: ""
     gatewayPort: 58505
-    webServer:
-      enabled: false
     tlsSecretName: kinotic-server-app-tls
     turnstile: false
     githubApp: false
@@ -126,9 +117,11 @@ kinotic:
     portalBaseUrl: "http://localhost:9090"
     # kinotic.domain.email.* — outbound mail via Azure Communication Services
     email:
-      # When false, EmailService logs verification URLs instead of sending. Required for
-      # local/dev environments without a real ACS resource.
-      enabled: false
+      # When false, no email is sent and every link a person must open (sign-up verification,
+      # invitation accept, the organizations an address belongs to) is returned to whoever asks
+      # for it, so nothing proves an address is theirs. Only for a server reachable by no one but
+      # the people trying it. While true, endpoint and senderAddress are required.
+      enabled: true
       endpoint: ""
       senderAddress: ""
       managedIdentityClientId: ""
@@ -136,8 +129,8 @@ kinotic:
   managementApi:
     # kinotic.managementApi.apiBaseUrl: the management server's REST endpoints as a browser
     # reaches them (no trailing slash), the base of its OIDC redirect_uris and of the callback URL of
-    # an organization's own OIDC configurations; the portal's own origin for a same-origin deploy
-    apiBaseUrl: "http://localhost:9090"
+    # an organization's own OIDC configurations
+    apiBaseUrl: "http://localhost:58503"
     # Loki HTTP API backing the LogService
     lokiUrl: "http://loki.observability.svc:3100"
     # Tempo and Mimir HTTP APIs backing the TelemetryService

@@ -1,0 +1,36 @@
+# The demonstration server: the whole platform on one machine from deployment/docker-compose
+# (compose.yml), to try Kinotic, or develop it, with no Azure, no GitHub and no mail service.
+# compose.kinotic-servers.yml runs every server with this profile, and supplies the container addresses:
+# Elasticsearch, the Ignite cluster and the observability stack.
+kinotic:
+  cors:
+    # An application UI's vite dev server on any local port, and the sites the local edge serves
+    # under sites.kinotic.localhost
+    allowedOriginPattern: "http:\\/\\/localhost:\\d+|http:\\/\\/[a-z0-9-]+\\.[a-z0-9-]+\\.sites\\.kinotic\\.localhost:8088"
+    allowCredentials: true
+  domain:
+    email:
+      # No mail service: each link a person must open is logged and shown in the UI that asked for it: a
+      # sign-up's verification link, an invitation's accept link, the organizations an address belongs to
+      enabled: false
+    systemSecrets:
+      # Seeded on first boot by DevSystemSecretsGenerator, or by whichever server boots first: every
+      # server on the machine reads the same file. Production uses Azure Key Vault via the Secrets
+      # Store CSI driver — same file layout, different origin.
+      generateMissing: true
+      jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys
+    publishedSites:
+      # The domain the local edge serves the sites under, so a published UI signs its users in
+      domain: sites.kinotic.localhost
+    secretStorage:
+      backend: IN_MEMORY
+      # The management server's key: SecretNameDeriver must derive the same storage names on every server
+      masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
+    # Under kinotic.localhost, as the sites are, so a site and its application's API host are one site to the
+    # browser and the SameSite=Lax session cookie travels between them, as both do under kinotic.ai in production
+    appApiBaseUrl: http://apps-api.kinotic.localhost:58505
+  appServer:
+    # An application UI's vite dev server on any local port signs its users in to the application
+    # whose API host its proxy addresses
+    localUiOriginPattern: "http:\\/\\/localhost:\\d+"
+  maxNumberOfCoresToUse: 4

@@ -6,6 +6,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.model.security.LoginScope;
 import org.kinotic.core.api.service.SuppliesGatewayRoutes;
@@ -29,6 +30,7 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
 
     private final ApplicationSignUpService signUpService;
     private final ApplicationAuthEndpointSupport authEndpointSupport;
+    private final KinoticDomainProperties domainProperties;
 
     @Override
     public void mountRoutes(Router router) {
@@ -40,7 +42,10 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
      * {@code POST /api/auth/app/signup {email}} — emails {@code email} a link to the
      * {@code /signup/verify?token=…} page of the UI that sent the request, and answers {@code 202} whether or not the
      * email has a user, before anything is sent; an email that has one is sent nothing, and so is one whose link from
-     * an earlier request is still valid. {@code 403} from a page that is not one of the application's UIs, from a
+     * an earlier request is still valid. Where email is disabled ({@code kinotic.domain.email.enabled} is
+     * {@code false}) nothing is sent: it answers {@code 200 {verificationUrl}} with the link for the page to show, the
+     * same link again while it is valid, and {@code 409} when the email has a user, which signs in instead.
+     * {@code 403} from a page that is not one of the application's UIs, from a
      * tenant's site, and while the application does not offer sign-up with an email and a password; {@code 400} for
      * an email with no {@code @} and from a request no page sent; {@code 404} for an application that does not exist.
      */
@@ -67,17 +72,31 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
     }
 
     private void startSignUp(RoutingContext ctx, LoginScope scope, String email, String origin) {
-        Future<Void> started;
+        Future<String> started;
         try {
             started = signUpService.initiatePasswordSignUp(scope, email, origin);
         } catch (IllegalArgumentException e) {
             authEndpointSupport.respondError(ctx, 400, e.getMessage());
             return;
         }
-        // answered once the request is checked and before the email is looked up, so neither the answer nor its timing
-        // depends on whether the email has a user
-        ctx.response().setStatusCode(202).end();
-        started.onFailure(err -> log.warn("Sign-up to {} could not be started: {}", HostLabelUtil.label(scope.applicationKey()), err.getMessage()));
+        if (domainProperties.getDomain().getEmail().isEnabled()) {
+            // answered once the request is checked and before the email is looked up, so neither the answer nor its
+            // timing depends on whether the email has a user
+            ctx.response().setStatusCode(202).end();
+            started.onFailure(err -> log.warn("Sign-up to {} could not be started: {}", HostLabelUtil.label(scope.applicationKey()), err.getMessage()));
+        } else {
+            started.onSuccess(verificationUrl -> ctx.response()
+                                                    .setStatusCode(200)
+                                                    .putHeader("Content-Type", "application/json")
+                                                    .end(new JsonObject().put("verificationUrl", verificationUrl).encode()))
+                   .onFailure(err -> {
+                       if (err instanceof ExistingUserException) {
+                           authEndpointSupport.respondError(ctx, 409, err.getMessage());
+                       } else {
+                           authEndpointSupport.fail(ctx, err, "Failed to start sign-up");
+                       }
+                   });
+        }
     }
 
     /**

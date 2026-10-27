@@ -1,0 +1,68 @@
+#!/bin/sh
+# Installs the Kinotic CLI and starts Kinotic on this machine:
+#
+#   curl -fsSL https://kinotic.ai/install | sh
+#
+# Kinotic runs in Docker, which must be installed and running. Bun is installed when missing; the CLI runs on
+# Node.js, which must be installed. Bun's global bin directory, where the kinotic command is installed, is added to
+# the PATH in the shell's profile when it is missing. `kinotic local up` then starts the servers, the portal and the
+# node your projects deploy to, and `kinotic local down` stops them.
+set -eu
+
+fail() {
+    printf 'Error: %s\n' "$1" >&2
+    exit 1
+}
+
+# The profile the login shell reads, and the line that puts a directory on the PATH there
+add_to_path() {
+    dir="$1"
+    case "$(basename "${SHELL:-sh}")" in
+        zsh)  profile="${ZDOTDIR:-$HOME}/.zshrc"; line="export PATH=\"$dir:\$PATH\"" ;;
+        bash) if [ "$(uname)" = Darwin ]; then profile="$HOME/.bash_profile"; else profile="$HOME/.bashrc"; fi
+              line="export PATH=\"$dir:\$PATH\"" ;;
+        fish) profile="$HOME/.config/fish/config.fish"; line="fish_add_path \"$dir\"" ;;
+        *)    profile="$HOME/.profile"; line="export PATH=\"$dir:\$PATH\"" ;;
+    esac
+    if ! grep -qsF "$line" "$profile"; then
+        mkdir -p "$(dirname "$profile")"
+        printf '\n# The Kinotic CLI, installed by Bun\n%s\n' "$line" >> "$profile"
+    fi
+    printf 'Added %s to your PATH in %s\n' "$dir" "$profile"
+}
+
+# The whole script is one function called on its last line, so a download cut short runs nothing
+main() {
+    command -v docker >/dev/null 2>&1 || fail "Docker is required. Install Docker Desktop (https://docs.docker.com/get-docker/), start it, and run this again."
+    docker info >/dev/null 2>&1 || fail "Docker is not running. Start Docker Desktop or the Docker daemon, and run this again."
+    command -v node >/dev/null 2>&1 || fail "Node.js 18 or later is required to run the Kinotic CLI. Install it from https://nodejs.org and run this again."
+
+    BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+    ORIGINAL_PATH="$PATH"
+    PATH="$BUN_INSTALL/bin:$PATH"
+    export PATH
+    if ! command -v bun >/dev/null 2>&1; then
+        printf 'Installing Bun\n'
+        # sh has no pipefail, so the install is judged by whether bun exists afterwards
+        curl -fsSL https://bun.sh/install | bash || true
+        command -v bun >/dev/null 2>&1 || fail "Bun could not be installed. Install it from https://bun.sh and run this again."
+    fi
+
+    printf 'Installing the Kinotic CLI\n'
+    bun install --global @kinotic-ai/kinotic-cli@beta
+    # Bun puts global commands in its own bin directory, which a Bun installed by another means need not have on the PATH
+    BIN_DIR="$(bun pm bin -g)"
+    case ":$ORIGINAL_PATH:" in
+        *":$BIN_DIR:"*) ;;
+        *) add_to_path "$BIN_DIR" ;;
+    esac
+
+    "$BIN_DIR/kinotic" local up
+
+    case ":$ORIGINAL_PATH:" in
+        *":$BIN_DIR:"*) ;;
+        *) printf '\nOpen a new terminal to run kinotic there.\n' ;;
+    esac
+}
+
+main
