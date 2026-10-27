@@ -313,7 +313,7 @@
 import { computed, markRaw, onMounted, ref, type Component } from 'vue'
 import Button from 'primevue/button'
 import Skeleton from 'primevue/skeleton'
-import { ArrowRight, ArrowUpRight, BookOpen, Boxes, Braces, ChartLine, Check, CloudUpload, Copy, Database, FileCode, FolderGit2, GitBranch,
+import { ArrowRight, ArrowUpRight, BookOpen, Boxes, ChartLine, Check, CloudUpload, Copy, Database, FolderGit2, GitBranch,
          GitCommitHorizontal, Globe, Layers, Library, Package, Table, Terminal } from '@lucide/vue'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DelegateType, type DelegatingParticipantIdentity, type GitHubAppInstallation, type Project, RepoHostType, type RepositoryHost } from '@kinotic-ai/management-api'
@@ -352,7 +352,7 @@ type FeatureId = 'data' | 'deploy' | 'observe'
 
 const FEATURES: { id: FeatureId, title: string, icon: Component, bar: string, href: string, description: string }[] = [
   { id: 'data', title: 'Model your data', icon: markRaw(Table), bar: 'bg-purple-500', href: 'https://kinotic.ai/apps/persistence/overview',
-    description: 'Define entities in TypeScript and get typed repositories, backing storage, and GraphQL and OpenAPI endpoints for them.' },
+    description: 'Define entities in TypeScript and get typed repositories and backing storage for them.' },
   { id: 'deploy', title: 'Deploy on every push', icon: markRaw(CloudUpload), bar: 'bg-sky-500', href: 'https://kinotic.ai/apps/deployment/push-to-deploy',
     description: 'Pushing to a project\'s default branch builds and deploys its microservices and publishes its UIs.' },
   { id: 'observe', title: 'See it running', icon: markRaw(ChartLine), bar: 'bg-green-500', href: 'https://kinotic.ai/apps/services/overview',
@@ -369,9 +369,7 @@ const CLAUDE_OUTPUTS = [
 
 // Placeholders for the feature illustrations
 const DATA_OUTPUTS = [
-  { label: 'PersonRepository', icon: markRaw(Database), tint: TINTS.purple },
-  { label: 'GraphQL API', icon: markRaw(Braces), tint: TINTS.red },
-  { label: 'OpenAPI', icon: markRaw(FileCode), tint: TINTS.green }
+  { label: 'PersonRepository', icon: markRaw(Database), tint: TINTS.purple }
 ]
 const DEPLOY_STEPS = [
   { label: 'Sync', icon: markRaw(FolderGit2) },
