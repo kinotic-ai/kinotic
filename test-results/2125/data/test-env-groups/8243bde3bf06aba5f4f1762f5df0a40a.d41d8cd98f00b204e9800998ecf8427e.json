@@ -1,1 +1,0 @@
-{"id":"8243bde3bf06aba5f4f1762f5df0a40a.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testSuspendableStreamThatKeepsSendingIsTreatedAsUnsuspendable","name":"testSuspendableStreamThatKeepsSendingIsTreatedAsUnsuspendable()","status":"passed","testResultsByEnv":{"default":"c594cf4159922fe720668c7fc1005322"}}
