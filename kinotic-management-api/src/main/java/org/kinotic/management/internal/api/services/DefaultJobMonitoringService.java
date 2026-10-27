@@ -12,8 +12,8 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
-import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRun;
+import org.kinotic.grind.api.model.JobRunFilter;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.events.JobRunEvent;
 import org.kinotic.grind.api.model.events.TaskCompletedEvent;
@@ -47,20 +47,33 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
     }
 
     @Override
-    public Future<Page<JobRun>> findJobRuns(Pageable pageable) {
+    public Future<Page<JobRun>> findJobRuns(JobRunFilter filter, Pageable pageable) {
+        Validate.notNull(filter, "filter cannot be null");
         Validate.notNull(pageable, "pageable cannot be null");
-        ParticipantScope scope = currentParticipant().getScope();
+        ScopedParticipant participant = currentParticipant();
+        ParticipantScope scope = participant.getScope();
         Future<Page<JobRun>> ret;
-        if(scope.organizationId() == null){
-            // system users troubleshoot every run, not only the platform-owned ones findAllForOwner would give
-            ret = jobRunRepository.findAll(pageable);
-        }else if(scope.applicationId() != null){
-            ret = jobRunRepository.findAllForOwner(JobOwner.ofApplication(scope.organizationId(), scope.applicationId(), null),
-                                                   pageable);
-        }else{
-            ret = jobRunRepository.findAllForOwner(JobOwner.ofOrganization(scope.organizationId(), null), pageable);
+        if (namesOther(filter.getOrganizationId(), scope.organizationId())
+                || namesOther(filter.getApplicationId(), scope.applicationId())) {
+            log.error("Participant {} may not view the job runs of organization {} application {}",
+                      participant.getId(), filter.getOrganizationId(), filter.getApplicationId());
+            ret = Future.failedFuture(new AuthorizationException("Access denied"));
+        } else {
+            // a SYSTEM-scoped caller, with no organization, may view every run; anyone else is narrowed to their own
+            if (scope.organizationId() != null) {
+                filter.setOrganizationId(scope.organizationId());
+            }
+            if (scope.applicationId() != null) {
+                filter.setApplicationId(scope.applicationId());
+            }
+            ret = jobRunRepository.findAllMatching(filter, pageable);
         }
         return ret;
+    }
+
+    // true when the filter asks for an organization or application other than the one the caller is scoped to
+    private static boolean namesOther(String requested, String scoped) {
+        return scoped != null && requested != null && !requested.equals(scoped);
     }
 
     @Override

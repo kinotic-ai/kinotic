@@ -58,7 +58,7 @@ public class OAuthAuthorizationGrant implements Identifiable<String> {
      */
     private String identityId;
 
-    /** The organization of the scope the approver was signed in to, the scope the issued delegate acts in; {@code null} for the platform. */
+    /** The organization of the scope the approver was signed in to, the scope the issued delegate acts in; {@code null} for the system. */
     private String organizationId;
 
     /** The application of that scope, or {@code null}. */

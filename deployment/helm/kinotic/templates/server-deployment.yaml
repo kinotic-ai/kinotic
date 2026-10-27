@@ -74,9 +74,6 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 7
           ports:
-            {{- if $server.webServer.enabled }}
-            - containerPort: {{ $server.webServer.port }} # the portal's static server
-            {{- end }}
             - containerPort: {{ $server.gatewayPort }} # REST, STOMP and MCP
             - containerPort: {{ $.Values.kinotic.cluster.discoveryPort | default 47500 }} # Ignite Discovery Port
             - containerPort: {{ $.Values.kinotic.cluster.communicationPort | default 47100 }} # Ignite Communication Port
@@ -103,11 +100,11 @@ spec:
                 secretKeyRef:
                   name: {{ $.Values.kinotic.elastic.secretName }}
                   key: {{ $.Values.kinotic.elastic.secretKey }}
-            - name: KINOTIC_PLATFORMSECRETS_JWTSIGNINGKEYSPATH
-              value: "{{ $.Values.platformSecrets.mountPath }}/jwt-signing-keys"
-            # Each file of the platform-secrets volume sets the property it is named after
+            - name: KINOTIC_DOMAIN_SYSTEMSECRETS_JWTSIGNINGKEYSPATH
+              value: "{{ $.Values.systemSecrets.mountPath }}/jwt-signing-keys"
+            # Each file of the system-secrets volume sets the property it is named after
             - name: SPRING_CONFIG_IMPORT
-              value: "configtree:{{ $.Values.platformSecrets.mountPath }}/"
+              value: "configtree:{{ $.Values.systemSecrets.mountPath }}/"
           volumeMounts:
             - name: tmp-work
               mountPath: /workspace/ignite/work
@@ -116,8 +113,8 @@ spec:
               mountPath: /certs
               readOnly: true
             {{- end }}
-            - name: platform-secrets
-              mountPath: {{ $.Values.platformSecrets.mountPath }}
+            - name: system-secrets
+              mountPath: {{ $.Values.systemSecrets.mountPath }}
               readOnly: true
       restartPolicy: Always
       nodeSelector: {{ toYaml $.Values.nodeSelector | nindent 8 }}
@@ -130,15 +127,15 @@ spec:
           secret:
             secretName: {{ $server.tlsSecretName }}
         {{- end }}
-        # The files kinotic.platformSecretFiles lists for this server: its own JWT key set, never
+        # The files kinotic.systemSecretFiles lists for this server: its own JWT key set, never
         # another server's, and the secret properties it imports
-        - name: platform-secrets
+        - name: system-secrets
           # The CSI driver projects this server's SecretProviderClass objects from Key Vault and
           # refreshes them in place when Key Vault values change.
           csi:
             driver: secrets-store.csi.k8s.io
             readOnly: true
             volumeAttributes:
-              secretProviderClass: {{ $name }}-platform-secrets
+              secretProviderClass: {{ $name }}-system-secrets
 {{- end }}
 {{- end }}

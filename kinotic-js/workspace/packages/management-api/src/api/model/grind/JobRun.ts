@@ -20,7 +20,7 @@ export class JobRun implements Watched {
 
     /**
      * The Organization this run executed on behalf of.
-     * Null for platform runs (SYSTEM scope).
+     * Null for system runs.
      */
     public organizationId: string | null = null
 

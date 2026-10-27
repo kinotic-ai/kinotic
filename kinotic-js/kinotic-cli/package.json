@@ -1,6 +1,6 @@
 {
     "name": "@kinotic-ai/kinotic-cli",
-    "version": "5.2.0-beta.34",
+    "version": "5.2.0-beta.42",
     "description": "Kinotic CLI provides the ability to build, deploy, and manage Kinotic applications that run on the Kinotic OS.",
     "author": "Kinotic Developers",
     "bin": {
@@ -22,10 +22,10 @@
     ],
     "dependencies": {
         "@inquirer/prompts": "^8.5.2",
-        "@kinotic-ai/core": "5.0.0-beta.27",
-        "@kinotic-ai/idl": "5.0.0-beta.6",
-        "@kinotic-ai/management-api": "5.0.0-beta.64",
-        "@kinotic-ai/persistence": "5.0.0-beta.16",
+        "@kinotic-ai/core": "5.0.0-beta.30",
+        "@kinotic-ai/idl": "5.0.0-beta.7",
+        "@kinotic-ai/management-api": "5.0.0-beta.71",
+        "@kinotic-ai/persistence": "5.0.0-beta.19",
         "@kinotic-ai/spawn": "5.0.0-beta.1",
         "@oclif/core": "^4.13.3",
         "c12": "^3.3.4",
@@ -57,13 +57,16 @@
         "commands": "./dist/commands",
         "topicSeparator": " ",
         "topics": {
+            "local": {
+                "description": "Runs Kinotic on this machine: its servers, portal and a node for deployments"
+            },
             "spawn": {
                 "description": "Works with Kinotic spawn templates"
             }
         }
     },
     "scripts": {
-        "build": "shx rm -rf dist && tsc -b && tsc-alias -f && pnpm run copy-files",
+        "build": "shx rm -rf dist && tsc -b && tsc-alias -f && pnpm run copy-files && node scripts/bundle-local-stack.mjs",
         "lint": "eslint . --ext .ts --config .eslintrc",
         "prepack": "pnpm build",
         "test": "mocha --forbid-only \"test/**/*.test.ts\"",
@@ -75,6 +78,7 @@
     "engines": {
         "node": ">=18.0.0"
     },
+    "packageManager": "pnpm@12.10.0",
     "keywords": [],
     "types": "dist/index.d.ts"
 }

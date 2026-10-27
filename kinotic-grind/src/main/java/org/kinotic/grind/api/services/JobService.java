@@ -21,7 +21,7 @@ public interface JobService {
      * handle's events are first subscribed - {@link JobRunHandle#completion()} subscribes.
      * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
      * @param owner the hierarchy this run executes on behalf of, {@link JobOwner#system()}
-     *              for a platform run
+     *              for a system run
      * @return the prepared {@link JobRunHandle}
      */
     JobRunHandle run(JobDefinition jobDefinition, JobOwner owner);

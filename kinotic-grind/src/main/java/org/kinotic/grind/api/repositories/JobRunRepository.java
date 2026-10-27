@@ -1,6 +1,7 @@
 package org.kinotic.grind.api.repositories;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
@@ -16,8 +17,8 @@ import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.grind.api.model.ExecutionStatus;
-import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRun;
+import org.kinotic.grind.api.model.JobRunFilter;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.springframework.stereotype.Component;
 
@@ -176,16 +177,24 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
     }
 
     /**
-     * Returns the page of runs owned by the given {@link JobOwner}: all of an organization's
-     * runs, narrowed to an application and/or project when the owner carries those ids. The
-     * system owner selects platform runs - those owned by no organization.
+     * Returns the page of runs the given filter matches.
+     *
+     * @param filter   which runs to return
+     * @param pageable the page to return
      */
-    public Future<Page<JobRun>> findAllForOwner(JobOwner owner, Pageable pageable) {
+    public Future<Page<JobRun>> findAllMatching(JobRunFilter filter, Pageable pageable) {
+        Validate.notNull(filter, "filter cannot be null");
         return findAll(pageable, b -> b.query(composeFilter(
-            owner.getOrganizationId() != null ? termFilter("organizationId", owner.getOrganizationId())
-                                              : missingFilter("organizationId"),
-            owner.getApplicationId() != null ? termFilter("applicationId", owner.getApplicationId()) : null,
-            owner.getProjectId() != null ? termFilter("projectId", owner.getProjectId()) : null)));
+            filter.getOrganizationId() != null ? termFilter("organizationId", filter.getOrganizationId()) : null,
+            filter.getApplicationId() != null ? termFilter("applicationId", filter.getApplicationId()) : null,
+            filter.getProjectId() != null ? termFilter("projectId", filter.getProjectId()) : null,
+            filter.getStatus() != null ? termFilter("status", filter.getStatus().name()) : null,
+            filter.getStartedSince() != null ? startedSinceFilter(filter.getStartedSince()) : null)));
+    }
+
+    private static Query startedSinceFilter(Date since) {
+        String from = since.toInstant().toString();
+        return Query.of(q -> q.range(r -> r.date(d -> d.field("started").gte(from))));
     }
 
     private Future<Void> readTaskPage(String jobRunId, int pageNumber, List<TaskRecord> collected) {

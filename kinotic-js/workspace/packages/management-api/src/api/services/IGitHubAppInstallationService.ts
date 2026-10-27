@@ -1,4 +1,4 @@
-import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
+import { MANAGEMENT_API_ZONE } from '@/api/Zones'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import { GitHubAppInstallation } from '@/api/model/github/GitHubAppInstallation'
 import { GitHubInstallCompletion } from '@/api/model/github/GitHubInstallCompletion'

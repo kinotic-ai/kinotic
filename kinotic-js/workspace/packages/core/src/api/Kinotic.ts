@@ -20,7 +20,7 @@ export interface IKinotic {
 
     /**
      * The zone prefix every service published by this client registers under, such as
-     * `app.<organizationId>.<applicationId>` for an application or `system` for a platform
+     * `app.<organizationId>.<applicationId>` for an application or `system` for a system
      * workload. Must be set from static configuration before service classes are instantiated.
      * When null, services register at un-zoned legacy addresses.
      */

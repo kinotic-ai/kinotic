@@ -15,6 +15,7 @@ import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.WatchEventType;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.RepositoryHost;
 import org.kinotic.management.api.model.deployment.ProjectDependencies;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
@@ -194,6 +195,11 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     }
 
     @Override
+    public Future<RepositoryHost> getRepositoryHost() {
+        return Future.succeededFuture(repoProvisioner.repositoryHost());
+    }
+
+    @Override
     public Future<List<Project>> findByRepoFullName(String repoFullName) {
         Validate.notBlank(repoFullName, "repoFullName must not be blank");
         return projectRepository.findByRepoFullName(repoFullName, requireOrganizationId());
@@ -272,13 +278,13 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                                 "Project for id " + project.getId() + " already exists"));
                     }
                     return repoProvisioner.provision(project)
-                                          .compose(write)
+                                          .compose(provisioned -> write.apply(provisioned)
+                                                  .recover(ex -> AlreadyExistsException.isCause(ex)
+                                                          ? Future.failedFuture(new IllegalArgumentException(
+                                                                  "Project for id " + project.getId() + " already exists"))
+                                                          : Future.failedFuture(ex)))
                                           .compose(this::contained);
-                })
-                .recover(ex -> AlreadyExistsException.isCause(ex)
-                        ? Future.failedFuture(new IllegalArgumentException(
-                                "Project for id " + project.getId() + " already exists"))
-                        : Future.failedFuture(ex));
+                });
     }
 
     private void validateAndDeriveId(Project project) {

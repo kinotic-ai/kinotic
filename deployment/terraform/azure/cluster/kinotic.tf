@@ -33,8 +33,6 @@ resource "helm_release" "kinotic" {
     { name = "servers.kinotic-server-system.tlsSecretName", value = var.tls_secret_name },
     { name = "servers.kinotic-server-app.tlsSecretName", value = var.tls_secret_name },
     { name = "image.tag", value = var.kinotic_version },
-    # The portal is hosted outside the cluster — no static server inside.
-    { name = "servers.kinotic-server-management.webServer.enabled", value = "false" },
     # Where the portal and the console live — post-OIDC redirects and the emailed links — and
     # where each server's REST endpoints live, the OIDC redirect_uri
     { name = "kinotic.domain.portalBaseUrl", value = "https://portal.${local.global.dns_zone_name}" },
@@ -77,10 +75,10 @@ resource "helm_release" "kinotic" {
     { name = "kinotic.domain.email.endpoint", value = local.global.email_service_endpoint },
     { name = "kinotic.domain.email.senderAddress", value = "DoNotReply@${local.global.email_sender_domain}" },
     { name = "kinotic.domain.email.managedIdentityClientId", value = azurerm_user_assigned_identity.kinotic_server.client_id },
-    # Platform secrets (each server's JWT signing keys, the secret-storage master key, the GitHub
+    # System secrets (each server's JWT signing keys, the secret-storage master key, the GitHub
     # App's secrets) from the global Key Vault
-    { name = "platformSecrets.keyVault.name", value = local.global.platform_key_vault_name },
-    { name = "platformSecrets.keyVault.tenantId", value = local.global.tenant_id },
+    { name = "systemSecrets.keyVault.name", value = local.global.platform_key_vault_name },
+    { name = "systemSecrets.keyVault.tenantId", value = local.global.tenant_id },
   ]
 
   depends_on = [

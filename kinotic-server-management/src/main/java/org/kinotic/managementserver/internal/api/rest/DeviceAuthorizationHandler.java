@@ -9,7 +9,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.domain.api.model.security.DelegateType;
 import org.kinotic.domain.api.rest.OAuthExtensionGrant;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.services.security.DeviceCodeGrantService;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
 import org.kinotic.managementserver.api.config.ManagementServerProperties;

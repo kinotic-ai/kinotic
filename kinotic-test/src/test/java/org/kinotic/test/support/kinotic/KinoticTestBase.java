@@ -29,9 +29,8 @@ import org.kinotic.domain.api.model.security.participant.SystemParticipant;
 import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.SystemParticipantIdentity;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
-import org.kinotic.domain.api.services.security.OrganizationMembershipService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
-import org.kinotic.domain.api.services.security.RequestAuthorizer;
+import org.kinotic.core.api.security.RequestAuthorizer;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.utils.AuthzConstants;
@@ -125,9 +124,6 @@ public abstract class KinoticTestBase {
     @Autowired
     private ParticipantIdentityService participantIdentities;
 
-    @Autowired
-    private OrganizationMembershipService memberships;
-
     /**
      * Waits for the system store to run the model of every system service in the directory, and makes
      * {@link #TEST_ORGANIZATION_PARTICIPANT} a member and the administrator of {@link #TEST_ORG_ID} in it, so the
@@ -160,7 +156,7 @@ public abstract class KinoticTestBase {
     }
 
     private boolean bound() {
-        String member = AuthzGraphUtil.authzMember(TEST_ORGANIZATION_PARTICIPANT.getId(), TEST_ORG_ID);
+        String member = AuthzGraphUtil.authzUser(TEST_ORGANIZATION_PARTICIPANT.getId());
         String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID);
         boolean ret;
         try {
@@ -244,20 +240,18 @@ public abstract class KinoticTestBase {
     }
 
     /**
-     * Creates an organization user and its membership of an organization, as signing up or accepting an invitation
-     * does.
+     * Creates a user of an organization, as signing up or adding a member does.
      *
-     * @param organizationId the organization the user joins
+     * @param organizationId the organization the user belongs to
      * @param emailPrefix    the start of the user's email, which a random suffix makes unique
-     * @return the organization user
+     * @return the organization's user
      */
     protected OrganizationParticipantIdentity member(String organizationId, String emailPrefix) throws Exception {
         OrganizationParticipantIdentity user = new OrganizationParticipantIdentity();
-        user.setEmail(emailPrefix + "-" + suffix() + "@kinotic.test");
+        user.setOrganizationId(organizationId)
+            .setEmail(emailPrefix + "-" + suffix() + "@kinotic.test");
         user.setDisplayName(emailPrefix);
-        OrganizationParticipantIdentity ret = await(participantIdentities.createUser(user, "Member-1"));
-        await(memberships.addMembership(ret.getId(), organizationId));
-        return ret;
+        return await(participantIdentities.createUser(user, "Member-1"));
     }
 
     /**

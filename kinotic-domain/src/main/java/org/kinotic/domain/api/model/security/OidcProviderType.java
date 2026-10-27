@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import org.apache.commons.lang3.Validate;
 
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -22,15 +23,19 @@ import java.util.regex.Pattern;
  * {@link #authority(String)} fills from the organization's account at the provider, so an
  * organization never names a URL and the server only ever connects to the provider's own hosts.
  * A type without a template is offered to organizations' sign-up and sign-in through the
- * platform's curated registrations only.
+ * system's curated registrations only.
  */
 public enum OidcProviderType {
 
     /** Google Workspace and consumer accounts share one issuer, so there is no account to name. */
     GOOGLE("google", "https://accounts.google.com", null, null),
-    /** The account is the Entra directory, named by its tenant id. */
+    /**
+     * The account is the Entra directory, named by its tenant id, or, for an application's or a tenant's login,
+     * {@code common} for every Microsoft account and {@code organizations} for every work or school account.
+     */
     AZURE_AD("azure-ad", "https://login.microsoftonline.com/{providerAccount}/v2.0",
-             "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", "Directory (tenant) ID"),
+             "common|organizations|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+             "Directory (tenant) ID, or common or organizations"),
     /** The account is the Okta org, named by its Okta domain, on any of Okta's own domains. */
     OKTA("okta", "https://{providerAccount}", "[a-z0-9-]{1,63}\\.(okta\\.com|oktapreview\\.com|okta-emea\\.com)", "Okta domain"),
     MICROSOFT_LIVE("microsoft-live"),
@@ -46,6 +51,7 @@ public enum OidcProviderType {
     OIDC("oidc");
 
     private static final String PROVIDER_ACCOUNT_PLACEHOLDER = "{providerAccount}";
+    private static final Set<String> MULTI_DIRECTORY_ACCOUNTS = Set.of("common", "organizations");
 
     private final String key;
     private final String authorityTemplate;
@@ -83,6 +89,15 @@ public enum OidcProviderType {
      */
     public String providerAccountLabel() {
         return providerAccountLabel;
+    }
+
+    /**
+     * Whether {@code providerAccount} admits the users of every directory at this provider rather than one, as
+     * Microsoft Entra's {@code common} and {@code organizations} do; the administrator of any of those directories
+     * sets its users' emails.
+     */
+    public boolean admitsEveryDirectory(String providerAccount) {
+        return this == AZURE_AD && MULTI_DIRECTORY_ACCOUNTS.contains(providerAccount);
     }
 
     /**

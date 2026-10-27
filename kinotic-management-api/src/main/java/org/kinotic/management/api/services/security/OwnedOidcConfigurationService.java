@@ -4,11 +4,14 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.idl.api.annotations.AuthzCheck;
 import org.kinotic.idl.api.annotations.AuthzResource;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.utils.AuthzConstants;
+
+import java.util.List;
 
 /**
  * The caller's organization's own OIDC configurations ({@link OwnedOidcConfiguration}): the providers it offers at
@@ -26,6 +29,15 @@ public interface OwnedOidcConfigurationService {
     /** The organization's configurations, of every kind and enabled or not, oldest first, a page at a time. */
     @AuthzCheck(permission = AuthzConstants.CAN_READ_ACCESS)
     Future<Page<OwnedOidcConfiguration>> findAll(Pageable pageable);
+
+    /**
+     * The provider kinds an application's configuration may sign in through Kinotic's registration for, by setting its
+     * {@code clientRegistrationType} to {@code MANAGED}: no client of the organization's own is needed, and the
+     * provider's consent screen shows Kinotic's name. Any kind offered to organizations may use the application's own
+     * registration instead.
+     */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_ACCESS)
+    Future<List<OidcProviderType>> findManagedProviders();
 
     /** The organization's configuration {@code id}, or {@code null} when the organization owns none by that id. */
     @AuthzCheck(permission = AuthzConstants.CAN_READ_ACCESS)
@@ -45,9 +57,13 @@ public interface OwnedOidcConfigurationService {
      * Saves a configuration of the organization, new or changed, and makes {@code clientSecret}, when given, the
      * secret it sends its provider. The configuration names a provider kind offered to organizations and the
      * organization's account there in the form the kind asks for, from which its authority is derived on every
-     * save; one for an application or a tenant names one of the organization's. Its {@code organizationId} is the
+     * save; one for an application or a tenant names one of the organization's. An application's configuration
+     * whose {@code clientRegistrationType} is {@code MANAGED} names one of {@link #findManagedProviders()} and needs
+     * no account, client id or secret; any it holds are kept for a switch back to {@code OWN}, under which the
+     * application's users are the same users. Its {@code organizationId} is the
      * caller's, whatever it carried, and its {@code confidentialClient} says whether a secret is held, whatever it
-     * carried. A sign-in through the configuration picks a new secret up on its next flow.
+     * carried. A sign-in through the configuration picks a new secret up on its next flow. Disabling an organization's
+     * own configuration fails, naming the members it would leave with no way to sign in to the organization.
      *
      * @param configuration the configuration
      * @param clientSecret  the client secret's value, or {@code null} or blank to keep the secret held for the
@@ -78,7 +94,10 @@ public interface OwnedOidcConfigurationService {
     @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
     Future<OwnedOidcConfiguration> copy(String sourceId, String applicationId);
 
-    /** Deletes the organization's configuration {@code id} and the client secret held for it; nothing happens for an id the organization owns no configuration by. */
+    /**
+     * Deletes the organization's configuration {@code id} and the client secret held for it, refused as disabling it is
+     * by {@link #save}; nothing happens for an id the organization owns no configuration by.
+     */
     @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
     Future<Void> deleteById(String id);
 

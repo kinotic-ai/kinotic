@@ -7,6 +7,7 @@ import org.kinotic.core.api.annotations.ScopeOptional;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.grind.api.model.JobRun;
+import org.kinotic.grind.api.model.JobRunFilter;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.events.JobRunEvent;
 import org.kinotic.grind.api.model.events.TaskCompletedEvent;
@@ -40,14 +41,17 @@ public interface JobMonitoringService {
     String nodeId();
 
     /**
-     * Finds the job runs the participant may view.
+     * Finds the job runs the participant may view that the filter matches. An organization or
+     * application participant's runs are always narrowed to its own organization or application.
      *
+     * @param filter   which runs to return; a field left null matches every run
      * @param pageable the page of runs to return
-     * @return a future that will complete with the page of runs
+     * @return a future that will complete with the page of runs, or fail if the filter names an
+     *         organization or application other than the participant's own
      */
     @AuthzCheck(permission = AuthzConstants.CAN_READ_JOBS)
     @ScopeOptional
-    Future<Page<JobRun>> findJobRuns(Pageable pageable);
+    Future<Page<JobRun>> findJobRuns(JobRunFilter filter, Pageable pageable);
 
     /**
      * Finds a single job run the participant may view.

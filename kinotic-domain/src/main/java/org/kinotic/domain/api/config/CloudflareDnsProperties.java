@@ -24,8 +24,8 @@ public class CloudflareDnsProperties {
     private boolean enabled = false;
 
     /**
-     * An API token holding DNS edit on the zone and nothing else. Imported from the platform's secret
-     * storage as a platform secret, never written in a configuration file.
+     * An API token holding DNS edit on the zone and nothing else. Imported from the system's secret
+     * storage as a system secret, never written in a configuration file.
      */
     private String apiToken;
 

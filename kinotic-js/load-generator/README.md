@@ -36,7 +36,7 @@ This command will:
 | `MAX_CONCURRENT_REQUESTS`, `MAX_REQUESTS_PER_SECOND` | Concurrency and rate limit |
 | `OTEL_EXPORTER_TYPE`, `OTEL_EXPORTER_OTLP_ENDPOINT` | Telemetry export (`NONE` to disable) |
 
-The same variables are set by `deployment/docker-compose/compose.gen-schemas.yml` and by the
+The same variables are set by `deployment/docker-compose/compose.sample-data.yml` and by the
 `load-generator` Helm chart in `deployment/helm/load-generator/`.
 
 ## Summary

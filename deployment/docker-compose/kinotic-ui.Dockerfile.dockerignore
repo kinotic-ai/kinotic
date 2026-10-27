@@ -1,0 +1,14 @@
+# The build context is the repository root, and the image is built from kinotic-frontend's sources, its server and
+# the Worker whose rules the server serves by
+*
+!kinotic-frontend/package.json
+!kinotic-frontend/pnpm-lock.yaml
+!kinotic-frontend/pnpm-workspace.yaml
+!kinotic-frontend/apps
+!kinotic-frontend/packages
+# Branch-only: the first-party packages' sources the js stage builds. Never merge into develop.
+!kinotic-js/workspace
+**/node_modules
+**/dist
+!deployment/docker-compose/kinotic-ui.ts
+!deployment/cloudflare/sites-worker/worker.js

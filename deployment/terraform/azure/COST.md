@@ -30,7 +30,7 @@ Estimated monthly costs for `centralus` (the `location` in `cluster/terraform.tf
 | Observability storage private endpoint | Private Endpoint (blob) | **~$7.30/mo** + ~$0.01/GB |
 | Terraform State Storage | Azure Blob Storage (LRS) | **~$1/mo** |
 | Entra ID App Registration (Grafana) | Azure AD | Free |
-| Azure Key Vault (platform secrets) | Key Vault Standard | **~$1/mo** |
+| Azure Key Vault (system secrets) | Key Vault Standard | **~$1/mo** |
 | Azure Communication Services | Email | **Per-message** |
 | Cloudflare zone for the UI sites (`kinotic.io`) | Cloudflare Pro + Advanced Certificate Manager + Workers Paid | **~$40/mo** fixed ($25 + $10 + $5); the Pro plan includes 100 custom hostnames, then $0.10 each; no egress charge; Workers $0.30 per million requests past the ten million included; Azure egress on edge cache misses only |
 | Organization storage resource group + private-endpoints subnet | Resource Manager, VNet | Free |

@@ -5,8 +5,8 @@ import { SYSTEM_API_ZONE,
 import type { IKinotic, IServiceProxy, Page, Pageable } from '@kinotic-ai/core'
 
 /**
- * The platform's own members: the system users who sign in to the system console, and the
- * SYSTEM-scope machines that connect as platform daemons, such as a worker node's vm-manager.
+ * The system's own members: the system users who sign in to the system console, and the
+ * SYSTEM-scope machines that connect as system daemons, such as a worker node's vm-manager.
  * Published in the system zone, which only SYSTEM participants may address; every method works
  * on SYSTEM scope alone, so an organization's users and machines stay that organization's to
  * manage through IMachineService.
@@ -17,30 +17,30 @@ export interface ISystemMemberService {
 
     searchUsers(searchText: string, pageable: Pageable): Promise<Page<SystemParticipantIdentity>>
 
-    /** Lists the platform's machines, disabled ones included. */
+    /** Lists the system's machines, disabled ones included. */
     findMachines(pageable: Pageable): Promise<Page<MachineParticipantIdentity>>
 
     /**
-     * Provisions a platform machine and returns it together with its generated client secret.
+     * Provisions a system machine and returns it together with its generated client secret.
      * The secret is disclosed exactly once — it cannot be retrieved later.
      */
     createMachine(displayName: string): Promise<MachineProvisionResult>
 
     /**
-     * Replaces a platform machine's client secret, returning the new secret exactly once. The
+     * Replaces a system machine's client secret, returning the new secret exactly once. The
      * old secret stops working immediately; a connection the machine already holds lasts until
      * it disconnects.
      */
     rotateSecret(machineId: string): Promise<string>
 
     /**
-     * Enables or disables a platform machine. A disabled machine is cut off on its next
+     * Enables or disables a system machine. A disabled machine is cut off on its next
      * connection, and enabling it restores access with the same credential.
      */
     setMachineEnabled(machineId: string, enabled: boolean): Promise<void>
 
     /**
-     * Permanently removes a platform machine, including its stored credential. A removed
+     * Permanently removes a system machine, including its stored credential. A removed
      * machine's id cannot authenticate again.
      */
     removeMachine(machineId: string): Promise<void>

@@ -40,6 +40,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.SignalType;
 
 import java.lang.reflect.Method;
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -279,22 +280,15 @@ public class ServiceInvocationSupervisor {
     }
 
     private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result) {
-        convertAndSend(incomingMetadata, handlerMethod, result, null, true);
+        convertAndSend(incomingMetadata, handlerMethod, result, Map.of(), true);
     }
 
-    private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result, String originCri) {
-        convertAndSend(incomingMetadata, handlerMethod, result, originCri, false);
-    }
-
-    private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result, String originCri, boolean terminal) {
+    private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result, Map<String, String> replyHeaders, boolean terminal) {
         try {
             Event<byte[]> resultEvent = returnValueConverter.convert(incomingMetadata,
                                                                      handlerMethod.getReturnType(),
                                                                      result);
-            // Set the origin CRI on the reply so a streaming client can route a cancel back to this service.
-            if (originCri != null) {
-                resultEvent.metadata().put(EventConstants.ORIGIN_CRI_HEADER, originCri);
-            }
+            replyHeaders.forEach(resultEvent.metadata()::put);
             // A single-value reply is the end of its request, so it carries the completion marker itself.
             // This lets any hop holding per-request state (client, gateway) release it on this one event
             // without knowing the invoked method's shape. Stream values stay unmarked; their completion
@@ -660,14 +654,38 @@ public class ServiceInvocationSupervisor {
      */
     private class StreamSubscriber extends BaseSubscriber<Object> {
 
+        private static final int STREAM_DEMAND_WINDOW = 32;
+
         private final HandlerMethod handlerMethod;
         private final Metadata incomingMetadata;
         private final Flux<ListenerStatus> replyListenerStatus;
         private final String originCri;
+        // the origin CRI lets a streaming client route control events back to this service; the first value
+        // also tells the gateway this stream honors suspend
+        private final Map<String, String> valueHeaders;
+        private final Map<String, String> firstValueHeaders;
         private final Span span;
+        // the invocation's delivery context, which also delivers this stream's control events
+        private final Context context = vertx.getOrCreateContext();
         // stop() and the reply listener monitor can fail the stream from different threads at once
         private final AtomicBoolean failed = new AtomicBoolean(false);
+        // the source and a resume can both end the stream from different threads
+        private final AtomicBoolean finished = new AtomicBoolean(false);
         private ReplyListenerStatusSubscriber replyListenerStatusSubscriber;
+        // set by control events on the consumer's context while the source emits on its own thread
+        private volatile boolean suspended;
+        // guarded by this
+        private final ArrayDeque<Object> heldValues = new ArrayDeque<>();
+        // guarded by this: the source ended while values were held, with heldError null for a completion
+        private boolean terminalHeld;
+        private Throwable heldError;
+        // touched only on the stream's context: a value arriving while this is set comes from a source draining
+        // synchronously inside this subscriber's own request
+        private boolean requesting;
+        // touched only by hookOnNext, which the source serializes
+        private int sentSinceRefill;
+        // sends are serialized: hookOnNext sends directly only while not suspended, and resume clears the flag after its flush
+        private boolean suspendableDeclared;
 
         public StreamSubscriber(Metadata incomingMetadata,
                                 HandlerMethod handlerMethod,
@@ -678,6 +696,9 @@ public class ServiceInvocationSupervisor {
             this.handlerMethod = handlerMethod;
             this.replyListenerStatus = replyListenerStatus;
             this.originCri = originCri;
+            this.valueHeaders = Map.of(EventConstants.ORIGIN_CRI_HEADER, originCri);
+            this.firstValueHeaders = Map.of(EventConstants.ORIGIN_CRI_HEADER, originCri,
+                                            EventConstants.SUSPENDABLE_HEADER, Boolean.TRUE.toString());
             this.span = span;
         }
 
@@ -685,11 +706,17 @@ public class ServiceInvocationSupervisor {
          * Ends the stream with a terminal error for its caller, then cancels the source.
          */
         public void fail(Throwable throwable){
-            if(!isDisposed() && failed.compareAndSet(false, true)){
-                handleException(incomingMetadata, throwable);
-                span.recordException(throwable);
-                span.setStatus(StatusCode.ERROR);
-                cancel();
+            if(failed.compareAndSet(false, true)){
+                if(!isDisposed()){
+                    synchronized (this){
+                        heldValues.clear();
+                    }
+                    sendError(throwable);
+                    cancel();
+                }else if(dropHeldTerminal()){
+                    sendError(throwable);
+                    finish();
+                }
             }
         }
 
@@ -700,37 +727,39 @@ public class ServiceInvocationSupervisor {
             }
             switch (control) {
                 case EventConstants.CONTROL_VALUE_CANCEL:
-                    this.cancel();
+                    cancelSourceAndHeld();
                     break;
                 case EventConstants.CONTROL_VALUE_SUSPEND:
-                    this.request(0);
+                    suspended = true;
                     break;
                 case EventConstants.CONTROL_VALUE_RESUME:
-                    this.requestUnbounded();
+                    resume();
                     break;
                 default:
                     // the error reply that answers the control event is terminal for the requester, so the source ends with it
-                    this.cancel();
+                    cancelSourceAndHeld();
                     throw new IllegalArgumentException("Unknown control header value " + control);
             }
         }
 
         @Override
         protected void hookFinally(@NonNull SignalType type) {
-            log.trace("Stream Cleanup Now");
-
-            // Covers every terminal signal the stream can end on, cancellation included
-            span.end();
-
-            replyListenerStatusSubscriber.cancel();
-
-            activeStreamingResults.remove(incomingMetadata.get(EventConstants.CORRELATION_ID_HEADER));
+            boolean deferred;
+            synchronized (this){
+                deferred = terminalHeld;
+            }
+            // a terminal held behind values keeps the stream registered, so its resume, cancel or failure still reaches it
+            if(!deferred){
+                finish();
+            }
         }
 
         @Override
         protected void hookOnComplete() {
             log.trace("Stream Complete");
-            sendCompletionEvent(incomingMetadata);
+            if(!holdTerminal(null)){
+                sendCompletionEvent(incomingMetadata);
+            }
         }
 
         @Override
@@ -738,10 +767,9 @@ public class ServiceInvocationSupervisor {
             if(log.isTraceEnabled()){
                 log.trace("Stream Error",throwable);
             }
-            handleException(incomingMetadata, throwable);
-            // hookFinally ends the span, this only marks why it ended
-            span.recordException(throwable);
-            span.setStatus(StatusCode.ERROR);
+            if(!holdTerminal(throwable)){
+                sendError(throwable);
+            }
         }
 
         @Override
@@ -749,7 +777,32 @@ public class ServiceInvocationSupervisor {
             if(log.isTraceEnabled() && !traceLogFilter.isExcluded(originCri)){
                 log.trace("Next stream value {}", value);
             }
-            convertAndSend(incomingMetadata, handlerMethod, value, originCri);
+            boolean sent = true;
+            if(suspended){
+                synchronized (this){
+                    // re-checked under the lock: resume clears the flag only after sending heldValues
+                    if(suspended){
+                        heldValues.add(value);
+                        sent = false;
+                    }else{
+                        send(value);
+                    }
+                }
+            }else{
+                send(value);
+            }
+            // demand is replenished only for sent values, so a suspended stream stops its source once the window is held
+            if(sent && ++sentSinceRefill == STREAM_DEMAND_WINDOW / 2){
+                sentSinceRefill = 0;
+                if(Vertx.currentContext() == context && requesting){
+                    // a source draining synchronously inside our own request holds the context, so the demand waits
+                    // for the next turn: a suspend queued behind the source is processed before it emits further.
+                    // A source pushing on its own schedule keeps its demand inline, so a burst is not cut short.
+                    context.runOnContext(_ -> requestOnContext(STREAM_DEMAND_WINDOW / 2));
+                }else{
+                    request(STREAM_DEMAND_WINDOW / 2);
+                }
+            }
         }
 
         @Override
@@ -758,7 +811,98 @@ public class ServiceInvocationSupervisor {
             replyListenerStatusSubscriber = new ReplyListenerStatusSubscriber(this);
             replyListenerStatus.subscribe(replyListenerStatusSubscriber);
 
-            super.hookOnSubscribe(subscription);
+            requestOnContext(STREAM_DEMAND_WINDOW);
+        }
+
+        // only ever called on the stream's context: subscribe, a deferred top-up, or a resume
+        private void requestOnContext(long amount){
+            requesting = true;
+            try {
+                request(amount);
+            } finally {
+                requesting = false;
+            }
+        }
+
+        private void send(Object value){
+            Map<String, String> headers = suspendableDeclared ? valueHeaders : firstValueHeaders;
+            suspendableDeclared = true;
+            convertAndSend(incomingMetadata, handlerMethod, value, headers, false);
+        }
+
+        private void sendError(Throwable throwable){
+            handleException(incomingMetadata, throwable);
+            // finish ends the span, this only marks why it ended
+            span.recordException(throwable);
+            span.setStatus(StatusCode.ERROR);
+        }
+
+        private void resume(){
+            int sent;
+            boolean releaseTerminal;
+            Throwable error;
+            synchronized (this){
+                // a resume racing fail() must not send anything held after the failure's error
+                if(failed.get()){
+                    heldValues.clear();
+                }
+                sent = heldValues.size();
+                while(!heldValues.isEmpty()){
+                    send(heldValues.poll());
+                }
+                suspended = false;
+                releaseTerminal = terminalHeld;
+                error = heldError;
+                terminalHeld = false;
+                heldError = null;
+            }
+            if(releaseTerminal){
+                if(error == null){
+                    sendCompletionEvent(incomingMetadata);
+                }else{
+                    sendError(error);
+                }
+                finish();
+            }else if(sent > 0){
+                requestOnContext(sent);
+            }
+        }
+
+        // a terminal arriving while values are held waits for them: sending them now would break the suspend
+        private synchronized boolean holdTerminal(Throwable error){
+            terminalHeld = suspended && !heldValues.isEmpty();
+            if(terminalHeld){
+                heldError = error;
+            }
+            return terminalHeld;
+        }
+
+        // the source already ended with its terminal held behind values: drop both, since the stream is cancelled or failed
+        private synchronized boolean dropHeldTerminal(){
+            boolean ret = terminalHeld;
+            if(ret){
+                heldValues.clear();
+                terminalHeld = false;
+                heldError = null;
+            }
+            return ret;
+        }
+
+        private void cancelSourceAndHeld(){
+            // a no-op once the source has ended, which leaves only a held terminal to drop
+            cancel();
+            if(dropHeldTerminal()){
+                finish();
+            }
+        }
+
+        private void finish(){
+            if(finished.compareAndSet(false, true)){
+                log.trace("Stream Cleanup Now");
+                span.end();
+                replyListenerStatusSubscriber.cancel();
+                activeStreamingResults.remove(incomingMetadata.get(EventConstants.CORRELATION_ID_HEADER));
+            }
         }
 
     }

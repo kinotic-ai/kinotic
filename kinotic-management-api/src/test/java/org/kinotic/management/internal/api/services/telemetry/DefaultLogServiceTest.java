@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 /**
  * Covers {@link DefaultLogService} authorization and tenant resolution: organization
  * participants may only read their own organization's logs, system participants may read any
- * organization's, and the platform's own (no organization) resolve to the system tenant. No
+ * organization's, and the system's own (no organization) resolve to the system tenant. No
  * workload record takes part, so a destroyed workload's logs read the same way. A server's logs,
  * every node's or one node's, are read from the system tenant by a system participant alone.
  */
@@ -43,21 +43,21 @@ class DefaultLogServiceTest extends ParticipantCallTest {
     }
 
     @Test
-    void organizationParticipantMayNotReadPlatformWorkloads() {
+    void organizationParticipantMayNotReadSystemWorkloads() {
         assertInstanceOf(AuthorizationException.class,
-                         failureOf(ACME_USER, () -> service.history(query(null, "wl-platform"))));
+                         failureOf(ACME_USER, () -> service.history(query(null, "wl-system"))));
     }
 
     @Test
     void systemParticipantReadsAnyOrganizationsWorkload() throws Throwable {
-        callAs(SYSTEM_USER, () -> service.history(query("acme", "wl-acme")));
+        callAs(SYSTEM_PARTICIPANT, () -> service.history(query("acme", "wl-acme")));
 
         assertEquals("acme", lokiClient.tenant);
     }
 
     @Test
-    void platformWorkloadsResolveToTheSystemTenant() throws Throwable {
-        callAs(SYSTEM_USER, () -> service.history(query(null, "wl-platform")));
+    void systemWorkloadsResolveToTheSystemTenant() throws Throwable {
+        callAs(SYSTEM_PARTICIPANT, () -> service.history(query(null, "wl-system")));
 
         assertEquals(TelemetryTenant.SYSTEM, lokiClient.tenant);
     }
@@ -88,7 +88,7 @@ class DefaultLogServiceTest extends ParticipantCallTest {
 
     @Test
     void systemParticipantReadsServerLogsFromTheSystemTenant() throws Throwable {
-        callAs(SYSTEM_USER, () -> service.serverHistory(serverQuery("kinotic-server-system", null)));
+        callAs(SYSTEM_PARTICIPANT, () -> service.serverHistory(serverQuery("kinotic-server-system", null)));
 
         assertEquals(TelemetryTenant.SYSTEM, lokiClient.tenant);
         assertEquals("{service_name=\"kinotic-server-system\"}", lokiClient.query);
@@ -105,7 +105,7 @@ class DefaultLogServiceTest extends ParticipantCallTest {
 
     @Test
     void serverInstanceNarrowsTheSelectorToOneNode() throws Throwable {
-        callAs(SYSTEM_USER, () -> service.serverHistory(serverQuery("kinotic-server-app", "kinotic-server-app-7d9f8-x2k4q")));
+        callAs(SYSTEM_PARTICIPANT, () -> service.serverHistory(serverQuery("kinotic-server-app", "kinotic-server-app-7d9f8-x2k4q")));
 
         assertEquals(TelemetryTenant.SYSTEM, lokiClient.tenant);
         assertEquals("{service_name=\"kinotic-server-app\", service_instance_id=\"kinotic-server-app-7d9f8-x2k4q\"}",
@@ -114,14 +114,14 @@ class DefaultLogServiceTest extends ParticipantCallTest {
 
     @Test
     void serverInstanceIsQuotedIntoTheSelector() throws Throwable {
-        callAs(SYSTEM_USER, () -> service.serverHistory(serverQuery("svc", "node\"} or {workload_id=~\".+")));
+        callAs(SYSTEM_PARTICIPANT, () -> service.serverHistory(serverQuery("svc", "node\"} or {workload_id=~\".+")));
 
         assertEquals("{service_name=\"svc\", service_instance_id=\"node\\\"} or {workload_id=~\\\".+\"}", lokiClient.query);
     }
 
     @Test
     void serverTailResolvesTheSystemTenantAndQuery() throws Throwable {
-        callAs(SYSTEM_USER, () -> Future.fromCompletionStage(service.tailServer("kinotic-server-app", "kinotic-server-app-7d9f8-x2k4q", 1_000L)
+        callAs(SYSTEM_PARTICIPANT, () -> Future.fromCompletionStage(service.tailServer("kinotic-server-app", "kinotic-server-app-7d9f8-x2k4q", 1_000L)
                                                                           .collectList()
                                                                           .toFuture(),
                                                                    vertx.getOrCreateContext()));

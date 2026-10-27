@@ -3,6 +3,7 @@ package org.kinotic.domain.api.utils;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.event.ZoneRules;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
@@ -13,17 +14,18 @@ import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.security.DelegateType;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
-import org.kinotic.domain.api.model.security.identity.OrganizationMembership;
-import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentityType;
 import org.kinotic.domain.api.model.security.identity.ScopedParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
+import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
+import org.kinotic.domain.api.model.security.participant.SystemParticipant;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
@@ -31,6 +33,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
@@ -46,19 +49,19 @@ import java.util.regex.Pattern;
 public class DomainUtil {
 
     /**
-     * The zone for platform services organizations use to manage the system, such as member,
-     * application, and entity definition management
+     * The zone for the services organizations use to manage their members, applications and
+     * entity definitions
      */
     public static final String MANAGEMENT_API_ZONE = "management-api";
 
     /**
-     * The zone for the platform's application facing data services, such as entity persistence
+     * The zone for the application facing data services, such as entity persistence
      * and named query execution
      */
     public static final String APP_API_ZONE = "app-api";
 
     /**
-     * The zone for services internal to the platform, only reachable by system participants
+     * The zone for the system's own services, only reachable by system participants
      */
     public static final String SYSTEM_API_ZONE = "system-api";
 
@@ -80,6 +83,72 @@ public class DomainUtil {
     }
 
     /**
+     * Derives the zone rules of one of Kinotic OS's participants. Application participants send to the
+     * {@code app-api} data plane and their own {@code app.<organizationId>.<applicationId>} zone and subscribe in no
+     * zone at all. Organization participants send to the {@code management-api} management surface, {@code app-api},
+     * and their own {@code app.<organizationId>} zones, and subscribe within the zones they host services in; an
+     * application's runtime authenticates as an organization participant to host and call its services. System
+     * participants send everywhere and subscribe in the {@code system-api} zone.
+     *
+     * @param participant the authenticated participant
+     * @param hostedZones the zones an organization participant hosts services in, each within its organization's
+     *                    {@code app.<organizationId>} zones; ignored for every other participant
+     * @return the participant's zone rules
+     * @throws IllegalArgumentException when the participant is of a type with no zone rules, one of its ids cannot
+     *                                  form a valid zone label, or a hosted zone lies outside the organization's
+     *                                  application zones
+     */
+    public static ZoneRules zoneRules(Participant participant, Collection<String> hostedZones) {
+        Validate.notNull(participant, "participant must not be null");
+        Validate.notNull(hostedZones, "hostedZones must not be null");
+        if (!(participant instanceof ScopedParticipant scopedParticipant)) {
+            throw new IllegalArgumentException("Unknown participant type " + participant.getClass().getName()
+                                                       + ", no zone routing rules exist for it");
+        }
+        return switch (scopedParticipant) {
+
+            // management-api and app-api are hosted in-process only, so no connection may ever
+            // subscribe to them; system-api stays subscribable for the vm-manager nodes that host there
+            case SystemParticipant _ -> ZoneRules.sendingToAnyZone(Set.of(SYSTEM_API_ZONE));
+
+            // validatedApplicationZone validates the ids, so an id that could shift the zone's label structure
+            // fails instead of widening access
+            case ApplicationParticipant applicationParticipant ->
+                    ZoneRules.of(Set.of(APP_API_ZONE, validatedApplicationZone(applicationParticipant.getOrganizationId(),
+                                                                               applicationParticipant.getApplicationId())),
+                                 Set.of());
+
+            case OrganizationParticipant organizationParticipant -> {
+                // the organization id becomes a zone label, so it is validated the same way
+                ZoneUtil.validateLabel(organizationParticipant.getOrganizationId());
+                String orgAppsZone = APP_ZONE_PREFIX + "." + organizationParticipant.getOrganizationId();
+                for (String hostedZone : hostedZones) {
+                    Validate.isTrue(ZoneUtil.zoneMatches(hostedZone, Set.of(orgAppsZone)),
+                                    "The zone '%s' is not one of the organization's application zones", hostedZone);
+                }
+                yield ZoneRules.of(Set.of(MANAGEMENT_API_ZONE, APP_API_ZONE, orgAppsZone), Set.copyOf(hostedZones));
+            }
+        };
+    }
+
+    /**
+     * {@link #applicationZone}, with each id validated as a zone label.
+     *
+     * @param organizationId the application's organization
+     * @param applicationId  the application
+     * @return the zone
+     * @throws IllegalArgumentException when an id is not a single valid zone label
+     */
+    public static String validatedApplicationZone(String organizationId, String applicationId) {
+        // Each id must be a single dot-free label: a dot inside an id would shift the
+        // app.<organizationId>.<applicationId> label structure, letting one (org, app) pair
+        // produce the same zone as a different pair plus a sub zone
+        ZoneUtil.validateLabel(organizationId);
+        ZoneUtil.validateLabel(applicationId);
+        return applicationZone(organizationId, applicationId);
+    }
+
+    /**
      * The participant metadata key naming the owner a delegate acts for, whose authority the delegate holds.
      */
     public static final String ON_BEHALF_OF_METADATA_KEY = "onBehalfOf";
@@ -95,19 +164,19 @@ public class DomainUtil {
      */
     public static final String INDEX_PREFIX = "kinotic_";
 
-    /** The platform's id wherever a scope's id names an owner, such as a secret scope; no organization may take it. */
-    public static final String PLATFORM_ID = "system";
+    /** The system's id wherever a scope's id names an owner, such as a secret scope; no organization may take it. */
+    public static final String SYSTEM_ID = "system";
 
     // no organization carries the platform's name: an id beginning with it would put that name on a customer's
     // hosts, <org>--<app> under the apps-api domain and *.<org> under the sites domain
     private static final String RESERVED_ID_PREFIX = "kinotic";
     // the labels the platform itself holds under its domains, which an organization's subdomain must never shadow;
     // the path segments the organization login's own routes claim under /api/auth/org/login/, which an
-    // organization's id would be mistaken for; and the platform's own id
+    // organization's id would be mistaken for; and the system's own id
     private static final Set<String> RESERVED_ORGANIZATION_IDS = Set.of("www", "api", "apps-api", "system-api", "portal",
                                                                          "console", "mail", "admin", "login", "status", "docs",
                                                                          "find", "social", "sso", "providers", "choices",
-                                                                         PLATFORM_ID);
+                                                                         SYSTEM_ID);
 
     // Project ids may start with a digit because they embed application ids, which may
     // themselves start with a digit
@@ -383,15 +452,11 @@ public class DomainUtil {
      *   <li>ORGANIZATION → {@link DefaultOrganizationParticipant}</li>
      *   <li>APPLICATION → {@link DefaultApplicationParticipant}, carrying the {@code tenantId} too</li>
      * </ul>
-     * An organization user acts through one of its memberships, by
-     * {@link #createParticipant(OrganizationParticipantIdentity, OrganizationMembership)}.
      *
-     * @param identity the authenticated identity, other than an organization user
+     * @param identity the authenticated identity
      * @return the typed participant for the given identity
      */
     public static Participant createParticipant(ParticipantIdentity identity) {
-        Validate.isTrue(!(identity instanceof OrganizationParticipantIdentity),
-                        "An organization user acts through one of its memberships");
         ParticipantScope scope = scopeOf(identity);
         Map<String, String> metadata = participantMetadata(identity);
         Participant ret;
@@ -486,29 +551,14 @@ public class DomainUtil {
         return "APPLICATION/" + organizationId + "/" + applicationId;
     }
 
-    /**
-     * The participant organization user {@code user} acts as through {@code membership}: an
-     * {@link OrganizationParticipant} of the membership's organization. The participant's id is the user's, so what
-     * the person creates is attributed to them whichever organization they act in.
-     */
-    public static Participant createParticipant(OrganizationParticipantIdentity user, OrganizationMembership membership) {
-        Validate.isTrue(user.getId().equals(membership.getOrganizationUserId()), "The membership is not the user's");
-        return DefaultOrganizationParticipant.builder()
-                                             .id(user.getId())
-                                             .organizationId(membership.getOrganizationId())
-                                             .metadata(participantMetadata(user))
-                                             .roles(List.of())
-                                             .build();
-    }
-
-    /** The scope a participant acts in: its own for a scoped participant, the platform's (all null) otherwise. */
+    /** The scope a participant acts in: its own for a scoped participant, the system's (all null) otherwise. */
     public static ParticipantScope scopeOf(Participant participant) {
         return participant instanceof ScopedParticipant scoped ? scoped.getScope() : new ParticipantScope(null, null, null);
     }
 
     /**
      * The scope ids an identity carries: a {@link ScopedParticipantIdentity}'s scope, and none (all {@code null}) for
-     * a system user or an organization user.
+     * a system user.
      */
     public static ParticipantScope scopeOf(ParticipantIdentity identity) {
         return identity instanceof ScopedParticipantIdentity scoped ? scoped.scope() : new ParticipantScope(null, null, null);

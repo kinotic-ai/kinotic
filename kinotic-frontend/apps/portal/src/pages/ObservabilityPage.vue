@@ -9,7 +9,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
-import { PageHeader, TelemetryPanel } from '@kinotic-ai/frontend-common'
+import { PageHeader } from '@kinotic-ai/frontend-common'
+import { TelemetryPanel } from '@kinotic-ai/frontend-common/management'
 import { USER_STATE } from '@/states/IUserState'
 
 /** One application's traces and metrics; a trace opens on its own page under this one. */

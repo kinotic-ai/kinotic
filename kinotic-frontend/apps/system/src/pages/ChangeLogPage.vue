@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col">
     <PageHeader title="Change log"
-                description="What happened to every node, workload, deployment and job run on the platform, newest first, with what caused it.">
+                description="What happened to every node, workload, deployment and job run in the system, newest first, with what caused it.">
       <template #actions>
         <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined
                 :loading="loading" @click="load" />
@@ -10,7 +10,7 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <WatchEventsTimeline :entries="entries" show-record empty-text="Nothing has happened on the platform yet." />
+    <WatchEventsTimeline :entries="entries" show-record empty-text="Nothing has happened in the system yet." />
 
     <TablePaginator v-if="total > 0" class="mt-3"
                     :first="first" :rows="rows" :total-records="total" :rows-per-page-options="ROWS_PER_PAGE"
@@ -26,7 +26,8 @@ import type { PageState } from 'primevue/paginator'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import type { WatchEvent } from '@kinotic-ai/management-api'
-import { PageHeader, TablePaginator, WatchEventsTimeline, errorMessage } from '@kinotic-ai/frontend-common'
+import { PageHeader, TablePaginator, errorMessage } from '@kinotic-ai/frontend-common'
+import { WatchEventsTimeline } from '@kinotic-ai/frontend-common/management'
 
 const ROWS_PER_PAGE = [25, 50, 100]
 

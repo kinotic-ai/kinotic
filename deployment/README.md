@@ -4,9 +4,8 @@
 
 | Environment | Directory | Purpose |
 |---|---|---|
-| **Docker Compose** | `docker-compose/` | Local development (Elasticsearch, the observability stack, Keycloak); the development server runs the same images and config files as containers |
+| **Docker Compose** | `docker-compose/` | Local development (Elasticsearch, the observability stack, Keycloak, and Azurite with the local edge that serves published UIs); the development server runs the same images and config files as containers |
 | **Development server** | `terraform/proxmox/` + `terraform/azure/dev-server/` | One Proxmox host with a container per service, workload nodes on their own machines, the sites account and email kept in Azure and the sites on Cloudflare ([design](https://kinotic.ai/platform/development-server)) |
-| **Developer's Azure side** | `terraform/azure/dev/` | The sites account, the Cloudflare sites Worker, and email for the servers on a developer machine |
 | **Azure** | `terraform/azure/` | Production AKS cluster |
 
 Azure is deployed with Terraform and the Helm charts. The development server is deployed with
@@ -82,7 +81,7 @@ automatically: Reloader restarts the pods.
 Centralized logs, traces and metrics using Grafana's stack:
 
 - **Alloy** — DaemonSet on each node, collects pod logs, ships to Loki under the `kinotic-system` tenant. Pipeline config in `helm/observability/alloy-config.alloy`.
-- **Loki** — Multi-tenant log storage (`auth_enabled: true`): one tenant per organization for workload logs, plus the reserved `kinotic-system` tenant for platform logs. Azure Blob Storage.
+- **Loki** — Multi-tenant log storage (`auth_enabled: true`): one tenant per organization for workload logs, plus the reserved `kinotic-system` tenant for system logs. Azure Blob Storage.
 - **Tempo** — Multi-tenant trace storage (`multitenancy_enabled: true`), the grafana/tempo single-binary chart with `values-tempo.yaml`. It receives OTLP on 4317/4318 and serves its HTTP API on 3100; its metrics-generator writes each tenant's span metrics to Mimir under the same tenant. Traces are kept 30 days in Azure Blob Storage (`values-tempo-azure.yaml`).
 - **Mimir** — Multi-tenant metrics storage, the local `helm/mimir` chart running one monolithic process. It receives OTLP at `/otlp` and serves the Prometheus API under `/prometheus` on 9009. Blocks are kept 30 days in Azure Blob Storage (`helm/mimir/values-azure.yaml`).
 

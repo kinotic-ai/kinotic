@@ -9,7 +9,7 @@ import org.kinotic.core.api.crud.Identifiable;
 import java.util.Date;
 
 /**
- * A large language model the platform's services call: the provider, the model, where the provider's API is
+ * A large language model the system's services call: the provider, the model, where the provider's API is
  * reached and the options each request carries. The API key the provider is called with is held in the secret
  * storage and is never a field of the configuration; {@link #apiKeyHeld} says whether one is held.
  */
@@ -21,7 +21,7 @@ public class LlmConfiguration implements Identifiable<String> {
 
     private String id;
 
-    /** The name a service selects the configuration by, unique across the platform. */
+    /** The name a service selects the configuration by, unique across the system. */
     private String name;
 
     private LlmProviderType provider;

@@ -8,6 +8,16 @@ output "system_api_hostname" {
   value       = local.system_api_hostname
 }
 
+output "summit42_hostname" {
+  description = "Summit 42's UI, served by the sites Worker from sites/<hostname>/ in the sites account, or null when summit42_enabled is false; redeploy.sh in the proxmox root uploads it"
+  value       = local.summit42_hostname
+}
+
+output "summit42_api_hostname" {
+  description = "The Summit 42 server's hostname, on the router's public address, or null when summit42_enabled is false"
+  value       = local.summit42_api_hostname
+}
+
 output "apps_api_domain" {
   description = "The app server's hostname in the Cloudflare zone, proxied to the router's public address, which runtime workloads dial; every application's API host is a label under it"
   value       = local.apps_api_domain
@@ -79,8 +89,8 @@ output "tenant_id" {
 output "dev_server_env" {
   description = "The non-secret half of the servers' environment"
   value = {
-    # the portal and the trusted UIs as regex alternatives, the management server's CORS pattern
-    DEV_SERVER_MANAGEMENT_UI_HOSTNAMES                  = join("|", [for hostname in concat([local.portal_hostname], var.trusted_ui_hostnames) : replace(hostname, ".", "\\.")])
+    # the portal, the trusted UIs and Summit 42 as regex alternatives, the management server's CORS pattern
+    DEV_SERVER_MANAGEMENT_UI_HOSTNAMES                  = join("|", [for hostname in compact(concat([local.portal_hostname], var.trusted_ui_hostnames, [local.summit42_hostname])) : replace(hostname, ".", "\\.")])
     DEV_SERVER_CONSOLE_HOSTNAME                         = local.console_hostname
     KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT = module.environment.sites_storage_blob_endpoint
     KINOTIC_DOMAIN_PUBLISHEDSITES_DOMAIN                = module.environment.sites_domain

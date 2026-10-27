@@ -60,7 +60,7 @@ describe('Kinotic JS', () => {
         await Kinotic.connect(buildConnectOptions(new BasicCredentialsResolver(RUNTIME_CLIENT_ID, E2E_FIXTURE_PASSWORD, TEST_ORG_ID), appServer()))
 
         subject = await appFixtureSubject(APP_ID, APP_TENANT, admin)
-        appKinotic = await connectAppClient(APP_ID, APP_TENANT)
+        appKinotic = await connectAppClient(APP_ID, APP_TENANT, admin)
         reports = appKinotic.serviceProxy(SERVICE)
     }, 300000)
 

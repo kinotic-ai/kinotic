@@ -18,10 +18,12 @@ import java.util.List;
 public class DomainProperties {
 
     /**
-     * CORS configuration of every Vert.x HTTP server that exposes browser-facing routes. Its allowed origins are also
-     * the UIs a server's browser flows may return to, trusted with sign-up links and GitHub App install codes.
+     * Paths to system-level secret files (the JWT signing keys).
+     * Files are mounted into the pod by the Azure Key Vault CSI driver in production or
+     * by a Kubernetes Secret volume locally, and watched for changes so rotation flows
+     * through without a restart.
      */
-    private CorsProperties cors = new CorsProperties();
+    private SystemSecretsProperties systemSecrets = new SystemSecretsProperties();
 
     /**
      * Email / outbound-mail configuration.
@@ -56,7 +58,7 @@ public class DomainProperties {
      * port, no trailing slash): with {@code https://apps-api.kinotic.io}, application {@code orders} of organization
      * {@code acme} is served at {@code https://acme--orders.apps-api.kinotic.io}, which is also its OAuth issuer, the
      * host its UIs are built against, and the host of the callback of each of its OIDC configurations. The base
-     * URL itself is the shared host a sign-in through one of the platform's social registrations returns to.
+     * URL itself is the shared host a sign-in through one of the system's social registrations returns to.
      */
     private String appApiBaseUrl;
 

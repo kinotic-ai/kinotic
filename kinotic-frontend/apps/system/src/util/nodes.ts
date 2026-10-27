@@ -3,7 +3,7 @@ import { StatusConditionType, findStatusCondition, type StatusCondition } from '
 import { HeartbeatState } from '@kinotic-ai/frontend-common'
 import { VmNodeStatusType, type KinoticClusterInfo, type VmNode } from '@kinotic-ai/system-api'
 
-/** How many worker nodes the console reads; a platform with more shows the first page of them. */
+/** How many worker nodes the console reads; a system with more shows the first page of them. */
 const NODE_PAGE_SIZE = 100
 
 /**

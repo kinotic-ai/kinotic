@@ -1,13 +1,13 @@
-import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
+import { MANAGEMENT_API_ZONE } from '@/api/Zones'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import type { Observable } from 'rxjs'
 import type { LogQuery } from '@/api/model/telemetry/LogQuery'
 import type { ServerLogQuery } from '@/api/model/telemetry/ServerLogQuery'
 
 /**
- * Streams and queries the logs of workloads by the organization they ran for, and of the platform's
- * own servers. For workloads, an organization participant reads its own organization's, a system
- * participant reads any organization's, or the platform's own when it names no organization. A
+ * Streams and queries the logs of workloads by the organization they ran for, and of the Kinotic
+ * servers. For workloads, an organization participant reads its own organization's, a system
+ * participant reads any organization's, or the system's own when it names no organization. A
  * workload's logs outlive the workload, so a destroyed one's are read the same way. Only a system
  * participant reads a server's logs. Every method yields the raw Loki response bytes; the caller
  * parses Loki's wire format.
@@ -18,7 +18,7 @@ export interface ILogService {
      * Opens a live tail of the given workload's logs from start: the entries since start, then each
      * new one as it arrives. A history whose range ends at start reads what came before, with no entry
      * read twice. Each emission is a raw Loki tail frame, and the stream stays open until unsubscribed.
-     * @param organizationId the organization the workload runs for; null for the platform's own,
+     * @param organizationId the organization the workload runs for; null for the system's own,
      *        which only a system participant may read
      * @param workloadId the id of the workload to follow
      * @param start the moment to follow from, epoch milliseconds (inclusive)
@@ -32,7 +32,7 @@ export interface ILogService {
     history(query: LogQuery): Promise<Uint8Array>
 
     /**
-     * Opens a live tail of a platform server's logs, one node's or every node's together, from start:
+     * Opens a live tail of a Kinotic server's logs, one node's or every node's together, from start:
      * the entries since start, then each new one as it arrives. A serverHistory whose range ends at
      * start reads what came before, with no entry read twice. Each emission is a raw Loki tail frame,
      * and the stream stays open until unsubscribed.
@@ -45,7 +45,7 @@ export interface ILogService {
     tailServer(telemetryServiceName: string, telemetryServiceInstanceId: string | null, start: number): Observable<Uint8Array>
 
     /**
-     * Returns a platform server's historical logs, one node's or every node's together, as the raw
+     * Returns a Kinotic server's historical logs, one node's or every node's together, as the raw
      * Loki query_range response.
      * @param query the server, the node, the time range, and the limit
      */

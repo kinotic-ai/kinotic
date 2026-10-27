@@ -3,11 +3,12 @@
     <PageHeader title="Jobs" :description="description">
       <template #actions>
         <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined @click="refresh" />
+        <Button v-if="systemScope" label="Run system job" icon="pi pi-play" @click="runDrawerVisible = true" />
       </template>
     </PageHeader>
 
     <!-- how the runs have gone, at a glance: the share that completed and the split by outcome -->
-    <section v-if="counted.length > 0"
+    <section v-if="statusCounts.total > 0"
              class="mb-4 flex flex-wrap items-center gap-x-8 gap-y-3 rounded-xl border border-surface-200 bg-surface-0 px-5 py-4 dark:border-surface-700 dark:bg-surface-800/30">
       <div class="flex items-center gap-3">
         <span :class="['flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', scopeTint(scope)]">
@@ -44,6 +45,8 @@
         <JobRunDetail :job-run-id="jobRunId" :organization-id="scope.organizationId" />
       </template>
     </JobRunsTable>
+
+    <RunSystemJobDrawer v-if="systemScope" v-model:visible="runDrawerVisible" @started="openStartedRun" />
   </div>
 </template>
 
@@ -53,16 +56,19 @@ import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import { LaptopMinimalCheck } from '@lucide/vue'
 
-import { ExecutionStatus, type JobRun } from '@kinotic-ai/management-api'
-import { JobRunsTable, PageHeader, executionStatusSeverity, scanJobRuns, StatusChips, type StatusChip } from '@kinotic-ai/frontend-common'
+import { ExecutionStatus } from '@kinotic-ai/management-api'
+import { PageHeader, StatusChips, type StatusChip } from '@kinotic-ai/frontend-common'
+import { countJobRuns, JobRunsTable, executionStatusSeverity } from '@kinotic-ai/frontend-common/management'
 
 import JobRunDetail from '@/components/JobRunDetail.vue'
+import RunSystemJobDrawer from '@/components/RunSystemJobDrawer.vue'
 import { scopeName, scopePath, scopeTint, type Scope } from '@/util/scope'
 
 /**
- * The job runs of the scope the route names: every run on the platform, or the deployments of
+ * The job runs of the scope the route names: every run in the system, or the deployments of
  * an organization, an application or a project. State chips carry the counts
- * and live in the URL so a tile can link to the failed runs.
+ * and live in the URL so a tile can link to the failed runs. On the system scope, Run system job
+ * starts one of the system jobs and opens its run.
  */
 const props = defineProps<{
   organizationId?: string
@@ -84,29 +90,38 @@ const scope = computed<Scope>(() => ({
 
 const description = computed(() => scope.value.organizationId
     ? `Job runs executed for ${scopeName(scope.value)}: its deployments.`
-    : 'Grind job runs across the platform: deployments and system jobs, step by step.')
+    : 'Every grind job run: deployments and system jobs, step by step.')
 
-const counted = ref<JobRun[]>([])
+/** The system scope, where every run is listed and system jobs are started. */
+const systemScope = computed(() => !scope.value.organizationId)
+
+const runDrawerVisible = ref(false)
+
+/** How many of the scope's runs there are in all, and in each of the chips' states. */
+const statusCounts = ref<{ total: number, byState: Record<string, number> }>({ total: 0, byState: {} })
+
+function stateCount(state: ExecutionStatus): number {
+  return statusCounts.value.byState[state] ?? 0
+}
 
 /** The runs by outcome, in the status colours the tags use, each with its share of all the runs. */
 const outcome = computed(() => {
-  const total = counted.value.length || 1
+  const total = statusCounts.value.total || 1
   return [
     { label: 'Completed', status: ExecutionStatus.COMPLETED, bar: 'bg-green-500' },
     { label: 'Failed', status: ExecutionStatus.FAILED, bar: 'bg-red-500' },
     { label: 'Running', status: ExecutionStatus.RUNNING, bar: 'bg-sky-500' }
   ].map(part => {
-    const count = counted.value.filter(run => run.status === part.status).length
+    const count = stateCount(part.status)
     return { ...part, count, share: Math.round((count / total) * 100) }
   })
 })
 
-const finished = computed(() => counted.value.filter(run =>
-    run.status === ExecutionStatus.COMPLETED || run.status === ExecutionStatus.FAILED).length)
+const finished = computed(() => stateCount(ExecutionStatus.COMPLETED) + stateCount(ExecutionStatus.FAILED))
 
 const successRate = computed(() => finished.value === 0
     ? 0
-    : Math.round((counted.value.filter(run => run.status === ExecutionStatus.COMPLETED).length / finished.value) * 100))
+    : Math.round((stateCount(ExecutionStatus.COMPLETED) / finished.value) * 100))
 
 const statusFilter = computed<ExecutionStatus | null>({
   get: () => CHIP_STATES.includes(route.query.status as ExecutionStatus) ? route.query.status as ExecutionStatus : null,
@@ -114,23 +129,28 @@ const statusFilter = computed<ExecutionStatus | null>({
 })
 
 const chips = computed<StatusChip[]>(() => [
-  { label: 'All', value: null, count: counted.value.length },
+  { label: 'All', value: null, count: statusCounts.value.total },
   ...CHIP_STATES.map(state => ({
     label: state.charAt(0) + state.slice(1).toLowerCase(),
     value: state,
-    count: counted.value.filter(run => run.status === state).length,
+    count: stateCount(state),
     severity: executionStatusSeverity(state)
   }))
 ])
 
-// The chips count from a scan of the scope's runs; the table pages the runs itself
+// The chips count on the server, a total for each filter; the table pages the runs itself
 async function count() {
+  const inScope = {
+    organizationId: scope.value.organizationId,
+    applicationId: scope.value.applicationId,
+    projectId: scope.value.projectId
+  }
   try {
-    counted.value = await scanJobRuns({
-      organizationId: scope.value.organizationId,
-      applicationId: scope.value.applicationId,
-      projectId: scope.value.projectId
-    })
+    const [total, ...byState] = await Promise.all([
+      countJobRuns(inScope),
+      ...CHIP_STATES.map(state => countJobRuns({ ...inScope, status: state }))
+    ])
+    statusCounts.value = { total, byState: Object.fromEntries(CHIP_STATES.map((state, index) => [state, byState[index]])) }
   } catch {
     // The chips keep their last counts; the table reports the failure itself
   }
@@ -139,6 +159,10 @@ async function count() {
 function refresh() {
   jobRunsTable.value?.refresh()
   count()
+}
+
+function openStartedRun(jobRunId: string): void {
+  void router.push(runRoute(jobRunId))
 }
 
 function runRoute(jobRunId: string): string {

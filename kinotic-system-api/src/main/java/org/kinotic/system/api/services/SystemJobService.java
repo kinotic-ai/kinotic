@@ -11,8 +11,8 @@ import org.kinotic.system.api.model.SystemJobDescriptor;
 import java.util.List;
 
 /**
- * Starts the platform's system jobs on demand. Published in the system zone, which only SYSTEM
- * participants may address. A run is owned by the platform and executes on the node that started it,
+ * Starts the system jobs on demand. Published in the system zone, which only SYSTEM participants
+ * may address. A run is owned by the system and executes on the node that started it,
  * and is listed, watched and read through {@code JobMonitoringService} like any other job run.
  */
 @Publish
@@ -28,7 +28,7 @@ public interface SystemJobService {
     Future<List<SystemJobDescriptor>> findSystemJobs();
 
     /**
-     * Starts a run of the named system job on behalf of the platform.
+     * Starts a run of the named system job on behalf of the system.
      *
      * @param name the name of the job to run
      * @return a future completing with the started run once it and its task ledger are recorded, or

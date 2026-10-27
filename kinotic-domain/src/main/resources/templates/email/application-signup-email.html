@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Confirm your email for {{applicationName}}</title>
+</head>
+<body style="margin:0; padding:0; background-color:#F4F4F5;">
+
+<!-- Preheader (hidden) -->
+<div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">
+    Confirm your email to finish signing up for {{applicationName}}.
+</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4F4F5" style="background-color:#F4F4F5;">
+    <tr>
+        <td align="center" style="padding:40px 16px;">
+            <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"
+                   style="max-width:560px; width:100%; background-color:#FFFFFF; border-radius:12px;">
+                <tr>
+                    <td style="padding:40px 32px 32px; font-family:'Helvetica Neue',Arial,sans-serif;">
+                        <h1 style="margin:0 0 16px; font-size:24px; line-height:130%; font-weight:700; color:#18181B;">
+                            Confirm your email
+                        </h1>
+                        <p style="margin:0 0 28px; font-size:16px; line-height:150%; color:#3F3F46;">
+                            Thanks for signing up for {{applicationName}}.
+                            Confirm your email address and choose a password to finish.
+                        </p>
+                        <table role="presentation" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td align="center" bgcolor="#18181B" style="border-radius:8px;">
+                                    <a href="{{{verificationUrl}}}"
+                                       style="display:inline-block; padding:12px 24px; font-size:15px; font-weight:600; color:#FFFFFF; text-decoration:none; border-radius:8px;">
+                                        Confirm email
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="margin:28px 0 8px; font-size:13px; line-height:150%; color:#71717A;">
+                            Button not working? Paste this URL into your browser:
+                        </p>
+                        <p style="margin:0; font-size:13px; line-height:150%; word-break:break-all;">
+                            <a href="{{{verificationUrl}}}" style="color:#2563EB;">{{{verificationUrl}}}</a>
+                        </p>
+                        <p style="margin:28px 0 0; font-size:12px; line-height:150%; color:#71717A;">
+                            This link expires in 24 hours. If you didn't sign up for {{applicationName}}, you can safely ignore this email.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

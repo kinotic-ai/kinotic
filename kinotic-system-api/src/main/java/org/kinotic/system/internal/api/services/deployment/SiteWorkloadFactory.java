@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Builds the one-shot workloads that act on a site's files in the sites account, which the
@@ -78,10 +79,11 @@ public class SiteWorkloadFactory {
         return workload;
     }
 
-    // The account answers on its blob host and, for a directory's removal, its dfs host
+    // The account answers on its blob host and, for a directory's removal, its dfs host; an emulator's
+    // single host serves both
     private static void allowSitesAccount(Workload workload, String url) {
         String blobHost = URI.create(url).getHost();
-        workload.getNetwork().setAllowedHosts(List.of(blobHost, blobHost.replace(".blob.", ".dfs.")));
+        workload.getNetwork().setAllowedHosts(Stream.of(blobHost, blobHost.replace(".blob.", ".dfs.")).distinct().toList());
     }
 
 }

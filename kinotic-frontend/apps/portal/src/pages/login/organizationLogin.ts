@@ -1,5 +1,40 @@
 /** localStorage key of the id of the organization this browser last signed in to. */
-export const LAST_ORGANIZATION_KEY = 'kinotic.lastOrganization'
+const LAST_ORGANIZATION_KEY = 'kinotic.lastOrganization'
+
+/** The id of the organization this browser last signed in to, or null when none is remembered. */
+export function rememberedOrganization(): string | null {
+    let ret: string | null = null
+    try {
+        ret = localStorage.getItem(LAST_ORGANIZATION_KEY) || null
+    } catch {
+        // blocked storage reads as a fresh browser
+    }
+    return ret
+}
+
+/** Remembers the organization this browser signed in to, for its next visit to the landing page. */
+export function rememberOrganization(organizationId: string): void {
+    try {
+        localStorage.setItem(LAST_ORGANIZATION_KEY, organizationId)
+    } catch {
+        // blocked storage leaves the landing page asking for the organization
+    }
+}
+
+/** Forgets the organization this browser last signed in to. */
+export function forgetOrganization(): void {
+    try {
+        localStorage.removeItem(LAST_ORGANIZATION_KEY)
+    } catch {
+        // blocked storage leaves the landing page asking for the organization
+    }
+}
+
+/**
+ * Key, in the history state of a navigation to the landing page, of the remembered organization the
+ * organization page found no longer exists. The landing page prefills its organization field with it.
+ */
+export const UNKNOWN_ORGANIZATION_STATE = 'unknownOrganization'
 
 /** The portal path of an organization's login page. */
 export function organizationLoginPath(organizationId: string): string {

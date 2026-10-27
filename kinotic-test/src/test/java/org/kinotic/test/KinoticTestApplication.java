@@ -21,7 +21,7 @@ public class KinoticTestApplication {
 		SpringApplication.run(KinoticTestApplication.class, args);
 	}
 
-	// Every module runs in this one node, so it hosts every platform zone, which also places the
+	// Every module runs in this one node, so it hosts every zone, which also places the
 	// cluster singletons pinned to a zone's nodes here
 	@Bean
 	public ZonePartitioningService zonePartitioningService() {

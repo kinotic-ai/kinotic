@@ -1,6 +1,6 @@
 <template>
-  <div class="sticky top-0 left-0 z-50 flex h-16 items-center justify-between border-b border-surface-200 bg-surface-0 px-4 md:pl-[18px] md:pr-6 dark:border-surface-800 dark:bg-surface-900">
-    <div class="relative flex min-w-0 items-center gap-3 text-surface-950 dark:text-surface-0">
+  <div class="sticky top-0 left-0 z-50 flex h-16 items-center justify-between gap-2 border-b border-surface-200 bg-surface-0 px-4 md:pl-[18px] md:pr-6 dark:border-surface-800 dark:bg-surface-900">
+    <div class="relative flex min-w-0 items-center gap-2 md:gap-3 text-surface-950 dark:text-surface-0">
       <button
         type="button"
         class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-surface-600 transition-colors hover:text-surface-950 md:hidden dark:text-surface-300 dark:hover:text-surface-0"
@@ -21,9 +21,9 @@
       <!-- On small screens only the deepest segment stays; the sidebar's back row names the rest.
            On wider screens the separator takes no width so the "/" centres on the sidebar edge. -->
       <span :class="['text-lg text-surface-300 md:flex md:w-0 md:justify-center dark:text-surface-600', organizationId ? 'hidden' : '']">/</span>
-      <div :class="['items-center gap-1', organizationId ? 'hidden md:flex' : 'flex']">
+      <div :class="['min-w-0 items-center gap-1', organizationId ? 'hidden md:flex' : 'flex']">
         <RouterLink to="/dashboard"
-          class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100">
+          class="flex min-w-0 items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100">
           Kinotic
           <ScopePill kind="system" />
         </RouterLink>
@@ -31,10 +31,11 @@
 
       <!-- A segment the route no longer names is one the trail remembers from further down, shown
            muted so the way back stays one click away -->
-      <!-- On the platform pages: a way to pick an organization from here -->
+      <!-- On the system pages: a way to pick an organization from here, on wider screens -->
       <template v-if="!crumbOrganizationId && organizationItems.length > 0">
-        <span class="text-lg text-surface-300 dark:text-surface-600">/</span>
+        <span class="text-lg text-surface-300 max-md:hidden dark:text-surface-600">/</span>
         <BreadcrumbSwitcher
+          class="max-md:hidden"
           :items="organizationItems"
           label="Select organization"
           placeholder="Select organization"
@@ -47,11 +48,11 @@
 
       <template v-if="crumbOrganizationId">
         <span :class="['text-lg text-surface-300 dark:text-surface-600', crumbApplicationId ? 'hidden md:inline' : '']">/</span>
-        <div :class="['items-center gap-1', crumbApplicationId ? 'hidden md:flex' : 'flex']">
+        <div :class="['min-w-0 items-center gap-1', crumbApplicationId ? 'hidden md:flex' : 'flex']">
           <RouterLink :to="organizationPath(crumbOrganizationId)"
-            class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100"
+            class="flex min-w-0 items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100"
             :class="{ '!text-surface-400 dark:!text-surface-500': !organizationId }">
-            {{ organizationName }}
+            <span class="truncate">{{ organizationName }}</span>
             <ScopePill kind="organization" />
           </RouterLink>
           <BreadcrumbSwitcher
@@ -67,8 +68,9 @@
       </template>
 
       <template v-if="crumbOrganizationId && !crumbApplicationId && applicationItems.length > 0">
-        <span class="text-lg text-surface-300 dark:text-surface-600">/</span>
+        <span class="text-lg text-surface-300 max-md:hidden dark:text-surface-600">/</span>
         <BreadcrumbSwitcher
+          class="max-md:hidden"
           :items="applicationItems"
           label="Select application"
           placeholder="Select application"
@@ -81,11 +83,11 @@
 
       <template v-if="crumbOrganizationId && crumbApplicationId">
         <span :class="['text-lg text-surface-300 dark:text-surface-600', crumbProjectId ? 'hidden md:inline' : '']">/</span>
-        <div :class="['items-center gap-1', crumbProjectId ? 'hidden md:flex' : 'flex']">
+        <div :class="['min-w-0 items-center gap-1', crumbProjectId ? 'hidden md:flex' : 'flex']">
           <RouterLink :to="applicationPath(crumbOrganizationId, crumbApplicationId)"
-            class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100"
+            class="flex min-w-0 items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100"
             :class="{ '!text-surface-400 dark:!text-surface-500': !applicationId }">
-            {{ crumbApplicationId }}
+            <span class="truncate">{{ crumbApplicationId }}</span>
             <ScopePill kind="application" />
           </RouterLink>
           <BreadcrumbSwitcher
@@ -101,8 +103,9 @@
       </template>
 
       <template v-if="crumbOrganizationId && crumbApplicationId && !crumbProjectId && projectItems.length > 0">
-        <span class="text-lg text-surface-300 dark:text-surface-600">/</span>
+        <span class="text-lg text-surface-300 max-md:hidden dark:text-surface-600">/</span>
         <BreadcrumbSwitcher
+          class="max-md:hidden"
           :items="projectItems"
           label="Select project"
           placeholder="Select project"
@@ -115,11 +118,11 @@
 
       <template v-if="crumbOrganizationId && crumbApplicationId && crumbProjectId">
         <span class="text-lg text-surface-300 dark:text-surface-600">/</span>
-        <div class="flex items-center gap-1">
+        <div class="flex min-w-0 items-center gap-1">
           <RouterLink :to="projectPath(crumbOrganizationId, crumbApplicationId, crumbProjectId)"
-            class="flex items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100"
+            class="flex min-w-0 items-center gap-2 text-sm font-medium text-surface-950 transition-opacity hover:opacity-70 dark:text-surface-100"
             :class="{ '!text-surface-400 dark:!text-surface-500': !projectId }">
-            {{ projectName }}
+            <span class="truncate">{{ projectName }}</span>
             <ScopePill kind="project" />
           </RouterLink>
           <BreadcrumbSwitcher
@@ -135,9 +138,9 @@
       </template>
     </div>
 
-    <div class="flex items-center gap-2">
+    <div class="flex shrink-0 items-center gap-2">
       <HeaderSearchButton @open="searchOpen = true" />
-      <HeaderIconButton :href="DOCUMENTATION_URL" label="Help (opens the platform documentation in a new tab)" tooltip="Help">
+      <HeaderIconButton class="max-sm:hidden" :href="DOCUMENTATION_URL" label="Help (opens the platform documentation in a new tab)" tooltip="Help">
         <CircleHelp :size="18" :stroke-width="1.75" aria-hidden="true" />
       </HeaderIconButton>
       <ThemeToggleButton />

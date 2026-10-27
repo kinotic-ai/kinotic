@@ -36,7 +36,7 @@ export class Workload implements Watched {
 
     /**
      * The Organization this workload runs on behalf of, and which may view its logs.
-     * Null for platform workloads (SYSTEM scope).
+     * Null for system workloads.
      */
     public organizationId: string | null = null
 

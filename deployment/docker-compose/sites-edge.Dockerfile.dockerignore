@@ -1,0 +1,4 @@
+# The build context is deployment/, and the image holds two files of it
+*
+!cloudflare/sites-worker/worker.js
+!docker-compose/sites-edge.ts

@@ -3,7 +3,7 @@ import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import type { SystemJobDescriptor } from '@/api/model/SystemJobDescriptor'
 
 /**
- * Starts the platform's system jobs on demand. A run is owned by the platform and executes on the
+ * Starts the system jobs on demand. A run is owned by the system and executes on the
  * node that started it, and is listed, watched and read through Kinotic.jobMonitoring like any
  * other job run.
  */

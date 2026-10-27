@@ -14,7 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.core.api.secret.SecretReferenceResolver;
+import org.kinotic.domain.api.services.SecretReferenceResolver;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.security.OidcProviderType;
@@ -101,7 +101,7 @@ class DefaultGitHubAppInstallationServiceTest {
         GithubProperties githubProperties = new GithubProperties().setAppId(APP_ID);
 
         KinoticDomainProperties domainProperties = new KinoticDomainProperties();
-        domainProperties.getDomain().getCors().setAllowedOriginPattern("https:\\/\\/(portal|builder)\\.example\\.com");
+        domainProperties.getCors().setAllowedOriginPattern("https:\\/\\/(portal|builder)\\.example\\.com");
 
         // Real state store so staging + single-use consumption are exercised
         stateService = new GitHubInstallStateService(ignite);

@@ -125,7 +125,7 @@ import { showErrorToast } from '../util/helpers'
 
 /**
  * What a machine listing can do, bound to the scope whose machines it manages — the
- * application for an organization's API clients, the platform for its own daemons.
+ * application for an organization's API clients, the system for its own daemons.
  */
 export interface MachineOperations {
   findMachines(pageable: Pageable): Promise<Page<MachineParticipantIdentity>>

@@ -3,7 +3,7 @@ package org.kinotic.testserver;
 import io.vertx.core.Future;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.domain.api.services.security.RequestAuthorizer;
+import org.kinotic.core.api.security.RequestAuthorizer;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.node.ObjectNode;
 

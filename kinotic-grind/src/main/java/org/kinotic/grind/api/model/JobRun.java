@@ -30,7 +30,7 @@ public class JobRun implements Watched {
     private String name;
 
     /**
-     * The Organization this run executed on behalf of, or {@code null} for platform runs.
+     * The Organization this run executed on behalf of, or {@code null} for system runs.
      */
     private String organizationId;
 

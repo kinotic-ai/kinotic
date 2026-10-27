@@ -58,8 +58,9 @@ import { useToast } from 'primevue/usetoast'
 import { KeyRound } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
 import { type Grant, type RoleDefinition, type Subject, SubjectType } from '@kinotic-ai/management-api'
-import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, RoleCell, SubjectCell, TINTS,
+import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, TINTS,
          errorMessage, isAuthorizationError, showErrorToast, splitPermission } from '@kinotic-ai/frontend-common'
+import { RoleCell, SubjectCell } from '@kinotic-ai/frontend-common/management'
 import AccessCheckPanel from '@/components/access/AccessCheckPanel.vue'
 import GrantAccessDrawer from '@/components/access/GrantAccessDrawer.vue'
 import { useSubjects } from '@/components/access/useSubjects'

@@ -16,11 +16,13 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.Collection;
 import java.util.List;
 
 @Component
 public class ParticipantIdentityRepository extends AbstractRepository<ParticipantIdentity> {
+
+    // the most organizations one email is a member of
+    private static final int MAX_ORGANIZATIONS_PER_EMAIL = 100;
 
     public ParticipantIdentityRepository(CrudServiceTemplate crudServiceTemplate) {
         super("kinotic_participant_identity", ParticipantIdentity.class, crudServiceTemplate);
@@ -32,10 +34,20 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
                 .map(SystemParticipantIdentity.class::cast);
     }
 
-    /** The organization user with the email, or {@code null}. */
-    public Future<OrganizationParticipantIdentity> findOrganizationUserByEmail(String email) {
-        return findUserByEmail(ParticipantIdentityType.ORGANIZATION_USER, email, null)
+    /** The user of organization {@code organizationId} with the email, or {@code null}. */
+    public Future<OrganizationParticipantIdentity> findOrganizationUserByEmail(String email, String organizationId) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return findUserByEmail(ParticipantIdentityType.ORGANIZATION_USER, email, termFilter("organizationId", organizationId))
                 .map(OrganizationParticipantIdentity.class::cast);
+    }
+
+    /** The users with the email of every organization. */
+    public Future<List<OrganizationParticipantIdentity>> findOrganizationUsersByEmail(String email) {
+        Validate.notBlank(email, "email cannot be blank");
+        return findAll(Pageable.ofSize(MAX_ORGANIZATIONS_PER_EMAIL),
+                       b -> b.query(composeFilter(termFilter("type", ParticipantIdentityType.ORGANIZATION_USER.name()),
+                                                  termFilter("email", DomainUtil.normalizeEmail(email)))))
+                .map(page -> page.getContent().stream().map(OrganizationParticipantIdentity.class::cast).toList());
     }
 
     /** The user of application {@code applicationId} of organization {@code organizationId} with the email, or {@code null}. */
@@ -80,10 +92,17 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
                 .map(page -> page.map(ApplicationParticipantIdentity.class::cast));
     }
 
-    /** The organization users among {@code ids} whose email or display name matches {@code searchText}. */
-    public Future<Page<OrganizationParticipantIdentity>> searchOrganizationUsersById(String searchText, Collection<String> ids, Pageable pageable) {
-        Validate.notBlank(searchText, "searchText cannot be blank");
-        return searchUsers(searchText, ParticipantIdentityType.ORGANIZATION_USER, Query.of(f -> f.ids(i -> i.values(List.copyOf(ids)))), pageable)
+    /** The users of organization {@code organizationId}. */
+    public Future<Page<OrganizationParticipantIdentity>> findOrganizationUsers(String organizationId, Pageable pageable) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return findUsers(ParticipantIdentityType.ORGANIZATION_USER, termFilter("organizationId", organizationId), pageable)
+                .map(page -> page.map(OrganizationParticipantIdentity.class::cast));
+    }
+
+    /** The users of the organization whose email or display name matches {@code searchText}; blank text lists them all. */
+    public Future<Page<OrganizationParticipantIdentity>> searchOrganizationUsers(String searchText, String organizationId, Pageable pageable) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return searchUsers(searchText, ParticipantIdentityType.ORGANIZATION_USER, termFilter("organizationId", organizationId), pageable)
                 .map(page -> page.map(OrganizationParticipantIdentity.class::cast));
     }
 

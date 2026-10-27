@@ -8,6 +8,8 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.ApplicationScoped;
+import org.kinotic.domain.api.model.security.OidcConfiguration;
+import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
@@ -15,6 +17,8 @@ import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.management.api.services.security.OwnedOidcConfigurationService;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -28,6 +32,13 @@ public class DefaultOwnedOidcConfigurationService implements OwnedOidcConfigurat
     @Override
     public Future<Page<OwnedOidcConfiguration>> findAll(Pageable pageable) {
         return oidcConfigurationService.findOwnedByOrganization(requireOrganizationId(), pageable);
+    }
+
+    @Override
+    public Future<List<OidcProviderType>> findManagedProviders() {
+        requireOrganizationId();
+        return oidcConfigurationService.findEnabledAppSocialRegistrations()
+                                       .map(registrations -> registrations.stream().map(OidcConfiguration::getProvider).toList());
     }
 
     @Override

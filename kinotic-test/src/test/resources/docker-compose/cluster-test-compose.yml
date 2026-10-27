@@ -6,7 +6,7 @@
 # Prerequisites the compose file does not provision:
 #   - An Elasticsearch reachable at KINOTIC_ELASTIC_{SCHEME,HOST,PORT} (set via shell/.env).
 #   - The kinotic migration must already have run against that Elasticsearch.
-# Each node self-seeds its own dev platform secrets (development profile), so this cluster is
+# Each node self-seeds its own system secrets (demonstration profile), so this cluster is
 # for wiring/cluster-formation testing, not cross-node JWT validation.
 
 x-kinotic-node: &kinotic-node
@@ -35,7 +35,7 @@ x-kinotic-env: &kinotic-env
   BPL_JVM_HEAD_ROOM: 10
   JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
   KINOTIC_MAXOFFHEAPMEMORY: 419430400
-  SPRING_PROFILES_ACTIVE: development,compose
+  SPRING_PROFILES_ACTIVE: demonstration
   # Ignite SHAREDFS discovery — all nodes coordinate through the shared /sharedfs volume
   KINOTIC_IGNITE_DISCOVERYTYPE: SHAREDFS
   KINOTIC_IGNITE_JOINTIMEOUTMS: 0
@@ -58,15 +58,11 @@ services:
     image: kinoticai/kinotic-server-management:${kinoticVersion:-5.0.0-SNAPSHOT}
     environment:
       <<: *kinotic-env
-      KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9091
       KINOTIC_IGNITE_DISCOVERYPORT: 47501
       KINOTIC_IGNITE_COMMUNICATIONPORT: 47101
-      KINOTIC_MANAGEMENTAPI_APIBASEURL: "http://localhost:9091"
-      KINOTIC_DOMAIN_PORTALBASEURL: "http://localhost:9091"
       OTEL_SERVICE_NAME: kinotic-server-management
       THC_PORT: 58503
     ports:
-      - "9091:9091"
       - "47501:47501"
       - "47101:47101"
       - "58503:58503"

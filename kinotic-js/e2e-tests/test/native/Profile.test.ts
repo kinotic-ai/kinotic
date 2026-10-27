@@ -2,7 +2,7 @@ import {Kinotic} from '@kinotic-ai/core'
 import {OidcConfigurationType, OidcProviderType, PASSWORD_SIGN_IN_METHOD_ID, AuthType} from '@kinotic-ai/management-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
-import {E2E_ORG_USER_EMAIL, E2E_ORGANIZATION_ID, initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
+import {E2E_ORG_USER_EMAIL, initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
 
 /**
  * The signed-in organization user's own profile over STOMP: who it is, how it signs in, which providers it may connect,
@@ -31,18 +31,12 @@ describe('Profile', () => {
         expect(methods.some(m => m.id === PASSWORD_SIGN_IN_METHOD_ID && m.type === AuthType.PASSWORD)).toBe(true)
     })
 
-    it('offers the platform\'s GitHub registration to connect', async () => {
+    it('offers the system\'s GitHub registration to connect', async () => {
         const providers = await Kinotic.profile.findConnectableProviders()
         const github = providers.find(p => p.configurationId === 'github-platform')
         expect(github).toBeDefined()
         expect(github!.provider).toBe(OidcProviderType.GITHUB)
         expect(github!.type).toBe(OidcConfigurationType.ORG_SIGNUP)
-    })
-
-    it('lists every organization the user is a member of', async () => {
-        const ids = (await Kinotic.profile.findMyOrganizations()).map(o => o.id)
-        expect(ids).toContain(E2E_ORGANIZATION_ID)
-        expect(ids).toContain('e2e-second')
     })
 
     it('renames the user and reads the name back', async () => {

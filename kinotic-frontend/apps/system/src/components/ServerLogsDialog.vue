@@ -17,7 +17,7 @@
 import { computed } from 'vue'
 import Dialog from 'primevue/dialog'
 import { Kinotic } from '@kinotic-ai/core'
-import { LogView, type LogSource } from '@kinotic-ai/frontend-common'
+import { LogView, type LogSource } from '@kinotic-ai/frontend-common/management'
 
 /** A server node's logs in a dialog, following them live. */
 const props = defineProps<{

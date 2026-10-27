@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 /**
  * Covers {@link DefaultTelemetryService} authorization and tenant resolution: organization
  * participants read their own organization's tenant and no other, system participants read any
- * organization's and the platform's when they name none.
+ * organization's and the system's when they name none.
  */
 class DefaultTelemetryServiceTest extends ParticipantCallTest {
 
@@ -36,7 +36,7 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
     }
 
     @Test
-    void organizationParticipantMayNotReadAnotherOrganizationOrThePlatform() {
+    void organizationParticipantMayNotReadAnotherOrganizationOrTheSystem() {
         assertInstanceOf(AuthorizationException.class,
                          failureOf(ACME_USER, () -> service.searchTraces(traceQuery("globex"))));
         assertInstanceOf(AuthorizationException.class,
@@ -49,7 +49,7 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
 
     @Test
     void systemParticipantReadsAnyOrganization() throws Throwable {
-        callAs(SYSTEM_USER, () -> service.findTrace("globex", "abc123"));
+        callAs(SYSTEM_PARTICIPANT, () -> service.findTrace("globex", "abc123"));
 
         assertEquals("globex", tempoClient.tenant);
         assertEquals("abc123", tempoClient.traceId);
@@ -64,8 +64,8 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
     }
 
     @Test
-    void systemParticipantReadsThePlatformTenantWhenNamingNone() throws Throwable {
-        callAs(SYSTEM_USER, () -> service.queryMetrics(metricQuery(null)));
+    void systemParticipantReadsTheSystemTenantWhenNamingNone() throws Throwable {
+        callAs(SYSTEM_PARTICIPANT, () -> service.queryMetrics(metricQuery(null)));
 
         assertEquals(TelemetryTenant.SYSTEM, mimirClient.tenant);
     }

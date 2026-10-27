@@ -1,0 +1,42 @@
+# Sample data for the demonstration stack, layered onto compose.yml:
+#
+#   docker compose -f compose.yml -f compose.sample-data.yml up -d
+#
+# kinotic-sample-data runs the migration again with the `fixtures` profile once compose.yml's migration has
+# finished, applying the migrations only that profile selects: the test-org organization and its user
+# kinotic@kinotic.local (password: kinotic), then applications, projects, members and invites in it, and worker
+# nodes and workloads for the system console. kinotic-gen-schemas then publishes the ecommerce and healthcare
+# applications' entity definitions and records into test-org.
+services:
+  kinotic-sample-data:
+    extends:
+      file: compose.kinotic-migration.yml
+      service: kinotic-migration
+    container_name: kinotic-sample-data
+    environment:
+      SPRING_PROFILES_ACTIVE: fixtures
+    depends_on:
+      kinotic-migration:
+        condition: service_completed_successfully
+
+  kinotic-gen-schemas:
+    image: kinoticai/kinotic-load-generator:latest
+    pull_policy: always
+    container_name: kinotic-gen-schemas
+    environment:
+      KINOTIC_HOST: kinotic-server-management
+      KINOTIC_PORT: 58503
+      KINOTIC_USE_SSL: "false"
+      TEST_NAME: generateComplexEntities
+      NUMBER_OF_TENANTS: 1 # Not used for this test
+      MAX_CONCURRENT_REQUESTS: 1
+      MAX_REQUESTS_PER_SECOND: 100
+      OTEL_EXPORTER_TYPE: OTLP
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    depends_on:
+      kinotic-sample-data:
+        condition: service_completed_successfully
+      kinotic-server-management:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started

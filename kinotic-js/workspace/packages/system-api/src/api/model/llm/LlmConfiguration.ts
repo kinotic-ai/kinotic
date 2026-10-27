@@ -1,7 +1,7 @@
 import { LlmProviderType } from '@/api/model/llm/LlmProviderType'
 
 /**
- * A large language model the platform's services call: the provider, the model, where the provider's API is
+ * A large language model the system's services call: the provider, the model, where the provider's API is
  * reached and the options each request carries. The API key the provider is called with is held in the secret
  * storage and is never a field of the configuration; apiKeyHeld says whether one is held.
  */
@@ -9,7 +9,7 @@ export class LlmConfiguration {
 
     public id: string | null = null
 
-    /** The name a service selects the configuration by, unique across the platform. */
+    /** The name a service selects the configuration by, unique in the system. */
     public name: string
 
     public provider: LlmProviderType

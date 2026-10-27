@@ -11,4 +11,10 @@ export abstract class UserParticipantIdentity extends ParticipantIdentity {
     public abstract override readonly type: ParticipantIdentityType.SYSTEM_USER | ParticipantIdentityType.ORGANIZATION_USER | ParticipantIdentityType.APPLICATION_USER
     /** Email address, unique among the users of the same scope. */
     public email: string = ''
+    /**
+     * Whether the user has yet to sign in for the first time: an administrator added it and no sign-in method signs
+     * it in yet, so its invitation, or a first sign-in through one of its scope's providers under its email, is what
+     * claims it. Cleared once the user has a password or a bound provider identity.
+     */
+    public pending: boolean = false
 }

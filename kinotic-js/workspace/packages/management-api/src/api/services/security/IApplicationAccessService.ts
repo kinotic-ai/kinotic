@@ -1,4 +1,4 @@
-import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
+import { MANAGEMENT_API_ZONE } from '@/api/Zones'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import type { AccessExplanation } from '@/api/model/security/AccessExplanation'
 import type { Grant } from '@/api/model/security/Grant'

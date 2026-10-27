@@ -161,7 +161,7 @@ public class PermissionServiceTests extends KinoticTestBase {
         assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.grant(subject, AuthzConstants.SYSTEM_SUPPORT_ROLE, onOrganization))));
 
         // and by the engine for a writer that skips the service
-        String user = AuthzGraphUtil.authzMember(subject.id(), TEST_ORG_ID);
+        String user = AuthzGraphUtil.authzUser(subject.id());
         assertThrows(ExecutionException.class, () -> await(relationships.bind(AuthzStoreService.SYSTEM, AuthzConstants.ORGANIZATION_ADMIN_ROLE, user,
                                                                               AuthzGraphUtil.authzObject(TEST_ORG_ID, onProject))));
         assertThrows(ExecutionException.class, () -> await(relationships.bind(AuthzStoreService.SYSTEM, AuthzConstants.SYSTEM_SUPPORT_ROLE, user,
@@ -251,7 +251,7 @@ public class PermissionServiceTests extends KinoticTestBase {
     }
 
     private boolean held(UserParticipantIdentity member, String permission, Resource resource) throws Exception {
-        return await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzMember(member.getId(), TEST_ORG_ID), permission,
+        return await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser(member.getId()), permission,
                                                                AuthzGraphUtil.authzObject(TEST_ORG_ID, resource)),
                                          Consistency.HIGHER_CONSISTENCY));
     }

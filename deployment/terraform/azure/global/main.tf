@@ -77,7 +77,7 @@ variable "cloudflare_api_token" {
 }
 
 variable "apps_api_domain" {
-  description = "The cluster root's apps_api_domain output, apps-api.<cloudflare zone>: the app server answers the platform's social registrations' callbacks at it, so an Entra sign-in fails with a redirect URI mismatch when the two differ"
+  description = "The cluster root's apps_api_domain output, apps-api.<cloudflare zone>: the app server answers the system's social registrations' callbacks at it, so an Entra sign-in fails with a redirect URI mismatch when the two differ"
   type        = string
 }
 
@@ -219,7 +219,7 @@ resource "azuread_application" "kinotic_platform" {
   }
 
   # Web-platform redirect URIs — used by the server-side OIDC flow. The registration is the
-  # platform's APP_SOCIAL row "entra-platform" (V1__init.sql), offered at application logins
+  # system's APP_SOCIAL row "entra-platform" (V1__init.sql), offered at application logins
   # only, so every flow through it returns to the app server's shared host, the one redirect
   # URI the registration needs per environment (ApplicationSocialLoginHandler). Microsoft
   # permits http://localhost:* for dev without HTTPS: the second URI is a developer's app

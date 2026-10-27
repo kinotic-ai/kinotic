@@ -41,7 +41,8 @@ import { Boxes, Building2, CalendarClock, FileText, Hash, LaptopMinimalCheck, La
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { ExecutionStatus, WorkloadStatus, type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
-import { DashboardSection, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, errorMessage, scanJobRuns } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, FactList, PageHeader, StatCard, TINTS, errorMessage } from '@kinotic-ai/frontend-common'
+import { scanJobRuns } from '@kinotic-ai/frontend-common/management'
 
 import AttentionList from '@/components/AttentionList.vue'
 import JobRunsByDayChart from '@/components/JobRunsByDayChart.vue'
@@ -149,7 +150,7 @@ async function load() {
       Kinotic.systemOrganizations.findMembers(orgId, firstPage),
       Kinotic.systemOrganizations.findPendingInvites(orgId, null, firstPage),
       scanWorkloads({ organizationId: orgId }),
-      scanJobRuns({ organizationId: orgId, since: Date.now() - RUN_WINDOW_DAYS * DAY_MS })
+      scanJobRuns({ organizationId: orgId, startedSince: new Date(Date.now() - RUN_WINDOW_DAYS * DAY_MS).toISOString() })
     ])
     organization.value = org
     applicationCount.value = apps.totalElements ?? 0

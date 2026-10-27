@@ -102,8 +102,8 @@
       </DashboardSection>
 
       <div class="grid gap-4 lg:grid-cols-2">
-        <DashboardSection :icon="Activity" :tint="TINTS.ink" title="Platform observability"
-                          description="Traces and metrics of the platform's own servers, in the system tenant.">
+        <DashboardSection :icon="Activity" :tint="TINTS.ink" title="System observability"
+                          description="Traces and metrics of the system's own servers, in the system tenant.">
           <div class="flex flex-col gap-4 p-5">
             <div class="flex flex-wrap gap-2">
               <span v-for="signal in SIGNALS" :key="signal.label"
@@ -117,26 +117,26 @@
             </div>
           </div>
         </DashboardSection>
-        <DashboardSection :icon="Boxes" :tint="TINTS.ink" title="Platform workloads"
-                          description="Workloads the platform runs for itself, with no organization.">
+        <DashboardSection :icon="Boxes" :tint="TINTS.ink" title="System workloads"
+                          description="Workloads the system runs for itself, with no organization.">
           <div class="flex flex-col gap-4 p-5">
-            <div v-if="platformWorkloads !== null">
+            <div v-if="systemWorkloads !== null">
               <div class="flex items-baseline justify-between gap-3 text-sm">
-                <span><b class="text-lg font-semibold tabular-nums text-surface-950 dark:text-surface-0">{{ platformRunning }}</b>
-                  <span class="text-muted-color"> of {{ platformWorkloads.length }} running</span></span>
+                <span><b class="text-lg font-semibold tabular-nums text-surface-950 dark:text-surface-0">{{ systemRunning }}</b>
+                  <span class="text-muted-color"> of {{ systemWorkloads.length }} running</span></span>
                 <span class="flex items-center gap-3 text-xs text-muted-color">
-                  <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-green-500" aria-hidden="true" />{{ platformRunning }} running</span>
-                  <span v-if="platformFailed > 0" class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-red-500" aria-hidden="true" />{{ platformFailed }} failed</span>
+                  <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-green-500" aria-hidden="true" />{{ systemRunning }} running</span>
+                  <span v-if="systemFailed > 0" class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-red-500" aria-hidden="true" />{{ systemFailed }} failed</span>
                 </span>
               </div>
               <div class="mt-2 flex h-1.5 overflow-hidden rounded-full bg-surface-100 dark:bg-surface-800" aria-hidden="true">
-                <span class="h-full bg-green-500" :style="{ width: `${share(platformRunning)}%` }" />
-                <span class="h-full bg-red-500" :style="{ width: `${share(platformFailed)}%` }" />
+                <span class="h-full bg-green-500" :style="{ width: `${share(systemRunning)}%` }" />
+                <span class="h-full bg-red-500" :style="{ width: `${share(systemFailed)}%` }" />
               </div>
             </div>
             <div>
-              <Button label="Show platform workloads" icon="pi pi-box" severity="secondary" outlined size="small"
-                      @click="router.push({ path: '/workloads', query: { org: PLATFORM_ONLY } })" />
+              <Button label="Show system workloads" icon="pi pi-box" severity="secondary" outlined size="small"
+                      @click="router.push({ path: '/workloads', query: { org: SYSTEM_ONLY } })" />
             </div>
           </div>
         </DashboardSection>
@@ -167,7 +167,7 @@ import { DashboardSection, HeartbeatIcon, NoAccessState, PageHeader, StatCard, T
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
 import ServerLogsDialog from '@/components/ServerLogsDialog.vue'
-import { PLATFORM_ONLY, scanWorkloads } from '@/util/workloads'
+import { SYSTEM_ONLY, scanWorkloads } from '@/util/workloads'
 import { clusterHeartbeat as clusterHeartbeatOf } from '@/util/nodes'
 
 const router = useRouter()
@@ -186,7 +186,7 @@ const serverLogsVisible = ref(false)
 /** What a node running from classes, with no packaged version, shows for one. */
 const UNKNOWN_VERSION = 'unknown'
 
-/** What the platform's observability holds, named on its card. */
+/** What the system's observability holds, named on its card. */
 const SIGNALS = [
   { label: 'Traces', icon: markRaw(ChartGantt) },
   { label: 'Metrics', icon: markRaw(ChartLine) },
@@ -195,13 +195,13 @@ const SIGNALS = [
 
 const orderedNodes = computed(() => [...(cluster.value?.nodes ?? [])].sort((a, b) => a.order - b.order))
 
-/** The platform's own workloads, null until they load or when they fail to. */
-const platformWorkloads = ref<Workload[] | null>(null)
-const platformRunning = computed(() => platformWorkloads.value?.filter(w => w.status === WorkloadStatus.RUNNING).length ?? 0)
-const platformFailed = computed(() => platformWorkloads.value?.filter(w => w.status === WorkloadStatus.FAILED).length ?? 0)
+/** The system's own workloads, null until they load or when they fail to. */
+const systemWorkloads = ref<Workload[] | null>(null)
+const systemRunning = computed(() => systemWorkloads.value?.filter(w => w.status === WorkloadStatus.RUNNING).length ?? 0)
+const systemFailed = computed(() => systemWorkloads.value?.filter(w => w.status === WorkloadStatus.FAILED).length ?? 0)
 
 function share(count: number): number {
-  const total = platformWorkloads.value?.length ?? 0
+  const total = systemWorkloads.value?.length ?? 0
   return total > 0 ? Math.round((count / total) * 100) : 0
 }
 
@@ -313,9 +313,9 @@ function openLogLevel(nodeId: string) {
 async function load() {
   loading.value = true
   error.value = null
-  // the platform workloads summary is a nicety; failing to load it leaves its card with just the link
-  scanWorkloads({}, { platformOnly: true }).then(list => { platformWorkloads.value = list })
-                                          .catch(() => { platformWorkloads.value = null })
+  // the system workloads summary is a nicety; failing to load it leaves its card with just the link
+  scanWorkloads({}, { systemOnly: true }).then(list => { systemWorkloads.value = list })
+                                          .catch(() => { systemWorkloads.value = null })
   try {
     cluster.value = await Kinotic.clusterInfo.getClusterInfo()
     refused.value = false

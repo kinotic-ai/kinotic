@@ -7,8 +7,8 @@ import org.apache.commons.lang3.Validate;
 
 /**
  * The hierarchy tier a job run executes on behalf of, recorded on the run so runs can be
- * filtered by owner. Runs are owned at one of the platform's three tiers: the platform
- * itself ({@link #system()}), an organization ({@link #ofOrganization}), or an application
+ * filtered by owner. Runs are owned at one of three tiers: the system itself
+ * ({@link #system()}), an organization ({@link #ofOrganization}), or an application
  * ({@link #ofApplication}). An organization or application owner may additionally name the
  * project the run served.
  */
@@ -19,7 +19,7 @@ public class JobOwner {
     private static final JobOwner SYSTEM = new JobOwner(null, null, null);
 
     /**
-     * The owning Organization, or null for a platform (system) run.
+     * The owning Organization, or null for a system run.
      */
     private final String organizationId;
 
@@ -34,14 +34,14 @@ public class JobOwner {
     private final String projectId;
 
     /**
-     * @return true if this is the platform owner, carrying no organization
+     * @return true if this is the system owner, carrying no organization
      */
     public boolean isSystem() {
         return organizationId == null;
     }
 
     /**
-     * The platform owner, for runs the system executes on its own behalf.
+     * The system owner, for runs the system executes on its own behalf.
      * @return the owner
      */
     public static JobOwner system() {

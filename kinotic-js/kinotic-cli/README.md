@@ -26,6 +26,10 @@ USAGE
 * [`kinotic init`](#kinotic-init)
 * [`kinotic initialize`](#kinotic-initialize)
 * [`kinotic login`](#kinotic-login)
+* [`kinotic local down`](#kinotic-local-down)
+* [`kinotic local logs`](#kinotic-local-logs)
+* [`kinotic local status`](#kinotic-local-status)
+* [`kinotic local up`](#kinotic-local-up)
 * [`kinotic spawn lint`](#kinotic-spawn-lint)
 * [`kinotic sync`](#kinotic-sync)
 * [`kinotic synchronize`](#kinotic-synchronize)
@@ -171,6 +175,95 @@ EXAMPLES
 ```
 
 _See code: [src/commands/login.ts](https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-js/kinotic-cli/src/commands/login.ts)_
+
+## `kinotic local down`
+
+Stop Kinotic on this machine and every app it deployed here, keeping its data for the next kinotic local up.
+
+```
+USAGE
+  $ kinotic local down [--delete-data]
+
+FLAGS
+  --delete-data  Also delete everything Kinotic stored: its organizations,
+                 projects, data and deployed apps' files
+
+DESCRIPTION
+  Stop Kinotic on this machine and every app it deployed here, keeping its data
+  for the next kinotic local up
+
+EXAMPLES
+  $ kinotic local down
+
+  $ kinotic local down --delete-data
+```
+
+_See code: [src/commands/local/down.ts](https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-js/kinotic-cli/src/commands/local/down.ts)_
+
+## `kinotic local logs`
+
+Print the logs of Kinotic on this machine: the node's, one container's, or every container's.
+
+```
+USAGE
+  $ kinotic local logs [SERVICE] [-f]
+
+ARGUMENTS
+  [SERVICE]  `node` for the node, or a container such as
+             kinotic-server-management; every container when omitted
+
+FLAGS
+  -f, --follow  Keep printing new lines until interrupted
+
+DESCRIPTION
+  Print the logs of Kinotic on this machine: the node's, one container's, or
+  every container's
+
+EXAMPLES
+  $ kinotic local logs
+
+  $ kinotic local logs kinotic-server-management --follow
+
+  $ kinotic local logs node
+```
+
+_See code: [src/commands/local/logs.ts](https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-js/kinotic-cli/src/commands/local/logs.ts)_
+
+## `kinotic local status`
+
+Show the state of Kinotic on this machine: each of its containers, and the node.
+
+```
+USAGE
+  $ kinotic local status
+
+DESCRIPTION
+  Show the state of Kinotic on this machine: each of its containers, and the
+  node
+
+EXAMPLES
+  $ kinotic local status
+```
+
+_See code: [src/commands/local/status.ts](https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-js/kinotic-cli/src/commands/local/status.ts)_
+
+## `kinotic local up`
+
+Start Kinotic on this machine: its servers, portal and system console, and the node your projects deploy to.
+
+```
+USAGE
+  $ kinotic local up
+
+DESCRIPTION
+  Start Kinotic on this machine: its servers, portal and system console, and the
+  node your projects deploy to
+
+EXAMPLES
+  $ kinotic local up
+```
+
+_See code: [src/commands/local/up.ts](https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-js/kinotic-cli/src/commands/local/up.ts)_
 
 ## `kinotic spawn lint`
 

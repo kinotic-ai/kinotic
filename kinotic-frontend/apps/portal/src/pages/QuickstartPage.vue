@@ -253,7 +253,7 @@
     <section :class="CARD_CLASS">
       <h2 class="text-lg font-semibold text-surface-950 dark:text-surface-0">Before you start</h2>
       <div class="mt-5 grid gap-4 md:grid-cols-3">
-        <a v-for="tool in PREREQUISITES" :key="tool.name" :href="tool.href" target="_blank" rel="noopener"
+        <a v-for="tool in prerequisites" :key="tool.name" :href="tool.href" target="_blank" rel="noopener"
            class="group flex items-start gap-4 rounded-xl border border-surface-200 p-4 transition-colors hover:border-surface-300 hover:bg-surface-50 dark:border-surface-700 dark:hover:bg-surface-800">
           <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-950 dark:ring-1 dark:ring-surface-700">
             <img v-if="tool.logo" :src="tool.logo" alt="" :class="['h-5 w-5', { invert: tool.invertLogo }]" />
@@ -290,8 +290,9 @@ import Skeleton from 'primevue/skeleton'
 import { ArrowRight, ArrowUpRight, BookOpen, Boxes, Braces, ChartLine, Check, CloudUpload, Copy, Database, FileCode, FolderGit2, GitBranch,
          GitCommitHorizontal, Globe, Layers, Library, Package, Table, Terminal } from '@lucide/vue'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { DelegateType, type DelegatingParticipantIdentity, type GitHubAppInstallation, type Project } from '@kinotic-ai/management-api'
-import { createDebug, PageHeader, TINTS } from '@kinotic-ai/frontend-common'
+import { DelegateType, type DelegatingParticipantIdentity, type GitHubAppInstallation, type Project, RepoHostType, type RepositoryHost } from '@kinotic-ai/management-api'
+import { apiUrl, createDebug, PageHeader, TINTS } from '@kinotic-ai/frontend-common'
+import { repositoryHost } from '@/util/repositoryHost'
 import { DOCUMENTATION_URL } from '@/util/externalLinks'
 import githubLogo from '@/assets/github-icon.svg'
 import claudeCodeIcon from '@/assets/claude-code.svg'
@@ -305,9 +306,14 @@ import claudeCodeIcon from '@/assets/claude-code.svg'
 
 const debug = createDebug('quickstart')
 
-const QUICK_START_URL = 'https://kinotic.ai/apps/quick-start'
+const QUICK_START_URL = 'https://kinotic.ai/getting-started/quick-start'
 const PLUGIN_COMMANDS = ['/plugin marketplace add kinotic-ai/agent-plugin', '/plugin install kinotic@kinotic']
 const AUTHORIZE_COMMANDS = ['/mcp']
+// The MCP server the Kinotic plugin connects Claude Code to, Kinotic Cloud's
+const PLUGIN_MCP_URL = 'https://api.kinotic.ai/mcp'
+// This deployment's MCP server; one other than the plugin's, such as a demonstration server's, is added beside it
+const MCP_URL = new URL(apiUrl('/mcp'), window.location.origin).toString()
+const LOCAL_AUTHORIZE_COMMANDS = [`claude mcp add -s user --transport http kinotic-local ${MCP_URL}`, '/mcp']
 const NEW_APP_COMMANDS = ['/kinotic:new-app my-app']
 // How many projects the checklist reads to find the most recently updated one
 const PROJECT_SAMPLE_SIZE = 20
@@ -395,6 +401,7 @@ const linking = ref(false)
 const error = ref<string | null>(null)
 const copied = ref<string | null>(null)
 const installation = ref<GitHubAppInstallation | null>(null)
+const repoHost = ref<RepositoryHost | null>(null)
 const projects = ref<Project[]>([])
 const mcpClient = ref<DelegatingParticipantIdentity | null>(null)
 
@@ -405,6 +412,12 @@ const latestProject = computed(() => [...projects.value]
 function projectPath(project: Project): string {
   return `/application/${encodeURIComponent(project.applicationId)}/project/${encodeURIComponent(project.id ?? '')}`
 }
+
+// GitHub must be linked before Claude can create a project's repository there; another host needs no link
+const linkRequired = computed(() => repoHost.value?.type === RepoHostType.GITHUB && installation.value === null)
+
+// GitHub is the person's own to bring only where it hosts the repositories
+const prerequisites = computed(() => PREREQUISITES.filter(tool => tool.name !== 'GitHub' || repoHost.value?.type === RepoHostType.GITHUB))
 
 const steps = computed<Step[]>(() => [
   {
@@ -419,24 +432,26 @@ const steps = computed<Step[]>(() => [
   {
     id: 'authorize',
     title: 'Connect Claude to Kinotic',
-    description: 'Run /mcp in Claude Code, select kinotic-os and choose Authenticate, then approve the consent screen that opens in your browser.',
+    description: MCP_URL === PLUGIN_MCP_URL
+        ? 'Run /mcp in Claude Code, select kinotic-os and choose Authenticate, then approve the consent screen that opens in your browser.'
+        : 'The plugin connects to Kinotic Cloud, so add this server beside it from a terminal. Then run /mcp in Claude Code, select kinotic-local and choose Authenticate, and approve the consent screen that opens in your browser.',
     done: mcpClient.value !== null,
     doneDetail: mcpClient.value?.displayName ? `${mcpClient.value.displayName} connected` : undefined,
-    commands: AUTHORIZE_COMMANDS,
+    commands: MCP_URL === PLUGIN_MCP_URL ? AUTHORIZE_COMMANDS : LOCAL_AUTHORIZE_COMMANDS,
     actions: [],
     revisit: { label: 'Connected apps', to: '/account/connected-apps' }
   },
   {
     id: 'ask',
     title: 'Ask Claude for your app',
-    description: 'Describe the app you want, or run /kinotic:new-app. Claude creates the application and its project with a GitHub repository, writes the entities, services and UIs, and pushes. Every push deploys.',
+    description: 'Describe the app you want, or run /kinotic:new-app. Claude creates the application and its project with a Git repository, writes the entities, services and UIs, and pushes. Every push deploys.',
     done: projects.value.length > 0,
     doneDetail: latestProject.value?.name,
     commands: NEW_APP_COMMANDS,
-    hint: installation.value === null
+    hint: linkRequired.value
         ? 'Claude creates your project\'s repository under the GitHub account you link, so link GitHub before you ask.'
         : undefined,
-    actions: installation.value === null
+    actions: linkRequired.value
         ? [{ label: 'Link GitHub', icon: markRaw(GitBranch), primary: true, run: linkGitHub }]
         : [],
     revisit: latestProject.value ? { label: 'Open project', to: projectPath(latestProject.value) } : undefined
@@ -483,6 +498,10 @@ async function loadInstallation(): Promise<void> {
   }
 }
 
+async function loadRepositoryHost(): Promise<void> {
+  repoHost.value = await repositoryHost()
+}
+
 async function loadProjects(): Promise<void> {
   const page = await Kinotic.projects.findAll(Pageable.create(0, PROJECT_SAMPLE_SIZE))
   projects.value = page.content ?? []
@@ -495,7 +514,7 @@ async function loadMcpClient(): Promise<void> {
 
 onMounted(async () => {
   try {
-    await Promise.all([loadInstallation(), loadProjects(), loadMcpClient()])
+    await Promise.all([loadInstallation(), loadProjects(), loadMcpClient(), loadRepositoryHost()])
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {

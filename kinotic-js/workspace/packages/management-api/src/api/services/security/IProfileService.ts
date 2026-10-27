@@ -1,14 +1,13 @@
-import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
+import { MANAGEMENT_API_ZONE } from '@/api/Zones'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import type { LoginProviderSummary } from '@/api/model/security/LoginProviderSummary'
-import type { Organization } from '@/api/model/Organization'
 import type { SignInMethod } from '@/api/model/security/SignInMethod'
 import type { UserParticipantIdentity } from '@/api/model/security/UserParticipantIdentity'
 
 /**
- * The signed-in user's own details, read and edited from the web app's profile settings: the profile, the
- * ways the user signs in, and the organizations it may switch between. Every operation addresses the
- * calling user: a system user from the system console, an organization user from the portal.
+ * The signed-in user's own details, read and edited from the web app's profile settings: the profile and the
+ * ways the user signs in. Every operation addresses the calling user: a system user from the system console, an
+ * organization's user from the portal.
  */
 export interface IProfileService {
 
@@ -20,8 +19,8 @@ export interface IProfileService {
     findMySignInMethods(): Promise<SignInMethod[]>
 
     /**
-     * The configurations an organization user may connect as further sign-in methods and has not yet: the platform's
-     * registrations and the own configurations of the organizations it may sign in to; none for a system user,
+     * The configurations an organization's user may connect as further sign-in methods and has not yet: those its
+     * organization's login offers, the system's registrations and the organization's own; none for a system user,
      * which signs in with a password alone. Connecting one
      * is a form POST to `/api/auth/org/methods/start/<configurationId>`.
      */
@@ -35,13 +34,9 @@ export interface IProfileService {
 
     /**
      * Removes a provider identity from the user's sign-in methods; the last method that still signs the user in
-     * (its password, a platform registration, or an organization's configuration while the user is a member there)
-     * cannot be removed.
+     * (its password, or a configuration its organization's login offers) cannot be removed.
      */
     removeSignInMethod(methodId: string): Promise<void>
-
-    /** The organizations the organization user is a member of and may sign in to, for switching between them; none for a system user. */
-    findMyOrganizations(): Promise<Organization[]>
 
 }
 
@@ -75,9 +70,5 @@ export class ProfileService implements IProfileService {
 
     public removeSignInMethod(methodId: string): Promise<void> {
         return this.serviceProxy.invoke('removeSignInMethod', [methodId])
-    }
-
-    public findMyOrganizations(): Promise<Organization[]> {
-        return this.serviceProxy.invoke('findMyOrganizations', [])
     }
 }

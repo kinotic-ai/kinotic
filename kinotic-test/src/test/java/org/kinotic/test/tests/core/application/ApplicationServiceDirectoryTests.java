@@ -8,13 +8,13 @@ import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.event.ZoneRules;
+import org.kinotic.core.api.event.ZoneRulesResolver;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
-import org.kinotic.domain.api.model.security.ZoneRules;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
-import org.kinotic.domain.api.services.security.ZoneRulesService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
@@ -65,7 +65,7 @@ public class ApplicationServiceDirectoryTests extends KinoticTestBase {
     private RelationshipService relationships;
 
     @Autowired
-    private ZoneRulesService zoneRulesService;
+    private ZoneRulesResolver zoneRulesResolver;
 
     private final OrganizationParticipant runtime = new DefaultOrganizationParticipant(UUID.randomUUID().toString(),
                                                                                       TEST_ORG_ID,
@@ -155,7 +155,7 @@ public class ApplicationServiceDirectoryTests extends KinoticTestBase {
         String appId = grantedApplication();
         String otherAppId = application();
 
-        ZoneRules rules = await(zoneRulesService.rulesFor(runtime));
+        ZoneRules rules = await(zoneRulesResolver.resolve(runtime));
 
         assertTrue(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + "~ReportService#1.0.0")));
         assertTrue(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + ".probes~Probe#1.0.0")));
@@ -163,7 +163,7 @@ public class ApplicationServiceDirectoryTests extends KinoticTestBase {
         // it calls the services of the organization's other applications
         assertTrue(rules.sendAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, otherAppId) + "~ReportService/generate#1.0.0")));
         // a person hosts no application's services
-        assertFalse(await(zoneRulesService.rulesFor(TEST_ORGANIZATION_PARTICIPANT))
+        assertFalse(await(zoneRulesResolver.resolve(TEST_ORGANIZATION_PARTICIPANT))
                             .subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + "~ReportService#1.0.0")));
     }
 

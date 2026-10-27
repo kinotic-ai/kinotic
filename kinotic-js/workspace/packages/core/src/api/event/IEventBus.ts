@@ -97,7 +97,8 @@ export interface IEventBus {
 
     /**
      * Emits each time an attempt to connect fails before the server accepts the connection and the client
-     * will try again: the server could not be reached, or it closed the socket before answering. This
+     * will try again: the server could not be reached, it closed the socket before answering, or it had not
+     * answered within 10 seconds of the socket being opened. This
      * covers the attempts of a pending {@link connect} as well as the reconnects after a connection ends.
      * An attempt that ends the connection for good is reported by {@link connectionEnded} instead.
      */

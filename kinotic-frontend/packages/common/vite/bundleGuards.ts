@@ -14,8 +14,8 @@ interface BundleEntry {
  * has finished evaluating, which surfaces only in the browser as an undefined import and a blank
  * page:
  *
- * - a dynamic import of `@kinotic-ai/frontend-common`'s index, which makes the index chunk
- *   statically import every chunk holding one of its exports
+ * - a dynamic import of `@kinotic-ai/frontend-common` or one of its subpaths (`/management`), which
+ *   makes the entry's chunk statically import every chunk holding one of its exports
  * - a cycle of static imports between output chunks
  */
 export function bundleGuards() {
@@ -24,8 +24,8 @@ export function bundleGuards() {
         apply: 'build' as const,
 
         resolveDynamicImport(this: GuardContext, source: string, importer: string | undefined) {
-            if (source === COMMON_PACKAGE) {
-                this.error(`${importer} imports ${COMMON_PACKAGE} dynamically. Import from it statically: its index `
+            if (source === COMMON_PACKAGE || source.startsWith(`${COMMON_PACKAGE}/`)) {
+                this.error(`${importer} imports ${source} dynamically. Import from it statically: its entry `
                            + `chunk is part of every app's startup graph, so a dynamic import loads nothing later and `
                            + `makes that chunk import every chunk that holds one of its exports.`)
             }

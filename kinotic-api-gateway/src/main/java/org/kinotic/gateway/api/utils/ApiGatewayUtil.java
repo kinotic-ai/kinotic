@@ -11,9 +11,9 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.CorsHandler;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.config.CorsProperties;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.domain.api.config.CorsProperties;
 import org.kinotic.gateway.api.config.SslProperties;
 
 import java.util.Set;

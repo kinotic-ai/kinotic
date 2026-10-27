@@ -6,16 +6,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SessionBinding;
-import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
-import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.DelegateType;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
@@ -23,6 +20,7 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ScopedParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.KinoticAudience;
+import org.kinotic.domain.api.model.security.LoginProviderType;
 import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
@@ -76,8 +74,7 @@ public abstract class AuthEndpointSupport {
      * Vert.x session (see {@link SessionBinding}). The subsequent STOMP WebSocket handshake from that page
      * reads it back, so the browser is authenticated by its session cookie and never handles a token. The
      * participant's type is what scopes its authority: a system user signs in as a SystemParticipant, an
-     * organization user as an OrganizationParticipant through one of its memberships, an application's user as
-     * an ApplicationParticipant.
+     * organization's user as an OrganizationParticipant, an application's user as an ApplicationParticipant.
      */
     public void establishSession(RoutingContext ctx, String origin, Participant participant) {
         // Rotate the session id on the privilege change so a pre-auth (possibly fixed)
@@ -153,10 +150,18 @@ public abstract class AuthEndpointSupport {
      * that started the flow, or of this server's UI when {@code origin} is null.
      */
     public void redirectError(RoutingContext ctx, String origin, String errorCode) {
+        redirectError(ctx, origin, errorCode, null);
+    }
+
+    /**
+     * {@link #redirectError(RoutingContext, String, String)} naming the provider whose answer failed the flow, by its
+     * key, as the page's {@code provider} query parameter, or naming none when {@code provider} is {@code null}.
+     */
+    public void redirectError(RoutingContext ctx, String origin, String errorCode, OidcProviderType provider) {
         // the flow that stored a return path ends here, so it must not outlive it and send an
         // unrelated later login somewhere the user never asked for
         ctx.session().remove(RETURN_PATH_SESSION_KEY);
-        redirectToLogin(ctx, origin, errorCode, null);
+        redirectToPage(ctx, origin, loginErrorPath(errorCode) + providerParameter(provider));
     }
 
     /**
@@ -165,16 +170,26 @@ public abstract class AuthEndpointSupport {
      * starts next lands there.
      */
     public void redirectToContinue(RoutingContext ctx, String origin, String errorCode) {
-        redirectToLogin(ctx, origin, errorCode, ctx.session().remove(RETURN_PATH_SESSION_KEY));
-    }
-
-    private void redirectToLogin(RoutingContext ctx, String origin, String errorCode, String returnPath) {
-        String path = "/login?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8);
+        String returnPath = ctx.session().remove(RETURN_PATH_SESSION_KEY);
+        String path = loginErrorPath(errorCode);
         if (returnPath != null) {
             path += "&referer=" + URLEncoder.encode(returnPath, StandardCharsets.UTF_8);
         }
         redirectToPage(ctx, origin, path);
     }
+
+    private static String loginErrorPath(String errorCode) {
+        return "/login?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * The query parameter, {@code &provider=<key>}, with which an error redirect names the provider whose answer
+     * failed the flow, or an empty string when {@code provider} is {@code null}.
+     */
+    public static String providerParameter(OidcProviderType provider) {
+        return provider == null ? "" : "&provider=" + URLEncoder.encode(provider.key(), StandardCharsets.UTF_8);
+    }
+
 
     /**
      * {@code 302 Location: <origin><path>}, the path on the page at {@code origin} that started the flow, or on
@@ -200,7 +215,7 @@ public abstract class AuthEndpointSupport {
 
     /** {@link #redirectCallbackFailure(RoutingContext, Throwable)} to the login page of the page at {@code origin}. */
     public void redirectCallbackFailure(RoutingContext ctx, String origin, Throwable ex) {
-        redirectError(ctx, origin, callbackErrorCode(ex));
+        redirectError(ctx, origin, callbackErrorCode(ex), ex instanceof OidcCallbackException oce ? oce.getProvider() : null);
     }
 
     /** The error code a failed callback surfaces: the typed code of an {@link OidcCallbackException}, else {@link OidcErrorCodes#EXCHANGE_FAILED}. */
@@ -257,6 +272,18 @@ public abstract class AuthEndpointSupport {
             throw new IllegalArgumentException("Invalid request body");
         }
         return ret;
+    }
+
+    /**
+     * The string field {@code name} of a request body, or {@code null} when the body has none. A field holding any
+     * other JSON type answers the request with a {@code 400}.
+     */
+    public static String stringField(JsonObject body, String name) {
+        Object value = body.getValue(name);
+        if (value != null && !(value instanceof String)) {
+            throw new IllegalArgumentException("The field " + name + " must be a string");
+        }
+        return (String) value;
     }
 
     // ── Token issuance ────────────────────────────────────────────────────────
@@ -336,17 +363,13 @@ public abstract class AuthEndpointSupport {
                 .mapEmpty();
     }
 
-    /** Standard {@code [{id, name, provider}]} shape for "list of OIDC configs to choose from". */
-    public void respondProvidersList(RoutingContext ctx, List<? extends OidcConfiguration> configs) {
-        ctx.response().putHeader("Content-Type", "application/json").end(providersJson(configs).encode());
-    }
-
-    /** The {@code [{id, name, provider}]} array behind {@link #respondProvidersList}, for embedding in larger payloads. */
+    /** The {@code [{id, type, name, provider}]} array of OIDC configurations a page offers to choose from, each of type {@code OIDC}. */
     public JsonArray providersJson(List<? extends OidcConfiguration> configs) {
         JsonArray arr = new JsonArray();
         for (OidcConfiguration c : configs) {
             arr.add(new JsonObject()
                     .put("id", c.getId())
+                    .put("type", LoginProviderType.OIDC.name())
                     .put("name", c.getName())
                     .put("provider", c.getProvider() == null ? null : c.getProvider().key()));
         }
@@ -371,14 +394,14 @@ public abstract class AuthEndpointSupport {
         try {
             providerKind = OidcProviderType.fromKey(provider);
         } catch (IllegalArgumentException ex) {
-            respondError(ctx, 400, "Unknown platform provider: " + provider);
+            respondError(ctx, 400, "Unknown system provider: " + provider);
             return;
         }
 
         oidcConfigurationService.findEnabledOrgSignupByProvider(providerKind)
               .onSuccess(config -> {
                   if (config == null) {
-                      respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
+                      respondError(ctx, 400, "Unknown or disabled system provider: " + provider);
                   } else {
                       redirectToIdp(ctx, config, start.apply(config));
                   }
@@ -431,8 +454,8 @@ public abstract class AuthEndpointSupport {
     public void handlePasswordLogin(RoutingContext ctx,
                                     BiFunction<String, String, Future<Participant>> authenticate) {
         JsonObject body = readJsonBody(ctx);
-        String email = body.getString("email");
-        String password = body.getString("password");
+        String email = stringField(body, "email");
+        String password = stringField(body, "password");
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
             respondError(ctx, 400, "email and password are required");
             return;
@@ -453,43 +476,6 @@ public abstract class AuthEndpointSupport {
     }
 
     /**
-     * "After the IdP returned" composite flow for an application's login callback: validates {@code sub} +
-     * {@code email_verified}, looks up the application's user bound to the identity via the supplied
-     * function, and signs it in to the application, redirecting success or error accordingly. A successful
-     * login is bound to the page that started the flow. When the lookup finds no user, the configuration is
-     * one an organization made for the scope and it creates users on sign-in, and {@code newUser} supplies
-     * the unsaved user carrying the scope, the identity's verified email and name become that user, bound
-     * to the identity, and the user is signed in. An email the scope already holds under another method is
-     * refused with {@link OidcErrorCodes#USER_EXISTS}; a scope that supplies no user refuses the
-     * identity with {@link OidcErrorCodes#NO_USER} as a plain login does. An organization user, which signs
-     * in through a membership, is signed in by {@link #completeLogin} instead.
-     *
-     * @param userLookup takes the OIDC {@code sub} claim and returns the application's user, or null
-     * @param newUser    the unsaved user an unknown identity becomes, carrying only its scope, or {@code null}
-     *                   when the scope admits no new user; consulted only when a user would be created
-     */
-    public void completeOidcLogin(RoutingContext ctx,
-                                  CallbackResult<? extends OidcConfiguration> result,
-                                  Function<String, Future<ApplicationParticipantIdentity>> userLookup,
-                                  Supplier<Future<ApplicationParticipantIdentity>> newUser) {
-        String sub = verifiedSubject(ctx, result);
-        if (sub != null) {
-            Future<ApplicationParticipantIdentity> user = userLookup.apply(sub).compose(found -> {
-                Future<ApplicationParticipantIdentity> ret;
-                if (found == null && result.config() instanceof OwnedOidcConfiguration owned && owned.isCreateUserOnSignIn()) {
-                    ret = newUser.get().compose(template -> template == null
-                            ? Future.succeededFuture()
-                            : createUserFromClaims(template, sub, result));
-                } else {
-                    ret = Future.succeededFuture(found);
-                }
-                return ret;
-            });
-            completeLogin(ctx, result.origin(), user.map(found -> found == null ? null : participantOf(found)));
-        }
-    }
-
-    /**
      * The participant an application's user signs in as, itself; a disabled user fails the sign-in with
      * {@link OidcErrorCodes#USER_DISABLED}.
      */
@@ -498,31 +484,6 @@ public abstract class AuthEndpointSupport {
             throw new OidcCallbackException(OidcErrorCodes.USER_DISABLED);
         }
         return DomainUtil.createParticipant(user);
-    }
-
-    /**
-     * Creates the user an identity the provider verified becomes on its first sign-in: {@code template},
-     * carrying only its scope, given the identity's verified email and name and bound to the identity. A
-     * scope that already holds the email under another method refuses the identity with
-     * {@link OidcErrorCodes#USER_EXISTS}, and an identity whose provider asserts no email with
-     * {@link OidcErrorCodes#INVALID_TOKEN}.
-     */
-    public Future<ApplicationParticipantIdentity> createUserFromClaims(ApplicationParticipantIdentity template,
-                                                                String sub,
-                                                                CallbackResult<? extends OidcConfiguration> result) {
-        Map<String, Object> claims = result.claims();
-        String email = OAuth2Util.stringClaim(claims, "email");
-        Future<ApplicationParticipantIdentity> ret;
-        if (email == null) {
-            ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN));
-        } else {
-            template.setEmail(email)
-                    .setDisplayName(OAuth2Util.firstPresent(claims, "name", "preferred_username", "email"));
-            ret = identityService.createOidcUser(template, result.config().getId(), sub)
-                                 .recover(err -> Future.failedFuture(err instanceof ExistingUserException
-                                         ? new OidcCallbackException(OidcErrorCodes.USER_EXISTS) : err));
-        }
-        return ret;
     }
 
     /**
@@ -535,7 +496,7 @@ public abstract class AuthEndpointSupport {
         try {
             ret = requireVerifiedSubject(result);
         } catch (OidcCallbackException ex) {
-            redirectError(ctx, result.origin(), ex.getErrorCode());
+            redirectError(ctx, result.origin(), ex.getErrorCode(), ex.getProvider());
             ret = null;
         }
         return ret;
@@ -553,7 +514,7 @@ public abstract class AuthEndpointSupport {
             throw new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN);
         }
         if (!OAuth2Util.isEmailVerified(claims, result.config().getProvider())) {
-            throw new OidcCallbackException(OidcErrorCodes.EMAIL_NOT_VERIFIED);
+            throw new OidcCallbackException(OidcErrorCodes.EMAIL_NOT_VERIFIED, result.config().getProvider());
         }
         return sub;
     }
@@ -561,30 +522,29 @@ public abstract class AuthEndpointSupport {
     /**
      * Finishes a sign-in from the participant a verified identity resolves to: the participant is signed
      * in, bound to the page at {@code origin}, and the browser sent back to it; no participant sends the
-     * browser to that page's error page with {@link OidcErrorCodes#NO_USER}, and a failed resolution
-     * with the {@link OidcCallbackException}'s code, or {@link OidcErrorCodes#LOOKUP_FAILED} for any
-     * other failure.
+     * browser to that page's error page with {@link OidcErrorCodes#NO_USER} naming {@code provider}, and a
+     * failed resolution with the {@link OidcCallbackException}'s code, or {@link OidcErrorCodes#LOOKUP_FAILED}
+     * for any other failure.
      *
      * @param origin      the page the sign-in belongs to, or {@code null} for this server's UI
+     * @param provider    the provider that verified the identity, or {@code null} when it is not known
      * @param participant the participant the identity signs in as, or {@code null} when there is none
      */
-    public void completeLogin(RoutingContext ctx, String origin, Future<Participant> participant) {
+    public void completeLogin(RoutingContext ctx, String origin, OidcProviderType provider, Future<Participant> participant) {
         participant.onSuccess(found -> {
                   if (found == null) {
-                      redirectError(ctx, origin, OidcErrorCodes.NO_USER);
+                      redirectError(ctx, origin, OidcErrorCodes.NO_USER, provider);
                   } else {
                       redirectSuccess(ctx, origin, found);
                   }
               })
               .onFailure(err -> {
-                  String code;
                   if (err instanceof OidcCallbackException oce) {
-                      code = oce.getErrorCode();
+                      redirectError(ctx, origin, oce.getErrorCode(), oce.getProvider());
                   } else {
                       log.warn("Login resolution failed: {}", err.getMessage());
-                      code = OidcErrorCodes.LOOKUP_FAILED;
+                      redirectError(ctx, origin, OidcErrorCodes.LOOKUP_FAILED);
                   }
-                  redirectError(ctx, origin, code);
               });
     }
 }

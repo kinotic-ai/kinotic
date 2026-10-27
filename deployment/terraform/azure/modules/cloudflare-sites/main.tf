@@ -72,7 +72,7 @@ resource "cloudflare_dns_record" "apps_api" {
   content = var.app_server_address
   proxied = true
   ttl     = 1
-  comment = "The app server: the shared host the platform social sign-ins return to"
+  comment = "The app server: the shared host the system's social sign-ins return to"
 }
 
 resource "cloudflare_dns_record" "app_api_hosts" {

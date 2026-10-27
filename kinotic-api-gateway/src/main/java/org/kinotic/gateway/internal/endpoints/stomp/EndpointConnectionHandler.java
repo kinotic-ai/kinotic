@@ -55,10 +55,10 @@ public class EndpointConnectionHandler {
     // or refused, so each one waits for those before it and they leave in the order they arrived
     private Future<Void> dispatched = Future.succeededFuture();
 
-    public EndpointConnectionHandler(Services services) {
+    public EndpointConnectionHandler(Services services, ReplyFlowControl replyFlowControl) {
         this.services = services;
         this.securityService = services.securityService;
-        this.incomingInvocationTracker = new IncomingInvocationTracker(services);
+        this.incomingInvocationTracker = new IncomingInvocationTracker(services, replyFlowControl);
         this.outgoingInvocationTracker = new OutgoingInvocationTracker(services);
     }
 

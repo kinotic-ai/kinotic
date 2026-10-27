@@ -3,7 +3,7 @@
  */
 export enum MachineType {
     /**
-     * A caller someone provisioned by hand: a SYSTEM-scope platform daemon such as the
+     * A caller someone provisioned by hand: a SYSTEM-scope daemon such as the
      * vm-manager, or an APPLICATION-scope API client of one application.
      */
     CLIENT = 'CLIENT',

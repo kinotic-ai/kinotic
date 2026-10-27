@@ -1,7 +1,0 @@
-kinotic:
-  domain:
-    oauth:
-      # kinotic.domain is bound for the gateway's CORS settings and validated as a whole, and this
-      # server runs no OAuth authorization server, so no MCP host is ever admitted with this id
-      allowedClientIds:
-        - https://localhost/test-server-has-no-oauth-clients

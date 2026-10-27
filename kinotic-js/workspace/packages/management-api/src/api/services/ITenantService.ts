@@ -1,4 +1,4 @@
-import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
+import { MANAGEMENT_API_ZONE } from '@/api/Zones'
 import type { IKinotic } from '@kinotic-ai/core'
 import { CrudServiceProxy, FunctionalIterablePage, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import { Tenant } from '@/api/model/Tenant'
@@ -25,6 +25,12 @@ export interface ITenantService extends ICrudServiceProxy<Tenant> {
     /** The tenants of the application, a page at a time. */
     findAllForApplication(applicationId: string, pageable: Pageable): Promise<IterablePage<Tenant>>
 
+    /**
+     * The tenants of the application whose name or id starts with prefix, ignoring case, a page at a time; a blank
+     * prefix finds them all, as {@link findAllForApplication} does.
+     */
+    findForApplicationByPrefix(applicationId: string, prefix: string, pageable: Pageable): Promise<IterablePage<Tenant>>
+
 }
 
 export class TenantService extends CrudServiceProxy<Tenant> implements ITenantService {
@@ -45,6 +51,12 @@ export class TenantService extends CrudServiceProxy<Tenant> implements ITenantSe
 
     private findAllForApplicationSinglePage(applicationId: string, pageable: Pageable): Promise<Page<Tenant>> {
         return this.serviceProxy.invoke('findAllForApplication', [applicationId, pageable])
+    }
+
+    public async findForApplicationByPrefix(applicationId: string, prefix: string, pageable: Pageable): Promise<IterablePage<Tenant>> {
+        const page: Page<Tenant> = await this.serviceProxy.invoke('findForApplicationByPrefix', [applicationId, prefix, pageable])
+        return new FunctionalIterablePage(pageable, page,
+            (next: Pageable) => this.serviceProxy.invoke('findForApplicationByPrefix', [applicationId, prefix, next]))
     }
 
 }

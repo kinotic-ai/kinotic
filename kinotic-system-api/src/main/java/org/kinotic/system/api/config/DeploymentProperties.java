@@ -40,9 +40,9 @@ public class DeploymentProperties {
     private ServerAddressProperties appServer = new ServerAddressProperties().setPort(58505);
 
     /**
-     * Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond
-     * the management server — the repository and package registry hosts, so {@code git fetch} and
-     * {@code bun install} work on nodes that deny workload egress by default.
+     * Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond the management server
+     * and the host of the repository's clone URL — the package registry hosts, so {@code bun install} works on
+     * nodes that deny workload egress by default.
      */
     private List<String> syncAllowedHosts = new ArrayList<>();
 

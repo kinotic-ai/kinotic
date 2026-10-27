@@ -1,6 +1,6 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { type ApplicationParticipantIdentity, type Group, type MachineParticipantIdentity, type OrganizationMember, type Subject,
+import { type ApplicationParticipantIdentity, type Group, type MachineParticipantIdentity, type OrganizationParticipantIdentity, type Subject,
   SubjectType } from '@kinotic-ai/management-api'
 
 /** Who a grant can be made to, as the pickers and the grant rows show them. */
@@ -38,8 +38,7 @@ export function useSubjects(applicationId: string | null = null): {
   async function load(): Promise<void> {
     if (applicationId === null) {
       const memberPage = await Kinotic.members.findMembers(Pageable.create(0, SUBJECT_PAGE_SIZE))
-      // a pending member listed without an id yet has nothing to grant to until the invitation is accepted
-      members.value = (memberPage.content ?? []).filter(member => member.id).map(memberOption)
+      members.value = (memberPage.content ?? []).map(memberOption)
       const groupPage = await Kinotic.permissions.findGroups(Pageable.create(0, SUBJECT_PAGE_SIZE))
       groups.value = (groupPage.content ?? []).map(groupOption)
     } else {
@@ -66,7 +65,7 @@ export function keyOf(subject: Subject): string {
   return `${subject.type}:${subject.id}`
 }
 
-function memberOption(member: OrganizationMember | ApplicationParticipantIdentity): SubjectOption {
+function memberOption(member: OrganizationParticipantIdentity | ApplicationParticipantIdentity): SubjectOption {
   return {
     subject: { type: SubjectType.USER, id: member.id ?? '' },
     label: member.displayName || member.email,

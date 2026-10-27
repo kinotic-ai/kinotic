@@ -93,7 +93,7 @@ describe('applyTargets pipeline generation', () => {
         expect(config).toContain('forward_to = [loki.process.workloads.receiver]')
     })
 
-    it('routes a platform workload (no organization) to the system tenant', async () => {
+    it('routes a system workload (no organization) to the system tenant', async () => {
         const config = await configFor([target({ organizationId: null })])
 
         expect(config).toContain('tenant         = "kinotic-system"')
@@ -165,7 +165,7 @@ describe('OTLP pipeline generation', () => {
         expect(config).not.toContain('application_id')
     })
 
-    it('exports each organization to its own Tempo tenant, and platform workloads to the system tenant', async () => {
+    it('exports each organization to its own Tempo tenant, and system workloads to the system tenant', async () => {
         const config = await configFor([
             withEndpoint(),
             withEndpoint({ workloadId: 'ff000000-0000-4000-8000-000000000001', organizationId: null,

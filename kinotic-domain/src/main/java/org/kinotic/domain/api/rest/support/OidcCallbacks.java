@@ -8,7 +8,7 @@ import org.kinotic.domain.api.utils.HostLabelUtil;
 /**
  * The one callback URL each configuration a login offers is registered with at its provider; every flow through the
  * configuration, whatever its purpose, starts with this URL and returns to it. An organization's login serves the
- * social callback for the platform's org sign-up registrations and the SSO callback for an organization's own
+ * social callback for the system's org sign-up registrations and the SSO callback for an organization's own
  * configurations under the management server's API base URL; an application's login serves the OIDC callback for
  * the organization's application and tenant configurations on the application's own API host.
  */
@@ -20,7 +20,7 @@ public final class OidcCallbacks {
 
     private OidcCallbacks() {}
 
-    /** The callback of the platform's org sign-up registration {@code configId}, under the management server's {@code apiBaseUrl}. */
+    /** The callback of the system's org sign-up registration {@code configId}, under the management server's {@code apiBaseUrl}. */
     public static String socialCallbackUrl(String apiBaseUrl, String configId) {
         return apiBaseUrl + SOCIAL_CALLBACK_PATH + configId;
     }

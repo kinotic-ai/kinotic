@@ -92,8 +92,9 @@ import { useConfirm } from 'primevue/useconfirm'
 import { Direction, FunctionalIterablePage, Kinotic, Order,
          type IterablePage, type Page, type Pageable, type Sort } from '@kinotic-ai/core'
 import { WorkloadStatus, type StatusCondition, type Workload } from '@kinotic-ai/management-api'
-import { CrudTable, DatetimeUtil, SteppingDrawer, TimePill, WorkloadLogsDialog, formatMb, pageNumberOf, useCrudTablePage,
-         useSteppingDrawer, NodeUnreachableNote, type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
+import { CrudTable, DatetimeUtil, SteppingDrawer, TimePill, formatMb, pageNumberOf, useCrudTablePage, useSteppingDrawer,
+         NodeUnreachableNote, type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
+import { WorkloadLogsDialog } from '@kinotic-ai/frontend-common/management'
 
 import WorkloadPage from '@/pages/WorkloadPage.vue'
 import { formatCpus } from '@/util/nodes'
@@ -103,7 +104,7 @@ import { nodeUnreachable, runOpen, shortImage, workloadSeverity } from '@/util/w
 /**
  * The given workloads as a searchable, sortable table; a clicked workload opens in a drawer
  * beside it, stepping through the rows shown, with a link to its page under the scope, and a menu that shows its logs, stops, restarts or destroys it. The owner
- * column names what the scope leaves unsaid: the organization on the platform, the
+ * column names what the scope leaves unsaid: the organization in the system, the
  * application inside an organization, nothing deeper. Emits changed after an action, or once the
  * drawer closes since its page can act on the workload, so the caller can read the workloads again.
  */
@@ -159,7 +160,7 @@ function imageName(image: string): string {
   return shortImage(image).split('/').pop() ?? image
 }
 
-const ownerFallback = computed(() => ownerHeader.value === 'Organization' ? 'platform' : 'organization')
+const ownerFallback = computed(() => ownerHeader.value === 'Organization' ? 'system' : 'organization')
 
 const headers = computed<CrudHeader[]>(() => {
   const ret: CrudHeader[] = [

@@ -2,21 +2,24 @@ package org.kinotic.management.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.management.api.config.RepoHostType;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.RepositoryHost;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
 import org.kinotic.management.api.services.ProjectRepoProvisioner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * Fallback {@link ProjectRepoProvisioner} used when repository provisioning is disabled
- * ({@code kinotic.managementApi.github.disableProvisioner=true}). Skips the GitHub API call entirely and stamps
+ * Fallback {@link ProjectRepoProvisioner} used when GitHub hosts the repositories and repository provisioning is
+ * disabled ({@code kinotic.managementApi.github.disableProvisioner=true}). Skips the GitHub API call entirely and stamps
  * deterministic fake repo metadata on the project, so project-create flows work in
  * development and tests without a configured GitHub App.
  */
 @Slf4j
 @Component
 @ConditionalOnProperty(value = "kinotic.managementApi.github.disableProvisioner", havingValue = "true")
+@ConditionalOnProperty(value = "kinotic.managementApi.repoHost", havingValue = "GITHUB", matchIfMissing = true)
 public class MockProjectRepoProvisioner implements ProjectRepoProvisioner {
 
     private static final String FAKE_OWNER = "kinotic-mock";
@@ -39,5 +42,11 @@ public class MockProjectRepoProvisioner implements ProjectRepoProvisioner {
     public Future<Project> reinitialize(Project project) {
         project.setRepoConnectionStatus(RepositoryConnectionStatus.CONNECTED);
         return Future.succeededFuture(project);
+    }
+
+    // the fake repositories stand in for GitHub's, which a disabled provisioner replaces
+    @Override
+    public RepositoryHost repositoryHost() {
+        return new RepositoryHost(RepoHostType.GITHUB, "https://github.com");
     }
 }

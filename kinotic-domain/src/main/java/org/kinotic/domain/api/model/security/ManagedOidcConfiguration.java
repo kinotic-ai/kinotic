@@ -7,7 +7,7 @@ import lombok.experimental.Accessors;
 
 /**
  * A provider registration Kinotic made once and system users manage, as opposed to one an
- * organization made for itself. Its client secret is one placed in the platform's secret
+ * organization made for itself. Its client secret is one placed in the system's secret
  * storage under the name {@link #secretNameRef}, and it alone may name a provider's endpoints explicitly,
  * for a provider such as GitHub that publishes no OIDC discovery document. The concrete subtype states
  * whom the registration signs in: {@link OrgSignupOidcConfiguration} organization users at sign-up and
@@ -21,7 +21,7 @@ public abstract sealed class ManagedOidcConfiguration extends OidcConfiguration
         permits OrgSignupOidcConfiguration, ApplicationSocialOidcConfiguration {
 
     /**
-     * Name of the OAuth client secret in the platform's secret storage — the Azure Key Vault of
+     * Name of the OAuth client secret in the system's secret storage — the Azure Key Vault of
      * the deployment, or a {@code KINOTIC_AKV_*} property in development; the latest version is
      * read at sign-in. {@code null} for a public client.
      */

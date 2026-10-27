@@ -11,10 +11,11 @@ import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.ZonePartitioningService;
+import org.kinotic.core.api.event.ZoneRules;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
-import org.kinotic.domain.api.services.security.RequestAuthorizer;
+import org.kinotic.core.api.security.RequestAuthorizer;
 import org.kinotic.management.internal.api.rest.mcp.model.McpCallToolResult;
 import org.mockito.ArgumentCaptor;
 import tools.jackson.databind.json.JsonMapper;
@@ -22,6 +23,7 @@ import tools.jackson.databind.node.ObjectNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -69,7 +71,8 @@ class McpToolInvokerTests {
                                      serviceDirectory,
                                      requestAuthorizer,
                                      mock(RequestLivenessWatcher.class),
-                                     ZonePartitioningService.everyZone("test"));
+                                     ZonePartitioningService.everyZone("test"),
+                                     participant -> Future.succeededFuture(ZoneRules.sendingToAnyZone(Set.of())));
         invoker.init();
     }
 

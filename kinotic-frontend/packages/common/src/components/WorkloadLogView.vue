@@ -10,7 +10,7 @@ import type { LogSource } from './LogSource'
 import type { WorkloadRun } from './WorkloadRun'
 
 const props = defineProps<{
-  /** The organization the workload ran for; null for a platform workload, which only the system console reads. */
+  /** The organization the workload ran for; null for a system workload, which only the system console reads. */
   organizationId: string | null
   workloadId: string
   /** The window the workload ran over, when the caller knows it; see LogView. */

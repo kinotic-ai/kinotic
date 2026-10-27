@@ -23,16 +23,16 @@ rsync -rlt "$SRC/" "root@$HOST:$DEST/"
 ssh "root@$HOST" "
   chmod -R u=rwX,go= '$DEST'
   chown -R 0:0 '$DEST'
-  for dir in '$DEST'/kinotic-server-*; do
+  for dir in '$DEST'/kinotic-server-* '$DEST/summit-42'; do
     [ -d \"\$dir\" ] && chown -R 101002:101001 \"\$dir\"
   done
   token=\$(sed -n 's/^KINOTIC_DOMAIN_PUBLISHEDSITES_CLOUDFLARE_APITOKEN=//p' '$DEST/kinotic-servers.env')
   [ -n \"\$token\" ] && printf 'dns_cloudflare_api_token = %s\n' \"\$token\" | install -m 0600 /dev/stdin /etc/kinotic/certbot-cloudflare.ini
-  for manifest in '$SNIPPETS'/kinotic-kinotic-server-*.manifest.json '$SNIPPETS/kinotic-grafana.manifest.json'; do
+  for manifest in '$SNIPPETS'/kinotic-kinotic-server-*.manifest.json '$SNIPPETS/kinotic-summit-42.manifest.json' '$SNIPPETS/kinotic-grafana.manifest.json'; do
     [ -e \"\$manifest\" ] && python3 '$SNIPPETS/kinotic-apply-container.py' \"\$manifest\"
   done
   # Each server reads secrets.yml and its key set from the mount, which the applier does not watch
-  for manifest in '$SNIPPETS'/kinotic-kinotic-server-*.manifest.json; do
+  for manifest in '$SNIPPETS'/kinotic-kinotic-server-*.manifest.json '$SNIPPETS/kinotic-summit-42.manifest.json'; do
     server=\$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[\"vmid\"])' \"\$manifest\" 2>/dev/null)
     [ -n \"\$server\" ] && pct status \"\$server\" | grep -q running && pct reboot \"\$server\"
   done

@@ -1,5 +1,5 @@
 /**
- * Parameters for a historical log query: one platform server's logs, or one node's of it, over a time range.
+ * Parameters for a historical log query: one Kinotic server's logs, or one node's of it, over a time range.
  */
 export interface ServerLogQuery {
 

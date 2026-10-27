@@ -1,4 +1,4 @@
-import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
+import { MANAGEMENT_API_ZONE } from '@/api/Zones'
 import type { IKinotic, IServiceProxy, IterablePage, Page, Pageable } from '@kinotic-ai/core'
 import { FunctionalIterablePage } from '@kinotic-ai/core'
 import type { MachineParticipantIdentity } from '@/api/model/security/MachineParticipantIdentity'

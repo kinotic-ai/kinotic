@@ -203,7 +203,17 @@ function rowMenuItems(item: DescriptiveIdentifiable): MenuItem[] {
 }
 
 const computedHeaders = computed<CrudHeader[]>(() => {
-  return props.headers;
+  // Under table-fixed, width the percentages leave unclaimed goes to the row menu column, so
+  // percentages that sum short of 100% (a conditional column left out) are scaled up to fill it
+  const percents = props.headers.map(header => /^\d+(\.\d+)?%$/.test(header.width ?? '') ? parseFloat(header.width!) : NaN);
+  const total = percents.reduce((sum, percent) => sum + percent, 0);
+  let ret: CrudHeader[];
+  if (Number.isNaN(total) || total <= 0) {
+    ret = props.headers;
+  } else {
+    ret = props.headers.map((header, i) => ({ ...header, width: `${(percents[i] * 100) / total}%` }));
+  }
+  return ret;
 });
 
 const isBurgerView = computed<boolean>(() => {

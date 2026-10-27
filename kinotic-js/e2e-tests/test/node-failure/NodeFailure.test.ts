@@ -27,7 +27,7 @@ const APPLICATION_ID = 'node-failure'
 const ZONE = `app.${E2E_ORGANIZATION_ID}.${APPLICATION_ID}`
 const PROBE_SERVICE = `${ZONE}~e2e.nodefailure.ProbeService`
 
-/** The organization's runtime machine V3__e2e_app_fixtures seeds, which connects to app server nodes (clientSecret: kinotic). */
+/** The organization's runtime machine V4__e2e_app_fixtures seeds, which connects to app server nodes (clientSecret: kinotic). */
 const RUNTIME_MACHINE_ID = '00000000-0000-0000-0000-000000000013'
 
 /** The compose container name of the second node, the one every test here kills. */

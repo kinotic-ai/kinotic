@@ -6,7 +6,7 @@ package org.kinotic.domain.api.model.security.identity;
 public enum MachineType {
 
     /**
-     * A caller someone provisioned by hand: a SYSTEM-scope platform daemon such as the vm-manager, or an
+     * A caller someone provisioned by hand: a SYSTEM-scope daemon such as the vm-manager, or an
      * APPLICATION-scope API client of one application.
      */
     CLIENT,

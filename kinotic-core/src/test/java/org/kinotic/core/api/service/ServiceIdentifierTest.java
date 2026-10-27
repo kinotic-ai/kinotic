@@ -22,7 +22,7 @@ public class ServiceIdentifierTest {
     }
 
     @Test
-    public void platformZoneAddresses() {
+    public void hyphenatedZoneAddresses() {
         ServiceIdentifier identifier = new ServiceIdentifier("os-api", "com.example", "LogManager", null, "1.0.0");
         assertEquals("os-api~com.example.LogManager", identifier.qualifiedName());
         assertEquals("srv://os-api~com.example.LogManager#1.0.0", identifier.cri().raw());

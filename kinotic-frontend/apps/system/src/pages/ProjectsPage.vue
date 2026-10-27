@@ -86,9 +86,7 @@ import {
   PageHeader,
   TimePill,
   errorMessage,
-  executionStatusSeverity,
   pageNumberOf,
-  scanJobRuns,
   shortSha,
   SteppingDrawer,
   useCrudTablePage,
@@ -96,6 +94,7 @@ import {
   type CrudHeader,
   type DescriptiveIdentifiable
 } from '@kinotic-ai/frontend-common'
+import { executionStatusSeverity, scanJobRuns } from '@kinotic-ai/frontend-common/management'
 
 import { commitShaOf, deployRunsByProject } from '@/util/runs'
 import ProjectOverview from '@/pages/ProjectOverview.vue'

@@ -9,9 +9,9 @@ import org.kinotic.domain.api.model.Organization;
 import org.kinotic.idl.api.annotations.AuthzCheck;
 import org.kinotic.idl.api.annotations.AuthzResource;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.management.api.model.Project;
-import org.kinotic.domain.api.model.security.OrganizationMember;
+import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
+import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.PendingInviteSummary;
 
 /**
@@ -80,10 +80,10 @@ public interface SystemOrganizationService {
      *
      * @param organizationId the organization whose members to return
      * @param pageable the page settings to use
-     * @return a page of {@link OrganizationMember}s
+     * @return a page of {@link OrganizationParticipantIdentity}s
      */
     @AuthzCheck(permission = AuthzConstants.CAN_READ_MEMBERS)
-    Future<Page<OrganizationMember>> findMembers(String organizationId, Pageable pageable);
+    Future<Page<OrganizationParticipantIdentity>> findMembers(String organizationId, Pageable pageable);
 
     /**
      * Searches the given organization's members by email and display name.
@@ -91,10 +91,10 @@ public interface SystemOrganizationService {
      * @param searchText the text to match members against
      * @param organizationId the organization whose members to search
      * @param pageable the page settings to use
-     * @return a page of matching {@link OrganizationMember}s
+     * @return a page of matching {@link OrganizationParticipantIdentity}s
      */
     @AuthzCheck(permission = AuthzConstants.CAN_READ_MEMBERS)
-    Future<Page<OrganizationMember>> searchMembers(String searchText, String organizationId, Pageable pageable);
+    Future<Page<OrganizationParticipantIdentity>> searchMembers(String searchText, String organizationId, Pageable pageable);
 
     /**
      * Returns the users of one of the given organization's applications.
@@ -106,8 +106,8 @@ public interface SystemOrganizationService {
      */
     @AuthzCheck(permission = AuthzConstants.CAN_READ_MEMBERS)
     Future<Page<ApplicationParticipantIdentity>> findApplicationUsers(String organizationId,
-                                                                      String applicationId,
-                                                                      Pageable pageable);
+                                                       String applicationId,
+                                                       Pageable pageable);
 
     /**
      * Searches the users of one of the given organization's applications by email and display name.
@@ -120,9 +120,9 @@ public interface SystemOrganizationService {
      */
     @AuthzCheck(permission = AuthzConstants.CAN_READ_MEMBERS)
     Future<Page<ApplicationParticipantIdentity>> searchApplicationUsers(String searchText,
-                                                                        String organizationId,
-                                                                        String applicationId,
-                                                                        Pageable pageable);
+                                                         String organizationId,
+                                                         String applicationId,
+                                                         Pageable pageable);
 
     /**
      * Returns the given organization's pending invitations, or one application's when

@@ -9,12 +9,11 @@ workflow — they're built up from small `compose.*.yml` files using docker-comp
 | You want… | Run |
 |---|---|
 | **Everything in containers, fastest path** | `docker compose up -d` |
-| **IntelliJ-running servers, just ES + Kibana** | `docker compose -f compose.elasticsearch.yml -f compose.kibana.yml up -d` |
-| **IntelliJ + ES + run migrations once** | `docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up -d` |
+| **Everything, with the server images you built from your working tree** | `./gradlew bootBuildImage` for the modules you change, then `docker compose up -d` |
 | **Full stack with OIDC via local Keycloak** | `docker compose -f compose.yml -f compose.keycloak.yml up -d` |
 | **Backing services for the kinotic-test suite** | `docker compose -f compose.kinotic-test.yml up -d` |
 
-`docker compose down` to stop. `docker compose down -v` to also wipe volumes (ES data).
+`docker compose down` to stop. `docker compose down -v` to also wipe volumes (ES data and the published UIs).
 
 `kinotic-migration` and the three servers use `pull_policy: missing`, so a locally present image
 wins and the stack keeps using it until you ask for a newer one. Run `docker compose pull` to
@@ -25,30 +24,32 @@ the commit under test rather than whatever the published tag currently holds.
 
 | File | Purpose | Brings up |
 |---|---|---|
-| `compose.yml` | Top-level — `include:`s every piece below | Full stack (ES + Kibana + OTEL + OpenFGA + load-gen + migration + the three servers) |
+| `compose.yml` | Top-level — `include:`s every piece below, as the compose project `kinotic` | Full stack (ES + Kibana + OTEL + OpenFGA + migration + Azurite and the sites edge + Gitea + the three servers + the UIs), with no organization |
 | `compose.elasticsearch.yml` | Elasticsearch | `kinotic-elasticsearch:9200` |
 | `compose.kibana.yml` | Kibana (depends on Elasticsearch) | `kinotic-kibana:5601` |
 | `compose.kinotic-migration.yml` | Runs `kinotic-migration` once against ES, then exits | One-shot job — `service_completed_successfully` is what the servers wait on |
-| `compose.kinotic-servers.yml` | The three Kinotic servers, one Ignite cluster | `kinotic-server-management:9090/58503` (portal, REST and STOMP), `kinotic-server-system:58504`, `kinotic-server-app:58505` |
+| `compose.kinotic-servers.yml` | The three Kinotic servers, one Ignite cluster | `kinotic-server-management:58503`, `kinotic-server-system:58504`, `kinotic-server-app:58505` (REST and STOMP) |
+| `compose.ui.yml` | The portal and the system console, the `kinotic-ui` image built from `kinotic-ui.Dockerfile`, which builds `kinotic-frontend` and serves both through `kinotic-ui.ts`. `docker compose up --build` builds it from the working tree | `kinotic-ui:9090` (portal), `kinotic-ui:9091` (system console) |
 | `compose.openfga.yml` | OpenFGA, the authorization engine, with its Postgres, its schema migration and `openfga-init`, which creates the system store | `openfga:8080`; one-shot `openfga-init`, whose `service_completed_successfully` the servers wait on |
 | `compose-otel.yml` | OpenTelemetry collector + Grafana + Tempo + Loki + Mimir | `grafana:3000`, `loki:3100`, `tempo:3200`, `mimir:9009` |
-| `compose.gen-schemas.yml` | Load-generator container that pre-populates schemas | One-shot when `compose.yml` brings up the full stack |
+| `compose.sample-data.yml` | Layered onto `compose.yml`: `kinotic-sample-data` runs the migration with the `fixtures` profile, and `kinotic-gen-schemas` publishes sample entity definitions | See [Sample data](#sample-data) |
+| `compose.sites.yml` | Where published UIs are stored and served: the Azurite emulator, and the local edge, the `kinotic-sites-edge` image built from `sites-edge.Dockerfile`, which runs the Cloudflare sites Worker (`../cloudflare/sites-worker/worker.js`) over it through `sites-edge.ts`. `docker compose up --build` builds it from the working tree | `kinotic-azurite:10000`, `kinotic-sites-edge:8088` |
+| `compose.gitea.yml` | The Gitea server the demonstration server hosts projects' repositories on, in place of GitHub: it creates the `kinotic_admin` administrator the servers act as on first start | `kinotic-gitea:3000` |
 | `compose.keycloak.yml` | Local Keycloak as a social sign-in OIDC provider (dev-only secret) | `keycloak:8888` — see `KEYCLOAK_HOSTS_SETUP.md` |
 | `compose.kinotic-test.yml` | Minimal: ES + migration only, no server | Backing services for the `kinotic-test` suite, which runs the server in-process |
-| `compose.kinotic-e2e-test.yml` | Elasticsearch + migration + OpenFGA + the servers, on the `test,e2e-tests,compose` profiles | Used by e2e tests in CI |
+| `compose.kinotic-e2e-test.yml` | Elasticsearch + migration + OpenFGA + the servers, on the `e2e` profile | Used by e2e tests in CI |
 
 ## Common one-liners
 
 ```bash
-# (1) Backing services for IntelliJ-local server dev
-#     Runs ES, then the migration container which exits when done.
+# (1) ES and the migration container, which exits when done, with the demonstration stack's profile.
 #     Re-run any time you bump kinotic-migration to refresh indices.
-docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up -d
+docker compose --env-file demonstration.env -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up -d
 
 # (2) Full self-contained stack (everything in containers, including the server)
 docker compose up -d
 
-# (3) Tail the management server's logs (look here for verification URLs in dev — email is off)
+# (3) Tail the management server's logs
 docker compose logs -f kinotic-server-management
 
 # (4) Hot-reload a server image after a build (the same for kinotic-server-system and kinotic-server-app)
@@ -56,57 +57,93 @@ docker compose logs -f kinotic-server-management
 docker compose up -d --force-recreate --no-deps kinotic-server-management
 
 # (5) Run only the migration container against an already-running ES, then exit
-docker compose -f compose.kinotic-migration.yml run --rm kinotic-migration
+docker compose --env-file demonstration.env -f compose.kinotic-migration.yml run --rm kinotic-migration
 
-# (6) Wipe all state and restart clean (down -v drops the ES named volume)
+# (6) Wipe all state and restart clean (down -v drops the ES named volume). A stack started with the
+#     sample data takes the same -f files: docker compose -f compose.yml -f compose.sample-data.yml down -v
 docker compose down -v && docker compose up -d
+
+# (7) Remove a stack another compose project started, such as `docker-compose`, the project named after
+#     this directory: every service has a fixed container_name, so its containers block `up` until they
+#     are gone (add -v to drop its volumes too)
+docker compose -p docker-compose down
 ```
 
 ## Service URLs (when the full stack is up)
 
 | Service | URL | Notes |
 |---|---|---|
-| Kinotic UI | <http://localhost:9090> | TLS off in compose. The `/login`, `/signup`, `/applications` routes are SPA. |
+| Portal | <http://localhost:9090> | TLS off in compose. Served by `kinotic-ui`; every path that names no file answers with the SPA's `index.html` |
+| System console | <http://localhost:9091> | Served by `kinotic-ui`, as the portal is; system users sign in here |
 | Management server | <http://localhost:58503> | REST, and STOMP at `ws://localhost:58503/v1` — what the SPA's `Kinotic.connect(...)` opens |
 | System server | <http://localhost:58504> | REST, and STOMP at `ws://localhost:58504/v1`, for the system console |
 | App server | <http://localhost:58505> | REST, and STOMP at `ws://localhost:58505/v1`; each application's API host is `<organizationId>--<applicationId>.localhost:58505` |
 | Elasticsearch | <http://localhost:9200> | `xpack.security.enabled=false` — local only |
 | OpenFGA | <http://localhost:8080> | The authorization engine's HTTP API, unauthenticated — local only |
 | Kibana | <http://localhost:5601> | |
+| A published UI | `http://<app>--<ui>.<org>.sites.localhost:8088` | Served by `kinotic-sites-edge` from Azurite; the project's deployment page links it. Chrome, Edge and Firefox resolve `*.localhost` to this machine |
+| Azurite | <http://localhost:10000/devstoreaccount1> | Azurite's `devstoreaccount1` development account, which the publish and removal workloads upload to and delete from |
+| Gitea | <http://localhost:3001> | Every project's repository, in the Gitea organization named by its Kinotic organization's id. Sign in as `kinotic_admin` / `kinotic-gitea-admin` to browse them |
 | Grafana | <http://localhost:3000> | When `compose-otel.yml` is included. Anonymous auth with the Admin role — no login |
 | Keycloak | <http://keycloak:8888> | When `compose.keycloak.yml` is included; requires `127.0.0.1 keycloak` in `/etc/hosts` per `KEYCLOAK_HOSTS_SETUP.md` |
 
 ## Sample data
 
-The full stack seeds the `test-org` organization for evaluators: `compose.yml` runs the
-migration with the `fixtures` profile (set in `evaluation.env`), and `kinotic-gen-schemas`
-adds the `ecommerce` and `healthcare` applications with entity data. Sign in at
-<http://localhost:9090> as `kinotic@kinotic.local` / `kinotic` to see it. The other stacks
-include `compose.kinotic-migration.yml` without `evaluation.env` and seed none of it.
+`compose.yml` starts with no organization: the first one is the one you sign up. To fill the screens with
+sample data, layer on `compose.sample-data.yml`. Its `kinotic-sample-data` runs the migration with the
+`fixtures` profile, seeding the `test-org` organization with applications, projects, members and invites,
+and its `kinotic-gen-schemas` adds the `ecommerce` and `healthcare` applications with entity data:
+
+```bash
+docker compose -f compose.yml -f compose.sample-data.yml up -d
+```
+
+Sign in at <http://localhost:9090> as `kinotic@kinotic.local` / `kinotic` to see it. Each migration version
+applies once, so the overlay adds the sample data to a stack that is already running. Pass the same `-f`
+files to every later command on that stack (`down`, `pull`, `logs`).
 
 ## Try the auth flow (UI devs)
 
-The full compose stack (`docker compose up -d`) gives you a working signup/login flow out
-of the box. Email delivery is off, so verification links land in the management server's log
-instead of an inbox.
+The full compose stack (`docker compose up -d`) is the demonstration server: every server runs the
+`demonstration` profile, which sends no email and offers sign-up with an email and a password.
 
 ```bash
-# 1. Bring up the stack
 docker compose up -d
-
-# 2. Watch the management server's log for the verification URL on signup
-docker compose logs -f kinotic-server-management | grep -i "verification URL"
-
-# 3. Open the SPA
 open http://localhost:9090
 ```
 
-Steps in the SPA:
+1. Click **Sign Up**, fill in your name and email, submit. The page goes straight to the verification
+   step, since no email will arrive.
+2. Name your organization and set a password; you are signed in.
+3. On **Members**, add someone with an invitation: a dialog shows the invitation's link to send them,
+   or to open yourself.
+4. Create an application and a project in it, or have a coding agent do both: the project's repository
+   is created on the stack's Gitea from the project template, which the management server downloads
+   from GitHub, so creating a project needs an internet connection. A push to its default branch deploys it,
+   on a vm-manager node running beside the stack.
 
-1. Click **Sign Up**, fill in org name + email + display name, submit.
-2. Find the verification URL in the management server's log (printed by `EmailService` when email is disabled). Open it.
-3. Set a password → "Account created!" → click **Sign in**.
-4. Log in with the email + password you just set.
+To connect a coding agent, install the Kinotic plugin from `kinotic-ai/agent-plugin` (see the
+[quick start](../../website/content/01.getting-started/02.quick-start.md)), whose own MCP server is Kinotic Cloud's,
+and add this server beside it:
+
+```bash
+# Claude Code, then /mcp → kinotic-local → authenticate
+claude mcp add -s user --transport http kinotic-local http://localhost:58503/mcp
+# Codex
+codex mcp add kinotic-local --url http://localhost:58503/mcp && codex mcp login kinotic-local
+```
+
+Grok Build takes it in `~/.grok/config.toml`, then `/mcps` → `kinotic-local` → `i`:
+
+```toml
+[mcp_servers.kinotic-local]
+url = "http://localhost:58503/mcp"
+oauth_client_id = "https://kinotic.ai/oauth/grok-build-client.json"
+```
+
+Signing in opens the portal's consent page on 9090; sign in, or sign up, and approve. Only a coding
+agent on this machine can reach the server: ChatGPT, Grok and the Claude apps' connectors cannot reach
+`localhost`.
 
 ### Adding "Continue with Keycloak" (local OIDC, no internet)
 
@@ -133,21 +170,20 @@ What this gives you:
   ships a Keycloak entry. Seed one manually via the kinotic-migration tool if you want
   the button to appear.
 
-## Dev with the servers in IntelliJ
+## Developing with images built from your working tree
 
-This is the recommended workflow when iterating on backend code:
+The servers run in compose while you develop them too. Build the images of what you change, then bring
+the stack up; compose runs `kinoticai/<module>:<version>` from your machine rather than pulling it:
 
 ```bash
-# 1. ES + run migrations once
-docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up -d
-
-# 2. Wait for migration to finish (it's a one-shot)
-docker compose ps kinotic-migration   # State: Exited (0)
-
-# 3. Run the ManagementServerApplication, SystemServerApplication and AppServerApplication run
-#    configurations in IntelliJ (profile `development`). Each server's application-development.yml
-#    already points the elastic connection at localhost:9200.
+# from the repository root
+./gradlew :kinotic-server-management:bootBuildImage :kinotic-server-system:bootBuildImage \
+          :kinotic-server-app:bootBuildImage :kinotic-migration:bootBuildImage
+cd deployment/docker-compose
+docker compose up -d
 ```
+
+Rebuild an image and run `docker compose up -d` again to replace its container.
 
 ### Traces, metrics, and logs in Grafana
 
@@ -157,7 +193,7 @@ Add `compose-otel.yml` to bring up the collector and the Grafana stack next to E
 docker compose -f compose-otel.yml -f compose.elasticsearch.yml -f compose.kibana.yml up -d
 ```
 
-The three servers' run configurations export to the collector on `localhost:4317`.
+The compose servers export to the collector, `otel-collector:4317` on the compose network.
 
 Grafana is at <http://localhost:3000> (anonymous Admin, no login) and opens on the **Kinotic
 Server** dashboard — JVM, HTTP RED metrics, span rates from the traces themselves, and a log
@@ -251,24 +287,31 @@ curl -s -H 'X-Scope-OrgID: kinotic-system' 'http://localhost:3100/loki/api/v1/la
 - **Service graph**: Tempo's *Service Graph* tab and the node graph come from the
   `service-graphs` processor writing `traces_service_graph_*` into Mimir.
 
-The management server's `application-development.yml` currently has `kinotic.domain.email.enabled: true`, pointed at
-the real ACS endpoint. Set it to `false` to have `EmailService` skip the send and log the
-verification URL to the IntelliJ console instead — which is what the compose stack does via
-`KINOTIC_DOMAIN_EMAIL_ENABLED=false`.
+The servers send no email: each link a person must open is logged and shown in the portal
+([Demonstration server](../../website/content/04.platform/03.configuration.md)).
 
-If you also run the Vite frontend (`pnpm dev` on `:5173`), it calls the server directly at
+If you also run the Vite frontend (`pnpm dev` on `:5173`), it calls the management server directly at
 `localhost:58503` via `VITE_KINOTIC_HOST`/`VITE_KINOTIC_PORT` — see
-`kinotic-frontend/apps/portal/ENV_SETUP.md`. For flows where the IdP or GitHub has to call back into
-your machine, use `pnpm dev:tunnel` behind your ngrok tunnel, with the tunnel origin in
-`~/.kinotic/dev-environment/kinotic-server-management/application.yml` — see "Local development
-environment" in the contributing guide (`website/content/02.platform/09.contributing.md`).
+`kinotic-frontend/apps/portal/ENV_SETUP.md`.
 
 ## Storage paths
 
 - `kinotic-elastic-data` — Elasticsearch data, a Docker named volume. Survives
   `docker compose down`; removed by `docker compose down -v`.
-- `~/.kinotic/dev-environment/kinotic-server-management` and `~/.kinotic/dev-environment/kinotic-server-system`
-  are bind-mounted read-only into the org and system server containers as `/workspace/config`:
-  a developer's tunnel origin and GitHub App, and the App alone, when
-  `dev-tools/github-app/dev-github-app.ts create` has written them. The servers keep no state
-  of their own there.
+- `kinotic-azurite-data` — every published UI's files, a Docker named volume, kept and removed
+  the same way.
+
+## Published UIs
+
+A deployment of a project with UIs uploads each built UI to Azurite, as it uploads to the sites
+storage account in Azure: the system server's `demonstration` profile sets
+`kinotic.systemApi.uiDeployment.siteStorage: AZURITE` and points the publish workload at
+`http://192.168.127.254:10000/devstoreaccount1`, Azurite where a BOXLITE workload reaches this machine's
+loopback. `kinotic-sites-edge` serves each UI at `http://<app>--<ui>.<org>.sites.localhost:8088`
+by running the same `worker.js` the Cloudflare edge runs, over Azurite. On start it creates the
+private `sites` container and signs the Worker's read SAS with Azurite's well-known development key,
+which terraform does for the real account.
+
+Each upload and removal URL names its site's directory and carries a SAS for the whole `sites`
+container, signed with Azurite's well-known development key: Azurite honors no directory SAS, and the
+key is public, so a workload on this machine is not confined to its own site as it is in Azure.

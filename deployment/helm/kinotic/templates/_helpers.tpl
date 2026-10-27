@@ -38,15 +38,15 @@ Takes (dict "image" <repository and sha> "root" $).
 {{- end -}}
 
 {{/*
-The files a server's platform-secrets volume holds, as a YAML list of the Key Vault secret each
+The files a server's system-secrets volume holds, as a YAML list of the Key Vault secret each
 comes from and the file name it is mounted as: the server's own JWT key set, and
 the properties Spring imports from the directory as a config tree, each file named after the
 property it sets. The GitHub App's secrets go only to a server with githubApp set, the Turnstile
 site's secret only to one with turnstile set.
 Takes (dict "name" <server key> "server" <server values> "root" $).
 */}}
-{{- define "kinotic.platformSecretFiles" -}}
-{{- $objects := .root.Values.platformSecrets.objects -}}
+{{- define "kinotic.systemSecretFiles" -}}
+{{- $objects := .root.Values.systemSecrets.objects -}}
 - object: {{ .name }}-jwt-signing-keys
   path: jwt-signing-keys
 - object: {{ $objects.secretStorageMasterKey }}
@@ -85,10 +85,6 @@ BPL_JMX_ENABLED: "{{ $root.Values.properties.enableJmx }}"
 
 # ── The gateway ───────────────────────────────────────────
 KINOTIC_APIGATEWAY_STOMPPORT: "{{ $server.gatewayPort }}"
-KINOTIC_APIGATEWAY_WEBSERVER_ENABLED: "{{ $server.webServer.enabled }}"
-{{- if $server.webServer.enabled }}
-KINOTIC_APIGATEWAY_WEBSERVER_PORT: "{{ $server.webServer.port }}"
-{{- end }}
 
 # ── Public URLs + email ───────────────────────────────────
 KINOTIC_DOMAIN_APPAPIBASEURL: "{{ $root.Values.kinotic.domain.appApiBaseUrl }}"
@@ -131,7 +127,7 @@ KINOTIC_MANAGEMENTAPI_MIMIRURL: "{{ $root.Values.kinotic.managementApi.mimirUrl 
 OTEL_SERVICE_NAME: "{{ .name }}"
 
 # ── OpenTelemetry agent ───────────────────────────────────
-# Traces and metrics go to Tempo and Mimir under the platform tenant; logs reach Loki through Alloy
+# Traces and metrics go to Tempo and Mimir under the system tenant; logs reach Loki through Alloy
 OTEL_TRACES_EXPORTER: "otlp"
 OTEL_METRICS_EXPORTER: "otlp"
 OTEL_LOGS_EXPORTER: "none"
@@ -155,7 +151,7 @@ KINOTIC_APIGATEWAY_SSL_KEYPATH: "/certs/tls.key"
 
 # ── Extra environment variables ───────────────────────────
 # Override any Spring property via env var naming convention:
-#   kinotic.apiGateway.webServer.port → KINOTIC_APIGATEWAY_WEBSERVER_PORT
+#   kinotic.apiGateway.stompPort → KINOTIC_APIGATEWAY_STOMPPORT
 {{- range $key, $value := $root.Values.extraEnv }}
 {{ $key }}: {{ $value | quote }}
 {{- end }}

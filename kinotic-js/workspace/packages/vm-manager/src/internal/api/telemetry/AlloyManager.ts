@@ -24,7 +24,7 @@ const DOWNLOAD_TIMEOUT_MS = 120_000
 /** Attempts before the node gives up and runs without telemetry shipping. */
 const DOWNLOAD_ATTEMPTS = 3
 
-// Tenant for platform workloads with no organization (SYSTEM scope), for logs, traces, and
+// Tenant for system workloads with no organization, for logs, traces, and
 // metrics alike; must match TelemetryTenant.SYSTEM on the server
 const SYSTEM_TENANT = 'kinotic-system'
 

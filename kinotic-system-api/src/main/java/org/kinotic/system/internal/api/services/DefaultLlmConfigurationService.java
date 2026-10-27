@@ -22,8 +22,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DefaultLlmConfigurationService implements LlmConfigurationService {
 
-    // no organization can take the platform's id, so the API keys never share a secret scope with an organization's
-    private static final String SECRET_SCOPE = DomainUtil.PLATFORM_ID;
+    // no organization can take the system's id, so the API keys never share a secret scope with an organization's
+    private static final String SECRET_SCOPE = DomainUtil.SYSTEM_ID;
 
     private final LlmConfigurationRepository repository;
     private final SecretStorageService secretStorageService;

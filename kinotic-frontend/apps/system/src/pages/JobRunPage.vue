@@ -27,7 +27,7 @@ import JobRunDetail from '@/components/JobRunDetail.vue'
 import { organizationPath, scopePath, type Scope } from '@/util/scope'
 
 /**
- * One job run opened from a Jobs list. The eyebrow leads back to that list; on the platform a
+ * One job run opened from a Jobs list. The eyebrow leads back to that list; in the system a
  * run that belongs to an organization also offers the jump into that organization.
  */
 const props = defineProps<{

@@ -74,8 +74,9 @@ import { useToast } from 'primevue/usetoast'
 import { KeyRound, MapPin } from '@lucide/vue'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { type Grant, type Resource, type RoleDefinition, type Subject, SubjectType } from '@kinotic-ai/management-api'
-import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, RoleCell, SubjectCell, TINTS, TableChip,
+import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, TINTS, TableChip,
          errorMessage, isAuthorizationError, showErrorToast } from '@kinotic-ai/frontend-common'
+import { RoleCell, SubjectCell } from '@kinotic-ai/frontend-common/management'
 import EndUserAccessCheckPanel from '@/components/access/EndUserAccessCheckPanel.vue'
 import EndUserGrantDrawer from '@/components/access/EndUserGrantDrawer.vue'
 import { type DefinitionOption, resourceLabel, resourceOf, reaches, tenantOf } from '@/components/access/applicationResources'

@@ -7,7 +7,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * How deployed workloads reach one of the platform's servers: the address a workload dials, and the one
+ * How deployed workloads reach one of the Kinotic servers: the address a workload dials, and the one
  * destination its egress policy always permits. A server has no advertised address of its own, so every
  * deployment configures it.
  */

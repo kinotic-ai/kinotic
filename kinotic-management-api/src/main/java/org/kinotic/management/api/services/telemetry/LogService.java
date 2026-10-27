@@ -11,9 +11,9 @@ import org.kinotic.management.api.model.telemetry.ServerLogQuery;
 import reactor.core.publisher.Flux;
 
 /**
- * Streams and queries the logs of workloads by the organization they ran for, and of the platform's
+ * Streams and queries the logs of workloads by the organization they ran for, and of the system's
  * own servers. For workloads, an organization participant reads its own organization's, a system
- * participant reads any organization's, or the platform's own when it names no organization. A
+ * participant reads any organization's, or the system's own when it names no organization. A
  * workload's logs outlive the workload, so a destroyed one's are read the same way. Only a system
  * participant reads a server's logs. Every method returns the raw Loki response bytes; the caller
  * parses Loki's wire format.
@@ -28,7 +28,7 @@ public interface LogService {
      * no entry read twice. Each emitted element is a raw Loki tail frame, and the stream stays open
      * until the caller unsubscribes.
      *
-     * @param organizationId the organization the workload runs for; null for the platform's own,
+     * @param organizationId the organization the workload runs for; null for the system's own,
      *        which only a system participant may read
      * @param workloadId the id of the workload to follow
      * @param start the moment to follow from, epoch milliseconds (inclusive)
@@ -47,7 +47,7 @@ public interface LogService {
     Future<Buffer> history(LogQuery query);
 
     /**
-     * Opens a live tail of a platform server's logs, one node's or every node's together, from start:
+     * Opens a live tail of a Kinotic server's logs, one node's or every node's together, from start:
      * the entries since start, then each new one as it arrives. A {@link #serverHistory} whose range
      * ends at start reads what came before, with no entry read twice. Each emitted element is a raw
      * Loki tail frame, and the stream stays open until the caller unsubscribes.
@@ -63,7 +63,7 @@ public interface LogService {
     Flux<Buffer> tailServer(String telemetryServiceName, String telemetryServiceInstanceId, long start);
 
     /**
-     * Returns a platform server's historical logs, one node's or every node's together, for the
+     * Returns a Kinotic server's historical logs, one node's or every node's together, for the
      * given time range.
      *
      * @param query the {@link ServerLogQuery} naming the server, the node, the time range, and the limit

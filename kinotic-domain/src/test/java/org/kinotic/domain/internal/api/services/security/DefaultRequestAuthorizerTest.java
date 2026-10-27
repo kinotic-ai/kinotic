@@ -157,7 +157,7 @@ class DefaultRequestAuthorizerTest {
         authorize("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"name\":\"A\",\"id\":\"proj-a\"}]");
 
         RelationshipTuple checked = checked(Consistency.MINIMIZE_LATENCY);
-        assertEquals(new RelationshipTuple("user:sally@acme", "project_can_edit", "project:acme.proj-a"), checked);
+        assertEquals(new RelationshipTuple("user:sally", "project_can_edit", "project:acme.proj-a"), checked);
     }
 
     @Test
@@ -180,14 +180,14 @@ class DefaultRequestAuthorizerTest {
     void aConsistentCheckAsksTheEngineForAConsistentAnswer() throws Exception {
         authorize("deploy", sally(), EventConstants.CONTENT_TYPE_JSON, "[\"proj-a\"]");
 
-        assertEquals(new RelationshipTuple("user:sally@acme", "project_can_deploy", "project:acme.proj-a"), checked(Consistency.HIGHER_CONSISTENCY));
+        assertEquals(new RelationshipTuple("user:sally", "project_can_deploy", "project:acme.proj-a"), checked(Consistency.HIGHER_CONSISTENCY));
     }
 
     @Test
     void aScopeReferenceReadsTheCallersScope() throws Exception {
         authorize("findMembers", sally(), EventConstants.CONTENT_TYPE_JSON, "[]");
 
-        assertEquals(new RelationshipTuple("user:sally@acme", "organization_can_read_members", "organization:acme"), checked(Consistency.MINIMIZE_LATENCY));
+        assertEquals(new RelationshipTuple("user:sally", "organization_can_read_members", "organization:acme"), checked(Consistency.MINIMIZE_LATENCY));
     }
 
     @Test
@@ -195,14 +195,14 @@ class DefaultRequestAuthorizerTest {
         // an organization member has no application in its scope, so the application's projects are its organization's
         authorize("count", sally(), EventConstants.CONTENT_TYPE_JSON, "[]");
 
-        assertEquals(new RelationshipTuple("user:sally@acme", "project_can_read", "organization:acme"), checked(Consistency.MINIMIZE_LATENCY));
+        assertEquals(new RelationshipTuple("user:sally", "project_can_read", "organization:acme"), checked(Consistency.MINIMIZE_LATENCY));
     }
 
     @Test
     void aDelegateIsCheckedAsItsOwner() throws Exception {
         authorize("save", delegate(DelegateType.CLI.name()), EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-a\"}]");
 
-        assertEquals("user:sally@acme", checked(Consistency.MINIMIZE_LATENCY).user());
+        assertEquals("user:sally", checked(Consistency.MINIMIZE_LATENCY).user());
     }
 
     @Test
@@ -346,7 +346,7 @@ class DefaultRequestAuthorizerTest {
                              EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",{}]"))
                   .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
-        assertEquals(new RelationshipTuple("user:sally@acme", "entity_definition_can_edit", "entity_definition:acme.crm.person"),
+        assertEquals(new RelationshipTuple("user:sally", "entity_definition_can_edit", "entity_definition:acme.crm.person"),
                      checked(Consistency.MINIMIZE_LATENCY));
         verify(relationships, never()).check(eq("acme.crm"), any(), any(), any());
     }
@@ -412,7 +412,7 @@ class DefaultRequestAuthorizerTest {
     void aResolvedPermissionIsCheckedOnTheObjectTheCheckNames() throws Exception {
         namedQuery("deletePeople");
 
-        assertEquals(new RelationshipTuple("user:sally@acme", "entity_definition_can_delete", "entity_definition:acme.crm.person"),
+        assertEquals(new RelationshipTuple("user:sally", "entity_definition_can_delete", "entity_definition:acme.crm.person"),
                      checked(Consistency.MINIMIZE_LATENCY));
     }
 
