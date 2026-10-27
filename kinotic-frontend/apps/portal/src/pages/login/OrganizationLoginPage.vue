@@ -1,32 +1,32 @@
 <template>
-  <AuthPageShell :art="loginArt">
+  <AuthPageShell>
     <div class="login-form">
       <div class="login-organization">
         <span class="login-organization__label">Signing in to</span>
         <span class="login-organization__name">{{ organizationId }}</span>
-        <router-link :to="{ path: '/login', query: route.query }" class="login-link login-organization__switch">
+        <a href="#" class="login-link login-organization__switch" @click.prevent="switchOrganization">
           Not your organization?
-        </router-link>
+        </a>
       </div>
 
       <template v-if="unknown">
         <p class="login-unknown">There is no organization named <strong>{{ organizationId }}</strong>.</p>
       </template>
       <template v-else>
-        <div v-if="providers.length > 0" class="login-providers">
+        <div v-if="oidcProviders.length > 0" class="login-providers">
           <SocialAuthButton
-            v-for="provider in providers"
+            v-for="provider in oidcProviders"
             :key="provider.id"
-            :provider="provider.provider"
+            :provider="provider.provider!"
             :action="startUrl(provider.id)"
             intent="sign-in"
           />
-          <div class="login-divider"><span>or</span></div>
+          <div v-if="passwordSignIn" class="login-divider"><span>or</span></div>
         </div>
 
         <!-- Single-step email + password; the login answers a generic 401, so this form
              exposes no user-existence oracle. -->
-        <div class="login-form__step">
+        <div v-if="passwordSignIn" class="login-form__step">
           <IconField class="login-field">
             <InputText
               ref="emailInput"
@@ -69,8 +69,8 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
 import Button from 'primevue/button'
@@ -84,16 +84,19 @@ import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, postCredentials } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import loginArt from '@/assets/login-background.svg'
-import { LAST_ORGANIZATION_KEY } from '@/pages/login/organizationLogin'
+import { forgetOrganization, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
 
 const debug = createDebug('login')
 
-/** A configuration the organization's login offers, as `GET /api/auth/org/login/:orgId/providers` lists it. */
+const PROVIDERS_UNAVAILABLE = 'Could not load the ways to sign in to this organization. Refresh the page to try again.'
+
+/** A sign-in provider the organization's login offers, as `GET /api/auth/org/login/:orgId/providers` lists it. */
 interface LoginProvider {
   id: string
+  /** PASSWORD for an email and a password, which the page offers as its form, OIDC for a provider's button. */
+  type: 'PASSWORD' | 'OIDC'
   name: string
-  provider: string
+  provider: string | null
 }
 
 const props = defineProps<{ organizationId: string }>()
@@ -103,6 +106,8 @@ const password = ref<string>('')
 const loading = ref<boolean>(false)
 const unknown = ref<boolean>(false)
 const providers = ref<LoginProvider[]>([])
+const passwordSignIn = computed(() => providers.value.some(provider => provider.type === 'PASSWORD'))
+const oidcProviders = computed(() => providers.value.filter(provider => provider.type === 'OIDC'))
 
 const emailInput = ref<any>()
 const passwordInput = ref<any>()
@@ -111,10 +116,9 @@ const toast = useToast()
 const userState: IUserState = KinoticStates.getUserState()
 
 const route = useRoute()
+const router = useRouter()
 
 onMounted(() => {
-  nextTick(() => focusEmailInput())
-  // the buttons appear when the list arrives, so a server slow to answer does not hold up the form
   void loadProviders()
 })
 
@@ -135,17 +139,30 @@ async function loadProviders() {
     const res = await fetch(apiUrl(`/api/auth/org/login/${encodeURIComponent(props.organizationId)}/providers`),
                             { credentials: 'same-origin' })
     if (res.status === 404) {
-      unknown.value = true
-      return
-    }
-    if (!res.ok) {
+      if (props.organizationId === rememberedOrganization()) {
+        // a remembered organization that no longer exists would pull every visit to /login back
+        // here, so it is forgotten and the landing page told, through the history state, what was
+        // remembered; the page stays put for a typed organization, which answers a typo in place
+        forgetOrganization()
+        await router.replace({ path: '/login', query: route.query, state: { [UNKNOWN_ORGANIZATION_STATE]: props.organizationId } })
+      } else {
+        unknown.value = true
+      }
+    } else if (!res.ok) {
       debug('Provider list returned %d', res.status)
-      return
+      displayError(PROVIDERS_UNAVAILABLE)
+    } else {
+      const data = await res.json()
+      if (Array.isArray(data)) providers.value = data
+      if (passwordSignIn.value) {
+        // the form renders once the list says it is offered
+        await nextTick()
+        focusEmailInput()
+      }
     }
-    const data = await res.json()
-    if (Array.isArray(data)) providers.value = data
   } catch (err) {
     debug('Failed to load providers: %O', err)
+    displayError(PROVIDERS_UNAVAILABLE)
   }
 }
 
@@ -161,7 +178,6 @@ async function handleSubmit() {
   loading.value = true
   try {
     await postCredentials(`/api/auth/org/login/${encodeURIComponent(props.organizationId)}`, email.value, password.value)
-    localStorage.setItem(LAST_ORGANIZATION_KEY, props.organizationId)
     // Open the realtime connection, authenticated by the freshly set session cookie.
     await userState.login()
     const referer = (route.query.referer as string | undefined) || '/'
@@ -173,6 +189,12 @@ async function handleSubmit() {
   } finally {
     loading.value = false
   }
+}
+
+// forgotten first, so the landing page stays put instead of returning the browser here
+function switchOrganization() {
+  forgetOrganization()
+  router.push({ path: '/login', query: route.query })
 }
 
 function focusEmailInput() {
@@ -234,18 +256,18 @@ function displayError(text: string) {
 }
 
 .login-providers :deep(.social-auth-button-form),
-.login-providers :deep(.social-auth-button--gh) {
+.login-providers :deep(.social-auth-button--mark) {
   width: 100%;
 }
 
-.login-providers :deep(.social-auth-button--gh) {
+.login-providers :deep(.social-auth-button--mark) {
   height: 3.5rem;
   border-radius: 5px;
   border-color: var(--lp-provider-border);
   font-weight: 400;
 }
 
-.login-providers :deep(.social-auth-button--gh:hover) {
+.login-providers :deep(.social-auth-button--mark:hover) {
   border-color: var(--lp-provider-border-hover);
 }
 

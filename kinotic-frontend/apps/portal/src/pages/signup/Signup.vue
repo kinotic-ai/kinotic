@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell :art="loginArt">
+  <AuthPageShell>
     <div v-if="!submitted" class="login-form">
       <h2 class="signup-title">Create your organization</h2>
 
@@ -81,7 +81,6 @@ import type { SignUpRequest } from '@kinotic-ai/management-api'
 import { apiUrl } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import loginArt from '@/assets/login-background.svg'
 
 const toast = useToast()
 
@@ -146,6 +145,12 @@ async function handleSubmit() {
 
     if (!response.ok) {
       displayAlert(data.error || 'Sign-up failed')
+      return
+    }
+
+    // a server that shows links in the UI in place of email returns the verification link, and the sign-up continues there
+    if (data.verificationUrl) {
+      window.location.assign(data.verificationUrl)
       return
     }
 

@@ -3,6 +3,7 @@
   "version": "0.2.4",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@12.10.0",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
@@ -11,15 +12,15 @@
     "ui-test": "vitest --ui --mode development"
   },
   "dependencies": {
-    "@kinotic-ai/core": "^5.0.0-beta.27",
-    "@kinotic-ai/management-api": "^5.0.0-beta.64",
-    "@kinotic-ai/persistence": "^5.0.0-beta.16",
+    "@kinotic-ai/core": "^5.0.0-beta.30",
+    "@kinotic-ai/management-api": "^5.0.0-beta.71",
+    "@kinotic-ai/persistence": "^5.0.0-beta.19",
     "vue": "^3.5.41"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.5.0",
-    "@kinotic-ai/idl": "^5.0.0-beta.6",
-    "@kinotic-ai/kinotic-cli": "^5.2.0-beta.34",
+    "@kinotic-ai/idl": "^5.0.0-beta.7",
+    "@kinotic-ai/kinotic-cli": "^5.2.0-beta.42",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@types/node": "^25.9.5",
     "@types/ws": "^8.18.1",

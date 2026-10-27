@@ -1,5 +1,5 @@
 # ── Platform Key Vault ────────────────────────────────────────────────────────
-# Holds platform-wide secrets (each server's JWT signing keys, the secret-storage master key, the
+# Holds system-wide secrets (each server's JWT signing keys, the secret-storage master key, the
 # GitHub App's private key and webhook secret) that every kinotic cluster consumes via the
 # Secrets Store CSI driver. Rotation is performed out-of-band (`az keyvault secret set ...`);
 # terraform intentionally does not manage the secret values after initial seeding — hence

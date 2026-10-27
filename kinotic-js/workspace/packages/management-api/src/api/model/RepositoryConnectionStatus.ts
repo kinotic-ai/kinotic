@@ -3,7 +3,7 @@
  * Stamped {@link RepositoryConnectionStatus.CONNECTED} when the repo is provisioned and
  * its baseline rendered; left {@link RepositoryConnectionStatus.INITIALIZATION_FAILED}
  * when the repo was created but rendering the baseline did not complete;
- * {@link RepositoryConnectionStatus.DISCONNECTED} when GitHub revokes the platform's
+ * {@link RepositoryConnectionStatus.DISCONNECTED} when GitHub revokes the system's
  * access to the repo.
  */
 export enum RepositoryConnectionStatus {

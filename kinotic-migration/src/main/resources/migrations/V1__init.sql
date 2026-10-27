@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS kinotic_application (
     tenantManagement KEYWORD,
     primaryUiId KEYWORD,
     primaryUiUrl KEYWORD,
-    socialProviders KEYWORD,
     updated DATE
 );
 
@@ -247,13 +246,14 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
 -- system console, ORGANIZATION_USER for organizations, APPLICATION_USER for one application), a client
 -- acting on a person's behalf (type=DELEGATE), or a machine (type=MACHINE). Scope is encoded structurally
 -- by which of organizationId / applicationId is set: organizationId only = ORGANIZATION, both set =
--- APPLICATION, both null = SYSTEM; an ORGANIZATION_USER carries neither and acts in the organizations its
--- kinotic_organization_membership rows name. A user's sign-in methods are its kinotic_identity_credential
--- and, for an organization's or an application's user, its kinotic_oidc_binding rows; a delegate
+-- APPLICATION, both null = SYSTEM; an ORGANIZATION_USER carries its organizationId. A person in several
+-- organizations is a separate ORGANIZATION_USER of each. A user's sign-in methods are its kinotic_identity_credential
+-- and, for an organization's or an application's user, its kinotic_oidc_binding rows, and pending marks a user an
+-- administrator added that has neither yet; a delegate
 -- authenticates with the tokens its owner's authorization minted and a machine with its credential, so how
 -- a row authenticates follows from its type.
--- Uniqueness rules (enforced in service layer): one SYSTEM_USER and one ORGANIZATION_USER per email, one
--- APPLICATION_USER per (email, organizationId, applicationId); one DELEGATE per (ownerId, clientKey,
+-- Uniqueness rules (enforced in service layer): one SYSTEM_USER per email, one ORGANIZATION_USER per
+-- (email, organizationId), one APPLICATION_USER per (email, organizationId, applicationId); one DELEGATE per (ownerId, clientKey,
 -- organizationId, applicationId).
 CREATE TABLE IF NOT EXISTS kinotic_participant_identity (
     id KEYWORD,
@@ -268,6 +268,7 @@ CREATE TABLE IF NOT EXISTS kinotic_participant_identity (
     applicationId KEYWORD,
     tenantId KEYWORD,
     enabled BOOLEAN,
+    pending BOOLEAN,
     created DATE,
     updated DATE
 );
@@ -278,24 +279,12 @@ CREATE TABLE IF NOT EXISTS kinotic_identity_credential (
     secretHash KEYWORD NOT INDEXED
 );
 
--- Organization Membership: an ORGANIZATION_USER's membership of one organization. id is
--- <organizationUserId>:<organizationId>, so a login reads it by a get and an organization user is a member
--- of an organization at most once. enabled is the user's standing in that organization alone.
-CREATE TABLE IF NOT EXISTS kinotic_organization_membership (
-    id KEYWORD,
-    organizationUserId KEYWORD,
-    organizationId KEYWORD,
-    enabled BOOLEAN,
-    created DATE,
-    updated DATE
-);
-
 -- OIDC Binding: a user's sign-in method through a provider — the sub claim asserted under one OIDC
--- configuration, bound to the user it signs in. id is <oidcConfigId>:<subject> for an organization user
--- and <organizationId>/<applicationId>/<oidcConfigId>:<subject> for an application's user, so a callback
--- reads the binding by a get and a provider identity signs in at most one organization user and one user
--- of each application. organizationId and applicationId are the bound user's scope, null for an
--- organization user. A system user signs in with a password alone and holds no binding.
+-- configuration, bound to the user it signs in. id is <organizationId>/<oidcConfigId>:<subject> for an
+-- organization's user and <organizationId>/<applicationId>/<oidcConfigId>:<subject> for an application's user,
+-- so a callback reads the binding by a get and a provider identity signs in at most one user of each
+-- organization and of each application. organizationId and applicationId are the bound user's scope,
+-- applicationId null for an organization's user. A system user signs in with a password alone and holds no binding.
 CREATE TABLE IF NOT EXISTS kinotic_oidc_binding (
     id KEYWORD,
     identityId KEYWORD,
@@ -307,19 +296,21 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_binding (
 );
 
 -- OIDC Configuration: every OIDC provider configuration (OidcConfiguration), discriminated by
--- type the way kinotic_participant_identity is. ORG_SIGNUP and APP_SOCIAL rows are the platform's
+-- type the way kinotic_participant_identity is. ORG_SIGNUP and APP_SOCIAL rows are the system's
 -- managed registrations (ManagedOidcConfiguration): they belong to no organization, are seeded below,
--- and name their client secret in the platform's secret storage with secretNameRef. type=ORG_SIGNUP
+-- and name their client secret in the system's secret storage with secretNameRef. type=ORG_SIGNUP
 -- (GitHub) powers the "Continue with X" buttons on org signup and org login; type=APP_SOCIAL
--- (Google, Microsoft) is offered at an application's login when kinotic_application.socialProviders
--- names its provider kind. type=ORGANIZATION, type=APPLICATION and type=TENANT are providers an
+-- (Google, Microsoft) is the registration an APPLICATION row of the same provider kind signs in through
+-- when its clientRegistrationType is MANAGED. type=ORGANIZATION, type=APPLICATION and type=TENANT are providers an
 -- organization configured for one of its own sign-in scopes (OwnedOidcConfiguration: organizationId set
 -- and enforced by the service, applicationId set for APPLICATION and TENANT, tenantId for TENANT): the
 -- organization's own login, that application's, or the login of that tenant of the application, which
 -- also offers what the application's does. A configuration is offered at its own scope only; an organization wanting the same
 -- provider at another scope copies it there (OidcConfigurationService.copy). createUserOnSignIn says
 -- whether an identity the provider verifies that no user of the scope is bound to becomes a user on
--- first sign-in. The row names no client secret: OidcConfigurationService.save(configuration,
+-- first sign-in. An APPLICATION row's clientRegistrationType says whose registration with the provider
+-- a sign-in uses: MANAGED, the system's APP_SOCIAL row of its provider kind, or OWN, the row's own
+-- client; a MANAGED row keeps its own client fields for a switch back. The row names no client secret: OidcConfigurationService.save(configuration,
 -- clientSecret) holds the secret in the organization's scope of the secret storage
 -- (SecretStorageService), keyed by the row's id, and confidentialClient records that one is held. Nor
 -- does it name a URL: it names the organization's account at the provider (providerAccount), and the
@@ -334,6 +325,7 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     providerAccount KEYWORD NOT INDEXED,
     confidentialClient BOOLEAN,
     createUserOnSignIn BOOLEAN,
+    clientRegistrationType KEYWORD,
     name KEYWORD,
     provider KEYWORD,
     clientId KEYWORD NOT INDEXED,
@@ -350,10 +342,24 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     updated DATE
 );
 
--- LLM configuration: a large language model the platform's services call, which system users
+-- Sign-in with an email and a password at one sign-in scope of an organization (PasswordConfiguration):
+-- its own login, one of its applications', or one tenant's of an application. A scope has at most one,
+-- whose id derives from the scope: <organizationId>[:<applicationId>[:<tenantId>]].
+CREATE TABLE IF NOT EXISTS kinotic_password_configuration (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    tenantId KEYWORD,
+    enabled BOOLEAN,
+    createUserOnSignIn BOOLEAN,
+    created DATE,
+    updated DATE
+);
+
+-- LLM configuration: a large language model the system's services call, which system users
 -- manage in the system console (LlmConfigurationService) and a service selects by its unique name.
 -- The row names no API key: LlmConfigurationService.save(configuration, apiKey) holds the key in the
--- platform's scope of the secret storage, keyed by the row's id, and apiKeyHeld records that one is held.
+-- system's scope of the secret storage, keyed by the row's id, and apiKeyHeld records that one is held.
 CREATE TABLE IF NOT EXISTS kinotic_llm_configuration (
     id KEYWORD,
     name KEYWORD,
@@ -392,8 +398,22 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_signup (
     oidcConfigId KEYWORD
 );
 
+-- Pending application sign-ups (PendingApplicationSignUp): a person signing up to an application with an
+-- email and a password, from the verification email until the person follows its link and chooses a
+-- password. Single-use: consumed and deleted when completed, or found expired.
+CREATE TABLE IF NOT EXISTS kinotic_pending_application_sign_up (
+    id KEYWORD,
+    verificationToken KEYWORD,
+    expiresAt DATE,
+    created DATE,
+    email KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD
+);
+
 -- Pending member invitations (PendingInvite) awaiting acceptance: the invitee's identity, the
--- scope they join (organizationId always set; applicationId only for app-member invites), and
+-- scope they join (organizationId always set; applicationId only for app-member invites, with the
+-- application's tenantId when the invitee joins one), and
 -- inviter attribution for the email/accept page. No sign-in method: the invitee chooses password
 -- or OIDC at accept. Single-use: consumed and deleted when accepted, cancelled, or found expired.
 CREATE TABLE IF NOT EXISTS kinotic_pending_invite (
@@ -405,6 +425,7 @@ CREATE TABLE IF NOT EXISTS kinotic_pending_invite (
     displayName KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
+    tenantId KEYWORD,
     invitedById KEYWORD,
     invitedByName KEYWORD
 );
@@ -510,7 +531,7 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
 );
 
 -- Create the workload table for tracking deployed workloads.
--- organizationId/applicationId encode who the workload runs on behalf of (both null = platform
+-- organizationId/applicationId encode who the workload runs on behalf of (both null = system
 -- workload); the mapping is strict, so every Workload entity field must be declared here. A
 -- workload keeps the last status its node reported and carries NODE_UNREACHABLE in its state
 -- until the node's next report clears it.
@@ -586,7 +607,7 @@ CREATE TABLE IF NOT EXISTS kinotic_task_record (
 -- The record says what it is now; its entries say how it got there. @timestamp is the write's time.
 CREATE DATA STREAM kinotic_watch_event (type KEYWORD, id KEYWORD, scope KEYWORD, parent KEYWORD, eventType KEYWORD, source KEYWORD, serverNodeId KEYWORD, generation LONG, message TEXT, value JSON NOT INDEXED) WITH (DATA_RETENTION = '30d') ;
 
--- The platform's managed IdP registrations: github-platform (ORG_SIGNUP) powers the "Continue with
+-- The system's managed IdP registrations: github-platform (ORG_SIGNUP) powers the "Continue with
 -- GitHub" button on org signup and login; google-platform and entra-platform (APP_SOCIAL) are the
 -- social sign-in an organization may offer to its application's users.
 --
@@ -594,7 +615,7 @@ CREATE DATA STREAM kinotic_watch_event (type KEYWORD, id KEYWORD, scope KEYWORD,
 -- SecretReferenceResolver — Azure Key Vault in prod (kinotic.domain.secretStorage.azure.vaultUrl)
 -- or KINOTIC_AKV_<uppercased,sanitized-secretNameRef> properties in dev. The secret name
 -- here must match the AKV secret object name terraform creates. Only the managed kinds carry a
--- secretNameRef; an ORGANIZATION row has none and cannot name a platform secret.
+-- secretNameRef; an ORGANIZATION row has none and cannot name a system secret.
 --
 -- audience is intentionally not set: for these social providers (Google, Microsoft Entra
 -- /common) the OAuth2 code-for-token exchange already pins the resulting id_token to our

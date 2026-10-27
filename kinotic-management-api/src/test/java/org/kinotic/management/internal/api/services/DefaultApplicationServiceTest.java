@@ -26,7 +26,7 @@ class DefaultApplicationServiceTest {
 
     private static final String CALLER_ORG = "acme";
 
-    private final DefaultApplicationService service = new DefaultApplicationService(null, null, null, null, null, null, callerContext(CALLER_ORG), null, null, null, null);
+    private final DefaultApplicationService service = new DefaultApplicationService(null, null, null, null, null, null, null, callerContext(CALLER_ORG), null, null, null, null);
 
     private static SecurityContext callerContext(String organizationId) {
         OrganizationParticipant participant = mock(OrganizationParticipant.class);
@@ -78,7 +78,7 @@ class DefaultApplicationServiceTest {
     }
 
     @Test
-    void allowsNamesMatchingTheOtherPlatformZones() {
+    void allowsNamesMatchingTheOtherZones() {
         // an id only ever lands after the app zone prefix, so these cannot collide with a zone
         for (String name : List.of("App API", "OS API", "App")) {
             assertDoesNotThrow(() -> service.beforeSave(new Application(name, "desc")),
@@ -111,7 +111,7 @@ class DefaultApplicationServiceTest {
     void rejectsIdsWhoseApiHostLabelExceedsTheDnsLimit() {
         // the API host label "<org>--<app>" leaves the application the DNS limit less the organization and the separator
         String organizationId = "northwind-traders-international-holdings";
-        DefaultApplicationService longOrgService = new DefaultApplicationService(null, null, null, null, null, null, callerContext(organizationId), null, null, null, null);
+        DefaultApplicationService longOrgService = new DefaultApplicationService(null, null, null, null, null, null, null, callerContext(organizationId), null, null, null, null);
         int longest = HostLabelUtil.MAX_HOST_LABEL_LENGTH - organizationId.length() - HostLabelUtil.HOST_LABEL_SEPARATOR.length();
         Application fits = new Application("Orders App", "desc");
         fits.setId("a".repeat(longest));

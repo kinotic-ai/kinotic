@@ -25,7 +25,6 @@ import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIde
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.repositories.GroupRepository;
 import org.kinotic.domain.api.repositories.RoleRepository;
-import org.kinotic.domain.api.services.security.OrganizationMembershipService;
 import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
@@ -60,7 +59,6 @@ public class DefaultPermissionService implements PermissionService {
     private final RoleRepository roles;
     private final GroupRepository groups;
     private final ParticipantIdentityService identities;
-    private final OrganizationMembershipService memberships;
 
     @Override
     public Future<Map<String, Set<String>>> findPermissions() {
@@ -180,7 +178,7 @@ public class DefaultPermissionService implements PermissionService {
                     List<Future<ParticipantIdentity>> members = new ArrayList<>();
                     for (RelationshipTuple tuple : held) {
                         if (AuthzConstants.MEMBER_RELATION.equals(tuple.relation()) && AuthzConstants.USER_TYPE.equals(AuthzUtil.typeOf(tuple.user()))) {
-                            members.add(identities.findById(AuthzGraphUtil.identityOf(AuthzUtil.idOf(tuple.user()))));
+                            members.add(identities.findById(AuthzUtil.idOf(tuple.user())));
                         }
                     }
                     return Future.all(members);
@@ -199,7 +197,7 @@ public class DefaultPermissionService implements PermissionService {
         String organizationId = requireOrgParticipant().getOrganizationId();
         return requireGroup(groupId, organizationId)
                 .compose(row -> requireMember(userId, organizationId))
-                .compose(v -> relationships.ensure(SYSTEM, List.of(membership(AuthzGraphUtil.authzMember(userId, organizationId), groupId))));
+                .compose(v -> relationships.ensure(SYSTEM, List.of(membership(AuthzGraphUtil.authzUser(userId), groupId))));
     }
 
     @Override
@@ -208,7 +206,7 @@ public class DefaultPermissionService implements PermissionService {
         Validate.notBlank(userId, "userId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
         return requireGroup(groupId, organizationId)
-                .compose(row -> relationships.remove(SYSTEM, List.of(membership(AuthzGraphUtil.authzMember(userId, organizationId), groupId))));
+                .compose(row -> relationships.remove(SYSTEM, List.of(membership(AuthzGraphUtil.authzUser(userId), groupId))));
     }
 
     @Override
@@ -382,8 +380,7 @@ public class DefaultPermissionService implements PermissionService {
         });
     }
 
-    // The subject as the stores hold it: a member as its membership of the organization, a machine and a group as
-    // themselves
+    // The subject, once it is known to be a member, a machine or a group of the organization
     private Future<Subject> requireSubject(Subject subject, String organizationId) {
         Future<Subject> ret;
         if (subject.type() == SubjectType.USER) {
@@ -421,8 +418,9 @@ public class DefaultPermissionService implements PermissionService {
                     && organizationId.equals(machine.getOrganizationId())
                     && machine.getApplicationId() == null) {
                 ret = Future.succeededFuture(new Subject(SubjectType.USER, id));
-            } else if (identity instanceof OrganizationParticipantIdentity) {
-                ret = requireMember(id, organizationId).map(new Subject(SubjectType.USER, AuthzUtil.idOf(AuthzGraphUtil.authzMember(id, organizationId))));
+            } else if (identity instanceof OrganizationParticipantIdentity member
+                    && organizationId.equals(member.getOrganizationId())) {
+                ret = Future.succeededFuture(new Subject(SubjectType.USER, id));
             } else {
                 throw new IllegalArgumentException("No member or machine of the organization has id " + id);
             }
@@ -431,8 +429,8 @@ public class DefaultPermissionService implements PermissionService {
     }
 
     private Future<Void> requireMember(String organizationUserId, String organizationId) {
-        return memberships.findMembership(organizationUserId, organizationId).map(membership -> {
-            if (membership == null) {
+        return identities.findById(organizationUserId).map(identity -> {
+            if (!(identity instanceof OrganizationParticipantIdentity member) || !organizationId.equals(member.getOrganizationId())) {
                 throw new IllegalArgumentException("No member of the organization has id " + organizationUserId);
             }
             return null;

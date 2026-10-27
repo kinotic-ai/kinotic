@@ -38,11 +38,6 @@ public class ApiGatewayEndpointInitializer {
         // leaves the port silently unbound
         vertx.deployVerticle(apiGatewayVertcleFactory::createApiGatewayVerticle, options)
              .onFailure(t -> log.error("Failed to deploy the API Gateway Endpoint(s)", t));
-
-        if (apiGatewayProperties.getWebServer().isEnabled()) {
-            vertx.deployVerticle(apiGatewayVertcleFactory::createWebServerVerticle, new DeploymentOptions())
-                 .onFailure(t -> log.error("Failed to deploy the static web server", t));
-        }
     }
 
     @EventListener
@@ -51,10 +46,6 @@ public class ApiGatewayEndpointInitializer {
         log.info("Deploying {} API Gateway Endpoint(s), 1 per core", numToDeploy);
 
         log.info("Deploying API Server on port {} {}", apiGatewayProperties.getStompPort(), apiGatewayProperties.getSsl().isEnabled() ? " with SSL enabled" : "");
-
-        if (apiGatewayProperties.getWebServer().isEnabled()) {
-            log.info("Deploying static web server on port {}", apiGatewayProperties.getWebServer().getPort());
-        }
     }
 
 }

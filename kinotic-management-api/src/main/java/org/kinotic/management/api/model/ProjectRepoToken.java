@@ -19,14 +19,17 @@ import java.time.Instant;
 @ToString(onlyExplicitlyIncluded = true)
 public class ProjectRepoToken {
 
-    /** The token authorizing access to the repository. Never logged. */
+    /**
+     * The token authorizing access to the repository, presented to Git over HTTP as the password of the user
+     * {@code x-access-token}. Never logged.
+     */
     private String token;
 
     /** When the token stops working. */
     @ToString.Include
     private Instant expiresAt;
 
-    /** {@code https://github.com/<owner>/<repo>.git} for the project's repo. */
+    /** The HTTP clone URL of the project's repository, e.g. {@code https://github.com/<owner>/<repo>.git}. */
     @ToString.Include
     private String cloneUrl;
 

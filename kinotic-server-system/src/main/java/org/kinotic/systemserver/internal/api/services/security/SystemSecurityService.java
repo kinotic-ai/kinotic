@@ -13,7 +13,7 @@ import java.util.Map;
 
 /**
  * The system server's {@link SecurityService}: admits system users, the clients they have authorized,
- * and the platform's own machines such as the vm-manager, each as a {@link SystemParticipant}. The credentials
+ * and the system's own machines such as the vm-manager, each as a {@link SystemParticipant}. The credentials
  * of any other identity fail as invalid.
  */
 @Component

@@ -1,7 +1,7 @@
 extensions:
   # Tempo and Mimir run multi-tenant. A push that names its tenant (X-Scope-OrgID, as a
   # vm-manager's Alloy does for workload telemetry) keeps it; the server's own agent names
-  # none and lands in the platform tenant.
+  # none and lands in the system tenant.
   headers_setter:
     headers:
       - action: upsert

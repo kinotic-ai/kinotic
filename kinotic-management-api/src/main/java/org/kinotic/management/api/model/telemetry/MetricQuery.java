@@ -16,7 +16,7 @@ import lombok.experimental.Accessors;
 public class MetricQuery {
 
     /**
-     * Organization whose metrics to query. Null names the platform's own, which only a system
+     * Organization whose metrics to query. Null names the system's own, which only a system
      * participant may read.
      */
     private String organizationId;

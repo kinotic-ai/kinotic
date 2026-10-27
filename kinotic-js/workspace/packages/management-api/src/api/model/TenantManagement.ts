@@ -3,10 +3,10 @@
  */
 export enum TenantManagement {
     /**
-     * The platform: every user gets a tenant of its own at creation, and every row the user writes is
+     * The system: every user gets a tenant of its own at creation, and every row the user writes is
      * isolated in it.
      */
-    PLATFORM = 'PLATFORM',
+    SYSTEM = 'SYSTEM',
     /**
      * Tenant administrators: a customer signing up, or the organization in the portal, creates a tenant;
      * its administrator decides who joins and what they hold, within what the application allows. An

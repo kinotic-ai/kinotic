@@ -17,11 +17,6 @@ servers:
       sha: ""
     # kinotic.apiGateway.stompPort: REST, STOMP and MCP
     gatewayPort: 58503
-    # kinotic.apiGateway.webServer.*: the portal's files, served from the jar. Disabled where the
-    # portal is hosted outside the cluster.
-    webServer:
-      enabled: true
-      port: 9090
     # kinotic.managementServer.*: the Turnstile site this server's open routes are guarded by; the
     # URLs of its API and the portal are kinotic.managementApi.apiBaseUrl and kinotic.domain.portalBaseUrl below
     managementServer:
@@ -31,7 +26,7 @@ servers:
         siteKey: ""
     # The Secret holding this server's certificate when tls.enabled
     tlsSecretName: kinotic-server-management-tls
-    # Mounts the platform GitHub App's private key and webhook secret, which a server loading
+    # Mounts the system GitHub App's private key and webhook secret, which a server loading
     # management-api requires
     githubApp: true
     # Mounts the Cloudflare DNS token, with which this server creates an organization's sites
@@ -53,8 +48,6 @@ servers:
       repository: kinoticai/kinotic-server-system
       sha: ""
     gatewayPort: 58504
-    webServer:
-      enabled: false
     # kinotic.systemServer.*: the URLs this server is reached at (no trailing slashes)
     systemServer:
       # this server's REST endpoints, the base of its OIDC redirect_uris and its OAuth issuer
@@ -78,8 +71,6 @@ servers:
       repository: kinoticai/kinotic-server-app
       sha: ""
     gatewayPort: 58505
-    webServer:
-      enabled: false
     tlsSecretName: kinotic-server-app-tls
     turnstile: false
     githubApp: false
@@ -137,8 +128,8 @@ kinotic:
   managementApi:
     # kinotic.managementApi.apiBaseUrl: the management server's REST endpoints as a browser
     # reaches them (no trailing slash), the base of its OIDC redirect_uris and of the callback URL of
-    # an organization's own OIDC configurations; the portal's own origin for a same-origin deploy
-    apiBaseUrl: "http://localhost:9090"
+    # an organization's own OIDC configurations
+    apiBaseUrl: "http://localhost:58503"
     # Loki HTTP API backing the LogService
     lokiUrl: "http://loki.observability.svc:3100"
     # Tempo and Mimir HTTP APIs backing the TelemetryService
@@ -175,13 +166,13 @@ workloadIdentity:
   enabled: false
   clientId: ""
 
-# Platform secrets, mounted as files at platformSecrets.mountPath: each server's JWT signing keys,
+# System secrets, mounted as files at systemSecrets.mountPath: each server's JWT signing keys,
 # which the server watches for in-place rotation, and the secret properties it imports from the
 # directory as a config tree, each file named after the property it sets. Each server signs with a
 # key set of its own, the object `<server>-jwt-signing-keys`. The Secrets Store CSI driver projects
 # them from the global Key Vault, so keyVault.* must be set.
-platformSecrets:
-  mountPath: /etc/kinotic/platform-secrets
+systemSecrets:
+  mountPath: /etc/kinotic/system-secrets
   keyVault:
     name: ""        # from global/ terraform output: platform_key_vault_name
     tenantId: ""    # from global/ terraform output: tenant_id

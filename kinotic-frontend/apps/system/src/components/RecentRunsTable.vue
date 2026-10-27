@@ -57,8 +57,9 @@ import Tag from 'primevue/tag'
 
 import { StatusConditionType, findStatusCondition, type JobRun, type StatusCondition } from '@kinotic-ai/management-api'
 import { LaptopMinimalCheck } from '@lucide/vue'
-import { DashboardSection, DatetimeUtil, SteppingDrawer, TimePill, executionStatusSeverity, EmptyChartCharacter,
+import { DashboardSection, DatetimeUtil, SteppingDrawer, TimePill, EmptyChartCharacter,
          useSteppingDrawer } from '@kinotic-ai/frontend-common'
+import { executionStatusSeverity } from '@kinotic-ai/frontend-common/management'
 
 import JobRunDetail from '@/components/JobRunDetail.vue'
 import { scopePath, type Scope } from '@/util/scope'
@@ -66,7 +67,7 @@ import { scopePath, type Scope } from '@/util/scope'
 /**
  * The latest few runs of a scope as a compact card; a clicked run opens in a drawer beside it,
  * stepping through the runs the card lists, with a link to the run's page under that scope.
- * The owner column names the organization on the platform, the application and project inside
+ * The owner column names the organization in the system, the application and project inside
  * an organization.
  */
 const props = defineProps<{
@@ -86,7 +87,7 @@ function nodeLeft(run: JobRun): StatusCondition | undefined {
 const listPath = computed(() => `${scopePath(props.scope)}/jobs`)
 
 const ownerHeader = computed(() => props.scope.organizationId ? 'Application / Project' : 'Organization')
-const ownerFallback = computed(() => props.scope.organizationId ? 'organization' : 'platform')
+const ownerFallback = computed(() => props.scope.organizationId ? 'organization' : 'system')
 
 function ownerOf(run: JobRun): string | null {
   let ret: string | null

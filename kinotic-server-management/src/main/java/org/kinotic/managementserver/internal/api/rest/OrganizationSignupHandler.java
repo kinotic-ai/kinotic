@@ -10,12 +10,11 @@ import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.rest.support.*;
 import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
-import org.kinotic.domain.api.exceptions.ExistingUserException;
-import org.kinotic.domain.api.exceptions.PendingMemberException;
 import org.kinotic.domain.api.model.security.PendingSignUp;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
 import org.kinotic.domain.api.services.security.SignUpService;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.core.api.service.SuppliesGatewayRoutes;
+import org.kinotic.managementserver.api.config.ManagementServerProperties;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
@@ -24,8 +23,8 @@ import java.util.Map;
 
 /**
  * Organization sign-up routes — the sign-up counterpart to {@link OrganizationLoginHandler}.
- * Both email/password and social (OIDC) sign-up create a new {@link Organization}, its founder's organization user
- * ({@link OrganizationParticipantIdentity}) and the founder's membership; each handler method documents its own step.
+ * Both email/password and social (OIDC) sign-up create a new {@link Organization} and its founder as its first user
+ * ({@link OrganizationParticipantIdentity}); each handler method documents its own step.
  */
 @Slf4j
 @Component
@@ -36,9 +35,11 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
     private final KinoticManagementApiProperties managementApiProperties;
+    private final ManagementServerProperties managementServerProperties;
 
     @Override
     public void mountRoutes(Router router) {
+        router.get("/api/auth/org/signup/methods").handler(this::handleMethods);
         // Email/password: form submit, then completion after the user clicks the email link.
         router.post("/api/auth/org/signup").handler(this::handleLocalSignUp);
         router.post("/api/auth/org/signup/complete").handler(this::handleLocalComplete);
@@ -48,21 +49,43 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
     }
 
     /**
+     * {@code GET /api/auth/org/signup/methods} — the ways the portal's sign-up page offers: {@code password}, whether
+     * it offers signing up with an email and a password beside GitHub.
+     */
+    private void handleMethods(RoutingContext ctx) {
+        ctx.response()
+           .putHeader("Content-Type", "application/json")
+           .end(new JsonObject().put("password", managementServerProperties.isPasswordSignUp()).encode());
+    }
+
+    /**
      * {@code POST /api/auth/org/signup} — start email/password sign-up. Validates the request, stores a
      * pending sign-up, and emails a verification link with the default verification email template.
-     * The org name and password are collected later, at {@link #handleLocalComplete}.
+     * The org name and password are collected later, at {@link #handleLocalComplete}. When email is disabled
+     * ({@code kinotic.domain.email.enabled} is {@code false}) the response carries the verification link as {@code verificationUrl}, for the UI to open at once. Refused with 403 unless
+     * {@code kinotic.managementServer.passwordSignUp} is set.
      */
     private void handleLocalSignUp(RoutingContext ctx) {
+        if (!managementServerProperties.isPasswordSignUp()) {
+            ctx.response()
+               .setStatusCode(403)
+               .putHeader("Content-Type", "application/json")
+               .end(new JsonObject().put("error", "Signing up with an email and a password is not offered.").encode());
+            return;
+        }
         try {
             JsonObject body = ctx.body().asJsonObject();
             String email = body.getString("email");
             String displayName = body.getString("displayName");
 
             signUpService.initiateLocalSignUp(email, displayName, null)
-                    .onSuccess(v -> ctx.response()
+                    .onSuccess(verificationUrl -> ctx.response()
                             .setStatusCode(200)
                             .putHeader("Content-Type", "application/json")
-                            .end(new JsonObject().put("message", "Verification email sent. Please check your inbox.").encode()))
+                            .end((verificationUrl == null
+                                    ? new JsonObject().put("message", "Verification email sent. Please check your inbox.")
+                                    : new JsonObject().put("message", "Continue at the verification link.")
+                                                      .put("verificationUrl", verificationUrl)).encode()))
                     .onFailure(ex -> {
                         log.warn("Sign-up failed: {}", ex.getMessage());
                         ctx.response()
@@ -132,10 +155,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
     }
 
     /**
-     * Turns a verified social identity into a pending sign-up: refuses if an {@link OrganizationParticipantIdentity}
-     * already exists for this identity or its verified email, with {@code user_exists} when someone signs in as it
-     * and {@code user_pending} when it is a member an administrator added that nobody signs in as yet, otherwise
-     * stores a {@link PendingSignUp} carrying the verified identity and redirects the browser to the
+     * Turns a verified social identity into a {@link PendingSignUp} carrying it and redirects the browser to the
      * org-naming page of the UI the sign-up returns to, which posts back to {@link #handleSocialCompleteOrg}.
      */
     @Override
@@ -152,7 +172,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
             return;
         }
         if (!OAuth2Util.isEmailVerified(claims, config.getProvider())) {
-            authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.EMAIL_NOT_VERIFIED);
+            authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.EMAIL_NOT_VERIFIED, config.getProvider());
             return;
         }
 
@@ -164,21 +184,15 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
         signUpService.createOidcPending(pending)
               .onSuccess(created -> redirectToCompleteOrg(ctx, result.origin(), created.getVerificationToken()))
               .onFailure(ex -> {
-                  if (ex instanceof PendingMemberException) {
-                      authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.USER_PENDING);
-                  } else if (ex instanceof ExistingUserException) {
-                      authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.USER_EXISTS);
-                  } else {
-                      log.warn("Signup resolution failed: {}", ex.getMessage());
-                      authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.SIGNUP_FAILED);
-                  }
+                  log.warn("Signup resolution failed: {}", ex.getMessage());
+                  authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.SIGNUP_FAILED);
               });
     }
 
     /**
      * {@code POST /api/auth/org/signup/social/complete} — finish social sign-up. The user has named their org;
-     * creates the organization, the founder's organization user bound to the verified identity, and the membership, from
-     * the pending sign-up identified by the token.
+     * creates the organization and the founder as its first user, bound to the verified identity, from the pending
+     * sign-up identified by the token.
      */
     private void handleSocialCompleteOrg(RoutingContext ctx) {
         JsonObject body = authEndpointSupport.readJsonBody(ctx);
@@ -196,7 +210,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
         }
 
         signUpService.completeOidcWithNewOrg(token, orgName, orgDescription)
-              .onSuccess(user -> authEndpointSupport.respondSuccess(ctx, user))
+              .onSuccess(founder -> authEndpointSupport.respondSuccess(ctx, founder))
               .onFailure(ex -> authEndpointSupport.respondError(ctx, 400, ex.getMessage()));
     }
 

@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * configuration is the caller's organization's whatever organization it named, is found and listed, holds its
  * secret, is copied into an application's scope and deleted; another owner's row is neither written over nor
  * deleted by its id; and the organization's own login never takes {@code createUserOnSignIn}, since its members are
- * added by its administrators, while an application's takes it.
+ * added by its administrators, nor a Microsoft account that admits every directory, while an application's takes it.
  */
 @SpringBootTest
 public class OwnedOidcConfigurationServiceTests extends KinoticTestBase {
@@ -128,6 +128,16 @@ public class OwnedOidcConfigurationServiceTests extends KinoticTestBase {
         assertInstanceOf(IllegalArgumentException.class, failure(() -> ownedConfigurations.save(portalOkta, null)));
         portalOkta.setCreateUserOnSignIn(false);
         assertNotNull(await(asAdministrator(() -> ownedConfigurations.save(portalOkta, null))).getId());
+
+        // the organization's login claims members on the emails its own directory asserts, so it names one directory
+        OrganizationOidcConfiguration everyDirectory = new OrganizationOidcConfiguration();
+        everyDirectory.setOrganizationId(organization.getId())
+                      .setProviderAccount("common");
+        everyDirectory.setName("Any Microsoft account")
+                      .setProvider(OidcProviderType.AZURE_AD)
+                      .setClientId("acme-client")
+                      .setEnabled(true);
+        assertInstanceOf(IllegalArgumentException.class, failure(() -> ownedConfigurations.save(everyDirectory, null)));
 
         // an application's login takes it, for any kind: with Google, sign-up with Google for the application
         ApplicationOidcConfiguration appGoogle = google(new ApplicationOidcConfiguration(), "Orders Google");

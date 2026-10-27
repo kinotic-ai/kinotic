@@ -1,3 +1,6 @@
+import { createServer, type Server } from 'node:http'
+import type { AddressInfo } from 'node:net'
+import { WebSocketServer } from 'ws'
 import { describe, expect, it } from 'vitest'
 import { firstValueFrom, toArray } from 'rxjs'
 import { ConnectedInfo, Event, EventConstants, type IEvent, type ConnectOptions, type IWebSocket } from '../src'
@@ -20,6 +23,73 @@ function echo(frame: FakeFrame, socket: FakeSocket): void {
 }
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+/** An HTTP server that takes every request and never answers it, recording each request's path. */
+async function unansweringServer(): Promise<{ http: Server, paths: string[], options: ConnectOptions }> {
+    const paths: string[] = []
+    const http = createServer(request => paths.push(request.url ?? ''))
+    await new Promise<void>(resolve => http.listen(0, '127.0.0.1', resolve))
+    const port = (http.address() as AddressInfo).port
+    // credentials without headers authenticate with the session cookie, so each attempt checks the session first
+    const options: ConnectOptions = {
+        server: { host: '127.0.0.1', port, useSSL: false },
+        credentials: { name: 'session cookie', resolve: async () => ({}) }
+    }
+    return { http, paths, options }
+}
+
+/**
+ * A gateway stand-in on a real port for a cookie-auth client: /api/auth/me answers 204 while signedIn and 401
+ * otherwise, and /api/v1 is a STOMP endpoint that answers CONNECT. restart() drops every socket and the session,
+ * as a redeploy of the server does.
+ */
+async function sessionGateway(): Promise<{ http: Server, options: ConnectOptions, signIn: () => void, restart: () => void }> {
+    let signedIn = true
+    const http = createServer((request, response) => {
+        response.writeHead(request.url === '/api/auth/me' && signedIn ? 204 : 401).end()
+    })
+    const wss = new WebSocketServer({ server: http, path: '/api/v1' })
+    let replyToCounter = 0
+    wss.on('connection', socket => {
+        const replyToId = 'reply-' + (++replyToCounter)
+        socket.on('message', data => {
+            for (const raw of data.toString().split('\0')) {
+                const [command, ...headerLines] = raw.replace(/^\n+/, '').split('\n\n')[0]!.split('\n')
+                if (command === 'CONNECT' || command === 'STOMP') {
+                    const info = JSON.stringify({ replyToId, participant: { id: 'test' } })
+                    socket.send('CONNECTED\nversion:1.2\nheart-beat:0,0\n' + EventConstants.CONNECTED_INFO_HEADER + ':' + info + '\n\n\0')
+                } else if (command === 'DISCONNECT') {
+                    const receipt = headerLines.find(line => line.startsWith('receipt:'))
+                    if (receipt) {
+                        socket.send('RECEIPT\nreceipt-id:' + receipt.substring('receipt:'.length) + '\n\n\0')
+                    }
+                }
+            }
+        })
+    })
+    await new Promise<void>(resolve => http.listen(0, '127.0.0.1', resolve))
+    const port = (http.address() as AddressInfo).port
+    const options: ConnectOptions = {
+        server: { host: '127.0.0.1', port, useSSL: false },
+        credentials: { name: 'session cookie', resolve: async () => ({}) }
+    }
+    return {
+        http,
+        options,
+        signIn: () => { signedIn = true },
+        restart: () => {
+            signedIn = false
+            for (const client of wss.clients) {
+                client.terminate()
+            }
+        }
+    }
+}
+
+function closeServer(http: Server): void {
+    http.closeAllConnections()
+    http.close()
+}
 
 /** Collects the reason of every connection end that carried one, so an orderly end is not counted. */
 function failures(bus: EventBus): Error[] {
@@ -178,6 +248,59 @@ describe('connection lifecycle', () => {
         expect(failed).toEqual([])
     })
 
+    it('disconnects and connects again after a failure in the attempt itself rejected the connect', async () => {
+        const server = new FakeStompServer()
+        const bus = new EventBus()
+        const failingFactory = async (): Promise<IWebSocket> => {
+            throw new Error('refresh failed')
+        }
+        await expect(bus.connect(options(server, { webSocketFactory: failingFactory }))).rejects.toThrow('WebSocket factory failed')
+        await bus.disconnect()
+        await bus.connect(options(server))
+        expect(bus.isConnected()).toBe(true)
+        await bus.disconnect()
+    })
+
+    it('settles a disconnect() issued while the session check is still waiting for the server', async () => {
+        const server = await unansweringServer()
+        try {
+            const bus = new EventBus()
+            const connecting = bus.connect(server.options)
+            await sleep(100)
+            expect(server.paths).toEqual(['/api/auth/me'])
+            await bus.disconnect()
+            await expect(connecting).rejects.toThrow('Deactivated before the connection was established')
+        } finally {
+            closeServer(server.http)
+        }
+    })
+
+    it('signs in again after a server restart ended the session and the reconnect found it gone', async () => {
+        const gateway = await sessionGateway()
+        try {
+            const bus = new EventBus()
+            const ended = failures(bus)
+            await bus.connect(gateway.options)
+            expect(bus.isConnected()).toBe(true)
+
+            gateway.restart()
+            const deadline = Date.now() + 15_000
+            while (ended.length === 0 && Date.now() < deadline) {
+                await sleep(50)
+            }
+            expect(ended.map(e => e.message)).toContain('Authentication required')
+
+            // the console's sign-in: a REST login, then SessionState.login() disconnects and connects again
+            gateway.signIn()
+            await bus.disconnect()
+            await bus.connect(gateway.options)
+            expect(bus.isConnected()).toBe(true)
+            await bus.disconnect()
+        } finally {
+            closeServer(gateway.http)
+        }
+    }, 30_000)
+
     it('reports the end with its reason when the failure lands with no socket open', async () => {
         const server = new FakeStompServer()
         const bus = new EventBus()
@@ -227,6 +350,33 @@ describe('connection lifecycle', () => {
         expect(attemptsFailed).toBe(1)
         expect(failed).toEqual([])
     }, 15_000)
+
+    it('closes an attempt the server never answers after the connection timeout, and connects on the retry', async () => {
+        const server = new FakeStompServer()
+        server.silent = true
+        const bus = new EventBus()
+        const failed = failures(bus)
+        let attemptsFailed = 0
+        bus.connectionAttemptFailed.subscribe(() => attemptsFailed++)
+        const started = Date.now()
+        const connecting = bus.connect(options(server))
+
+        const deadline = Date.now() + 15_000
+        while (attemptsFailed === 0 && Date.now() < deadline) {
+            await sleep(50)
+        }
+        expect(attemptsFailed).toBe(1)
+        expect(Date.now() - started).toBeGreaterThanOrEqual(10_000)
+        expect(server.sockets[0]!.closedByClient).toBe(true)
+        expect(bus.isConnectionActive()).toBe(true)
+
+        // rx-stomp retries after its reconnect delay, and the server answers that attempt
+        server.silent = false
+        const connected = await connecting
+        expect(connected.replyToId).toBe('reply-2')
+        await bus.disconnect()
+        expect(failed).toEqual([])
+    }, 30_000)
 
     it('reports the attempt that exhausts the budget as the end of the connection', async () => {
         const server = new FakeStompServer()

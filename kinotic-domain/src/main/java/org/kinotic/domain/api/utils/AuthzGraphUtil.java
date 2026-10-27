@@ -10,10 +10,8 @@ import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.security.DelegateType;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
-import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 
@@ -51,10 +49,9 @@ public final class AuthzGraphUtil {
     }
 
     /**
-     * The user a participant acts as in the authorization stores, in {@code user:id} form. An organization user acts
-     * as the membership it signed in through, {@link #authzMember}, so a grant made in one organization never applies
-     * in another; a delegate acts as its owner would; a system user, a machine and an application's user act as
-     * themselves.
+     * The user a participant acts as in the authorization stores, in {@code user:id} form: a delegate acts as its
+     * owner would, and any other participant as itself. An organization's user belongs to that organization alone,
+     * so a grant made in one organization never applies in another.
      *
      * @param participant the participant making a call
      * @return the user whose grants answer for it
@@ -62,43 +59,30 @@ public final class AuthzGraphUtil {
     public static String authzUser(Participant participant) {
         Map<String, String> metadata = participant.getMetadata() != null ? participant.getMetadata() : Map.of();
         String owner = metadata.get(DomainUtil.ON_BEHALF_OF_METADATA_KEY);
-        String id = owner != null ? owner : participant.getId();
-        String ret;
-        String organizationId = DomainUtil.scopeOf(participant).organizationId();
-        if (organizationId == null
-                || participant instanceof ApplicationParticipant
-                || ParticipantConstants.PARTICIPANT_TYPE_MACHINE.equals(metadata.get(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY))) {
-            ret = AuthzUtil.object(AuthzConstants.USER_TYPE, id);
-        } else {
-            ret = authzMember(id, organizationId);
-        }
-        return ret;
+        return authzUser(owner != null ? owner : participant.getId());
     }
 
     /**
-     * The user an organization user's membership is in the authorization stores,
-     * {@code user:<organizationUserId>@<organizationId>}.
+     * The user an identity is in the authorization stores, {@code user:<identityId>}.
      *
-     * @param organizationUserId the organization user
-     * @param organizationId     the organization it is a member of
-     * @return the membership's user
+     * @param identityId the identity
+     * @return the identity's user
      */
-    public static String authzMember(String organizationUserId, String organizationId) {
-        Validate.notBlank(organizationUserId, "organizationUserId cannot be blank");
-        Validate.notBlank(organizationId, "organizationId cannot be blank");
-        return AuthzUtil.object(AuthzConstants.USER_TYPE, organizationUserId + "@" + organizationId);
+    public static String authzUser(String identityId) {
+        Validate.notBlank(identityId, "identityId cannot be blank");
+        return AuthzUtil.object(AuthzConstants.USER_TYPE, identityId);
     }
 
     /**
-     * The tuple making an organization user's membership a member of the organization, which a grant to the
-     * organization's members reaches.
+     * The tuple making an organization's user a member of the organization, which a grant to the organization's
+     * members reaches.
      *
-     * @param organizationUserId the organization user
-     * @param organizationId     the organization it is a member of
+     * @param organizationUserId the organization's user
+     * @param organizationId     the organization
      * @return the membership tuple
      */
     public static RelationshipTuple organizationMember(String organizationUserId, String organizationId) {
-        return new RelationshipTuple(authzMember(organizationUserId, organizationId),
+        return new RelationshipTuple(authzUser(organizationUserId),
                                      AuthzConstants.MEMBER_RELATION,
                                      AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId));
     }
@@ -118,18 +102,6 @@ public final class AuthzGraphUtil {
             ret = AuthzUtil.object(AuthzConstants.GROUP_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
         }
         return ret;
-    }
-
-    /**
-     * The identity a user id of the authorization stores names: the organization user of a membership's
-     * {@code <organizationUserId>@<organizationId>}, and any other user id as it is.
-     *
-     * @param userId the id of a {@code user} object
-     * @return the identity's id
-     */
-    public static String identityOf(String userId) {
-        int at = userId.indexOf('@');
-        return at < 0 ? userId : userId.substring(0, at);
     }
 
     /**
@@ -209,7 +181,7 @@ public final class AuthzGraphUtil {
      * @return the tuples, the end user tuple first
      */
     public static List<RelationshipTuple> applicationUserTuples(ApplicationParticipantIdentity user) {
-        String me = AuthzUtil.object(AuthzConstants.USER_TYPE, user.getId());
+        String me = authzUser(user.getId());
         String application = authzApplication(user.getOrganizationId(), user.getApplicationId());
         List<RelationshipTuple> ret = new ArrayList<>(List.of(new RelationshipTuple(me, AuthzConstants.END_USER_RELATION, application)));
         if (user.getTenantId() != null) {
@@ -249,18 +221,14 @@ public final class AuthzGraphUtil {
 
     /**
      * A grant read from the authorization stores, named as the resource's organization knows it: its resource by
-     * the resource's local id, and a member holding it by the member's organization user.
+     * the resource's local id.
      *
      * @param grant the grant as the stores hold it
      * @return the grant with local ids
      */
     public static Grant localGrant(Grant grant) {
         Resource resource = grant.resource();
-        Subject subject = grant.subject();
-        if (subject.type() == SubjectType.USER) {
-            subject = new Subject(SubjectType.USER, identityOf(subject.id()));
-        }
-        return new Grant(grant.id(), grant.roleId(), subject, new Resource(resource.type(), localId(resource.type(), resource.id())));
+        return new Grant(grant.id(), grant.roleId(), grant.subject(), new Resource(resource.type(), localId(resource.type(), resource.id())));
     }
 
     /**

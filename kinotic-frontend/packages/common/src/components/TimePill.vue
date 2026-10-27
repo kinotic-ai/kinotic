@@ -1,7 +1,7 @@
 <template>
   <span
     v-if="label"
-    class="inline-flex items-center gap-1.5 rounded-full bg-teal-600/10 px-2.5 py-0.5 font-sans text-xs font-medium text-teal-900 dark:bg-teal-400/15 dark:text-teal-100"
+    class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-green-100 px-2.5 py-0.5 font-sans text-xs font-medium text-green-700 dark:bg-green-500/16 dark:text-green-300"
     v-tooltip.top="exact"
   >
     <Clock :size="13" :stroke-width="2" aria-hidden="true" />

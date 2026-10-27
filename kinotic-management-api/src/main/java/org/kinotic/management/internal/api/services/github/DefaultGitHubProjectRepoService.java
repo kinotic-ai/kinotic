@@ -16,6 +16,7 @@ import org.kinotic.management.api.services.github.GitHubProjectRepoService;
 import org.kinotic.management.api.services.github.ProjectRepoCredentialService;
 import org.kinotic.management.internal.api.repositories.GitHubAppInstallationRepository;
 import org.kinotic.management.internal.api.services.github.client.GitHubApiClient;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -23,6 +24,7 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(value = "kinotic.managementApi.repoHost", havingValue = "GITHUB", matchIfMissing = true)
 public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService, ProjectRepoCredentialService {
 
     private final ProjectRepository projectRepository;

@@ -199,14 +199,14 @@ public class RequestAuthorizationTests extends KinoticTestBase {
     @Test
     public void theSeededOrganizationIsAdministeredByItsCreator() throws Exception {
         String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, SEEDED_ORGANIZATION_ID);
-        RelationshipTuple manages = new RelationshipTuple(AuthzGraphUtil.authzMember(SEEDED_CREATOR_ID, SEEDED_ORGANIZATION_ID),
+        RelationshipTuple manages = new RelationshipTuple(AuthzGraphUtil.authzUser(SEEDED_CREATOR_ID),
                                                           AuthzUtil.permissionName(AuthzConstants.ORGANIZATION_TYPE, "can_manage_access"),
                                                           organization);
         assertTrue(awaitUntil(() -> await(relationships.check(AuthzStoreService.SYSTEM, manages, Consistency.HIGHER_CONSISTENCY))),
                    "the creator was never bound as the administrator");
 
         // every server that started swept the organization and bound its creator under the same binding
-        Subject creator = new Subject(SubjectType.USER, AuthzUtil.idOf(AuthzGraphUtil.authzMember(SEEDED_CREATOR_ID, SEEDED_ORGANIZATION_ID)));
+        Subject creator = new Subject(SubjectType.USER, AuthzUtil.idOf(AuthzGraphUtil.authzUser(SEEDED_CREATOR_ID)));
         long creatorBindings = await(relationships.findGrants(AuthzStoreService.SYSTEM, organization))
                 .stream()
                 .filter(grant -> AuthzConstants.ORGANIZATION_ADMIN_ROLE.equals(grant.roleId()) && creator.equals(grant.subject()))

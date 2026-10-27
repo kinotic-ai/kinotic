@@ -1,5 +1,5 @@
 <template>
-  <AuthPageShell :art="loginArt">
+  <AuthPageShell>
     <div class="login-form">
       <!-- Password form -->
       <div class="login-form__step">
@@ -7,7 +7,7 @@
           <span class="login-icon-badge">
             <span class="pi pi-shield"></span>
           </span>
-          <h2 class="text-2xl font-semibold mb-2 text-center leading-tight">Email verified</h2>
+          <h2 class="text-2xl font-semibold mb-2 text-center leading-tight">Create your organization</h2>
           <p class="mt-1 mb-6 leading-normal text-muted-color text-center">Name your organization and set a password to finish.</p>
         </div>
 
@@ -54,7 +54,6 @@ import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { KINOTIC_UI } from '@/IKinoticUI'
 import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
-import loginArt from '@/assets/login-background.svg'
 
 const toast = useToast()
 const userState: IUserState = KinoticStates.getUserState()

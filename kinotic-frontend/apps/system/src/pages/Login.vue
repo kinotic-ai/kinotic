@@ -1,6 +1,5 @@
 <template>
-  <!-- The red art and red links mark this as the system login, not the portal's -->
-  <AuthPageShell :art="loginArt">
+  <AuthPageShell>
     <div class="login-form">
       <div class="login-form__step">
         <IconField class="login-field">
@@ -47,7 +46,6 @@ import { useToast } from 'primevue/usetoast'
 
 import { AuthPageShell, createDebug, postCredentials } from '@kinotic-ai/frontend-common'
 
-import loginArt from '@/assets/login-background.svg'
 import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
 
 const debug = createDebug('system-login')
@@ -95,13 +93,3 @@ function displayError(text: string) {
 }
 </script>
 
-<style scoped>
-/* AuthPageShell's root carries this component's scope, so its footer links take the brand red */
-.login-page {
-  --lp-footer-link: var(--p-primary-500);
-}
-
-.dark .login-page {
-  --lp-footer-link: var(--p-primary-400);
-}
-</style>

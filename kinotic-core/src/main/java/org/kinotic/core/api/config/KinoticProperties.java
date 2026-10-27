@@ -23,6 +23,12 @@ import org.springframework.validation.annotation.Validated;
 public class KinoticProperties {
 
     /**
+     * CORS configuration of every Vert.x HTTP server that exposes browser-facing routes. Its allowed origins are also
+     * the UIs a server's browser flows may return to with their outcomes.
+     */
+    private CorsProperties cors = new CorsProperties();
+
+    /**
      * If true, additional information will be provided to clients,
      * including server information, information about errors occurring when invoking services,
      * and the reason a request is refused.
@@ -79,14 +85,6 @@ public class KinoticProperties {
      * The maximum amount of off-heap memory to use for Ignite cache storage.
      */
     private long maxOffHeapMemory = DataStorageConfiguration.DFLT_DATA_REGION_MAX_SIZE;
-
-    /**
-     * Paths to platform-level secret files (the JWT signing keys).
-     * Files are mounted into the pod by the Azure Key Vault CSI driver in production or
-     * by a Kubernetes Secret volume locally, and watched for changes so rotation flows
-     * through without a restart.
-     */
-    private PlatformSecretsProperties platformSecrets = new PlatformSecretsProperties();
 
     /**
      * The CRI patterns that decide what trace logging prints.

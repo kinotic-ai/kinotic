@@ -14,7 +14,7 @@ function scopeType(participant: IParticipant): ParticipantType | undefined {
 }
 
 /**
- * @return true if the participant authenticated against the platform SYSTEM scope
+ * @return true if the participant authenticated against the SYSTEM scope
  */
 export function isSystemParticipant(participant: IParticipant): participant is ISystemParticipant {
     return scopeType(participant) === ParticipantType.SYSTEM

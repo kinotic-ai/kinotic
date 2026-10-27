@@ -16,7 +16,61 @@ import java.util.Map;
  */
 public final class OAuth2Util {
 
+    /** The directory every personal Microsoft account belongs to, which Microsoft itself runs. */
+    private static final String MICROSOFT_PERSONAL_ACCOUNTS_TENANT = "9188040d-6c67-4c5b-b112-36a304b66dad";
+
     private OAuth2Util() {}
+
+    /**
+     * The identifier {@code provider} asserts for the person that is the same under every client registered with the
+     * provider, so a person is recognized whichever registration verified them: for Microsoft Entra, whose
+     * {@code sub} differs per client, the directory and the object id ({@code <tid>/<oid>}), which for a guest is the
+     * directory signed in to and the guest's id there; for every other provider, and for an Entra token that carries no
+     * object id, the {@code sub} claim.
+     *
+     * @param claims   the verified claims of the identity
+     * @param provider the provider kind that verified them
+     * @return the identifier, or {@code null} when the claims carry no {@code sub}
+     */
+    public static String stableSubject(Map<String, Object> claims, OidcProviderType provider) {
+        String ret = stringClaim(claims, "sub");
+        String tid = stringClaim(claims, "tid");
+        String oid = stringClaim(claims, "oid");
+        if (provider == OidcProviderType.AZURE_AD && tid != null && oid != null) {
+            ret = tid + "/" + oid;
+        }
+        return ret;
+    }
+
+    /**
+     * Whether {@code claims} prove the email belongs to the person strongly enough to create an account under it, which
+     * {@link #isEmailVerified} does not for Microsoft Entra: the administrator of any directory sets its users' email
+     * claim without verifying it. An Entra email proves itself by an explicit {@code email_verified} or
+     * {@code xms_edov} (email domain owner verified) claim that is true, or by belonging to a personal Microsoft
+     * account, whose directory Microsoft itself runs and which verifies the email at sign-up. Every other provider's
+     * email proves itself as {@link #isEmailVerified} says.
+     *
+     * @param claims   the verified claims of the identity
+     * @param provider the provider kind that verified them
+     * @return {@code true} when an account may be created under the claims' email
+     */
+    public static boolean isEmailProven(Map<String, Object> claims, OidcProviderType provider) {
+        boolean ret;
+        if (provider == OidcProviderType.AZURE_AD) {
+            ret = stringClaim(claims, "email") != null
+                    && (isTrue(claims.get("email_verified"))
+                        || isTrue(claims.get("xms_edov"))
+                        || MICROSOFT_PERSONAL_ACCOUNTS_TENANT.equals(stringClaim(claims, "tid")));
+        } else {
+            ret = isEmailVerified(claims, provider);
+        }
+        return ret;
+    }
+
+    // a boolean claim some providers send as a string, "true" in any case or "1"
+    private static boolean isTrue(Object claim) {
+        return Boolean.TRUE.equals(claim) || (claim instanceof String s && (Boolean.parseBoolean(s) || "1".equals(s)));
+    }
 
     public static String firstPresent(Map<String, Object> claims, String... names) {
         for (String name : names) {
@@ -75,8 +129,10 @@ public final class OAuth2Util {
     /**
      * Provider-aware "is the email in this id_token verified?" check.
      *
-     * <p>Most OIDC providers (Google, Keycloak, Auth0, Okta, generic) emit
-     * {@code email_verified} as a boolean and we require it to be {@code true}.
+     * <p>Most OIDC providers (Google, Keycloak, Auth0, Okta, generic) state
+     * {@code email_verified} as a boolean and we require it to be {@code true}. Okta states it
+     * at its userinfo endpoint rather than in the id_token of a code exchange, and
+     * {@link OidcFlowOrchestrator#handleCallback} adds it to the claims from there.
      *
      * <p>Microsoft Entra ({@code azure-ad}) and Apple ({@code apple}) <b>do not emit</b>
      * {@code email_verified}. Their convention is "if the email claim is present at all,
@@ -107,10 +163,17 @@ public final class OAuth2Util {
         if (!(email instanceof String emailStr) || emailStr.isBlank()) return false;
 
         Object explicit = claims.get("email_verified");
-        if (explicit instanceof Boolean b) return b;
-        if (explicit instanceof String s) return Boolean.parseBoolean(s);
+        if (explicit instanceof Boolean || explicit instanceof String) return isTrue(explicit);
 
         // No explicit claim — fall back to the per-provider trust convention.
+        return issuesOnlyVerifiedEmails(provider);
+    }
+
+    /**
+     * Whether {@code provider} puts an email in its id_token only once it has verified it, and so states no
+     * {@code email_verified} claim: Microsoft Entra and Apple, as {@link #isEmailVerified} describes.
+     */
+    public static boolean issuesOnlyVerifiedEmails(OidcProviderType provider) {
         return provider == OidcProviderType.AZURE_AD || provider == OidcProviderType.APPLE;
     }
 

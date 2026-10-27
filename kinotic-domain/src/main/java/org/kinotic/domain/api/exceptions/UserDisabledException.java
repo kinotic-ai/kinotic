@@ -1,8 +1,7 @@
 package org.kinotic.domain.api.exceptions;
 
 /**
- * A user that may not sign in to an organization tried to: the organization user is disabled, or its membership of
- * the organization is. An invitation accepted this way is not consumed.
+ * A disabled member of an organization tried to sign in to it. An invitation accepted this way is not consumed.
  */
 public class UserDisabledException extends IllegalArgumentException {
 

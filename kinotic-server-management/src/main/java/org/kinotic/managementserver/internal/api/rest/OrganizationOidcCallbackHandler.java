@@ -9,7 +9,7 @@ import org.kinotic.domain.api.rest.support.OidcCallbackException;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
 import org.kinotic.domain.api.rest.support.OidcErrorCodes;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.api.rest.support.FlowConfigResolver;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
@@ -24,7 +24,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * The two callbacks a provider returns the browser to for an organization's login: one for the platform's org
+ * The two callbacks a provider returns the browser to for an organization's login: one for the system's org
  * sign-up registrations and one for an organization's own configurations. A provider returns only to a
  * redirect URI registered in advance, so these are the only URLs an organization registers, and a login, a
  * sign-up, an invitation and connecting a sign-in method all return here; the purpose the start recorded on
@@ -59,7 +59,7 @@ public class OrganizationOidcCallbackHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * {@code GET /api/auth/org/login/social/callback/:configId} — one of the platform's org sign-up registrations
+     * {@code GET /api/auth/org/login/social/callback/:configId} — one of the system's org sign-up registrations
      * returns here, for a flow of any purpose.
      */
     private void handleSocialCallback(RoutingContext ctx) {

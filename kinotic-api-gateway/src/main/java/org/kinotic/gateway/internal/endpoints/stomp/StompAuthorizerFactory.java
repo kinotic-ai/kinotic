@@ -3,28 +3,30 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.event.ZonePartitioningService;
+import org.kinotic.core.api.event.ZoneRulesResolver;
 import org.kinotic.core.api.security.ConnectedInfo;
-import org.kinotic.domain.api.model.security.ZoneRules;
-import org.kinotic.domain.api.services.security.ZoneRulesService;
 import org.springframework.stereotype.Component;
 
 /**
- * Creates the {@link StompAuthorizer} for a connected participant. Zone authorization is derived from the
- * participant type by {@link ZoneRules}, which documents the full participant routing matrix, narrowed by the
- * {@link ZoneRulesService} to the zones this server serves.
+ * Creates the {@link StompAuthorizer} for a connected participant. Zone authorization is what the server's
+ * {@link ZoneRulesResolver} derives for the participant, narrowed to the zones this server's
+ * {@link ZonePartitioningService} serves.
  */
 @Component
 @RequiredArgsConstructor
 public class StompAuthorizerFactory {
 
-    private final ZoneRulesService zoneRulesService;
+    private final ZonePartitioningService zonePartitioningService;
+    private final ZoneRulesResolver zoneRulesResolver;
 
     public Future<StompAuthorizer> create(ConnectedInfo connectedInfo) {
         Validate.notNull(connectedInfo, "connectedInfo must not be null");
         Validate.notNull(connectedInfo.getParticipant(), "participant must not be null");
         Validate.notEmpty(connectedInfo.getReplyToId(), "replyToId must not be empty");
-        return zoneRulesService.rulesFor(connectedInfo.getParticipant())
-                               .map(zoneRules -> new StompAuthorizer(zoneRules, connectedInfo.getReplyToId()));
+        return zoneRulesResolver.resolve(connectedInfo.getParticipant())
+                                .map(zoneRules -> new StompAuthorizer(zoneRules.restrictedTo(zonePartitioningService),
+                                                                      connectedInfo.getReplyToId()));
     }
 
 }

@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col">
     <PageHeader title="LLM configurations"
-                description="The large language models the platform's services call, each selected by its name." />
+                description="The large language models the system's services call, each selected by its name." />
 
     <CrudTable
       ref="crudTable"

@@ -13,12 +13,11 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.RequestAuthorizer;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
-import org.kinotic.domain.api.model.security.ZoneRules;
-import org.kinotic.domain.api.services.security.RequestAuthorizer;
 import org.kinotic.management.internal.api.rest.mcp.model.McpCallToolResult;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
@@ -48,6 +47,7 @@ public class McpToolInvoker {
     private final RequestAuthorizer requestAuthorizer;
     private final RequestLivenessWatcher requestLivenessWatcher;
     private final ZonePartitioningService zonePartitioningService;
+    private final ZoneRulesResolver zoneRulesResolver;
     private volatile boolean ready = false;
     private EventConsumer replyConsumer;
 
@@ -113,19 +113,24 @@ public class McpToolInvoker {
         // defense in depth over the zone visibility filter in findMcpToolByName: the resolved CRI must pass
         // the same zone send rules StompAuthorizer enforces, so a directory or query defect can never
         // dispatch across zones — logged as a server fault, answered as an unknown tool
-        if (!ZoneRules.from(participant).restrictedTo(zonePartitioningService).sendAllowed(requestCri)) {
-            log.error("MCP tool '{}' resolved to CRI {} which participant {} may not address",
-                      tool.getName(), tool.getCri(), participant.getId());
-            return Future.failedFuture(new IllegalArgumentException("Unknown tool: " + tool.getName()));
-        }
-
-        // the zone admitted the tool; the function's own check decides the caller may invoke it, and a refusal
-        // is the tool's answer rather than a failed call
-        return requestAuthorizer.authorize(requestCri, participant, arguments)
-                                .compose(v -> send(tool, requestCri, jsonMapper.writeValueAsBytes(arguments), participant),
-                                         error -> error instanceof AuthorizationException
-                                                 ? Future.succeededFuture(McpCallToolResult.error(error.getMessage()))
-                                                 : Future.failedFuture(error));
+        return zoneRulesResolver.resolve(participant)
+                                .compose(zoneRules -> {
+                                    Future<McpCallToolResult> ret;
+                                    if (zoneRules.restrictedTo(zonePartitioningService).sendAllowed(requestCri)) {
+                                        // the zone admitted the tool; the function's own check decides the caller may
+                                        // invoke it, and a refusal is the tool's answer rather than a failed call
+                                        ret = requestAuthorizer.authorize(requestCri, participant, arguments)
+                                                               .compose(v -> send(tool, requestCri, jsonMapper.writeValueAsBytes(arguments), participant),
+                                                                        error -> error instanceof AuthorizationException
+                                                                                ? Future.succeededFuture(McpCallToolResult.error(error.getMessage()))
+                                                                                : Future.failedFuture(error));
+                                    } else {
+                                        log.error("MCP tool '{}' resolved to CRI {} which participant {} may not address",
+                                                  tool.getName(), tool.getCri(), participant.getId());
+                                        ret = Future.failedFuture(new IllegalArgumentException("Unknown tool: " + tool.getName()));
+                                    }
+                                    return ret;
+                                });
     }
 
     private Future<McpCallToolResult> send(McpToolDefinition tool, CRI requestCri, byte[] body, Participant participant) {

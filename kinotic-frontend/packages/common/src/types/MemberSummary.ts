@@ -1,12 +1,11 @@
 import type { DescriptiveIdentifiable } from './DescriptiveIdentifiable'
 
-/** One person in a members or users list: a signed-up user, or an invitation still pending. */
+/** One person in a members or users list, pending until they first sign in. */
 export interface MemberSummary extends DescriptiveIdentifiable {
     id: string
     email: string
     displayName: string | null
-    status: 'Invited' | 'Pending' | 'Active' | 'Disabled'
-    /** When the person joined the scope, or when the invitation was sent. */
+    status: 'Pending' | 'Active' | 'Disabled'
+    /** When the person was added to the scope. */
     created: string | null
-    invite?: boolean
 }

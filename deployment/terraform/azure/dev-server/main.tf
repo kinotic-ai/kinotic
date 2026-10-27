@@ -70,7 +70,10 @@ locals {
   system_api_hostname = "${var.system_api_label}.${local.global.dns_zone_name}"
   portal_hostname     = "${var.portal_label}.${local.global.dns_zone_name}"
   console_hostname    = "${var.console_label}.${local.global.dns_zone_name}"
-  apps_api_domain     = module.environment.apps_api_domain
+  # Summit 42's UI, on the sites Worker, and its server, behind the edge
+  summit42_hostname     = var.summit42_enabled ? "dev-summit42.${local.global.dns_zone_name}" : null
+  summit42_api_hostname = var.summit42_enabled ? "dev-summit42-api.${local.global.dns_zone_name}" : null
+  apps_api_domain       = module.environment.apps_api_domain
 
   common_tags = {
     environment = var.environment
@@ -97,10 +100,10 @@ module "environment" {
   cloudflare_account_id = var.cloudflare_account_id
   # the app server's hosts, proxied to the router; the host's certificate must cover them
   app_server_address = var.public_ip
-  # the portal and the system console, served by the sites Worker from the sites account at
-  # their hostnames in the platform zone, apart from the customers' sites, so no published site
-  # is ever same-site with them or with the servers
-  ui_hostnames    = [local.portal_hostname, local.console_hostname]
+  # the portal, the system console and Summit 42's UI, served by the sites Worker from the sites
+  # account at their hostnames in the platform zone, apart from the customers' sites, so no
+  # published site is ever same-site with them or with the servers
+  ui_hostnames    = compact([local.portal_hostname, local.console_hostname, local.summit42_hostname])
   portal_base_url = "https://${local.portal_hostname}"
 }
 
@@ -164,16 +167,17 @@ resource "azurerm_storage_container" "snapshots" {
 
 # ── The servers' hostnames ────────────────────────────────────────────────────
 # An A record on the router's address for each name the servers answer to in the platform zone,
-# the management server's and the system server's; the app server's are in the customers' zone
+# the management server's, the system server's and Summit 42's; the app server's are in the customers' zone
 # (the dev-environment module). Not proxied: the servers terminate TLS themselves. certbot on
 # the host answers the DNS-01 challenges and kinotic-dyndns keeps the records on the router's
 # current address, both with the DNS token the servers hold (secrets_env).
 
 locals {
-  public_hostnames = {
+  public_hostnames = { for name, hostname in {
     api        = local.api_hostname
     system_api = local.system_api_hostname
-  }
+    summit42   = local.summit42_api_hostname
+  } : name => hostname if hostname != null }
 }
 
 # The records in the Azure zone are forgotten, not destroyed: the zone keeps answering while the

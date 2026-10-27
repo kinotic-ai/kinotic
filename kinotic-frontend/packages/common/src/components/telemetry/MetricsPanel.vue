@@ -98,7 +98,7 @@ const emit = defineEmits<{
   (e: 'show-failed-traces'): void
 }>()
 
-// The metric cards share the neutral ink of the platform's own telemetry in every scope
+// The metric cards share the neutral ink of the system's own telemetry in every scope
 const tint = TINTS.ink
 
 interface Panel {

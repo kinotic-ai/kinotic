@@ -20,6 +20,7 @@ export class StompActivation {
     public attempt: Promise<void> | null = null
 
     private failPending: ((reason: Error) => void) | null = null
+    private readonly abortController: AbortController = new AbortController()
     private readonly subscriptions: Subscription[] = []
 
     /** True once deactivate() has taken this activation; nothing it started may act afterwards. */
@@ -27,11 +28,17 @@ export class StompActivation {
         return this._ended
     }
 
-    /** Ends the activation; a delay() it is waiting on resolves at once. */
+    /** Aborted when the activation ends, for a request an attempt makes to cancel with it. */
+    public get signal(): AbortSignal {
+        return this.abortController.signal
+    }
+
+    /** Ends the activation; a delay() it is waiting on resolves at once, and {@link signal} aborts. */
     public end(): void {
         this._ended = true
         this.wake?.()
         this.wake = null
+        this.abortController.abort()
     }
 
     /** Resolves after the given time, or as soon as the activation ends. */

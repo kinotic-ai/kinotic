@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col">
-    <PageHeader title="Organizations" description="Every organization registered on the platform." />
+    <PageHeader title="Organizations" description="Every organization registered in the system." />
 
     <!-- the tenants at a glance: how many there are and how much they run -->
     <section v-if="organizationCount !== null"

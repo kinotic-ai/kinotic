@@ -1,7 +1,10 @@
 {
   "name": "@kinotic-ai/vm-manager",
-  "version": "5.0.0-beta.27",
+  "version": "5.0.0-beta.35",
   "type": "module",
+  "bin": {
+    "kinotic-vm-manager": "./bin/kinotic-vm-manager.js"
+  },
   "files": [
     "bin",
     "dist"

@@ -93,7 +93,7 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
         super(WATCHED, VmNode.class, crudServiceTemplate, watchedStateRepository, watchEventRepository, reconcileStateRepository);
     }
 
-    // A node belongs to the platform, not to an organization
+    // A node belongs to the system, not to an organization
     @Override
     public String scopeOf(VmNode record) {
         return null;

@@ -9,13 +9,13 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.core.api.secret.SecretReferenceResolver;
+import org.kinotic.domain.api.services.SecretReferenceResolver;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 /**
- * Resolves named secrets from the platform Azure Key Vault. Authenticates via
+ * Resolves named secrets from the system's Azure Key Vault. Authenticates via
  * {@code DefaultAzureCredential} — on AKS this resolves to a Workload Identity, in
  * local dev to {@code az login} or env vars. Always reads the latest version of the
  * secret.

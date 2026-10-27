@@ -66,7 +66,7 @@ import { TIME_RANGE_PRESETS, rangeEndingNow } from './telemetryApi'
  * The traces and metrics of an organization's workloads over a chosen time range, narrowed to
  * one application when one is given. The organization is the one whose tenant the signed-in
  * user may read: an organization user's own, or the one the system console is drilled into;
- * null reads the system tenant, the platform's own telemetry, which only a system user
+ * null reads the system tenant, the system's own telemetry, which only a system user
  * may. A trace picked from the search opens in a drawer over the results; {@code traceRoute}, when
  * given, links from there to the trace's own page.
  */

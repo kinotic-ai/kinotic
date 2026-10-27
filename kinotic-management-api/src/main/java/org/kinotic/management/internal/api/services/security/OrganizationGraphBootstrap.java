@@ -13,11 +13,11 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.Organization;
-import org.kinotic.domain.api.model.security.OrganizationMember;
+import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.OrganizationService;
-import org.kinotic.domain.api.services.security.OrganizationMembershipService;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
@@ -36,8 +36,8 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 
 /**
  * Places every organization and application a migration seeded in the authorization graph, once the server is up
- * and the system store runs a model. An organization not yet on the system is placed with its enabled members as
- * its members and the membership of its creator, while an enabled member, as its administrator; an application
+ * and the system store runs a model. An organization not yet on the system is placed with its enabled users as
+ * its members and its creator, while an enabled user of it, as its administrator; an application
  * without a store is provisioned one, so its users are answered by a store of its own. A sign-up and an
  * application's creation do the same for what they create; a migration seeds records but no tuples, and this gives
  * them the ones those services would have. An organization on the system and an application with a store, whatever
@@ -57,7 +57,7 @@ public class OrganizationGraphBootstrap {
 
     private final Vertx vertx;
     private final OrganizationService organizations;
-    private final OrganizationMembershipService memberships;
+    private final ParticipantIdentityService identities;
     private final ApplicationRepository applications;
     private final AuthzStoreRepository records;
     private final ApplicationStoreProvisioner provisioner;
@@ -154,8 +154,8 @@ public class OrganizationGraphBootstrap {
                             .compose(held -> held ? Future.succeededFuture(false) : placed(organization, object, containment));
     }
 
-    // The containment is written last, so a sweep cut short places the organization again, and the creator's
-    // membership is bound under an id of its own, so every server sweeping at once binds it once
+    // The containment is written last, so a sweep cut short places the organization again, and the creator is
+    // bound under an id of its own, so every server sweeping at once binds it once
     private Future<Boolean> placed(Organization organization, String object, RelationshipTuple containment) {
         Set<String> enabled = new HashSet<>();
         return members(organization.getId(), 0, enabled)
@@ -163,7 +163,7 @@ public class OrganizationGraphBootstrap {
                     Future<Void> ret = Future.succeededFuture();
                     // the creator administers the organization while it is an enabled member of it
                     if (organization.getCreatedBy() != null && enabled.contains(organization.getCreatedBy())) {
-                        String creator = AuthzGraphUtil.authzMember(organization.getCreatedBy(), organization.getId());
+                        String creator = AuthzGraphUtil.authzUser(organization.getCreatedBy());
                         ret = relationships.ensureBound(SYSTEM,
                                                         AuthzUtil.roleBindingIdOf(AuthzConstants.ORGANIZATION_ADMIN_ROLE, AuthzUtil.idOf(creator)),
                                                         AuthzConstants.ORGANIZATION_ADMIN_ROLE,
@@ -176,14 +176,14 @@ public class OrganizationGraphBootstrap {
                 .map(true);
     }
 
-    // Makes the enabled members the organization's members, collecting their ids
+    // Makes the organization's enabled users its members, collecting their ids
     private Future<Void> members(String organizationId, int pageNumber, Set<String> enabled) {
-        return memberships.findMembers(organizationId, Pageable.create(pageNumber, PAGE_SIZE, null)).compose(page -> {
+        return identities.findOrganizationUsers(organizationId, Pageable.create(pageNumber, PAGE_SIZE, Sort.by("id"))).compose(page -> {
             List<RelationshipTuple> tuples = new ArrayList<>();
-            for (OrganizationMember member : page.getContent()) {
-                if (member.enabled()) {
-                    enabled.add(member.id());
-                    tuples.add(AuthzGraphUtil.organizationMember(member.id(), organizationId));
+            for (OrganizationParticipantIdentity member : page.getContent()) {
+                if (member.isEnabled()) {
+                    enabled.add(member.getId());
+                    tuples.add(AuthzGraphUtil.organizationMember(member.getId(), organizationId));
                 }
             }
             Future<Void> ret = relationships.ensure(SYSTEM, tuples);

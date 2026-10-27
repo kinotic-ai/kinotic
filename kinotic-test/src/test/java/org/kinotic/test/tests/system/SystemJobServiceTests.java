@@ -24,8 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * The system jobs as the console's System jobs page drives them: listed, and started on behalf of
- * the platform as recorded job runs.
+ * The system jobs as the console's Jobs page drives them: listed, and started on behalf of
+ * the system as recorded job runs.
  */
 @SpringBootTest
 public class SystemJobServiceTests extends KinoticTestBase {
@@ -66,7 +66,7 @@ public class SystemJobServiceTests extends KinoticTestBase {
     }
 
     @Test
-    public void aStartedJobRunsForThePlatform() throws Exception {
+    public void aStartedJobRunsForTheSystem() throws Exception {
         JobRun run = await(systemJobs.startSystemJob(RETENTION_SWEEP));
         started.add(run.getId());
 

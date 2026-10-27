@@ -34,35 +34,35 @@ const save = (choice: ConsentChoice) => emit('save', choice)
 
 <template>
   <div
-    class="fixed inset-x-4 bottom-4 z-[100] mx-auto max-w-3xl rounded-2xl border border-white/10 bg-[#1A1A1C] p-5 shadow-2xl sm:p-6"
+    class="consent fixed inset-x-4 bottom-4 z-[100] mx-auto max-w-3xl rounded-2xl border p-5 shadow-2xl sm:p-6"
     role="dialog"
     aria-live="polite"
     aria-label="Cookie consent"
   >
-    <p class="font-[InterRegular] text-[14px] leading-[150%] text-[#AFAFB4]">
+    <p class="consent__text font-[InterRegular] text-[14px] leading-[150%]">
       We use Microsoft Clarity and Google Analytics to understand how visitors
       use our site, and Google and Microsoft may use this data for advertising.
       By default we collect only anonymous, cookieless data. Accept all, reject
       all, or choose by category.
-      <a href="/privacy" class="text-white underline hover:text-[#FF2D7A]">
+      <a href="/privacy" class="consent__link underline">
         Learn more
       </a>.
     </p>
 
-    <ul v-if="customizing" class="mt-4 divide-y divide-white/10 border-y border-white/10">
+    <ul v-if="customizing" class="consent__list mt-4 divide-y border-y">
       <li class="flex items-center justify-between gap-6 py-3">
         <div>
-          <div class="font-[InterMedium] text-[14px] text-white">Necessary</div>
-          <p class="mt-0.5 font-[InterRegular] text-[13px] leading-[150%] text-[#8A8A92]">
+          <div class="consent__title font-[InterMedium] text-[14px]">Necessary</div>
+          <p class="consent__muted mt-0.5 font-[InterRegular] text-[13px] leading-[150%]">
             Keeps the site working and remembers this choice.
           </p>
         </div>
-        <span class="shrink-0 font-[InterMedium] text-[12px] text-[#8A8A92]">Always on</span>
+        <span class="consent__muted shrink-0 font-[InterMedium] text-[12px]">Always on</span>
       </li>
       <li v-for="category in categories" :key="category.key" class="flex items-center justify-between gap-6 py-3">
         <div>
-          <div :id="`consent-${category.key}`" class="font-[InterMedium] text-[14px] text-white">{{ category.label }}</div>
-          <p class="mt-0.5 font-[InterRegular] text-[13px] leading-[150%] text-[#8A8A92]">
+          <div :id="`consent-${category.key}`" class="consent__title font-[InterMedium] text-[14px]">{{ category.label }}</div>
+          <p class="consent__muted mt-0.5 font-[InterRegular] text-[13px] leading-[150%]">
             {{ category.description }}
           </p>
         </div>
@@ -115,6 +115,64 @@ const save = (choice: ConsentChoice) => emit('save', choice)
 </template>
 
 <style scoped>
+/* Light on the docs' light theme; dark on their dark theme and on the always-dark marketing pages,
+   whose layout marks the root k-canvas-dark. */
+.consent {
+  --consent-bg: #FFFFFF;
+  --consent-border: rgba(0, 0, 0, 0.1);
+  --consent-text: #4B4B53;
+  --consent-title: #111113;
+  --consent-muted: #6B6B73;
+  --consent-button-text: #111113;
+  --consent-outline: rgba(0, 0, 0, 0.18);
+  --consent-hover: rgba(0, 0, 0, 0.04);
+  --consent-solid: rgba(0, 0, 0, 0.06);
+  --consent-solid-hover: rgba(0, 0, 0, 0.1);
+  --consent-switch-off: rgba(0, 0, 0, 0.16);
+  border-color: var(--consent-border);
+  background: var(--consent-bg);
+}
+
+html.dark .consent,
+html.k-canvas-dark .consent {
+  --consent-bg: #1A1A1C;
+  --consent-border: rgba(255, 255, 255, 0.1);
+  --consent-text: #AFAFB4;
+  --consent-title: #FFFFFF;
+  --consent-muted: #8A8A92;
+  --consent-button-text: #FFFFFF;
+  --consent-outline: rgba(255, 255, 255, 0.2);
+  --consent-hover: rgba(255, 255, 255, 0.05);
+  --consent-solid: rgba(255, 255, 255, 0.12);
+  --consent-solid-hover: rgba(255, 255, 255, 0.18);
+  --consent-switch-off: rgba(255, 255, 255, 0.16);
+}
+
+.consent__text {
+  color: var(--consent-text);
+}
+
+.consent__link {
+  color: var(--consent-title);
+}
+
+.consent__link:hover {
+  color: #FF2D7A;
+}
+
+.consent__list,
+.consent__list > li {
+  border-color: var(--consent-border);
+}
+
+.consent__title {
+  color: var(--consent-title);
+}
+
+.consent__muted {
+  color: var(--consent-muted);
+}
+
 .consent__button {
   display: inline-flex;
   align-items: center;
@@ -124,27 +182,28 @@ const save = (choice: ConsentChoice) => emit('save', choice)
   border-radius: 9999px;
   font-family: InterMedium, sans-serif;
   font-size: 13px;
-  color: #fff;
+  color: var(--consent-button-text);
   transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .consent__button--outline {
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--consent-outline);
 }
 
 .consent__button--outline:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--consent-hover);
 }
 
 .consent__button--solid {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--consent-solid);
 }
 
 .consent__button--solid:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--consent-solid-hover);
 }
 
 .consent__button--accent {
+  color: #fff;
   background: linear-gradient(135deg, #FF2D7A 0%, #FF2A55 100%);
   box-shadow: 0 15px 30px rgba(255, 45, 122, 0.28);
 }
@@ -165,7 +224,7 @@ const save = (choice: ConsentChoice) => emit('save', choice)
   width: 44px;
   height: 24px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--consent-switch-off);
   transition: background 0.15s ease;
 }
 

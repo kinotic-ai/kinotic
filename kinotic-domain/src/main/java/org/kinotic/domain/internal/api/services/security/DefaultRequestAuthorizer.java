@@ -22,7 +22,7 @@ import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
-import org.kinotic.domain.api.services.security.RequestAuthorizer;
+import org.kinotic.core.api.security.RequestAuthorizer;
 import org.kinotic.domain.api.services.security.RequestPermissionResolver;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;

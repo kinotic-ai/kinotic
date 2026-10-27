@@ -43,7 +43,7 @@ function ownerOf(run: { organizationId: string | null; applicationId: string | n
     if (!scope.organizationId && run.organizationId) parts.push(run.organizationId)
     if (!scope.applicationId && run.applicationId) parts.push(run.applicationId)
     if (!scope.projectId && run.projectId) parts.push(run.projectId)
-    return parts.length > 0 ? parts.join(' / ') : (run.organizationId ? 'organization' : 'platform')
+    return parts.length > 0 ? parts.join(' / ') : (run.organizationId ? 'organization' : 'system')
 }
 
 function failedRuns(runs: JobRun[], scope: Scope): AttentionItem[] {
@@ -149,8 +149,8 @@ function versionSkew(cluster: KinoticClusterInfo | null): AttentionItem[] {
     return ret
 }
 
-/** What needs a system user across the platform, failures first. */
-export function platformAttention(cluster: KinoticClusterInfo | null, nodes: VmNode[], workloads: Workload[],
+/** What needs a system user across the system, failures first. */
+export function systemAttention(cluster: KinoticClusterInfo | null, nodes: VmNode[], workloads: Workload[],
                                   runs: JobRun[]): AttentionItem[] {
     const scope: Scope = {}
     return [

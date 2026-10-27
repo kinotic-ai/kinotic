@@ -1,7 +1,7 @@
 import { TINTS } from '@kinotic-ai/frontend-common'
 
 /**
- * Where a console page sits: the platform when nothing is set, an organization, one of its
+ * Where a console page sits: the system when nothing is set, an organization, one of its
  * applications, or one of its projects. Pages that exist in every scope (workloads, jobs,
  * observability) take one as their props and nest their paths under {@link scopePath}.
  */
@@ -23,7 +23,7 @@ export function projectPath(organizationId: string, applicationId: string, proje
     return `${applicationPath(organizationId, applicationId)}/project/${encodeURIComponent(projectId)}`
 }
 
-/** The path every page of the scope nests under; empty for the platform. */
+/** The path every page of the scope nests under; empty for the system. */
 export function scopePath(scope: Scope): string {
     let ret: string
     if (scope.organizationId && scope.applicationId && scope.projectId) {
@@ -38,14 +38,14 @@ export function scopePath(scope: Scope): string {
     return ret
 }
 
-/** How a sentence names the scope: the id of the narrowest thing set, or the platform. */
+/** How a sentence names the scope: the id of the narrowest thing set, or the system. */
 export function scopeName(scope: Scope): string {
-    return scope.projectId ?? scope.applicationId ?? scope.organizationId ?? 'the platform'
+    return scope.projectId ?? scope.applicationId ?? scope.organizationId ?? 'the system'
 }
 
 /**
  * The icon tint of the scope's pages, matching its breadcrumb pill: purple for a project, blue for
- * an application, green for an organization, and neutral ink for the platform's own pages.
+ * an application, green for an organization, and neutral ink for the system's own pages.
  */
 export function scopeTint(scope: Scope): string {
     let ret: string

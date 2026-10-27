@@ -1,4 +1,4 @@
-import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
+import { MANAGEMENT_API_ZONE } from '@/api/Zones'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import type { ProjectArtifacts } from '@/api/model/deployment/ProjectArtifacts'
 import type { ProjectDependencies } from '@/api/model/deployment/ProjectDependencies'

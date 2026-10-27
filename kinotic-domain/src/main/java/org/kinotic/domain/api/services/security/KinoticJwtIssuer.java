@@ -10,9 +10,10 @@ import io.vertx.ext.auth.jwt.JWTAuth;
 import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.config.VersionedKeySet;
+import org.kinotic.domain.api.config.VersionedKey;
+import org.kinotic.domain.api.config.VersionedKeySet;
 import org.kinotic.domain.api.model.security.KinoticAudience;
-import org.kinotic.core.internal.platform.PlatformSecretsService;
+import org.kinotic.domain.internal.api.services.secret.SystemSecretsService;
 import org.springframework.stereotype.Component;
 
 import java.util.Base64;
@@ -21,7 +22,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Mints and validates Kinotic-issued JWTs signed with HS256. The signing keys are
- * loaded from {@link PlatformSecretsService} and rotated transparently when the underlying
+ * loaded from {@link SystemSecretsService} and rotated transparently when the underlying
  * file changes. Tokens are stamped with the active {@code kid} so validation can dispatch
  * to any key in the current set — enabling rotation windows without invalidating in-flight
  * tokens.
@@ -35,23 +36,23 @@ public class KinoticJwtIssuer {
     private static final String KEY_TYPE = "oct";
 
     private final Vertx vertx;
-    private final PlatformSecretsService platformSecretsService;
+    private final SystemSecretsService systemSecretsService;
     private final AtomicReference<State> state = new AtomicReference<>();
 
-    public KinoticJwtIssuer(Vertx vertx, PlatformSecretsService platformSecretsService) {
+    public KinoticJwtIssuer(Vertx vertx, SystemSecretsService systemSecretsService) {
         this.vertx = vertx;
-        this.platformSecretsService = platformSecretsService;
+        this.systemSecretsService = systemSecretsService;
     }
 
     @PostConstruct
     public void start() {
-        VersionedKeySet initial = platformSecretsService.getJwtSigningKeys();
+        VersionedKeySet initial = systemSecretsService.getJwtSigningKeys();
         if (initial == null) {
             log.warn("No JWT signing keys mounted; KinoticJwtIssuer will not be able to mint or validate tokens");
             return;
         }
         state.set(build(initial));
-        platformSecretsService.addJwtSigningKeysListener(updated -> {
+        systemSecretsService.addJwtSigningKeysListener(updated -> {
             log.info("Rotating JWT signing keys; active={}", updated.getActiveKeyId());
             state.set(build(updated));
         });
@@ -84,14 +85,14 @@ public class KinoticJwtIssuer {
         State s = state.get();
         if (s == null) {
             throw new IllegalStateException(
-                    "JWT signing keys not mounted — set kinotic.platformSecrets.jwtSigningKeysPath");
+                    "JWT signing keys not mounted — set kinotic.domain.systemSecrets.jwtSigningKeysPath");
         }
         return s;
     }
 
     private State build(VersionedKeySet set) {
         JWTAuthOptions options = new JWTAuthOptions();
-        for (VersionedKeySet.KeyEntry entry : set.getKeys()) {
+        for (VersionedKey entry : set.getKeys()) {
             options.addJwk(new JsonObject()
                                    .put("kty", KEY_TYPE)
                                    .put("kid", entry.getId())
@@ -101,7 +102,7 @@ public class KinoticJwtIssuer {
         return new State(set.getActiveKeyId(), JWTAuth.create(vertx, options));
     }
 
-    /** Converts standard base64 (from platform secret files) to base64url required by JWK. */
+    /** Converts standard base64 (from system secret files) to base64url required by JWK. */
     private static String toBase64Url(String base64) {
         byte[] raw = Base64.getDecoder().decode(base64);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(raw);

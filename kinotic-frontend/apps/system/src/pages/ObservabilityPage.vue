@@ -29,12 +29,13 @@ import Select from 'primevue/select'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import type { Application } from '@kinotic-ai/management-api'
-import { PageHeader, TelemetryPanel, errorMessage } from '@kinotic-ai/frontend-common'
+import { PageHeader, errorMessage } from '@kinotic-ai/frontend-common'
+import { TelemetryPanel } from '@kinotic-ai/frontend-common/management'
 
 import { scopePath } from '@/util/scope'
 
 /**
- * The traces and metrics of the scope the route names: the system tenant for the platform
+ * The traces and metrics of the scope the route names: the system tenant for the system
  * itself, an organization's across all of its applications or one of them, or one
  * application's. A trace opens on its own page under this one.
  */
@@ -57,7 +58,7 @@ const description = computed(() => {
   } else if (props.organizationId) {
     ret = `The traces and metrics of ${props.organizationId}'s workloads, across all of its applications or one of them.`
   } else {
-    ret = 'The traces and metrics of the platform itself: the servers, the gateway, and the worker nodes, from the system tenant.'
+    ret = 'The traces and metrics of the system itself: the servers, the gateway, and the worker nodes, from the system tenant.'
   }
   return ret
 })

@@ -2,6 +2,7 @@ package org.kinotic.management.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.RepositoryHost;
 
 /**
  * Provisions the backing source-control repository for a {@link Project} during
@@ -31,4 +32,9 @@ public interface ProjectRepoProvisioner {
      * fails again, leaving the persisted status unchanged.
      */
     Future<Project> reinitialize(Project project);
+
+    /**
+     * Where the repositories this provisioner creates are hosted.
+     */
+    RepositoryHost repositoryHost();
 }

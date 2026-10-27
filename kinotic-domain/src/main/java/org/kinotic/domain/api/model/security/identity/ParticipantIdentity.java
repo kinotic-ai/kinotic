@@ -16,8 +16,7 @@ import java.util.Date;
  * a {@link UserParticipantIdentity} subtype for a person of one scope, {@link DelegatingParticipantIdentity}
  * for a client acting on a person's behalf, {@link MachineParticipantIdentity} for a non-human
  * caller with its own credential — and carries the fields only that kind has. A
- * {@link SystemParticipantIdentity} acts in the SYSTEM scope and an {@link OrganizationParticipantIdentity}
- * in the organizations its {@link OrganizationMembership}s name; the others are
+ * {@link SystemParticipantIdentity} acts in the SYSTEM scope; the others are
  * {@link ScopedParticipantIdentity}s, which carry the scope they act in.
  * All subtypes share one id space and one index; {@link #getType()} is the persisted
  * discriminator the document is deserialized by.

@@ -1,4 +1,4 @@
-import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
+import { MANAGEMENT_API_ZONE } from '@/api/Zones'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import type { TraceQuery } from '@/api/model/telemetry/TraceQuery'
 import type { MetricQuery } from '@/api/model/telemetry/MetricQuery'
@@ -6,7 +6,7 @@ import type { MetricQuery } from '@/api/model/telemetry/MetricQuery'
 /**
  * Queries the traces and metrics that the workloads of an organization exported: an organization
  * participant reads its own organization's, a system participant reads any organization's, or the
- * platform's own when it names no organization. Every method yields the raw backend response
+ * system's own when it names no organization. Every method yields the raw backend response
  * bytes; the caller parses Tempo's and Prometheus's wire formats.
  */
 export interface ITelemetryService {
@@ -20,7 +20,7 @@ export interface ITelemetryService {
 
     /**
      * Returns one trace with every span it holds, as the raw Tempo trace response (OTLP JSON).
-     * @param organizationId the organization the trace belongs to; null for the platform's own,
+     * @param organizationId the organization the trace belongs to; null for the system's own,
      *        which only a system participant may read
      * @param traceId the hex trace id
      */

@@ -1,6 +1,7 @@
 package org.kinotic.test.tests.log;
 
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
@@ -11,7 +12,10 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
+import org.reactivestreams.Subscription;
 import reactor.core.Disposable;
+import reactor.core.Scannable;
+import reactor.core.publisher.BaseSubscriber;
 
 import java.io.IOException;
 import java.net.URI;
@@ -22,13 +26,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -146,6 +154,50 @@ class LokiClientIntegrationTest {
             assertTrue(received.get(5, TimeUnit.SECONDS).contains(line));
         } finally {
             subscription.dispose();
+        }
+    }
+
+    @Test
+    void tailBuffersNothingWhileItsSubscriberRequestsNoMore() throws Exception {
+        String marker = "demand-marker-" + UUID.randomUUID();
+        BlockingQueue<String> received = new LinkedBlockingQueue<>();
+        AtomicReference<Subscription> upstream = new AtomicReference<>();
+        BaseSubscriber<Buffer> subscriber = new BaseSubscriber<>() {
+            @Override
+            protected void hookOnSubscribe(Subscription subscription) {
+                upstream.set(subscription);
+                request(1);
+            }
+
+            @Override
+            protected void hookOnNext(Buffer frame) {
+                received.add(frame.toString());
+            }
+        };
+
+        lokiClient.tail("org-a", "{workload_id=\"wl-demand\"}", System.currentTimeMillis()).subscribe(subscriber);
+        try {
+            // The WebSocket may still be connecting; keep pushing fresh lines until the one requested frame arrives
+            String first = null;
+            for (int i = 0; i < 40 && first == null; i++) {
+                push("org-a", "wl-demand", marker + " requested " + i);
+                first = received.poll(500, TimeUnit.MILLISECONDS);
+            }
+            assertNotNull(first, "the requested frame never arrived");
+
+            // Loki keeps sending while the subscriber requests nothing more
+            for (int i = 0; i < 10; i++) {
+                push("org-a", "wl-demand", marker + " unrequested " + i);
+                Thread.sleep(300);
+            }
+            assertTrue(received.isEmpty(), "a frame arrived that was never requested");
+            assertEquals(0, Scannable.from(upstream.get()).scan(Scannable.Attr.BUFFERED),
+                         "the tail buffered frames its subscriber never requested");
+
+            subscriber.request(1);
+            assertNotNull(received.poll(15, TimeUnit.SECONDS), "the tail did not resume once more was requested");
+        } finally {
+            subscriber.dispose();
         }
     }
 

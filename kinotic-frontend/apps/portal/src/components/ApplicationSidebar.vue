@@ -67,7 +67,6 @@ async function handleSubmit(): Promise<void> {
       tenantManagement: TenantManagement.TENANT_ADMINISTRATORS,
       primaryUiId: null,
       primaryUiUrl: null,
-      socialProviders: [],
       updated: null
     }
 

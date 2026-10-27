@@ -25,7 +25,7 @@ import { count, findProjectTeardown, teardownRows } from '@/util/deleteImpact'
 
 /**
  * Confirms deleting a project, listing everything its deployment runs that the delete tears down
- * and what it keeps, such as the project's GitHub repository.
+ * and what it keeps, such as the project's repository.
  */
 const props = defineProps<{
   /** The project to delete; the dialog is open while this is set. */

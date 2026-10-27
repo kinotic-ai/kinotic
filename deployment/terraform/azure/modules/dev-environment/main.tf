@@ -6,8 +6,8 @@
 # There is no VNet: the servers reach the accounts over their public endpoints and create no
 # private endpoints.
 #
-# Two roots use it: dev/ for a developer's own machine, dev-server/ for the shared
-# development server. Each picks an environment name, which is its label under the zone.
+# The dev-server/ root uses it for the shared development server, and picks the environment
+# name, which is its label under the zone.
 
 terraform {
   required_providers {

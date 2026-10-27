@@ -24,7 +24,8 @@ public final class ApplicationParticipantIdentity extends UserParticipantIdentit
     private String applicationId;
 
     /**
-     * The tenant of the application this user belongs to, or {@code null} when the application has no tenants.
+     * The tenant of the application this user belongs to: one of its own, which the system gives it, or one its
+     * administrators manage.
      * Application tenants partition the data of {@code MultiTenancyType.SHARED} entities owned by the application.
      */
     private String tenantId;

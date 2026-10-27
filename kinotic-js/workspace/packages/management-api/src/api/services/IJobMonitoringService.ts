@@ -1,7 +1,8 @@
-import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
+import { MANAGEMENT_API_ZONE } from '@/api/Zones'
 import type { IKinotic, IServiceProxy, Page, Pageable } from '@kinotic-ai/core'
 import type { Observable } from 'rxjs'
 import type { JobRun } from '@/api/model/grind/JobRun'
+import type { JobRunFilter } from '@/api/model/grind/JobRunFilter'
 import type { TaskRecord } from '@/api/model/grind/TaskRecord'
 import type { JobRunEvent } from '@/api/model/grind/events/JobRunEvent'
 
@@ -18,10 +19,13 @@ import type { JobRunEvent } from '@/api/model/grind/events/JobRunEvent'
 export interface IJobMonitoringService {
 
     /**
-     * Finds the job runs the participant may view.
+     * Finds the job runs the participant may view that the filter matches. An organization or
+     * application participant's runs are always narrowed to its own organization or application;
+     * a filter naming another one fails.
+     * @param filter which runs to return; a field left null matches every run
      * @param pageable the page of runs to return
      */
-    findJobRuns(pageable: Pageable): Promise<Page<JobRun>>
+    findJobRuns(filter: JobRunFilter, pageable: Pageable): Promise<Page<JobRun>>
 
     /**
      * Finds a single job run the participant may view.
@@ -54,8 +58,8 @@ export class JobMonitoringService implements IJobMonitoringService {
         this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.JobMonitoringService`)
     }
 
-    public findJobRuns(pageable: Pageable): Promise<Page<JobRun>> {
-        return this.serviceProxy.invoke('findJobRuns', [pageable])
+    public findJobRuns(filter: JobRunFilter, pageable: Pageable): Promise<Page<JobRun>> {
+        return this.serviceProxy.invoke('findJobRuns', [filter, pageable])
     }
 
     public findJobRun(jobRunId: string): Promise<JobRun> {

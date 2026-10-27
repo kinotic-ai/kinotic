@@ -3,15 +3,15 @@ import { StatusConditionType, WorkloadStatus, findStatusCondition, type StatusCo
 import type { Scope } from './scope'
 
 /**
- * How many workloads a scan reads. A platform with more is undercounted until a server-side
+ * How many workloads a scan reads. A system with more is undercounted until a server-side
  * aggregation exists.
  */
 export const WORKLOAD_SCAN_LIMIT = 1000
 
 const SCAN_PAGE_SIZE = 100
 
-/** The organization filter value that keeps the platform's own workloads, the ones with no organization. */
-export const PLATFORM_ONLY = 'platform'
+/** The organization filter value that keeps the system's own workloads, the ones with no organization. */
+export const SYSTEM_ONLY = 'system'
 
 /** The states in the order every breakdown lists them. */
 export const WORKLOAD_STATES: WorkloadStatus[] = [
@@ -25,8 +25,8 @@ export const WORKLOAD_STATES: WorkloadStatus[] = [
 
 /** What narrows a scan beyond its scope. */
 export interface WorkloadScanOptions {
-    /** Keeps only the workloads that belong to no organization, the platform's own. */
-    platformOnly?: boolean
+    /** Keeps only the workloads that belong to no organization, the system's own. */
+    systemOnly?: boolean
     /** Keeps only the workloads placed on this node. */
     nodeId?: string
 }
@@ -104,7 +104,7 @@ export async function scanWorkloads(scope: Scope, options: WorkloadScanOptions =
     if (scope.organizationId) terms.push(term('organizationId', scope.organizationId))
     if (scope.applicationId) terms.push(term('applicationId', scope.applicationId))
     if (options.nodeId) terms.push(term('nodeId', options.nodeId))
-    if (options.platformOnly) terms.push('NOT _exists_:organizationId')
+    if (options.systemOnly) terms.push('NOT _exists_:organizationId')
     // a query_string of negative clauses alone matches nothing, so the match-all anchors it
     const query = terms.length > 0 ? ['*:*', ...terms].join(' AND ') : null
     const sort = new Sort()

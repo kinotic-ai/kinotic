@@ -3,5 +3,5 @@ environment = "dev"
 project     = "kinotic"
 location    = "centralus"
 
-# Summit 42's UI, whose sign-in and sign-up run through the management server
-trusted_ui_hostnames = ["dev-summit42.kinotic.ai"]
+# Summit 42 beside the servers, whose sign-in and sign-up run through the management server
+summit42_enabled = true

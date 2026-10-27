@@ -5,7 +5,7 @@
 export interface TraceQuery {
 
     /**
-     * Organization whose traces to search. Null names the platform's own, which only a system
+     * Organization whose traces to search. Null names the system's own, which only a system
      * participant may read.
      */
     organizationId: string | null

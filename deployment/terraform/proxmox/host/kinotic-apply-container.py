@@ -260,7 +260,9 @@ def apply(manifest):
 
 
 def prepare(manifest):
-    place(manifest.get("files", []), manifest.get("dirs", []))
+    # A file already in place belongs to an existing container: apply replaces it, and the change restarts that container
+    files = [spec for spec in manifest.get("files", []) if not os.path.exists(spec["dst"])]
+    place(files, manifest.get("dirs", []))
     print(f"{manifest['name']} ({manifest['vmid']}): prepared")
 
 

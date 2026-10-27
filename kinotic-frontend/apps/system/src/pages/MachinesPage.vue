@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col">
     <PageHeader title="Machines"
-                description="Platform daemons that connect to the system zone with their own client id and secret, such as a worker node's vm-manager." />
+                description="System daemons that connect to the system zone with their own client id and secret, such as a worker node's vm-manager." />
 
     <!-- SystemMemberService's machine methods already take SYSTEM scope implicitly, so it is
          the MachineOperations shape with nothing to bind -->
@@ -19,7 +19,8 @@
 import { useRouter } from 'vue-router'
 import type { MenuItem } from 'primevue/menuitem'
 import { Kinotic } from '@kinotic-ai/core'
-import { MachinesTable, PageHeader } from '@kinotic-ai/frontend-common'
+import { PageHeader } from '@kinotic-ai/frontend-common'
+import { MachinesTable } from '@kinotic-ai/frontend-common/management'
 
 const router = useRouter()
 

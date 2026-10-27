@@ -35,7 +35,7 @@ abstract class ParticipantCallTest {
 
     protected static final Participant ACME_USER =
             new DefaultOrganizationParticipant("user-1", "acme", Map.of(), List.of("USER"));
-    protected static final Participant SYSTEM_USER =
+    protected static final Participant SYSTEM_PARTICIPANT =
             new DefaultSystemParticipant("system-user-1", Map.of(), List.of("ADMIN"));
     protected static final Participant SYSTEM_NEWCOMER =
             new DefaultSystemParticipant("system-newcomer-1", Map.of(), List.of());
@@ -52,7 +52,7 @@ abstract class ParticipantCallTest {
         RelationshipService relationships = mock(RelationshipService.class);
         // the system user holds what it is asked about on the system, the newcomer nothing
         when(relationships.check(eq(AuthzStoreService.SYSTEM), any(), any()))
-                .thenAnswer(call -> Future.succeededFuture(call.<RelationshipTuple>getArgument(1).user().equals(AuthzGraphUtil.authzUser(SYSTEM_USER))));
+                .thenAnswer(call -> Future.succeededFuture(call.<RelationshipTuple>getArgument(1).user().equals(AuthzGraphUtil.authzUser(SYSTEM_PARTICIPANT))));
         tenantAccess = new TenantAccess(securityContext, relationships);
         vertx = Vertx.vertx();
     }

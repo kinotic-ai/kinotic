@@ -11,6 +11,9 @@ export class ApplicationParticipantIdentity extends UserParticipantIdentity {
     public organizationId: string = ''
     /** The application whose user this is. */
     public applicationId: string = ''
-    /** The tenant of the application this user belongs to, or null when the application has no tenants. */
+    /**
+     * The tenant of the application this user belongs to: one of its own, which the system gives it, or one the
+     * application's administrators manage.
+     */
     public tenantId: string | null = null
 }

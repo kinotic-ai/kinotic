@@ -11,11 +11,10 @@ logging:
       console: logstash
 
 kinotic:
-  domain:
-    cors:
-      # the UIs published under the sites domain, which sign in with the session cookie
-      allowedOriginPattern: "https:\\/\\/[a-z0-9-]+\\.[a-z0-9-]+\\.kinotic\\.io"
-      allowCredentials: true
+  cors:
+    # the UIs published under the sites domain, which sign in with the session cookie
+    allowedOriginPattern: "https:\\/\\/[a-z0-9-]+\\.[a-z0-9-]+\\.kinotic\\.io"
+    allowCredentials: true
   ignite:
     discoveryType: KUBERNETES
     localAddress: "0.0.0.0"

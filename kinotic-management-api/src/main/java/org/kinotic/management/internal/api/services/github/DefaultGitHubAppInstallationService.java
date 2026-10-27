@@ -4,7 +4,7 @@ import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.core.api.secret.SecretReferenceResolver;
+import org.kinotic.domain.api.services.SecretReferenceResolver;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.security.OidcProviderType;
@@ -68,7 +68,7 @@ public class DefaultGitHubAppInstallationService
         // to a path, so it may only lead to the portal itself or to a UI the CORS allowlist admits
         if (returnTo != null && !isAllowedReturnTo(returnTo)) {
             return Future.failedFuture(new IllegalArgumentException(
-                    "returnTo must be a path, or a URL on an origin kinotic.domain.cors.allowedOriginPattern allows"));
+                    "returnTo must be a path, or a URL on an origin kinotic.cors.allowedOriginPattern allows"));
         }
         String orgId = requireOrganizationId();
         StagedInstall staged = new StagedInstall()
@@ -86,7 +86,7 @@ public class DefaultGitHubAppInstallationService
             // "//host" and "/\host" are network-path references a browser resolves to another origin
             ret = !returnTo.startsWith("//") && !returnTo.startsWith("/\\");
         } else {
-            ret = domainProperties.getDomain().getCors().trustsOrigin(originOf(returnTo));
+            ret = domainProperties.getCors().trustsOrigin(originOf(returnTo));
         }
         return ret;
     }

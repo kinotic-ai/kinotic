@@ -60,6 +60,13 @@ public class EventConstants {
     public static final String ORIGIN_CRI_HEADER = "__origin-cri";
 
     /**
+     * Set to {@code true} on the first value of a stream whose producer honors {@link #CONTROL_VALUE_SUSPEND}
+     * and {@link #CONTROL_VALUE_RESUME}: once a suspend reaches the producer it sends no further value until a
+     * resume. A stream whose first value lacks it must not be sent a suspend.
+     */
+    public static final String SUSPENDABLE_HEADER = "suspendable";
+
+    /**
      * Marks a request the gateway matched against {@code kinotic.traceLog}. Persisted onto every
      * reply the request produces, so a reply frame, which is addressed to the caller and names no
      * service to match, is left out of trace logging along with the request it answers.

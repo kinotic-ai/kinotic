@@ -7,15 +7,15 @@ import java.util.stream.Collectors;
 
 /**
  * How telemetry is addressed in the Grafana backends: the tenant a workload's is shipped under, and the
- * selectors of a workload's and a platform server's log streams within their tenant. The workload side must
+ * selectors of a workload's and a Kinotic server's log streams within their tenant. The workload side must
  * match what the vm-manager's AlloyManager ships.
  */
 public final class TelemetryTenant {
 
     /**
-     * Tenant that receives the logs, traces, and metrics of platform workloads with no organization
+     * Tenant that receives the logs, traces, and metrics of system workloads with no organization
      * (SYSTEM scope). Organization ids can never take this value — ids beginning with "kinotic" are
-     * reserved for the platform.
+     * reserved for the system.
      */
     public static final String SYSTEM = "kinotic-system";
 
@@ -23,7 +23,7 @@ public final class TelemetryTenant {
     }
 
     /**
-     * @param organizationId the organization a workload runs on behalf of, or null for a platform workload
+     * @param organizationId the organization a workload runs on behalf of, or null for a system workload
      * @return the tenant holding that workload's telemetry
      */
     public static String of(String organizationId) {
@@ -41,7 +41,7 @@ public final class TelemetryTenant {
     }
 
     /**
-     * @param telemetryServiceName       the service name that labels a platform server's logs
+     * @param telemetryServiceName       the service name that labels a Kinotic server's logs
      * @param telemetryServiceInstanceId the service instance id that labels one node's logs, or null for every node
      * @return the LogQL selector of the log streams the server, or that one node of it, wrote to the {@link #SYSTEM}
      *         tenant

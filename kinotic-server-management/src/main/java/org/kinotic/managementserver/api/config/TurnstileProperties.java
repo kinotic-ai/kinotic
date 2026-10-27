@@ -24,8 +24,8 @@ public class TurnstileProperties {
     private String siteKey;
 
     /**
-     * The site's secret key, which every token is verified with. Imported from the platform's secret storage as a
-     * platform secret, never written in a configuration file.
+     * The site's secret key, which every token is verified with. Imported from the system's secret storage as a
+     * system secret, never written in a configuration file.
      */
     private String secretKey;
 }

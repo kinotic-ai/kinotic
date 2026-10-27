@@ -25,22 +25,21 @@ kinotic:
       enabled: true
       certPath: /etc/kinotic/certs/fullchain.pem
       keyPath: /etc/kinotic/certs/privkey.pem
-  platformSecrets:
-    # Generated once when the server is built (generate-secrets.sh in deployment/terraform/proxmox):
-    # an activeKeyId and a keys list, so a key can be added to the set at migration time
-    jwtSigningKeysPath: /etc/kinotic/platform-secrets/jwt-signing-keys
+  cors:
+    # The system console alone
+    allowedOriginPattern: "https:\\/\\/${DEV_SERVER_CONSOLE_HOSTNAME}"
+    allowCredentials: true
   domain:
-    cors:
-      # The system console alone
-      allowedOriginPattern: "https:\\/\\/${DEV_SERVER_CONSOLE_HOSTNAME}"
-      allowCredentials: true
+    systemSecrets:
+      # Generated once when the server is built (generate-secrets.sh in deployment/terraform/proxmox):
+      # an activeKeyId and a keys list, so a key can be added to the set at migration time
+      jwtSigningKeysPath: /etc/kinotic/platform-secrets/jwt-signing-keys
     secretStorage:
       # The in-memory default loses every stored secret on restart; the Key Vault the
       # dev-server terraform root creates keeps them, and keeps them in Azure for migration.
       # The master key SecretNameDeriver derives storage names with comes from secrets.yml.
       backend: AZURE
   systemApi:
-    disableAzureStorage: false
     deployment:
       # the servers' hostnames and ports arrive through the environment: each is the name the
       # server's certificate carries, at the port the edge serves every name on

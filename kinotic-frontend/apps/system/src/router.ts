@@ -1,14 +1,15 @@
 import type { Component } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import {
-    Box, BrainCircuit, Building2, ChartLine, CloudUpload, Cpu, Gauge, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, LockKeyhole, Network, ScrollText, Server, Users, Workflow
+    Box, BrainCircuit, Building2, ChartLine, CloudUpload, Cpu, Gauge, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, LockKeyhole, Network, ScrollText, Server, Users
 } from '@lucide/vue'
-import { ConnectedAppsPage, OAuthConsentPage, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import { ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import { ConnectedAppsPage, OAuthConsentPage } from '@kinotic-ai/frontend-common/management'
 
 import { SYSTEM_USER_STATE } from './states/SystemUserState'
 
 /**
- * The console has five scopes, each with its own sidebar group: the platform, one organization,
+ * The console has five scopes, each with its own sidebar group: the system, one organization,
  * one of its applications, one of its projects, and the signed-in system user's own settings. A page
  * opened from a list (a node, a workload, a job run, a trace) nests under the list's path and
  * declares the group alone, so the sidebar keeps the list highlighted and the page header can
@@ -127,13 +128,13 @@ const routes: RouteRecordRaw[] = [
                 name: 'cluster',
                 path: 'cluster',
                 component: () => import('./pages/ClusterPage.vue'),
-                meta: { sidebar: consoleItem('Cluster', Network, 20, 'Platform') }
+                meta: { sidebar: consoleItem('Cluster', Network, 20, 'System') }
             },
             {
                 name: 'worker-nodes',
                 path: 'worker-nodes',
                 component: () => import('./pages/NodesPage.vue'),
-                meta: { sidebar: consoleItem('Worker nodes', Server, 30, 'Platform') }
+                meta: { sidebar: consoleItem('Worker nodes', Server, 30, 'System') }
             },
             {
                 name: 'worker-node',
@@ -142,32 +143,19 @@ const routes: RouteRecordRaw[] = [
                 props: true,
                 meta: { sidebarGroup: 'console' }
             },
-            // The platform's runtime sits in the Platform section rather than one of its own
-            ...runtimeRoutes('', '', (label, icon, order) => consoleItem(label, icon, order, 'Platform'), 'console', 40, true),
-            {
-                name: 'system-jobs',
-                path: 'system-jobs',
-                component: () => import('./pages/SystemJobsPage.vue'),
-                meta: { sidebar: consoleItem('System jobs', Workflow, 55, 'Platform') }
-            },
-            {
-                name: 'system-job-run',
-                path: 'system-jobs/:jobRunId',
-                component: () => import('./pages/SystemJobRunPage.vue'),
-                props: true,
-                meta: { sidebarGroup: 'console' }
-            },
+            // The system's runtime sits in the System section rather than one of its own
+            ...runtimeRoutes('', '', (label, icon, order) => consoleItem(label, icon, order, 'System'), 'console', 40, true),
             {
                 name: 'change-log',
                 path: 'change-log',
                 component: () => import('./pages/ChangeLogPage.vue'),
-                meta: { sidebar: consoleItem('Change log', ScrollText, 65, 'Platform') }
+                meta: { sidebar: consoleItem('Change log', ScrollText, 65, 'System') }
             },
             {
                 name: 'llm-configurations',
                 path: 'llm-configurations',
                 component: () => import('./pages/LlmConfigurationsPage.vue'),
-                meta: { sidebar: consoleItem('LLM configurations', BrainCircuit, 67, 'Platform') }
+                meta: { sidebar: consoleItem('LLM configurations', BrainCircuit, 67, 'System') }
             },
             {
                 name: 'organizations',
@@ -175,15 +163,15 @@ const routes: RouteRecordRaw[] = [
                 component: () => import('./pages/OrganizationsPage.vue'),
                 meta: { sidebar: consoleItem('Organizations', Building2, 70, 'Tenants') }
             },
-            // The platform's own members: MembersPage with no scope lists the system users
+            // The system's own members: MembersPage with no scope lists the system users
             {
-                name: 'platform-users',
+                name: 'system-users',
                 path: 'members/users',
                 component: () => import('./pages/MembersPage.vue'),
                 meta: { sidebar: consoleItem('Users', Users, 80, 'Members') }
             },
             {
-                name: 'platform-machines',
+                name: 'system-machines',
                 path: 'members/machines',
                 component: () => import('./pages/MachinesPage.vue'),
                 meta: { sidebar: consoleItem('Machines', Cpu, 90, 'Members') }

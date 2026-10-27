@@ -1,5 +1,5 @@
 <template>
-  <span :class="['hidden items-center rounded-full border px-2 py-px text-[10px] font-semibold uppercase leading-4 tracking-[0.08em] sm:inline-flex', COLORS[kind]]">{{ kind }}</span>
+  <span :class="['hidden shrink-0 items-center rounded-full border px-2 py-px text-[10px] font-semibold uppercase leading-4 tracking-[0.08em] sm:inline-flex', COLORS[kind]]">{{ kind }}</span>
 </template>
 
 <script setup lang="ts">

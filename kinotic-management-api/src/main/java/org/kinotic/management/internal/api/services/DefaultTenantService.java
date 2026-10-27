@@ -1,12 +1,16 @@
 package org.kinotic.management.internal.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.crud.Page;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Tenant;
+import org.kinotic.domain.api.model.security.PasswordConfiguration;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.TenantRepository;
+import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
 import org.kinotic.management.api.services.TenantService;
@@ -20,15 +24,23 @@ public class DefaultTenantService extends AbstractApplicationScopedService<Tenan
     private final TenantRepository tenantRepository;
     private final ApplicationRepository applications;
     private final ApplicationStoreProvisioner provisioner;
+    private final PasswordConfigurationService passwordConfigurationService;
 
     public DefaultTenantService(TenantRepository repository,
                                 ApplicationRepository applications,
                                 ApplicationStoreProvisioner provisioner,
+                                PasswordConfigurationService passwordConfigurationService,
                                 SecurityContext securityContext) {
         super(repository, securityContext);
         this.tenantRepository = repository;
         this.applications = applications;
         this.provisioner = provisioner;
+        this.passwordConfigurationService = passwordConfigurationService;
+    }
+
+    @Override
+    public Future<Page<Tenant>> findForApplicationByPrefix(String applicationId, String prefix, Pageable pageable) {
+        return tenantRepository.findForApplicationByPrefix(applicationId, prefix, requireOrganizationId(), pageable);
     }
 
     @Override
@@ -64,11 +76,17 @@ public class DefaultTenantService extends AbstractApplicationScopedService<Tenan
     }
 
     // the graph first, then the record: a record that outlives its graph is deleted again, while grants that outlived
-    // their record would come back with a tenant created under the same id
+    // their record would come back with a tenant created under the same id. A tenant created again under the same id
+    // also starts with no password sign-in of its own
     @Override
     protected Future<Void> beforeDelete(String id) {
-        return tenantRepository.findById(id, requireOrganizationId())
-                               .compose(tenant -> tenant == null ? Future.succeededFuture() : provisioner.removeTenant(tenant));
+        String organizationId = requireOrganizationId();
+        return tenantRepository.findById(id, organizationId)
+                               .compose(tenant -> tenant == null
+                                       ? Future.succeededFuture()
+                                       : provisioner.removeTenant(tenant)
+                                                    .compose(v -> passwordConfigurationService.deleteById(PasswordConfiguration.idOf(organizationId, tenant.getApplicationId(), id),
+                                                                                                          organizationId)));
     }
 
     private static Future<Tenant> requireOfApplication(Tenant stored, String applicationId) {

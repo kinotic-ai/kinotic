@@ -40,11 +40,24 @@ line, no `Co-Authored-By` trailer, no session link, and no other attribution to 
 
 ## Enterprise Features live in kinotic-ee
 
-The root `LICENSE.md` licenses everything under the Elastic License 2.0 with the Kinotic Additional Limitations, except `kinotic-ee/`, which holds the Enterprise Features under the Kinotic Enterprise License (`kinotic-ee/LICENSE`). Every interface in an ELv2 package with an `ee` segment (`org.kinotic.domain.api.ee.services.SecretStorageBackend`) is an Enterprise Extension Point whose production implementations are Enterprise Features. To make a capability enterprise-only, put its interface in the module's `api/ee/` tree, mirroring `api/` (`api/ee/services/`), and put its implementations in `kinotic-ee`, never in an ELv2 module. The package name is the license designation, so an `ee` package may hold a single file.
+The root `LICENSE.md` licenses everything under the Elastic License 2.0 with the Kinotic Additional Limitations, except `kinotic-ee/`, which holds the Enterprise Features under the Kinotic Enterprise License (`kinotic-ee/LICENSE`), and Kinotic RPC, under the Apache License 2.0 (see below). Every interface in an ELv2 package with an `ee` segment (`org.kinotic.domain.api.ee.services.SecretStorageBackend`) is an Enterprise Extension Point whose production implementations are Enterprise Features. To make a capability enterprise-only, put its interface in the module's `api/ee/` tree, mirroring `api/` (`api/ee/services/`), and put its implementations in `kinotic-ee`, never in an ELv2 module. The package name is the license designation, so an `ee` package may hold a single file.
+
+## Kinotic RPC stands alone
+
+Kinotic RPC — `kinotic-core`, `kinotic-api-gateway`, `kinotic-idl`, and the `core` and `idl` packages in `kinotic-js/workspace/packages/` — is licensed under the Apache License 2.0 (`LICENSE-APACHE`) so it can be used without Kinotic OS. None of its modules may depend on a Kinotic OS module (domain, persistence, management-api, system-api, the servers); `org.kinotic.java-common-conventions` fails the build if one declares such a project dependency. Code that only Kinotic OS uses belongs in an OS module, never in core, and anything RPC needs from the OS's model goes through an interface in core that the OS implements (`ZoneRulesResolver`, implemented by domain's `ScopedParticipantZoneRulesResolver`). A setting both RPC and the OS read lives on core's `KinoticProperties` (`kinotic.cors`).
 
 ## Don't guess from names
 
 Names suggest meaning but don't define it. Before using an annotation, framework hook, base class, or library helper you haven't used in this codebase before, read its source or docs and confirm what it actually does. Don't infer behaviour from a plausible-sounding name and ship it. If you can't verify the behaviour, ask — don't write a comment justifying the guess.
+
+## Say system, never platform, for the system's own scope
+
+The tier above every organization is the **system**: its users are system users, its jobs are
+system jobs, the runs, workloads, secrets and log tenant it owns are the system's, and its console
+is the system console. Name that scope *system* in every identifier, label, comment, Javadoc and
+doc, never *platform* (`JobOwner.system()`, `SystemJobService`, `kinotic-system`). *Platform* is
+only the product itself, Kinotic as a whole ("the Kinotic platform"). The old name still turns up
+in surrounding code; rename it to *system* when the scope is meant, rather than copying it.
 
 ## Java Conventions
 
@@ -108,7 +121,7 @@ Never gate a bean on a Spring profile — `@Profile` is for test contexts only; 
 
 One fact, one property. Never add a property whose value always equals another property's: a per-server copy of a setting, or a feature's own copy of a URL or domain that another module already configures. Put the fact in one property on the properties class of the nearest module that every reader of it loads, decided by where it is needed, never by default in a catch-all: the management server's API URL is read by management-api and the management server, which loads management-api, so it is `kinotic.managementApi.apiBaseUrl`; the app API URL is also read by the app server, which loads only kinotic-domain, so it is `kinotic.domain.appApiBaseUrl`. Derive anything else from that one property in code. Before adding a property, grep the yml profiles, Helm values, Terraform and compose files for the value it would hold; if another property already holds it, read that one. Two properties that must always match are Shotgun Surgery across every deployment file, and a bug the first time one is changed without the other.
 
-Properties are always scoped to the module and feature they configure: a setting lives as a field on the properties class of the thing it controls, nested under that module's tree (`kinotic.managementApi.github.disableProvisioner`, `kinotic.systemApi.deployment.managementServer.host`). The only root-level `kinotic.*` entries are genuinely platform-wide settings. Never park a feature-level flag at the root — a flag whose home class exists belongs on it, both as a field and in the `@ConditionalOnProperty` path.
+Properties are always scoped to the module and feature they configure: a setting lives as a field on the properties class of the thing it controls, nested under that module's tree (`kinotic.managementApi.github.disableProvisioner`, `kinotic.systemApi.deployment.managementServer.host`). The only root-level `kinotic.*` entries are genuinely system-wide settings. Never park a feature-level flag at the root — a flag whose home class exists belongs on it, both as a field and in the `@ConditionalOnProperty` path.
 
 ## Dependency Versions
 
@@ -143,7 +156,7 @@ it a credential.
 
 While `kinoticVersion` in `gradle.properties` is a `-SNAPSHOT`, no released artifact depends on this code, so there is nothing to stay backwards-compatible with: rename fields, break APIs, and reshape wire contracts freely. Deprecation shims and compatibility fallbacks start when the first release exists — building them sooner is Speculative Generality.
 
-Migrations follow the same rule while the cluster can be rebuilt: a schema change edits the table in `V1__init.sql`, a change to seeded rows edits the environment file that seeds them (`V2__kinotic_test_users.development.test.sql`, `V3__e2e_app_fixtures.test.sql`, `V4__system_console.fixtures.sql`), and the cluster is rebuilt to take it. Append-only discipline starts with the first release, for the development server with the first peer sign-up (`website/content/02.platform/13.development-server.md`): from then on a change is a new versioned file, never an edit of one already applied, and since Elasticsearch cannot retype a mapped field, a column that changes type is a new column beside the old one, which stays mapped and unused.
+Migrations follow the same rule while the cluster can be rebuilt: a schema change edits the table in `V1__init.sql`, a change to seeded rows edits the environment file that seeds them (`V2__system_identities.demonstration.test.e2e.sql`, `V3__test_org.fixtures.test.e2e.sql`, `V4__e2e_app_fixtures.e2e.sql`, `V5__system_console.fixtures.sql`), and the cluster is rebuilt to take it. Append-only discipline starts with the first release, for the development server with the first peer sign-up (`website/content/04.platform/13.development-server.md`): from then on a change is a new versioned file, never an edit of one already applied, and since Elasticsearch cannot retype a mapped field, a column that changes type is a new column beside the old one, which stays mapped and unused.
 
 ## Keep migrations in sync with persisted entities
 

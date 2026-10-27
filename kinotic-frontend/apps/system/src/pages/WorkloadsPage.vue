@@ -96,11 +96,11 @@ import { PageHeader, errorMessage, formatMb, StatusChips, type StatusChip, SEVER
 import WorkloadsTable from '@/components/WorkloadsTable.vue'
 import { formatCpus, loadNodes } from '@/util/nodes'
 import { scopeName, scopeTint, type Scope } from '@/util/scope'
-import { PLATFORM_ONLY, WORKLOAD_STATES, countByStatus, scanWorkloads, workloadSeverity, workloadStateLabel } from '@/util/workloads'
+import { SYSTEM_ONLY, WORKLOAD_STATES, countByStatus, scanWorkloads, workloadSeverity, workloadStateLabel } from '@/util/workloads'
 
 /**
- * The workloads of the scope the route names — the whole platform, an organization, an
- * application or a project — with state chips and, on the platform, organization and node
+ * The workloads of the scope the route names — the whole system, an organization, an
+ * application or a project — with state chips and, in the system, organization and node
  * filters. The filters live in the URL so other pages can link to a slice of the list.
  */
 const props = defineProps<{
@@ -123,7 +123,7 @@ const scope = computed<Scope>(() => ({
 
 const description = computed(() => scope.value.organizationId
     ? `The VMs running for ${scopeName(scope.value)}: its microservices, and the one-off sync and publish workloads its deployments start.`
-    : 'Every VM the platform has placed: microservices, one-off sync and publish workloads, and the platform\'s own.')
+    : 'Every VM the system has placed: microservices, one-off sync and publish workloads, and the system\'s own.')
 
 const workloads = ref<Workload[]>([])
 const nodes = ref<VmNode[]>([])
@@ -156,7 +156,7 @@ const nodeFilter = computed<string | null>({
 })
 
 const organizationOptions = computed(() => [
-  { label: 'Platform only', value: PLATFORM_ONLY },
+  { label: 'System only', value: SYSTEM_ONLY },
   ...organizations.value.map(org => ({ label: org.name, value: org.id ?? '' }))
 ])
 
@@ -202,11 +202,11 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    // On the platform the organization filter narrows the scan itself
+    // In the system scope the organization filter narrows the scan itself
     const org = scope.value.organizationId ? null : organizationFilter.value
-    const scanScope: Scope = org && org !== PLATFORM_ONLY ? { organizationId: org } : scope.value
+    const scanScope: Scope = org && org !== SYSTEM_ONLY ? { organizationId: org } : scope.value
     const [list, nodeList] = await Promise.all([
-      scanWorkloads(scanScope, { platformOnly: org === PLATFORM_ONLY, nodeId: nodeFilter.value ?? undefined }),
+      scanWorkloads(scanScope, { systemOnly: org === SYSTEM_ONLY, nodeId: nodeFilter.value ?? undefined }),
       loadNodes()
     ])
     workloads.value = list
@@ -224,7 +224,7 @@ async function loadOrganizations() {
     const page = await Kinotic.systemOrganizations.findOrganizations(Pageable.create(0, ORGANIZATION_PAGE_SIZE))
     organizations.value = page.content ?? []
   } catch {
-    // The filter lists the platform alone; the page still works without the organizations
+    // The filter lists the system alone; the page still works without the organizations
   }
 }
 

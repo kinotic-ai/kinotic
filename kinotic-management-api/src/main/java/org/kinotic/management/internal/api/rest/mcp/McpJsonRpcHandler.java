@@ -20,7 +20,7 @@ import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.domain.api.rest.OAuthServerHandler;
-import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.kinotic.management.internal.api.rest.mcp.model.*;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;

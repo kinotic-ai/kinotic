@@ -41,9 +41,15 @@ variable "console_label" {
 }
 
 variable "trusted_ui_hostnames" {
-  description = "Hostnames of the UIs built on Kinotic beside the portal, such as dev-summit42.kinotic.ai, that the management server accepts CORS requests from and returns its sign-in, sign-up and invitation flows to"
+  description = "Hostnames of the UIs built on Kinotic beside the portal and Summit 42 that the management server accepts CORS requests from and returns its sign-in, sign-up and invitation flows to"
   type        = list(string)
   default     = []
+}
+
+variable "summit42_enabled" {
+  description = "Whether the development server runs Summit 42: its UI on the sites Worker at dev-summit42 in the platform zone, admitted by the management server's CORS pattern, and its server at dev-summit42-api, the proxmox root's summit-42 container"
+  type        = bool
+  default     = false
 }
 
 variable "public_ip" {
@@ -68,13 +74,13 @@ variable "cloudflare_account_id" {
 }
 
 variable "cloudflare_api_token" {
-  description = "The token this root applies the zones with: Workers Scripts edit on the account, DNS, Workers routes and zone settings edit on the customers' zone and the platform zone; set it in local.auto.tfvars"
+  description = "The token this root applies the zones with: Workers Scripts edit on the account, DNS, Workers routes and zone settings edit on the customers' zone and the platform zone; with-dev-server-secrets.sh sets it from the operator keychain (proxmox/README.md, Operator secrets)"
   type        = string
   sensitive   = true
 }
 
 variable "cloudflare_dns_api_token" {
-  description = "A token holding DNS edit on the platform zone and the customers' zone and nothing else, placed on the host for the servers to create organizations' sites records with, for certbot's DNS-01 challenges and for kinotic-dyndns; set it in local.auto.tfvars"
+  description = "A token holding DNS edit on the platform zone and the customers' zone and nothing else, placed on the host for the servers to create organizations' sites records with, for certbot's DNS-01 challenges and for kinotic-dyndns; with-dev-server-secrets.sh sets it from the operator keychain (proxmox/README.md, Operator secrets)"
   type        = string
   sensitive   = true
 }

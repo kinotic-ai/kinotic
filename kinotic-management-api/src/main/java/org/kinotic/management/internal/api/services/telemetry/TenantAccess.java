@@ -21,7 +21,7 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 
 /**
  * Decides which telemetry tenant a caller may read. Every organization's workload logs,
- * traces, and metrics live in a tenant named by the organization id, and the platform's own
+ * traces, and metrics live in a tenant named by the organization id, and the system's own
  * in {@link TelemetryTenant#SYSTEM}; an organization participant reads its own organization's
  * tenant alone, a system participant any tenant once granted the telemetry of organizations on
  * the system.
@@ -52,11 +52,11 @@ public class TenantAccess {
     }
 
     /**
-     * The tenant holding the given organization's telemetry — the platform's when it has none —
+     * The tenant holding the given organization's telemetry — the system's when it has none —
      * provided the participant may read it.
      *
      * @param participant    the caller
-     * @param organizationId the organization whose telemetry is wanted, or null for the platform's
+     * @param organizationId the organization whose telemetry is wanted, or null for the system's
      * @return the tenant to query, or a failure with {@link AuthorizationException} when the participant may
      *         not read that tenant
      */

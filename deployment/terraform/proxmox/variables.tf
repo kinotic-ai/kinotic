@@ -6,7 +6,7 @@ variable "proxmox_host" {
 }
 
 variable "proxmox_password" {
-  description = "root@pam's password: bind mounts into containers are allowed for that user alone, and an API token authenticates as root@pam!name, which fails the check. Set it in local.auto.tfvars or PROXMOX_VE_PASSWORD"
+  description = "root@pam's password: bind mounts into containers are allowed for that user alone, and an API token authenticates as root@pam!name, which fails the check. with-dev-server-secrets.sh sets it from the operator keychain (README.md, Operator secrets)"
   type        = string
   sensitive   = true
 }
@@ -60,7 +60,7 @@ variable "private_network" {
 }
 
 variable "private_cidr" {
-  description = "The private network; the host takes .1, the edge .10, the ES nodes .11 to .13, the servers .20, .22 and .23, the migration .21"
+  description = "The private network; the host takes .1, the edge .10, the ES nodes .11 to .13, the servers .20, .22 and .23, the migration .21, Summit 42 .24"
   type        = string
   default     = "10.10.0.0/24"
 }
@@ -135,6 +135,12 @@ variable "kinotic_version" {
   description = "Tag of the three servers' images and kinotic-migration's"
   type        = string
   default     = "5.0.0-SNAPSHOT"
+}
+
+variable "summit42_version" {
+  description = "Tag of Summit 42's image, which runs when the dev-server Azure root's summit42_enabled is true"
+  type        = string
+  default     = "0.1.0-SNAPSHOT"
 }
 
 variable "elasticsearch_version" {

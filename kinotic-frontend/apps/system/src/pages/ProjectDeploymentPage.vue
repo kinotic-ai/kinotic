@@ -84,7 +84,7 @@
         </DashboardSection>
 
         <DashboardSection :icon="Server" :tint="TINTS.purple" title="Runtime workloads" :count="services.length"
-                          description="The microservice VMs this project's deployments have left running, where the platform placed them, and what a system user can do about each.">
+                          description="The microservice VMs this project's deployments have left running, where the system placed them, and what a system user can do about each.">
           <WorkloadsTable v-if="services.length > 0" :workloads="services" :scope="scope" :node-names="nodeNames" @changed="load" />
           <EmptyChartCharacter v-else class="py-6" title="No microservice workload is running" />
         </DashboardSection>
@@ -127,8 +127,10 @@ import { Activity, Ban, CircleCheck, CircleX, Clock, CloudUpload, GitCommitHoriz
 
 import { ExecutionStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DashboardSection, DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployResultNames,
-         StatCard, TimePill, TINTS, errorMessage, executionStatusSeverity, scanJobRuns, shortSha, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, PageHeader, StatCard, TimePill, TINTS, errorMessage, shortSha,
+         EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { JobRunProgress, ProjectDeployResultNames, executionStatusSeverity,
+         scanJobRuns } from '@kinotic-ai/frontend-common/management'
 
 import WorkloadsTable from '@/components/WorkloadsTable.vue'
 import { loadNodes } from '@/util/nodes'
