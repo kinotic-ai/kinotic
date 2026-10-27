@@ -1,0 +1,1 @@
+{"id":"ddfc14a8314befb88fc986c803c71da9.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.management.internal.api.services.github.GitHubProjectRepoProvisionerTest.adoptsTheRepoWhenInitializationFails","name":"adoptsTheRepoWhenInitializationFails()","status":"passed","testResultsByEnv":{"default":"3ff9f586ec94cff409ae3a6a9aa74b93"}}
