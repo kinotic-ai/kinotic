@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.ParticipantConstants;
+import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.exceptions.UnverifiedEmailException;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.Organization;
@@ -240,22 +241,24 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
         await(asAdministrator(() -> passwords.save(password(appId, null).setCreateUserOnSignIn(true))));
         LoginScope scope = new LoginScope(application, null);
         assertTrue(await(signUps.findLoginProviders(scope)).getFirst().signUp());
-        // the email is matched and stored trimmed and lowercased
-        await(signUps.initiatePasswordSignUp(scope, "  " + email.toUpperCase(Locale.ROOT) + " ", UI_ORIGIN));
+        // the email is matched and stored trimmed and lowercased, and with email disabled the link is returned
+        String firstLink = await(signUps.initiatePasswordSignUp(scope, "  " + email.toUpperCase(Locale.ROOT) + " ", UI_ORIGIN));
         List<PendingApplicationSignUp> pending = pendingFor(email);
         assertEquals(1, pending.size());
         String first = pending.getFirst().getVerificationToken();
+        assertEquals(verificationLink(first), firstLink);
 
-        // while the link sent is valid, a repeated request sends no other
-        await(signUps.initiatePasswordSignUp(scope, email, UI_ORIGIN));
+        // while the link is valid, a repeated request returns it again and makes no other
+        assertEquals(firstLink, await(signUps.initiatePasswordSignUp(scope, email, UI_ORIGIN)));
         assertEquals(List.of(first), tokens(pendingFor(email)));
-        // once it has expired, a request sends a new link in its place
+        // once it has expired, a request makes a new link in its place
         await(pendingSignUps.saveSync(pending.getFirst().setExpiresAt(new Date(System.currentTimeMillis() - 60_000))));
-        await(signUps.initiatePasswordSignUp(scope, email, UI_ORIGIN));
+        String renewedLink = await(signUps.initiatePasswordSignUp(scope, email, UI_ORIGIN));
         List<String> renewed = tokens(pendingFor(email));
         assertEquals(1, renewed.size());
         assertNotEquals(first, renewed.getFirst());
         String token = renewed.getFirst();
+        assertEquals(verificationLink(token), renewedLink);
 
         // a tenant's login signs no one up, and a token carried to another application's host signs up no one there
         assertInstanceOf(IllegalStateException.class, failure(() -> signUps.completePasswordSignUp(new LoginScope(scope.application(), "a-tenant"), token, "a-good-password", null)));
@@ -277,8 +280,8 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
         assertEquals(user.getId(), await(localAuthentication.authenticateApplicationUser(email, "a-good-password", organization.getId(), appId)).getId());
         assertInstanceOf(IllegalArgumentException.class, failure(() -> signUps.completePasswordSignUp(scope, token, "a-good-password", null)));
 
-        // an email that has a user is sent nothing, and the call answers as it does for any other
-        await(signUps.initiatePasswordSignUp(scope, email, UI_ORIGIN));
+        // with email disabled, an email that has a user is refused, and no link is made for it
+        assertInstanceOf(ExistingUserException.class, failure(() -> signUps.initiatePasswordSignUp(scope, email, UI_ORIGIN)));
         assertTrue(pendingFor(email).isEmpty());
     }
 
@@ -336,6 +339,10 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
 
     private static List<String> tokens(List<PendingApplicationSignUp> pending) {
         return pending.stream().map(PendingApplicationSignUp::getVerificationToken).toList();
+    }
+
+    private static String verificationLink(String token) {
+        return UI_ORIGIN + "/signup/verify?token=" + token;
     }
 
     private List<PendingApplicationSignUp> pendingFor(String email) throws Exception {
