@@ -395,6 +395,26 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                         });
     }
 
+    @Override
+    public Future<String> findBranchHead(String installationToken,
+                                         String repoFullName,
+                                         String branch) {
+        return request(HttpMethod.GET, "/repos/" + repoFullName + "/git/ref/heads/" + branch, installationToken)
+                        .send()
+                        .compose(resp -> {
+                            Future<String> ret;
+                            if (resp.statusCode() == 200) {
+                                ret = Future.succeededFuture(resp.bodyAsJsonObject().getJsonObject("object").getString("sha"));
+                            } else if (resp.statusCode() == 404 || resp.statusCode() == 409) {
+                                // 409: the repository has no commit at all
+                                ret = Future.succeededFuture(null);
+                            } else {
+                                ret = Future.failedFuture(httpError("findBranchHead", resp));
+                            }
+                            return ret;
+                        });
+    }
+
     private Future<HttpResponse<Buffer>> tokenAuthedPost(String path, String token, JsonObject body) {
         return request(HttpMethod.POST, path, token).sendJsonObject(body);
     }
