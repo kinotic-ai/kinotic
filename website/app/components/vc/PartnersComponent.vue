@@ -86,11 +86,6 @@
   margin:0 0 27px
 }
 
-.partnership__copy p:first-child {
-  font-size:21px;
-  line-height:1.65;
-  color:inherit
-}
 
 .partnership__copy p:last-child {
   margin-bottom:0
@@ -125,9 +120,6 @@
   font-size:17px
 }
 
-.partnership__copy p:first-child {
-  font-size:19px
-}
 
 .partnership__title {
   margin-bottom:36px

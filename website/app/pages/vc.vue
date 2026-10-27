@@ -8,6 +8,7 @@ definePageMeta({
   headerNav: {
     links: [
       { label: 'About us', to: '#about', external: true },
+      { label: 'Partners', to: '#partners', external: true },
       { label: 'Product demo', to: '#demo', external: true },
       { label: 'Investor deck', to: '#deck', external: true },
       { label: 'Roadmap', to: '#roadmap', external: true },
