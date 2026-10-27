@@ -34,6 +34,7 @@ const video = ref<string | null>(null)
   <VcAboutComponent @play="video = $event" />
   <VcFoundersComponent />
   <VcStoryComponent />
+  <VcPartnersComponent />
   <VcDemoComponent @play="video = $event" />
   <VcDeckComponent />
   <VcRoadmapComponent />
