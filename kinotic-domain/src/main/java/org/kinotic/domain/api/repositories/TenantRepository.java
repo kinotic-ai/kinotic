@@ -40,11 +40,15 @@ public class TenantRepository {
     }
 
     /**
-     * Stores a new tenant, failing with {@link org.kinotic.core.api.exceptions.AlreadyExistsException} when its
-     * application already has a tenant of its id.
+     * Stores a new tenant belonging to {@code orgId}, failing with
+     * {@link org.kinotic.core.api.exceptions.AlreadyExistsException} when its application already has a tenant of its
+     * id. Throws if the tenant's own {@code organizationId} disagrees with {@code orgId}.
      */
-    public Future<Tenant> create(Tenant tenant) {
-        String orgId = tenant.getOrganizationId();
+    public Future<Tenant> create(Tenant tenant, String orgId) {
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        Validate.isTrue(orgId.equals(tenant.getOrganizationId()),
+                        "Cannot create Tenant whose organizationId '%s' does not match orgId '%s'",
+                        tenant.getOrganizationId(), orgId);
         return crudServiceTemplate.create(INDEX_NAME, documentId(orgId, tenant.getApplicationId(), tenant.getId()), tenant,
                                           b -> b.routing(orgId))
                                   .map(tenant);

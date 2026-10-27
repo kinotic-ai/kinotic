@@ -44,7 +44,7 @@ public class DefaultTenantService implements TenantService {
                                     .setCreated(now)
                                     .setUpdated(now);
         return applications.requireById(applicationId, organizationId)
-                           .compose(application -> tenantRepository.create(tenant))
+                           .compose(application -> tenantRepository.create(tenant, organizationId))
                            // create refuses an id the application's tenant holds already, made by an earlier call or
                            // one made at the same time, and that tenant is the one wanted
                            .recover(err -> err instanceof AlreadyExistsException
