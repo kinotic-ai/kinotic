@@ -41,7 +41,13 @@ public class KinoticTestComposeBoostrap {
         File mainCompose = new File(composeDir, "compose.kinotic-test.yml");
 
         COMPOSE_CONTAINER = new ComposeContainer(mainCompose)
-                .withOptions("--project-name", PROJECT_NAME);
+                .withOptions("--project-name", PROJECT_NAME)
+                // with the engine's caches on, a check answers from a cached result for up to ten seconds after a
+                // grant or revoke, which every test that changes access would wait out
+                .withEnv("OPENFGA_CHECK_QUERY_CACHE_ENABLED", "false")
+                .withEnv("OPENFGA_CHECK_ITERATOR_CACHE_ENABLED", "false")
+                .withEnv("OPENFGA_SHARED_ITERATOR_ENABLED", "false")
+                .withEnv("OPENFGA_CACHE_CONTROLLER_ENABLED", "false");
 
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {

@@ -68,6 +68,14 @@ export function createGlobalSetup(serverNames: KinoticServerName[]): GlobalSetup
                     // the OpenFGA image has no shell, which the default port wait strategy needs
                     .withWaitStrategy('openfga', Wait.forHttp('/healthz', OPENFGA_PORT))
                     .withEnvironmentFile(path.resolve('../../', 'gradle.properties'))
+                    // with the engine's caches on, a call answers from a cached check for up to ten seconds after
+                    // a grant or revoke, which every test that changes access would wait out
+                    .withEnvironment({
+                        OPENFGA_CHECK_QUERY_CACHE_ENABLED: 'false',
+                        OPENFGA_CHECK_ITERATOR_CACHE_ENABLED: 'false',
+                        OPENFGA_SHARED_ITERATOR_ENABLED: 'false',
+                        OPENFGA_CACHE_CONTROLLER_ENABLED: 'false'
+                    })
                 for(const serverName of serverNames){
                     compose = compose.withWaitStrategy(serverName, Wait.forHttp('/health', SERVER_PORTS[serverName])
                                                                        .withStartupTimeout(SERVER_STARTUP_TIMEOUT_MS))
