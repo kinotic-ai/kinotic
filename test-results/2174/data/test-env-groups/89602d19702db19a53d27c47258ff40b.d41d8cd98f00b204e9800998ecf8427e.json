@@ -1,0 +1,1 @@
+{"id":"89602d19702db19a53d27c47258ff40b.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.sql.MigrationExecutorIntegrationTest.whenInvalidVersionNumber_thenExceptionThrown","name":"whenInvalidVersionNumber_thenExceptionThrown()","status":"passed","testResultsByEnv":{"default":"eeab8c83440f6055c66ba23c1dc7adc1"}}
