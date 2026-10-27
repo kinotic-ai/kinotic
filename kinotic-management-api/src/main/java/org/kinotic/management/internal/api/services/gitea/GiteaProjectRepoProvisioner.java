@@ -73,11 +73,6 @@ public class GiteaProjectRepoProvisioner implements ProjectRepoProvisioner {
     }
 
     @Override
-    public Future<String> findDefaultBranchHead(Project project) {
-        return giteaClient.findBranchHead(project.getRepoFullName(), project.getRepoDefaultBranch());
-    }
-
-    @Override
     public RepositoryHost repositoryHost() {
         return new RepositoryHost(RepoHostType.GITEA, GiteaClient.WEB_BASE_URL);
     }

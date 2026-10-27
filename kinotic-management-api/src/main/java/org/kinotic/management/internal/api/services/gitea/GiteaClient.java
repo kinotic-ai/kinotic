@@ -115,20 +115,6 @@ public class GiteaClient {
                 .compose(response -> expect(response, "commit to " + fullName, 201));
     }
 
-    /** The commit {@code branch} of the repository points at, or null when the branch does not exist. */
-    public Future<String> findBranchHead(String fullName, String branch) {
-        return send(asAdmin(HttpMethod.GET, "/repos/" + fullName + "/branches/" + branch), null).compose(response -> {
-            Future<String> ret;
-            if (response.statusCode() == 404) {
-                ret = Future.succeededFuture(null);
-            } else {
-                ret = expect(response, "read the branch " + branch + " of " + fullName, 200)
-                        .map(v -> response.bodyAsJsonObject().getJsonObject("commit").getString("id"));
-            }
-            return ret;
-        });
-    }
-
     /** Gives the repository a push webhook delivering to {@code url}, signed with {@code secret}, when it has none. */
     public Future<Void> ensurePushWebhook(String fullName, String url, String secret) {
         return send(asAdmin(HttpMethod.GET, "/repos/" + fullName + "/hooks"), null).compose(found -> {

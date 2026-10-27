@@ -2,7 +2,6 @@ package org.kinotic.management.internal.api.services;
 
 import com.github.slugify.Slugify;
 import io.vertx.core.Future;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -14,7 +13,6 @@ import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.RepositoryHost;
 import org.kinotic.management.api.model.deployment.ProjectDependencies;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
-import org.kinotic.management.api.model.deployment.ProjectPushEvent;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
 import org.kinotic.management.api.repositories.ProjectDependenciesRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
@@ -29,7 +27,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.function.Function;
 
-@Slf4j
 @Component
 public class DefaultProjectService extends AbstractApplicationScopedService<Project> implements ProjectService {
 
@@ -39,20 +36,17 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectDependenciesRepository projectDependenciesRepository;
     private final ProjectRepoProvisioner repoProvisioner;
-    private final ProjectPushPublisher pushPublisher;
 
     public DefaultProjectService(ProjectRepository repository,
                                  SecurityContext securityContext,
                                  ProjectDeploymentRepository projectDeploymentRepository,
                                  ProjectDependenciesRepository projectDependenciesRepository,
-                                 ProjectRepoProvisioner repoProvisioner,
-                                 ProjectPushPublisher pushPublisher) {
+                                 ProjectRepoProvisioner repoProvisioner) {
         super(repository, securityContext);
         this.projectRepository = repository;
         this.projectDeploymentRepository = projectDeploymentRepository;
         this.projectDependenciesRepository = projectDependenciesRepository;
         this.repoProvisioner = repoProvisioner;
-        this.pushPublisher = pushPublisher;
     }
 
     @Override
@@ -73,7 +67,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                     if (existing != null) {
                         return Future.succeededFuture(existing);
                     }
-                    return repoProvisioner.provision(project).compose(this::save).compose(this::deployDefaultBranch);
+                    return repoProvisioner.provision(project).compose(this::save);
                 });
     }
 
@@ -159,7 +153,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                         "Project " + projectId + " is not awaiting initialization retry (status "
                         + project.getRepoConnectionStatus() + ")"));
             }
-            return repoProvisioner.reinitialize(project).compose(this::saveSync).compose(this::deployDefaultBranch);
+            return repoProvisioner.reinitialize(project).compose(this::saveSync);
         });
     }
 
@@ -179,29 +173,8 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                                                   .recover(ex -> AlreadyExistsException.isCause(ex)
                                                           ? Future.failedFuture(new IllegalArgumentException(
                                                                   "Project for id " + project.getId() + " already exists"))
-                                                          : Future.failedFuture(ex)))
-                                          .compose(this::deployDefaultBranch);
+                                                          : Future.failedFuture(ex)));
                 });
-    }
-
-    // A repository host's webhook can deliver the initializing commit before the project is stored, finding nothing to
-    // deploy; the webhook's copy of the same push leaves the deployment's intent unchanged
-    private Future<Project> deployDefaultBranch(Project project) {
-        if (project.getRepoConnectionStatus() != RepositoryConnectionStatus.CONNECTED) {
-            return Future.succeededFuture(project);
-        }
-        return repoProvisioner.findDefaultBranchHead(project)
-                              .map(head -> {
-                                  if (head != null) {
-                                      pushPublisher.publish(new ProjectPushEvent(project.getOrganizationId(), project.getId(), head));
-                                  }
-                                  return project;
-                              })
-                              // the project is created either way; its next push deploys it
-                              .recover(err -> {
-                                  log.warn("Could not deploy the default branch of project {}", project.getId(), err);
-                                  return Future.succeededFuture(project);
-                              });
     }
 
     private void validateAndDeriveId(Project project) {
