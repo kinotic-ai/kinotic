@@ -169,6 +169,7 @@ import { DatetimeUtil, showErrorToast, statusSeverity } from '@kinotic-ai/fronte
 import { PageHeader } from '@kinotic-ai/frontend-common'
 import { PROFILE_STATE } from '@/states/IProfileState'
 import { KinoticStates } from '@/states'
+import { findLoginProviders } from '@/pages/login/organizationLogin'
 
 /** One read-only fact about the user, rendered as a column of the identity card's footer. */
 interface ProfileDetail {
@@ -262,15 +263,8 @@ async function loadSignIn() {
   }
 }
 
-// The organization's login lists an email and a password among its providers while it takes one
 async function findPasswordOffered(): Promise<boolean> {
-  const organizationId = KinoticStates.getUserState().getOrganizationId()
-  const res = await fetch(apiUrl(`/api/auth/org/login/${encodeURIComponent(organizationId)}/providers`),
-                          { credentials: 'same-origin' })
-  if (!res.ok) {
-    throw new Error(`The organization's sign-in providers could not be loaded (${res.status})`)
-  }
-  const providers: { type: string }[] = await res.json()
+  const providers = await findLoginProviders(KinoticStates.getUserState().getOrganizationId())
   return providers.some(provider => provider.type === 'PASSWORD')
 }
 
