@@ -77,12 +77,12 @@ docker compose -p docker-compose down
 |---|---|---|
 | Portal | <http://localhost:9090> | TLS off in compose. Served by `kinotic-ui`; every path that names no file answers with the SPA's `index.html` |
 | System console | <http://localhost:9091> | Served by `kinotic-ui`, as the portal is; system users sign in here |
-| Management server | <http://localhost:58503> | REST, and STOMP at `ws://localhost:58503/v1` — what the SPA's `Kinotic.connect(...)` opens |
-| System server | <http://localhost:58504> | REST, and STOMP at `ws://localhost:58504/v1`, for the system console |
-| App server | <http://localhost:58505> | REST, and STOMP at `ws://localhost:58505/v1`; each application's API host is `<organizationId>--<applicationId>.localhost:58505` |
+| Management server | <http://localhost:58503> | REST, and STOMP at `ws://localhost:58503/api/v1` — what the SPA's `Kinotic.connect(...)` opens |
+| System server | <http://localhost:58504> | REST, and STOMP at `ws://localhost:58504/api/v1`, for the system console |
+| App server | <http://localhost:58505> | REST, and STOMP at `ws://localhost:58505/api/v1`; each application's API host is `<organizationId>--<applicationId>.apps-api.kinotic.localhost:58505` |
 | Elasticsearch | <http://localhost:9200> | `xpack.security.enabled=false` — local only |
 | Kibana | <http://localhost:5601> | |
-| A published UI | `http://<app>--<ui>.<org>.sites.localhost:8088` | Served by `kinotic-sites-edge` from Azurite; the project's deployment page links it. Chrome, Edge and Firefox resolve `*.localhost` to this machine |
+| A published UI | `http://<app>--<ui>.<org>.sites.kinotic.localhost:8088` | Served by `kinotic-sites-edge` from Azurite; the project's deployment page links it. Chrome, Edge and Firefox resolve `*.localhost` to this machine. The sites and the API hosts are both under `kinotic.localhost`, so the browser treats a site and its application's API as one site and sends the `SameSite=Lax` session cookie between them, as under `kinotic.ai` in production |
 | Azurite | <http://localhost:10000/devstoreaccount1> | Azurite's `devstoreaccount1` development account, which the publish and removal workloads upload to and delete from |
 | Gitea | <http://localhost:3001> | Every project's repository, in the Gitea organization named by its Kinotic organization's id. Sign in as `kinotic_admin` / `kinotic-gitea-admin` to browse them |
 | Grafana | <http://localhost:3000> | When `compose-otel.yml` is included. Anonymous auth with the Admin role — no login |
@@ -308,7 +308,7 @@ A deployment of a project with UIs uploads each built UI to Azurite, as it uploa
 storage account in Azure: the system server's `demonstration` profile sets
 `kinotic.systemApi.uiDeployment.siteStorage: AZURITE` and points the publish workload at
 `http://192.168.127.254:10000/devstoreaccount1`, Azurite where a BOXLITE workload reaches this machine's
-loopback. `kinotic-sites-edge` serves each UI at `http://<app>--<ui>.<org>.sites.localhost:8088`
+loopback. `kinotic-sites-edge` serves each UI at `http://<app>--<ui>.<org>.sites.kinotic.localhost:8088`
 by running the same `worker.js` the Cloudflare edge runs, over Azurite. On start it creates the
 private `sites` container and signs the Worker's read SAS with Azurite's well-known development key,
 which terraform does for the real account.
