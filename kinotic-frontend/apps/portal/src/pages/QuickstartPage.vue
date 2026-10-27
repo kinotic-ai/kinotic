@@ -74,7 +74,7 @@
                   <span class="text-amber-400">⚠</span>
                   <span class="min-w-0 truncate">plugin:kinotic:kinotic-os</span>
                   <span class="hidden text-surface-400 sm:inline">needs authentication</span>
-                  <span class="ml-auto shrink-0 font-sans text-[11px] text-surface-400">Kinotic Cloud, leave it</span>
+                  <span class="ml-auto shrink-0 font-sans text-[11px] text-surface-400">Kinotic Cloud</span>
                 </div>
               </div>
 
