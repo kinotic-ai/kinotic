@@ -56,6 +56,28 @@
                 </div>
               </div>
 
+              <!-- Claude Code's /mcp list, where the plugin's own server sits beside the one added for this deployment -->
+              <div v-if="step.id === 'authorize' && SEPARATE_MCP_SERVER && !loading"
+                   class="mt-3 rounded-lg bg-surface-950 px-3.5 py-3 font-mono text-xs text-surface-300 dark:ring-1 dark:ring-surface-700">
+                <div class="text-sky-300">Manage MCP servers</div>
+                <div class="mt-2 font-semibold text-surface-100">User MCPs</div>
+                <div class="mt-1 flex items-center gap-2 rounded-md bg-green-400/10 px-2 py-1 ring-1 ring-green-400/40">
+                  <span class="text-green-400">❯</span>
+                  <span class="text-amber-400">⚠</span>
+                  <span class="min-w-0 truncate font-semibold text-surface-0">kinotic-local</span>
+                  <span class="hidden text-surface-400 sm:inline">needs authentication</span>
+                  <span class="ml-auto shrink-0 rounded-full bg-green-400/15 px-2 py-0.5 font-sans text-[11px] font-medium text-green-400">Authenticate this one</span>
+                </div>
+                <div class="mt-2 font-semibold text-surface-100">Built-in MCPs</div>
+                <div class="mt-1 flex items-center gap-2 px-2 py-1 opacity-60">
+                  <span class="invisible">❯</span>
+                  <span class="text-amber-400">⚠</span>
+                  <span class="min-w-0 truncate">plugin:kinotic:kinotic-os</span>
+                  <span class="hidden text-surface-400 sm:inline">needs authentication</span>
+                  <span class="ml-auto shrink-0 font-sans text-[11px] text-surface-400">Kinotic Cloud, leave it</span>
+                </div>
+              </div>
+
               <p v-if="!loading && !step.done && index === currentIndex && step.hint" class="mt-3 text-sm leading-6 text-muted-color">{{ step.hint }}</p>
               <div v-if="!loading && !step.done && index === currentIndex && step.actions.length" class="mt-3 flex flex-wrap gap-2">
                 <Button v-for="action in step.actions" :key="action.label" :label="action.label"
@@ -311,8 +333,10 @@ const PLUGIN_COMMANDS = ['/plugin marketplace add kinotic-ai/agent-plugin', '/pl
 const AUTHORIZE_COMMANDS = ['/mcp']
 // The MCP server the Kinotic plugin connects Claude Code to, Kinotic Cloud's
 const PLUGIN_MCP_URL = 'https://api.kinotic.ai/mcp'
-// This deployment's MCP server; one other than the plugin's, such as a demonstration server's, is added beside it
+// This deployment's MCP server
 const MCP_URL = new URL(apiUrl('/mcp'), window.location.origin).toString()
+// A deployment other than Kinotic Cloud, such as a demonstration server, needs its MCP server added beside the plugin's
+const SEPARATE_MCP_SERVER = MCP_URL !== PLUGIN_MCP_URL
 const LOCAL_AUTHORIZE_COMMANDS = [`claude mcp add -s user --transport http kinotic-local ${MCP_URL}`, '/mcp']
 const NEW_APP_COMMANDS = ['/kinotic:new-app my-app']
 // How many projects the checklist reads to find the most recently updated one
@@ -432,12 +456,12 @@ const steps = computed<Step[]>(() => [
   {
     id: 'authorize',
     title: 'Connect Claude to Kinotic',
-    description: MCP_URL === PLUGIN_MCP_URL
-        ? 'Run /mcp in Claude Code, select kinotic-os and choose Authenticate, then approve the consent screen that opens in your browser.'
-        : 'The plugin connects to Kinotic Cloud, so add this server beside it from a terminal. Then run /mcp in Claude Code, select kinotic-local and choose Authenticate, and approve the consent screen that opens in your browser.',
+    description: SEPARATE_MCP_SERVER
+        ? 'The plugin\'s own server, plugin:kinotic:kinotic-os, is Kinotic Cloud\'s, so add this Kinotic beside it as kinotic-local from a terminal. Then run /mcp in Claude Code, authenticate kinotic-local, and approve the consent screen that opens in your browser.'
+        : 'Run /mcp in Claude Code, select plugin:kinotic:kinotic-os and choose Authenticate, then approve the consent screen that opens in your browser.',
     done: mcpClient.value !== null,
     doneDetail: mcpClient.value?.displayName ? `${mcpClient.value.displayName} connected` : undefined,
-    commands: MCP_URL === PLUGIN_MCP_URL ? AUTHORIZE_COMMANDS : LOCAL_AUTHORIZE_COMMANDS,
+    commands: SEPARATE_MCP_SERVER ? LOCAL_AUTHORIZE_COMMANDS : AUTHORIZE_COMMANDS,
     actions: [],
     revisit: { label: 'Connected apps', to: '/account/connected-apps' }
   },
