@@ -128,14 +128,15 @@ public class EmailService {
      * @param applicationName   the name of the application signed up to
      * @param verificationToken the token to include in the verification URL
      * @param uiBaseUrl         the origin of the application's UI whose verification page the link opens
-     * @return a future that completes once the send has finished (or fails if ACS rejects it)
+     * @return a future emitting the verification link when email is disabled, for the UI to show in place of the
+     *         email, or {@code null} once the email is sent (failing if ACS rejects it)
      */
-    public Future<Void> sendApplicationSignUpEmail(String email, String applicationName, String verificationToken, String uiBaseUrl) {
+    public Future<String> sendApplicationSignUpEmail(String email, String applicationName, String verificationToken, String uiBaseUrl) {
         String verificationUrl = uiBaseUrl + VERIFICATION_PATH + verificationToken;
 
         if (!properties.getDomain().getEmail().isEnabled()) {
             log.warn("Email sending is disabled; sign-up verification URL of {} for <{}>: {}", applicationName, email, verificationUrl);
-            return Future.succeededFuture();
+            return Future.succeededFuture(verificationUrl);
         }
 
         Map<String, Object> variables = Map.of("applicationName", applicationName,
@@ -144,7 +145,8 @@ public class EmailService {
                     email,
                     "Confirm your email for " + applicationName,
                     render(APPLICATION_SIGN_UP_HTML, variables),
-                    render(APPLICATION_SIGN_UP_TEXT, variables));
+                    render(APPLICATION_SIGN_UP_TEXT, variables))
+                .map((String) null);
     }
 
     /**

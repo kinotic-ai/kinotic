@@ -125,7 +125,7 @@ public class DefaultPasswordConfigurationService implements PasswordConfiguratio
                 return null;
             });
         } else {
-            ret = tenantRepository.findById(tenantId, applicationId, organizationId).map(tenant -> {
+            ret = tenantRepository.findById(applicationId, tenantId, organizationId).map(tenant -> {
                 Validate.isTrue(tenant != null, "Application %s of organization %s has no tenant %s", applicationId, organizationId, tenantId);
                 return null;
             });

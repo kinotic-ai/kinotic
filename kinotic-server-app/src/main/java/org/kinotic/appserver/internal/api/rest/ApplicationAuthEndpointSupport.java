@@ -210,7 +210,7 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
     public Future<LoginScope> loginScope(ApplicationKey applicationKey, String tenantId) {
         Future<Application> application = applicationRepository.findById(applicationKey.applicationId(), applicationKey.organizationId());
         Future<Tenant> tenant = tenantId != null
-                ? tenantRepository.findById(tenantId, applicationKey.applicationId(), applicationKey.organizationId())
+                ? tenantRepository.findById(applicationKey.applicationId(), tenantId, applicationKey.organizationId())
                 : Future.succeededFuture();
         return Future.all(application, tenant).map(v -> {
             if (application.result() == null) {
