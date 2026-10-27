@@ -378,8 +378,8 @@ const DEPLOY_STEPS = [
   { label: 'Publish', icon: markRaw(Globe) }
 ]
 const LOG_LINES = [
-  { level: 'INFO', time: '12:04:31', text: 'PersonRepository.save 12ms' },
-  { level: 'INFO', time: '12:04:32', text: 'GET /api/people 200 8ms' },
+  { level: 'INFO', time: '12:04:31', text: 'PersonService.createPerson 12ms' },
+  { level: 'INFO', time: '12:04:32', text: 'PersonRepository.save 8ms' },
   { level: 'WARN', time: '12:04:35', text: 'slow query findAll 412ms' }
 ]
 
