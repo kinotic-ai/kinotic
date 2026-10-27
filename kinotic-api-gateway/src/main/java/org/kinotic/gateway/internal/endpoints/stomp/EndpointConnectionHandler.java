@@ -129,6 +129,10 @@ public class EndpointConnectionHandler {
                                                                           ? new AuthenticationException("Invalid CONNECT frame", throwable)
                                                                           : throwable))
                         .compose(authorizer -> {
+                            // the zone rules resolve asynchronously, so the connection may have closed meanwhile
+                            if (connectedInfo == null) {
+                                return Future.failedFuture(new AuthenticationException("The connection closed before CONNECT completed"));
+                            }
                             stompAuthorizer = authorizer;
 
                             signalActivity();
