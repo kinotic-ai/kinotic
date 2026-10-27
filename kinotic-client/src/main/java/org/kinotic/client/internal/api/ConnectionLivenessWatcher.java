@@ -1,7 +1,7 @@
 package org.kinotic.client.internal.api;
 
 import io.vertx.core.Context;
-import io.vertx.core.Vertx;
+import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 
 import java.util.ArrayList;
@@ -16,8 +16,11 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
+@RequiredArgsConstructor
 public class ConnectionLivenessWatcher implements RequestLivenessWatcher {
 
+    // every request of the connection is acknowledged on this context, and its loss is reported there
+    private final Context context;
     private final Map<String, Watch> watches = new ConcurrentHashMap<>();
     private volatile String liveConnectionId;
 
@@ -48,7 +51,7 @@ public class ConnectionLivenessWatcher implements RequestLivenessWatcher {
 
     @Override
     public void watch(String requestKey, String nodeId, Runnable onNodeLeft) {
-        watches.put(requestKey, new Watch(nodeId, onNodeLeft, Vertx.currentContext()));
+        watches.put(requestKey, new Watch(nodeId, onNodeLeft));
         // the connection may have ended between the acknowledgement and this call
         if (!nodeId.equals(liveConnectionId)) {
             connectionLost(requestKey);
@@ -65,19 +68,15 @@ public class ConnectionLivenessWatcher implements RequestLivenessWatcher {
         return watches.size();
     }
 
-    // the callback runs on the request's own context, dispatched rather than inline, so a burst of lost requests
-    // drains as separate tasks and never re-enters the caller that reported the loss
+    // The callback is dispatched rather than run inline: a burst of lost requests drains as separate tasks, and
+    // watch() is called from inside the proxy's responseMap update, which the callback's removal would re-enter
     private void connectionLost(String requestKey) {
         Watch watch = watches.remove(requestKey);
         if (watch != null) {
-            if (watch.context() != null) {
-                watch.context().runOnContext(v -> watch.onConnectionLost().run());
-            } else {
-                watch.onConnectionLost().run();
-            }
+            context.runOnContext(v -> watch.onConnectionLost().run());
         }
     }
 
-    private record Watch(String connectionId, Runnable onConnectionLost, Context context) {}
+    private record Watch(String connectionId, Runnable onConnectionLost) {}
 
 }

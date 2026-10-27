@@ -12,11 +12,13 @@ import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.annotations.Proxy;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.springframework.core.ReactiveAdapterRegistry;
+import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.ReactiveTypeDescriptor;
 import reactor.core.publisher.Mono;
 
@@ -109,12 +111,25 @@ public class KinoticUtil {
      * then address the service it declares.
      * @param serviceInterface an interface annotated with {@link Proxy} or {@link Publish}
      * @return the identifier the interface's calls are routed by
+     * @throws IllegalArgumentException if the interface carries neither annotation or declares no version
      */
     public static ServiceIdentifier serviceIdentifierOf(Class<?> serviceInterface) {
+        return serviceIdentifierOf(serviceInterface, null);
+    }
+
+    /**
+     * The identity a service interface addresses within a scope: its zone, namespace, name and version as
+     * declared on the interface, and the given scope.
+     * @param serviceInterface an interface annotated with {@link Proxy} or {@link Publish}
+     * @param scope the scope the service is addressed in, or null for the un-scoped address
+     * @return the identifier the interface's calls are routed by
+     * @throws IllegalArgumentException if the interface carries neither annotation or declares no version
+     */
+    public static ServiceIdentifier serviceIdentifierOf(Class<?> serviceInterface, String scope) {
         String namespace;
         String name;
-        Proxy proxyAnnotation = serviceInterface.getAnnotation(Proxy.class);
-        Publish publishAnnotation = serviceInterface.getAnnotation(Publish.class);
+        Proxy proxyAnnotation = AnnotationUtils.findAnnotation(serviceInterface, Proxy.class);
+        Publish publishAnnotation = AnnotationUtils.findAnnotation(serviceInterface, Publish.class);
         if (proxyAnnotation != null) {
             namespace = proxyAnnotation.namespace();
             name = proxyAnnotation.name();
@@ -122,14 +137,19 @@ public class KinoticUtil {
             namespace = publishAnnotation.namespace();
             name = publishAnnotation.name();
         } else {
-            throw new IllegalArgumentException("The Class provided must be annotated with @Proxy or @Publish");
+            throw new IllegalArgumentException("The interface " + serviceInterface.getName() + " must be annotated with @Proxy or @Publish");
         }
-        // A proxy targets one address; with no declaration it targets the un-zoned address
+        String version = MetaUtil.getVersion(serviceInterface);
+        Validate.isTrue(StringUtils.isNotBlank(version),
+                        "The interface %s must declare a @Version, on itself or in its package-info.java",
+                        serviceInterface.getName());
+        // The declared zone addresses the service; with no declaration it is the un-zoned address, whose
+        // reachability is whatever the gateway's routing rules allow
         return new ServiceIdentifier(MetaUtil.getZone(serviceInterface),
                                      safeEncodeURI(namespace.isEmpty() ? serviceInterface.getPackageName() : namespace),
                                      name.isEmpty() ? serviceInterface.getSimpleName() : name,
-                                     null,
-                                     MetaUtil.getVersion(serviceInterface));
+                                     scope,
+                                     version);
     }
 
     /**

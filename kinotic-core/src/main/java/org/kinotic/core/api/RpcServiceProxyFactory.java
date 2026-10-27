@@ -8,7 +8,6 @@ import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.RpcTransport;
 import org.kinotic.core.api.event.TraceLogFilter;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
@@ -41,7 +40,8 @@ import tools.jackson.databind.json.JsonMapper;
  * supported return type ({@code CompletableFuture}, Vert.x {@code Future}, {@code Mono} and {@code Flux}), the
  * mapping of a service's exception back to the caller and the tracing of each invocation. Every proxy it mints
  * sends through the given {@link RpcTransport} and watches its pending requests with the given
- * {@link RequestLivenessWatcher}, so a request whose receiver is gone fails instead of waiting forever.
+ * {@link RequestLivenessWatcher}, so a request whose receiver is gone fails instead of waiting forever. The
+ * invocations name no participant: the gateway a request passes through sets the sender from the connection.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
@@ -50,7 +50,6 @@ public class RpcServiceProxyFactory {
     private final RpcTransport transport;
     private final RequestLivenessWatcher requestLivenessWatcher;
     private final Vertx vertx;
-    private final SecurityContext securityContext;
     private final String nodeName;
     private final JsonMapper jsonMapper;
     private final RpcArgumentConverter argumentConverter;
@@ -68,11 +67,7 @@ public class RpcServiceProxyFactory {
     /**
      * @param transport              carries the proxies' requests and replies
      * @param requestLivenessWatcher fails a proxy's request when the receiver its acknowledgement named is gone
-     * @param vertx                  the Vert.x instance the proxies run on, created after {@code securityContext}:
-     *                               a context sizes its locals from the context-locals registered when its Vert.x
-     *                               instance was created, and the {@link SecurityContext} registers the participant
-     *                               local when it is loaded
-     * @param securityContext        supplies the participant an invocation is sent as
+     * @param vertx                  the Vert.x instance the proxies run on
      * @param properties             the {@link KinoticProperties#getMaxEventPayloadSize()} bounding the replies
      *                               the proxies parse
      * @param jsonMapper             converts the proxies' arguments and replies; one built from
@@ -82,21 +77,18 @@ public class RpcServiceProxyFactory {
     public RpcServiceProxyFactory(RpcTransport transport,
                                   RequestLivenessWatcher requestLivenessWatcher,
                                   Vertx vertx,
-                                  SecurityContext securityContext,
                                   KinoticProperties properties,
                                   JsonMapper jsonMapper,
                                   String nodeName) {
         Validate.notNull(transport, "transport must not be null");
         Validate.notNull(requestLivenessWatcher, "requestLivenessWatcher must not be null");
         Validate.notNull(vertx, "vertx must not be null");
-        Validate.notNull(securityContext, "securityContext must not be null");
         Validate.notNull(properties, "properties must not be null");
         Validate.notNull(jsonMapper, "jsonMapper must not be null");
         Validate.notBlank(nodeName, "nodeName must not be blank");
         this.transport = transport;
         this.requestLivenessWatcher = requestLivenessWatcher;
         this.vertx = vertx;
-        this.securityContext = securityContext;
         this.nodeName = nodeName;
         this.jsonMapper = jsonMapper;
         this.traceLogFilter = new TraceLogFilter(properties);
@@ -104,10 +96,10 @@ public class RpcServiceProxyFactory {
 
         ReactiveAdapterRegistry reactiveAdapterRegistry = new ReactiveAdapterRegistry();
         KinoticUtil.registerVertxFutureAdapter(reactiveAdapterRegistry);
-        this.argumentConverter = new JacksonRpcArgumentConverter(jsonMapper, reactiveAdapterRegistry, properties, securityContext);
+        this.argumentConverter = new JacksonRpcArgumentConverter(jsonMapper, reactiveAdapterRegistry, properties);
         ExceptionConverter exceptionConverter = new JacksonExceptionConverter(properties, jsonMapper);
         RpcResponseConverter responseConverter = new RpcResponseConverterComposite()
-                .addConverters(new JacksonRpcResponseConverter(jsonMapper, reactiveAdapterRegistry, properties, securityContext),
+                .addConverters(new JacksonRpcResponseConverter(jsonMapper, reactiveAdapterRegistry, properties),
                                new TextRpcResponseConverter(),
                                new BinaryRpcResponseConverter(reactiveAdapterRegistry));
         this.returnValueHandlerFactory = new RpcReturnValueHandlerFactoryComposite()
@@ -163,7 +155,9 @@ public class RpcServiceProxyFactory {
                                                   argumentConverter,
                                                   returnValueHandlerFactory,
                                                   transport,
-                                                  securityContext,
+                                                  // a process outside the cluster authenticates no participant of its
+                                                  // own; the gateway names the connection's participant as the sender
+                                                  () -> null,
                                                   serviceDirectoryProvider,
                                                   requestLivenessWatcher,
                                                   vertx,

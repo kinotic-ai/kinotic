@@ -26,14 +26,13 @@ import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceIdentifier;
-import org.springframework.beans.factory.ObjectProvider;
 import tools.jackson.databind.ObjectReader;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.module.SimpleModule;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -72,7 +71,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
     private final Vertx vertx;
     private final Context context;
     private final StompRpcTransport transport;
-    private final ConnectionLivenessWatcher livenessWatcher = new ConnectionLivenessWatcher();
+    private final ConnectionLivenessWatcher livenessWatcher;
     private final RpcServiceProxyFactory proxyFactory;
     private final ObjectReader connectedInfoReader;
     private final Set<RpcServiceProxyHandle<?>> handles = ConcurrentHashMap.newKeySet();
@@ -105,48 +104,52 @@ public class DefaultKinoticConnection implements KinoticConnection {
         Validate.isTrue(serverUri.getScheme() != null && WEBSOCKET_SCHEMES.contains(serverUri.getScheme()),
                         "serverUrl must be a ws:// or wss:// URL but was '%s'", options.getServerUrl());
         ReconnectOptions reconnect = options.getReconnect();
-        Validate.notNull(reconnect.getInitialDelay(), "reconnect.initialDelay must not be null");
-        Validate.notNull(reconnect.getMaxDelay(), "reconnect.maxDelay must not be null");
-        Validate.notNull(reconnect.getMaxJitter(), "reconnect.maxJitter must not be null");
-        Validate.notNull(reconnect.getConnectionTimeout(), "reconnect.connectionTimeout must not be null");
+        // Vert.x schedules no timer under a millisecond, so the delays and the timeout are at least that
+        validateAtLeastOneMillisecond(reconnect.getInitialDelay(), "reconnect.initialDelay");
+        validateAtLeastOneMillisecond(reconnect.getMaxDelay(), "reconnect.maxDelay");
+        validateAtLeastOneMillisecond(reconnect.getConnectionTimeout(), "reconnect.connectionTimeout");
+        Validate.isTrue(reconnect.getMaxJitter() != null && !reconnect.getMaxJitter().isNegative(),
+                        "reconnect.maxJitter must not be negative");
         return new DefaultKinoticConnection(options).start();
+    }
+
+    private static void validateAtLeastOneMillisecond(Duration duration, String name) {
+        Validate.isTrue(duration != null && duration.toMillis() >= 1, "%s must be at least 1 ms", name);
     }
 
     private DefaultKinoticConnection(ConnectOptions options) {
         this.options = options;
-        // Loading SecurityContext registers the participant context-local, and a Vert.x instance sizes every context's
-        // locals from the locals registered when it is created, so the SecurityContext comes before the Vertx it reads
-        VertxReference vertxReference = new VertxReference();
-        SecurityContext securityContext = new SecurityContext(vertxReference);
-        // one event loop carries the connection, and nothing here runs blocking work
-        this.vertx = Vertx.vertx(new VertxOptions().setEventLoopPoolSize(1)
-                                                   .setWorkerPoolSize(1)
-                                                   .setInternalBlockingPoolSize(1));
-        vertxReference.vertx = vertx;
-        this.context = vertx.getOrCreateContext();
-        this.transport = new StompRpcTransport(context, options.getServerUrl(), NODE_NAME);
-        KinoticProperties properties = new KinoticProperties().setMaxEventPayloadSize(options.getMaxFrameSize());
+        // the caller's customizer runs before the Vert.x instance exists, so a customizer that throws leaks nothing
         JsonMapper.Builder jsonMapperBuilder = RpcServiceProxyFactory.jsonMapperBuilder();
         if (options.getJsonMapperCustomizer() != null) {
             options.getJsonMapperCustomizer().accept(jsonMapperBuilder);
         }
-        this.proxyFactory = new RpcServiceProxyFactory(transport, livenessWatcher, vertx, securityContext, properties,
-                                                       jsonMapperBuilder.build(), NODE_NAME);
+        JsonMapper jsonMapper = jsonMapperBuilder.build();
+        // one event loop carries the connection, and nothing here runs blocking work
+        this.vertx = Vertx.vertx(new VertxOptions().setEventLoopPoolSize(1)
+                                                   .setWorkerPoolSize(1)
+                                                   .setInternalBlockingPoolSize(1));
+        this.context = vertx.getOrCreateContext();
+        this.livenessWatcher = new ConnectionLivenessWatcher(context);
+        this.transport = new StompRpcTransport(context, options.getServerUrl(), NODE_NAME);
+        KinoticProperties properties = new KinoticProperties().setMaxEventPayloadSize(options.getMaxFrameSize());
+        this.proxyFactory = new RpcServiceProxyFactory(transport, livenessWatcher, vertx, properties, jsonMapper, NODE_NAME);
         // the gateway's participant model is not on this classpath, so the participant is read as what every participant has
         SimpleModule participantModule = new SimpleModule("KinoticClientModule")
                 .addAbstractTypeMapping(Participant.class, ConnectedParticipant.class);
-        this.connectedInfoReader = proxyFactory.jsonMapper()
-                                               .rebuild()
-                                               .addModule(participantModule)
-                                               .build()
-                                               .readerFor(ConnectedInfo.class);
+        this.connectedInfoReader = jsonMapper.rebuild()
+                                             .addModule(participantModule)
+                                             .build()
+                                             .readerFor(ConnectedInfo.class);
     }
 
     private Future<KinoticConnection> start() {
         Promise<KinoticConnection> promise = Promise.promise();
         initialConnect = promise;
         context.runOnContext(v -> {
-            stompClient = StompClient.create(vertx, new StompClientOptions().setMaxFrameSize(options.getMaxFrameSize()));
+            stompClient = StompClient.create(vertx, new StompClientOptions()
+                    .setMaxFrameSize(options.getMaxFrameSize())
+                    .setConnectTimeout(options.getReconnect().getConnectionTimeout().toMillis()));
             attemptConnection();
         });
         return promise.future();
@@ -311,7 +314,13 @@ public class DefaultKinoticConnection implements KinoticConnection {
             livenessWatcher.connectionEnded(connectionId);
             if (!closing) {
                 log.warn("The connection to {} was lost, reconnecting", options.getServerUrl(), cause);
-                changeState(ConnectionState.RECONNECTING);
+                // the watcher dispatched the failures of the pending calls to this context, so a state change queued
+                // behind them is seen once every pending call has failed
+                context.runOnContext(v -> {
+                    if (!closing) {
+                        changeState(ConnectionState.RECONNECTING);
+                    }
+                });
                 scheduleAttempt();
             }
         }
@@ -414,19 +423,6 @@ public class DefaultKinoticConnection implements KinoticConnection {
                     log.error("The state handler failed on {}", newState, e);
                 }
             }
-        }
-    }
-
-    /**
-     * Hands the {@link SecurityContext} the Vert.x instance that is created after it.
-     */
-    private static class VertxReference implements ObjectProvider<Vertx> {
-
-        private volatile Vertx vertx;
-
-        @Override
-        public Vertx getObject() {
-            return vertx;
         }
     }
 

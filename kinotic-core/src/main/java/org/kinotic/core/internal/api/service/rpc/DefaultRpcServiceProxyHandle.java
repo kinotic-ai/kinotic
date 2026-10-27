@@ -18,7 +18,7 @@ import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
-import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -59,7 +60,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private final RpcArgumentConverter rpcArgumentConverter;
     private final RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory;
     private final RpcTransport transport;
-    private final SecurityContext securityContext;
+    // the participant an invocation is sent as, read when the invocation is made
+    private final Supplier<Participant> callerParticipant;
     private final ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
     private final RequestLivenessWatcher requestLivenessWatcher;
     private final TextMapPropagator propagator;
@@ -83,7 +85,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                         RpcArgumentConverter rpcArgumentConverter,
                                         RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory,
                                         RpcTransport transport,
-                                        SecurityContext securityContext,
+                                        Supplier<Participant> callerParticipant,
                                         ObjectProvider<ServiceDirectory> serviceDirectoryProvider,
                                         RequestLivenessWatcher requestLivenessWatcher,
                                         Vertx vertx,
@@ -97,7 +99,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         Validate.notNull(rpcArgumentConverter, "argumentConverter must not be null");
         Validate.notNull(rpcReturnValueHandlerFactory, "returnValueHandlerFactory must not be null");
         Validate.notNull(transport, "transport must not be null");
-        Validate.notNull(securityContext, "securityContext must not be null");
+        Validate.notNull(callerParticipant, "callerParticipant must not be null");
         Validate.notNull(serviceDirectoryProvider, "serviceDirectoryProvider must not be null");
         Validate.notNull(requestLivenessWatcher, "requestLivenessWatcher must not be null");
         Validate.notNull(vertx, "vertx must not be null");
@@ -112,7 +114,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         this.rpcArgumentConverter = rpcArgumentConverter;
         this.rpcReturnValueHandlerFactory = rpcReturnValueHandlerFactory;
         this.transport = transport;
-        this.securityContext = securityContext;
+        this.callerParticipant = callerParticipant;
         this.serviceDirectoryProvider = serviceDirectoryProvider;
         this.requestLivenessWatcher = requestLivenessWatcher;
         this.tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME);
@@ -322,11 +324,11 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                 log.trace("Proxy for {} Method Invoked {}", serviceClass.getSimpleName(), method.toString());
             }
 
-            // Propagate the participant active on the calling context so the callee sees the originator.
+            // Propagate the caller's participant so the callee sees the originator.
             Event<byte[]> rpcOutboundEvent = Event.create(requestCri,
                                                           metadata,
                                                           argumentData,
-                                                          securityContext.currentParticipant());
+                                                          callerParticipant.get());
 
             ret = handler.getReturnValue(new RpcRequest() {
                 @Override
