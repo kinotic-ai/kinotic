@@ -15,6 +15,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -54,7 +55,7 @@ public class TestGatewayApplication {
                             "kinotic.ignite.discoveryType=LOCAL",
                             "kinotic.ignite.discoveryPort=" + freePort(),
                             "kinotic.ignite.communicationPort=" + freePort(),
-                            "kinotic.ignite.workDirectory=" + Files.createTempDirectory("ignite-kinotic-client-tests"),
+                            "kinotic.ignite.workDirectory=" + Files.createTempDirectory(Files.createDirectories(Path.of("build", "ignite").toAbsolutePath()), "node-"),
                             "spring.main.banner-mode=off")
                 .run();
         // the gateway verticles bind the port after the context is up

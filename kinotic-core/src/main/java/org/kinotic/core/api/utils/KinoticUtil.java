@@ -128,14 +128,16 @@ public class KinoticUtil {
     public static ServiceIdentifier serviceIdentifierOf(Class<?> serviceInterface, String scope) {
         String namespace;
         String name;
-        Proxy proxyAnnotation = AnnotationUtils.findAnnotation(serviceInterface, Proxy.class);
+        // a published interface is addressed as it is registered, by the @Publish found the way the registration
+        // finds it; a @Proxy counts only where it is declared
         Publish publishAnnotation = AnnotationUtils.findAnnotation(serviceInterface, Publish.class);
-        if (proxyAnnotation != null) {
-            namespace = proxyAnnotation.namespace();
-            name = proxyAnnotation.name();
-        } else if (publishAnnotation != null) {
+        Proxy proxyAnnotation = serviceInterface.getAnnotation(Proxy.class);
+        if (publishAnnotation != null) {
             namespace = publishAnnotation.namespace();
             name = publishAnnotation.name();
+        } else if (proxyAnnotation != null) {
+            namespace = proxyAnnotation.namespace();
+            name = proxyAnnotation.name();
         } else {
             throw new IllegalArgumentException("The interface " + serviceInterface.getName() + " must be annotated with @Proxy or @Publish");
         }

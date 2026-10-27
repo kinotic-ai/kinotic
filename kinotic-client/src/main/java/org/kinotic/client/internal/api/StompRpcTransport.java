@@ -102,13 +102,14 @@ public class StompRpcTransport implements RpcTransport {
                 try {
                     StompReplyConsumer consumer = replyConsumerOf(event);
                     Map<String, String> headers = requestHeaders(event, consumer);
-                    headers.put(Frame.RECEIPT, UUID.randomUUID().toString());
+                    String receipt = UUID.randomUUID().toString();
+                    headers.put(Frame.RECEIPT, receipt);
                     String acknowledgedBy = connectionId;
                     StompClientConnection sentOn = connection;
                     consumer.ready()
                             .compose(v -> sentOn.send(event.cri().raw(), headers, body(event)))
                             .onSuccess(v -> result.complete(acknowledgedBy))
-                            .onFailure(cause -> result.completeExceptionally(mapSendFailure(cause, event.cri())));
+                            .onFailure(cause -> result.completeExceptionally(mapSendFailure(cause, event.cri(), receipt)));
                 } catch (Exception e) {
                     result.completeExceptionally(e);
                 }
@@ -217,11 +218,12 @@ public class StompRpcTransport implements RpcTransport {
     }
 
     // The gateway answers a request it refuses, such as one to a zone the participant may not address, with an
-    // ERROR frame naming the request's receipt, so only the refused request fails with the error; every other
-    // failure means the connection ended before the gateway acknowledged the request
-    private Throwable mapSendFailure(Throwable cause, CRI destination) {
+    // ERROR frame naming the request's receipt, so only that request fails with the error. An ERROR frame naming
+    // no receipt fails every pending request, and like every other failure means the connection ended before the
+    // gateway acknowledged the request
+    private Throwable mapSendFailure(Throwable cause, CRI destination, String receipt) {
         Throwable ret;
-        if (cause instanceof StompErrorException error) {
+        if (cause instanceof StompErrorException error && receipt.equals(error.getFrame().getHeader(Frame.RECEIPT_ID))) {
             ret = new RpcInvocationException(error.getMessage());
         } else {
             ret = new RpcServiceUnavailableException("The connection to " + serverUrl + " ended before the request to "

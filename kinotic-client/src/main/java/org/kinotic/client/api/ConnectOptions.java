@@ -30,8 +30,7 @@ public class ConnectOptions {
 
     /**
      * The headers the WebSocket upgrade request carries, which the gateway hands to its {@code SecurityService}
-     * as the connection's authentication info. The client never interprets them; they are sent on every connect
-     * and reconnect.
+     * as the connection's authentication info. They are sent on every connect and reconnect.
      */
     private Map<String, String> authHeaders = new HashMap<>();
 

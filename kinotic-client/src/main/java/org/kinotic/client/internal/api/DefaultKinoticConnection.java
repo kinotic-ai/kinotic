@@ -34,9 +34,11 @@ import tools.jackson.databind.module.SimpleModule;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -103,7 +105,11 @@ public class DefaultKinoticConnection implements KinoticConnection {
         URI serverUri = URI.create(options.getServerUrl());
         Validate.isTrue(serverUri.getScheme() != null && WEBSOCKET_SCHEMES.contains(serverUri.getScheme()),
                         "serverUrl must be a ws:// or wss:// URL but was '%s'", options.getServerUrl());
+        Validate.isTrue(serverUri.getHost() != null, "serverUrl must name a host but was '%s'", options.getServerUrl());
+        Validate.isTrue(options.getAuthHeaders().values().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null value");
+        Validate.isTrue(options.getMaxFrameSize() >= 1, "maxFrameSize must be at least 1 byte");
         ReconnectOptions reconnect = options.getReconnect();
+        Validate.isTrue(reconnect.getMaxAttempts() >= 0, "reconnect.maxAttempts must not be negative");
         // Vert.x schedules no timer under a millisecond, so the delays and the timeout are at least that
         validateAtLeastOneMillisecond(reconnect.getInitialDelay(), "reconnect.initialDelay");
         validateAtLeastOneMillisecond(reconnect.getMaxDelay(), "reconnect.maxDelay");
@@ -270,7 +276,13 @@ public class DefaultKinoticConnection implements KinoticConnection {
             } catch (Exception e) {
                 info = null;
                 connection.close();
-                endForGood(e);
+                // a CONNECTED frame without readable info is a protocol violation: it ends the initial connect
+                // like a refused CONNECT, and after an established connection it is a failed attempt like a 401
+                if (connections == 0) {
+                    endForGood(e);
+                } else {
+                    attemptFailed(e);
+                }
             }
             if (info != null) {
                 connections++;
@@ -402,7 +414,11 @@ public class DefaultKinoticConnection implements KinoticConnection {
             }
             handles.forEach(RpcServiceProxyHandle::release);
             handles.clear();
-            Future<Void> disconnected = current != null ? current.disconnect() : Future.succeededFuture();
+            // a gateway that is gone answers the DISCONNECT with nothing, so its receipt is waited for no longer
+            // than an attempt would be, and the socket is closed with the client either way
+            Future<Void> disconnected = current != null
+                    ? current.disconnect().timeout(options.getReconnect().getConnectionTimeout().toMillis(), TimeUnit.MILLISECONDS)
+                    : Future.succeededFuture();
             closed = disconnected.transform(ar -> stompClient != null ? stompClient.close() : Future.succeededFuture())
                                  .transform(ar -> {
                                      changeState(ConnectionState.CLOSED);

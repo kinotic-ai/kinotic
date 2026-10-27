@@ -21,7 +21,7 @@ public class ConnectionLivenessWatcher implements RequestLivenessWatcher {
 
     // every request of the connection is acknowledged on this context, and its loss is reported there
     private final Context context;
-    private final Map<String, Watch> watches = new ConcurrentHashMap<>();
+    private final Map<String, ConnectionWatch> watches = new ConcurrentHashMap<>();
     private volatile String liveConnectionId;
 
     /**
@@ -51,7 +51,7 @@ public class ConnectionLivenessWatcher implements RequestLivenessWatcher {
 
     @Override
     public void watch(String requestKey, String nodeId, Runnable onNodeLeft) {
-        watches.put(requestKey, new Watch(nodeId, onNodeLeft));
+        watches.put(requestKey, new ConnectionWatch(nodeId, onNodeLeft));
         // the connection may have ended between the acknowledgement and this call
         if (!nodeId.equals(liveConnectionId)) {
             connectionLost(requestKey);
@@ -71,12 +71,10 @@ public class ConnectionLivenessWatcher implements RequestLivenessWatcher {
     // The callback is dispatched rather than run inline: a burst of lost requests drains as separate tasks, and
     // watch() is called from inside the proxy's responseMap update, which the callback's removal would re-enter
     private void connectionLost(String requestKey) {
-        Watch watch = watches.remove(requestKey);
+        ConnectionWatch watch = watches.remove(requestKey);
         if (watch != null) {
             context.runOnContext(v -> watch.onConnectionLost().run());
         }
     }
-
-    private record Watch(String connectionId, Runnable onConnectionLost) {}
 
 }
