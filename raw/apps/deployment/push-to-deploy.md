@@ -15,7 +15,8 @@ maintain — the platform is the pipeline. Each qualifying push is verified, bui
 deployed as a tracked job you can watch live.
 
 Only pushes to the default branch deploy. Pushes to other branches, branch deletions, and
-tag operations are ignored.
+tag operations are ignored. Creating a project deploys the commit its repository starts with, so a
+new project runs from the moment it is created.
 
 A coding agent connected to Kinotic over MCP pushes with a token from the
 `ProjectRepoCredentialService` issue write token tool: it may write the one project's repository,
