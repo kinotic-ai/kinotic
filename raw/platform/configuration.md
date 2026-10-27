@@ -1724,7 +1724,7 @@ dev server on `5174`. These settings make the demonstration server work:
         false
       </code>
       
-       sends no email: each link a person must open is logged and returned to the UI that asked for it, which shows it. A sign-up's response carries its verification link, which the portal opens at once, an inviter is shown each invitation's accept link to send on (<code>
+       sends no email: each link a person must open is logged and returned to the UI that asked for it, which shows it. A sign-up's response carries its verification link, which the portal opens at once and an application's sign-up page shows, an inviter is shown each invitation's accept link to send on (<code>
         MemberService.findInvitationLink
       </code>
       
