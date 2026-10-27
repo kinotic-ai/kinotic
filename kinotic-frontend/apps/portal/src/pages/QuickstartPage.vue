@@ -61,20 +61,24 @@
                    class="mt-3 rounded-lg bg-surface-950 px-3.5 py-3 font-mono text-xs text-surface-300 dark:ring-1 dark:ring-surface-700">
                 <div class="text-sky-300">Manage MCP servers</div>
                 <div class="mt-2 font-semibold text-surface-100">User MCPs</div>
-                <div class="mt-1 flex items-center gap-2 rounded-md bg-green-400/10 px-2 py-1 ring-1 ring-green-400/40">
-                  <span class="text-green-400">❯</span>
-                  <span class="text-amber-400">⚠</span>
-                  <span class="min-w-0 truncate font-semibold text-surface-0">kinotic-local</span>
-                  <span class="hidden text-surface-400 sm:inline">needs authentication</span>
-                  <span class="ml-auto shrink-0 rounded-full bg-green-400/15 px-2 py-0.5 font-sans text-[11px] font-medium text-green-400">Authenticate this one</span>
+                <div class="mt-1 rounded-md bg-green-400/10 px-2 py-1 ring-1 ring-green-400/40">
+                  <div class="flex items-center gap-2">
+                    <span class="text-green-400">❯</span>
+                    <span class="text-amber-400">⚠</span>
+                    <span class="min-w-0 truncate font-semibold text-surface-0">kinotic-local</span>
+                    <span class="hidden whitespace-nowrap text-surface-400 sm:inline">needs authentication</span>
+                  </div>
+                  <div class="mt-0.5 pl-7 font-sans text-[11px] font-medium text-green-400">For local use: authenticate it</div>
                 </div>
                 <div class="mt-2 font-semibold text-surface-100">Built-in MCPs</div>
-                <div class="mt-1 flex items-center gap-2 px-2 py-1 opacity-60">
-                  <span class="invisible">❯</span>
-                  <span class="text-amber-400">⚠</span>
-                  <span class="min-w-0 truncate">plugin:kinotic:kinotic-os</span>
-                  <span class="hidden text-surface-400 sm:inline">needs authentication</span>
-                  <span class="ml-auto shrink-0 font-sans text-[11px] text-surface-400">Kinotic Cloud</span>
+                <div class="mt-1 px-2 py-1">
+                  <div class="flex items-center gap-2 opacity-60">
+                    <span class="invisible">❯</span>
+                    <span class="text-amber-400">⚠</span>
+                    <span class="min-w-0 truncate">plugin:kinotic:kinotic-os</span>
+                    <span class="hidden whitespace-nowrap text-surface-400 sm:inline">needs authentication</span>
+                  </div>
+                  <div class="mt-0.5 pl-7 font-sans text-[11px] text-surface-400">For Kinotic Cloud: not needed locally</div>
                 </div>
               </div>
 
@@ -455,7 +459,7 @@ const steps = computed<Step[]>(() => [
     id: 'authorize',
     title: 'Connect Claude to Kinotic',
     description: LOCAL_MCP_SERVER
-        ? 'The plugin\'s own server, plugin:kinotic:kinotic-os, is Kinotic Cloud\'s, so add this Kinotic beside it as kinotic-local from a terminal. Then run /mcp in Claude Code, authenticate kinotic-local, and approve the consent screen that opens in your browser.'
+        ? 'For local use, add the kinotic-local server from a terminal, then run /mcp in Claude Code, authenticate kinotic-local, and approve the consent screen that opens in your browser. Don\'t worry about plugin:kinotic:kinotic-os: the plugin adds it for use with Kinotic Cloud.'
         : 'Run /mcp in Claude Code, select plugin:kinotic:kinotic-os and choose Authenticate, then approve the consent screen that opens in your browser.',
     done: mcpClient.value !== null,
     doneDetail: mcpClient.value?.displayName ? `${mcpClient.value.displayName} connected` : undefined,

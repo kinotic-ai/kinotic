@@ -128,7 +128,7 @@ To connect a coding agent, install the Kinotic plugin from `kinotic-ai/agent-plu
 and add this server beside it:
 
 ```bash
-# Claude Code, then /mcp → kinotic-local → authenticate (the plugin's plugin:kinotic:kinotic-os is Kinotic Cloud's)
+# Claude Code, then /mcp → kinotic-local → authenticate. plugin:kinotic:kinotic-os is for Kinotic Cloud and not needed here.
 claude mcp add -s user --transport http kinotic-local http://localhost:58503/mcp
 # Codex
 codex mcp add kinotic-local --url http://localhost:58503/mcp && codex mcp login kinotic-local
