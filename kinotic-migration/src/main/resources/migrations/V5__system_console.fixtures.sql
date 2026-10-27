@@ -1,7 +1,7 @@
 -- Fixture rows that give the system console realistic data to render in a demonstration stack:
 -- applications, projects, members, and pending invites for the test-org organization, plus
--- worker nodes and workloads in every state for the orchestrator views. Development-only — the
--- e2e suites assert against exact test-org contents and must not see these rows.
+-- worker nodes and workloads in every state for the orchestrator views. Applied whenever the `fixtures` profile is
+-- active; the e2e profile leaves it out, since the e2e suites assert against exact test-org contents.
 
 -- Applications owned by test-org
 INSERT INTO kinotic_application (id, organizationId, name, description, tenantManagement, updated) VALUES ('atlas-crm', 'test-org', 'Atlas CRM', 'Customer accounts, pipelines, and billing for the Atlas product line.', 'TENANT_ADMINISTRATORS', '2026-07-28T15:20:00Z') WITH REFRESH, ROUTING 'test-org', DOCUMENT_ID 'test-org--atlas-crm';
