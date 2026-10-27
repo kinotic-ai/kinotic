@@ -16928,7 +16928,7 @@ A client a person authorizes — the CLI through the device-code grant, or an MC
 
 - A grant can be redeemed only at the server (and, on the app server, the application host) that started it.
 - Authentication re-reads the delegate on every request, and a delegate works only while its owner may act in its scope, so disabling a user or a delegate takes effect at once.
-- Users list and revoke their clients on the **Connected apps** page (`DelegateService`) and manage their own profile and sign-in methods on **Profile** (`ProfileService`). Application users have neither page yet.
+- Users list and revoke their clients on the **Connected apps** page (`DelegateService`) and manage their own profile and sign-in methods on **Profile** (`ProfileService`). A member sets a password there, and it counts as one of their sign-in methods, only while their organization's login takes an email and a password. Application users have neither page yet.
 
 ### Machine identities
 
