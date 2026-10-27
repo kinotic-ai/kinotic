@@ -450,7 +450,7 @@ VITE_KINOTIC_USE_SSL=false
 
 ```ts
 // vite.config.ts
-const APP_API_HOST = 'acme--orders.localhost:58505'   // <organizationId>--<applicationId> under kinotic.domain.appApiBaseUrl
+const APP_API_HOST = 'acme--orders.apps-api.kinotic.localhost:58505'   // <organizationId>--<applicationId> under kinotic.domain.appApiBaseUrl
 
 export default defineConfig({
     server: {

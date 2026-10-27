@@ -83,7 +83,8 @@ kinotic local down          # stop Kinotic and the apps it deployed, keeping its
 
 `kinotic local up` needs Docker running with Compose v2, and Bun to run the node. Each start downloads the newest
 images of that version, and stops with an error when it cannot, rather than start a copy left from an earlier version.
-A Docker Hub login that Docker Hub rejects is the usual cause: `docker logout`, or `docker login` again, fixes it. The
+A Docker Hub login that Docker Hub rejects is the usual cause: `docker logout`, or `docker login` again, fixes it. When
+a container starts and then stops with an error, `kinotic local up` names it and prints the end of its log. The
 node runs on macOS on Apple silicon, or Linux with KVM (`/dev/kvm`, which your user must be allowed to open, usually
 through the `kvm` group);
 elsewhere Kinotic starts without one, and projects do not deploy. Once the servers answer, create your organization at

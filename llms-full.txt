@@ -462,7 +462,7 @@ VITE_KINOTIC_USE_SSL=false
 
 ```ts
 // vite.config.ts
-const APP_API_HOST = 'acme--orders.localhost:58505'   // <organizationId>--<applicationId> under kinotic.domain.appApiBaseUrl
+const APP_API_HOST = 'acme--orders.apps-api.kinotic.localhost:58505'   // <organizationId>--<applicationId> under kinotic.domain.appApiBaseUrl
 
 export default defineConfig({
     server: {
@@ -850,7 +850,8 @@ kinotic local down          # stop Kinotic and the apps it deployed, keeping its
 
 `kinotic local up` needs Docker running with Compose v2, and Bun to run the node. Each start downloads the newest
 images of that version, and stops with an error when it cannot, rather than start a copy left from an earlier version.
-A Docker Hub login that Docker Hub rejects is the usual cause: `docker logout`, or `docker login` again, fixes it. The
+A Docker Hub login that Docker Hub rejects is the usual cause: `docker logout`, or `docker login` again, fixes it. When
+a container starts and then stops with an error, `kinotic local up` names it and prints the end of its log. The
 node runs on macOS on Apple silicon, or Linux with KVM (`/dev/kvm`, which your user must be allowed to open, usually
 through the `kvm` group);
 elsewhere Kinotic starts without one, and projects do not deploy. Once the servers answer, create your organization at
@@ -7989,7 +7990,7 @@ where there is none:
 `deployment/docker-compose/compose.sites.yml` runs, with `sitesStorageEndpoint` at
 `http://192.168.127.254:10000/devstoreaccount1`, where a BOXLITE workload reaches the emulator.
 The local edge runs the sites Worker over the emulator, so a published UI opens at
-`http://<app>--<ui>.<org>.sites.localhost:8088` (`kinotic.domain.publishedSites.domain: sites.localhost`, `useSsl: false`, `port: 8088`). Each upload and removal URL names its site's directory and
+`http://<app>--<ui>.<org>.sites.kinotic.localhost:8088` (`kinotic.domain.publishedSites.domain: sites.kinotic.localhost`, `useSsl: false`, `port: 8088`). Each upload and removal URL names its site's directory and
 carries a SAS for the whole `sites` container, signed with the emulator's well-known development
 key, since the emulator honors no directory SAS. A site
 reads ready as soon as its upload finished, since the edge reads the emulator on every request.
@@ -8474,7 +8475,7 @@ That brings up the whole platform from published images:
     
     <td>
       Every application's API, each at <code>
-        <organizationId>--<applicationId>.localhost:58505
+        <organizationId>--<applicationId>.apps-api.kinotic.localhost:58505
       </code>
     </td>
   </tr>
@@ -8512,7 +8513,7 @@ That brings up the whole platform from published images:
     
     <td>
       Serves each published UI from Azurite at <code>
-        <app>--<ui>.<org>.sites.localhost:8088
+        <app>--<ui>.<org>.sites.kinotic.localhost:8088
       </code>
       
       , running the Cloudflare sites Worker itself
@@ -8708,9 +8709,12 @@ pulls `kinoticai/workload-runner`, which takes about a minute. A workload's logs
 page read them. A deployment that fails records why on its job run, under **Jobs** in the portal.
 
 - A project's UIs are published to the Azurite emulator `compose.sites.yml` runs, and the local
-edge beside it serves each at `http://<app>--<ui>.<org>.sites.localhost:8088`, the URL the
+edge beside it serves each at `http://<app>--<ui>.<org>.sites.kinotic.localhost:8088`, the URL the
 project's deployment page links. Chrome, Edge and Firefox resolve every `*.localhost` name to
-this machine; a client that does not needs the hostname in its hosts file.
+this machine; a client that does not needs the hostname in its hosts file. The sites and the
+application API hosts (`<org>--<app>.apps-api.kinotic.localhost:58505`) are both under
+`kinotic.localhost`, so a browser treats a site and its application's API as one site and sends
+the `SameSite=Lax` session cookie between them, as it does under `kinotic.ai` in production.
 - The node keeps its image cache in `~/.boxlite`, which one process can hold at a time: stop the
 node before running the vm-manager tests, or give the tests their own `BOXLITE_HOME`.
 - The sample data's worker nodes are marked unreachable on the system server's first

@@ -326,7 +326,7 @@ That brings up the whole platform from published images:
     
     <td>
       Every application's API, each at <code>
-        <organizationId>--<applicationId>.localhost:58505
+        <organizationId>--<applicationId>.apps-api.kinotic.localhost:58505
       </code>
     </td>
   </tr>
@@ -364,7 +364,7 @@ That brings up the whole platform from published images:
     
     <td>
       Serves each published UI from Azurite at <code>
-        <app>--<ui>.<org>.sites.localhost:8088
+        <app>--<ui>.<org>.sites.kinotic.localhost:8088
       </code>
       
       , running the Cloudflare sites Worker itself
@@ -560,9 +560,12 @@ pulls `kinoticai/workload-runner`, which takes about a minute. A workload's logs
 page read them. A deployment that fails records why on its job run, under **Jobs** in the portal.
 
 - A project's UIs are published to the Azurite emulator `compose.sites.yml` runs, and the local
-edge beside it serves each at `http://<app>--<ui>.<org>.sites.localhost:8088`, the URL the
+edge beside it serves each at `http://<app>--<ui>.<org>.sites.kinotic.localhost:8088`, the URL the
 project's deployment page links. Chrome, Edge and Firefox resolve every `*.localhost` name to
-this machine; a client that does not needs the hostname in its hosts file.
+this machine; a client that does not needs the hostname in its hosts file. The sites and the
+application API hosts (`<org>--<app>.apps-api.kinotic.localhost:58505`) are both under
+`kinotic.localhost`, so a browser treats a site and its application's API as one site and sends
+the `SameSite=Lax` session cookie between them, as it does under `kinotic.ai` in production.
 - The node keeps its image cache in `~/.boxlite`, which one process can hold at a time: stop the
 node before running the vm-manager tests, or give the tests their own `BOXLITE_HOME`.
 - The sample data's worker nodes are marked unreachable on the system server's first

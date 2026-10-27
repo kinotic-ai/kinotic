@@ -1825,7 +1825,7 @@ where there is none:
 `deployment/docker-compose/compose.sites.yml` runs, with `sitesStorageEndpoint` at
 `http://192.168.127.254:10000/devstoreaccount1`, where a BOXLITE workload reaches the emulator.
 The local edge runs the sites Worker over the emulator, so a published UI opens at
-`http://<app>--<ui>.<org>.sites.localhost:8088` (`kinotic.domain.publishedSites.domain: sites.localhost`, `useSsl: false`, `port: 8088`). Each upload and removal URL names its site's directory and
+`http://<app>--<ui>.<org>.sites.kinotic.localhost:8088` (`kinotic.domain.publishedSites.domain: sites.kinotic.localhost`, `useSsl: false`, `port: 8088`). Each upload and removal URL names its site's directory and
 carries a SAS for the whole `sites` container, signed with the emulator's well-known development
 key, since the emulator honors no directory SAS. A site
 reads ready as soon as its upload finished, since the edge reads the emulator on every request.
