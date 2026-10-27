@@ -13,6 +13,7 @@ import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.model.ReconcileState;
+import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.persistence.idl.decorators.TenantIdDecorator;
@@ -141,8 +142,9 @@ public class GraphSyncTests extends KinoticTestBase {
                                                AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID))),
                    "an organization user is a member of its organization");
 
-        // an application user takes its application's tenant policy, so the application must exist
-        Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Sync Users " + suffix(), "graph sync", null)));
+        // an application user takes its application's tenant policy, so the application must exist; the system gives
+        // each of its users a tenant of its own
+        Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Sync Users " + suffix(), "graph sync", TenantManagement.SYSTEM)));
         UserParticipantIdentity endUser = await(identityService.createUser(user(TEST_ORG_ID, application.getId()), "Graph-sync-1"));
         assertTrue(holds(new RelationshipTuple(AuthzUtil.object(AuthzConstants.USER_TYPE, endUser.getId()),
                                                AuthzConstants.END_USER_RELATION,
