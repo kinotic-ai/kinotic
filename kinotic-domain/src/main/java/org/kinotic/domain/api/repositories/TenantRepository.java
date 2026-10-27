@@ -61,11 +61,13 @@ public class TenantRepository {
     }
 
     public Future<Long> countForApplication(String applicationId, String orgId) {
+        Validate.notBlank(applicationId, "applicationId cannot be blank");
         Validate.notBlank(orgId, "orgId cannot be blank");
         return crudServiceTemplate.count(INDEX_NAME, b -> b.routing(orgId).query(applicationFilter(applicationId, orgId)));
     }
 
     public Future<Page<Tenant>> findAllForApplication(String applicationId, String orgId, Pageable pageable) {
+        Validate.notBlank(applicationId, "applicationId cannot be blank");
         Validate.notBlank(orgId, "orgId cannot be blank");
         return crudServiceTemplate.search(INDEX_NAME, pageable, Tenant.class,
                                           b -> b.routing(orgId).query(applicationFilter(applicationId, orgId)));
@@ -76,6 +78,7 @@ public class TenantRepository {
      * {@code prefix}, ignoring case; a blank prefix finds them all.
      */
     public Future<Page<Tenant>> findForApplicationByPrefix(String applicationId, String prefix, String orgId, Pageable pageable) {
+        Validate.notBlank(applicationId, "applicationId cannot be blank");
         Validate.notBlank(orgId, "orgId cannot be blank");
         Future<Page<Tenant>> ret;
         if (prefix == null || prefix.isBlank()) {
@@ -89,10 +92,6 @@ public class TenantRepository {
                     .filter(applicationFilter(applicationId, orgId))))));
         }
         return ret;
-    }
-
-    public Future<Void> syncIndex() {
-        return crudServiceTemplate.syncIndex(INDEX_NAME);
     }
 
     private Query applicationFilter(String applicationId, String orgId) {

@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Tenant;
-import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.utils.HostLabelUtil;
+import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.TenantService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
@@ -39,7 +39,7 @@ public class TenantServiceTests extends KinoticTestBase {
     private ApplicationService applicationService;
 
     @Autowired
-    private TenantRepository tenantRepository;
+    private CrudServiceTemplate crudServiceTemplate;
 
     @Test
     public void aPrefixFindsTheApplicationsTenantsAlone() throws Exception {
@@ -51,7 +51,7 @@ public class TenantServiceTests extends KinoticTestBase {
         String word = "qz" + suffix().substring(0, 6);
         Tenant mine = await(runAsOrganization(() -> tenantService.createTenantIfNotExist(appId, word + " Mine", "A customer")));
         await(runAsOrganization(() -> tenantService.createTenantIfNotExist(otherAppId, word + " Theirs", "Another customer")));
-        await(tenantRepository.syncIndex());
+        await(crudServiceTemplate.syncIndex("kinotic_tenant"));
 
         // the name matches whatever its case, and so does the id
         Page<Tenant> byName = await(runAsOrganization(() -> tenantService.findForApplicationByPrefix(appId, word.toUpperCase() + " M", Pageable.ofSize(10))));

@@ -80,10 +80,8 @@ public class DefaultTenantService implements TenantService {
         Validate.notBlank(applicationId, "applicationId cannot be blank");
         Validate.notBlank(tenantId, "tenantId cannot be blank");
         String organizationId = requireOrganizationId();
-        return tenantRepository.findById(applicationId, tenantId, organizationId).compose(tenant -> tenant == null
-                ? Future.succeededFuture()
-                : passwordConfigurationService.deleteById(PasswordConfiguration.idOf(organizationId, applicationId, tenantId), organizationId)
-                                              .compose(v -> tenantRepository.deleteById(applicationId, tenantId, organizationId)));
+        return passwordConfigurationService.deleteById(PasswordConfiguration.idOf(organizationId, applicationId, tenantId), organizationId)
+                                           .compose(v -> tenantRepository.deleteById(applicationId, tenantId, organizationId));
     }
 
     private String requireOrganizationId() {
