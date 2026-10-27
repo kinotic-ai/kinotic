@@ -19,7 +19,7 @@ kinotic:
   systemApi:
     uiDeployment:
       # Published UIs go to the Azurite emulator compose.sites.yml runs, and its local edge serves
-      # them at http://<app>--<ui>.<org>.sites.localhost:8088, as the Cloudflare Worker serves the
+      # them at http://<app>--<ui>.<org>.sites.kinotic.localhost:8088, as the Cloudflare Worker serves the
       # sites account at https://<app>--<ui>.<org>.<sites domain>
       siteStorage: AZURITE
       # Where the publish and removal workloads reach Azurite: the host alias of a BOXLITE guest, completed over
@@ -62,13 +62,13 @@ kinotic:
       generateMissing: true
       jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys
     # What a UI build is handed: the app server as a browser reaches it, not the address a workload
-    # dials above
-    appApiBaseUrl: http://localhost:58505
+    # dials above; under kinotic.localhost with the sites, so a site and its API are one site to the browser
+    appApiBaseUrl: http://apps-api.kinotic.localhost:58505
     # The domain the local edge serves each published UI's site under, over plain HTTP on its port; with no
     # Cloudflare zone, each organization's record is logged rather than created, and *.localhost resolves to
     # this machine in the browser
     publishedSites:
-      domain: sites.localhost
+      domain: sites.kinotic.localhost
       useSsl: false
       port: 8088
     secretStorage:
