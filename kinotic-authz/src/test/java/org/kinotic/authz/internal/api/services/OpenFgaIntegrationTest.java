@@ -297,7 +297,7 @@ class OpenFgaIntegrationTest {
         for (int i = 0; i < 1100; i++) {
             written.add(new RelationshipTuple("application:crm-lists", "application", "project:p" + i + "-lists"));
         }
-        await(relationshipService.write(SYSTEM, written, List.of()));
+        await(relationshipService.ensure(SYSTEM, written));
         String bindingId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-lists", "application:crm-lists"));
 
         assertEquals(1100, await(relationshipService.listObjects(SYSTEM, "user:sally-lists", "project_can_read", "project",
@@ -318,7 +318,7 @@ class OpenFgaIntegrationTest {
                 new RelationshipTuple("project_role:project.editor_checks", "role", "project_role_binding:sally_edits_billing_checks"),
                 new RelationshipTuple("user:sally-checks", "member", "project_role_binding:sally_edits_billing_checks"),
                 new RelationshipTuple("project_role_binding:sally_edits_billing_checks", "role_binding", "project:billing-checks"));
-        await(relationshipService.write(SYSTEM, written, List.of()));
+        await(relationshipService.ensure(SYSTEM, written));
 
         assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-checks", "project_can_edit", "project:billing-checks"), Consistency.HIGHER_CONSISTENCY)));
         // editing implies reading
@@ -337,7 +337,7 @@ class OpenFgaIntegrationTest {
                                                                   new RelationshipTuple("user:sally-checks", "project_can_delete", "project:billing-checks"),
                                                                   List.of(), List.of(editing))).through());
 
-        await(relationshipService.write(SYSTEM, List.of(), List.of(
+        await(relationshipService.remove(SYSTEM, List.of(
                 new RelationshipTuple("user:sally-checks", "member", "project_role_binding:sally_edits_billing_checks"))));
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-checks", "project_can_edit", "project:billing-checks"), Consistency.HIGHER_CONSISTENCY)));
         // the store is shared with the other tests and with a run against a persistent engine, so nothing written here stays
@@ -373,8 +373,8 @@ class OpenFgaIntegrationTest {
         // the engine refuses a role homed above the resource, and a binding attached to a resource of another type
         assertThrows(ExecutionException.class,
                      () -> await(relationshipService.bind(SYSTEM, AuthzConstants.ORGANIZATION_ADMIN_ROLE, "user:marcus-roles", "project:billing-roles")));
-        assertThrows(ExecutionException.class, () -> await(relationshipService.write(SYSTEM, List.of(
-                new RelationshipTuple("organization_role_binding:misplaced-roles", "role_binding", "project:billing-roles")), List.of())));
+        assertThrows(ExecutionException.class, () -> await(relationshipService.ensure(SYSTEM, List.of(
+                new RelationshipTuple("organization_role_binding:misplaced-roles", "role_binding", "project:billing-roles")))));
     }
 
     @Test
@@ -406,10 +406,10 @@ class OpenFgaIntegrationTest {
             members.add(new RelationshipTuple("user:member" + i, "member", "group:everyone-batch"));
         }
 
-        await(relationshipService.write(SYSTEM, members, List.of()));
+        await(relationshipService.ensure(SYSTEM, members));
 
         assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:member249", "member", "group:everyone-batch"), Consistency.HIGHER_CONSISTENCY)));
-        await(relationshipService.write(SYSTEM, List.of(), members));
+        await(relationshipService.remove(SYSTEM, members));
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:member249", "member", "group:everyone-batch"), Consistency.HIGHER_CONSISTENCY)));
     }
 
