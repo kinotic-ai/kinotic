@@ -1,14 +1,10 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { type MachineParticipantIdentity, type Subject, SubjectType, type SystemParticipantIdentity } from '@kinotic-ai/management-api'
+import type { SubjectOption } from '@kinotic-ai/frontend-common/management'
 
 /** Who a system grant can be made to, as the pickers and the grant rows show them. */
-export interface SubjectOption {
-  subject: Subject
-  /** The system user's name or email, or the machine's name. */
-  label: string
-  /** The system user's email beneath the name, or the machine's client id. */
-  detail: string | null
+export interface SystemSubjectOption extends SubjectOption {
   /** What the subject is: a system user who signs in, or a machine that connects. */
   staff: 'System user' | 'Machine'
 }
@@ -22,14 +18,14 @@ const SUBJECT_PAGE_SIZE = 500
  * grant rows name them.
  */
 export function useSubjects(): {
-  systemUsers: Ref<SubjectOption[]>
-  machines: Ref<SubjectOption[]>
+  systemUsers: Ref<SystemSubjectOption[]>
+  machines: Ref<SystemSubjectOption[]>
   load: () => Promise<void>
-  optionOf: ComputedRef<(subject: Subject) => SubjectOption | undefined>
+  optionOf: ComputedRef<(subject: Subject) => SystemSubjectOption | undefined>
   labelOf: ComputedRef<(subject: Subject) => string>
 } {
-  const systemUsers = ref<SubjectOption[]>([])
-  const machines = ref<SubjectOption[]>([])
+  const systemUsers = ref<SystemSubjectOption[]>([])
+  const machines = ref<SystemSubjectOption[]>([])
 
   async function load(): Promise<void> {
     const [userPage, machinePage] = await Promise.all([
@@ -41,7 +37,7 @@ export function useSubjects(): {
   }
 
   const optionOf = computed(() => {
-    const options = new Map<string, SubjectOption>()
+    const options = new Map<string, SystemSubjectOption>()
     for (const option of [...systemUsers.value, ...machines.value]) {
       options.set(option.subject.id, option)
     }
@@ -53,7 +49,7 @@ export function useSubjects(): {
   return { systemUsers, machines, load, optionOf, labelOf }
 }
 
-function systemUserOption(user: SystemParticipantIdentity): SubjectOption {
+function systemUserOption(user: SystemParticipantIdentity): SystemSubjectOption {
   return {
     subject: { type: SubjectType.USER, id: user.id ?? '' },
     label: user.displayName || user.email,
@@ -62,7 +58,7 @@ function systemUserOption(user: SystemParticipantIdentity): SubjectOption {
   }
 }
 
-function machineOption(machine: MachineParticipantIdentity): SubjectOption {
+function machineOption(machine: MachineParticipantIdentity): SystemSubjectOption {
   return {
     subject: { type: SubjectType.USER, id: machine.id ?? '' },
     label: machine.displayName || machine.id || '',

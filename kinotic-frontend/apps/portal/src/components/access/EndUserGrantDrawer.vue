@@ -1,69 +1,32 @@
 <template>
-  <FormDrawer :visible="visible" title="Grant access"
-              description="Give one of this application's users or machines a role on the whole application, on one tenant, on one definition's rows, or on those rows in one tenant."
-              @close="emit('update:visible', false)">
-    <form id="end-user-grant-form" @submit.prevent="submit">
-      <div class="flex flex-col gap-5">
-        <div>
-          <span class="mb-2 block text-sm font-medium">Who</span>
-          <SelectButton v-model="subjectType" :options="SUBJECT_TYPES" :allow-empty="false" class="mb-3" />
-          <Select v-model="subjectId" :options="subjectType === 'User' ? users : machines" option-label="label" option-value="subject.id"
-                  filter :filter-fields="['label', 'detail']" :placeholder="subjectType === 'User' ? 'Choose a user' : 'Choose a machine'"
-                  class="w-full" :empty-message="subjectType === 'User' ? 'No users yet' : 'No machines yet'">
-            <template #option="{ option }">
-              <div class="flex flex-col">
-                <span class="text-sm">{{ option.label }}</span>
-                <span v-if="option.detail" class="text-xs text-muted-color">{{ option.detail }}</span>
-              </div>
-            </template>
-          </Select>
-        </div>
-        <div>
-          <span class="mb-2 block text-sm font-medium">Where</span>
-          <SelectButton v-model="scope" :options="SCOPES" :allow-empty="false" class="mb-3" />
-          <Select v-if="scope === 'One tenant'" v-model="tenantId" :options="tenants" editable placeholder="Tenant id" class="w-full"
-                  empty-message="No tenant known yet; type its id" />
-        </div>
-        <div>
-          <span class="mb-2 block text-sm font-medium">Which rows</span>
-          <SelectButton v-model="rows" :options="ROWS" :allow-empty="false" class="mb-3" />
-          <Select v-if="rows === 'One definition'" v-model="definitionId" :options="definitions" option-label="name" option-value="id" filter
-                  placeholder="Choose a definition" class="w-full" empty-message="No published definition yet" />
-          <p class="mt-1.5 text-[0.8125rem] text-muted-color">{{ reach }}</p>
-        </div>
-        <div>
-          <label for="end-user-grant-role" class="mb-2 block text-sm font-medium">Role</label>
-          <Select input-id="end-user-grant-role" v-model="roleId" :options="roles" option-label="name" option-value="id" filter
-                  placeholder="Choose a role" class="w-full">
-            <template #option="{ option }">
-              <div class="flex flex-col">
-                <span class="text-sm">{{ option.name }}</span>
-                <span class="text-xs text-muted-color">{{ summarizeRole(option) }}</span>
-              </div>
-            </template>
-          </Select>
-        </div>
-      </div>
-    </form>
-
-    <template #footer>
-      <Button type="button" label="Cancel" severity="secondary" outlined @click="emit('update:visible', false)" />
-      <Button type="submit" form="end-user-grant-form" label="Grant" icon="pi pi-check" :loading="granting" :disabled="!subjectId || !roleId || !resource" />
-    </template>
-  </FormDrawer>
+  <GrantAccessDrawer :visible="visible"
+                     description="Give one of this application's users or machines a role on the whole application, on one tenant, on one definition's rows, or on those rows in one tenant."
+                     :kinds="kinds" :roles="roles" :ready="resource !== null" :grant="grant"
+                     @update:visible="emit('update:visible', $event)" @granted="emit('granted', $event)">
+    <div>
+      <span class="mb-2 block text-sm font-medium">Where</span>
+      <SelectButton v-model="scope" :options="SCOPES" :allow-empty="false" class="mb-3" />
+      <Select v-if="scope === 'One tenant'" v-model="tenantId" :options="tenants" editable placeholder="Tenant id" class="w-full"
+              empty-message="No tenant known yet; type its id" />
+    </div>
+    <div>
+      <span class="mb-2 block text-sm font-medium">Which rows</span>
+      <SelectButton v-model="rows" :options="ROWS" :allow-empty="false" class="mb-3" />
+      <Select v-if="rows === 'One definition'" v-model="definitionId" :options="definitions" option-label="name" option-value="id" filter
+              placeholder="Choose a definition" class="w-full" empty-message="No published definition yet" />
+      <p class="mt-1.5 text-[0.8125rem] text-muted-color">{{ reach }}</p>
+    </div>
+  </GrantAccessDrawer>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import Button from 'primevue/button'
 import Select from 'primevue/select'
 import SelectButton from 'primevue/selectbutton'
-import { useToast } from 'primevue/usetoast'
 import { Kinotic } from '@kinotic-ai/core'
-import { type Grant, type Resource, type RoleDefinition, SubjectType } from '@kinotic-ai/management-api'
-import { FormDrawer, showErrorToast, summarizeRole } from '@kinotic-ai/frontend-common'
+import type { Grant, Resource, RoleDefinition, Subject } from '@kinotic-ai/management-api'
+import { GrantAccessDrawer, type SubjectKind, type SubjectOption } from '@kinotic-ai/frontend-common/management'
 import { type DefinitionOption, definitionOf, resourceOf, tenantOf } from './applicationResources'
-import type { SubjectOption } from './useSubjects'
 
 /**
  * Grants a role in the application's own store to one of its users or machines, on the application, on one
@@ -90,19 +53,18 @@ const emit = defineEmits<{
   (e: 'granted', grant: Grant): void
 }>()
 
-const SUBJECT_TYPES = ['User', 'Machine']
 const SCOPES = ['Whole application', 'One tenant']
 const ROWS = ['Every definition', 'One definition']
 
-const toast = useToast()
-const subjectType = ref<'User' | 'Machine'>('User')
 const scope = ref<'Whole application' | 'One tenant'>('Whole application')
 const rows = ref<'Every definition' | 'One definition'>('Every definition')
-const subjectId = ref<string | null>(null)
 const tenantId = ref<string | null>(null)
 const definitionId = ref<string | null>(null)
-const roleId = ref<string | null>(null)
-const granting = ref(false)
+
+const kinds = computed<SubjectKind[]>(() => [
+  { label: 'User', options: props.users, placeholder: 'Choose a user', emptyMessage: 'No users yet' },
+  { label: 'Machine', options: props.machines, placeholder: 'Choose a machine', emptyMessage: 'No machines yet' }
+])
 
 /** The resource the grant is made on, or null while a tenant or a definition chosen is not named yet. */
 const resource = computed<Resource | null>(() => {
@@ -126,9 +88,6 @@ const reach = computed(() => {
 
 watch(() => props.visible, visible => {
   if (visible) {
-    subjectType.value = 'User'
-    subjectId.value = null
-    roleId.value = null
     const tenant = tenantOf(props.initialResource)
     const definition = definitionOf(props.initialResource)
     scope.value = tenant ? 'One tenant' : 'Whole application'
@@ -138,23 +97,8 @@ watch(() => props.visible, visible => {
   }
 })
 
-// a picked user is not a machine, so switching the subject type clears the pick
-watch(subjectType, () => { subjectId.value = null })
-
-async function submit(): Promise<void> {
-  if (!subjectId.value || !roleId.value || !resource.value) {
-    return
-  }
-  granting.value = true
-  try {
-    const grant = await Kinotic.applicationAccess.grant(props.applicationId, { type: SubjectType.USER, id: subjectId.value }, roleId.value, resource.value)
-    toast.add({ severity: 'success', summary: 'Access granted', life: 4000 })
-    emit('granted', grant)
-    emit('update:visible', false)
-  } catch (err) {
-    showErrorToast(toast, 'Failed to grant access', err, { life: 8000 })
-  } finally {
-    granting.value = false
-  }
+// the drawer enables Grant only once the resource is named
+function grant(subject: Subject, roleId: string): Promise<Grant> {
+  return Kinotic.applicationAccess.grant(props.applicationId, subject, roleId, resource.value as Resource)
 }
 </script>

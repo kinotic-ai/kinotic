@@ -2,15 +2,7 @@ import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { type ApplicationParticipantIdentity, type Group, type MachineParticipantIdentity, type OrganizationParticipantIdentity, type Subject,
   SubjectType } from '@kinotic-ai/management-api'
-
-/** Who a grant can be made to, as the pickers and the grant rows show them. */
-export interface SubjectOption {
-  subject: Subject
-  /** The member's name or email, or the group's name. */
-  label: string
-  /** The member's email beneath the name, or the group's description. */
-  detail: string | null
-}
+import type { SubjectOption } from '@kinotic-ai/frontend-common/management'
 
 // The pickers and the names on the grant rows read the first pages of the organization's members and groups,
 // which cover an organization of a few hundred members; a subject beyond them is shown by its id
@@ -60,8 +52,8 @@ export function useSubjects(applicationId: string | null = null): {
   return { members, groups, machines, load, labelOf }
 }
 
-/** The key a subject is told apart by: a user and a group may share an id. */
-export function keyOf(subject: Subject): string {
+// the key a subject is told apart by: a user and a group may share an id
+function keyOf(subject: Subject): string {
   return `${subject.type}:${subject.id}`
 }
 

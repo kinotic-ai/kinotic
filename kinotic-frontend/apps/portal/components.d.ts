@@ -8,7 +8,6 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    AccessCheckPanel: typeof import('./src/components/access/AccessCheckPanel.vue')['default']
     AccessPanel: typeof import('./src/components/access/AccessPanel.vue')['default']
     ApplicationProjectsLink: typeof import('./src/components/ApplicationProjectsLink.vue')['default']
     ApplicationSidebar: typeof import('./src/components/ApplicationSidebar.vue')['default']
@@ -35,7 +34,6 @@ declare module 'vue' {
     GitHubLinkStatus: typeof import('./src/components/GitHubLinkStatus.vue')['default']
     Glitch: typeof import('./src/components/Glitch.vue')['default']
     GlobalObjectNode: typeof import('./src/components/nodes/GlobalObjectNode.vue')['default']
-    GrantAccessDrawer: typeof import('./src/components/access/GrantAccessDrawer.vue')['default']
     GroupDrawer: typeof import('./src/components/access/GroupDrawer.vue')['default']
     GroupMembersDrawer: typeof import('./src/components/access/GroupMembersDrawer.vue')['default']
     GroupsTab: typeof import('./src/components/access/GroupsTab.vue')['default']

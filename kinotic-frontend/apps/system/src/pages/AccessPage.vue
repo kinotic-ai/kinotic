@@ -36,11 +36,22 @@
         </DataTable>
       </DashboardSection>
 
-      <AccessCheckPanel :tint="TINTS.ink" :systemUsers="systemUsers" :machines="machines" :roles="roles" :catalog="catalog"
-                        :label-of="labelOf" :initial-subject-id="subjectFilter?.id" />
+      <AccessCheckPanel :tint="TINTS.ink"
+                        description="Ask whether a system user or a machine holds one of the system's permissions, and which grants give it."
+                        :subject-groups="[{ label: 'System users', items: systemUsers }, { label: 'Machines', items: machines }]"
+                        subject-placeholder="System user or machine" :permission-options="permissionOptions" :roles="roles"
+                        :label-of="labelOf" :initial-subject="subjectFilter ?? undefined"
+                        held-without-grant="Held through nothing a grant explains." no-grant="No grant on the system gives the permission."
+                        :explain="explain">
+        <template #grant-resource>
+          <span class="text-muted-color">on the system</span>
+        </template>
+      </AccessCheckPanel>
 
-      <GrantAccessDrawer v-model:visible="grantDrawerVisible" :roles="roles" :systemUsers="systemUsers" :machines="machines"
-                         @granted="onGranted" />
+      <GrantAccessDrawer v-model:visible="grantDrawerVisible"
+                         description="Give a system user or a machine a role on the system, which reaches every organization and worker node on it."
+                         :kinds="grantKinds" :roles="roles" role-hint="The role's permissions reach the system and everything on it."
+                         :grant="grant" @granted="onGranted" />
     </div>
   </div>
 </template>
@@ -59,10 +70,8 @@ import { KeyRound } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
 import { type Grant, type RoleDefinition, type Subject, SubjectType } from '@kinotic-ai/management-api'
 import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, TINTS,
-         errorMessage, isAuthorizationError, showErrorToast, splitPermission } from '@kinotic-ai/frontend-common'
-import { RoleCell, SubjectCell } from '@kinotic-ai/frontend-common/management'
-import AccessCheckPanel from '@/components/access/AccessCheckPanel.vue'
-import GrantAccessDrawer from '@/components/access/GrantAccessDrawer.vue'
+         errorMessage, isAuthorizationError, permissionLabel, showErrorToast, splitPermission } from '@kinotic-ai/frontend-common'
+import { AccessCheckPanel, type CheckedAccess, GrantAccessDrawer, RoleCell, SubjectCell, type SubjectKind } from '@kinotic-ai/frontend-common/management'
 import { useSubjects } from '@/components/access/useSubjects'
 import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
 
@@ -108,6 +117,13 @@ const catalog = computed(() => {
   return [...names].sort()
 })
 
+const permissionOptions = computed(() => catalog.value.map(name => ({ name, label: permissionLabel(splitPermission(name).permission) })))
+
+const grantKinds = computed<SubjectKind[]>(() => [
+  { label: 'System user', options: systemUsers.value, placeholder: 'Choose a system user', emptyMessage: 'No system users' },
+  { label: 'Machine', options: machines.value, placeholder: 'Choose a machine', emptyMessage: 'No machines yet' }
+])
+
 watch(() => route.name, name => { if (name === 'system-access') load() }, { immediate: true })
 
 async function load(): Promise<void> {
@@ -148,6 +164,16 @@ function roleOf(roleId: string): RoleDefinition | undefined {
 
 function clearSubject(): void {
   router.replace({ name: 'system-access' })
+}
+
+async function explain(subject: Subject, permission: string): Promise<CheckedAccess> {
+  const split = splitPermission(permission)
+  const explanation = await Kinotic.systemAccess.explain(subject, split.permission)
+  return { explanation, asked: `${permissionLabel(split.permission).toLowerCase()} on the system` }
+}
+
+function grant(subject: Subject, roleId: string): Promise<Grant> {
+  return Kinotic.systemAccess.grant(subject, roleId)
 }
 
 function onGranted(grant: Grant): void {

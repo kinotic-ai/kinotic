@@ -50,8 +50,8 @@ import { useToast } from 'primevue/usetoast'
 import { Kinotic } from '@kinotic-ai/core'
 import type { Group, OrganizationParticipantIdentity } from '@kinotic-ai/management-api'
 import { FormDrawer, InitialsTile, showErrorToast } from '@kinotic-ai/frontend-common'
+import type { SubjectOption } from '@kinotic-ai/frontend-common/management'
 import { useAccess } from '@/composables/useAccess'
-import type { SubjectOption } from './useSubjects'
 
 /** The members of a group, with adding and removing for a member who manages access. */
 const props = defineProps<{
