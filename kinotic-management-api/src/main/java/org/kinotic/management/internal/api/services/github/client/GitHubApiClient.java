@@ -62,6 +62,16 @@ public interface GitHubApiClient {
                            String sha);
 
     /**
+     * The commit {@code branch} of {@code repoFullName} points at, or null when the branch does not exist or the
+     * repository has no commit.
+     *
+     * @param installationToken token with {@code contents:read} on the target repo
+     */
+    Future<String> findBranchHead(String installationToken,
+                                  String repoFullName,
+                                  String branch);
+
+    /**
      * Creates a new repository under {@code owner} from {@code templateFullName}.
      * The App must have {@code Administration: Write} permission on the target
      * owner. Fails with an {@link AlreadyExistsException} if a repo with the given

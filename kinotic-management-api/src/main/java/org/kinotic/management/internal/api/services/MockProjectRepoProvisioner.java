@@ -44,6 +44,12 @@ public class MockProjectRepoProvisioner implements ProjectRepoProvisioner {
         return Future.succeededFuture(project);
     }
 
+    // the fake repositories hold no commit
+    @Override
+    public Future<String> findDefaultBranchHead(Project project) {
+        return Future.succeededFuture(null);
+    }
+
     // the fake repositories stand in for GitHub's, which a disabled provisioner replaces
     @Override
     public RepositoryHost repositoryHost() {

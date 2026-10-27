@@ -34,6 +34,12 @@ public interface ProjectRepoProvisioner {
     Future<Project> reinitialize(Project project);
 
     /**
+     * The commit at the head of the default branch of {@code project}'s repository, or null when the branch has no
+     * commit.
+     */
+    Future<String> findDefaultBranchHead(Project project);
+
+    /**
      * Where the repositories this provisioner creates are hosted.
      */
     RepositoryHost repositoryHost();
