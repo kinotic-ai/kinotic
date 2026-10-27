@@ -1,9 +1,13 @@
 package org.kinotic.management.internal.api.services.github;
 
+import io.vertx.core.Context;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.annotations.Emitter;
 import org.kinotic.management.api.model.github.GitHubWebhookEvent;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.deployment.ProjectPushEvent;
@@ -11,8 +15,9 @@ import org.kinotic.management.api.model.RepositoryConnectionStatus;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.internal.api.repositories.GitHubAppInstallationRepository;
 import org.kinotic.management.api.services.github.GitHubWebhookProcessor;
-import org.kinotic.management.internal.api.services.ProjectPushPublisher;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -39,9 +44,28 @@ public class DefaultGitHubWebhookProcessor implements GitHubWebhookProcessor {
 
     private final GitHubAppInstallationRepository installationRepository;
     private final ProjectRepository projectRepository;
-    private final ProjectPushPublisher pushPublisher;
+    private final Vertx vertx;
+
+    // Hot source of the @Emitter stream; never terminates. Best-effort delivery keeps a slow
+    // fabric uplink from stalling the webhook handler, matching GitHub's at-most-once semantics.
+    private final Sinks.Many<ProjectPushEvent> sink = Sinks.many().multicast().directBestEffort();
 
     private static final String ZERO_SHA = "0".repeat(40);
+
+    // One shared context every emission is delivered on: it serializes concurrent deliveries (Sinks
+    // reject concurrent emission) and keeps subscriber chains off the threads that complete the
+    // project lookup.
+    private Context deliveryContext;
+
+    @PostConstruct
+    void init() {
+        deliveryContext = vertx.getOrCreateContext();
+    }
+
+    @Emitter
+    Flux<ProjectPushEvent> projectPushes() {
+        return sink.asFlux();
+    }
 
     @Override
     public Future<Void> process(GitHubWebhookEvent event) {
@@ -141,7 +165,7 @@ public class DefaultGitHubWebhookProcessor implements GitHubWebhookProcessor {
                             log.debug("No Kinotic project for repo {}; dropping the push of {}", event.getRepoFullName(), commitSha);
                         } else {
                             for (Project project : projects) {
-                                pushPublisher.publish(new ProjectPushEvent(project.getOrganizationId(), project.getId(), commitSha));
+                                emit(new ProjectPushEvent(project.getOrganizationId(), project.getId(), commitSha));
                             }
                         }
                         return Future.succeededFuture();
@@ -169,5 +193,14 @@ public class DefaultGitHubWebhookProcessor implements GitHubWebhookProcessor {
             }
         }
         return ret;
+    }
+
+    private void emit(ProjectPushEvent event) {
+        deliveryContext.runOnContext(v -> {
+            Sinks.EmitResult result = sink.tryEmitNext(event);
+            if (result.isFailure() && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
+                log.warn("Failed to emit the push of {} for project {}: {}", event.getCommitSha(), event.getProjectId(), result);
+            }
+        });
     }
 }

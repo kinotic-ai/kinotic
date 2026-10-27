@@ -95,15 +95,6 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     }
 
     @Override
-    public Future<String> findDefaultBranchHead(Project project) {
-        return requireInstallation()
-                .compose(install -> apiClient.getToken(install.getGithubInstallationId(), project.getRepoId(),
-                                                       GitHubApiClient.READ_CONTENTS))
-                .compose(token -> apiClient.findBranchHead(token.getToken(), project.getRepoFullName(),
-                                                           project.getRepoDefaultBranch()));
-    }
-
-    @Override
     public RepositoryHost repositoryHost() {
         return GITHUB;
     }
