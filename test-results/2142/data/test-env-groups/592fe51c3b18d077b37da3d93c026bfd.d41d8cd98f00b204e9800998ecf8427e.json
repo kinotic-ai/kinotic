@@ -1,1 +1,0 @@
-{"id":"592fe51c3b18d077b37da3d93c026bfd.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.management.internal.api.services.DefaultApplicationServiceTest.rejectsIdsWhoseApiHostLabelExceedsTheDnsLimit","name":"rejectsIdsWhoseApiHostLabelExceedsTheDnsLimit()","status":"passed","testResultsByEnv":{"default":"02a2ed1cf86911617ec2239698261bf2"}}
