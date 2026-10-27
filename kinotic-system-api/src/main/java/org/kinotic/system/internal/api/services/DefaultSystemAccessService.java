@@ -64,14 +64,8 @@ public class DefaultSystemAccessService implements SystemAccessService {
         Validate.notBlank(grantId, "grantId cannot be blank");
         // a disabled administrator cannot sign in, so its grant keeps no one able to run the system; a system with no
         // administrator has every enabled system user made one by SystemGraphBootstrap on the next start
-        return relationships.findGrants(SYSTEM, AuthzConstants.SYSTEM_OBJECT)
-                            .compose(grants -> identities.requireAnotherEnabledHolder(grants.stream().filter(DefaultSystemAccessService::isAdministrator).toList(),
-                                                                                      grant -> grant.id().equals(grantId), SystemParticipantIdentity.class))
+        return identities.requireAnotherAdministrator(AuthzConstants.SYSTEM_OBJECT, grant -> grant.id().equals(grantId), SystemParticipantIdentity.class)
                             .compose(v -> relationships.revoke(SYSTEM, grantId, AuthzConstants.SYSTEM_OBJECT));
-    }
-
-    private static boolean isAdministrator(Grant grant) {
-        return AuthzConstants.SYSTEM_ADMIN_ROLE.equals(grant.roleId());
     }
 
     @Override

@@ -17,6 +17,8 @@ import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.idl.api.utils.AuthzConstants;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.AddApplicationUserRequest;
 import org.kinotic.management.api.model.PendingInviteSummary;
 import org.kinotic.management.api.services.security.MemberInvitationService;
@@ -35,7 +37,6 @@ public class DefaultMemberService implements MemberService {
     private final InviteService inviteService;
     private final MemberInvitationService memberInvitationService;
     private final RelationshipService relationships;
-    private final DefaultPermissionService permissions;
 
     @Override
     public Future<Page<OrganizationParticipantIdentity>> findMembers(Pageable pageable) {
@@ -114,9 +115,10 @@ public class DefaultMemberService implements MemberService {
     private Future<UserParticipantIdentity> requireAnotherAdministrator(UserParticipantIdentity member) {
         Future<UserParticipantIdentity> ret;
         if (member instanceof OrganizationParticipantIdentity organizationUser) {
-            ret = permissions.requireAnotherAdministrator(organizationUser.getOrganizationId(),
-                                                          grant -> grant.subject().id().equals(organizationUser.getId()))
-                             .map(member);
+            ret = identityService.requireAnotherAdministrator(AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationUser.getOrganizationId()),
+                                                              grant -> grant.subject().id().equals(organizationUser.getId()),
+                                                              OrganizationParticipantIdentity.class)
+                                 .map(member);
         } else {
             ret = Future.succeededFuture(member);
         }

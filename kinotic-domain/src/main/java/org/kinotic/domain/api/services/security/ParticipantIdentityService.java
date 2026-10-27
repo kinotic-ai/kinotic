@@ -218,16 +218,16 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     Future<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(Participant owner, Pageable pageable);
 
     /**
-     * Refuses taking away the grants of a role that {@code leaving} selects when one of them is held by an enabled
-     * identity of {@code holderType} and none of the remaining grants is, so the role stays with someone who can
-     * sign in.
+     * Refuses taking away the administrator grants on a resource that {@code leaving} selects when one of them is held
+     * by a user of {@code holderType} who can sign in, enabled and claimed, and none of the remaining ones is, so the
+     * resource keeps an administrator.
      *
-     * @param grants     the grants of one role on one resource
+     * @param object     the resource, as the system's store names it, such as {@code organization:<id>}
      * @param leaving    selects the grants being taken away
-     * @param holderType the kind of identity that must keep holding the role
+     * @param holderType the kind of user that must keep administering the resource
      * @return a future that succeeds when the grants may go, failed with an {@link IllegalStateException} otherwise
      */
-    Future<Void> requireAnotherEnabledHolder(List<Grant> grants, Predicate<Grant> leaving, Class<? extends ParticipantIdentity> holderType);
+    Future<Void> requireAnotherAdministrator(String object, Predicate<Grant> leaving, Class<? extends UserParticipantIdentity> holderType);
 
     /**
      * Provisions a machine identity, assigning id and dates, enabling it, and generating the

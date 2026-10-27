@@ -41,7 +41,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
-import java.util.function.Predicate;
 
 import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 
@@ -231,28 +230,9 @@ public class DefaultPermissionService implements PermissionService {
         String object = AuthzGraphUtil.authzObject(organizationId, resource);
         return requireInOrganization(resource, organizationId)
                 .compose(lineage -> ORGANIZATION.equals(resource.type())
-                        ? requireAnotherAdministrator(organizationId, grant -> grant.id().equals(grantId))
+                        ? identities.requireAnotherAdministrator(object, grant -> grant.id().equals(grantId), OrganizationParticipantIdentity.class)
                         : Future.<Void>succeededFuture())
                 .compose(v -> relationships.revoke(SYSTEM, grantId, object));
-    }
-
-    /**
-     * Refuses a change that takes away the {@code organization.admin} grants on an organization that {@code leaving}
-     * selects, when it would leave no enabled organization user administering it.
-     *
-     * @param organizationId the organization
-     * @param leaving        selects the grants the change takes away
-     * @return a future that succeeds when the change may go ahead, failed with an {@link IllegalStateException} otherwise
-     */
-    public Future<Void> requireAnotherAdministrator(String organizationId, Predicate<Grant> leaving) {
-        Validate.notBlank(organizationId, "organizationId cannot be blank");
-        Validate.notNull(leaving, "leaving cannot be null");
-        // nothing restores an organization's administrator once the last one who can sign in is gone
-        return relationships.findGrants(SYSTEM, AuthzUtil.object(ORGANIZATION, organizationId))
-                            .compose(grants -> identities.requireAnotherEnabledHolder(grants.stream()
-                                                                                            .filter(grant -> AuthzConstants.ORGANIZATION_ADMIN_ROLE.equals(grant.roleId()))
-                                                                                            .toList(),
-                                                                                      leaving, OrganizationParticipantIdentity.class));
     }
 
     @Override

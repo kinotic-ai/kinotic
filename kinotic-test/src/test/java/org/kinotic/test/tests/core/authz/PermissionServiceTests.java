@@ -1,5 +1,6 @@
 package org.kinotic.test.tests.core.authz;
 
+import io.vertx.core.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AccessExplanation;
@@ -46,9 +47,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -192,12 +195,16 @@ public class PermissionServiceTests extends KinoticTestBase {
         Grant firstGrant = await(runAs(caller, () -> permissions.grant(user(first), AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
         Grant disabledGrant = await(runAs(caller, () -> permissions.grant(user(disabled), AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
         await(identityService.saveSync(disabled.setEnabled(false)));
+        // a pending user has yet to sign in, and its invitation may lapse unclaimed
+        OrganizationParticipantIdentity pending = member(organizationId, "pending-admin");
+        await(identityService.saveSync(pending.setPending(true)));
+        await(runAs(caller, () -> permissions.grant(user(pending), AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
 
-        // the last enabled administrator keeps the grant and stays an enabled member, and a disabled administrator's
-        // grant may go
-        assertThrows(ExecutionException.class, () -> await(runAs(caller, () -> permissions.revoke(onOrganization, firstGrant.id()))));
-        assertThrows(ExecutionException.class, () -> await(runAs(caller, () -> memberService.setMemberEnabled(first.getId(), false))));
-        assertThrows(ExecutionException.class, () -> await(runAs(caller, () -> memberService.removeMember(first.getId()))));
+        // the last administrator who can sign in keeps the grant and stays an enabled member, and a disabled
+        // administrator's grant may go
+        assertRefusedAsLastAdministrator(() -> runAs(caller, () -> permissions.revoke(onOrganization, firstGrant.id())));
+        assertRefusedAsLastAdministrator(() -> runAs(caller, () -> memberService.setMemberEnabled(first.getId(), false)));
+        assertRefusedAsLastAdministrator(() -> runAs(caller, () -> memberService.removeMember(first.getId())));
         await(runAs(caller, () -> permissions.revoke(onOrganization, disabledGrant.id())));
 
         // once another enabled member administers the organization, the first may go
@@ -313,6 +320,11 @@ public class PermissionServiceTests extends KinoticTestBase {
         return await(runAsOrganization(() -> projectService.createProjectIfNotExist(project)));
     }
 
+
+    private static void assertRefusedAsLastAdministrator(Supplier<Future<?>> call) {
+        ExecutionException refused = assertThrows(ExecutionException.class, () -> await(call.get()));
+        assertInstanceOf(IllegalStateException.class, refused.getCause());
+    }
 
     private static Subject user(UserParticipantIdentity member) {
         return new Subject(SubjectType.USER, member.getId());

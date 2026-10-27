@@ -381,27 +381,35 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    public Future<Void> requireAnotherEnabledHolder(List<Grant> grants, Predicate<Grant> leaving, Class<? extends ParticipantIdentity> holderType) {
-        Validate.notNull(grants, "grants cannot be null");
+    public Future<Void> requireAnotherAdministrator(String object, Predicate<Grant> leaving, Class<? extends UserParticipantIdentity> holderType) {
+        Validate.notBlank(object, "object cannot be blank");
         Validate.notNull(leaving, "leaving cannot be null");
         Validate.notNull(holderType, "holderType cannot be null");
-        Map<Boolean, List<Grant>> split = grants.stream().collect(Collectors.partitioningBy(leaving));
-        return enabledHolders(split.get(true), holderType).compose(leavingEnabled -> enabledHolders(split.get(false), holderType).map(remainingEnabled -> {
-            if (leavingEnabled > 0 && remainingEnabled == 0) {
-                throw new IllegalStateException("No other enabled user holds " + grants.getFirst().roleId()
-                                                        + "; grant the role to another user first");
-            }
-            return null;
-        }));
+        String administrator = AuthzUtil.roleId(AuthzUtil.typeOf(object), AuthzConstants.ADMIN);
+        return relationships.findGrants(AuthzStoreService.SYSTEM, object).compose(grants -> {
+            Map<Boolean, List<Grant>> split = grants.stream()
+                                                    .filter(grant -> administrator.equals(grant.roleId()))
+                                                    .collect(Collectors.partitioningBy(leaving));
+            return administering(split.get(true), holderType).compose(leavingCount -> administering(split.get(false), holderType).map(remainingCount -> {
+                if (leavingCount > 0 && remainingCount == 0) {
+                    throw new IllegalStateException("No other user who can sign in holds " + administrator + " on " + object
+                                                            + "; grant the role to another user first");
+                }
+                return null;
+            }));
+        });
     }
 
-    // How many of the grants are held by an enabled identity of the type; a group's grant is held by no identity
-    private Future<Long> enabledHolders(List<Grant> grants, Class<? extends ParticipantIdentity> holderType) {
+    // How many of the grants are held by a user of the type who can sign in; a group's grant is held by no user, and
+    // a pending user's invitation may lapse unclaimed
+    private Future<Long> administering(List<Grant> grants, Class<? extends UserParticipantIdentity> holderType) {
         List<Future<Boolean>> lookups = grants.stream()
                                               .map(grant -> identityRepository.findById(grant.subject().id())
-                                                                              .map(identity -> holderType.isInstance(identity) && identity.isEnabled()))
+                                                                              .map(identity -> holderType.isInstance(identity)
+                                                                                      && identity.isEnabled()
+                                                                                      && !((UserParticipantIdentity) identity).isPending()))
                                               .toList();
-        return Future.all(lookups).map(enabled -> enabled.list().stream().filter(Boolean.TRUE::equals).count());
+        return Future.all(lookups).map(held -> held.list().stream().filter(Boolean.TRUE::equals).count());
     }
 
     @Override
