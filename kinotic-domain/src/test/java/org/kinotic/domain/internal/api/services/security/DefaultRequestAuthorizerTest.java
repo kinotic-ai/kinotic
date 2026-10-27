@@ -123,6 +123,9 @@ class DefaultRequestAuthorizerTest {
         entities.addFunction(function("save", check("entity_definition", "{entityDefinitionId}", "entity_definition", "can_edit", false), "entityDefinitionId", "entity"));
         entities.addFunction(function("namedQuery", resolved(STATEMENT_RESOLVER), "entityDefinitionId", "queryName", "queryParameters"));
         entities.addFunction(function("namedQueryElsewhere", resolved("elsewhere"), "entityDefinitionId", "queryName", "queryParameters"));
+        // the rows of every tenant, checked on the definition itself whatever the caller's tenant
+        entities.addFunction(function("count", check("entity_definition", "{entityDefinitionId}", "entity_definition", "can_read", false).setAcrossTenants(true),
+                                      "entityDefinitionId", "tenantSelection"));
         when(directory.findEntry(ENTITIES)).thenReturn(Future.succeededFuture(new ServiceDirectoryEntry().setId(ENTITIES).setServiceDefinition(entities)));
     }
 
@@ -328,6 +331,28 @@ class DefaultRequestAuthorizerTest {
                              new RelationshipTuple("tenant:t1", "tenant", "tenant_definition:acme.crm.person@t1")),
                      edges.getValue());
         verify(relationships, never()).check(eq(SYSTEM), any(), any(), any());
+    }
+
+    @Test
+    void aTenantsUserIsCheckedOnTheDefinitionItselfForAFunctionActingAcrossTenants() throws Exception {
+        authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/count#1.0.0"), bob("t1"),
+                             EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",[\"*\"]]"))
+                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // no edge is supplied: the definition's object is held by the store, and a grant within the tenant does not reach it
+        assertEquals(new RelationshipTuple("user:bob", "entity_definition_can_read", "entity_definition:acme.crm.person"),
+                     checked("acme.crm", Consistency.MINIMIZE_LATENCY));
+    }
+
+    @Test
+    void aRequestNamingNoFunctionIsRefusedWithoutTheEngine() {
+        ExecutionException failure = assertThrows(ExecutionException.class,
+                                                  () -> authorizer.authorize(CRI.create("srv://acme@" + SERVICE + "#1.0.0"), sally(),
+                                                                             EventConstants.CONTENT_TYPE_JSON, bytes("[]"))
+                                                                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
+
+        assertTrue(assertInstanceOf(AuthorizationException.class, failure.getCause()).getMessage().contains("names no function"));
+        verify(relationships, never()).check(any(), any(), any(), any());
     }
 
     @Test

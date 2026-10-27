@@ -85,16 +85,15 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
                     .map(new DeviceCodePollResult(PollStatus.EXPIRED, null, null));
         }
         if (grant.getIdentityId() != null) {
-            // Approved — consume the grant so it cannot be replayed, then hand back the approver in the scope it
-            // approved from. A poll that finds the grant consumed lost it to a concurrent poll, and an approver
-            // that may no longer act there, disabled or no longer a member, fails it.
-            return deviceCodeGrantRepository.consumeByIdSync(grant.getId())
-                    .compose(consumed -> consumed
-                            ? identityService.resolveParticipant(grant.getIdentityId(), grant.getOrganizationId(), grant.getApplicationId())
-                                             .map(approver -> approver == null
-                                                     ? new DeviceCodePollResult(PollStatus.INVALID, null, null)
-                                                     : new DeviceCodePollResult(PollStatus.APPROVED, approver, grant.getDeviceName()))
-                            : Future.succeededFuture(new DeviceCodePollResult(PollStatus.INVALID, null, null)));
+            // Approved — resolve the approver in the scope it approved from, then consume the grant so it cannot
+            // be replayed. The approver is resolved first so a lookup that fails leaves the grant for the next
+            // poll; a poll that finds the grant consumed lost it to a concurrent poll, and an approver that may
+            // no longer act there, disabled or no longer a member, fails it.
+            return identityService.resolveParticipant(grant.getIdentityId(), grant.getOrganizationId(), grant.getApplicationId())
+                    .compose(approver -> deviceCodeGrantRepository.consumeByIdSync(grant.getId())
+                            .map(consumed -> consumed && approver != null
+                                    ? new DeviceCodePollResult(PollStatus.APPROVED, approver, grant.getDeviceName())
+                                    : new DeviceCodePollResult(PollStatus.INVALID, null, null)));
         }
         if (polledTooSoon(grant, now)) {
             return Future.succeededFuture(new DeviceCodePollResult(PollStatus.SLOW_DOWN, null, null));

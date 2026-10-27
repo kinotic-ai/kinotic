@@ -165,7 +165,10 @@ public class DefaultSchemaService implements SchemaService {
                 throw new IllegalStateException("The function " + function.getName() + " on " + declarer
                                                         + " declares a check, but the service declares no resource");
             } else {
-                check = null;
+                // the gateway refuses every function its contract neither checks nor marks unchecked, so a service
+                // declaring neither could never be called through it
+                throw new IllegalStateException("The service " + declarer + " declares no resource and is not marked unchecked;"
+                                                        + " declare @AuthzResource or mark it @AuthzUnchecked");
             }
             FunctionDefinition derived = new FunctionDefinition();
             derived.setName(function.getName());

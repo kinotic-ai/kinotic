@@ -68,9 +68,9 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
  * users. A system user or one of the system's machines, whose scope names no organization, is checked
  * on the system itself wherever a check names the caller's scope, and an application's user on its tenant,
  * or on the application when it has none. A definition's rows are checked on the definition a request names: a
- * tenant's user on the definition within its tenant, an organization's member on the definition in the
- * system's store. What is kept of a contract is dropped when the directory announces the contract written
- * again. A refusal is answered "Not authorized", followed by its reason when {@code kinotic.debug} is on.
+ * tenant's user on the definition within its tenant, or on the definition itself for a function its contract
+ * declares acting across tenants, an organization's member on the definition in the system's store. What is
+ * kept of a contract is dropped when the directory announces the contract written again. A refusal is answered "Not authorized", followed by its reason when {@code kinotic.debug} is on.
  */
 @Slf4j
 @Component
@@ -322,8 +322,10 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
             // A tenant's user is checked on the definition within its tenant, an object no store holds tuples for:
             // its two edges come with the check, the tenant's from the caller's scope and the definition's from the
             // request, and the model reaches it through a grant on the tenant only for a definition placed in the
-            // application
-            boolean withinTenant = AuthzConstants.ENTITY_DEFINITION_TYPE.equals(checked.type()) && scope.tenantId() != null;
+            // application. A function acting on every tenant's rows is checked on the definition itself, which a
+            // grant within one tenant does not reach
+            boolean withinTenant = AuthzConstants.ENTITY_DEFINITION_TYPE.equals(checked.type()) && scope.tenantId() != null
+                    && !check.isAcrossTenants();
             String object = withinTenant
                     ? AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(resourceId, scope.tenantId()))
                     : AuthzUtil.object(checked.type(), resourceId);

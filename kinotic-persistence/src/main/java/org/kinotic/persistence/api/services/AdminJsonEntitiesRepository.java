@@ -27,11 +27,13 @@ import java.util.List;
  * Every function is checked on the entity definition named, for the permission of its rows the function needs,
  * the one {@link JsonEntitiesRepository} checks for the same function: reading, listing, counting, querying
  * and searching need {@code can_read}, and deleting {@code can_delete}. Deleting implies updating, and
- * updating reading.
+ * updating reading. The check is made on the definition itself for every caller, since a function here acts on
+ * the rows of the tenants it names: a tenant's user holding the permission within its tenant alone is refused,
+ * and one granted it on the definition or on the application selects any tenant.
  */
 @Publish
 @Zone(DomainUtil.APP_API_ZONE)
-@AuthzResource(value = AuthzConstants.ENTITY_DEFINITION_TYPE, parent = AuthzConstants.APPLICATION_TYPE)
+@AuthzResource(value = AuthzConstants.ENTITY_DEFINITION_TYPE, parent = AuthzConstants.APPLICATION_TYPE, acrossTenants = true)
 public interface AdminJsonEntitiesRepository {
 
     /**

@@ -63,19 +63,37 @@ public class DefaultSystemAccessService implements SystemAccessService {
     public Future<Void> revoke(String grantId) {
         Validate.notBlank(grantId, "grantId cannot be blank");
         return relationships.findGrants(SYSTEM, AuthzConstants.SYSTEM_OBJECT).compose(grants -> {
-            // a system with no administrator has every system user made one by SystemGraphBootstrap on the next start
-            boolean lastAdministrator = grants.stream().anyMatch(grant -> grant.id().equals(grantId) && isAdministrator(grant))
-                    && grants.stream().filter(DefaultSystemAccessService::isAdministrator).count() == 1;
-            if (lastAdministrator) {
-                throw new IllegalStateException("The grant " + grantId + " is the system's last administrator; grant the role to another"
-                                                        + " system user first");
+            List<Grant> administrators = grants.stream().filter(DefaultSystemAccessService::isAdministrator).toList();
+            Future<Void> ret;
+            if (administrators.stream().anyMatch(grant -> grant.id().equals(grantId))) {
+                // a disabled administrator cannot sign in, so its grant keeps no one able to run the system; a
+                // system with no administrator has every enabled system user made one by SystemGraphBootstrap on
+                // the next start
+                ret = enabledCount(administrators).compose(enabled -> {
+                    if (enabled <= 1) {
+                        throw new IllegalStateException("The grant " + grantId + " is the system's last enabled administrator;"
+                                                                + " grant the role to another system user first");
+                    }
+                    return relationships.revoke(SYSTEM, grantId, AuthzConstants.SYSTEM_OBJECT);
+                });
+            } else {
+                ret = relationships.revoke(SYSTEM, grantId, AuthzConstants.SYSTEM_OBJECT);
             }
-            return relationships.revoke(SYSTEM, grantId, AuthzConstants.SYSTEM_OBJECT);
+            return ret;
         });
     }
 
     private static boolean isAdministrator(Grant grant) {
         return AuthzConstants.SYSTEM_ADMIN_ROLE.equals(grant.roleId());
+    }
+
+    // How many of the grants are held by an enabled identity
+    private Future<Long> enabledCount(List<Grant> grants) {
+        List<Future<Boolean>> lookups = grants.stream()
+                                              .map(grant -> identities.findById(grant.subject().id())
+                                                                      .map(identity -> identity != null && identity.isEnabled()))
+                                              .toList();
+        return Future.all(lookups).map(enabled -> enabled.list().stream().filter(Boolean.TRUE::equals).count());
     }
 
     @Override

@@ -86,4 +86,13 @@ public @interface AuthzResource {
      */
     AuthzRole[] roles() default {};
 
+    /**
+     * True for a service of the type {@code entity_definition} whose functions act on a definition's rows in
+     * every tenant, as the functions taking a tenant selection do. A tenant's user is then checked on the
+     * definition itself, which only a grant on the definition or on the application reaches, where a function
+     * acting within the caller's tenant checks it on the definition within that tenant. Declaring it on a
+     * service of another type fails the service's registration.
+     */
+    boolean acrossTenants() default false;
+
 }

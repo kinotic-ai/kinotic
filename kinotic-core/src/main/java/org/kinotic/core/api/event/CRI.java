@@ -101,7 +101,7 @@ public interface CRI {
     String path();
 
     /**
-     * @return true if the {@link CRI#path()} is set
+     * @return true if the {@link CRI#path()} is set and not empty
      */
     boolean hasPath();
 

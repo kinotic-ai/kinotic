@@ -47,8 +47,8 @@ public interface SystemAccessService {
     Future<Grant> grant(Subject subject, String roleId);
 
     /**
-     * Revokes a grant made on the system. The system keeps at least one administrator, so the last grant of the
-     * administrator role is refused.
+     * Revokes a grant made on the system. The system keeps at least one administrator who can sign in, so the
+     * last grant of the administrator role held by an enabled system user is refused.
      *
      * @param grantId the grant
      */

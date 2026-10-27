@@ -134,7 +134,9 @@ class DefaultCRI implements CRI {
 
     @Override
     public boolean hasPath() {
-        return uri.getRawPath() != null;
+        // a URI of authority alone parses with an empty path, which names nothing
+        String path = uri.getRawPath();
+        return path != null && !path.isEmpty();
     }
 
     @Override

@@ -116,8 +116,10 @@ final class AuthzDecorators {
      *
      * @param declarer the service, named in errors
      * @param declared what it declares
-     * @throws IllegalStateException when the declared type, parent or permission is not an identifier, or a
-     *                               declared role is not named after the type or bundles nothing
+     * @throws IllegalStateException when the declared type, parent or permission is not an identifier, a
+     *                               declared role is not named after the type or bundles nothing, or a service
+     *                               of another type than {@code entity_definition} is declared acting across
+     *                               tenants
      */
     static AuthzResourceC3Decorator resourceOf(String declarer, AuthzResourceC3Decorator declared) {
         String where = "@AuthzResource on " + declarer;
@@ -138,12 +140,18 @@ final class AuthzDecorators {
         for (AuthzRoleDeclaration role : declaredRoles) {
             roles.add(roleOf(declarer, type, role));
         }
+        // only a definition's rows are checked within a tenant, so only a service of that type acts across them
+        if (declared.isAcrossTenants() && !AuthzConstants.ENTITY_DEFINITION_TYPE.equals(type)) {
+            throw new IllegalStateException(where + " acts across tenants, which only a service of the type '"
+                                                    + AuthzConstants.ENTITY_DEFINITION_TYPE + "' does");
+        }
         return new AuthzResourceC3Decorator()
                 .setResourceType(type)
                 .setParent(parent)
                 .setResourceId(present(declared.getResourceId()))
                 .setPermission(permission)
-                .setRoles(List.copyOf(roles));
+                .setRoles(List.copyOf(roles))
+                .setAcrossTenants(declared.isAcrossTenants());
     }
 
     private static AuthzResourceC3Decorator declarationOf(AuthzResource resource) {
@@ -156,7 +164,8 @@ final class AuthzDecorators {
                 .setParent(resource.parent())
                 .setResourceId(resource.resourceId())
                 .setPermission(resource.permission())
-                .setRoles(roles);
+                .setRoles(roles)
+                .setAcrossTenants(resource.acrossTenants());
     }
 
     private static AuthzCheckC3Decorator declarationOf(AuthzCheck check) {
@@ -279,7 +288,8 @@ final class AuthzDecorators {
                     .setImplies(implies)
                     .setPermissionResolver(permissionResolver)
                     .setPossiblePermissions(possiblePermissions)
-                    .setConsistent(declared != null && declared.isConsistent());
+                    .setConsistent(declared != null && declared.isConsistent())
+                    .setAcrossTenants(resource.isAcrossTenants());
         }
         return ret;
     }

@@ -4,8 +4,10 @@ import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ParameterDefinition;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.ParameterHolder;
 import org.kinotic.persistence.api.model.QueryOptions;
 import org.kinotic.persistence.api.model.QueryParameter;
@@ -99,7 +101,15 @@ public class ParameterProcessorExecutor extends AbstractQueryExecutor {
             }
             @SuppressWarnings("unchecked")
             List<String> tenantList = (List<String>) list;
-            context.getEntityContext().setTenantSelection(tenantList);
+            // the tenant-scoped repository builds a context with the caller's tenant and no selection, and its
+            // functions are checked within that tenant, so a parameter of the query may not widen it; a context
+            // carrying a selection is the admin repository's, whose functions are checked across tenants
+            EntityContext entityContext = context.getEntityContext();
+            if (entityContext.getTenantId() != null && !entityContext.hasTenantSelection()
+                    && !List.of(entityContext.getTenantId()).equals(tenantList)) {
+                throw new AuthorizationException("Participant may only select its own tenant");
+            }
+            entityContext.setTenantSelection(tenantList);
         }else if(property.equals(queryMetadata.getQueryOptionsParameterName())) {
             context.setQueryOptions((QueryOptions) value);
         }else if(property.toLowerCase().equals(timeZoneOptionName)){

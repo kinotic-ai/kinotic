@@ -117,6 +117,11 @@ export class ServiceDefinitionGenerationService {
         if (uncheckedClass && resource) {
             throw new Error(`${service} is marked @AuthzUnchecked beside the @AuthzResource its functions are checked on; mark the functions instead`)
         }
+        // the gateway refuses every function its definition neither checks nor marks unchecked, so a class declaring
+        // neither could never be called through it
+        if (!uncheckedClass && !resource) {
+            throw new Error(`${service} declares no @AuthzResource and is not marked @AuthzUnchecked; declare the resource its functions act on, or mark the class @AuthzUnchecked`)
+        }
         if (resource) {
             ret.addDecorator(tsDecoratorToC3Decorator(resource)!)
         }

@@ -11,6 +11,8 @@ import org.kinotic.idl.api.schema.decorators.AuthzPermissionChoice;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzRoleDeclaration;
 import org.kinotic.idl.internal.support.TestService;
+import org.kinotic.idl.internal.support.authz.TestAcrossTenantsWidgetService;
+import org.kinotic.idl.internal.support.authz.TestAdminRowsService;
 import org.kinotic.idl.internal.support.authz.TestContradictoryService;
 import org.kinotic.idl.internal.support.authz.TestEntityService;
 import org.kinotic.idl.internal.support.authz.TestMemberService;
@@ -343,6 +345,25 @@ public class SchemaServiceAuthzTest {
         IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestResolverMissingParameterService.class));
 
         assertTrue(e.getMessage().contains("'queryName'"), e.getMessage());
+    }
+
+    @Test
+    public void aServiceActingAcrossTenantsMarksEveryCheck() {
+        ServiceDefinition service = convert(TestAdminRowsService.class);
+
+        assertTrue(service.findDecorator(AuthzResourceC3Decorator.class).isAcrossTenants());
+        assertTrue(check(service, "count").isAcrossTenants());
+        assertTrue(check(service, "deleteByQuery").isAcrossTenants());
+        assertEquals("can_delete", check(service, "deleteByQuery").getPermission());
+        assertFalse(check(convert(TestProjectService.class), "findById").isAcrossTenants());
+    }
+
+    @Test
+    public void aServiceOfAnotherTypeActingAcrossTenantsRejectsTheService() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestAcrossTenantsWidgetService.class));
+
+        assertTrue(e.getMessage().contains("across tenants"), e.getMessage());
+        assertTrue(e.getMessage().contains("TestAcrossTenantsWidgetService"), e.getMessage());
     }
 
     @Test

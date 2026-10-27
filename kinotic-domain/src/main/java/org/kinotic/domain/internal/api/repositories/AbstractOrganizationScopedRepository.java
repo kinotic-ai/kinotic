@@ -14,6 +14,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
@@ -40,6 +41,8 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
 
     static final String ORGANIZATION_ID_FIELD = "organizationId";
     private static final String ID_FIELD = "id";
+    // under Elasticsearch's default max_result_window of 10,000, so a batch of ids is one page
+    private static final int ID_BATCH_SIZE = 1_000;
     // DomainUtil.validateOrganizationId forbids "--" in an organization id, so the first "--" of a
     // document id always ends the organization id, whatever the entity id holds
     private static final String DOCUMENT_ID_SEPARATOR = "--";
@@ -207,6 +210,25 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
 
     protected Future<Page<T>> findAll(Pageable pageable, Consumer<SearchRequest.Builder> builderConsumer) {
         return crudServiceTemplate.search(indexName, pageable, type, builderConsumer);
+    }
+
+    /**
+     * Every document of {@code orgId} whose entity id is among the given ids, however many there are.
+     */
+    protected Future<List<T>> findAllByIds(Collection<String> ids, String orgId) {
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        // a search returns at most max_result_window hits, so the ids are read a window at a time
+        List<String> remaining = List.copyOf(ids);
+        Future<List<T>> ret = Future.succeededFuture(new ArrayList<>());
+        for (int from = 0; from < remaining.size(); from += ID_BATCH_SIZE) {
+            List<String> batch = remaining.subList(from, Math.min(from + ID_BATCH_SIZE, remaining.size()));
+            ret = ret.compose(found -> findAll(Pageable.ofSize(batch.size()), b -> b.routing(orgId).query(composeOrgFilter(orgId, idsFilter(batch))))
+                    .map(page -> {
+                        found.addAll(page.getContent());
+                        return found;
+                    }));
+        }
+        return ret;
     }
 
     protected Future<T> findFirst(Consumer<SearchRequest.Builder> builderConsumer) {

@@ -73,6 +73,13 @@ public final class AuthzCheckC3Decorator extends C3Decorator {
      */
     private boolean consistent;
 
+    /**
+     * True for a check on an {@code entity_definition} made on the definition itself for every caller, where a
+     * tenant's user is otherwise checked on the definition within its tenant: the function acts on the rows of
+     * every tenant.
+     */
+    private boolean acrossTenants;
+
     public AuthzCheckC3Decorator() {
         this.targets = List.of(DecoratorTarget.FUNCTION);
     }

@@ -57,15 +57,7 @@ public abstract class AbstractApplicationScopedRepository<T extends ApplicationS
      * The ids of the applications containing the documents with the given ids in {@code orgId}.
      */
     public Future<Set<String>> findApplicationIdsOf(Collection<String> ids, String orgId) {
-        Validate.notBlank(orgId, "orgId cannot be blank");
-        Future<Set<String>> ret;
-        if (ids.isEmpty()) {
-            ret = Future.succeededFuture(Set.of());
-        } else {
-            ret = findAll(Pageable.ofSize(ids.size()), b -> b.routing(orgId).query(composeOrgFilter(orgId, idsFilter(ids))))
-                    .map(page -> page.getContent().stream().map(ApplicationScoped::getApplicationId).collect(Collectors.toSet()));
-        }
-        return ret;
+        return findAllByIds(ids, orgId).map(found -> found.stream().map(ApplicationScoped::getApplicationId).collect(Collectors.toSet()));
     }
 
     protected Query applicationIdFilter(String applicationId) {

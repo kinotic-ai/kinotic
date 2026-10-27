@@ -20,6 +20,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
@@ -195,11 +196,18 @@ public class ApplicationServiceDirectoryTests extends KinoticTestBase {
                                           .setServiceDefinition(definition);
     }
 
+    // a definition marked unchecked as a whole, which the CLI writes as the mark on every function
     private static ServiceDefinition definition(String namespace, String name) {
         return new ServiceDefinition().setNamespace(namespace)
                                       .setName(name)
-                                      .addFunction(new FunctionDefinition().setName("findReports"))
-                                      .addFunction(new FunctionDefinition().setName("generate"));
+                                      .addFunction(unchecked("findReports"))
+                                      .addFunction(unchecked("generate"));
+    }
+
+    private static FunctionDefinition unchecked(String name) {
+        FunctionDefinition ret = new FunctionDefinition().setName(name);
+        ret.setDecorators(List.of(new AuthzCheckC3Decorator().setUnchecked(true)));
+        return ret;
     }
 
     private ServiceDirectoryEntry stored(String applicationId, String id) throws Exception {

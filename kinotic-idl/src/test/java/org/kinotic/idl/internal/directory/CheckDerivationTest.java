@@ -130,14 +130,14 @@ public class CheckDerivationTest {
     }
 
     @Test
-    public void aDefinitionWithoutAResourceIsStoredAsDeclared() {
+    public void aDefinitionDeclaringNoResourceAndNotMarkedUncheckedIsRefused() {
         ServiceDefinition plain = new ServiceDefinition().setNamespace("com.acme.reports").setName("ReportService");
         plain.addFunction(function("render", null, "reportId"));
 
-        ServiceDefinition service = schemaService.deriveChecks(plain);
-
-        assertNull(service.getDecorators());
-        assertNull(function(service, "render").getDecorators());
+        // the gateway would refuse every function of it, as the directory refuses a @Publish interface declaring neither
+        String message = assertThrows(IllegalStateException.class, () -> schemaService.deriveChecks(plain)).getMessage();
+        assertTrue(message.contains("com.acme.reports.ReportService"), message);
+        assertTrue(message.contains("not marked unchecked"), message);
 
         ServiceDefinition checked = new ServiceDefinition().setNamespace("com.acme.reports").setName("ReportService");
         checked.addFunction(function("render", new AuthzCheckC3Decorator().setPermission("can_render"), "reportId"));
