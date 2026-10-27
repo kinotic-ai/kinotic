@@ -309,7 +309,7 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
         assertInstanceOf(IllegalArgumentException.class, failure(() -> passwords.save(password(null, null).setCreateUserOnSignIn(true))));
 
         // a tenant, and an application, created again under the same id start with no password sign-in
-        await(asAdministrator(() -> tenantService.deleteById(globex.getId())));
+        await(asAdministrator(() -> tenantService.deleteById(appId, globex.getId())));
         assertNull(await(passwords.findById(PasswordConfiguration.idOf(organization.getId(), appId, globex.getId()), organization.getId())));
         await(asAdministrator(() -> applicationService.deleteById(appId)));
         assertNull(await(passwords.findById(PasswordConfiguration.idOf(organization.getId(), appId, null), organization.getId())));

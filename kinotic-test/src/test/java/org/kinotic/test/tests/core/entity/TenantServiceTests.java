@@ -20,13 +20,14 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Verifies how an organization's tenants are created: a tenant id names one tenant of one of the organization's
- * applications, so creating it again for the same application answers the existing tenant, at once or in turn, a
- * create or a save for another application is refused, an id is held to the room a site label leaves in front
- * of the application's name, and a prefix of a name or an id finds that application's tenants alone.
+ * Verifies how an organization's tenants are created: a tenant id is unique within its application, so creating it
+ * again for the same application answers the existing tenant, at once or in turn, while another application holds a
+ * tenant of the same id of its own; an id is held to the room a site label leaves in front of the application's
+ * name, and a prefix of a name or an id finds that application's tenants alone.
  */
 @SpringBootTest
 public class TenantServiceTests extends KinoticTestBase {
@@ -63,7 +64,7 @@ public class TenantServiceTests extends KinoticTestBase {
     }
 
     @Test
-    public void aTenantIdNamesOneTenantOfOneApplication() throws Exception {
+    public void aTenantIdIsUniqueWithinItsApplication() throws Exception {
         String appId = "tenant-app-" + suffix();
         String otherAppId = "tenant-app-" + suffix();
         await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(appId, "Tenant application", null)));
@@ -75,15 +76,15 @@ public class TenantServiceTests extends KinoticTestBase {
         assertEquals(globex.getId(), again.getId());
         assertEquals("A customer", again.getDescription());
 
-        assertInstanceOf(IllegalArgumentException.class, failure(() -> tenantService.createTenantIfNotExist(otherAppId, name, "Another customer")));
-        // nor does a save under the id, whether it names the id or the name the id is minted from
-        Tenant moved = new Tenant().setApplicationId(otherAppId).setName(name).setDescription("Moved");
-        assertInstanceOf(IllegalArgumentException.class, failure(() -> tenantService.save(moved)));
-        Tenant renamed = new Tenant().setId(globex.getId()).setApplicationId(otherAppId).setName("Other name").setDescription("Moved");
-        assertInstanceOf(IllegalArgumentException.class, failure(() -> tenantService.save(renamed)));
-        Tenant kept = await(runAsOrganization(() -> tenantService.findById(globex.getId())));
-        assertEquals(appId, kept.getApplicationId());
-        assertEquals("A customer", kept.getDescription());
+        // another application's tenant of the same id is a tenant of its own
+        Tenant theirs = await(runAsOrganization(() -> tenantService.createTenantIfNotExist(otherAppId, name, "Another customer")));
+        assertEquals(globex.getId(), theirs.getId());
+        assertEquals("A customer", await(runAsOrganization(() -> tenantService.findById(appId, globex.getId()))).getDescription());
+        assertEquals("Another customer", await(runAsOrganization(() -> tenantService.findById(otherAppId, globex.getId()))).getDescription());
+
+        await(runAsOrganization(() -> tenantService.deleteById(otherAppId, globex.getId())));
+        assertNull(await(runAsOrganization(() -> tenantService.findById(otherAppId, globex.getId()))));
+        assertEquals(appId, await(runAsOrganization(() -> tenantService.findById(appId, globex.getId()))).getApplicationId());
     }
 
     @Test
