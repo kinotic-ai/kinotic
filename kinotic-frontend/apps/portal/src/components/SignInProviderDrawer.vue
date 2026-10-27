@@ -55,7 +55,7 @@
           <label v-for="option in REGISTRATION_OPTIONS" :key="option.value"
                  class="flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3.5"
                  :class="clientRegistrationType === option.value
-                     ? 'border-primary bg-primary/5'
+                     ? 'border-surface-950 bg-surface-50 dark:border-surface-0 dark:bg-surface-800'
                      : 'border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-900'">
             <RadioButton v-model="clientRegistrationType" :input-id="`oidc-registration-${option.value}`" :value="option.value"
                          name="oidc-registration" class="mt-0.5 shrink-0" />
