@@ -192,8 +192,8 @@ importers:
         specifier: ^5.0.0-beta.6
         version: 5.0.0-beta.6
       '@kinotic-ai/kinotic-cli':
-        specifier: ^5.2.0-beta.40
-        version: 5.2.0-beta.40(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)
+        specifier: ^5.2.0-beta.41
+        version: 5.2.0-beta.41(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(supports-color@8.1.1)(zod@4.4.3)
@@ -615,8 +615,8 @@ packages:
   '@kinotic-ai/idl@5.0.0-beta.6':
     resolution: {integrity: sha512-GemJ94ptLbrZ642NEqqd7sWVkSyH1ybTGU2WKeiVhvHYDwARt3DKLA/MOcxls6QsafFRisJUl0irGgHC9huQpA==}
 
-  '@kinotic-ai/kinotic-cli@5.2.0-beta.40':
-    resolution: {integrity: sha512-rt/UTHk8xeWj+l3dWUjqP2+0MR/oaPXv568Jt6N0tGscIYw/AGw3+JYiNtXkr676r0EHIXvczNDHD1E1ljm7pg==}
+  '@kinotic-ai/kinotic-cli@5.2.0-beta.41':
+    resolution: {integrity: sha512-8YfVt70/RRu4jMFBAw7QHAkvltdUMTLNjnXSJekjWeieA5TjG23FUGNKG+ZzyGZhB6tYwTPGM3QnFryOCjIQIg==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -2714,7 +2714,7 @@ snapshots:
 
   '@kinotic-ai/idl@5.0.0-beta.6': {}
 
-  '@kinotic-ai/kinotic-cli@5.2.0-beta.40(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)':
+  '@kinotic-ai/kinotic-cli@5.2.0-beta.41(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)':
     dependencies:
       '@inquirer/prompts': 8.5.2(@types/node@25.9.5)
       '@kinotic-ai/core': 5.0.0-beta.29(supports-color@8.1.1)
