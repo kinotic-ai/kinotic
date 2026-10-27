@@ -132,17 +132,22 @@ export class LocalStack {
     }
 
     /**
-     * Downloads the stack's latest images, keeping those already here when a download fails, then starts its
-     * containers and waits for its servers to answer.
+     * Downloads the stack's latest images, then starts its containers and waits for its servers to answer.
      *
      * @param onWaiting called once the containers are started and the servers are being waited for
+     * @throws Error when an image cannot be downloaded, rather than start a copy this machine holds from before
      */
     async start(onWaiting: () => void): Promise<void> {
         // Copied over in place: a running container's bind mounts keep pointing at the same files and directories,
         // and none of them points into a CLI install that an upgrade replaces
         fs.cpSync(path.join(this.bundleDir, 'compose'), this.composeDir, {recursive: true, force: true})
-        this.compose(['pull', '--ignore-pull-failures'])
-        this.compose(['up', '-d', '--no-build', '--pull', 'missing'])
+        try {
+            this.compose(['up', '-d', '--no-build'])
+        } catch {
+            // compose has printed which image or container failed; a rejected Docker Hub login is the usual cause
+            throw new Error('Kinotic could not start. If an image could not be downloaded, check that Docker Hub accepts'
+                            + ' this machine\'s Docker login: run `docker logout`, or `docker login` again, then run this again.')
+        }
         onWaiting()
         await this.waitForServers()
     }
@@ -287,7 +292,9 @@ export class LocalStack {
     private compose(args: string[]): void {
         const dir = fs.existsSync(this.composeDir) ? this.composeDir : path.join(this.bundleDir, 'compose')
         const result = spawnSync('docker', ['compose', '--project-directory', dir, '-f', path.join(dir, 'compose.yml'), ...args],
-                                 {stdio: 'inherit', env: {...process.env, kinoticVersion: this.versions.kinoticVersion}})
+                                 // every Kinotic image is pulled each time, so the stack never starts from a stale copy
+                                 {stdio: 'inherit', env: {...process.env, kinoticVersion: this.versions.kinoticVersion,
+                                                          KINOTIC_PULL_POLICY: 'always'}})
         if (result.error || result.status !== 0) {
             throw new Error(`docker compose ${args[0]} failed`)
         }

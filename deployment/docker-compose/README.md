@@ -15,10 +15,13 @@ workflow — they're built up from small `compose.*.yml` files using docker-comp
 
 `docker compose down` to stop. `docker compose down -v` to also wipe volumes (ES data and the published UIs).
 
-`kinotic-migration` and the three servers use `pull_policy: missing`, so a locally present image
-wins and the stack keeps using it until you ask for a newer one. Run `docker compose pull` to
-refresh them from Docker Hub. This is also what lets CI point the stack at the image built from
-the commit under test rather than whatever the published tag currently holds.
+Every Kinotic image (the migration, the three servers, `kinotic-ui` and `kinotic-sites-edge`) takes
+its `pull_policy` from `KINOTIC_PULL_POLICY`, `missing` by default, so a locally present image wins
+and the stack keeps using it until you ask for a newer one. Run `docker compose pull` to refresh
+them from Docker Hub. This is also what lets CI point the stack at the image built from the commit
+under test rather than whatever the published tag currently holds. `kinotic local up` sets
+`KINOTIC_PULL_POLICY=always`, so it downloads each image every time and fails rather than start a
+copy left from an earlier version; `KINOTIC_PULL_POLICY=always docker compose up -d` does the same.
 
 ## What each file does
 

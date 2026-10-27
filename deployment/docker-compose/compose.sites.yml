@@ -20,6 +20,8 @@ services:
 
   kinotic-sites-edge:
     image: kinoticai/kinotic-sites-edge:${kinoticVersion:-5.0.0-SNAPSHOT}
+    # KINOTIC_PULL_POLICY, as compose.kinotic-servers.yml describes
+    pull_policy: ${KINOTIC_PULL_POLICY:-missing}
     # From a checkout, `docker compose up --build` builds it from the working tree instead of pulling it
     build:
       context: ..

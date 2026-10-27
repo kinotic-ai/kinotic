@@ -1,9 +1,12 @@
 # Debugging Guide for the Kinotic Frontend
 
 Covers `kinotic-frontend/apps/portal` (the dashboard) and `kinotic-frontend/apps/system`
-(the operator console). Both are Vite + Vue 3 apps in the same pnpm workspace.
+(the system console). Both are Vite + Vue 3 apps in the same pnpm workspace.
 
 ## Prerequisites
+
+The servers run in docker compose: start them with the **Compose: Up** task, or `docker compose up -d`
+in `deployment/docker-compose`.
 
 Install these VS Code extensions:
 - Vue.volar (Vue Language Features)
@@ -13,13 +16,14 @@ Install these VS Code extensions:
 
 ### 1. Start the Development Server
 
-From the workspace root:
+Run **Portal: Dev Server** or **System Console: Dev Server** from Run and Debug, or from the workspace
+root:
 
 ```bash
 cd kinotic-frontend
 pnpm install
 pnpm dev          # portal on http://localhost:5173
-pnpm dev:system   # system console
+pnpm dev:system   # system console on http://localhost:5174
 ```
 
 The portal talks to the management server at `localhost:58503` and the console to the system server
@@ -31,8 +35,8 @@ resolve per command.
 
 #### Option A: Launch Chrome from VS Code
 1. Go to Run and Debug (Ctrl+Shift+D / Cmd+Shift+D)
-2. Pick the Chrome launch configuration and start it
-3. VS Code opens a Chrome instance pointed at http://localhost:5173 with source maps on
+2. Start **Portal: Chrome** or **System Console: Chrome** once its dev server is up
+3. VS Code opens a Chrome instance pointed at http://localhost:5173 (or 5174) with source maps on
 
 #### Option B: Attach to an existing Chrome
 1. Start Chrome with remote debugging:
@@ -44,7 +48,8 @@ resolve per command.
    "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
    ```
 2. Navigate to http://localhost:5173
-3. Attach from VS Code
+3. Start **Chrome: Attach** from Run and Debug; for the system console, point its `webRoot` at
+   `kinotic-frontend/apps/system` first
 
 ### 3. Setting Breakpoints
 - Set breakpoints in Vue components (`.vue`) and TypeScript files (`.ts`)
@@ -60,17 +65,4 @@ resolve per command.
 #### Chrome Debugging Issues?
 - Close all Chrome instances before launching the debugger
 - Check that port 9222 is not in use
-- Verify the URL in `launch.json` matches your dev server port (5173)
-
-## Known issue: `.vscode/launch.json` is stale
-
-The committed configurations still reference the pre-rename layout and will not run as-is:
-
-| In `launch.json` | Actual |
-|---|---|
-| `cwd`/`webRoot` `${workspaceFolder}/structures-frontend-next` | `${workspaceFolder}/kinotic-frontend/apps/portal` |
-| `mainClass` `org.kinotic.structuresserver.StructuresServerApplication` | `org.kinotic.managementserver.ManagementServerApplication` |
-| `projectName` `structures-server` | `kinotic-server-management` |
-| `-cp ${workspaceFolder}/structures-core/src/main/resources` | `kinotic-core/src/main/resources` |
-
-Fix those paths before using the Run and Debug panel.
+- Verify the URL in `launch.json` matches your dev server port (5173 for the portal, 5174 for the console)
