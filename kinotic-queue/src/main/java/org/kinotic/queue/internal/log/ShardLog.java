@@ -91,12 +91,14 @@ public final class ShardLog implements AutoCloseable {
     private boolean closed;
 
     /**
-     * Opens the shard stored in {@code directory}, creating it empty when there is none, with the queue's storage
-     * settings: whether writes are forced to disk, and how long and how large the shard is kept.
+     * Opens the shard stored in {@code directory}, creating it empty when there is none.
+     *
+     * @param syncWrites whether writes are forced to disk
+     * @param properties how long and how large the shard is kept
      */
-    ShardLog(Path directory, QueueProperties properties) {
+    ShardLog(Path directory, boolean syncWrites, QueueProperties properties) {
         this.directory = directory;
-        this.syncWrites = properties.isSyncWrites();
+        this.syncWrites = syncWrites;
         this.retentionPeriod = properties.getRetentionPeriod();
         this.retentionBytes = properties.getRetentionBytes() != null ? properties.getRetentionBytes().toBytes() : -1;
         open();

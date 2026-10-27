@@ -204,7 +204,7 @@ public class QueueDefinitionRepository {
 
     // The queue stored under the definition's name: this one, or the one stored before it
     private QueueRegistration store(QueueDefinition definition, String incarnation) {
-        QueueRegistration value = new QueueRegistration(definition.shardCount(), incarnation);
+        QueueRegistration value = new QueueRegistration(definition.shardCount(), definition.syncWrites(), incarnation);
         QueueRegistration existing = cache.getAndPutIfAbsent(definition.name(), value);
         return existing != null ? existing : value;
     }

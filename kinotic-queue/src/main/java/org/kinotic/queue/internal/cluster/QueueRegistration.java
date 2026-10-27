@@ -11,6 +11,7 @@ import org.kinotic.queue.api.model.QueueDefinition;
 public class QueueRegistration {
 
     int shardCount;
+    boolean syncWrites;
     /**
      * Tells the queue from earlier queues of the same name.
      */
@@ -20,6 +21,6 @@ public class QueueRegistration {
      * @return the queue registered under the name
      */
     StoredQueue toStoredQueue(String name) {
-        return new StoredQueue(new QueueDefinition(name, shardCount), incarnation);
+        return new StoredQueue(new QueueDefinition(name, shardCount, syncWrites), incarnation);
     }
 }

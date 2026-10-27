@@ -68,14 +68,14 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
     /**
      * @param versions   one counter per shard, which every change of a position stored for the shard increments; it may
      *                   be shared with other repositories, so one version covers their positions too
-     * @param properties whether each save is forced to disk before it returns, and the retention period after which an
-     *                   unused position expires
+     * @param syncWrites whether each save is forced to disk before it returns
+     * @param properties the retention period after which an unused position expires
      */
-    ConsumerOffsetRepository(Path directory, AtomicLongArray versions, QueueProperties properties) {
+    ConsumerOffsetRepository(Path directory, AtomicLongArray versions, boolean syncWrites, QueueProperties properties) {
         this.directory = directory;
         this.shardCount = versions.length();
         this.versions = versions;
-        this.syncWrites = properties.isSyncWrites();
+        this.syncWrites = syncWrites;
         this.expiry = properties.getRetentionPeriod();
         this.refreshInterval = refreshInterval(expiry);
     }

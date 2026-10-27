@@ -65,12 +65,33 @@ public class QueueServiceTests {
     }
 
     @Test
-    public void createQueueIfNotExistKeepsTheOriginalShardCount() throws Exception {
-        await(service.createQueueIfNotExist(new QueueDefinition("orders", 4)));
+    public void createQueueIfNotExistKeepsTheOriginalShardCountAndWriteSyncing() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 4, false)));
 
-        QueueDefinition stored = await(service.createQueueIfNotExist(new QueueDefinition("orders", 8)));
+        QueueDefinition stored = await(service.createQueueIfNotExist(new QueueDefinition("orders", 8, true)));
 
         assertEquals(4, stored.shardCount());
+        assertFalse(stored.syncWrites());
+    }
+
+    @Test
+    public void aQueueWithoutWriteSyncingKeepsItsRecordsAndSettingAcrossARestart() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 2, false)));
+        for (int i = 0; i < 10; i++) {
+            await(service.append("orders", "key-" + i, payload(i)));
+        }
+
+        // The restarted node is a new cluster member that knows the queue only from its disk
+        node.close();
+        startNode();
+
+        assertFalse(await(service.createQueueIfNotExist(new QueueDefinition("orders", 2))).syncWrites());
+        TestSubscriber subscriber = subscribe("billing", StartPosition.EARLIEST);
+        Set<Integer> received = new HashSet<>();
+        for (int i = 0; i < 10; i++) {
+            received.add(value(subscriber.next()));
+        }
+        assertEquals(range(0, 10), received);
     }
 
     @Test

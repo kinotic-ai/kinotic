@@ -20,8 +20,8 @@ public interface QueueService {
 
     /**
      * @return the name of the queue a worker group's rejected records, and records it was leased five times without
-     * accepting, are appended to; created with the source queue's shard count when the first record arrives. Every
-     * queue and group has a dead-letter queue of its own.
+     * accepting, are appended to; created with the source queue's shard count and {@link QueueDefinition#syncWrites}
+     * when the first record arrives. Every queue and group has a dead-letter queue of its own.
      */
     static String deadLetterQueue(String queue, String groupName) {
         return queue + "." + groupName + DEAD_LETTER_SUFFIX;
@@ -30,9 +30,10 @@ public interface QueueService {
     /**
      * Creates a queue unless a queue with the same name already exists.
      *
-     * @param definition the name and shard count of the queue; at most 1024 shards, and a name that does not end in
-     *                   {@link #DEAD_LETTER_SUFFIX}
-     * @return the stored definition, which keeps its original shard count when the queue already existed
+     * @param definition the name, shard count and write syncing of the queue; at most 1024 shards, and a name that does
+     *                   not end in {@link #DEAD_LETTER_SUFFIX}
+     * @return the stored definition, which keeps its original shard count and write syncing when the queue already
+     * existed
      */
     Future<QueueDefinition> createQueueIfNotExist(QueueDefinition definition);
 

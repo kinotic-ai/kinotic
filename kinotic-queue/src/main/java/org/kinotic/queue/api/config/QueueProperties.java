@@ -37,13 +37,6 @@ public class QueueProperties {
     private int replicationFactor = 3;
 
     /**
-     * Whether every write is forced to disk before it counts toward a majority. With it, an acknowledged record
-     * survives every copy losing power at once; without it, a record survives as long as a majority of its copies
-     * keeps running or shuts down cleanly, and writes are faster.
-     */
-    private boolean syncWrites = true;
-
-    /**
      * How long records are kept. Records are deleted in whole segments: a segment closes at the first record appended
      * once it is half this old, a day old, or a quarter of {@link #retentionBytes} large, and is deleted once the
      * segment after it is this old, so a record lives at least this long. Consumers and worker groups that have not

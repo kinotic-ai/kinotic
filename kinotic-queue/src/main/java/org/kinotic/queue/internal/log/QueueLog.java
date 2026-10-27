@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
 @Accessors(fluent = true)
 public final class QueueLog implements AutoCloseable {
 
-    // "<incarnation> <shard count>"
+    // "<incarnation> <shard count> <sync writes>"
     private static final String QUEUE_FILE = "queue";
     // The incarnations of deleted queues this node knows of, one "<incarnation> <name>" per line
     private static final String DELETED_QUEUES_FILE = ".deleted-queues";
@@ -68,8 +68,8 @@ public final class QueueLog implements AutoCloseable {
         this.properties = properties;
         this.shards = new ShardLog[definition.shardCount()];
         this.positionVersions = new AtomicLongArray(definition.shardCount());
-        this.consumerOffsets = new ConsumerOffsetRepository(directory.resolve("consumers"), positionVersions, properties);
-        this.groupOffsets = new ConsumerOffsetRepository(directory.resolve("groups"), positionVersions, properties);
+        this.consumerOffsets = new ConsumerOffsetRepository(directory.resolve("consumers"), positionVersions, definition.syncWrites(), properties);
+        this.groupOffsets = new ConsumerOffsetRepository(directory.resolve("groups"), positionVersions, definition.syncWrites(), properties);
     }
 
     /**
@@ -108,7 +108,7 @@ public final class QueueLog implements AutoCloseable {
                                                     + " shards, but the cluster defines it with " + definition.shardCount());
         }
         if (stored == null) {
-            DurableFiles.writeDurably(directory.resolve(QUEUE_FILE), incarnation + " " + definition.shardCount());
+            DurableFiles.writeDurably(directory.resolve(QUEUE_FILE), incarnation + " " + definition.shardCount() + " " + definition.syncWrites());
         }
         return new QueueLog(directory, definition, incarnation, properties);
     }
@@ -165,7 +165,8 @@ public final class QueueLog implements AutoCloseable {
     public static QueueDefinition findDefinition(Path directory) {
         String name = directory.getFileName().toString();
         String stored = isValidName(name) ? DurableFiles.read(directory.resolve(QUEUE_FILE)) : null;
-        return stored != null ? new QueueDefinition(name, Integer.parseInt(stored.split(" ")[1])) : null;
+        String[] fields = stored != null ? stored.split(" ") : null;
+        return fields != null ? new QueueDefinition(name, Integer.parseInt(fields[1]), Boolean.parseBoolean(fields[2])) : null;
     }
 
     /**
@@ -196,7 +197,7 @@ public final class QueueLog implements AutoCloseable {
     public synchronized ShardLog shard(int shard) {
         requireOpen();
         if (shards[shard] == null) {
-            shards[shard] = new ShardLog(shardDirectory(shard), properties);
+            shards[shard] = new ShardLog(shardDirectory(shard), definition.syncWrites(), properties);
         }
         return shards[shard];
     }

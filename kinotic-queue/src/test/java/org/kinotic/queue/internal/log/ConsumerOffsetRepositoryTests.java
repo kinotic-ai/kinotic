@@ -28,7 +28,7 @@ public class ConsumerOffsetRepositoryTests {
 
     @Test
     public void aPositionUnusedForTheRetentionPeriodExpiresUnlessSavedAgain() throws Exception {
-        try (ConsumerOffsetRepository positions = new ConsumerOffsetRepository(directory, new AtomicLongArray(2), ONE_SECOND)) {
+        try (ConsumerOffsetRepository positions = new ConsumerOffsetRepository(directory, new AtomicLongArray(2), true, ONE_SECOND)) {
             positions.save("billing", 0, 10);
             positions.save("audit", 1, 5);
             Thread.sleep(600);
@@ -49,7 +49,7 @@ public class ConsumerOffsetRepositoryTests {
 
     @Test
     public void positionsFromAnotherCopyKeepTheLaterOffsetAndUseAndExpiredOnesAreIgnored() {
-        try (ConsumerOffsetRepository positions = new ConsumerOffsetRepository(directory, new AtomicLongArray(1), ONE_SECOND)) {
+        try (ConsumerOffsetRepository positions = new ConsumerOffsetRepository(directory, new AtomicLongArray(1), true, ONE_SECOND)) {
             long now = System.currentTimeMillis();
             positions.save("billing", 0, 10);
 
@@ -65,7 +65,7 @@ public class ConsumerOffsetRepositoryTests {
 
     @Test
     public void anExpiredPositionNotDeletedYetDoesNotRaiseAPositionReceivedFromAnotherCopy() throws Exception {
-        try (ConsumerOffsetRepository positions = new ConsumerOffsetRepository(directory, new AtomicLongArray(1), ONE_SECOND)) {
+        try (ConsumerOffsetRepository positions = new ConsumerOffsetRepository(directory, new AtomicLongArray(1), true, ONE_SECOND)) {
             positions.save("billing", 0, 100);
             Thread.sleep(1_200);
 
@@ -79,7 +79,7 @@ public class ConsumerOffsetRepositoryTests {
     @Test
     public void onlyPositionsChangedAfterAVersionAreFoundAsChanged() {
         AtomicLongArray versions = new AtomicLongArray(1);
-        try (ConsumerOffsetRepository positions = new ConsumerOffsetRepository(directory, versions, ONE_SECOND)) {
+        try (ConsumerOffsetRepository positions = new ConsumerOffsetRepository(directory, versions, true, ONE_SECOND)) {
             positions.save("billing", 0, 10);
             long version = versions.get(0);
             positions.save("audit", 0, 5);
@@ -92,7 +92,7 @@ public class ConsumerOffsetRepositoryTests {
 
     @Test
     public void expiredPositionsAreDeletedWithTheFilesOfConsumersLeftWithNone() throws Exception {
-        try (ConsumerOffsetRepository positions = new ConsumerOffsetRepository(directory, new AtomicLongArray(2), ONE_SECOND)) {
+        try (ConsumerOffsetRepository positions = new ConsumerOffsetRepository(directory, new AtomicLongArray(2), true, ONE_SECOND)) {
             positions.save("billing", 0, 10);
             positions.save("audit", 0, 5);
             Thread.sleep(1_200);
@@ -109,10 +109,10 @@ public class ConsumerOffsetRepositoryTests {
 
     @Test
     public void aPositionKeepsWhenItWasLastUsedAcrossAReopen() throws Exception {
-        try (ConsumerOffsetRepository positions = new ConsumerOffsetRepository(directory, new AtomicLongArray(1), ONE_SECOND)) {
+        try (ConsumerOffsetRepository positions = new ConsumerOffsetRepository(directory, new AtomicLongArray(1), true, ONE_SECOND)) {
             positions.save("billing", 0, 10);
         }
-        try (ConsumerOffsetRepository reopened = new ConsumerOffsetRepository(directory, new AtomicLongArray(1), ONE_SECOND)) {
+        try (ConsumerOffsetRepository reopened = new ConsumerOffsetRepository(directory, new AtomicLongArray(1), true, ONE_SECOND)) {
             assertEquals(10, reopened.findNextOffset("billing", 0));
             Thread.sleep(1_200);
             assertEquals(0, reopened.findNextOffset("billing", 0));

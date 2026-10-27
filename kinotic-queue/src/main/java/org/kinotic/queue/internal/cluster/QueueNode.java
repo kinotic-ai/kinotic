@@ -329,8 +329,8 @@ public class QueueNode {
         }
     }
 
-    // Appends a record to the group's dead-letter queue, creating the queue with the source queue's shard count when
-    // this node does not know it yet
+    // Appends a record to the group's dead-letter queue, creating the queue with the source queue's shard count and
+    // syncWrites when this node does not know it yet
     private Future<Void> deadLetter(String queue, String groupName, ShardEntry entry) {
         String deadLetterQueue = QueueService.deadLetterQueue(queue, groupName);
         StoredQueue known = definitions.findKnown(deadLetterQueue);
@@ -339,7 +339,8 @@ public class QueueNode {
             if (source == null) {
                 throw QueueFailure.NO_QUEUE.exception("No queue named " + queue);
             }
-            return localQueues.saveIfAbsent(new QueueDefinition(deadLetterQueue, source.definition().shardCount()));
+            QueueDefinition definition = source.definition();
+            return localQueues.saveIfAbsent(new QueueDefinition(deadLetterQueue, definition.shardCount(), definition.syncWrites()));
         }, false);
         return client.append(deadLetterQueue, stored, entry.key(), entry.payload())
                      .onSuccess(position -> metrics.recordDeadLetter(queue, groupName))
