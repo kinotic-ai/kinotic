@@ -48,6 +48,7 @@ public class TenantAccess {
     public String readableTenant(Participant participant, String organizationId) {
         String ret;
         if (participant instanceof SystemParticipant) {
+            // the gateway admits a system user's call only when it holds organization_can_read_telemetry on the system
             ret = TelemetryTenant.of(organizationId);
         } else if (participant instanceof OrganizationParticipant op && op.getOrganizationId().equals(organizationId)) {
             ret = organizationId;
