@@ -36,6 +36,7 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.ProjectService;
+import org.kinotic.management.api.services.security.MemberService;
 import org.kinotic.management.api.services.security.PermissionService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,6 +75,9 @@ public class PermissionServiceTests extends KinoticTestBase {
 
     @Autowired
     private OrganizationService organizationService;
+
+    @Autowired
+    private MemberService memberService;
 
     @Autowired
     private RelationshipService relationships;
@@ -189,13 +193,18 @@ public class PermissionServiceTests extends KinoticTestBase {
         Grant disabledGrant = await(runAs(caller, () -> permissions.grant(user(disabled), AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
         await(identityService.saveSync(disabled.setEnabled(false)));
 
-        // the last enabled administrator's grant stays, and a disabled administrator's may go
+        // the last enabled administrator keeps the grant and stays an enabled member, and a disabled administrator's
+        // grant may go
         assertThrows(ExecutionException.class, () -> await(runAs(caller, () -> permissions.revoke(onOrganization, firstGrant.id()))));
+        assertThrows(ExecutionException.class, () -> await(runAs(caller, () -> memberService.setMemberEnabled(first.getId(), false))));
+        assertThrows(ExecutionException.class, () -> await(runAs(caller, () -> memberService.removeMember(first.getId()))));
         await(runAs(caller, () -> permissions.revoke(onOrganization, disabledGrant.id())));
 
         // once another enabled member administers the organization, the first may go
         OrganizationParticipantIdentity second = member(organizationId, "second-admin");
         await(runAs(caller, () -> permissions.grant(user(second), AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
+        await(runAs(caller, () -> memberService.setMemberEnabled(first.getId(), false)));
+        await(runAs(caller, () -> memberService.setMemberEnabled(first.getId(), true)));
         await(runAs(caller, () -> permissions.revoke(onOrganization, firstGrant.id())));
     }
 

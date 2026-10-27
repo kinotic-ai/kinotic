@@ -35,6 +35,7 @@ public class DefaultMemberService implements MemberService {
     private final InviteService inviteService;
     private final MemberInvitationService memberInvitationService;
     private final RelationshipService relationships;
+    private final DefaultPermissionService permissions;
 
     @Override
     public Future<Page<OrganizationParticipantIdentity>> findMembers(Pageable pageable) {
@@ -75,6 +76,7 @@ public class DefaultMemberService implements MemberService {
     @Override
     public Future<Void> setMemberEnabled(String identityId, boolean enabled) {
         return loadOwnedMember(identityId, requireOrgParticipant())
+                .compose(member -> enabled ? Future.succeededFuture(member) : requireAnotherAdministrator(member))
                 // saveSync so the console's immediate re-query sees the change
                 .compose(member -> identityService.saveSync(member.setEnabled(enabled))
                                                   .compose(saved -> memberOfOrganization(member)));
@@ -99,12 +101,26 @@ public class DefaultMemberService implements MemberService {
     public Future<Void> removeMember(String identityId) {
         OrganizationParticipant participant = requireOrgParticipant();
         return loadOwnedMember(identityId, participant)
+                .compose(this::requireAnotherAdministrator)
                 // cascades the credential, the bindings and the delegates; sync so the console's immediate re-query
                 // no longer shows the member
                 .compose(member -> identityService.deleteByIdSync(member.getId()).map(member))
                 // a member goes with the invitation they never accepted
                 .compose(member -> inviteService.deletePendingInvite(member.getEmail(), participant.getOrganizationId(),
                                                                      member instanceof ApplicationParticipantIdentity user ? user.getApplicationId() : null));
+    }
+
+    // an organization user going out of the organization leaves it another administrator who can sign in
+    private Future<UserParticipantIdentity> requireAnotherAdministrator(UserParticipantIdentity member) {
+        Future<UserParticipantIdentity> ret;
+        if (member instanceof OrganizationParticipantIdentity organizationUser) {
+            ret = permissions.requireAnotherAdministrator(organizationUser.getOrganizationId(),
+                                                          grant -> grant.subject().id().equals(organizationUser.getId()))
+                             .map(member);
+        } else {
+            ret = Future.succeededFuture(member);
+        }
+        return ret;
     }
 
     @Override

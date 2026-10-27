@@ -21,6 +21,7 @@ import org.kinotic.domain.api.model.security.identity.SystemParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 public interface ParticipantIdentityService extends IdentifiableCrudService<ParticipantIdentity, String> {
 
@@ -217,15 +218,16 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     Future<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(Participant owner, Pageable pageable);
 
     /**
-     * Refuses taking a grant of a role away when its holder is an enabled identity of {@code holderType} and no other
-     * of the grants is held by one, so the role stays with someone who can sign in.
+     * Refuses taking away the grants of a role that {@code leaving} selects when one of them is held by an enabled
+     * identity of {@code holderType} and none of the remaining grants is, so the role stays with someone who can
+     * sign in.
      *
      * @param grants     the grants of one role on one resource
-     * @param grantId    the grant to take away; a grant not among {@code grants} may always go
+     * @param leaving    selects the grants being taken away
      * @param holderType the kind of identity that must keep holding the role
-     * @return a future that succeeds when the grant may go, failed with an {@link IllegalStateException} otherwise
+     * @return a future that succeeds when the grants may go, failed with an {@link IllegalStateException} otherwise
      */
-    Future<Void> requireAnotherEnabledHolder(List<Grant> grants, String grantId, Class<? extends ParticipantIdentity> holderType);
+    Future<Void> requireAnotherEnabledHolder(List<Grant> grants, Predicate<Grant> leaving, Class<? extends ParticipantIdentity> holderType);
 
     /**
      * Provisions a machine identity, assigning id and dates, enabling it, and generating the

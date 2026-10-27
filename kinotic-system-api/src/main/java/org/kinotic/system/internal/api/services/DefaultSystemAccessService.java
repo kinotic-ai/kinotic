@@ -66,7 +66,7 @@ public class DefaultSystemAccessService implements SystemAccessService {
         // administrator has every enabled system user made one by SystemGraphBootstrap on the next start
         return relationships.findGrants(SYSTEM, AuthzConstants.SYSTEM_OBJECT)
                             .compose(grants -> identities.requireAnotherEnabledHolder(grants.stream().filter(DefaultSystemAccessService::isAdministrator).toList(),
-                                                                                      grantId, SystemParticipantIdentity.class))
+                                                                                      grant -> grant.id().equals(grantId), SystemParticipantIdentity.class))
                             .compose(v -> relationships.revoke(SYSTEM, grantId, AuthzConstants.SYSTEM_OBJECT));
     }
 

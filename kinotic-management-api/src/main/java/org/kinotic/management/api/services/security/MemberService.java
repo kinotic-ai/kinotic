@@ -92,7 +92,8 @@ public interface MemberService {
     /**
      * Enables or disables a member of the caller's organization or of one of its applications: a user of the
      * organization, or an application user. Disabling gates future logins to that scope;
-     * established sessions last until they expire. Callers cannot disable themselves.
+     * established sessions last until they expire. Callers cannot disable themselves, nor the organization's last
+     * enabled user holding {@code organization.admin} on it.
      *
      * @param identityId the member's id: an organization user's or an application user's
      */
@@ -101,7 +102,8 @@ public interface MemberService {
 
     /**
      * Removes a member: a user of the caller's organization or an application user, each with its stored credentials
-     * and the invitation it never accepted. Callers cannot remove themselves.
+     * and the invitation it never accepted. Callers cannot remove themselves, nor the organization's last enabled user
+     * holding {@code organization.admin} on it.
      *
      * @param identityId the member's id: an organization user's or an application user's
      */

@@ -43,6 +43,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.Objects;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -378,19 +381,15 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    public Future<Void> requireAnotherEnabledHolder(List<Grant> grants, String grantId, Class<? extends ParticipantIdentity> holderType) {
+    public Future<Void> requireAnotherEnabledHolder(List<Grant> grants, Predicate<Grant> leaving, Class<? extends ParticipantIdentity> holderType) {
         Validate.notNull(grants, "grants cannot be null");
-        Validate.notBlank(grantId, "grantId cannot be blank");
+        Validate.notNull(leaving, "leaving cannot be null");
         Validate.notNull(holderType, "holderType cannot be null");
-        Grant revoked = grants.stream().filter(grant -> grant.id().equals(grantId)).findFirst().orElse(null);
-        if (revoked == null) {
-            return Future.succeededFuture();
-        }
-        List<Grant> others = grants.stream().filter(grant -> grant != revoked).toList();
-        return enabledHolders(List.of(revoked), holderType).compose(revokedEnabled -> enabledHolders(others, holderType).map(othersEnabled -> {
-            if (revokedEnabled > 0 && othersEnabled == 0) {
-                throw new IllegalStateException("The grant " + grantId + " is the last of role " + revoked.roleId()
-                                                        + " held by an enabled user; grant the role to another user first");
+        Map<Boolean, List<Grant>> split = grants.stream().collect(Collectors.partitioningBy(leaving));
+        return enabledHolders(split.get(true), holderType).compose(leavingEnabled -> enabledHolders(split.get(false), holderType).map(remainingEnabled -> {
+            if (leavingEnabled > 0 && remainingEnabled == 0) {
+                throw new IllegalStateException("No other enabled user holds " + grants.getFirst().roleId()
+                                                        + "; grant the role to another user first");
             }
             return null;
         }));
