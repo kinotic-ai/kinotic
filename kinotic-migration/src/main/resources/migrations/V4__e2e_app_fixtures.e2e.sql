@@ -79,6 +79,5 @@ INSERT INTO kinotic_oidc_configuration (id, type, organizationId, providerAccoun
 
 -- A member of test-org holding no role (password: kinotic), for the e2e suites asserting what a member is refused
 -- until granted
-INSERT INTO kinotic_participant_identity (id, type, email, displayName, enabled) VALUES ('00000000-0000-0000-0000-000000000004', 'ORGANIZATION_USER', 'sally@kinotic.local', 'Sally', true) WITH REFRESH;
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, created) VALUES ('00000000-0000-0000-0000-000000000004', 'ORGANIZATION_USER', 'sally@kinotic.local', 'Sally', 'test-org', true, '2026-01-01') WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000004', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
-INSERT INTO kinotic_organization_membership (id, organizationUserId, organizationId, enabled, created, updated) VALUES ('00000000-0000-0000-0000-000000000004:test-org', '00000000-0000-0000-0000-000000000004', 'test-org', true, '2026-01-01', '2026-01-01') WITH REFRESH;
