@@ -4,13 +4,31 @@
 #   curl -fsSL https://kinotic.ai/install | sh
 #
 # Kinotic runs in Docker, which must be installed and running. Bun is installed when missing; the CLI runs on
-# Node.js, which must be installed. `kinotic local up` then starts the servers, the portal and the node your
-# projects deploy to, and `kinotic local down` stops them.
+# Node.js, which must be installed. Bun's global bin directory, where the kinotic command is installed, is added to
+# the PATH in the shell's profile when it is missing. `kinotic local up` then starts the servers, the portal and the
+# node your projects deploy to, and `kinotic local down` stops them.
 set -eu
 
 fail() {
     printf 'Error: %s\n' "$1" >&2
     exit 1
+}
+
+# The profile the login shell reads, and the line that puts a directory on the PATH there
+add_to_path() {
+    dir="$1"
+    case "$(basename "${SHELL:-sh}")" in
+        zsh)  profile="${ZDOTDIR:-$HOME}/.zshrc"; line="export PATH=\"$dir:\$PATH\"" ;;
+        bash) if [ "$(uname)" = Darwin ]; then profile="$HOME/.bash_profile"; else profile="$HOME/.bashrc"; fi
+              line="export PATH=\"$dir:\$PATH\"" ;;
+        fish) profile="$HOME/.config/fish/config.fish"; line="fish_add_path \"$dir\"" ;;
+        *)    profile="$HOME/.profile"; line="export PATH=\"$dir:\$PATH\"" ;;
+    esac
+    if ! grep -qsF "$line" "$profile"; then
+        mkdir -p "$(dirname "$profile")"
+        printf '\n# The Kinotic CLI, installed by Bun\n%s\n' "$line" >> "$profile"
+    fi
+    printf 'Added %s to your PATH in %s\n' "$dir" "$profile"
 }
 
 # The whole script is one function called on its last line, so a download cut short runs nothing
@@ -32,12 +50,18 @@ main() {
 
     printf 'Installing the Kinotic CLI\n'
     bun install --global @kinotic-ai/kinotic-cli@beta
+    # Bun puts global commands in its own bin directory, which a Bun installed by another means need not have on the PATH
+    BIN_DIR="$(bun pm bin -g)"
+    case ":$ORIGINAL_PATH:" in
+        *":$BIN_DIR:"*) ;;
+        *) add_to_path "$BIN_DIR" ;;
+    esac
 
-    kinotic local up
+    "$BIN_DIR/kinotic" local up
 
     case ":$ORIGINAL_PATH:" in
-        *":$BUN_INSTALL/bin:"*) ;;
-        *) printf '\nOpen a new terminal, or add %s/bin to your PATH, to run kinotic there.\n' "$BUN_INSTALL" ;;
+        *":$BIN_DIR:"*) ;;
+        *) printf '\nOpen a new terminal to run kinotic there.\n' ;;
     esac
 }
 
