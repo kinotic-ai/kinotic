@@ -334,22 +334,6 @@ That brings up the whole platform from published images:
   <tr>
     <td>
       <code>
-        kinotic-gen-schemas
-      </code>
-    </td>
-    
-    <td>
-      —
-    </td>
-    
-    <td>
-      Publishes a set of sample entity definitions through the management server, then exits
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
         kinotic-azurite
       </code>
     </td>
@@ -449,12 +433,18 @@ That brings up the whole platform from published images:
 </tbody>
 </table>
 
-Open `http://localhost:9090` and sign in as `kinotic@kinotic.local` with the password
-`kinotic`. That user belongs to the `test-org` organization, which the stack fills with
-sample data: the migration runs with the `fixtures` profile (`evaluation.env`), which seeds
-applications, projects, members and pending invites, and `kinotic-gen-schemas` creates the
-`ecommerce` and `healthcare` applications with published entity definitions and records.
-Signing up instead creates an organization of your own, which starts empty.
+The stack starts with no organization: open `http://localhost:9090/signup` to create yours. To see the
+screens filled in, add the sample data:
+
+```bash
+docker compose -f compose.yml -f compose.sample-data.yml up -d
+```
+
+and sign in as `kinotic@kinotic.local` with the password `kinotic`. That user belongs to the `test-org`
+organization, which `kinotic-sample-data`, the migration run with the `fixtures` profile, fills with
+applications, projects, members and pending invites, and `kinotic-gen-schemas` adds the `ecommerce` and
+`healthcare` applications with published entity definitions and records. Pass the same `-f` files to every
+later command on that stack, such as `docker compose -f compose.yml -f compose.sample-data.yml down -v`.
 
 <table>
 <thead>
@@ -575,7 +565,7 @@ project's deployment page links. Chrome, Edge and Firefox resolve every `*.local
 this machine; a client that does not needs the hostname in its hosts file.
 - The node keeps its image cache in `~/.boxlite`, which one process can hold at a time: stop the
 node before running the vm-manager tests, or give the tests their own `BOXLITE_HOME`.
-- The evaluator stack's sample nodes are marked unreachable on the system server's first
+- The sample data's worker nodes are marked unreachable on the system server's first
 heartbeat pass, so deployments land on your node.
 
 ## Testing

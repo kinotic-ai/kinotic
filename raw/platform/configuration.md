@@ -385,6 +385,55 @@ The default sits under the home directory of the account the vm-manager runs as,
 </tbody>
 </table>
 
+## Workloads across node restarts
+
+A node's workloads outlive its vm-manager process: the next process on the node reattaches to the VMs still running.
+A node that shuts down with `KINOTIC_STOP_WORKLOADS_ON_SHUTDOWN` set instead stops every workload it runs, reports
+each one's end to the server, and destroys them all, as the node `kinotic local up` starts does when
+`kinotic local down` stops it.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Environment variable
+    </th>
+    
+    <th>
+      Meaning
+    </th>
+    
+    <th>
+      Default
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        KINOTIC_STOP_WORKLOADS_ON_SHUTDOWN
+      </code>
+      
+       (vm-manager)
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+      
+       stops and destroys every workload as the node shuts down
+    </td>
+    
+    <td>
+      unset
+    </td>
+  </tr>
+</tbody>
+</table>
+
 ## Workload images
 
 A workload's image is pulled before every start when its reference floats — no tag, or `latest` — so a node runs what the registry holds now rather than the copy it pulled first. A reference pinning a tag other than `latest` or a digest names one immutable image, and is pulled only when the node does not have it yet. Both providers apply the rule, which is the one Kubernetes uses as its default `imagePullPolicy`. A `BOXLITE` node resolves a floating tag to its current digest through the registry itself, anonymously, so its images must be public; a `CLOUD_HYPERVISOR` node has the container runtime pull the tag.
@@ -1628,7 +1677,8 @@ bound, can read it, so no gateway connection can, the system console's users inc
 ## Demonstration server
 
 The `demonstration` profile runs the whole platform on one machine from `deployment/docker-compose`
-(`compose.yml` runs every server with it, and the migration with `demonstration,fixtures`), so Kinotic
+(`compose.yml` runs every server and the migration with it, and `compose.sample-data.yml` runs the migration
+again with `fixtures` for sample data), so Kinotic
 can be tried, and developed, with no Azure, no GitHub and no mail service. Each server's
 `application-demonstration.yml` holds the localhost URLs of the servers, Azurite and the local edge,
 in-memory secret storage, generated system secrets, and no mail service. The UIs are served by

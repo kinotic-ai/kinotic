@@ -781,7 +781,7 @@ project the CLI is already available -- `bun run generate` runs it with no globa
 install. To use the CLI outside a project:
 
 ```bash
-bun install -g @kinotic-ai/kinotic-cli
+bun install -g @kinotic-ai/kinotic-cli@beta
 ```
 
 ## Commands
@@ -822,6 +822,87 @@ kinotic login
     
     <td>
       The Kinotic server URL to log in to. When omitted, the stored default server is used
+    </td>
+  </tr>
+</tbody>
+</table>
+
+---
+
+### `kinotic local`
+
+Run Kinotic on this machine: its servers, the portal and system console, the Git server that holds your projects'
+repositories, and the node your projects deploy to. The stack runs in Docker from the compose files bundled with
+the CLI, at the Kinotic version that CLI release names; the node is the `@kinotic-ai/vm-manager` release it names,
+which Bun downloads on first start and runs in the background. The stack's files, the node's process id and its
+log live under `local` in the CLI's data directory (`~/.local/share/kinotic/local`). The
+[Quick Start](https://kinotic.ai/getting-started/quick-start) installs the CLI and runs `kinotic local up` in one line.
+
+```bash
+kinotic local up            # start Kinotic and the node; the first start takes a few minutes
+kinotic local status        # each container's state, and whether the node runs
+kinotic local logs node     # the node's log; name a container instead, or none for every container's
+kinotic local down          # stop Kinotic and the apps it deployed, keeping its data
+```
+
+`kinotic local up` needs Docker running with Compose v2, and Bun to run the node. Each start downloads the newest
+images of that version, and starts from those already on the machine when it cannot. The node runs on macOS on Apple
+silicon, or Linux with KVM (`/dev/kvm`, which your user must be allowed to open, usually through the `kvm` group);
+elsewhere Kinotic starts without one, and projects do not deploy. Once the servers answer, create your organization at
+`http://localhost:9090/signup`. `kinotic local down` stops the node first, which stops and removes every app it
+deployed on this machine, then the stack.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Command
+    </th>
+    
+    <th>
+      Flag
+    </th>
+    
+    <th>
+      Description
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        kinotic local down
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        --delete-data
+      </code>
+    </td>
+    
+    <td>
+      Also delete everything Kinotic stored: its organizations, projects, data and deployed apps' files
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic local logs [SERVICE]
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        -f, --follow
+      </code>
+    </td>
+    
+    <td>
+      Keep printing new lines until interrupted
     </td>
   </tr>
 </tbody>
@@ -5439,39 +5520,24 @@ Nothing leaves your machine except the downloads.
 
 #### Prerequisites
 
-- **Docker** with Compose, and at least 12 GB of memory available to it
-- **Bun**, from [bun.sh](https://bun.sh)
+- **Docker** with Compose, running, with at least 12 GB of memory available to it
+- **Node.js** 18 or later, which the Kinotic CLI runs on
 - **macOS on Apple silicon, or Linux with KVM** (`/dev/kvm`), where your apps' deployments run as micro VMs
 - **Claude Code**, which builds your app with the Kinotic plugin
-- An internet connection for the first start, which downloads Kinotic's images, and for each new project, whose starting code comes from GitHub
+- An internet connection for the first start, which downloads Kinotic, and for each new project, whose starting code comes from GitHub
 
 <steps level="4">
 
 #### Install and launch Kinotic
 
 ```bash
-git clone https://github.com/kinotic-ai/kinotic.git
-cd kinotic/deployment/docker-compose
-docker compose up -d
+curl -fsSL https://kinotic.ai/install | sh
 ```
 
-The first start downloads the images and prepares the database, which takes a few minutes. The portal
-opens at [http://localhost:9090](http://localhost:9090) once `docker compose ps` lists the three
-`kinotic-server-*` containers as `healthy`.
-
-#### Start the node that runs your deployments
-
-Every push to a project deploys it onto a node on your machine. In another terminal, from the folder you
-ran `git clone` in:
-
-```bash
-cd kinotic/kinotic-js/workspace
-bun install && bun run build
-cd packages/vm-manager
-bun run dev
-```
-
-Leave it running; it connects to Kinotic and takes each deployment as it comes.
+This installs [Bun](https://bun.sh) if you don't have it, installs the Kinotic CLI, and runs
+`kinotic local up`, which starts Kinotic and the node your projects deploy to. The first start downloads
+everything and prepares the database, which takes a few minutes; the command returns once Kinotic is
+ready. With the CLI already installed, `kinotic local up` alone starts it.
 
 #### Create your organization
 
@@ -5488,9 +5554,10 @@ push deploys.
 
 </steps>
 
-`docker compose stop` stops Kinotic and keeps your data for the next `docker compose up -d`;
-`docker compose down -v` deletes it. [Developing Kinotic](https://kinotic.ai/platform/contributing) covers what the
-stack runs and how to work on Kinotic itself.
+`kinotic local down` stops Kinotic and the apps it deployed, and keeps your data for the next `kinotic local up`;
+`kinotic local down --delete-data` deletes it. `kinotic local status` and `kinotic local logs` show what
+it is doing, and the [CLI reference](https://kinotic.ai/apps/cli-reference#kinotic-local) covers each command.
+[Developing Kinotic](https://kinotic.ai/platform/contributing) covers how to work on Kinotic itself.
 
 </tabs-item>
 
@@ -6450,6 +6517,55 @@ The default sits under the home directory of the account the vm-manager runs as,
       <code>
         ~/.kinotic/workloads
       </code>
+    </td>
+  </tr>
+</tbody>
+</table>
+
+## Workloads across node restarts
+
+A node's workloads outlive its vm-manager process: the next process on the node reattaches to the VMs still running.
+A node that shuts down with `KINOTIC_STOP_WORKLOADS_ON_SHUTDOWN` set instead stops every workload it runs, reports
+each one's end to the server, and destroys them all, as the node `kinotic local up` starts does when
+`kinotic local down` stops it.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Environment variable
+    </th>
+    
+    <th>
+      Meaning
+    </th>
+    
+    <th>
+      Default
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        KINOTIC_STOP_WORKLOADS_ON_SHUTDOWN
+      </code>
+      
+       (vm-manager)
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+      
+       stops and destroys every workload as the node shuts down
+    </td>
+    
+    <td>
+      unset
     </td>
   </tr>
 </tbody>
@@ -7698,7 +7814,8 @@ bound, can read it, so no gateway connection can, the system console's users inc
 ## Demonstration server
 
 The `demonstration` profile runs the whole platform on one machine from `deployment/docker-compose`
-(`compose.yml` runs every server with it, and the migration with `demonstration,fixtures`), so Kinotic
+(`compose.yml` runs every server and the migration with it, and `compose.sample-data.yml` runs the migration
+again with `fixtures` for sample data), so Kinotic
 can be tried, and developed, with no Azure, no GitHub and no mail service. Each server's
 `application-demonstration.yml` holds the localhost URLs of the servers, Azurite and the local edge,
 in-memory secret storage, generated system secrets, and no mail service. The UIs are served by
@@ -8338,22 +8455,6 @@ That brings up the whole platform from published images:
   <tr>
     <td>
       <code>
-        kinotic-gen-schemas
-      </code>
-    </td>
-    
-    <td>
-      —
-    </td>
-    
-    <td>
-      Publishes a set of sample entity definitions through the management server, then exits
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
         kinotic-azurite
       </code>
     </td>
@@ -8453,12 +8554,18 @@ That brings up the whole platform from published images:
 </tbody>
 </table>
 
-Open `http://localhost:9090` and sign in as `kinotic@kinotic.local` with the password
-`kinotic`. That user belongs to the `test-org` organization, which the stack fills with
-sample data: the migration runs with the `fixtures` profile (`evaluation.env`), which seeds
-applications, projects, members and pending invites, and `kinotic-gen-schemas` creates the
-`ecommerce` and `healthcare` applications with published entity definitions and records.
-Signing up instead creates an organization of your own, which starts empty.
+The stack starts with no organization: open `http://localhost:9090/signup` to create yours. To see the
+screens filled in, add the sample data:
+
+```bash
+docker compose -f compose.yml -f compose.sample-data.yml up -d
+```
+
+and sign in as `kinotic@kinotic.local` with the password `kinotic`. That user belongs to the `test-org`
+organization, which `kinotic-sample-data`, the migration run with the `fixtures` profile, fills with
+applications, projects, members and pending invites, and `kinotic-gen-schemas` adds the `ecommerce` and
+`healthcare` applications with published entity definitions and records. Pass the same `-f` files to every
+later command on that stack, such as `docker compose -f compose.yml -f compose.sample-data.yml down -v`.
 
 <table>
 <thead>
@@ -8579,7 +8686,7 @@ project's deployment page links. Chrome, Edge and Firefox resolve every `*.local
 this machine; a client that does not needs the hostname in its hosts file.
 - The node keeps its image cache in `~/.boxlite`, which one process can hold at a time: stop the
 node before running the vm-manager tests, or give the tests their own `BOXLITE_HOME`.
-- The evaluator stack's sample nodes are marked unreachable on the system server's first
+- The sample data's worker nodes are marked unreachable on the system server's first
 heartbeat pass, so deployments land on your node.
 
 ## Testing
@@ -17049,7 +17156,7 @@ The authorization server returns its issuer as `iss` on every callback (RFC 9207
 
 ## Bootstrap
 
-`kinotic-migration` runs before the servers start, applying each versioned SQL migration once. `V1__init.sql` creates the indices and seeds the system's registrations — GitHub as `ORG_SIGNUP`, Google and Microsoft as `APP_SOCIAL`. A migration with environment suffixes, such as `V2__kinotic_test_users.demonstration.test.e2e.sql`, runs only in those environments, which keeps fixtures out of production. `V5__system_sign_in.demonstration.sql` turns the three registrations off on a demonstration server, which holds none of their secrets, so its sign-up and sign-in pages offer an email and a password alone. Seeded rows name their secrets; the secrets themselves live in secret storage, so none passes through a migration or a config file.
+`kinotic-migration` runs before the servers start, applying each versioned SQL migration once. `V1__init.sql` creates the indices and seeds the system's registrations — GitHub as `ORG_SIGNUP`, Google and Microsoft as `APP_SOCIAL`. A migration with environment suffixes, such as `V2__system_identities.demonstration.test.e2e.sql`, runs only in those environments, which keeps fixtures out of production. `V6__system_sign_in.demonstration.sql` turns the three registrations off on a demonstration server, which holds none of their secrets, so its sign-up and sign-in pages offer an email and a password alone. Seeded rows name their secrets; the secrets themselves live in secret storage, so none passes through a migration or a config file.
 
 ## Network Security
 

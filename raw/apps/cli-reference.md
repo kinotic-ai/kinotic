@@ -14,7 +14,7 @@ project the CLI is already available -- `bun run generate` runs it with no globa
 install. To use the CLI outside a project:
 
 ```bash
-bun install -g @kinotic-ai/kinotic-cli
+bun install -g @kinotic-ai/kinotic-cli@beta
 ```
 
 ## Commands
@@ -55,6 +55,87 @@ kinotic login
     
     <td>
       The Kinotic server URL to log in to. When omitted, the stored default server is used
+    </td>
+  </tr>
+</tbody>
+</table>
+
+---
+
+### `kinotic local`
+
+Run Kinotic on this machine: its servers, the portal and system console, the Git server that holds your projects'
+repositories, and the node your projects deploy to. The stack runs in Docker from the compose files bundled with
+the CLI, at the Kinotic version that CLI release names; the node is the `@kinotic-ai/vm-manager` release it names,
+which Bun downloads on first start and runs in the background. The stack's files, the node's process id and its
+log live under `local` in the CLI's data directory (`~/.local/share/kinotic/local`). The
+[Quick Start](https://kinotic.ai/getting-started/quick-start) installs the CLI and runs `kinotic local up` in one line.
+
+```bash
+kinotic local up            # start Kinotic and the node; the first start takes a few minutes
+kinotic local status        # each container's state, and whether the node runs
+kinotic local logs node     # the node's log; name a container instead, or none for every container's
+kinotic local down          # stop Kinotic and the apps it deployed, keeping its data
+```
+
+`kinotic local up` needs Docker running with Compose v2, and Bun to run the node. Each start downloads the newest
+images of that version, and starts from those already on the machine when it cannot. The node runs on macOS on Apple
+silicon, or Linux with KVM (`/dev/kvm`, which your user must be allowed to open, usually through the `kvm` group);
+elsewhere Kinotic starts without one, and projects do not deploy. Once the servers answer, create your organization at
+`http://localhost:9090/signup`. `kinotic local down` stops the node first, which stops and removes every app it
+deployed on this machine, then the stack.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Command
+    </th>
+    
+    <th>
+      Flag
+    </th>
+    
+    <th>
+      Description
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        kinotic local down
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        --delete-data
+      </code>
+    </td>
+    
+    <td>
+      Also delete everything Kinotic stored: its organizations, projects, data and deployed apps' files
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic local logs [SERVICE]
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        -f, --follow
+      </code>
+    </td>
+    
+    <td>
+      Keep printing new lines until interrupted
     </td>
   </tr>
 </tbody>
