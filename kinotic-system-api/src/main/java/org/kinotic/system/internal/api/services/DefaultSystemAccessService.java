@@ -62,40 +62,16 @@ public class DefaultSystemAccessService implements SystemAccessService {
     @Override
     public Future<Void> revoke(String grantId) {
         Validate.notBlank(grantId, "grantId cannot be blank");
-        return relationships.findGrants(SYSTEM, AuthzConstants.SYSTEM_OBJECT).compose(grants -> {
-            List<Grant> administrators = grants.stream().filter(DefaultSystemAccessService::isAdministrator).toList();
-            Grant revoked = administrators.stream().filter(grant -> grant.id().equals(grantId)).findFirst().orElse(null);
-            Future<Void> ret;
-            if (revoked != null) {
-                // a disabled administrator cannot sign in, so its grant keeps no one able to run the system; a
-                // system with no administrator has every enabled system user made one by SystemGraphBootstrap on
-                // the next start
-                List<Grant> others = administrators.stream().filter(grant -> grant != revoked).toList();
-                ret = enabledCount(List.of(revoked)).compose(revokedEnabled -> enabledCount(others).compose(othersEnabled -> {
-                    if (revokedEnabled > 0 && othersEnabled == 0) {
-                        throw new IllegalStateException("The grant " + grantId + " is the system's last enabled administrator;"
-                                                                + " grant the role to another system user first");
-                    }
-                    return relationships.revoke(SYSTEM, grantId, AuthzConstants.SYSTEM_OBJECT);
-                }));
-            } else {
-                ret = relationships.revoke(SYSTEM, grantId, AuthzConstants.SYSTEM_OBJECT);
-            }
-            return ret;
-        });
+        // a disabled administrator cannot sign in, so its grant keeps no one able to run the system; a system with no
+        // administrator has every enabled system user made one by SystemGraphBootstrap on the next start
+        return relationships.findGrants(SYSTEM, AuthzConstants.SYSTEM_OBJECT)
+                            .compose(grants -> identities.requireAnotherEnabledHolder(grants.stream().filter(DefaultSystemAccessService::isAdministrator).toList(),
+                                                                                      grantId, SystemParticipantIdentity.class))
+                            .compose(v -> relationships.revoke(SYSTEM, grantId, AuthzConstants.SYSTEM_OBJECT));
     }
 
     private static boolean isAdministrator(Grant grant) {
         return AuthzConstants.SYSTEM_ADMIN_ROLE.equals(grant.roleId());
-    }
-
-    // How many of the grants are held by an enabled identity
-    private Future<Long> enabledCount(List<Grant> grants) {
-        List<Future<Boolean>> lookups = grants.stream()
-                                              .map(grant -> identities.findById(grant.subject().id())
-                                                                      .map(identity -> identity != null && identity.isEnabled()))
-                                              .toList();
-        return Future.all(lookups).map(enabled -> enabled.list().stream().filter(Boolean.TRUE::equals).count());
     }
 
     @Override

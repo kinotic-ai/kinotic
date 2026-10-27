@@ -227,8 +227,19 @@ public class DefaultPermissionService implements PermissionService {
         validate(resource);
         Validate.notBlank(grantId, "grantId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
+        String object = AuthzGraphUtil.authzObject(organizationId, resource);
         return requireInOrganization(resource, organizationId)
-                .compose(lineage -> relationships.revoke(SYSTEM, grantId, AuthzGraphUtil.authzObject(organizationId, resource)));
+                .compose(lineage -> ORGANIZATION.equals(resource.type()) ? requireAnotherAdministrator(object, grantId) : Future.<Void>succeededFuture())
+                .compose(v -> relationships.revoke(SYSTEM, grantId, object));
+    }
+
+    // Nothing restores an organization's administrator once the last one who can sign in is gone
+    private Future<Void> requireAnotherAdministrator(String organization, String grantId) {
+        return relationships.findGrants(SYSTEM, organization)
+                            .compose(grants -> identities.requireAnotherEnabledHolder(grants.stream()
+                                                                                            .filter(grant -> AuthzConstants.ORGANIZATION_ADMIN_ROLE.equals(grant.roleId()))
+                                                                                            .toList(),
+                                                                                      grantId, OrganizationParticipantIdentity.class));
     }
 
     @Override

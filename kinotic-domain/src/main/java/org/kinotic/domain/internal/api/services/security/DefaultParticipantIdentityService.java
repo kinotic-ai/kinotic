@@ -2,6 +2,7 @@ package org.kinotic.domain.internal.api.services.security;
 
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.authz.api.model.Grant;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
@@ -374,6 +375,34 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
             Validate.isTrue(binding != null && identityId.equals(binding.getIdentityId()), "Sign-in method not found.");
             return bindingRepository.deleteByIdSync(bindingId);
         });
+    }
+
+    @Override
+    public Future<Void> requireAnotherEnabledHolder(List<Grant> grants, String grantId, Class<? extends ParticipantIdentity> holderType) {
+        Validate.notNull(grants, "grants cannot be null");
+        Validate.notBlank(grantId, "grantId cannot be blank");
+        Validate.notNull(holderType, "holderType cannot be null");
+        Grant revoked = grants.stream().filter(grant -> grant.id().equals(grantId)).findFirst().orElse(null);
+        if (revoked == null) {
+            return Future.succeededFuture();
+        }
+        List<Grant> others = grants.stream().filter(grant -> grant != revoked).toList();
+        return enabledHolders(List.of(revoked), holderType).compose(revokedEnabled -> enabledHolders(others, holderType).map(othersEnabled -> {
+            if (revokedEnabled > 0 && othersEnabled == 0) {
+                throw new IllegalStateException("The grant " + grantId + " is the last of role " + revoked.roleId()
+                                                        + " held by an enabled user; grant the role to another user first");
+            }
+            return null;
+        }));
+    }
+
+    // How many of the grants are held by an enabled identity of the type; a group's grant is held by no identity
+    private Future<Long> enabledHolders(List<Grant> grants, Class<? extends ParticipantIdentity> holderType) {
+        List<Future<Boolean>> lookups = grants.stream()
+                                              .map(grant -> identityRepository.findById(grant.subject().id())
+                                                                              .map(identity -> holderType.isInstance(identity) && identity.isEnabled()))
+                                              .toList();
+        return Future.all(lookups).map(enabled -> enabled.list().stream().filter(Boolean.TRUE::equals).count());
     }
 
     @Override

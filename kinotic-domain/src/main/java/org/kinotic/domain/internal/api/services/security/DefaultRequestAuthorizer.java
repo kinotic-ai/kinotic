@@ -77,8 +77,8 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 @RequiredArgsConstructor
 public class DefaultRequestAuthorizer implements RequestAuthorizer {
 
-    // a service's contract is read from the directory once and kept; the version in a request's CRI makes a
-    // redeployed service a new key, and the retention bounds how long a system service's new check waits
+    // a service's contract is read from the directory once and kept until the directory announces it written again;
+    // the retention bounds how long a node that missed the announcement keeps an old check
     private static final Duration DEFINITION_RETENTION = Duration.ofMinutes(5);
     private static final int DEFINITION_CAPACITY = 10_000;
 
