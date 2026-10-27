@@ -11,8 +11,9 @@ import org.kinotic.idl.api.annotations.McpTool;
  * Manages the {@link Tenant}s of the caller's organization's applications. A tenant's id is derived from its
  * slugified name at creation: lowercase letters, digits, and interior dashes, at most
  * {@link org.kinotic.domain.api.utils.HostLabelUtil#MAX_TENANT_ID_LENGTH} characters so it leads the tenant's
- * site labels, and unique within its application. Every operation names the application, since two applications
- * may each have a tenant of the same id.
+ * site labels, and unique within its application. A tenant's id and name never change after creation, since its
+ * users and the rows they write carry its id. Every operation names the application, since two applications may each
+ * have a tenant of the same id.
  */
 @Publish
 @McpTool

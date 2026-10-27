@@ -34,7 +34,7 @@ public class TenantRepository {
      * The tenant {@code tenantId} of application {@code applicationId} in organization {@code orgId}, or
      * {@code null} when that application has no such tenant.
      */
-    public Future<Tenant> findById(String tenantId, String applicationId, String orgId) {
+    public Future<Tenant> findById(String applicationId, String tenantId, String orgId) {
         return crudServiceTemplate.findById(INDEX_NAME, documentId(orgId, applicationId, tenantId), Tenant.class,
                                             b -> b.routing(orgId));
     }
@@ -51,7 +51,7 @@ public class TenantRepository {
     }
 
     /** Deletes the tenant {@code tenantId} of application {@code applicationId}; no-op when there is none. */
-    public Future<Void> deleteById(String tenantId, String applicationId, String orgId) {
+    public Future<Void> deleteById(String applicationId, String tenantId, String orgId) {
         return crudServiceTemplate.deleteById(INDEX_NAME, documentId(orgId, applicationId, tenantId), b -> b.routing(orgId))
                                   .mapEmpty();
     }

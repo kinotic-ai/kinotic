@@ -82,6 +82,10 @@ public class TenantServiceTests extends KinoticTestBase {
         assertEquals("A customer", await(runAsOrganization(() -> tenantService.findById(appId, globex.getId()))).getDescription());
         assertEquals("Another customer", await(runAsOrganization(() -> tenantService.findById(otherAppId, globex.getId()))).getDescription());
 
+        // a delete names both ids, and one of a tenant the application lacks is a no-op
+        assertInstanceOf(IllegalArgumentException.class, failure(() -> tenantService.deleteById(otherAppId, "")));
+        await(runAsOrganization(() -> tenantService.deleteById(otherAppId, "no-such-tenant-" + suffix())));
+
         await(runAsOrganization(() -> tenantService.deleteById(otherAppId, globex.getId())));
         assertNull(await(runAsOrganization(() -> tenantService.findById(otherAppId, globex.getId()))));
         assertEquals(appId, await(runAsOrganization(() -> tenantService.findById(appId, globex.getId()))).getApplicationId());
@@ -93,7 +97,7 @@ public class TenantServiceTests extends KinoticTestBase {
         await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(appId, "Tenant application", null)));
         String name = "Initech " + suffix();
 
-        // both calls look the id up before either writes, so the second create finds the id taken
+        // the create that loses the race finds the id taken and answers the tenant the other one made
         List<Tenant> both = await(runAsOrganization(() -> Future.all(tenantService.createTenantIfNotExist(appId, name, "First"),
                                                                      tenantService.createTenantIfNotExist(appId, name, "Second"))
                                                                 .map(CompositeFuture::<Tenant>list)));

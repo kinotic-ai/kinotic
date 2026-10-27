@@ -48,14 +48,14 @@ public class DefaultTenantService implements TenantService {
                            // create refuses an id the application's tenant holds already, made by an earlier call or
                            // one made at the same time, and that tenant is the one wanted
                            .recover(err -> err instanceof AlreadyExistsException
-                                   ? tenantRepository.findById(tenantId, applicationId, organizationId)
+                                   ? tenantRepository.findById(applicationId, tenantId, organizationId)
                                                      .compose(stored -> stored != null ? Future.succeededFuture(stored) : Future.failedFuture(err))
                                    : Future.failedFuture(err));
     }
 
     @Override
     public Future<Tenant> findById(String applicationId, String tenantId) {
-        return tenantRepository.findById(tenantId, applicationId, requireOrganizationId());
+        return tenantRepository.findById(applicationId, tenantId, requireOrganizationId());
     }
 
     @Override
@@ -75,9 +75,15 @@ public class DefaultTenantService implements TenantService {
 
     @Override
     public Future<Void> deleteById(String applicationId, String tenantId) {
+        // both ids name the password configuration deleted with the tenant, which without either would be the
+        // application's or the organization's own
+        Validate.notBlank(applicationId, "applicationId cannot be blank");
+        Validate.notBlank(tenantId, "tenantId cannot be blank");
         String organizationId = requireOrganizationId();
-        return passwordConfigurationService.deleteById(PasswordConfiguration.idOf(organizationId, applicationId, tenantId), organizationId)
-                                           .compose(v -> tenantRepository.deleteById(tenantId, applicationId, organizationId));
+        return tenantRepository.findById(applicationId, tenantId, organizationId).compose(tenant -> tenant == null
+                ? Future.succeededFuture()
+                : passwordConfigurationService.deleteById(PasswordConfiguration.idOf(organizationId, applicationId, tenantId), organizationId)
+                                              .compose(v -> tenantRepository.deleteById(applicationId, tenantId, organizationId)));
     }
 
     private String requireOrganizationId() {
