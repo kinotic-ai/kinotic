@@ -48,7 +48,7 @@ public interface SystemAccessService {
 
     /**
      * Revokes a grant made on the system. The system keeps at least one administrator who can sign in, so the
-     * last grant of the administrator role held by an enabled system user is refused.
+     * last grant of the administrator role held by an enabled system user who is no longer pending is refused.
      *
      * @param grantId the grant
      */

@@ -26,7 +26,10 @@ export interface ISystemAccessService {
      */
     grant(subject: Subject, roleId: string): Promise<Grant>
 
-    /** Revokes a grant made on the system. */
+    /**
+     * Revokes a grant made on the system, refusing the last grant of system.admin held by a system user who can sign in,
+     * enabled and no longer pending.
+     */
     revoke(grantId: string): Promise<void>
 
     /**

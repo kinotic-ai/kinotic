@@ -133,7 +133,8 @@ public interface PermissionService {
     Future<Grant> grant(Subject subject, String roleId, Resource resource);
 
     /**
-     * Revokes a grant where it was made.
+     * Revokes a grant where it was made. The organization keeps at least one administrator who can sign in, so its
+     * last grant of {@code organization.admin} held by an enabled organization user who is no longer pending is refused.
      *
      * @param resource where the grant was made
      * @param grantId  the grant
