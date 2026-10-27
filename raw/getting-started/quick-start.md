@@ -32,10 +32,13 @@ Nothing leaves your machine except the downloads.
 curl -fsSL https://kinotic.ai/install | sh
 ```
 
-This installs [Bun](https://bun.sh) if you don't have it, installs the Kinotic CLI, and runs
-`kinotic local up`, which starts Kinotic and the node your projects deploy to. The first start downloads
-everything and prepares the database, which takes a few minutes; the command returns once Kinotic is
-ready. With the CLI already installed, `kinotic local up` alone starts it.
+This installs [Bun](https://bun.sh) if you don't have it, installs the Kinotic CLI, adds Bun's bin
+folder to your `PATH` in your shell's profile if it isn't there yet, and runs `kinotic local up`, which
+starts Kinotic and the node your projects deploy to. The first start downloads everything and prepares
+the database, which takes a few minutes; the command returns once Kinotic is ready. Open a new terminal
+to use `kinotic` there. With the CLI already installed, `kinotic local up` alone starts it.
+
+To update the CLI, run `kinotic local down`, then the same line again.
 
 #### Create your organization
 
