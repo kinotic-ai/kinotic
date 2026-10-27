@@ -164,11 +164,13 @@ export async function initKinoticAppClient(applicationId: string, tenantId: stri
  * Connects a fresh {@link KinoticSingleton} to the app server as the fixture user of the (applicationId, tenantId)
  * pair, holding whatever the application has granted it so far. The application must exist; its login is made to
  * take a password first.
+ *
+ * @param kinotic a client connected to the management server as an administrator of the e2e organization
  */
-export async function connectAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
+export async function connectAppClient(applicationId: string, tenantId: string, kinotic: KinoticSingleton = Kinotic): Promise<KinoticSingleton> {
     // the fixtures seed the application's email and password, but deleting the application, as the suites do between
     // tests, deletes it too, so an application created again takes no password until it is saved again
-    await Kinotic.ownedPasswordConfigurations.save({id: null, organizationId: null, applicationId, tenantId: null, enabled: true,
+    await kinotic.ownedPasswordConfigurations.save({id: null, organizationId: null, applicationId, tenantId: null, enabled: true,
                                                    createUserOnSignIn: false, created: null, updated: null})
     const appKinotic = new KinoticSingleton()
     appKinotic.use(ManagementApiPlugin).use(PersistencePlugin)
