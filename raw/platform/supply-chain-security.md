@@ -103,7 +103,7 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
     </td>
     
     <td>
-      Each build produces a software bill of materials for each image. It lists every operating-system package and application library in the image, with its version.
+      Each build produces a software bill of materials for each image, one for its amd64 build and one for its arm64 build, the two platforms its published tag holds. It lists every operating-system package and application library in the image, with its version.
     </td>
   </tr>
   
@@ -167,7 +167,15 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
         sbom-kinotic-migration.cdx.json
       </code>
       
-      .
+       for the amd64 builds, and the same names with <code>
+        -arm64
+      </code>
+      
+       before <code>
+        .cdx.json
+      </code>
+      
+       for the arm64 builds.
     </td>
   </tr>
   
@@ -253,7 +261,11 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
         image-kinotic-migration
       </code>
       
-      , with open and fixed history per finding. Each workflow run's summary lists the fixable findings for each image.
+       for the amd64 builds, and the same categories with <code>
+        -arm64
+      </code>
+      
+       appended for the arm64 builds, with open and fixed history per finding. Each workflow run's summary lists the fixable findings for each image and platform.
     </td>
   </tr>
 </tbody>
