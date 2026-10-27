@@ -56,8 +56,8 @@
                 </div>
               </div>
 
-              <!-- Claude Code's /mcp list, where the plugin's own server sits beside the one added for this deployment -->
-              <div v-if="step.id === 'authorize' && SEPARATE_MCP_SERVER && !loading"
+              <!-- Claude Code's /mcp list, where the plugin's own server sits beside the one added for this Kinotic -->
+              <div v-if="step.id === 'authorize' && LOCAL_MCP_SERVER && !loading"
                    class="mt-3 rounded-lg bg-surface-950 px-3.5 py-3 font-mono text-xs text-surface-300 dark:ring-1 dark:ring-surface-700">
                 <div class="text-sky-300">Manage MCP servers</div>
                 <div class="mt-2 font-semibold text-surface-100">User MCPs</div>
@@ -331,12 +331,10 @@ const debug = createDebug('quickstart')
 const QUICK_START_URL = 'https://kinotic.ai/getting-started/quick-start'
 const PLUGIN_COMMANDS = ['/plugin marketplace add kinotic-ai/agent-plugin', '/plugin install kinotic@kinotic']
 const AUTHORIZE_COMMANDS = ['/mcp']
-// The MCP server the Kinotic plugin connects Claude Code to, Kinotic Cloud's
-const PLUGIN_MCP_URL = 'https://api.kinotic.ai/mcp'
 // This deployment's MCP server
 const MCP_URL = new URL(apiUrl('/mcp'), window.location.origin).toString()
-// A deployment other than Kinotic Cloud, such as a demonstration server, needs its MCP server added beside the plugin's
-const SEPARATE_MCP_SERVER = MCP_URL !== PLUGIN_MCP_URL
+// The plugin's own MCP server is Kinotic Cloud's, so a Kinotic running on this machine is added beside it
+const LOCAL_MCP_SERVER = ['localhost', '127.0.0.1'].includes(new URL(MCP_URL).hostname)
 const LOCAL_AUTHORIZE_COMMANDS = [`claude mcp add -s user --transport http kinotic-local ${MCP_URL}`, '/mcp']
 const NEW_APP_COMMANDS = ['/kinotic:new-app my-app']
 // How many projects the checklist reads to find the most recently updated one
@@ -456,12 +454,12 @@ const steps = computed<Step[]>(() => [
   {
     id: 'authorize',
     title: 'Connect Claude to Kinotic',
-    description: SEPARATE_MCP_SERVER
+    description: LOCAL_MCP_SERVER
         ? 'The plugin\'s own server, plugin:kinotic:kinotic-os, is Kinotic Cloud\'s, so add this Kinotic beside it as kinotic-local from a terminal. Then run /mcp in Claude Code, authenticate kinotic-local, and approve the consent screen that opens in your browser.'
         : 'Run /mcp in Claude Code, select plugin:kinotic:kinotic-os and choose Authenticate, then approve the consent screen that opens in your browser.',
     done: mcpClient.value !== null,
     doneDetail: mcpClient.value?.displayName ? `${mcpClient.value.displayName} connected` : undefined,
-    commands: SEPARATE_MCP_SERVER ? LOCAL_AUTHORIZE_COMMANDS : AUTHORIZE_COMMANDS,
+    commands: LOCAL_MCP_SERVER ? LOCAL_AUTHORIZE_COMMANDS : AUTHORIZE_COMMANDS,
     actions: [],
     revisit: { label: 'Connected apps', to: '/account/connected-apps' }
   },
