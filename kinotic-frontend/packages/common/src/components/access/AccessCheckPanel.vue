@@ -50,7 +50,8 @@ import { CircleCheck, CircleX, SearchCheck } from '@lucide/vue'
 import type { RoleDefinition, Subject } from '@kinotic-ai/management-api'
 import DashboardSection from '../DashboardSection.vue'
 import { showErrorToast } from '../../util/helpers'
-import type { CheckedAccess, SubjectOption } from './SubjectOption'
+import type { CheckedAccess } from './CheckedAccess'
+import type { SubjectOption } from './SubjectOption'
 import SubjectOptionItem from './SubjectOptionItem.vue'
 
 /**

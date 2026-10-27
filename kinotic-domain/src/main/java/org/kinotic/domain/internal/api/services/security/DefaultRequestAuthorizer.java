@@ -110,9 +110,8 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         vertx.eventBus().<String>consumer(ServiceDirectory.CONTRACT_CHANGED_ADDRESS, message -> forget(message.body()));
     }
 
-    // every version of the entry is kept under its own key; a contract written again changes all of them
     private void forget(String entryId) {
-        definitions.asMap().keySet().removeIf(key -> key.startsWith(entryId + "|"));
+        definitions.synchronous().invalidate(entryId);
     }
 
     @Override
@@ -162,9 +161,9 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         } else if (!cri.hasPath()) {
             ret = Future.failedFuture(securityExceptions.notAuthorized("The request names no function of {}", entryId));
         } else {
-            String key = entryId + "|" + cri.version();
+            // the directory holds one entry per id, so the requested version does not pick the contract
             String function = cri.path().substring(1);
-            ret = KinoticUtil.toFuture(definitions.get(key, (k, executor) -> load(directory, entryId).toCompletionStage().toCompletableFuture()))
+            ret = KinoticUtil.toFuture(definitions.get(entryId, (k, executor) -> load(directory, entryId).toCompletionStage().toCompletableFuture()))
                              .map(functions -> {
                                  FunctionSpec spec = functions.get(function);
                                  if (spec == null) {

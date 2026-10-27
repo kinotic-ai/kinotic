@@ -51,7 +51,7 @@ import type { Grant, RoleDefinition, Subject } from '@kinotic-ai/management-api'
 import FormDrawer from '../FormDrawer.vue'
 import { showErrorToast } from '../../util/helpers'
 import { summarizeRole } from '../../util/access'
-import type { SubjectKind } from './SubjectOption'
+import type { SubjectKind } from './SubjectKind'
 import SubjectOptionItem from './SubjectOptionItem.vue'
 
 /**
