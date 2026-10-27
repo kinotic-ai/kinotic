@@ -1,0 +1,1 @@
+{"id":"02060ad88640058705ad7304569d39b0.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.core.security.InvitationTests.passwordSignInIsNotTurnedOffWhileAMemberSignsInOnlyWithAPassword","name":"passwordSignInIsNotTurnedOffWhileAMemberSignsInOnlyWithAPassword()","status":"passed","testResultsByEnv":{"default":"8b9eb50d54fe8eb28786b48d0fd55158"}}
