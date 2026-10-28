@@ -64,6 +64,11 @@ useHead({ title: 'Privacy Policy' })
               </li>
             </ul>
             <p class="mt-3">
+              When you allow Analytics, we also record when you successfully copy the installation command or
+              open the quickstart from the homepage's getting-started panel. These website events help us
+              measure interest in installing Kinotic; they do not tell us whether an installation completed.
+            </p>
+            <p class="mt-3">
               We use this information in aggregate to measure site performance and usage trends, and we do not use it to identify individual visitors. If you allow Marketing cookies, Google may also use the data Google Analytics collects for advertising, including measuring ad performance and personalizing the ads you see on Google and its partners, and Microsoft may connect Clarity data to Microsoft Advertising. Their handling of this data is governed by the
               <a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noreferrer" class="text-white underline hover:text-[#FF2D7A]">Microsoft Privacy Statement</a>
               and
