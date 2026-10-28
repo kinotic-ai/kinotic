@@ -1,5 +1,6 @@
 package org.kinotic.client;
 
+import io.vertx.core.Vertx;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -50,18 +51,25 @@ public class KinoticConnectionTests {
 
     private static int port;
     private static ConfigurableApplicationContext gateway;
+    private static Vertx vertx;
     private final List<KinoticConnection> connections = new ArrayList<>();
 
     @BeforeAll
     public static void startGateway() throws Exception {
         port = TestGatewayApplication.freePort();
         gateway = TestGatewayApplication.start(port);
+        // one instance for every connection of the suite, as an application sharing its own would have
+        vertx = Vertx.vertx();
     }
 
     @AfterAll
-    public static void stopGateway() {
-        if (gateway != null) {
-            gateway.close();
+    public static void stopGateway() throws Exception {
+        try {
+            if (gateway != null) {
+                gateway.close();
+            }
+        } finally {
+            vertx.close().toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
         }
     }
 
@@ -153,7 +161,7 @@ public class KinoticConnectionTests {
     @Test
     public void testRejectedCredentialsFailTheConnect() {
         ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
-                                                             () -> KinoticConnection.connect(options("wrong-secret"))
+                                                             () -> KinoticConnection.connect(vertx, options("wrong-secret"))
                                                                                     .toCompletionStage()
                                                                                     .toCompletableFuture()
                                                                                     .get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
@@ -225,7 +233,7 @@ public class KinoticConnectionTests {
     }
 
     private KinoticConnection connect(ConnectOptions options) throws Exception {
-        KinoticConnection ret = KinoticConnection.connect(options)
+        KinoticConnection ret = KinoticConnection.connect(vertx, options)
                                                  .toCompletionStage()
                                                  .toCompletableFuture()
                                                  .get(TIMEOUT_SECONDS, TimeUnit.SECONDS);

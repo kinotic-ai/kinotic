@@ -5,7 +5,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import io.vertx.core.VertxOptions;
 import io.vertx.core.http.UpgradeRejectedException;
 import io.vertx.core.http.WebSocketConnectOptions;
 import io.vertx.ext.stomp.lite.client.StompClient;
@@ -44,8 +43,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Default {@link KinoticConnection}: a STOMP connection to the gateway's WebSocket endpoint, kept alive across
- * losses with the retry policy of its {@link ReconnectOptions}, and the service proxies minted over it. The connection
- * owns a Vert.x instance of its own, and everything it does runs on one context of that instance.
+ * losses with the retry policy of its {@link ReconnectOptions}, and the service proxies minted over it. Everything it
+ * does runs on one context of the Vert.x instance it is given.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
@@ -81,6 +80,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
     private volatile Handler<ConnectionState> stateHandler;
     private volatile ConnectedInfo connectedInfo;
     // touched only on the context
+    private Future<Void> closed;
     private StompClient stompClient;
     private StompClientConnection current;
     private String currentConnectionId;
@@ -88,16 +88,17 @@ public class DefaultKinoticConnection implements KinoticConnection {
     private int failedAttempts = 0;
     private long reconnectTimer = -1;
     private Promise<KinoticConnection> initialConnect;
-    // written on the context, read by serviceProxy() and close() from any thread
+    // written on the context, read by serviceProxy() from any thread
     private volatile boolean closing = false;
-    private volatile Future<Void> closed;
 
     /**
      * Connects to the gateway the options name.
+     * @param vertx the Vert.x instance the connection runs on
      * @param options where to connect and how to authenticate
      * @return a future completed with the connection once the gateway accepted it
      */
-    public static Future<KinoticConnection> connect(ConnectOptions options) {
+    public static Future<KinoticConnection> connect(Vertx vertx, ConnectOptions options) {
+        Validate.notNull(vertx, "vertx must not be null");
         Validate.notNull(options, "options must not be null");
         Validate.notBlank(options.getServerUrl(), "serverUrl must not be blank");
         Validate.notNull(options.getAuthHeaders(), "authHeaders must not be null");
@@ -116,25 +117,21 @@ public class DefaultKinoticConnection implements KinoticConnection {
         validateAtLeastOneMillisecond(reconnect.getConnectionTimeout(), "reconnect.connectionTimeout");
         Validate.isTrue(reconnect.getMaxJitter() != null && !reconnect.getMaxJitter().isNegative(),
                         "reconnect.maxJitter must not be negative");
-        return new DefaultKinoticConnection(options).start();
+        return new DefaultKinoticConnection(vertx, options).start();
     }
 
     private static void validateAtLeastOneMillisecond(Duration duration, String name) {
         Validate.isTrue(duration != null && duration.toMillis() >= 1, "%s must be at least 1 ms", name);
     }
 
-    private DefaultKinoticConnection(ConnectOptions options) {
+    private DefaultKinoticConnection(Vertx vertx, ConnectOptions options) {
         this.options = options;
-        // the caller's customizer runs before the Vert.x instance exists, so a customizer that throws leaks nothing
         JsonMapper.Builder jsonMapperBuilder = RpcServiceProxyFactory.jsonMapperBuilder();
         if (options.getJsonMapperCustomizer() != null) {
             options.getJsonMapperCustomizer().accept(jsonMapperBuilder);
         }
         JsonMapper jsonMapper = jsonMapperBuilder.build();
-        // one event loop carries the connection, and nothing here runs blocking work
-        this.vertx = Vertx.vertx(new VertxOptions().setEventLoopPoolSize(1)
-                                                   .setWorkerPoolSize(1)
-                                                   .setInternalBlockingPoolSize(1));
+        this.vertx = vertx;
         this.context = vertx.getOrCreateContext();
         this.livenessWatcher = new ConnectionLivenessWatcher(context);
         this.transport = new StompRpcTransport(context, options.getServerUrl(), NODE_NAME);
@@ -194,14 +191,9 @@ public class DefaultKinoticConnection implements KinoticConnection {
 
     @Override
     public Future<Void> close() {
-        Future<Void> ret = closed;
-        // the Vert.x instance closes with the connection, so a close that already ran is answered off its context
-        if (ret == null) {
-            Promise<Void> promise = Promise.promise();
-            context.runOnContext(v -> closeOnContext().onComplete(promise));
-            ret = promise.future();
-        }
-        return ret;
+        Promise<Void> promise = Promise.promise();
+        context.runOnContext(v -> closeOnContext().onComplete(promise));
+        return promise.future();
     }
 
     private void requireOpen() {
@@ -422,7 +414,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
             closed = disconnected.transform(ar -> stompClient != null ? stompClient.close() : Future.succeededFuture())
                                  .transform(ar -> {
                                      changeState(ConnectionState.CLOSED);
-                                     return vertx.close();
+                                     return Future.<Void>succeededFuture();
                                  });
         }
         return closed;

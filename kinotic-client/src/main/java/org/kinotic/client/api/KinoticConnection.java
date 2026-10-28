@@ -2,6 +2,7 @@ package org.kinotic.client.api;
 
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
 import org.kinotic.client.internal.api.DefaultKinoticConnection;
 import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.security.ConnectedInfo;
@@ -15,7 +16,7 @@ import org.kinotic.core.api.service.ServiceIdentifier;
  * within the attempt budget of its {@link ReconnectOptions}. A call pending when the connection is lost fails with
  * an {@link org.kinotic.core.api.exceptions.RpcServiceUnavailableException}, since nothing the gateway held for the
  * connection survives it. Every handler the connection invokes, and every proxy result it completes, runs on the
- * connection's own event loop and must not block it.
+ * connection's context of the Vert.x instance it was given and must not block it.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
@@ -24,13 +25,15 @@ public interface KinoticConnection {
     /**
      * Connects to the gateway the options name, retrying per the options' {@link ReconnectOptions}.
      *
+     * @param vertx   the Vert.x instance the connection runs on, on a context of its own; it stays the caller's to
+     *                close
      * @param options where to connect and how to authenticate
      * @return a future completed with the connection once the gateway has accepted it, or failed with an
      *         {@link org.kinotic.core.api.exceptions.AuthenticationException} when the gateway rejects the
      *         credentials, or with the last failure once the attempts the options allow are spent
      */
-    static Future<KinoticConnection> connect(ConnectOptions options) {
-        return DefaultKinoticConnection.connect(options);
+    static Future<KinoticConnection> connect(Vertx vertx, ConnectOptions options) {
+        return DefaultKinoticConnection.connect(vertx, options);
     }
 
     /**
