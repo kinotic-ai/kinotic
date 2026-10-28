@@ -124,7 +124,7 @@ onBeforeUnmount(() => {
           Linux abstracted the hardware. Kinotic OS abstracts the cloud, so humans and AI can build
           enterprise software at internet scale.
         </p>
-        <HomeWaitlistForm class="hero__waitlist" submit-label="Join waitlist" />
+        <HomeGettingStarted class="hero__getting-started" />
       </div>
 
       <!-- Software factory: ideas flow in on the red pipes, deployed apps leave on the mint ones. -->
@@ -269,8 +269,8 @@ onBeforeUnmount(() => {
   margin: 26px 0 0;
 }
 
-.hero__waitlist {
-  margin-top: 36px;
+.hero__getting-started {
+  margin-top: 30px;
 }
 
 .hero__visual {
