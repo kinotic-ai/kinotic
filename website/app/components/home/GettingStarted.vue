@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { trackClarityEvent } from '~/utils/clarity'
+import { trackGoogleAnalyticsEvent } from '~/utils/googleAnalytics'
+
 const INSTALL_COMMAND = 'curl -fsSL https://kinotic.ai/install | sh'
 const options = [
   { id: 'local', label: 'Local install' },
@@ -30,9 +33,15 @@ async function copyCommand() {
     await navigator.clipboard.writeText(INSTALL_COMMAND)
     copyStatus.value = 'Copied!'
     copyTimeout = setTimeout(() => { copyStatus.value = '' }, 2500)
+    trackInstallIntent('install_command_copied')
   } catch {
     copyStatus.value = 'Select the command to copy.'
   }
+}
+
+function trackInstallIntent(name: 'install_command_copied' | 'install_quickstart_opened') {
+  trackGoogleAnalyticsEvent(name)
+  trackClarityEvent(name)
 }
 
 onBeforeUnmount(() => clearTimeout(copyTimeout))
@@ -86,7 +95,7 @@ onBeforeUnmount(() => clearTimeout(copyTimeout))
       </div>
       <div class="getting-started__details">
         <span>Docker · macOS (Apple silicon) or Linux</span>
-        <NuxtLink to="/getting-started/quick-start">More info ↗</NuxtLink>
+        <NuxtLink to="/getting-started/quick-start" @click="trackInstallIntent('install_quickstart_opened')">More info ↗</NuxtLink>
       </div>
       <span class="getting-started__status" role="status">{{ copyStatus }}</span>
     </div>

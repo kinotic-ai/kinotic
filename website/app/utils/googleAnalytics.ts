@@ -9,6 +9,7 @@ declare global {
 }
 
 let googleAnalyticsInitialized = false
+let analyticsConsentGranted = false
 
 // gtag.js only processes Arguments objects from the data layer, so this pushes
 // `arguments` rather than the rest array.
@@ -43,6 +44,7 @@ export function initGoogleAnalytics(): void {
 
 /** Grants or revokes analytics storage, and advertising storage, ad user data and ad personalization. */
 export function setGoogleAnalyticsConsent(choice: ConsentChoice): void {
+  analyticsConsentGranted = choice.analytics
   if (!googleAnalyticsInitialized) return
   const marketing = choice.marketing ? 'granted' : 'denied'
   gtag('consent', 'update', {
@@ -51,4 +53,14 @@ export function setGoogleAnalyticsConsent(choice: ConsentChoice): void {
     ad_personalization: marketing,
     analytics_storage: choice.analytics ? 'granted' : 'denied',
   })
+}
+
+/** Records a website interaction when the visitor has allowed Analytics. */
+export function trackGoogleAnalyticsEvent(name: string): void {
+  if (!googleAnalyticsInitialized || !analyticsConsentGranted) return
+  try {
+    gtag('event', name)
+  } catch {
+    // Analytics must not interrupt the visitor's action when the provider is unavailable.
+  }
 }
