@@ -1,6 +1,5 @@
 package org.kinotic.core.api;
 
-import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.OpenTelemetry;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
@@ -51,7 +50,6 @@ public class RpcServiceProxyFactory {
     private final RequestLivenessWatcher requestLivenessWatcher;
     private final Vertx vertx;
     private final String nodeName;
-    private final JsonMapper jsonMapper;
     private final RpcArgumentConverter argumentConverter;
     private final RpcReturnValueHandlerFactory returnValueHandlerFactory;
     private final TraceLogFilter traceLogFilter;
@@ -68,6 +66,7 @@ public class RpcServiceProxyFactory {
      * @param transport              carries the proxies' requests and replies
      * @param requestLivenessWatcher fails a proxy's request when the receiver its acknowledgement named is gone
      * @param vertx                  the Vert.x instance the proxies run on
+     * @param openTelemetry          traces the proxies' invocations
      * @param properties             the {@link KinoticProperties#getMaxEventPayloadSize()} bounding the replies
      *                               the proxies parse
      * @param jsonMapper             converts the proxies' arguments and replies; one built from
@@ -77,12 +76,14 @@ public class RpcServiceProxyFactory {
     public RpcServiceProxyFactory(RpcTransport transport,
                                   RequestLivenessWatcher requestLivenessWatcher,
                                   Vertx vertx,
+                                  OpenTelemetry openTelemetry,
                                   KinoticProperties properties,
                                   JsonMapper jsonMapper,
                                   String nodeName) {
         Validate.notNull(transport, "transport must not be null");
         Validate.notNull(requestLivenessWatcher, "requestLivenessWatcher must not be null");
         Validate.notNull(vertx, "vertx must not be null");
+        Validate.notNull(openTelemetry, "openTelemetry must not be null");
         Validate.notNull(properties, "properties must not be null");
         Validate.notNull(jsonMapper, "jsonMapper must not be null");
         Validate.notBlank(nodeName, "nodeName must not be blank");
@@ -90,9 +91,8 @@ public class RpcServiceProxyFactory {
         this.requestLivenessWatcher = requestLivenessWatcher;
         this.vertx = vertx;
         this.nodeName = nodeName;
-        this.jsonMapper = jsonMapper;
         this.traceLogFilter = new TraceLogFilter(properties);
-        this.openTelemetry = GlobalOpenTelemetry.get();
+        this.openTelemetry = openTelemetry;
 
         ReactiveAdapterRegistry reactiveAdapterRegistry = new ReactiveAdapterRegistry();
         KinoticUtil.registerVertxFutureAdapter(reactiveAdapterRegistry);
@@ -121,13 +121,6 @@ public class RpcServiceProxyFactory {
                          .addModule(new VertxJackson3Module())
                          .addModule(KinoticJacksonConfig.kinoticCoreModule())
                          .disable(MapperFeature.DETECT_PARAMETER_NAMES);
-    }
-
-    /**
-     * @return the mapper the proxies this factory mints convert arguments and replies with
-     */
-    public JsonMapper jsonMapper() {
-        return jsonMapper;
     }
 
     /**

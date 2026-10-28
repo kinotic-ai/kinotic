@@ -1,5 +1,6 @@
 package org.kinotic.client.api;
 
+import io.opentelemetry.api.OpenTelemetry;
 import io.vertx.core.net.ClientSSLOptions;
 import lombok.Getter;
 import lombok.Setter;
@@ -41,8 +42,9 @@ public class ConnectOptions {
     private ClientSSLOptions sslOptions;
 
     /**
-     * The largest reply the client accepts, in bytes; a larger frame ends the connection. Defaults to the gateway's
-     * own default event payload size.
+     * The largest STOMP frame the connection carries in either direction, in bytes: a larger reply ends the
+     * connection, and a request is written in WebSocket frames up to it, so it must not exceed the gateway's
+     * {@code kinotic.maxEventPayloadSize}. Defaults to that property's default.
      */
     private int maxFrameSize = new KinoticProperties().getMaxEventPayloadSize();
 
@@ -59,5 +61,11 @@ public class ConnectOptions {
      * {@code null} leaves the mapper as it starts.
      */
     private Consumer<JsonMapper.Builder> jsonMapperCustomizer;
+
+    /**
+     * Traces the proxies' invocations, continued by the services they reach. {@link OpenTelemetry#noop()} by
+     * default; a program with a configured SDK passes it here.
+     */
+    private OpenTelemetry openTelemetry = OpenTelemetry.noop();
 
 }

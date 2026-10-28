@@ -29,6 +29,7 @@ import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.springframework.context.ConfigurableApplicationContext;
 import tools.jackson.databind.module.SimpleModule;
 
+import java.net.ServerSocket;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -230,6 +231,45 @@ public class KinoticConnectionTests {
         // the reconnect issued a reply destination of its own
         Assertions.assertNotNull(connection.connectedInfo().getReplyToId());
         handle.release();
+    }
+
+    @Test
+    public void testInitialConnectEndsAfterTheAttemptsAllowed() throws Exception {
+        // nothing listens on the port, so every attempt is refused
+        ConnectOptions options = options(TestGatewayApplication.CLIENT_SECRET)
+                .setServerUrl("ws://localhost:" + TestGatewayApplication.freePort())
+                .setReconnect(reconnectOptions().setMaxAttempts(2));
+        long started = System.nanoTime();
+
+        ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
+                                                             () -> KinoticConnection.connect(vertx, options)
+                                                                                    .toCompletionStage()
+                                                                                    .toCompletableFuture()
+                                                                                    .get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+
+        Assertions.assertFalse(failure.getCause() instanceof AuthenticationException, failure.getCause().toString());
+        // the second attempt waited for the initial delay
+        Assertions.assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) >= 200);
+    }
+
+    @Test
+    public void testInitialConnectTimesOutOnAGatewayThatNeverAnswers() throws Exception {
+        // a server that accepts the socket and never answers the upgrade
+        try (ServerSocket silent = new ServerSocket(0)) {
+            ConnectOptions options = options(TestGatewayApplication.CLIENT_SECRET)
+                    .setServerUrl("ws://localhost:" + silent.getLocalPort())
+                    .setReconnect(reconnectOptions().setMaxAttempts(1).setConnectionTimeout(Duration.ofMillis(500)));
+            long started = System.nanoTime();
+
+            ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
+                                                                 () -> KinoticConnection.connect(vertx, options)
+                                                                                        .toCompletionStage()
+                                                                                        .toCompletableFuture()
+                                                                                        .get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+
+            // the attempt's own timer or the WebSocket client's timeout ends the attempt, whichever fires first
+            Assertions.assertTrue(TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - started) < 5, failure.getCause().toString());
+        }
     }
 
     private KinoticConnection connect(ConnectOptions options) throws Exception {

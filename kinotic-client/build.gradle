@@ -13,10 +13,13 @@ dependencies {
     implementation 'tools.jackson.core:jackson-core'
     // api scope: ConnectOptions customizes the JsonMapper the proxies convert with
     api 'tools.jackson.core:jackson-databind'
+    // api scope: ConnectOptions takes the OpenTelemetry the proxies trace with
+    api 'io.opentelemetry:opentelemetry-api'
+    // api scope: a service interface the client proxies returns Mono and Flux
+    api 'io.projectreactor:reactor-core'
 
     // The tests run the client against the gateway, started in-process with a test security service and test services
     testImplementation project(':kinotic-api-gateway')
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'io.projectreactor:reactor-core'
     testImplementation 'io.projectreactor:reactor-test'
 }

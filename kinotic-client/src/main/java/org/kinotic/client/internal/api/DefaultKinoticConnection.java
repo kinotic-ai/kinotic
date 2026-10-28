@@ -7,6 +7,7 @@ import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.UpgradeRejectedException;
 import io.vertx.core.http.WebSocketConnectOptions;
+import io.vertx.core.internal.ContextInternal;
 import io.vertx.ext.stomp.lite.client.StompClient;
 import io.vertx.ext.stomp.lite.client.StompClientConnection;
 import io.vertx.ext.stomp.lite.client.StompClientOptions;
@@ -107,6 +108,9 @@ public class DefaultKinoticConnection implements KinoticConnection {
         Validate.isTrue(serverUri.getScheme() != null && WEBSOCKET_SCHEMES.contains(serverUri.getScheme()),
                         "serverUrl must be a ws:// or wss:// URL but was '%s'", options.getServerUrl());
         Validate.isTrue(serverUri.getHost() != null, "serverUrl must name a host but was '%s'", options.getServerUrl());
+        Validate.isTrue(serverUri.getQuery() == null && serverUri.getFragment() == null,
+                        "serverUrl must carry no query or fragment but was '%s'", options.getServerUrl());
+        Validate.notNull(options.getOpenTelemetry(), "openTelemetry must not be null");
         Validate.isTrue(options.getAuthHeaders().values().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null value");
         Validate.isTrue(options.getMaxFrameSize() >= 1, "maxFrameSize must be at least 1 byte");
         ReconnectOptions reconnect = options.getReconnect();
@@ -132,11 +136,14 @@ public class DefaultKinoticConnection implements KinoticConnection {
         }
         JsonMapper jsonMapper = jsonMapperBuilder.build();
         this.vertx = vertx;
-        this.context = vertx.getOrCreateContext();
-        this.livenessWatcher = new ConnectionLivenessWatcher(context);
+        // a duplicate starts with empty locals, so the connection carries nothing of the context connect() was
+        // called on and shares its context with no other connection
+        this.context = ((ContextInternal) vertx.getOrCreateContext()).duplicate();
+        this.livenessWatcher = new ConnectionLivenessWatcher(vertx);
         this.transport = new StompRpcTransport(context, options.getServerUrl(), NODE_NAME);
         KinoticProperties properties = new KinoticProperties().setMaxEventPayloadSize(options.getMaxFrameSize());
-        this.proxyFactory = new RpcServiceProxyFactory(transport, livenessWatcher, vertx, properties, jsonMapper, NODE_NAME);
+        this.proxyFactory = new RpcServiceProxyFactory(transport, livenessWatcher, vertx, options.getOpenTelemetry(),
+                                                       properties, jsonMapper, NODE_NAME);
         // the gateway's participant model is not on this classpath, so the participant is read as what every participant has
         SimpleModule participantModule = new SimpleModule("KinoticClientModule")
                 .addAbstractTypeMapping(Participant.class, ConnectedParticipant.class);
