@@ -1,0 +1,1 @@
+import{b as e,mt as t,xt as n}from"./DZo3dYLJ.js";import{lt as r}from"#entry";var i={},a={class:`max-w-[1320px] mx-auto`};function o(r,i){return t(),e(`div`,a,[n(r.$slots,`default`)])}var s=Object.assign(r(i,[[`render`,o]]),{__name:`BaseContainer`});export{s as t};
