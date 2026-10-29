@@ -1,1 +1,0 @@
-{"id":"cbc795e45942d965f9ae37367420f58f.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.core.security.InvitationTests.aPasswordSignsInOnlyWhereTheOrganizationAllowsPasswordSignIn","name":"aPasswordSignsInOnlyWhereTheOrganizationAllowsPasswordSignIn()","status":"passed","testResultsByEnv":{"default":"e07f1b3d15249f7c9c61a00562927f62"}}
