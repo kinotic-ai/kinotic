@@ -84,20 +84,11 @@ import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, postCredentials } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import { forgetOrganization, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
+import { forgetOrganization, type LoginProvider, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
 
 const debug = createDebug('login')
 
 const PROVIDERS_UNAVAILABLE = 'Could not load the ways to sign in to this organization. Refresh the page to try again.'
-
-/** A sign-in provider the organization's login offers, as `GET /api/auth/org/login/:orgId/providers` lists it. */
-interface LoginProvider {
-  id: string
-  /** PASSWORD for an email and a password, which the page offers as its form, OIDC for a provider's button. */
-  type: 'PASSWORD' | 'OIDC'
-  name: string
-  provider: string | null
-}
 
 const props = defineProps<{ organizationId: string }>()
 

@@ -121,7 +121,7 @@ public class DefaultMemberInvitationService implements MemberInvitationService {
             ret = Future.succeededFuture();
         } else {
             Validate.isTrue(StringUtils.isNotBlank(tenantId), "Name the tenant the user joins; this application's administrators manage its tenants.");
-            ret = tenantRepository.findById(tenantId, application.getId(), application.getOrganizationId()).map(found -> {
+            ret = tenantRepository.findById(application.getId(), tenantId, application.getOrganizationId()).map(found -> {
                 Validate.isTrue(found != null, "The application has no tenant %s.", tenantId);
                 return null;
             });

@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Tenant;
-import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.utils.HostLabelUtil;
+import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.TenantService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
@@ -20,13 +20,14 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Verifies how an organization's tenants are created: a tenant id names one tenant of one of the organization's
- * applications, so creating it again for the same application answers the existing tenant, at once or in turn, a
- * create or a save for another application is refused, an id is held to the room a site label leaves in front
- * of the application's name, and a prefix of a name or an id finds that application's tenants alone.
+ * Verifies how an organization's tenants are created: a tenant id is unique within its application, so creating it
+ * again for the same application answers the existing tenant, at once or in turn, while another application holds a
+ * tenant of the same id of its own; an id is held to the room a site label leaves in front of the application's
+ * name, and a prefix of a name or an id finds that application's tenants alone.
  */
 @SpringBootTest
 public class TenantServiceTests extends KinoticTestBase {
@@ -38,7 +39,7 @@ public class TenantServiceTests extends KinoticTestBase {
     private ApplicationService applicationService;
 
     @Autowired
-    private TenantRepository tenantRepository;
+    private CrudServiceTemplate crudServiceTemplate;
 
     @Test
     public void aPrefixFindsTheApplicationsTenantsAlone() throws Exception {
@@ -50,7 +51,7 @@ public class TenantServiceTests extends KinoticTestBase {
         String word = "qz" + suffix().substring(0, 6);
         Tenant mine = await(runAsOrganization(() -> tenantService.createTenantIfNotExist(appId, word + " Mine", "A customer")));
         await(runAsOrganization(() -> tenantService.createTenantIfNotExist(otherAppId, word + " Theirs", "Another customer")));
-        await(tenantRepository.syncIndex());
+        await(crudServiceTemplate.syncIndex("kinotic_tenant"));
 
         // the name matches whatever its case, and so does the id
         Page<Tenant> byName = await(runAsOrganization(() -> tenantService.findForApplicationByPrefix(appId, word.toUpperCase() + " M", Pageable.ofSize(10))));
@@ -63,7 +64,7 @@ public class TenantServiceTests extends KinoticTestBase {
     }
 
     @Test
-    public void aTenantIdNamesOneTenantOfOneApplication() throws Exception {
+    public void aTenantIdIsUniqueWithinItsApplication() throws Exception {
         String appId = "tenant-app-" + suffix();
         String otherAppId = "tenant-app-" + suffix();
         await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(appId, "Tenant application", null)));
@@ -75,15 +76,19 @@ public class TenantServiceTests extends KinoticTestBase {
         assertEquals(globex.getId(), again.getId());
         assertEquals("A customer", again.getDescription());
 
-        assertInstanceOf(IllegalArgumentException.class, failure(() -> tenantService.createTenantIfNotExist(otherAppId, name, "Another customer")));
-        // nor does a save under the id, whether it names the id or the name the id is minted from
-        Tenant moved = new Tenant().setApplicationId(otherAppId).setName(name).setDescription("Moved");
-        assertInstanceOf(IllegalArgumentException.class, failure(() -> tenantService.save(moved)));
-        Tenant renamed = new Tenant().setId(globex.getId()).setApplicationId(otherAppId).setName("Other name").setDescription("Moved");
-        assertInstanceOf(IllegalArgumentException.class, failure(() -> tenantService.save(renamed)));
-        Tenant kept = await(runAsOrganization(() -> tenantService.findById(globex.getId())));
-        assertEquals(appId, kept.getApplicationId());
-        assertEquals("A customer", kept.getDescription());
+        // another application's tenant of the same id is a tenant of its own
+        Tenant theirs = await(runAsOrganization(() -> tenantService.createTenantIfNotExist(otherAppId, name, "Another customer")));
+        assertEquals(globex.getId(), theirs.getId());
+        assertEquals("A customer", await(runAsOrganization(() -> tenantService.findById(appId, globex.getId()))).getDescription());
+        assertEquals("Another customer", await(runAsOrganization(() -> tenantService.findById(otherAppId, globex.getId()))).getDescription());
+
+        // a delete names both ids, and one of a tenant the application lacks is a no-op
+        assertInstanceOf(IllegalArgumentException.class, failure(() -> tenantService.deleteById(otherAppId, "")));
+        await(runAsOrganization(() -> tenantService.deleteById(otherAppId, "no-such-tenant-" + suffix())));
+
+        await(runAsOrganization(() -> tenantService.deleteById(otherAppId, globex.getId())));
+        assertNull(await(runAsOrganization(() -> tenantService.findById(otherAppId, globex.getId()))));
+        assertEquals(appId, await(runAsOrganization(() -> tenantService.findById(appId, globex.getId()))).getApplicationId());
     }
 
     @Test
@@ -92,7 +97,7 @@ public class TenantServiceTests extends KinoticTestBase {
         await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(appId, "Tenant application", null)));
         String name = "Initech " + suffix();
 
-        // both calls look the id up before either writes, so the second create finds the id taken
+        // the create that loses the race finds the id taken and answers the tenant the other one made
         List<Tenant> both = await(runAsOrganization(() -> Future.all(tenantService.createTenantIfNotExist(appId, name, "First"),
                                                                      tenantService.createTenantIfNotExist(appId, name, "Second"))
                                                                 .map(CompositeFuture::<Tenant>list)));

@@ -1,0 +1,14 @@
+/* The slide of a right-hand drawer whose Transition is named drawer-slide. It is a CSS transition
+   rather than PrimeVue's CSS animation because Vue starts it on the frame after the drawer's first
+   paint; Firefox starts an animation's clock before that paint, so a drawer whose content is slow
+   to render would skip most of its slide. The .p-drawer qualifier outranks PrimeVue's .p-drawer rule,
+   which is injected after this stylesheet. */
+.p-drawer.drawer-slide-enter-active,
+.p-drawer.drawer-slide-leave-active {
+  transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.p-drawer.drawer-slide-enter-from,
+.p-drawer.drawer-slide-leave-to {
+  transform: translate3d(100%, 0, 0);
+}

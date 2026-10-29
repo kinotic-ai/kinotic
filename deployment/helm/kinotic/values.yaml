@@ -118,9 +118,11 @@ kinotic:
     portalBaseUrl: "http://localhost:9090"
     # kinotic.domain.email.* — outbound mail via Azure Communication Services
     email:
-      # When false, EmailService logs verification URLs instead of sending. Required for
-      # local/dev environments without a real ACS resource.
-      enabled: false
+      # When false, no email is sent and every link a person must open (sign-up verification,
+      # invitation accept, the organizations an address belongs to) is returned to whoever asks
+      # for it, so nothing proves an address is theirs. Only for a server reachable by no one but
+      # the people trying it. While true, endpoint and senderAddress are required.
+      enabled: true
       endpoint: ""
       senderAddress: ""
       managedIdentityClientId: ""

@@ -251,7 +251,7 @@ public class ApplicationStoreTests extends KinoticTestBase {
                                                                   new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.idOf(withinObject)))));
         assertTrue(await(relationships.holds(store, new RelationshipTuple(AuthzUtil.object(AuthzConstants.USER_TYPE, bob.getId()), AuthzConstants.MEMBER_RELATION, tenantObject))));
 
-        await(runAsOrganization(() -> tenantService.deleteById(tenant.getId())));
+        await(runAsOrganization(() -> tenantService.deleteById(TEST_APP_ID, tenant.getId())));
 
         assertTrue(await(relationships.read(store, tenantObject)).isEmpty());
         assertTrue(await(relationships.read(store, withinObject)).isEmpty());

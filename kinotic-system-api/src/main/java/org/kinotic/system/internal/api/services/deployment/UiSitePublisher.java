@@ -51,13 +51,30 @@ public class UiSitePublisher {
     /**
      * The row a UI publishes to: its existing site, or one minted for its first publish, which also ensures
      * the organization's subdomain is provisioned at the edge and makes the UI the application's primary UI
-     * when the application has none. Fails when the site of a UI of the same name
-     * belongs to another project of the application, or the edge refused the subdomain.
+     * when the application has none. An existing site is linked at its address under the current sites
+     * domain, as is the application's primary UI when it is that site. Fails when the site of a UI of the same
+     * name belongs to another project of the application, or the edge refused the subdomain.
      */
     public Future<UiDeployment> deploymentFor(Project project, UiArtifact ui, UiDeployment existing) {
         return existing == null
                 ? dnsRecordProvisioner.ensure(project.getOrganizationId()).compose(v -> mintDeployment(project, ui))
-                : Future.succeededFuture(existing);
+                : relink(project, existing);
+    }
+
+    // a site's address is its id under the sites domain, so a site minted before the domain changed is published
+    // under the new address, and is linked there, with the organization's subdomain provisioned under it
+    private Future<UiDeployment> relink(Project project, UiDeployment existing) {
+        String url = publishedSites().resolveSiteUrl(existing.getId());
+        Future<UiDeployment> ret;
+        if (url.equals(existing.getUrl())) {
+            ret = Future.succeededFuture(existing);
+        } else {
+            ret = dnsRecordProvisioner.ensure(project.getOrganizationId())
+                                      .compose(v -> uiDeploymentRepository.recordUrl(existing.getId(), url))
+                                      .compose(v -> applicationRepository.updatePrimaryUiUrl(project.applicationKey(), existing.getName(), url))
+                                      .map(v -> existing.setUrl(url));
+        }
+        return ret;
     }
 
     /**
