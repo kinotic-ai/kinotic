@@ -3,10 +3,10 @@
 
 # What every server container shares; each service below adds its image, ports and identity.
 x-kinotic-server: &kinotic-server
-  # Matches kinotic-migration: a locally present image wins, so CI can point the stack at the
-  # image built from this commit by tagging it here. Run `docker compose pull` to refresh from
-  # Docker Hub.
-  pull_policy: missing
+  # Every Kinotic image takes KINOTIC_PULL_POLICY: by default a locally present image wins, so CI can point the
+  # stack at the image built from this commit by tagging it here. `kinotic local up` sets `always`, so the stack
+  # never starts from a stale copy. Run `docker compose pull` to refresh from Docker Hub.
+  pull_policy: ${KINOTIC_PULL_POLICY:-missing}
   depends_on:
     kinotic-elasticsearch:
       condition: service_healthy

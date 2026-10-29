@@ -18,6 +18,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -46,6 +48,7 @@ public class GiteaClient {
     private static final String ADMIN_PASSWORD = "kinotic-gitea-admin";
     private static final String DEFAULT_BRANCH = "main";
     private static final String TOKEN_NAME_PREFIX = "kinotic-";
+    private static final int USER_PAGE_SIZE = 50;
 
     private final Vertx vertx;
     private WebClient webClient;
@@ -162,13 +165,7 @@ public class GiteaClient {
     public Future<String> createToken(String username, String password, String scope, Duration lifetime) {
         long now = System.currentTimeMillis();
         String userUri = "/users/" + username + "/tokens";
-        return send(asUser(HttpMethod.GET, userUri, username, password), null)
-                .compose(listed -> expect(listed, "list the tokens of " + username, 200).map(v -> listed.bodyAsJsonArray()))
-                .compose(tokens -> Future.all(tokens.stream()
-                                                    .map(JsonObject.class::cast)
-                                                    .filter(token -> createdBefore(token.getString("name"), now - lifetime.toMillis()))
-                                                    .map(token -> send(asUser(HttpMethod.DELETE, userUri + "/" + token.getLong("id"), username, password), null))
-                                                    .toList()))
+        return deleteTokensCreatedBefore(username, password, now - lifetime.toMillis())
                 .compose(v -> send(asUser(HttpMethod.POST, userUri, username, password),
                                    new JsonObject().put("name", TOKEN_NAME_PREFIX + now + "-" + UUID.randomUUID())
                                                    .put("scopes", new JsonArray().add(scope))))
@@ -180,7 +177,35 @@ public class GiteaClient {
                         }));
     }
 
-    // Gitea tokens have no expiry of their own; one a restart leaves undeleted goes with the account's next token
+    /** Deletes the tokens this client created for {@code username} before {@code instant}, in epoch milliseconds. */
+    public Future<Void> deleteTokensCreatedBefore(String username, String password, long instant) {
+        String userUri = "/users/" + username + "/tokens";
+        return send(asUser(HttpMethod.GET, userUri, username, password), null)
+                .compose(listed -> expect(listed, "list the tokens of " + username, 200).map(v -> listed.bodyAsJsonArray()))
+                .compose(tokens -> Future.all(tokens.stream()
+                                                    .map(JsonObject.class::cast)
+                                                    .filter(token -> createdBefore(token.getString("name"), instant))
+                                                    .map(token -> send(asUser(HttpMethod.DELETE, userUri + "/" + token.getLong("id"), username, password), null))
+                                                    .toList()))
+                .mapEmpty();
+    }
+
+    /** The login names of every account on the server. */
+    public Future<List<String>> findAllUsernames() {
+        return findUsernames(1, new ArrayList<>());
+    }
+
+    // Gitea pages the account list; an empty page ends it
+    private Future<List<String>> findUsernames(int page, List<String> found) {
+        return send(asAdmin(HttpMethod.GET, "/admin/users?limit=" + USER_PAGE_SIZE + "&page=" + page), null)
+                .compose(response -> expect(response, "list the accounts", 200).map(v -> response.bodyAsJsonArray()))
+                .compose(users -> {
+                    users.stream().map(JsonObject.class::cast).forEach(user -> found.add(user.getString("login")));
+                    return users.isEmpty() ? Future.succeededFuture(found) : findUsernames(page + 1, found);
+                });
+    }
+
+    // Gitea tokens have no expiry of their own
     private void deleteAfter(Duration lifetime, String tokenUri, String username, String password) {
         vertx.timer(lifetime.toMillis(), TimeUnit.MILLISECONDS)
              .compose(v -> send(asUser(HttpMethod.DELETE, tokenUri, username, password), null))

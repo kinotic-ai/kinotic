@@ -2,6 +2,7 @@ package org.kinotic.management.internal.api.services.gitea;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
@@ -11,6 +12,8 @@ import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.management.api.services.github.ProjectRepoCredentialService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -18,6 +21,7 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.HexFormat;
 
 /**
@@ -26,6 +30,7 @@ import java.util.HexFormat;
  * write it alone, so a token reaches exactly one repository with exactly the access asked for. A token is deleted an
  * hour after it is issued.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(value = "kinotic.managementApi.repoHost", havingValue = "GITEA")
@@ -40,6 +45,18 @@ public class GiteaProjectRepoService implements ProjectRepoTokenProvider, Projec
     private final GiteaClient giteaClient;
     private final ProjectRepository projectRepository;
     private final SecurityContext securityContext;
+
+    // A token is deleted by a timer on the server that issued it, so a restart within its lifetime leaves it behind
+    @EventListener
+    public void onApplicationReadyEvent(ApplicationReadyEvent event) {
+        long expired = System.currentTimeMillis() - TOKEN_LIFETIME.toMillis();
+        giteaClient.findAllUsernames()
+                   .compose(usernames -> Future.all(usernames.stream()
+                                                             .filter(GiteaProjectRepoService::isRepositoryAccount)
+                                                             .map(username -> giteaClient.deleteTokensCreatedBefore(username, ACCOUNT_PASSWORD, expired))
+                                                             .toList()))
+                   .onFailure(err -> log.warn("Deleting the expired tokens of the Gitea repository accounts failed", err));
+    }
 
     @Override
     public Future<ProjectRepoToken> issueRepoToken(String organizationId, String projectId) {
@@ -70,6 +87,10 @@ public class GiteaProjectRepoService implements ProjectRepoTokenProvider, Projec
                                                                  cloneBaseUrl + "/" + project.getRepoFullName() + ".git",
                                                                  project.getRepoDefaultBranch()));
         });
+    }
+
+    private static boolean isRepositoryAccount(String username) {
+        return Arrays.stream(GiteaRepoAccess.values()).anyMatch(access -> username.startsWith(access.getAccountPrefix()));
     }
 
     // Gitea names an account in at most 40 characters, so the repository's account is named by a digest of the project

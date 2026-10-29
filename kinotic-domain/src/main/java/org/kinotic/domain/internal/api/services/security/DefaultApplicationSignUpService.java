@@ -4,6 +4,8 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.exceptions.UnverifiedEmailException;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.ApplicationKey;
@@ -48,6 +50,7 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     private final InviteService inviteService;
     private final PendingApplicationSignUpRepository pendingRepository;
     private final EmailService emailService;
+    private final KinoticDomainProperties domainProperties;
 
     @Override
     public Future<List<ApplicationLoginProvider>> findLoginProviders(LoginScope scope) {
@@ -129,7 +132,7 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     }
 
     @Override
-    public Future<Void> initiatePasswordSignUp(LoginScope scope, String email, String uiOrigin) {
+    public Future<String> initiatePasswordSignUp(LoginScope scope, String email, String uiOrigin) {
         Validate.notNull(scope, "scope cannot be null");
         Validate.isTrue(email != null && email.contains("@"), "A valid email is required");
         Validate.notBlank(uiOrigin, "The UI the verification link opens is required");
@@ -137,19 +140,33 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
         ApplicationKey application = scope.applicationKey();
         return requirePasswordSignUp(scope)
                 .compose(v -> identityService.findApplicationUserByEmail(address, application.organizationId(), application.applicationId()))
-                .compose(existing -> existing != null
+                .compose(existing -> {
+                    Future<String> ret;
+                    if (existing == null) {
+                        ret = sendVerification(scope.application(), address, uiOrigin);
+                    } else if (emailEnabled()) {
                         // the caller learns nothing either way; the person who holds the email signs in
-                        ? Future.succeededFuture()
-                        : sendVerification(scope.application(), address, uiOrigin));
+                        ret = Future.succeededFuture();
+                    } else {
+                        // the link goes to whoever asks, so no answer here can keep which emails have a user secret
+                        ret = Future.failedFuture(new ExistingUserException("This email already has an account; sign in instead"));
+                    }
+                    return ret;
+                });
     }
 
     // one sign-up per email is pending at a time, so repeated requests for an address send it one link a day
-    private Future<Void> sendVerification(Application application, String email, String uiOrigin) {
+    private Future<String> sendVerification(Application application, String email, String uiOrigin) {
         return pendingRepository.findByEmail(email, application.getOrganizationId(), application.getId())
                                 .compose(earlier -> {
-                                    Future<Void> ret;
+                                    Future<String> ret;
                                     if (earlier != null && earlier.getExpiresAt().after(new Date())) {
-                                        ret = Future.succeededFuture();
+                                        // no email carries the link while email is disabled, so asking again is the
+                                        // only way back to it
+                                        ret = emailEnabled()
+                                                ? Future.succeededFuture()
+                                                : emailService.sendApplicationSignUpEmail(email, application.getName(),
+                                                                                          earlier.getVerificationToken(), uiOrigin);
                                     } else {
                                         Future<Void> cleared = earlier != null ? pendingRepository.deleteById(earlier.getId()) : Future.succeededFuture();
                                         ret = cleared.compose(v -> savePendingAndSend(application, email, uiOrigin));
@@ -158,7 +175,7 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                                 });
     }
 
-    private Future<Void> savePendingAndSend(Application application, String email, String uiOrigin) {
+    private Future<String> savePendingAndSend(Application application, String email, String uiOrigin) {
         Date now = new Date();
         PendingApplicationSignUp pending = new PendingApplicationSignUp()
                 .setId(UUID.randomUUID().toString())
@@ -211,6 +228,10 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
         return offersPasswordSignUp(scope).compose(offered -> offered
                 ? Future.<Void>succeededFuture()
                 : Future.failedFuture(new IllegalStateException("The login does not offer sign-up with an email and a password")));
+    }
+
+    private boolean emailEnabled() {
+        return domainProperties.getDomain().getEmail().isEnabled();
     }
 
     // whether a new person signs up with an email and a password at the login of scope, which offers password

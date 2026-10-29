@@ -2,6 +2,7 @@ import {spawn, spawnSync, type SpawnSyncReturns} from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
+import type {ComposeContainer} from './ComposeContainer'
 import type {LocalStackVersions} from './LocalStackVersions'
 
 /** The portal of the local stack, where organizations sign up and sign in. */
@@ -132,17 +133,30 @@ export class LocalStack {
     }
 
     /**
-     * Downloads the stack's latest images, keeping those already here when a download fails, then starts its
-     * containers and waits for its servers to answer.
+     * Downloads the stack's latest images, then starts its containers and waits for its servers to answer.
      *
      * @param onWaiting called once the containers are started and the servers are being waited for
+     * @throws Error when an image cannot be downloaded, rather than start a copy this machine holds from before
      */
     async start(onWaiting: () => void): Promise<void> {
         // Copied over in place: a running container's bind mounts keep pointing at the same files and directories,
         // and none of them points into a CLI install that an upgrade replaces
         fs.cpSync(path.join(this.bundleDir, 'compose'), this.composeDir, {recursive: true, force: true})
-        this.compose(['pull', '--ignore-pull-failures'])
-        this.compose(['up', '-d', '--no-build', '--pull', 'missing'])
+        try {
+            this.compose(['up', '-d', '--no-build'])
+        } catch {
+            const failed = this.failedServices()
+            if (failed.length === 0) {
+                // no container ran and failed, so an image could not be downloaded; a rejected Docker Hub login is the usual cause
+                throw new Error('Kinotic could not start. If an image could not be downloaded, check that Docker Hub accepts'
+                                + ' this machine\'s Docker login: run `docker logout`, or `docker login` again, then run this again.')
+            }
+            for (const service of failed) {
+                this.compose(['logs', '--tail', '40', service])
+            }
+            throw new Error(`Kinotic could not start: ${failed.join(', ')} stopped with an error; the end of its log is above.`
+                            + ` See all of it with: kinotic local logs ${failed[0]}`)
+        }
         onWaiting()
         await this.waitForServers()
     }
@@ -283,14 +297,41 @@ export class LocalStack {
         }
     }
 
-    // Before the first start there is no copy of the compose files yet, and the bundled ones name the same project
     private compose(args: string[]): void {
-        const dir = fs.existsSync(this.composeDir) ? this.composeDir : path.join(this.bundleDir, 'compose')
-        const result = spawnSync('docker', ['compose', '--project-directory', dir, '-f', path.join(dir, 'compose.yml'), ...args],
-                                 {stdio: 'inherit', env: {...process.env, kinoticVersion: this.versions.kinoticVersion}})
+        const result = spawnSync('docker', this.composeArgs(args), {stdio: 'inherit', env: this.composeEnv()})
         if (result.error || result.status !== 0) {
             throw new Error(`docker compose ${args[0]} failed`)
         }
+    }
+
+    // The services whose container ran and exited with an error. Compose prints one JSON object per container per
+    // line, and an array of them in older releases.
+    private failedServices(): string[] {
+        const result = spawnSync('docker', this.composeArgs(['ps', '--all', '--format', 'json']),
+                                 {encoding: 'utf8', env: this.composeEnv()})
+        const ret: string[] = []
+        if (!result.error && result.status === 0) {
+            for (const line of result.stdout.split('\n').filter(line => line.trim().length > 0)) {
+                const parsed = JSON.parse(line) as ComposeContainer | ComposeContainer[]
+                for (const container of Array.isArray(parsed) ? parsed : [parsed]) {
+                    if (container.State === 'exited' && container.ExitCode !== 0) {
+                        ret.push(container.Service)
+                    }
+                }
+            }
+        }
+        return ret
+    }
+
+    // Before the first start there is no copy of the compose files yet, and the bundled ones name the same project
+    private composeArgs(args: string[]): string[] {
+        const dir = fs.existsSync(this.composeDir) ? this.composeDir : path.join(this.bundleDir, 'compose')
+        return ['compose', '--project-directory', dir, '-f', path.join(dir, 'compose.yml'), ...args]
+    }
+
+    // every Kinotic image is pulled each time, so the stack never starts from a stale copy
+    private composeEnv(): NodeJS.ProcessEnv {
+        return {...process.env, kinoticVersion: this.versions.kinoticVersion, KINOTIC_PULL_POLICY: 'always'}
     }
 
     private run(command: string, args: string[]): SpawnSyncReturns<string> {

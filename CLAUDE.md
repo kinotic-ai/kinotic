@@ -17,7 +17,7 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
   -Porg.gradle.java.installations.paths=/tmp/jdk25
 ```
 
-If the build fails resolving jreleaser or node-gradle plugins (403 from the Gradle plugin portal), add `CLAUDE_CLOUD_COMPILE=true`. This swaps to convention plugins that omit jreleaser/publishing and excludes kinotic-frontend:
+If the build fails resolving the jreleaser plugin (403 from the Gradle plugin portal), add `CLAUDE_CLOUD_COMPILE=true`. This swaps to convention plugins that omit jreleaser/publishing:
 
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
@@ -25,7 +25,7 @@ CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-core:compileJava \
   -Porg.gradle.java.installations.paths=/tmp/jdk25
 ```
 
-This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing and frontend support.
+This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing support.
 
 ## Branch and pull request workflow
 

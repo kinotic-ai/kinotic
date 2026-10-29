@@ -3,7 +3,7 @@
 # workloads upload and delete, and the local edge runs the Worker itself in front of it. The system
 # server's `demonstration` profile uploads to it
 # (kinotic.systemApi.uiDeployment.siteStorage: AZURITE), and a published UI opens at
-# http://<app>--<ui>.<org>.sites.localhost:8088.
+# http://<app>--<ui>.<org>.sites.kinotic.localhost:8088.
 
 services:
   kinotic-azurite:
@@ -20,6 +20,8 @@ services:
 
   kinotic-sites-edge:
     image: kinoticai/kinotic-sites-edge:${kinoticVersion:-5.0.0-SNAPSHOT}
+    # KINOTIC_PULL_POLICY, as compose.kinotic-servers.yml describes
+    pull_policy: ${KINOTIC_PULL_POLICY:-missing}
     # From a checkout, `docker compose up --build` builds it from the working tree instead of pulling it
     build:
       context: ..
@@ -28,7 +30,7 @@ services:
     depends_on:
       - kinotic-azurite
     environment:
-      SITES_DOMAIN: sites.localhost
+      SITES_DOMAIN: sites.kinotic.localhost
       AZURITE_ENDPOINT: http://kinotic-azurite:10000/devstoreaccount1
       PORTAL_BASE_URL: http://localhost:9090
     ports:
