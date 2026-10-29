@@ -33,8 +33,12 @@ export default defineNuxtPlugin(() => {
 
   // Both providers start in denied/cookieless mode (Clarity through Consent Mode
   // in its project settings) and only upgrade once applyConsent grants storage.
-  if (projectId) initClarity(projectId)
-  initGoogleAnalytics()
+  // They load only on the host of site.url, so a dev server or any other copy of
+  // the site stays out of the production reports.
+  if (window.location.hostname === new URL(useSiteConfig().url!).hostname) {
+    if (projectId) initClarity(projectId)
+    initGoogleAnalytics()
+  }
 
   let current = readConsent()
   applyConsent(current ?? NO_CONSENT)
