@@ -54,14 +54,15 @@ public interface SchemaService {
      * definition is: for a definition carrying an {@link AuthzResourceC3Decorator}, the resource decorator is
      * resolved and each function's {@link AuthzCheckC3Decorator} is derived from its name, its parameters and
      * the check it declares, exactly as a {@code @Publish} interface's is, a function declared unchecked
-     * carrying none; a definition declaring no resource is returned as declared. The given definition is left
-     * as it is.
+     * carrying none; a definition marked unchecked as a whole carries the mark on every function. The given
+     * definition is left as it is.
      *
      * @param definition the declared definition
      * @return the definition the directory stores for the service
-     * @throws IllegalStateException    when a function of a resource service derives no check and declares
-     *                                  none, a function declares a check on a service declaring no resource, or
-     *                                  an authorization declaration does not resolve
+     * @throws IllegalStateException    when the definition declares no resource and is not marked unchecked, a
+     *                                  function of a resource service derives no check and declares none, a
+     *                                  function declares a check on a service declaring no resource, or an
+     *                                  authorization declaration does not resolve
      * @throws IllegalArgumentException when the definition names no namespace or no name
      */
     ServiceDefinition deriveChecks(ServiceDefinition definition);

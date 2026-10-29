@@ -35,6 +35,12 @@ export class AuthzResourceDecorator extends C3Decorator {
      */
     public roles: AuthzRoleDeclaration[] = []
 
+    /**
+     * True for a service of the type `entity_definition` whose functions act on a definition's rows in every
+     * tenant, so a tenant's user is checked on the definition itself rather than within its tenant.
+     */
+    public acrossTenants: boolean = false
+
     constructor(resourceType: string) {
         super()
         this.type = 'AuthzResource'

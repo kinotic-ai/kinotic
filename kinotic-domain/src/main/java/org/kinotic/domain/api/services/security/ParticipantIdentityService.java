@@ -1,6 +1,7 @@
 package org.kinotic.domain.api.services.security;
 
 import io.vertx.core.Future;
+import org.kinotic.authz.api.model.Grant;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -20,6 +21,7 @@ import org.kinotic.domain.api.model.security.identity.SystemParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 public interface ParticipantIdentityService extends IdentifiableCrudService<ParticipantIdentity, String> {
 
@@ -214,6 +216,18 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      * included — the owner's view of which clients hold or held access there.
      */
     Future<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(Participant owner, Pageable pageable);
+
+    /**
+     * Refuses taking away the administrator grants on a resource that {@code leaving} selects when one of them is held
+     * by a user of {@code holderType} who can sign in, enabled and claimed, and none of the remaining ones is, so the
+     * resource keeps an administrator.
+     *
+     * @param object     the resource, as the system's store names it, such as {@code organization:<id>}
+     * @param leaving    selects the grants being taken away
+     * @param holderType the kind of user that must keep administering the resource
+     * @return a future that succeeds when the grants may go, failed with an {@link IllegalStateException} otherwise
+     */
+    Future<Void> requireAnotherAdministrator(String object, Predicate<Grant> leaving, Class<? extends UserParticipantIdentity> holderType);
 
     /**
      * Provisions a machine identity, assigning id and dates, enabling it, and generating the

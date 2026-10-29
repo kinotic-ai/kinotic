@@ -62,20 +62,10 @@ public class DefaultSystemAccessService implements SystemAccessService {
     @Override
     public Future<Void> revoke(String grantId) {
         Validate.notBlank(grantId, "grantId cannot be blank");
-        return relationships.findGrants(SYSTEM, AuthzConstants.SYSTEM_OBJECT).compose(grants -> {
-            // a system with no administrator has every system user made one by SystemGraphBootstrap on the next start
-            boolean lastAdministrator = grants.stream().anyMatch(grant -> grant.id().equals(grantId) && isAdministrator(grant))
-                    && grants.stream().filter(DefaultSystemAccessService::isAdministrator).count() == 1;
-            if (lastAdministrator) {
-                throw new IllegalStateException("The grant " + grantId + " is the system's last administrator; grant the role to another"
-                                                        + " system user first");
-            }
-            return relationships.revoke(SYSTEM, grantId, AuthzConstants.SYSTEM_OBJECT);
-        });
-    }
-
-    private static boolean isAdministrator(Grant grant) {
-        return AuthzConstants.SYSTEM_ADMIN_ROLE.equals(grant.roleId());
+        // a disabled administrator cannot sign in, so its grant keeps no one able to run the system; a system with no
+        // administrator has every enabled system user made one by SystemGraphBootstrap on the next start
+        return identities.requireAnotherAdministrator(AuthzConstants.SYSTEM_OBJECT, grant -> grant.id().equals(grantId), SystemParticipantIdentity.class)
+                            .compose(v -> relationships.revoke(SYSTEM, grantId, AuthzConstants.SYSTEM_OBJECT));
     }
 
     @Override

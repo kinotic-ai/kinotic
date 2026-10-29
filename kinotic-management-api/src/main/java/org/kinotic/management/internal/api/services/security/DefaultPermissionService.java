@@ -227,8 +227,12 @@ public class DefaultPermissionService implements PermissionService {
         validate(resource);
         Validate.notBlank(grantId, "grantId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
+        String object = AuthzGraphUtil.authzObject(organizationId, resource);
         return requireInOrganization(resource, organizationId)
-                .compose(lineage -> relationships.revoke(SYSTEM, grantId, AuthzGraphUtil.authzObject(organizationId, resource)));
+                .compose(lineage -> ORGANIZATION.equals(resource.type())
+                        ? identities.requireAnotherAdministrator(object, grant -> grant.id().equals(grantId), OrganizationParticipantIdentity.class)
+                        : Future.<Void>succeededFuture())
+                .compose(v -> relationships.revoke(SYSTEM, grantId, object));
     }
 
     @Override

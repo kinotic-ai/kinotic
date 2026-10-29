@@ -46,8 +46,8 @@ public class DefaultRelationshipService implements RelationshipService {
     private final OpenFgaService fga;
     private final DefaultAuthzStoreService stores;
 
-    @Override
-    public Future<Void> write(String store, List<RelationshipTuple> writes, List<RelationshipTuple> deletes) {
+    // Adds and removes relationships, in as many requests as the engine's limit per request takes
+    private Future<Void> write(String store, List<RelationshipTuple> writes, List<RelationshipTuple> deletes) {
         List<TupleKey> writeKeys = new ArrayList<>();
         for (RelationshipTuple tuple : writes) {
             writeKeys.add(new TupleKey().user(tuple.user()).relation(tuple.relation())._object(tuple.object()));

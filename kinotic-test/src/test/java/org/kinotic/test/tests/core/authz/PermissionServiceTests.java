@@ -1,5 +1,6 @@
 package org.kinotic.test.tests.core.authz;
 
+import io.vertx.core.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AccessExplanation;
@@ -16,16 +17,19 @@ import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
+import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.ReconcileState;
 import org.kinotic.domain.api.model.security.Group;
 import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
+import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
@@ -33,6 +37,7 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.ProjectService;
+import org.kinotic.management.api.services.security.MemberService;
 import org.kinotic.management.api.services.security.PermissionService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,9 +47,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -68,6 +75,12 @@ public class PermissionServiceTests extends KinoticTestBase {
 
     @Autowired
     private ParticipantIdentityService identityService;
+
+    @Autowired
+    private OrganizationService organizationService;
+
+    @Autowired
+    private MemberService memberService;
 
     @Autowired
     private RelationshipService relationships;
@@ -166,6 +179,40 @@ public class PermissionServiceTests extends KinoticTestBase {
                                                                               AuthzGraphUtil.authzObject(TEST_ORG_ID, onProject))));
         assertThrows(ExecutionException.class, () -> await(relationships.bind(AuthzStoreService.SYSTEM, AuthzConstants.SYSTEM_SUPPORT_ROLE, user,
                                                                               AuthzGraphUtil.authzObject(TEST_ORG_ID, onOrganization))));
+    }
+
+    @Test
+    public void theOrganizationKeepsAnAdministratorWhoCanSignIn() throws Exception {
+        Organization organization = await(organizationService.createSync(new Organization().setName("Permission " + suffix()).setDescription("administrators")));
+        String organizationId = organization.getId();
+        Participant caller = new DefaultOrganizationParticipant("caller-" + suffix(), organizationId,
+                                                                Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                       ParticipantConstants.PARTICIPANT_TYPE_USER),
+                                                                List.of());
+        Resource onOrganization = new Resource(AuthzConstants.ORGANIZATION_TYPE, organizationId);
+        OrganizationParticipantIdentity first = member(organizationId, "first-admin");
+        OrganizationParticipantIdentity disabled = member(organizationId, "disabled-admin");
+        Grant firstGrant = await(runAs(caller, () -> permissions.grant(user(first), AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
+        Grant disabledGrant = await(runAs(caller, () -> permissions.grant(user(disabled), AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
+        await(identityService.saveSync(disabled.setEnabled(false)));
+        // a pending user has yet to sign in, and its invitation may lapse unclaimed
+        OrganizationParticipantIdentity pending = member(organizationId, "pending-admin");
+        await(identityService.saveSync(pending.setPending(true)));
+        await(runAs(caller, () -> permissions.grant(user(pending), AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
+
+        // the last administrator who can sign in keeps the grant and stays an enabled member, and a disabled
+        // administrator's grant may go
+        assertRefusedAsLastAdministrator(() -> runAs(caller, () -> permissions.revoke(onOrganization, firstGrant.id())));
+        assertRefusedAsLastAdministrator(() -> runAs(caller, () -> memberService.setMemberEnabled(first.getId(), false)));
+        assertRefusedAsLastAdministrator(() -> runAs(caller, () -> memberService.removeMember(first.getId())));
+        await(runAs(caller, () -> permissions.revoke(onOrganization, disabledGrant.id())));
+
+        // once another enabled member administers the organization, the first may go
+        OrganizationParticipantIdentity second = member(organizationId, "second-admin");
+        await(runAs(caller, () -> permissions.grant(user(second), AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
+        await(runAs(caller, () -> memberService.setMemberEnabled(first.getId(), false)));
+        await(runAs(caller, () -> memberService.setMemberEnabled(first.getId(), true)));
+        await(runAs(caller, () -> permissions.revoke(onOrganization, firstGrant.id())));
     }
 
     @Test
@@ -273,6 +320,11 @@ public class PermissionServiceTests extends KinoticTestBase {
         return await(runAsOrganization(() -> projectService.createProjectIfNotExist(project)));
     }
 
+
+    private static void assertRefusedAsLastAdministrator(Supplier<Future<?>> call) {
+        ExecutionException refused = assertThrows(ExecutionException.class, () -> await(call.get()));
+        assertInstanceOf(IllegalStateException.class, refused.getCause());
+    }
 
     private static Subject user(UserParticipantIdentity member) {
         return new Subject(SubjectType.USER, member.getId());

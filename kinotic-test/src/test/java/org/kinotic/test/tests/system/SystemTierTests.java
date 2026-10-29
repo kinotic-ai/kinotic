@@ -160,6 +160,13 @@ public class SystemTierTests extends KinoticTestBase {
         await(access.revoke(secondGrant.id()));
         assertInstanceOf(IllegalStateException.class, failure(() -> access.revoke(administrators.getFirst().id())));
         assertEquals(1, grantsOf(SEEDED_ADMIN_ID, AuthzConstants.SYSTEM_ADMIN_ROLE));
+
+        // a disabled administrator's grant may go while an enabled one stays
+        SystemParticipantIdentity disabled = systemUser("disabled-admin");
+        Grant disabledGrant = await(access.grant(new Subject(SubjectType.USER, disabled.getId()), AuthzConstants.SYSTEM_ADMIN_ROLE));
+        await(identityService.saveSync(disabled.setEnabled(false)));
+        await(access.revoke(disabledGrant.id()));
+        assertEquals(1, grantsOf(SEEDED_ADMIN_ID, AuthzConstants.SYSTEM_ADMIN_ROLE));
     }
 
     @Test
@@ -287,11 +294,13 @@ public class SystemTierTests extends KinoticTestBase {
         SystemParticipantIdentity support = systemUser("system-user");
         await(access.grant(new Subject(SubjectType.USER, support.getId()), AuthzConstants.SYSTEM_SUPPORT_ROLE));
         ServerLogQuery query = new ServerLogQuery().setTelemetryServiceName("kinotic-test").setStart(0).setEnd(1).setLimit(1);
+        List<Object> request = List.of(Map.of("telemetryServiceName", "kinotic-test"));
 
-        assertInstanceOf(AuthorizationException.class, failure(() -> runAs(userParticipant(newcomer.getId()), () -> logService.serverHistory(query))));
+        // the gateway admits a system user to the system's logs through a system grant alone, and the service
+        // refuses the system's tenant to an organization's member
+        assertRefused(LOG_SERVICE, "serverHistory", userParticipant(newcomer.getId()), request, "organization_can_read_telemetry");
         assertInstanceOf(AuthorizationException.class, failure(() -> runAsOrganization(() -> logService.serverHistory(query))));
-        // the system's tenant is read for support; whether the log store answers is not the tenant's to decide
-        assertTrue(awaitUntil(() -> !(failure(() -> runAs(userParticipant(support.getId()), () -> logService.serverHistory(query))) instanceof AuthorizationException)),
+        assertTrue(awaitUntil(() -> admitted(LOG_SERVICE, "serverHistory", userParticipant(support.getId()), request)),
                    "support was never admitted to the system's logs");
     }
 

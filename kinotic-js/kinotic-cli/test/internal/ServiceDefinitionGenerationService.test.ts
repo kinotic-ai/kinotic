@@ -80,6 +80,7 @@ export class ReportService extends BaseReportService {
 }
 
 @Publish(null, 'Probe', true)
+@AuthzUnchecked
 export class ProbeService {
     echo(value: string): string {
         return value
@@ -104,7 +105,7 @@ export class HelperService {
 }
 `
 
-const SHAPES_SOURCE = `import {Publish} from '@kinotic-ai/core'
+const SHAPES_SOURCE = `import {AuthzUnchecked, Publish} from '@kinotic-ai/core'
 
 export interface Report {
     id: string
@@ -133,6 +134,7 @@ export class ReportModel {
 }
 
 @Publish('com.acme.shapes')
+@AuthzUnchecked
 export class ShapesService {
     async page(page: number): Promise<Page<Report>> {
         return {content: [], total: page}
@@ -400,9 +402,10 @@ describe('ServiceDefinitionGenerationService', () => {
         ['(value: string) => void', 'a caller cannot send or receive one']
     ]) {
         it(`refuses a parameter typed ${declared}`, async () => {
-            writeService(`import {Publish} from '@kinotic-ai/core'
+            writeService(`import {AuthzUnchecked, Publish} from '@kinotic-ai/core'
 
 @Publish('com.acme.shapes')
+@AuthzUnchecked
 export class RefusedService {
     async take(value: ${declared}): Promise<void> {
         void value
@@ -416,6 +419,21 @@ export class RefusedService {
                            .and.to.contain(reason)
         })
     }
+
+    it('refuses a service declaring no resource and not marked unchecked', async () => {
+        writeService(`import {Publish} from '@kinotic-ai/core'
+
+@Publish('com.acme.greetings')
+export class GreetingService {
+    greet(name: string): Promise<string> {
+        return Promise.resolve(name)
+    }
+}
+`)
+
+        expect(await generateError()).to.contain('com.acme.greetings.GreetingService')
+                                     .and.to.contain('declares no @AuthzResource and is not marked @AuthzUnchecked')
+    })
 
     it('marks every function of a service marked @AuthzUnchecked as a whole, inherited ones included', async () => {
         writeService(`import {AuthzUnchecked, Publish} from '@kinotic-ai/core'

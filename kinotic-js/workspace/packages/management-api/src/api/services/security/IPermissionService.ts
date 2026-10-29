@@ -60,7 +60,10 @@ export interface IPermissionService {
      */
     grant(subject: Subject, roleId: string, resource: Resource): Promise<Grant>
 
-    /** Revokes a grant where it was made. */
+    /**
+     * Revokes a grant where it was made, refusing the organization's last grant of organization.admin held by a user who
+     * can sign in, enabled and no longer pending.
+     */
     revoke(resource: Resource, grantId: string): Promise<void>
 
     /**

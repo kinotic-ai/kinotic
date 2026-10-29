@@ -10,7 +10,6 @@ import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
-import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.internal.api.repositories.ServiceDirectoryEntryRepository;
@@ -25,8 +24,8 @@ import java.util.Set;
 
 /**
  * {@link ServiceDirectoryStrategy} persisting directory entries in Elasticsearch. A written contract renews the
- * intent of the authorization store the entry belongs to, so the store's model is generated again from the
- * directory.
+ * intent of the authorization store the entry belongs to, or of every store for a system contract, so the store's
+ * model is generated again from the directory.
  */
 @Slf4j
 @Component
@@ -47,19 +46,28 @@ public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy
     }
 
     // The entries are stored whether or not the store's renewal lands; a store left behind is regenerated when
-    // the reconcile master next starts, which reconciles every store
+    // the reconcile master next starts, which reconciles every store. Every application's model includes system
+    // services, so a changed system contract renews every store
     private void renewStoresOf(Collection<ServiceDirectoryEntry> entries, Set<String> changed) {
         Set<String> stores = new HashSet<>();
+        boolean systemChanged = false;
         for (ServiceDirectoryEntry entry : entries) {
             if (changed.contains(entry.getId())) {
-                stores.add(entry.getApplicationId() == null
-                                   ? AuthzStore.SYSTEM
-                                   : AuthzGraphUtil.authzApplicationId(entry.getOrganizationId(), entry.getApplicationId()));
+                if (entry.getApplicationId() == null) {
+                    systemChanged = true;
+                } else {
+                    stores.add(AuthzGraphUtil.authzApplicationId(entry.getOrganizationId(), entry.getApplicationId()));
+                }
             }
         }
-        for (String store : stores) {
-            authzStores.renewDesired(store, "service directory")
-                       .onFailure(e -> log.error("Could not renew the authorization store {} after its contracts changed", store, e));
+        if (systemChanged) {
+            authzStores.renewAllDesired("service directory")
+                       .onFailure(e -> log.error("Could not renew the authorization stores after the system's contracts changed", e));
+        } else {
+            for (String store : stores) {
+                authzStores.renewDesired(store, "service directory")
+                           .onFailure(e -> log.error("Could not renew the authorization store {} after its contracts changed", store, e));
+            }
         }
     }
 

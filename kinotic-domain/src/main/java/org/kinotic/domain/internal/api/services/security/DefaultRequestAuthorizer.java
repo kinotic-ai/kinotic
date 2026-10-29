@@ -68,17 +68,17 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
  * users. A system user or one of the system's machines, whose scope names no organization, is checked
  * on the system itself wherever a check names the caller's scope, and an application's user on its tenant,
  * or on the application when it has none. A definition's rows are checked on the definition a request names: a
- * tenant's user on the definition within its tenant, an organization's member on the definition in the
- * system's store. What is kept of a contract is dropped when the directory announces the contract written
- * again. A refusal is answered "Not authorized", followed by its reason when {@code kinotic.debug} is on.
+ * tenant's user on the definition within its tenant, or on the definition itself for a function its contract
+ * declares acting across tenants, an organization's member on the definition in the system's store. What is
+ * kept of a contract is dropped when the directory announces the contract written again. A refusal is answered "Not authorized", followed by its reason when {@code kinotic.debug} is on.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class DefaultRequestAuthorizer implements RequestAuthorizer {
 
-    // a service's contract is read from the directory once and kept; the version in a request's CRI makes a
-    // redeployed service a new key, and the retention bounds how long a system service's new check waits
+    // a service's contract is read from the directory once and kept until the directory announces it written again;
+    // the retention bounds how long a node that missed the announcement keeps an old check
     private static final Duration DEFINITION_RETENTION = Duration.ofMinutes(5);
     private static final int DEFINITION_CAPACITY = 10_000;
 
@@ -110,9 +110,8 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         vertx.eventBus().<String>consumer(ServiceDirectory.CONTRACT_CHANGED_ADDRESS, message -> forget(message.body()));
     }
 
-    // every version of the entry is kept under its own key; a contract written again changes all of them
     private void forget(String entryId) {
-        definitions.asMap().keySet().removeIf(key -> key.startsWith(entryId + "|"));
+        definitions.synchronous().invalidate(entryId);
     }
 
     @Override
@@ -162,9 +161,9 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
         } else if (!cri.hasPath()) {
             ret = Future.failedFuture(securityExceptions.notAuthorized("The request names no function of {}", entryId));
         } else {
-            String key = entryId + "|" + cri.version();
+            // the directory holds one entry per id, so the requested version does not pick the contract
             String function = cri.path().substring(1);
-            ret = KinoticUtil.toFuture(definitions.get(key, (k, executor) -> load(directory, entryId).toCompletionStage().toCompletableFuture()))
+            ret = KinoticUtil.toFuture(definitions.get(entryId, (k, executor) -> load(directory, entryId).toCompletionStage().toCompletableFuture()))
                              .map(functions -> {
                                  FunctionSpec spec = functions.get(function);
                                  if (spec == null) {
@@ -322,8 +321,10 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
             // A tenant's user is checked on the definition within its tenant, an object no store holds tuples for:
             // its two edges come with the check, the tenant's from the caller's scope and the definition's from the
             // request, and the model reaches it through a grant on the tenant only for a definition placed in the
-            // application
-            boolean withinTenant = AuthzConstants.ENTITY_DEFINITION_TYPE.equals(checked.type()) && scope.tenantId() != null;
+            // application. A function acting on every tenant's rows is checked on the definition itself, which a
+            // grant within one tenant does not reach
+            boolean withinTenant = AuthzConstants.ENTITY_DEFINITION_TYPE.equals(checked.type()) && scope.tenantId() != null
+                    && !check.isAcrossTenants();
             String object = withinTenant
                     ? AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(resourceId, scope.tenantId()))
                     : AuthzUtil.object(checked.type(), resourceId);

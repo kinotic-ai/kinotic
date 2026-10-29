@@ -39,15 +39,7 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
      * The ids of the projects containing the documents with the given ids in {@code orgId}.
      */
     public Future<Set<String>> findProjectIdsOf(Collection<String> ids, String orgId) {
-        Validate.notBlank(orgId, "orgId cannot be blank");
-        Future<Set<String>> ret;
-        if (ids.isEmpty()) {
-            ret = Future.succeededFuture(Set.of());
-        } else {
-            ret = findAll(Pageable.ofSize(ids.size()), b -> b.routing(orgId).query(composeOrgFilter(orgId, idsFilter(ids))))
-                    .map(page -> page.getContent().stream().map(ProjectScoped::getProjectId).collect(Collectors.toSet()));
-        }
-        return ret;
+        return findAllByIds(ids, orgId).map(found -> found.stream().map(ProjectScoped::getProjectId).collect(Collectors.toSet()));
     }
 
     protected Query projectIdFilter(String projectId) {

@@ -153,11 +153,12 @@ public class ApplicationStoreTests extends KinoticTestBase {
         authorize(ENTITIES_SERVICE, "bulkUpdate", caller, List.of(person.getId(), List.of(Map.of("id", "row-1"))));
         // an editor neither deletes nor reads another definition's rows, and another tenant's user holds nothing
         assertRefused(ENTITIES_SERVICE, "deleteById", caller, readRow, AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_DELETE));
-        // the admin repository checks each function for the permission the entities repository does
+        // the admin repository acts on the rows of the tenants a call names, so it checks each function for the
+        // permission the entities repository does on the definition itself, which a grant within the tenant does not reach
         List<Object> adminRow = List.of(person.getId(), Map.of("entityId", "row-1", "tenantId", tenantId));
-        authorize(ADMIN_ENTITIES_SERVICE, "findById", caller, adminRow);
-        authorize(ADMIN_ENTITIES_SERVICE, "count", caller, List.of(person.getId(), List.of(tenantId)));
-        assertRefused(ADMIN_ENTITIES_SERVICE, "deleteById", caller, adminRow, AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_DELETE));
+        String personObject = AuthzUtil.object(AuthzConstants.ENTITY_DEFINITION_TYPE, person.getId());
+        assertRefused(ADMIN_ENTITIES_SERVICE, "findById", caller, adminRow, AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_READ) + " on " + personObject);
+        assertRefused(ADMIN_ENTITIES_SERVICE, "count", caller, List.of(person.getId(), List.of(tenantId)), personObject);
         assertRefused(ADMIN_ENTITIES_SERVICE, "deleteByQuery", caller, List.of(person.getId(), "*", List.of(tenantId)), AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_DELETE));
         assertRefused(ENTITIES_SERVICE, "findById", caller, List.of(car.getId(), "row-1"), AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, carHere.id()));
         String otherTenant = "tenant-" + suffix();
@@ -179,6 +180,10 @@ public class ApplicationStoreTests extends KinoticTestBase {
                                                                        AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), personEverywhere)));
         assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "findById", other, readRow)), "the viewer granted on the definition was never admitted");
         assertRefused(ENTITIES_SERVICE, "bulkUpdate", other, List.of(person.getId(), List.of()), AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_EDIT));
+        // a grant on the definition reaches the admin repository too, whichever tenants a call selects
+        authorize(ADMIN_ENTITIES_SERVICE, "count", other, List.of(person.getId(), List.of(tenantId, otherTenant)));
+        authorize(ADMIN_ENTITIES_SERVICE, "findById", other, adminRow);
+        assertRefused(ADMIN_ENTITIES_SERVICE, "deleteById", other, adminRow, AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_DELETE));
         assertRefused(ENTITIES_SERVICE, "findById", other, List.of(car.getId(), "row-1"), AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(car.getId(), otherTenant)));
         Resource personThere = new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), otherTenant));
         assertEquals(List.of(everyTenant), await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, personThere))));

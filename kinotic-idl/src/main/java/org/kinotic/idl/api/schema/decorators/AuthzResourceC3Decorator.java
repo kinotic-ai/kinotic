@@ -47,6 +47,12 @@ public final class AuthzResourceC3Decorator extends C3Decorator {
      */
     private List<AuthzRoleDeclaration> roles = List.of();
 
+    /**
+     * True for a service of the type {@code entity_definition} whose functions act on a definition's rows in
+     * every tenant, so a tenant's user is checked on the definition itself rather than within its tenant.
+     */
+    private boolean acrossTenants;
+
     public AuthzResourceC3Decorator() {
         this.targets = List.of(DecoratorTarget.TYPE);
     }

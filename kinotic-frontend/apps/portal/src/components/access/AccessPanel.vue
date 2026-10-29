@@ -57,11 +57,21 @@
       </DataTable>
     </DashboardSection>
 
-    <AccessCheckPanel :resource="resource" :tint="tint" :members="members" :groups="groups" :roles="roles" :catalog="catalog"
-                      :label-of="labelOf" :context="context" />
+    <AccessCheckPanel :tint="tint" description="Ask whether someone holds a permission here, and which grants give it."
+                      :subject-groups="[{ label: 'Members', items: members }, { label: 'Groups', items: groups }]"
+                      subject-placeholder="Member or group" :permission-options="permissionOptions" :roles="roles" :label-of="labelOf"
+                      held-without-grant="Held through nothing a grant explains, such as being a member of the organization."
+                      :no-grant="`No grant on this ${resourceTypeLabel} or above it gives the permission.`" :explain="explain">
+      <template #grant-resource="{ grant }">
+        <span class="text-muted-color">on</span>
+        <TableChip :icon="MapPin" :to="accessPath(grant.resource, context) ?? undefined">{{ typeLabel(grant.resource.type) }} {{ grant.resource.id }}</TableChip>
+      </template>
+    </AccessCheckPanel>
 
-    <GrantAccessDrawer v-model:visible="grantDrawerVisible" :resource="resource" :roles="fittingRoles" :members="members" :groups="groups"
-                       @granted="onGranted" />
+    <GrantAccessDrawer v-model:visible="grantDrawerVisible" :description="`Give a member or a group a role on this ${resourceTypeLabel}.`"
+                       :kinds="grantKinds" :roles="fittingRoles"
+                       :role-hint="`The role's permissions reach this ${resourceTypeLabel} and everything inside it.`"
+                       :grant="grant" @granted="onGranted" />
   </div>
 </template>
 
@@ -76,13 +86,11 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { ArrowUpFromLine, KeyRound, MapPin } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
-import type { Grant, Resource, RoleDefinition } from '@kinotic-ai/management-api'
-import { DashboardSection, EmptyChartCharacter, TableChip, showErrorToast, typeLabel } from '@kinotic-ai/frontend-common'
-import { RoleCell, SubjectCell } from '@kinotic-ai/frontend-common/management'
+import type { Grant, Resource, RoleDefinition, Subject } from '@kinotic-ai/management-api'
+import { DashboardSection, EmptyChartCharacter, TableChip, permissionLabel, showErrorToast, splitPermission, typeLabel } from '@kinotic-ai/frontend-common'
+import { AccessCheckPanel, type CheckedAccess, GrantAccessDrawer, RoleCell, SubjectCell, type SubjectKind } from '@kinotic-ai/frontend-common/management'
 import { useAccess } from '@/composables/useAccess'
 import { accessPath, grantsAbove, grantsOn } from '@/util/access'
-import AccessCheckPanel from './AccessCheckPanel.vue'
-import GrantAccessDrawer from './GrantAccessDrawer.vue'
 import { useSubjects } from './useSubjects'
 
 /**
@@ -115,6 +123,18 @@ const context = computed(() => ({ applicationId: props.applicationId, projectId:
 const here = computed(() => grantsOn(grants.value, props.resource))
 const above = computed(() => grantsAbove(grants.value, props.resource))
 const fittingRoles = computed(() => roles.value.filter(role => role.grantableOn.includes(props.resource.type)))
+const resourceTypeLabel = computed(() => typeLabel(props.resource.type).toLowerCase())
+
+// explain answers for a permission of the resource's own type, checked on the resource
+const permissionOptions = computed(() => (catalog.value[props.resource.type] ?? []).map(name => ({
+  name,
+  label: permissionLabel(splitPermission(name).permission)
+})))
+
+const grantKinds = computed<SubjectKind[]>(() => [
+  { label: 'Member', options: members.value, placeholder: 'Choose a member', emptyMessage: 'No members' },
+  { label: 'Group', options: groups.value, placeholder: 'Choose a group', emptyMessage: 'No groups yet' }
+])
 
 watch(() => [props.resource.type, props.resource.id], load, { immediate: true })
 
@@ -140,6 +160,16 @@ async function load(): Promise<void> {
 
 function roleOf(roleId: string): RoleDefinition | undefined {
   return roles.value.find(role => role.id === roleId)
+}
+
+async function explain(subject: Subject, permission: string): Promise<CheckedAccess> {
+  const split = splitPermission(permission)
+  const explanation = await Kinotic.permissions.explain(subject, split.permission, props.resource)
+  return { explanation, asked: `${permissionLabel(split.permission).toLowerCase()} on this ${resourceTypeLabel.value}` }
+}
+
+function grant(subject: Subject, roleId: string): Promise<Grant> {
+  return Kinotic.permissions.grant(subject, roleId, props.resource)
 }
 
 function onGranted(grant: Grant): void {
