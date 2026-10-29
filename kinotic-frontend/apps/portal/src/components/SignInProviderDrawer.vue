@@ -183,8 +183,7 @@ import {
 } from '@kinotic-ai/management-api'
 import { FormDrawer, showErrorToast } from '@kinotic-ai/frontend-common'
 import CopyableUrl from '@/components/CopyableUrl.vue'
-import { PASSWORD_PROVIDER_NAME, PROVIDER_LOGOS, START_URL_HELP, startUrlOf, type SignInProvider } from '@/util/oidcConfigurations'
-import { providerDisplayName } from '@/components/SocialAuthButton.vue'
+import { PASSWORD_PROVIDER_NAME, PROVIDER_LOGOS, providerDisplayName, START_URL_HELP, startUrlOf, type SignInProvider } from '@/util/oidcConfigurations'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 
 /**

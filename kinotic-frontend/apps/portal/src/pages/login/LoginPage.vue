@@ -105,9 +105,9 @@ import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
-import SocialAuthButton, { providerDisplayName } from '@/components/SocialAuthButton.vue'
+import SocialAuthButton from '@/components/SocialAuthButton.vue'
 import { organizationLoginPath, organizationSlug, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
-import { emailNotVerifiedMessage } from '@/util/oidcConfigurations'
+import { emailNotVerifiedMessage, providerDisplayName } from '@/util/oidcConfigurations'
 
 const debug = createDebug('login')
 
@@ -414,26 +414,13 @@ function displayError(text: string) {
 
 .login-providers {
   margin: 0 0 3.25rem;
-}
-
-.login-providers :deep(.social-auth-button-form),
-.login-providers :deep(.social-auth-button--mark) {
-  width: 100%;
-}
-
-.login-providers :deep(.social-auth-button--mark) {
-  height: 3.5rem;
-  border-radius: 5px;
-  border-color: var(--lp-provider-border);
-  font-weight: 400;
-}
-
-.login-providers :deep(.social-auth-button--mark:hover) {
-  border-color: var(--lp-provider-border-hover);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .login-divider {
-  margin: 2.25rem 0 0;
+  margin: 1.5rem 0 0;
   font-size: 0.75rem;
   text-transform: uppercase;
 }
@@ -459,10 +446,6 @@ function displayError(text: string) {
   margin: 0 0 0.5rem;
   text-align: center;
   color: var(--lp-text);
-}
-
-.login-choices .login-divider {
-  margin-top: 1.5rem;
 }
 
 .login-find {

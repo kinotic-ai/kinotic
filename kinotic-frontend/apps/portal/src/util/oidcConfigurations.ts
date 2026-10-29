@@ -4,7 +4,6 @@ import githubLogo from '@/assets/github-icon.svg'
 import googleLogo from '@/assets/google-icon.svg'
 import microsoftLogo from '@/assets/microsoft_online-icon.svg'
 import oktaLogo from '@/assets/okta-icon.svg'
-import { providerDisplayName } from '@/components/SocialAuthButton.vue'
 
 /** The logo each provider kind the portal offers a sign-in through is shown with. */
 export const PROVIDER_LOGOS: Partial<Record<OidcProviderType, string>> = {
@@ -12,6 +11,17 @@ export const PROVIDER_LOGOS: Partial<Record<OidcProviderType, string>> = {
     [OidcProviderType.AZURE_AD]: microsoftLogo,
     [OidcProviderType.OKTA]: oktaLogo,
     [OidcProviderType.GITHUB]: githubLogo
+}
+
+/** The name a provider kind is shown by, on its sign-in button and wherever the portal lists it. */
+export function providerDisplayName(provider: string): string {
+    switch (provider) {
+        case 'azure-ad': return 'Microsoft'
+        case 'github':   return 'GitHub'
+        case 'google':   return 'Google'
+        case 'okta':     return 'Okta'
+        default:         return provider.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
+    }
 }
 
 /**
