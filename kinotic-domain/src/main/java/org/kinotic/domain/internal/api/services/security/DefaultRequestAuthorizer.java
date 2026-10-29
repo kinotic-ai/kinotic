@@ -66,10 +66,11 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
  * nothing for, or one reaching a node without the resolver, is refused. The engine answers for the caller, or for the owner a delegate acts for, from the system's store for an
  * organization's members and the system's own staff, and from the application's store for an application's
  * users. A system user or one of the system's machines, whose scope names no organization, is checked
- * on the system itself wherever a check names the caller's scope, and an application's user on its tenant,
- * or on the application when it has none. A definition's rows are checked on the definition a request names: a
- * tenant's user on the definition within its tenant, or on the definition itself for a function its contract
- * declares acting across tenants, an organization's member on the definition in the system's store. What is
+ * on the system itself wherever a check names the caller's scope, an application's user on its tenant, and an
+ * application's machine, which belongs to no tenant, on the application. A definition's rows are checked on the
+ * definition a request names: an application's user on the definition within its tenant, an application's machine
+ * on the definition itself, as is a user for a function its contract declares acting across tenants, and an
+ * organization's member on the definition in the system's store. What is
  * kept of a contract is dropped when the directory announces the contract written again. A refusal is answered "Not authorized", followed by its reason when {@code kinotic.debug} is on.
  */
 @Slf4j
@@ -318,11 +319,11 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
             if (!AuthzUtil.isObjectId(resourceId)) {
                 throw securityExceptions.notAuthorized("The request names the {} '{}', which names no resource", checked.type(), resourceId);
             }
-            // A tenant's user is checked on the definition within its tenant, an object no store holds tuples for:
-            // its two edges come with the check, the tenant's from the caller's scope and the definition's from the
-            // request, and the model reaches it through a grant on the tenant only for a definition placed in the
+            // An application's user is checked on the definition within its tenant, an object no store holds tuples
+            // for: its two edges come with the check, the tenant's from the caller's scope and the definition's from
+            // the request, and the model reaches it through a grant on the tenant only for a definition placed in the
             // application. A function acting on every tenant's rows is checked on the definition itself, which a
-            // grant within one tenant does not reach
+            // grant within one tenant does not reach, and so is an application's machine, which belongs to no tenant
             boolean withinTenant = AuthzConstants.ENTITY_DEFINITION_TYPE.equals(checked.type()) && scope.tenantId() != null
                     && !check.isAcrossTenants();
             String object = withinTenant
