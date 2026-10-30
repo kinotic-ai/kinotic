@@ -54,6 +54,14 @@ class TemplateTarballTest {
     }
 
     @Test
+    void rejectsAFileLargerThanATemplateHolds() throws IOException {
+        // highly compressible, so the archive stays small while the file it expands to does not
+        byte[] tarball = tarball(Map.of("root/huge.bin", entry(new byte[TemplateTarball.MAX_FILE_BYTES + 1], false)));
+
+        assertThrows(IllegalArgumentException.class, () -> TemplateTarball.parse(tarball));
+    }
+
+    @Test
     void rejectsAnEntryThatEscapesTheRoot() throws IOException {
         byte[] tarball = tarball(Map.of("root/../../etc/cron.d/evil", entry("*/1 * * * * root sh", false)));
 

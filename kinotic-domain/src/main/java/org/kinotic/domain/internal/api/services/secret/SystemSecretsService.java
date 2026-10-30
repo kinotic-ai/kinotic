@@ -13,6 +13,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -36,6 +37,9 @@ import java.util.function.Consumer;
 public class SystemSecretsService {
 
     private static final long POLL_INTERVAL_SECONDS = 30;
+
+    // RFC 7518 section 3.2: an HS256 key holds at least as many bytes as the hash it drives emits
+    private static final int MIN_KEY_BYTES = 32;
 
     private final SystemSecretsProperties properties;
     private final ObjectMapper objectMapper;
@@ -142,6 +146,16 @@ public class SystemSecretsService {
         for (VersionedKey entry : set.getKeys()) {
             if (entry.getId() == null || entry.getKey() == null) {
                 throw new IllegalStateException("System secret " + path + " has key entry missing id or key");
+            }
+            byte[] material;
+            try {
+                material = Base64.getDecoder().decode(entry.getKey());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalStateException("System secret " + path + " key '" + entry.getId() + "' is not base64", e);
+            }
+            if (material.length < MIN_KEY_BYTES) {
+                throw new IllegalStateException("System secret " + path + " key '" + entry.getId() + "' holds "
+                                                        + material.length + " bytes; HS256 needs at least " + MIN_KEY_BYTES);
             }
             if (entry.getId().equals(set.getActiveKeyId())) {
                 hasActive = true;

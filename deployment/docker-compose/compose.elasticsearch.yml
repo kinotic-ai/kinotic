@@ -14,8 +14,8 @@ services:
       retries: 3
       start_period: 150s
     ports:
-      - "9200:9200"  # Elasticsearch HTTP API
-      - "9300:9300"  # Elasticsearch transport
+      - "127.0.0.1:9200:9200"  # Elasticsearch HTTP API
+      - "127.0.0.1:9300:9300"  # Elasticsearch transport
     stdin_open: true
     tty: true
     deploy:

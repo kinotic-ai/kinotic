@@ -15,6 +15,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.security.AuthenticationHandler;
+import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
@@ -84,7 +85,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         // AuthenticationHandler pauses the request while authenticating, so it precedes the
         // BodyHandler. It also binds the Participant to the Vert.x context, which is where
         // handlePost and service invocation read it from.
-        router.post(MCP_ROUTE).handler(new AuthenticationHandler(securityService, securityContext));
+        router.post(MCP_ROUTE).handler(new AuthenticationHandler(securityService, securityContext, KinoticAudience.MCP_TOOLS));
         router.post(MCP_ROUTE).handler(BodyHandler.create().setBodyLimit(MAX_BODY_SIZE));
         router.post(MCP_ROUTE).handler(this::handlePost);
         router.route(MCP_ROUTE).handler(ctx -> ctx.response().setStatusCode(405).end());

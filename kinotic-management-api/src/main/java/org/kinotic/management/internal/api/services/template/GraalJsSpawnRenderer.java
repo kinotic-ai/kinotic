@@ -4,6 +4,8 @@ import io.vertx.core.json.JsonObject;
 import lombok.extern.slf4j.Slf4j;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
+import org.graalvm.polyglot.PolyglotException;
+import org.graalvm.polyglot.ResourceLimits;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
@@ -27,6 +29,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public class GraalJsSpawnRenderer {
 
     private static final String BUNDLE_RESOURCE = "/spawn/graal-spawn-renderer.js";
+    // More statements than rendering any template repository takes, so a template that loops or expands
+    // without bound ends the render instead of holding a worker thread
+    private static final long STATEMENT_LIMIT = 50_000_000L;
 
     private final Object initLock = new Object();
     private volatile Engine engine;
@@ -54,7 +59,10 @@ public class GraalJsSpawnRenderer {
 
         // Contexts are cheap but not thread-safe, so each render gets its own;
         // the shared Engine caches the parsed bundle across contexts.
-        try (Context jsContext = Context.newBuilder("js").engine(engine).build()) {
+        try (Context jsContext = Context.newBuilder("js")
+                                        .engine(engine)
+                                        .resourceLimits(ResourceLimits.newBuilder().statementLimit(STATEMENT_LIMIT, null).build())
+                                        .build()) {
             jsContext.eval(bundleSource);
             Value renderFn = jsContext.getBindings("js")
                                       .getMember("KinoticSpawn")
@@ -87,6 +95,11 @@ public class GraalJsSpawnRenderer {
             JsonObject result = new JsonObject(rendered.get());
             return new SpawnRenderResult(toStringMap(result.getJsonObject("files")),
                                          toStringMap(result.getJsonObject("sources")));
+        } catch (PolyglotException e) {
+            if (!e.isResourceExhausted()) {
+                throw e;
+            }
+            throw new IllegalStateException("Spawn render exceeded " + STATEMENT_LIMIT + " statements", e);
         }
     }
 

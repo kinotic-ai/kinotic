@@ -3,6 +3,7 @@ package org.kinotic.management.internal.api.services.telemetry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthorizationException;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
@@ -53,7 +54,7 @@ public class TenantAccess {
             ret = organizationId;
         } else {
             // Log the mismatch server-side; surface only a generic message to the caller
-            log.error("Participant {} may not read the telemetry of organization {}", participant.getId(), organizationId);
+            log.error("Participant {} may not read the telemetry of organization {}", participant.getId(), KinoticUtil.singleLine(organizationId));
             throw new AuthorizationException("Access denied");
         }
         return ret;

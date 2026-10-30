@@ -23,6 +23,9 @@ import java.util.Map;
 @NoArgsConstructor
 public class Workload implements Watched {
 
+    /** What the persisted record holds in place of every value of {@link #secrets}. */
+    public static final String REDACTED_SECRET_VALUE = "<redacted>";
+
     /**
      * Unique identifier for this workload.
      */

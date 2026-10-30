@@ -19,7 +19,7 @@ import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIden
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ScopedParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
-import org.kinotic.domain.api.model.security.KinoticAudience;
+import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.domain.api.model.security.LoginProviderType;
 import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;

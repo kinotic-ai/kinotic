@@ -78,6 +78,17 @@ describe('Kinotic JS', () => {
           .rejects.toThrow(/escapes/)
       })
 
+      it('refuses an inheritance ref that leaves the root through a directory symlink', async () => {
+        const outside = spawnDirWith({'spawn.json': '{}', 'secret.txt': 'outside'})
+        const spawnDir = spawnDirWith({'spawn.json': JSON.stringify({inherits: 'link'})})
+        fs.symlinkSync(outside, path.join(spawnDir, 'link'), 'dir')
+        const destination = freshDestination()
+
+        await expect(new NodeSpawnRenderer().render(spawnDir, destination, {context: {}}))
+          .rejects.toThrow(/escapes/)
+        expect(fs.existsSync(path.join(destination, 'secret.txt'))).toBe(false)
+      })
+
       it('assertPathWithin allows internal ../ but rejects escapes and absolutes', () => {
         const root = path.resolve('/tmp/root')
         expect(assertPathWithin(root, 'a/b.txt')).toBe(path.join(root, 'a/b.txt'))

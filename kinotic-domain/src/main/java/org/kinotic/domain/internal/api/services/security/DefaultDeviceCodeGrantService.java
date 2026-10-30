@@ -85,13 +85,16 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
                     .map(new DeviceCodePollResult(PollStatus.EXPIRED, null, null));
         }
         if (grant.getIdentityId() != null) {
-            // Approved — hand back the approver in the scope it approved from, and consume the grant so it
-            // cannot be replayed. An approver that may no longer act there, disabled or no longer a member, fails it.
-            return identityService.resolveParticipant(grant.getIdentityId(), grant.getOrganizationId(), grant.getApplicationId())
-                    .compose(approver -> deviceCodeGrantRepository.deleteById(grant.getId())
-                            .map(approver == null
-                                    ? new DeviceCodePollResult(PollStatus.INVALID, null, null)
-                                    : new DeviceCodePollResult(PollStatus.APPROVED, approver, grant.getDeviceName())));
+            // Approved — consume the grant, which exactly one poll does, so the approval cannot be replayed, then
+            // hand back the approver in the scope it approved from. A poll that finds the grant consumed, and an
+            // approver that may no longer act there, disabled or no longer a member, get the answer an unknown code gets.
+            return deviceCodeGrantRepository.consume(grant.getId())
+                    .compose(consumed -> consumed
+                            ? identityService.resolveParticipant(grant.getIdentityId(), grant.getOrganizationId(), grant.getApplicationId())
+                                             .map(approver -> approver == null
+                                                     ? new DeviceCodePollResult(PollStatus.INVALID, null, null)
+                                                     : new DeviceCodePollResult(PollStatus.APPROVED, approver, grant.getDeviceName()))
+                            : Future.succeededFuture(new DeviceCodePollResult(PollStatus.INVALID, null, null)));
         }
         if (polledTooSoon(grant, now)) {
             return Future.succeededFuture(new DeviceCodePollResult(PollStatus.SLOW_DOWN, null, null));

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Stores one of the development server's operator secrets in their keychain, replacing the entry when
-# it exists, so a rotation is the same command. The value is read from the terminal without echo.
+# it exists, so a rotation is the same command. security prompts for the value, without echo.
 #
 #   set-dev-server-secret.sh <kinotic-cloudflare-api-token|kinotic-cloudflare-dns-api-token|kinotic-proxmox-password>
 #
@@ -19,10 +19,7 @@ if ! security show-keychain-info "$KEYCHAIN" >/dev/null 2>&1; then
   security unlock-keychain "$KEYCHAIN"
 fi
 
-read -rsp "$SERVICE: " value
-echo
-[[ -n "$value" ]] || { echo "Empty value; nothing stored" >&2; exit 1; }
-# The keychain path follows -w's value: given after a bare -w, security takes the path as the value
-# and stores the entry in the login keychain
-security add-generic-password -U -a "$USER" -s "$SERVICE" -w "$value" "$KEYCHAIN"
+# With no -w, security prompts for the value itself, so it never appears in a process listing
+echo "$SERVICE:"
+security add-generic-password -U -a "$USER" -s "$SERVICE" "$KEYCHAIN"
 echo "Stored $SERVICE in $KEYCHAIN"

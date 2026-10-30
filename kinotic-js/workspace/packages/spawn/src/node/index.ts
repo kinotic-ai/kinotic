@@ -47,12 +47,16 @@ async function loadSpawnTree(dir: string): Promise<SpawnTree> {
 // Builds a loadInherited callback that resolves each inherits ref against the
 // spawn that declared it while confining all reads to spawnRoot.
 function diskInheritanceLoader(spawnRoot: string): (ref: string) => Promise<SpawnTree> {
-  let currentDir = spawnRoot
+  // Real paths on both sides of the containment check, so a directory symlink under the
+  // root cannot lead the walk outside it
+  const realRoot = fs.realpathSync(spawnRoot)
+  let currentDir = realRoot
   return async (ref: string) => {
-    currentDir = assertContained(spawnRoot, path.resolve(currentDir, ref))
-    if (!fs.existsSync(path.resolve(currentDir, 'spawn.json'))) {
-      throw new Error(`Inherited spawn ${path.resolve(currentDir, 'spawn.json')} does not exist`)
+    const target = assertContained(realRoot, path.resolve(currentDir, ref))
+    if (!fs.existsSync(path.resolve(target, 'spawn.json'))) {
+      throw new Error(`Inherited spawn ${path.resolve(target, 'spawn.json')} does not exist`)
     }
+    currentDir = assertContained(realRoot, fs.realpathSync(target))
     return loadSpawnTree(currentDir)
   }
 }

@@ -70,7 +70,7 @@ public class DefaultMachineService implements MachineService {
                     if (deployment == null) {
                         ret = Future.succeededFuture(List.of());
                     } else {
-                        ret = microserviceDeploymentRepository.findAllForProject(projectId)
+                        ret = microserviceDeploymentRepository.findAllForProject(projectId, participant.getOrganizationId())
                                 .compose(microservices -> loadMachines(Stream.concat(
                                         Stream.of(deployment.getSyncMachineIdentityId()),
                                         microservices.stream().map(MicroserviceDeployment::getMachineIdentityId)).toList()));

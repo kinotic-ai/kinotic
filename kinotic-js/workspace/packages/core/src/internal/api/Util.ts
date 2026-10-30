@@ -11,6 +11,9 @@ const DEFAULT_PORT = 58503
 /** Where a fully unconfigured client connects: the Kinotic cloud. */
 const DEFAULT_HOST = 'api.kinotic.ai'
 
+/** The hosts naming this machine, the one place a server is reached without TLS by default. */
+const LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '::1', '[::1]']
+
 /**
  * Static utility functions used across the Kinotic core runtime.
  *
@@ -53,8 +56,10 @@ export class Util {
      * Fills every absent {@link ConnectOptions} field from the environment. Server fields
      * resolve explicit value → {@code KINOTIC_SERVER_HOST/PORT/USE_SSL} → the browser's own
      * location (only when the host itself came from the location, so an explicit cross-origin
-     * host never inherits the page's port) → {@code https://api.kinotic.ai}. Absent
-     * credentials get the default chain: environment variables, then the browser session.
+     * host never inherits the page's port) → {@code https://api.kinotic.ai}. A host whose TLS
+     * nothing states is reached over TLS unless it is loopback ({@code localhost},
+     * {@code 127.0.0.1}, {@code ::1}), and a plaintext host's port defaults to {@code 58503}.
+     * Absent credentials get the default chain: environment variables, then the browser session.
      */
     public static resolveConnectOptions(options?: ConnectOptions): ConnectOptions {
         const opts = options ?? {}
@@ -64,7 +69,6 @@ export class Util {
 
         let host = server.host ?? env?.KINOTIC_SERVER_HOST
         const hostFromLocation = host == null && location != null
-        const hostDefaulted = host == null && location == null
         if (host == null) {
             host = location?.hostname ?? DEFAULT_HOST
         }
@@ -76,8 +80,8 @@ export class Util {
             } else if (hostFromLocation) {
                 useSSL = location!.protocol === 'https:'
             } else {
-                // the cloud endpoint is always TLS; a named host states its own preference
-                useSSL = hostDefaulted
+                // only this machine is reached in plaintext; every other host is on the network
+                useSSL = !LOOPBACK_HOSTS.includes(host.toLowerCase())
             }
         }
 

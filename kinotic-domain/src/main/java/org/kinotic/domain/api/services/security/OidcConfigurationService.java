@@ -46,6 +46,20 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
                 && forApplication.getClientRegistrationType() == ClientRegistrationType.MANAGED;
     }
 
+    /**
+     * Whether a sign-in through {@code configuration} admits the users of every directory at its provider rather
+     * than one directory's: every {@link ManagedOidcConfiguration}, a configuration that signs in through one
+     * ({@link #isManaged}), and an organization's own configuration whose account at its provider
+     * {@link OidcProviderType#admitsEveryDirectory(String) admits every directory}. Where every directory is
+     * admitted, the email the provider vouches for may be one a stranger's directory set, so only an email the
+     * token proves ({@code OAuth2Util.isEmailProven}) signs anyone up or claims a user.
+     */
+    static boolean admitsEveryDirectory(OidcConfiguration configuration) {
+        return !(configuration instanceof OwnedOidcConfiguration owned)
+                || isManaged(owned)
+                || owned.getProvider().admitsEveryDirectory(owned.getProviderAccount());
+    }
+
     /** The configurations among {@code ids} that exist, of any kind, in one read. */
     Future<List<OidcConfiguration>> findAllById(Collection<String> ids);
 

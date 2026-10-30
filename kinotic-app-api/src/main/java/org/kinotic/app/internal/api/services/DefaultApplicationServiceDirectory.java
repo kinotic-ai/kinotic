@@ -14,10 +14,15 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
+import java.util.regex.Pattern;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class DefaultApplicationServiceDirectory implements ApplicationServiceDirectory {
+
+    private static final Pattern IDENTIFIER = Pattern.compile("^[A-Za-z_$][A-Za-z0-9_$]*$");
+    private static final Pattern NAMESPACE = Pattern.compile("^[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*$");
 
     private final SecurityContext securityContext;
     private final ApplicationRepository applications;
@@ -28,6 +33,13 @@ public class DefaultApplicationServiceDirectory implements ApplicationServiceDir
         Validate.notNull(entry, "entry cannot be null");
         Validate.notBlank(entry.getApplicationId(), "The entry names no application");
         Validate.notNull(entry.getServiceDefinition(), "The entry carries no service definition");
+        // the namespace and name become the service's CRI and appear in this server's log, so both are held to
+        // identifiers; a service may publish without a namespace
+        String name = entry.getServiceDefinition().getName();
+        String namespace = entry.getServiceDefinition().getNamespace();
+        Validate.isTrue(name != null && IDENTIFIER.matcher(name).matches(), "The service name is not an identifier");
+        Validate.isTrue(namespace == null || namespace.isEmpty() || NAMESPACE.matcher(namespace).matches(),
+                        "The service namespace is not a dotted identifier");
         String applicationId = entry.getApplicationId();
         String organizationId = securityContext.requireParticipant(OrganizationParticipant.class).getOrganizationId();
         String zone = DomainUtil.applicationZone(organizationId, applicationId);

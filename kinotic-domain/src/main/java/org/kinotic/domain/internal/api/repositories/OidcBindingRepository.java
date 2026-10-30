@@ -28,6 +28,12 @@ public class OidcBindingRepository extends AbstractRepository<OidcBinding> {
         super("kinotic_oidc_binding", OidcBinding.class, crudServiceTemplate);
     }
 
+    /** Deletes every binding of user {@code identityId}, visible to search when the future completes. */
+    public Future<Void> deleteByIdentity(String identityId) {
+        Validate.notBlank(identityId, "identityId cannot be blank");
+        return deleteByQuery(b -> b.query(termFilter("identityId", identityId)));
+    }
+
     /** The bindings of user {@code identityId}, oldest first. */
     public Future<List<OidcBinding>> findByIdentity(String identityId) {
         Validate.notBlank(identityId, "identityId cannot be blank");

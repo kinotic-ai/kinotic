@@ -124,6 +124,17 @@ public interface GitHubApiClient {
     Future<List<InstallationDetails>> listUserInstallations(String userAccessToken);
 
     /**
+     * The login of the user behind {@code userAccessToken}.
+     */
+    Future<String> getAuthenticatedLogin(String userAccessToken);
+
+    /**
+     * Whether the user behind {@code userAccessToken} is an active owner of the GitHub organization
+     * {@code organizationLogin}; false when the user is not a member of it.
+     */
+    Future<Boolean> isOrganizationOwner(String userAccessToken, String organizationLogin);
+
+    /**
      * Returns a cached or freshly-minted installation access token whose remaining
      * life exceeds 10 minutes. Restricting {@code repoId} + {@code permissions}
      * produces a token that cannot exceed the requested permissions even if

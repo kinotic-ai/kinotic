@@ -12,6 +12,7 @@ import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.gateway.internal.endpoints.stomp.ConnectionRegistry;
 import org.kinotic.gateway.internal.endpoints.stomp.DefaultStompServerHandler;
 import org.kinotic.gateway.internal.endpoints.stomp.StompAuthorizerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -28,6 +29,8 @@ import tools.jackson.databind.json.JsonMapper;
 public class Services {
     @Autowired
     public ApiGatewayProperties apiGatewayProperties;
+    @Autowired
+    public ConnectionRegistry connectionRegistry;
     @Autowired
     public EventBusService eventBusService;
     @Autowired

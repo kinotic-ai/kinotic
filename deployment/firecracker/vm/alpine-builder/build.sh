@@ -32,9 +32,9 @@ echo "Building Docker image..."
 docker build -t "${IMAGE_TAG}" . || error "docker build failed"
 
 # ── 4. Build RootFs Using Docker ─────────────────────────────────
-TEMP_DIR="/tmp/alpine-build-$$"
-mkdir -p "${TEMP_DIR}"
-trap 'rm -rf "${TEMP_DIR}" 2>/dev/null || true' EXIT
+TEMP_DIR="$(mktemp -d)"
+# A failure between mount and umount leaves the rootfs mounted, so the cleanup unmounts first
+trap 'sudo umount "${TEMP_DIR}/alpine-rootfs" 2>/dev/null || true; rm -rf "${TEMP_DIR}" 2>/dev/null || true' EXIT
 
 echo "Creating alpine-rootfs.ext4..."
 

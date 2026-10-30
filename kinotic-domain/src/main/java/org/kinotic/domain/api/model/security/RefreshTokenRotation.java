@@ -1,5 +1,6 @@
 package org.kinotic.domain.api.model.security;
 
+import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 
 /**

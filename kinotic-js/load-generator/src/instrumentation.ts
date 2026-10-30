@@ -11,29 +11,40 @@ import {
 import info from '../package.json' assert {type: 'json'}
 import {OtelConfig, OtelExporterType} from '@/config/OtelConfig.js'
 
+/** What the load test flushes on exit: the started SDK, or nothing when no exporter was configured. */
+export interface Instrumentation {
+    shutdown(): Promise<void>
+}
+
 const otelConfig = OtelConfig.fromEnv()
 console.log('Otel Config:')
 otelConfig.print()
 // We use this with the name to help identify spans
 const loadTestConfig = LoadTestConfig.fromEnv()
 
-// TODO: support Noop exporter
-let spanExporter: SpanExporter | undefined = undefined
-if(otelConfig.exporterType === OtelExporterType.OTLP){
-    spanExporter = new OTLPTraceExporter({
-                                            url: otelConfig.otelEndpoint
-                                         })
-}else if(otelConfig.exporterType === OtelExporterType.CONSOLE){
-    spanExporter = new ConsoleSpanExporter()
+function startInstrumentation(): Instrumentation {
+    let ret: Instrumentation
+    if (otelConfig.exporterType === OtelExporterType.NONE) {
+        // The SDK is never constructed: started without an exporter it configures its default OTLP one
+        ret = { shutdown: () => Promise.resolve() }
+    } else {
+        let spanExporter: SpanExporter
+        if (otelConfig.exporterType === OtelExporterType.OTLP) {
+            spanExporter = new OTLPTraceExporter({ url: otelConfig.otelEndpoint })
+        } else {
+            spanExporter = new ConsoleSpanExporter()
+        }
+        const sdk = new NodeSDK({
+            resource: resourceFromAttributes({
+                [ATTR_SERVICE_NAME]: `kinotic.load-generator-${loadTestConfig.testName}`,
+                [ATTR_SERVICE_VERSION]: info.version,
+            }),
+            traceExporter: spanExporter,
+        })
+        sdk.start()
+        ret = sdk
+    }
+    return ret
 }
 
-const resource = resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: `kinotic.load-generator-${loadTestConfig.testName}`,
-    [ATTR_SERVICE_VERSION]: info.version,
-});
-
-export const nodeSdk = new NodeSDK({
-    resource,
-    traceExporter: spanExporter,
-})
-nodeSdk.start()
+export const nodeSdk: Instrumentation = startInstrumentation()

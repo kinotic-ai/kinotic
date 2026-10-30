@@ -2,6 +2,7 @@ package org.kinotic.domain.internal.api.services;
 
 import lombok.Getter;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import co.elastic.clients.elasticsearch._types.FieldSort;
@@ -399,21 +400,47 @@ public class CrudServiceTemplate {
     }
 
     /**
-     * Deletes a list of documents by provided query. Also allows for customization of the {@link DeleteRequest}.
+     * Deletes every document the query matches, with the deletions visible to search when the future completes.
+     * A document another writer changes while the request runs is skipped rather than failing the request. Also
+     * allows for customization of the {@link DeleteByQueryRequest}.
      *
      * @param indexName       name of the index to delete from
-     * @param builderConsumer to customize the {@link DeleteRequest}, or null if no customization is needed
-     * @return a {@link Future} that will complete with the {@link DeleteResponse}
+     * @param builderConsumer to customize the {@link DeleteByQueryRequest}: the query, at least
+     * @return a {@link Future} that will complete with the {@link DeleteByQueryResponse}
      */
     public Future<DeleteByQueryResponse> deleteByQuery(String indexName,
                                                        Consumer<DeleteByQueryRequest.Builder> builderConsumer) {
         return KinoticUtil.toFuture(esAsyncClient.deleteByQuery(builder -> {
-            builder.index(indexName);
+            builder.index(indexName)
+                   .refresh(true)
+                   .conflicts(Conflicts.Proceed);
             if (builderConsumer != null) {
                 builderConsumer.accept(builder);
             }
             return builder;
         }));
+    }
+
+    /**
+     * Runs a Painless script against every document the query matches, with the changes visible to search when
+     * the future completes. A document another writer changes while the request runs is skipped rather than
+     * failing the request. Also allows for customization of the {@link UpdateByQueryRequest}.
+     *
+     * @param indexName       name of the index to update
+     * @param builderConsumer to customize the {@link UpdateByQueryRequest}: the query and the script, at least
+     * @return a {@link Future} that will complete with the number of documents the script changed
+     */
+    public Future<Long> updateByQuery(String indexName,
+                                      Consumer<UpdateByQueryRequest.Builder> builderConsumer) {
+        return KinoticUtil.toFuture(esAsyncClient.updateByQuery(builder -> {
+            builder.index(indexName)
+                   .refresh(true)
+                   .conflicts(Conflicts.Proceed);
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            return builder;
+        })).map(UpdateByQueryResponse::updated);
     }
 
     /**

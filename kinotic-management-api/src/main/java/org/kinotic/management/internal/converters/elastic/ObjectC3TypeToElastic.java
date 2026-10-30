@@ -48,6 +48,10 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
 
             if(property.hasDecorators()){
 
+                // recorded whatever mapping the field gets, so a decorator that does not affect the mapping, a field
+                // policy for one, is never lost to the mapping branch
+                processDecorators(property, state, builder);
+
                 if(property.containsDecorator(NestedDecorator.class)) {
 
                     if (type instanceof ArrayC3Type arrayC3Type) {
@@ -84,9 +88,6 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
                                                                              .index(decorator.isIndex()))
                                                                    ._toProperty());
                 } else {
-
-                    // Handle other decorators that do not affect mapping
-                    processDecorators(property, state, builder);
 
                     builder.properties(fieldName, conversionContext.convert(type));
                 }

@@ -14,6 +14,10 @@
 # would otherwise fall back to runc and make every capability probe pass for the wrong reason.
 set -euo pipefail
 
+# Downloads land in a private directory, since the archives are extracted as root
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
 step()  { echo; echo "=== $*"; }
 fail()  { echo "SETUP FAILED: $*" >&2; exit 1; }
 
@@ -54,10 +58,10 @@ echo "kata-containers : $KATA_VERSION  ($KATA_ASSET)"
 echo "nerdctl         : $NERDCTL_VERSION  ($NERDCTL_ASSET)"
 
 step "Installing Kata Containers (static bundle: shim, guest kernel, guest image, firecracker)"
-curl -fsSL -o "/tmp/${KATA_ASSET}" "$KATA_URL" || fail "downloading ${KATA_ASSET}"
+curl -fsSL -o "$WORK/${KATA_ASSET}" "$KATA_URL" || fail "downloading ${KATA_ASSET}"
 case "$KATA_ASSET" in
-    *.tar.zst) tar --use-compress-program=unzstd -xf "/tmp/${KATA_ASSET}" -C / || fail "extracting ${KATA_ASSET}" ;;
-    *.tar.xz)  tar -xJf "/tmp/${KATA_ASSET}" -C / || fail "extracting ${KATA_ASSET}" ;;
+    *.tar.zst) tar --use-compress-program=unzstd -xf "$WORK/${KATA_ASSET}" -C / || fail "extracting ${KATA_ASSET}" ;;
+    *.tar.xz)  tar -xJf "$WORK/${KATA_ASSET}" -C / || fail "extracting ${KATA_ASSET}" ;;
     *)         fail "unhandled archive format for ${KATA_ASSET}" ;;
 esac
 [ -x /opt/kata/bin/containerd-shim-kata-v2 ] || fail "the bundle did not provide /opt/kata/bin/containerd-shim-kata-v2"
@@ -78,8 +82,8 @@ mkdir -p /etc/kata-containers
 ln -sf "$FC_CONF" /etc/kata-containers/configuration.toml
 
 step "Installing containerd, CNI and nerdctl (nerdctl-full bundle)"
-curl -fsSL -o "/tmp/${NERDCTL_ASSET}" "$NERDCTL_URL" || fail "downloading ${NERDCTL_ASSET}"
-tar -xzf "/tmp/${NERDCTL_ASSET}" -C /usr/local || fail "extracting ${NERDCTL_ASSET}"
+curl -fsSL -o "$WORK/${NERDCTL_ASSET}" "$NERDCTL_URL" || fail "downloading ${NERDCTL_ASSET}"
+tar -xzf "$WORK/${NERDCTL_ASSET}" -C /usr/local || fail "extracting ${NERDCTL_ASSET}"
 
 step "Creating the devmapper thin-pool (${DATA_SIZE} data, ${META_SIZE} metadata)"
 # Firecracker has no virtiofs, so a workload's rootfs must be a block device rather than an

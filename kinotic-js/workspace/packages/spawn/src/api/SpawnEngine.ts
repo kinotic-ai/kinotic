@@ -30,6 +30,15 @@ type SpawnConfig = z.infer<typeof SpawnConfigSchema>
 
 const IGNORED_FILE_NAMES: string[] = ['spawn.json', '.DS_Store']
 
+// Caps on one parse and one render, so a template cannot hold the process with unbounded
+// expansion: liquidjs defaults all three to Infinity
+const PARSE_LIMIT_CHARS = 64 * 1024 * 1024
+const MEMORY_LIMIT_BYTES = 64 * 1024 * 1024
+const RENDER_LIMIT_MS = 30_000
+
+// The longest inherits chain followed before it is treated as runaway
+const MAX_INHERITANCE_DEPTH = 32
+
 function upperFirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
@@ -50,7 +59,10 @@ function camelCase(s: string): string {
  *
  * - spawn.json declares globals, a propertySchema, and an optional inherited
  *   spawn; inheritance chains are followed via
- *   {@link RenderSpawnOptions#loadInherited}
+ *   {@link RenderSpawnOptions#loadInherited}, and a chain that repeats a ref or
+ *   runs deeper than {@link MAX_INHERITANCE_DEPTH} fails the render
+ * - a partial named by {@code include} or {@code render} is a text file of the
+ *   spawn the template belongs to; nothing outside the tree can be read
  * - globals and propertySchema entries from derived spawns override inherited
  *   ones; values supplied in the context override globals
  * - propertySchema entries missing from the context are obtained from the
@@ -67,18 +79,40 @@ export class SpawnEngine {
   private engine: Liquid
 
   constructor() {
+    this.engine = SpawnEngine.createEngine({})
+  }
+
+  // Builds the liquid engine for one tree. Partials ({% include %}, {% render %}) resolve
+  // from the tree's own text files through liquidjs's in-memory templates mapping, which
+  // takes the place of its Node filesystem loader, so a template cannot read the process's
+  // working directory.
+  private static createEngine(tree: SpawnTree): Liquid {
+    const templates: Record<string, string> = {}
+    for (const [name, content] of Object.entries(tree)) {
+      if (typeof content === 'string') {
+        templates[name] = content
+      }
+    }
     // strictVariables makes a reference to an undeclared variable throw instead of
     // rendering an empty string, so a template that uses a value no one provides
     // fails loudly rather than producing silently-wrong output.
-    this.engine = new Liquid({cache: true, strictVariables: true})
-    this.engine.registerFilter('packageToPath', (v: string) => v.replaceAll('.', '/'))
-    this.engine.registerFilter('encodePackage', (v: string) => {
+    const engine = new Liquid({
+      cache: true,
+      strictVariables: true,
+      templates,
+      parseLimit: PARSE_LIMIT_CHARS,
+      renderLimit: RENDER_LIMIT_MS,
+      memoryLimit: MEMORY_LIMIT_BYTES,
+    })
+    engine.registerFilter('packageToPath', (v: string) => v.replaceAll('.', '/'))
+    engine.registerFilter('encodePackage', (v: string) => {
       v = v.replaceAll('-', '_')
       v = v.replace(/\.(\d+)/g, '._$1')
       return v
     })
-    this.engine.registerFilter('camelCase', (v: string) => camelCase(v))
-    this.engine.registerFilter('upperFirst', (v: string) => upperFirst(v))
+    engine.registerFilter('camelCase', (v: string) => camelCase(v))
+    engine.registerFilter('upperFirst', (v: string) => upperFirst(v))
+    return engine
   }
 
   /**
@@ -108,6 +142,8 @@ export class SpawnEngine {
     const sources: Record<string, string> = {}
     // Render base-first so derived spawns overwrite same-destination files.
     for (const tree of [...trees].reverse()) {
+      // Each tree's templates see that tree's own files as partials
+      const engine = SpawnEngine.createEngine(tree)
       for (const source of Object.keys(tree).sort()) {
         const fileName = source.substring(source.lastIndexOf('/') + 1)
         if (IGNORED_FILE_NAMES.includes(fileName)) {
@@ -116,7 +152,7 @@ export class SpawnEngine {
 
         let destination = source
         if (destination.includes('{{')) {
-          destination = await this.engine.parseAndRender(destination, context)
+          destination = await engine.parseAndRender(destination, context)
         }
 
         let content: string | Uint8Array = tree[source] as string | Uint8Array
@@ -125,7 +161,7 @@ export class SpawnEngine {
           if (typeof content !== 'string') {
             throw new Error(`Template ${source} must contain text content`)
           }
-          content = await this.engine.parseAndRender(content, context)
+          content = await engine.parseAndRender(content, context)
         }
 
         files[destination] = content
@@ -208,11 +244,20 @@ export class SpawnEngine {
       configs.push(currentConfig)
     }
 
+    const visited = new Set<string>()
     while (currentConfig?.inherits) {
+      const ref = currentConfig.inherits
       if (!loadInherited) {
-        throw new Error(`Spawn inherits '${currentConfig.inherits}' but no loadInherited callback was provided`)
+        throw new Error(`Spawn inherits '${ref}' but no loadInherited callback was provided`)
       }
-      const inherited: SpawnTree = await loadInherited(currentConfig.inherits)
+      if (visited.has(ref)) {
+        throw new Error(`Spawn inheritance cycle: ${[...visited, ref].join(' -> ')}`)
+      }
+      if (visited.size >= MAX_INHERITANCE_DEPTH) {
+        throw new Error(`Spawn inheritance chain is deeper than ${MAX_INHERITANCE_DEPTH} at '${ref}'`)
+      }
+      visited.add(ref)
+      const inherited: SpawnTree = await loadInherited(ref)
       trees.push(inherited)
       currentConfig = this.parseConfig(inherited)
       if (currentConfig) {

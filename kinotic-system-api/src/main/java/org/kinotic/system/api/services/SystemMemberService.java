@@ -15,7 +15,7 @@ import org.kinotic.domain.api.model.security.identity.SystemParticipantIdentity;
  * on SYSTEM scope alone, so an organization's users and machines stay that organization's to
  * manage through {@code MachineService}.
  */
-@Publish
+@Publish(redacted = true)
 public interface SystemMemberService {
 
     /**

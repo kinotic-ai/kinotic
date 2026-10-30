@@ -40,9 +40,9 @@ public class IncomingInvocationTracker {
     private final Map<String, EventConsumer> replySubscriptions = new HashMap<>();
     // by correlation id; touched only on the connection's event loop
     private final Map<String, IncomingInvocation> awaitingReply = new HashMap<>();
-    // streams cancelled because the client fell too far behind, whose values in flight are dropped until the
-    // terminal reply the gateway answers the client with passes through
-    private final Set<String> overflowedStreams = new HashSet<>();
+    // streams the client cancelled, or the gateway cancelled because the client fell too far behind, whose
+    // values in flight are dropped until the terminal reply passes through
+    private final Set<String> cancelledStreams = new HashSet<>();
 
     /**
      * Subscribes the client to one of its reply destinations. A terminal reply passing through finishes the
@@ -53,12 +53,12 @@ public class IncomingInvocationTracker {
         eventConsumer.handler(event -> {
                          String correlationId = event.metadata().get(EventConstants.CORRELATION_ID_HEADER);
                          boolean terminal = EventUtil.isTerminalReply(event.metadata());
-                         if (correlationId != null && overflowedStreams.contains(correlationId)) {
+                         if (correlationId != null && cancelledStreams.contains(correlationId)) {
                              if (terminal) {
-                                 overflowedStreams.remove(correlationId);
+                                 cancelledStreams.remove(correlationId);
                                  subscriptionHandler.handleEvent(event);
                              } else {
-                                 log.trace("Dropping a value of stream {}, cancelled after its client fell behind", correlationId);
+                                 log.trace("Dropping a value of stream {}, which was cancelled", correlationId);
                              }
                          } else if (terminal) {
                              requestFinished(correlationId);
@@ -94,8 +94,8 @@ public class IncomingInvocationTracker {
         String correlationId = request.metadata().get(EventConstants.CORRELATION_ID_HEADER);
         if (correlationId != null) {
             awaitingReply.put(correlationId, new IncomingInvocation(EventUtil.replyMetadataOf(request.metadata()), request.cri()));
-            // a client may reuse the id of a request whose stream overflowed
-            overflowedStreams.remove(correlationId);
+            // a client may reuse the id of a request whose stream was cancelled
+            cancelledStreams.remove(correlationId);
         }
     }
 
@@ -110,6 +110,22 @@ public class IncomingInvocationTracker {
                 return invocation;
             });
         }
+    }
+
+    /**
+     * The client cancelled the request: it is forgotten, the values of its stream still in flight are dropped
+     * until the terminal reply passes, and the destination the request was sent to, which the cancel is
+     * published to, is emitted; null when the connection holds no request of that id.
+     */
+    public CRI cancel(String correlationId) {
+        CRI ret = null;
+        IncomingInvocation invocation = correlationId != null ? awaitingReply.get(correlationId) : null;
+        if (invocation != null) {
+            requestFinished(correlationId);
+            cancelledStreams.add(correlationId);
+            ret = invocation.getDestination();
+        }
+        return ret;
     }
 
     /**
@@ -129,7 +145,7 @@ public class IncomingInvocationTracker {
     public void dispose() {
         awaitingReply.keySet().forEach(correlationId -> services.requestLivenessWatcher.unwatch(watchKeyPrefix + correlationId));
         awaitingReply.clear();
-        overflowedStreams.clear();
+        cancelledStreams.clear();
         replySubscriptions.values().forEach(EventConsumer::unregister);
         replySubscriptions.clear();
     }
@@ -167,7 +183,7 @@ public class IncomingInvocationTracker {
         log.warn("Cancelled stream {} from {}: it cannot be suspended and {} bytes of it wait unsent",
                  correlationId, destination, behind);
         requestFinished(correlationId);
-        overflowedStreams.add(correlationId);
+        cancelledStreams.add(correlationId);
         RpcStreamOverflowException cause = new RpcStreamOverflowException(
                 "The stream from " + destination + " cannot be suspended and " + behind
                         + " bytes of it were still waiting to reach the client, so it was cancelled");

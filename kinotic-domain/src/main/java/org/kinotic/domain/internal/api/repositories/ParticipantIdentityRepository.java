@@ -16,7 +16,10 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class ParticipantIdentityRepository extends AbstractRepository<ParticipantIdentity> {
@@ -24,8 +27,36 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
     // the most organizations one email is a member of
     private static final int MAX_ORGANIZATIONS_PER_EMAIL = 100;
 
+    // a disabled user is left as it is, so an administrator's enabled=false written meanwhile is never overwritten
+    private static final String CLEAR_PENDING_SCRIPT = """
+            if (ctx._source.pending != true || ctx._source.enabled != true) {
+                ctx.op = 'noop'
+            } else {
+                ctx._source.pending = false;
+                ctx._source.updated = params.updated;
+                if (params.displayName != null) {
+                    ctx._source.displayName = params.displayName
+                }
+            }""";
+
     public ParticipantIdentityRepository(CrudServiceTemplate crudServiceTemplate) {
         super("kinotic_participant_identity", ParticipantIdentity.class, crudServiceTemplate);
+    }
+
+    /**
+     * Makes the pending user {@code id} one that signs in, which exactly one caller does, however many race for the
+     * user: true when this call cleared the flag, false when the user was no longer pending or is disabled, in which
+     * case the user is left as it is. The change is visible to search when the future completes.
+     *
+     * @param id          the user
+     * @param displayName the name the user gives itself as it signs in, or {@code null} to keep the one it has
+     */
+    public Future<Boolean> clearPending(String id, String displayName) {
+        Validate.notBlank(id, "id cannot be blank");
+        Map<String, Object> params = new HashMap<>();
+        params.put("updated", new Date());
+        params.put("displayName", displayName);
+        return crudServiceTemplate.scriptedUpdateSync(indexName, id, CLEAR_PENDING_SCRIPT, params);
     }
 
     /** The system user with the email, or {@code null}. */

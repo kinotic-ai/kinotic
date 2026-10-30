@@ -1,6 +1,7 @@
 package org.kinotic.management.internal.api.services.gitea;
 
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -27,8 +28,8 @@ import java.util.HexFormat;
 /**
  * Issues the credentials of projects' repositories on the Gitea server the system administers. Each repository is
  * read through one Gitea account that is a read-only collaborator of it alone, and written through another that may
- * write it alone, so a token reaches exactly one repository with exactly the access asked for. A token is deleted an
- * hour after it is issued.
+ * write it alone, so a token reaches exactly one repository with exactly the access asked for. A token is deleted once
+ * an hour has passed since it was issued.
  */
 @Slf4j
 @Component
@@ -37,18 +38,26 @@ import java.util.HexFormat;
 public class GiteaProjectRepoService implements ProjectRepoTokenProvider, ProjectRepoCredentialService {
 
     private static final Duration TOKEN_LIFETIME = Duration.ofHours(1);
+    // Gitea tokens have no expiry of their own, so the expired ones are deleted by a sweep, which bounds how long a
+    // token outlives its lifetime
+    private static final Duration SWEEP_INTERVAL = Duration.ofMinutes(5);
     // Gitea as a deployment's sync workload reaches it from its micro VM, through the host alias of a BOXLITE guest
     private static final String WORKLOAD_BASE_URL = "http://192.168.127.254:3001";
     // The repository accounts sign in only to have their tokens issued, by this server
     private static final String ACCOUNT_PASSWORD = "kinotic-gitea-repository";
 
+    private final Vertx vertx;
     private final GiteaClient giteaClient;
     private final ProjectRepository projectRepository;
     private final SecurityContext securityContext;
 
-    // A token is deleted by a timer on the server that issued it, so a restart within its lifetime leaves it behind
     @EventListener
     public void onApplicationReadyEvent(ApplicationReadyEvent event) {
+        deleteExpiredTokens();
+        vertx.setPeriodic(SWEEP_INTERVAL.toMillis(), id -> deleteExpiredTokens());
+    }
+
+    private void deleteExpiredTokens() {
         long expired = System.currentTimeMillis() - TOKEN_LIFETIME.toMillis();
         giteaClient.findAllUsernames()
                    .compose(usernames -> Future.all(usernames.stream()

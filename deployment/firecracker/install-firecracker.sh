@@ -88,20 +88,22 @@ TARGET_JAILER="/usr/local/bin/jailer"
 
 # Download & install binary
 if [[ ! -f "$TARGET_BIN" ]] || [[ "$($TARGET_BIN --version 2>/dev/null || echo old)" != *"$LATEST_TAG"* ]]; then
+    # A private staging directory, so no other local user can plant binaries at the path the
+    # privileged install reads from
+    WORK="$(mktemp -d)"
+    trap 'rm -rf "$WORK"' EXIT
+
     log "Downloading $DOWNLOAD_URL ..."
-    curl -L -o "/tmp/$FC_TGZ" "$DOWNLOAD_URL"
+    curl -L -o "$WORK/$FC_TGZ" "$DOWNLOAD_URL"
 
     log "Extracting..."
-    tar -xzf "/tmp/$FC_TGZ" -C /tmp
+    tar -xzf "$WORK/$FC_TGZ" -C "$WORK"
 
     log "Installing firecracker binary..."
-    sudo install -m 0755 "/tmp/release-${LATEST_TAG}-${FC_ARCH}/firecracker-${LATEST_TAG}-${FC_ARCH}" "$TARGET_BIN"
+    sudo install -m 0755 "$WORK/release-${LATEST_TAG}-${FC_ARCH}/firecracker-${LATEST_TAG}-${FC_ARCH}" "$TARGET_BIN"
 
     log "Installing jailer binary..."
-    sudo install -m 0755 "/tmp/release-${LATEST_TAG}-${FC_ARCH}/jailer-${LATEST_TAG}-${FC_ARCH}" "$TARGET_JAILER"
-
-    log "Cleaning up..."
-    rm -rf "/tmp/$FC_TGZ" "/tmp/release-${LATEST_TAG}-${FC_ARCH}"
+    sudo install -m 0755 "$WORK/release-${LATEST_TAG}-${FC_ARCH}/jailer-${LATEST_TAG}-${FC_ARCH}" "$TARGET_JAILER"
 else
     log "Firecracker $LATEST_TAG already installed."
 fi

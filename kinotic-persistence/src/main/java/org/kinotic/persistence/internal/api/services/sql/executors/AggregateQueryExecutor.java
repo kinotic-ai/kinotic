@@ -116,7 +116,7 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
                 filter = new JsonObject().put("bool", new JsonObject()
                         .put("filter", new JsonArray()
                                 .add(new JsonObject().put("term", new JsonObject()
-                                        .put(domainPersistenceProperties.getTenantIdFieldName(), new JsonObject()
+                                        .put(entityDescriptor.tenantFieldName(domainPersistenceProperties.getTenantIdFieldName()), new JsonObject()
                                                 .put("value", tenantId))))
                                 .add(new JsonObject().put("terms", new JsonObject()
                                         .put("_routing", new JsonArray().add(tenantId))))

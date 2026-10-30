@@ -38,6 +38,17 @@ public class KinoticUtil {
     }
 
     /**
+     * The value with its line breaks and other control characters replaced by spaces, for a log message that
+     * includes text a client sent: a line break in it would read as a further log record.
+     *
+     * @param value the text to log, or null
+     * @return the text on one line, or null for null
+     */
+    public static String singleLine(String value) {
+        return value == null ? null : value.replaceAll("\\p{Cntrl}+", " ");
+    }
+
+    /**
      * Bridges a {@link CompletableFuture} into a Vert.x {@link Future} on the caller's context, so everything
      * composed after it runs where the caller runs and a context-local such as the current participant stays
      * observable across the hop. A failure is delivered as its raw cause, never wrapped in a

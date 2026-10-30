@@ -5,6 +5,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
+import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.persistence.api.model.EntityContext;
 
 import java.util.LinkedHashMap;
@@ -15,17 +16,25 @@ import java.util.function.Function;
 public class PersistenceUtil {
 
     /**
-     * Validates the tenants an {@link EntityContext} acts on against the multi-tenancy of an {@link EntityDescriptor}.
-     * The tenant selection must already be applied to the context. A participant that belongs to a tenant may select
-     * only that tenant, and a participant without one must select the tenants of a {@link MultiTenancyType#SHARED} entity.
+     * Validates the application and the tenants an {@link EntityContext} acts on against an {@link EntityDescriptor}.
+     * An application's participant reaches only the entities of its own application; an organization's reaches every
+     * entity of the organization. The tenant selection must already be applied to the context. A participant that
+     * belongs to a tenant may select only that tenant, and a participant without one must select the tenants of a
+     * {@link MultiTenancyType#SHARED} entity.
      *
      * @param entityDescriptor the entity the operation acts on
      * @param context          the context of the operation
      * @return a {@link Future} that succeeds when the context is valid, and fails with an
-     *         {@link AuthorizationException} when the participant selects a tenant other than its own, or an
-     *         {@link IllegalArgumentException} when the entity does not accept the context
+     *         {@link AuthorizationException} when the participant reaches another application's entity or selects a
+     *         tenant other than its own, or an {@link IllegalArgumentException} when the entity does not accept the context
      */
     public static Future<Void> validateEntityContext(EntityDescriptor entityDescriptor, EntityContext context){
+        // every entity of the organization is addressable by id, so the application boundary is enforced here
+        if (context.getParticipant() instanceof ApplicationParticipant application
+                && !application.getApplicationId().equals(entityDescriptor.applicationId())) {
+            return Future.failedFuture(new AuthorizationException("Entity " + entityDescriptor.name()
+                                                                  + " does not belong to application " + application.getApplicationId()));
+        }
         Future<Void> ret;
         // Kinotic allows any published service to be called, so the admin service can reach an
         // EntityDefinition that never enabled multi-tenant selection; the selection is refused here

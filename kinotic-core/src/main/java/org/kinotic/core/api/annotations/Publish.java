@@ -36,4 +36,10 @@ public @interface Publish {
      */
     boolean advertise() default false;
 
+    /**
+     * When true the service's requests and replies never appear in trace logging, whatever the
+     * {@code kinotic.traceLog} patterns say: for a service whose arguments or results carry credentials
+     */
+    boolean redacted() default false;
+
 }

@@ -35,6 +35,7 @@ import org.springframework.stereotype.Component;
 import org.kinotic.domain.internal.api.rest.support.OidcFlowSession;
 
 import java.time.Duration;
+import java.util.regex.Pattern;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,7 @@ import java.util.function.Function;
 public class OidcFlowOrchestrator {
 
     private static final String OIDC_FLOW_SESSION_KEY = "oidcFlow";
+    private static final Pattern OAUTH_ERROR_CODE = Pattern.compile("^[a-z0-9_]{1,64}$");
     private static final String USER_AGENT = "kinotic-platform";
     // github.com's token endpoint answers with a ~9 KB Content-Security-Policy header, past Vert.x's 8 KB default
     private static final int IDP_MAX_HEADER_SIZE = 32 * 1024;
@@ -117,8 +119,11 @@ public class OidcFlowOrchestrator {
         OidcFlowSession flowSession = session.remove(OIDC_FLOW_SESSION_KEY);
 
         if (idpError != null) {
-            log.info("OIDC callback error from config {}: {}", pathConfigId, idpError);
-            return Future.failedFuture(new OidcCallbackException(idpError));
+            // an OAuth error is a short code (RFC 6749 §4.1.2.1); anything else arriving on the public callback is
+            // reflected into neither the log nor the browser
+            String error = OAUTH_ERROR_CODE.matcher(idpError).matches() ? idpError : OidcErrorCodes.INVALID_CALLBACK;
+            log.info("OIDC callback error from config {}: {}", pathConfigId, error);
+            return Future.failedFuture(new OidcCallbackException(error));
         }
         if (code == null || state == null) {
             return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_CALLBACK));

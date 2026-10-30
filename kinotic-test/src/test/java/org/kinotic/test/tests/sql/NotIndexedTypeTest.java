@@ -89,7 +89,7 @@ class NotIndexedTypeTest extends KinoticTestBase {
         Migration migration = migration(1, "V1__create_not_indexed_table", migrationContent);
 
         // When
-        migrationExecutor.executeProjectMigrations(List.of(migration), "test_project_not_indexed").get();
+        migrationExecutor.executeProjectMigrations(List.of(migration), "test-org", "test_project_not_indexed").get();
 
         // Then
         assertTrue(asyncClient.indices().exists(e -> e.index("test_not_indexed")).get().value());

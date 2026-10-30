@@ -228,7 +228,8 @@ public class InviteHandler implements SuppliesGatewayRoutes, OidcFlowCompleter {
             redirectInviteError(ctx, result.origin(), OidcErrorCodes.INVALID_TOKEN, token);
             return;
         }
-        if (!OAuth2Util.isEmailVerified(claims, result.config().getProvider())) {
+        // the acceptance makes the email's user the identity's, so the email is held to the proof its configuration needs
+        if (!OAuth2Util.isEmailProven(claims, result.config())) {
             redirectInviteError(ctx, result.origin(), OidcErrorCodes.EMAIL_NOT_VERIFIED, result.config().getProvider(), token);
             return;
         }

@@ -382,6 +382,14 @@ export class ServiceInvocationSupervisor {
         if (!correlationId) {
             throw new Error("Streaming results require a CORRELATION_ID_HEADER to be set")
         }
+        // A second invocation under a live id would replace the first stream's entry and leave its
+        // subscription running with no way to cancel it, so the first stream keeps the id
+        if (this.activeStreams.has(correlationId)) {
+            const error = new Error(`stream ${correlationId} already active`)
+            this.handleException(event, error)
+            this.failSpan(span, error)
+            return
+        }
         // hoisted so next() can end the stream on a value it cannot send
         let subscription: Subscription | null = null
         // Set once the caller has its terminal error reply. A synchronous source is still inside subscribe()
@@ -389,8 +397,11 @@ export class ServiceInvocationSupervisor {
         // deliver are dropped here instead
         let failed = false
         subscription = stream.pipe(finalize(() => {
-                                       // Covers every way the stream can end, cancellation included
-                                       this.activeStreams.delete(correlationId)
+                                       // Covers every way the stream can end, cancellation included; only the
+                                       // entry this subscription registered is released
+                                       if (this.activeStreams.get(correlationId)?.subscription === subscription) {
+                                           this.activeStreams.delete(correlationId)
+                                       }
                                        span.end()
                                    }))
                              .subscribe({

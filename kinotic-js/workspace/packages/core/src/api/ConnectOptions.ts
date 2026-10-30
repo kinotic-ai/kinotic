@@ -30,6 +30,11 @@ export type WebSocketFactory = () => IWebSocket | Promise<IWebSocket>
 export class ServerInfo {
     host!: string
     port?: number | null
+    /**
+     * Whether the server is reached over TLS. Absent, {@code KINOTIC_SERVER_USE_SSL} decides,
+     * then the page's own protocol for a host taken from the browser's location, and otherwise
+     * TLS for every host but a loopback one ({@code localhost}, {@code 127.0.0.1}, {@code ::1}).
+     */
     useSSL?: boolean | null
 }
 

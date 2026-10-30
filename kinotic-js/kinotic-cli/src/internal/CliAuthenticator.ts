@@ -16,6 +16,9 @@ import {Logger} from './Logger'
 /** The port the management server's gateway (REST + STOMP) listens on when no TLS terminates in front. */
 const GATEWAY_PORT = 58503
 
+/** The hostnames, as a parsed URL spells them, that name this machine. */
+const LOOPBACK_HOSTNAMES = ['localhost', '127.0.0.1', '[::1]']
+
 /** Identifies this CLI to the device grant, which serves only this pre-registered client. */
 const CLI_CLIENT_ID = 'kinotic-cli'
 
@@ -97,25 +100,33 @@ export class CliAuthenticator {
         }
     }
 
-    /** Parses the server url into the host/port the gateway serves both REST and STOMP on. */
+    /**
+     * Parses the server url into the host/port the gateway serves both REST and STOMP on. A
+     * plain http url is accepted only for a loopback host: the login tokens and the machine
+     * credentials ride every request, so a remote server is reached over https alone.
+     */
     private parseServer(): ServerInfo | null {
         const url = new URL(this.server)
         if (url.protocol !== 'http:' && url.protocol !== 'https:') {
             this.logger.log('Invalid server URL, only http and https are supported')
             return null
         }
+        const loopback = LOOPBACK_HOSTNAMES.includes(url.hostname)
+        if (url.protocol === 'http:' && !loopback) {
+            this.logger.log(`Refusing to send credentials to ${url.hostname} over plain http; use an https:// url for a remote server`)
+            return null
+        }
         const useSSL = url.protocol === 'https:'
         // Locally the server url often points at the static web port; the gateway
         // always listens on GATEWAY_PORT, so the port is overridden.
         let port: number | null
-        if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+        if (loopback) {
             port = GATEWAY_PORT
         } else if (url.port) {
             port = Number(url.port)
         } else {
-            // https means the scheme default (omit the port); plain http off localhost
-            // still means the gateway port
-            port = useSSL ? null : GATEWAY_PORT
+            // a remote server is https, so no port means the scheme default
+            port = null
         }
         return {host: url.hostname, port, useSSL}
     }

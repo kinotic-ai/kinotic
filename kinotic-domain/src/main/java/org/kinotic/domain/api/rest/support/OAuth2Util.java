@@ -3,6 +3,8 @@ package org.kinotic.domain.api.rest.support;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
 import org.kinotic.domain.api.model.security.OidcProviderType;
+import org.kinotic.domain.api.model.security.OidcConfiguration;
+import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 
 import java.nio.charset.StandardCharsets;
@@ -65,6 +67,22 @@ public final class OAuth2Util {
             ret = isEmailVerified(claims, provider);
         }
         return ret;
+    }
+
+    /**
+     * Whether {@code claims} prove the email strongly enough to create or claim a user under it through a sign-in
+     * by {@code configuration}: as {@link #isEmailProven(Map, OidcProviderType)} where the configuration
+     * {@link OidcConfigurationService#admitsEveryDirectory admits every directory} at its provider, and as
+     * {@link #isEmailVerified} where it names one directory, whose administrator its owner chose to trust.
+     *
+     * @param claims        the verified claims of the identity
+     * @param configuration the configuration the identity signed in through
+     * @return {@code true} when a user may be created or claimed under the claims' email
+     */
+    public static boolean isEmailProven(Map<String, Object> claims, OidcConfiguration configuration) {
+        return OidcConfigurationService.admitsEveryDirectory(configuration)
+                ? isEmailProven(claims, configuration.getProvider())
+                : isEmailVerified(claims, configuration.getProvider());
     }
 
     // a boolean claim some providers send as a string, "true" in any case or "1"

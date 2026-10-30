@@ -18,7 +18,7 @@ import java.util.List;
  * secret storage, where it stays until a save gives another or {@link #deleteClientSecret(String)} deletes it;
  * nothing here reads it back.
  */
-@Publish
+@Publish(redacted = true)
 @McpTool
 public interface OwnedOidcConfigurationService {
 

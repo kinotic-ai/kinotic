@@ -22,6 +22,7 @@ import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.internal.api.repositories.PendingInviteRepository;
+import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.services.EmailService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
@@ -38,6 +39,7 @@ public class DefaultInviteService implements InviteService {
     private static final long INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000L; // 7 days
 
     private final PendingInviteRepository pendingInviteRepository;
+    private final ParticipantIdentityRepository identityRepository;
     private final ParticipantIdentityService identityService;
     private final OrganizationService organizationService;
     private final PasswordConfigurationService passwordConfigurationService;
@@ -228,15 +230,25 @@ public class DefaultInviteService implements InviteService {
                         : Future.failedFuture(new ExistingUserException("This email already has a user here. Sign in instead.")));
     }
 
-    // the invited address makes the user its own: the password it sets, its first sign-in method, and the name it gives
+    // the invited address makes the user its own: the name it gives, and the password it sets as its first sign-in
+    // method. The claim is written first, and only by one acceptance: a second acceptance of the same invitation, or
+    // an administrator disabling the user meanwhile, leaves the password of a user someone signs in as unset
     private Future<Void> claim(UserParticipantIdentity user, String displayName, String password) {
-        if (StringUtils.isNotBlank(displayName)) {
-            user.setDisplayName(displayName);
-        }
-        // sync so the member list shows the user signed in at once
-        return identityService.setPassword(user.getId(), password)
-                              .compose(v -> identityService.saveSync(user.setPending(false)))
-                              .mapEmpty();
+        String givenName = StringUtils.trimToNull(displayName);
+        return identityRepository.clearPending(user.getId(), givenName)
+                                 .compose(claimed -> {
+                                     Future<Void> ret;
+                                     if (claimed) {
+                                         // the participant the acceptance signs in carries the name as written
+                                         if (givenName != null) {
+                                             user.setDisplayName(givenName);
+                                         }
+                                         ret = identityService.setPassword(user.getId(), password);
+                                     } else {
+                                         ret = Future.failedFuture(new ExistingUserException("This email already has a user here. Sign in instead."));
+                                     }
+                                     return ret;
+                                 });
     }
 
     private static Future<Void> requireEnabled(UserParticipantIdentity user) {

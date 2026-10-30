@@ -155,18 +155,13 @@ EOF
 
     # Make sure nftables service loads this file on boot
     # Check if nftables.conf includes our file
+    # Appended, never written: the file may already hold inline rules that must survive
     NFTABLES_CONF="/etc/nftables.conf"
-    if [[ -f "$NFTABLES_CONF" ]] && grep -q "firecracker.nft" "$NFTABLES_CONF"; then
+    if [[ -f "$NFTABLES_CONF" ]] && grep -qF "include \"$NFT_RULES_FILE\"" "$NFTABLES_CONF"; then
         log "Nftables config already includes firecracker rules"
     else
         log "Adding include to $NFTABLES_CONF..."
-        if ! grep -q "^include" "$NFTABLES_CONF" 2>/dev/null; then
-            # File might not exist or be empty, create it
-            echo "include \"$NFT_RULES_FILE\"" | sudo tee "$NFTABLES_CONF" >/dev/null
-        else
-            # Add include at the end
-            echo "include \"$NFT_RULES_FILE\"" | sudo tee -a "$NFTABLES_CONF" >/dev/null
-        fi
+        echo "include \"$NFT_RULES_FILE\"" | sudo tee -a "$NFTABLES_CONF" >/dev/null
     fi
 
     # Enable nftables service if systemd is available

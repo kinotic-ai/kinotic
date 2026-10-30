@@ -11,7 +11,9 @@ import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.system.api.services.workload.WorkloadService;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class DefaultWorkloadService extends AbstractCrudService<Workload> implements WorkloadService {
@@ -42,6 +44,13 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
         Validate.notNull(entity, "Workload cannot be null");
         Validate.notNull(entity.getName(), "Workload name cannot be null");
         Validate.notNull(entity.getImage(), "Workload image cannot be null");
+        // only the node ever receives a secret value: a save through this API, whatever the caller sent, keeps
+        // the keys and writes the marker the orchestration's own record holds
+        if (entity.getSecrets() != null && !entity.getSecrets().isEmpty()) {
+            Map<String, String> redacted = new LinkedHashMap<>();
+            entity.getSecrets().keySet().forEach(key -> redacted.put(key, Workload.REDACTED_SECRET_VALUE));
+            entity.setSecrets(redacted);
+        }
         return Future.succeededFuture();
     }
 

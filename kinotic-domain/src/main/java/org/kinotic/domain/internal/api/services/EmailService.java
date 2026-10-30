@@ -31,6 +31,7 @@ import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -56,6 +57,10 @@ public class EmailService {
     private static final String INVITE_PATH = "/invite/accept?token=";
     private static final String ORGANIZATIONS_SUBJECT = "Your organizations on Kinotic";
     private static final String ORGANIZATION_LOGIN_PATH = "/login/";
+    /** Longer than any invitation template, which bounds what an organization's administrators can make the server render. */
+    private static final int MAX_TEMPLATE_SOURCE_LENGTH = 64 * 1024;
+    /** Longer than any rendered email, which bounds what a template can expand to. */
+    private static final int MAX_RENDERED_LENGTH = 1024 * 1024;
 
     // Two engines differing by template suffix and escaping: HTML bodies HTML-escape
     // {{var}} by default (templates opt out with {{{var}}} for system-constructed URLs);
@@ -289,6 +294,9 @@ public class EmailService {
         Validate.isTrue(StringUtils.hasText(subject), "An email template's subject is required");
         Validate.isTrue(StringUtils.hasText(htmlBody), "An email template's htmlBody is required");
         Validate.isTrue(StringUtils.hasText(textBody), "An email template's textBody is required");
+        Validate.isTrue(subject.length() <= MAX_TEMPLATE_SOURCE_LENGTH && htmlBody.length() <= MAX_TEMPLATE_SOURCE_LENGTH
+                                && textBody.length() <= MAX_TEMPLATE_SOURCE_LENGTH,
+                        "An email template's subject, htmlBody and textBody are each at most %d characters", MAX_TEMPLATE_SOURCE_LENGTH);
         Map<String, Object> sample = new HashMap<>();
         sample.put("inviterName", "Inviter Name");
         sample.put("organizationName", "Organization Name");
@@ -344,8 +352,29 @@ public class EmailService {
         Context context = Context.newBuilder(variables)
                                  .resolver(MapValueResolver.INSTANCE)
                                  .build();
+        StringBuilder rendered = new StringBuilder();
+        // Handlebars writes as it renders, so a template that expands without bound, nested partials
+        // doubling the output per level, is stopped at the cap rather than exhausting the heap
+        Writer bounded = new Writer() {
+            @Override
+            public void write(char[] buffer, int offset, int length) {
+                if (rendered.length() + length > MAX_RENDERED_LENGTH) {
+                    throw new IllegalStateException("The rendered email exceeds " + MAX_RENDERED_LENGTH + " characters");
+                }
+                rendered.append(buffer, offset, length);
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
         try {
-            return template.apply(context);
+            template.apply(context, bounded);
+            return rendered.toString();
         } catch (IOException e) {
             throw new UncheckedIOException("Failed rendering email template", e);
         } finally {

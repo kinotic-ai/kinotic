@@ -122,9 +122,7 @@ public class ReadPreProcessor {
                 sf.includes(columns);
                 // the tenant field rides along for the multi tenancy check that follows the read
                 if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
-                    sf.includes(entityDescriptor.isMultiTenantSelectionEnabled()
-                                        ? entityDescriptor.tenantIdFieldName()
-                                        : domainPersistenceProperties.getTenantIdFieldName());
+                    sf.includes(entityDescriptor.tenantFieldName(domainPersistenceProperties.getTenantIdFieldName()));
                 }
                 return sf;
             }));
@@ -207,7 +205,7 @@ public class ReadPreProcessor {
                 routingConsumer.accept(tenantId);
                 queryBuilder = new Query.Builder();
                 queryBuilder
-                        .bool(b -> b.filter(qb -> qb.term(tq -> tq.field(domainPersistenceProperties.getTenantIdFieldName())
+                        .bool(b -> b.filter(qb -> qb.term(tq -> tq.field(entityDescriptor.tenantFieldName(domainPersistenceProperties.getTenantIdFieldName()))
                                                                   .value(tenantId))));
             }
         }
@@ -245,7 +243,7 @@ public class ReadPreProcessor {
                     routingConsumer.accept(tenantId);
                     queryBuilder
                             .bool(b -> b.must(must -> must.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
-                                        .filter(qb -> qb.term(tq -> tq.field(domainPersistenceProperties.getTenantIdFieldName())
+                                        .filter(qb -> qb.term(tq -> tq.field(entityDescriptor.tenantFieldName(domainPersistenceProperties.getTenantIdFieldName()))
                                                                       .value(tenantId))));
                 }
             }else{
@@ -276,7 +274,7 @@ public class ReadPreProcessor {
                 }
                 // TODO: remove this when above is put back
                 if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED) {
-                    sf.includes(domainPersistenceProperties.getTenantIdFieldName());
+                    sf.includes(entityDescriptor.tenantFieldName(domainPersistenceProperties.getTenantIdFieldName()));
                 }
             }
             return sf;

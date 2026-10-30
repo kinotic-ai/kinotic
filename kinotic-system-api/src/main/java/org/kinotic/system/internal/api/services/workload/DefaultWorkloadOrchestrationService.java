@@ -35,10 +35,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DefaultWorkloadOrchestrationService implements WorkloadOrchestrationService {
 
-    // What the persisted record holds in place of every secret value; only the node
-    // ever receives the real values
-    private static final String REDACTED_SECRET_VALUE = "<redacted>";
-
     // Placements a deploy may make before it gives up on the room concurrent deploys keep taking
     private static final int PLACEMENT_ATTEMPTS = 3;
 
@@ -375,7 +371,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
     /**
      * Creates the workload's record with every secret value replaced by
-     * {@value REDACTED_SECRET_VALUE}, then restores the real values on the object — the
+     * {@value Workload#REDACTED_SECRET_VALUE}, then restores the real values on the object — the
      * record never holds a secret value, while dispatch to the node still carries them.
      */
     private Future<Workload> persistRedacted(Workload workload) {
@@ -385,7 +381,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
             ret = workloadRepository.saveSync(workload);
         } else {
             Map<String, String> redacted = new LinkedHashMap<>();
-            secrets.keySet().forEach(key -> redacted.put(key, REDACTED_SECRET_VALUE));
+            secrets.keySet().forEach(key -> redacted.put(key, Workload.REDACTED_SECRET_VALUE));
             workload.setSecrets(redacted);
             ret = workloadRepository.saveSync(workload)
                     .andThen(result -> workload.setSecrets(secrets));

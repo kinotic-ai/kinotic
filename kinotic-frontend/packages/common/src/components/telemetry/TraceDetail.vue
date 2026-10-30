@@ -252,9 +252,23 @@ function otherEventAttributes(event: TraceSpanEvent): [string, string][] {
   return Object.entries(event.attributes).filter(([key]) => !isException(event) || !EXCEPTION_KEYS.has(key))
 }
 
+// A formatted trace longer than this is cut here; the copy button still hands over the whole attribute
+const STACK_MAX_LENGTH = 100_000
+const STACK_TRUNCATED_MARKER = '\n… [truncated]'
+
 // A JVM stack trace that arrives on one line breaks before each frame, as the JVM prints it
 function formatStack(stack: string): string {
-  return stack.includes('\n') ? stack : stack.replace(/\s+(at |Caused by: |\.\.\. \d+ more)/g, '\n\t$1')
+  let ret: string
+  if (stack.includes('\n')) {
+    ret = stack
+  } else {
+    // Whitespace runs collapse first, so the frame split is a single linear pass whatever the trace holds
+    ret = stack.replace(/\s+/g, ' ').replace(/ (at |Caused by: |\.\.\. \d+ more)/g, '\n\t$1')
+  }
+  if (ret.length > STACK_MAX_LENGTH) {
+    ret = ret.slice(0, STACK_MAX_LENGTH) + STACK_TRUNCATED_MARKER
+  }
+  return ret
 }
 
 function toggle(span: TraceSpan) {
