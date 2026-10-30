@@ -1,6 +1,8 @@
 // A deployable Kinotic server: a Spring Boot application whose jar embeds the OpenTelemetry Java
 // agent as BOOT-INF/classes/opentelemetry-javaagent.jar, the path the docker-compose -javaagent
-// arguments point at.
+// arguments point at, and lists the libraries it runs, the agent among them, in
+// META-INF/kinotic/components.txt, which each node stores as its SBOM when it starts (ServerSbomRecorder)
+// for the system console's vulnerability check.
 plugins {
     id 'org.kinotic.java-application-conventions'
 }
@@ -28,6 +30,30 @@ tasks.register('otelAgentJar', Sync) {
     into layout.buildDirectory.dir('otel-agent')
 }
 
+// One package URL per line for every library on the runtime classpath and for the agent the JVM runs
+// with, sorted, so the listing of a build changes only when its libraries do
+def serverComponents = tasks.register('serverComponents') {
+    def resolved = [configurations.runtimeClasspath, configurations.otelAgent]
+    def outputFile = layout.buildDirectory.file('server-components/components.txt')
+    // read from the dependency graph rather than the classpath files, so the listing builds no jar of
+    // the projects on the classpath, and with them no frontend
+    def purls = provider {
+        resolved.collectMany { it.incoming.resolutionResult.allComponents.collect { component -> component.id } }
+                .findAll { it instanceof ModuleComponentIdentifier }
+                // percent-encoded, as a package URL carries its version
+                .collect { "pkg:maven/${it.group}/${it.module}@${URLEncoder.encode(it.version, 'UTF-8')}".toString() }
+                .toSorted()
+    }
+    inputs.property('purls', purls)
+    outputs.file(outputFile)
+    doLast {
+        outputFile.get().asFile.text = purls.get().join('\n') + '\n'
+    }
+}
+
 tasks.named('processResources') {
     from(tasks.named('otelAgentJar'))
+    from(serverComponents) {
+        into 'META-INF/kinotic'
+    }
 }

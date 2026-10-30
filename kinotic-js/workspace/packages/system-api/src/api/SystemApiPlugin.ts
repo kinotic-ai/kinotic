@@ -5,6 +5,7 @@ import { WorkloadOrchestrationService, type IWorkloadOrchestrationService } from
 import { LogManager } from '@/api/services/LogManager'
 import type { ILogManager } from '@/api/services/ILogManager'
 import { KinoticClusterInfoService, type IKinoticClusterInfoService } from '@/api/services/IKinoticClusterInfoService'
+import { ClusterVulnerabilityService, type IClusterVulnerabilityService } from '@/api/services/IClusterVulnerabilityService'
 import { SystemOrganizationService, type ISystemOrganizationService } from '@/api/services/ISystemOrganizationService'
 import { SystemMemberService, type ISystemMemberService } from '@/api/services/ISystemMemberService'
 import { WatchEventService, type IWatchEventService } from '@/api/services/IWatchEventService'
@@ -17,6 +18,7 @@ export interface ISystemApiExtension {
     workloadOrchestration: IWorkloadOrchestrationService
     logManager: ILogManager
     clusterInfo: IKinoticClusterInfoService
+    clusterVulnerabilities: IClusterVulnerabilityService
     systemOrganizations: ISystemOrganizationService
     systemMembers: ISystemMemberService
     watchEvents: IWatchEventService
@@ -32,6 +34,7 @@ export const SystemApiPlugin: KinoticPlugin<ISystemApiExtension> = {
             workloadOrchestration: new WorkloadOrchestrationService(kinotic),
             logManager: new LogManager(kinotic),
             clusterInfo: new KinoticClusterInfoService(kinotic),
+            clusterVulnerabilities: new ClusterVulnerabilityService(kinotic),
             systemOrganizations: new SystemOrganizationService(kinotic),
             systemMembers: new SystemMemberService(kinotic),
             watchEvents: new WatchEventService(kinotic),

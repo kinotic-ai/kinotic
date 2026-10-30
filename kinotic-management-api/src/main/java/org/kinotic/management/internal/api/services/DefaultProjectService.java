@@ -132,8 +132,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     public Future<ProjectDependencies> findDependencies(String projectId) {
         Validate.notBlank(projectId, "projectId must not be blank");
         String organizationId = requireOrganizationId();
-        // the tree of earlier dependencies stays stored after a sync reports new ones, until the
-        // deployment's next SBOM replaces it, so the deployment says whether it is current
+        // the deployment says whether the stored tree lists the dependencies it last reported
         return projectDeploymentRepository.findById(projectId, organizationId)
                 .compose(deployment -> deployment != null && deployment.isSbomGenerated()
                         ? projectDependenciesRepository.findById(projectId, organizationId)

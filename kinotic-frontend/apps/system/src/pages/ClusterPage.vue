@@ -100,6 +100,29 @@
         </DataTable>
       </DashboardSection>
 
+      <DashboardSection :icon="ShieldAlert" :tint="vulnerabilityCount ? TINTS.red : TINTS.ink" title="Vulnerabilities"
+                        :count="vulnerabilityCount"
+                        description="Advisories from OSV that affect the libraries each running server build was built with.">
+        <Message v-if="vulnerabilityError" severity="warn" :closable="false" class="m-5">{{ vulnerabilityError }}</Message>
+        <div v-else-if="servers === null" class="py-6 text-center text-sm text-muted-color">Checking the servers' libraries…</div>
+        <template v-else>
+          <div v-for="(server, index) in servers" :key="index"
+               class="border-b border-surface-200 last:border-b-0 dark:border-surface-700">
+            <div class="flex flex-wrap items-center gap-2 px-5 py-3 text-sm">
+              <span class="font-semibold text-surface-950 dark:text-surface-0">{{ server.serverName || UNKNOWN_VERSION }}</span>
+              <span class="rounded-md bg-surface-100 px-1.5 py-0.5 font-mono text-xs text-surface-700 dark:bg-surface-800 dark:text-surface-200">{{ releaseOf(server.version) }}</span>
+              <span class="text-muted-color">{{ server.nodeCount }} {{ server.nodeCount === 1 ? 'node' : 'nodes' }} · {{ server.componentCount }} libraries</span>
+              <Tag v-if="server.findings.length" :value="`${countSevere(server.findings)} critical or high`"
+                   :severity="countSevere(server.findings) ? 'danger' : 'secondary'" />
+            </div>
+            <p v-if="server.error" class="px-5 pb-3 text-sm text-muted-color">This build's libraries could not be checked: {{ server.error }}</p>
+            <VulnerabilityFindingsTable v-else-if="server.componentCount" :items="server.findings.map(finding => ({ finding }))"
+                                        data-key="finding.advisoryId" empty-hint="No advisory affects this build's libraries." />
+            <p v-else class="px-5 pb-3 text-sm text-muted-color">This build was started without the library list a server build packages, so there are no libraries to check.</p>
+          </div>
+        </template>
+      </DashboardSection>
+
       <div class="grid gap-4 lg:grid-cols-2">
         <DashboardSection :icon="Activity" :tint="TINTS.ink" title="System observability"
                           description="Traces and metrics of the system's own servers, in the system tenant.">
@@ -157,12 +180,13 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import { Activity, Boxes, ChartGantt, ChartLine, Network, ScrollText, Server, Tag as TagIcon } from '@lucide/vue'
+import { Activity, Boxes, ChartGantt, ChartLine, Network, ScrollText, Server, ShieldAlert, Tag as TagIcon } from '@lucide/vue'
 
 import { Kinotic } from '@kinotic-ai/core'
-import type { KinoticClusterInfo, KinoticNodeInfo } from '@kinotic-ai/system-api'
+import type { KinoticClusterInfo, KinoticNodeInfo, ServerVulnerabilities } from '@kinotic-ai/system-api'
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import { DashboardSection, HeartbeatIcon, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState } from '@kinotic-ai/frontend-common'
+import { countSevere, VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common/management'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
 import ServerLogsDialog from '@/components/ServerLogsDialog.vue'
@@ -172,6 +196,10 @@ import { clusterHeartbeat as clusterHeartbeatOf } from '@/util/nodes'
 const router = useRouter()
 
 const cluster = ref<KinoticClusterInfo | null>(null)
+/** Each running server build with the advisories affecting its libraries, null until they load. */
+const servers = ref<ServerVulnerabilities[] | null>(null)
+const vulnerabilityError = ref<string | null>(null)
+const vulnerabilityCount = computed(() => servers.value?.reduce((sum, server) => sum + server.findings.length, 0))
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -314,6 +342,13 @@ async function load() {
   // the system workloads summary is a nicety; failing to load it leaves its card with just the link
   scanWorkloads({}, { systemOnly: true }).then(list => { systemWorkloads.value = list })
                                           .catch(() => { systemWorkloads.value = null })
+  // the libraries are checked apart from the topology, which shows without waiting for them
+  Kinotic.clusterVulnerabilities.findAll().then(found => {
+    servers.value = found
+    vulnerabilityError.value = null
+  }).catch(err => {
+    vulnerabilityError.value = errorMessage(err, "The servers' libraries could not be checked")
+  })
   try {
     cluster.value = await Kinotic.clusterInfo.getClusterInfo()
   } catch (err) {

@@ -27,6 +27,7 @@ import org.kinotic.management.api.repositories.ProjectDependenciesRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
+import org.kinotic.management.api.repositories.VulnerabilityAlertRepository;
 import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 import org.kinotic.grind.api.model.ExecutionStatus;
@@ -75,6 +76,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
     private final ProjectDeployJobDefinitionFactory jobDefinitionFactory;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectDependenciesRepository projectDependenciesRepository;
+    private final VulnerabilityAlertRepository vulnerabilityAlertRepository;
     private final ProjectRepository projectRepository;
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
     private final UiDeploymentRepository uiDeploymentRepository;
@@ -235,7 +237,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
     /**
      * Asks for the removal of every microservice and UI deployment of the project and waits for their
      * workers to finish, then stops the sync, publish and SBOM workloads, removes the sync machine and
-     * deletes the SBOM and the record. What is already gone is not a failure.
+     * deletes the SBOM, its vulnerability alerts and the record. What is already gone is not a failure.
      */
     private Future<Requeue> finalizeRemoval(ProjectDeployment current) {
         String projectId = current.getId();
@@ -252,7 +254,9 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                                 .compose(v -> stop(current.getUiPublishWorkloadId()))
                                 .compose(v -> stop(current.getSbomWorkloadId()))
                                 .compose(v -> removeMachine(current.getSyncMachineIdentityId()))
-                                .compose(v -> projectDependenciesRepository.deleteById(projectId, current.getOrganizationId()))
+                                // gone from search before the alerts, so an advisory scan running alongside raises none again
+                                .compose(v -> projectDependenciesRepository.deleteByIdSync(projectId, current.getOrganizationId()))
+                                .compose(v -> vulnerabilityAlertRepository.deleteAllForProject(projectId, current.getOrganizationId()))
                                 .compose(v -> projectDeploymentRepository.deleteByIdSync(projectId, current.getOrganizationId()))
                                 .map(Requeue.NONE);
                     } else {

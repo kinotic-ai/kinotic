@@ -173,29 +173,22 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
      * stamping each entry it writes with the snapshot's time as its last verification.
      */
     public Future<Void> reconcileLiveness(Set<String> activeAddresses, Instant when) {
-        return reconcileLiveness(activeAddresses, when, null);
-    }
-
-    // Reads the directory page by page from the cursor, so a directory of any size is read whole, and writes
-    // only an entry whose liveness disagrees with the snapshot
-    private Future<Void> reconcileLiveness(Set<String> activeAddresses, Instant when, String cursor) {
-        return findAll(Pageable.create(cursor, LIVENESS_PAGE_SIZE, Sort.by("id")),
-                       b -> b.source(sc -> sc.filter(f -> f.includes("id", "serviceAddress", "online"))))
-                .compose(page -> {
-                    Map<String, Boolean> corrections = new HashMap<>();
-                    for (ServiceDirectoryEntry entry : page.getContent()) {
-                        boolean desired = entry.getServiceAddress() != null
-                                && activeAddresses.contains(entry.getServiceAddress());
-                        if (desired != entry.isOnline()) {
-                            corrections.put(entry.getId(), desired);
-                        }
-                    }
-                    Future<Void> written = setOnline(corrections, when);
-                    String next = page instanceof CursorPage<ServiceDirectoryRecord> cursorPage ? cursorPage.getCursor() : null;
-                    return page.getContent().size() < LIVENESS_PAGE_SIZE || next == null
-                            ? written
-                            : written.compose(v -> reconcileLiveness(activeAddresses, when, next));
-                });
+        // reads the directory page by page, so a directory of any size is read whole, and writes only an
+        // entry whose liveness disagrees with the snapshot
+        return CursorPage.forEachPage(pageable -> findAll(pageable, b -> b.source(sc -> sc.filter(f -> f.includes("id", "serviceAddress", "online")))),
+                                      LIVENESS_PAGE_SIZE,
+                                      Sort.by("id"),
+                                      entries -> {
+                                          Map<String, Boolean> corrections = new HashMap<>();
+                                          for (ServiceDirectoryEntry entry : entries) {
+                                              boolean desired = entry.getServiceAddress() != null
+                                                      && activeAddresses.contains(entry.getServiceAddress());
+                                              if (desired != entry.isOnline()) {
+                                                  corrections.put(entry.getId(), desired);
+                                              }
+                                          }
+                                          return setOnline(corrections, when);
+                                      });
     }
 
     /**

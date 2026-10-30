@@ -62,10 +62,12 @@ public class CrudServiceTemplate {
 
     private static final long DEFAULT_PRIORITY = 500L;
 
-    // retry_on_conflict for partial updates. A conflict needs another write to land in the microseconds
-    // between the update's internal get and its reindex, so consuming all 5 would take sustained
-    // pathological contention on one document
-    private static final int UPDATE_CONFLICT_RETRIES = 5;
+    /**
+     * The {@code retry_on_conflict} of a partial update.
+     */
+    // A conflict needs another write to land in the microseconds between the update's internal get and
+    // its reindex, so consuming all 5 would take sustained pathological contention on one document
+    public static final int UPDATE_CONFLICT_RETRIES = 5;
 
     private static final Logger log = LoggerFactory.getLogger(CrudServiceTemplate.class);
 
@@ -129,6 +131,25 @@ public class CrudServiceTemplate {
             }
             return builder;
         }));
+    }
+
+    /**
+     * Applies the operations in one bulk request; they become visible in search results with the
+     * index's next refresh.
+     *
+     * @param operations the operations, each naming its index, id and routing
+     * @return a {@link Future} that will complete when every operation is applied, or fail with the reasons the
+     * operations that failed give; deleting or updating a document that does not exist is not a failure
+     */
+    public Future<Void> bulk(List<BulkOperation> operations) {
+        return bulk(operations, null);
+    }
+
+    /**
+     * As {@link #bulk(List)}, and waits for the operations to be visible in search results.
+     */
+    public Future<Void> bulkSync(List<BulkOperation> operations) {
+        return bulk(operations, Refresh.WaitFor);
     }
 
     /**
@@ -699,10 +720,6 @@ public class CrudServiceTemplate {
                                                String source,
                                                Map<String, Map<String, Object>> paramsById,
                                                Consumer<UpdateAction.Builder<Map, Map<String, Object>>> actionConsumer) {
-        if (paramsById.isEmpty()) {
-            // Elasticsearch rejects a bulk request with no operations
-            return Future.succeededFuture();
-        }
         List<BulkOperation> operations = new ArrayList<>(paramsById.size());
         paramsById.forEach((id, params) -> operations.add(BulkOperation.of(b -> b.<Map, Map<String, Object>>update(u -> u
                 .index(indexName)
@@ -718,18 +735,29 @@ public class CrudServiceTemplate {
                 })))));
         // one request with refresh=wait_for holds one refresh listener per shard, where a request per document
         // holds one each and, past index.max_refresh_listeners, forces a refresh
-        return KinoticUtil.toFuture(esAsyncClient.bulk(br -> br.operations(operations).refresh(Refresh.WaitFor)))
+        return bulk(operations, Refresh.WaitFor);
+    }
+
+    private Future<Void> bulk(List<BulkOperation> operations, Refresh refresh) {
+        if (operations.isEmpty()) {
+            // Elasticsearch rejects a bulk request with no operations
+            return Future.succeededFuture();
+        }
+        return KinoticUtil.toFuture(esAsyncClient.bulk(br -> br.operations(operations).refresh(refresh)))
                           .compose(response -> {
                               List<String> failures = new ArrayList<>();
-                              for (BulkResponseItem item : response.items()) {
-                                  if (item.error() != null && item.status() != 404) {
-                                      failures.add(item.id() + ": " + item.error().reason());
+                              // the response lists one item per operation, in the order they were sent
+                              for (int i = 0; i < response.items().size(); i++) {
+                                  BulkResponseItem item = response.items().get(i);
+                                  BulkOperation operation = operations.get(i);
+                                  boolean missingDocument = item.status() == 404 && (operation.isDelete() || operation.isUpdate());
+                                  if (item.error() != null && !missingDocument) {
+                                      failures.add(item.index() + "/" + item.id() + ": " + item.error().reason());
                                   }
                               }
                               return failures.isEmpty()
                                       ? Future.<Void>succeededFuture()
-                                      : Future.<Void>failedFuture(new IllegalStateException("Bulk update of " + indexName
-                                                                                                    + " failed for " + failures));
+                                      : Future.<Void>failedFuture(new IllegalStateException("Bulk request failed for " + failures));
                           });
     }
 

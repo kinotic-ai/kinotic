@@ -23,4 +23,7 @@ dependencies {
     implementation 'org.apache.ignite:ignite-core'
 
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // reads the OSV advisories
+    implementation 'tools.jackson.core:jackson-databind'
 }

@@ -36,6 +36,9 @@ dependencies {
 
     implementation 'org.apache.commons:commons-compress'
 
+    // Maven's version order, which Maven advisories' ranges are written in
+    implementation 'org.apache.maven:maven-artifact'
+
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
     // jackson impl
