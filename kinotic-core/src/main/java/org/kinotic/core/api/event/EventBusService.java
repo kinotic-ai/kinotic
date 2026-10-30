@@ -11,45 +11,18 @@ import java.util.Set;
 /**
  * Provides functionality for non-persistent {@link Event}'s. Sends and publishes reach only the zones this
  * server's {@link ZonePartitioningService} reaches, and a listener is advertised to the cluster only in a zone it hosts.
+ * The {@link RpcTransport} operations deliver within the cluster: {@link #sendWithAck(Event)} completes with the id
+ * of the cluster node whose consumer took the event, and {@link #publish(Event)} reaches every node including this one.
  *
  * Created by navid on 10/30/19
  */
-public interface EventBusService {
+public interface EventBusService extends RpcTransport {
 
     /**
      * Send an {@link Event} to through the event bus.
      * @param event to send
      */
     void send(Event<byte[]> event);
-
-    /**
-     * Send an {@link Event} to through the event bus.
-     * This is a special form of send that requires the receiver to acknowledge receipt of the message.
-     * An exception will be signaled if no acknowledgement is sent.
-     * @param event to send
-     * @return a {@link Future} that completes with the id of the node whose consumer received the event,
-     *         or fails on error
-     */
-    Future<String> sendWithAck(Event<byte[]> event);
-
-    /**
-     * Publishes an {@link Event} to every consumer registered on the {@link CRI#baseResource()} of the
-     * given {@link CRI}, on every node in the cluster including this one. Unlike {@link #send(Event)},
-     * which delivers to a single consumer, publish is fan-out: every registered consumer receives its
-     * own copy. Fire-and-forget with at-most-once delivery.
-     * @param event to publish
-     */
-    void publish(Event<byte[]> event);
-
-    /**
-     * Creates a new {@link EventConsumer} that will receive {@link Event<byte[]>} sent to the
-     * {@link CRI#baseResource()} of the given {@link CRI}.
-     * The consumer is not registered with the event bus until {@link EventConsumer#handler} is called.
-     * Use {@link EventConsumer#completion()} to wait for registration to complete.
-     * @param cri whose base resource will be subscribed to
-     * @return the newly created {@link EventConsumer}
-     */
-    EventConsumer listen(CRI cri);
 
     /**
      * Checks if any listeners are registered anywhere in the cluster for the {@link CRI#baseResource()} of the

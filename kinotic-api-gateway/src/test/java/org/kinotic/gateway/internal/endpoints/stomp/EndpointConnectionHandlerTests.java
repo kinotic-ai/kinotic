@@ -126,6 +126,7 @@ public class EndpointConnectionHandlerTests {
             return replyConsumer;
         });
         when(replyConsumer.exceptionHandler(any())).thenReturn(replyConsumer);
+        when(replyConsumer.completion()).thenReturn(Future.succeededFuture());
         when(eventBusService.listen(any())).thenReturn(replyConsumer);
 
         JsonMapper jsonMapper = JsonMapper.builder().build();

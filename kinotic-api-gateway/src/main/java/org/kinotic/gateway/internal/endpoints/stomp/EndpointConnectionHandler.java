@@ -254,9 +254,14 @@ public class EndpointConnectionHandler {
         stompAuthorizer = null;
     }
 
-    public void subscribe(CRI cri,
-                          String subscriptionIdentifier,
-                          StompSubscriptionHandler subscriptionHandler) {
+    /**
+     * Subscribes the connection to the destination.
+     * @return completes once the subscription is registered across the cluster, so an event sent to the
+     *         destination from any node reaches the connection
+     */
+    public Future<Void> subscribe(CRI cri,
+                                  String subscriptionIdentifier,
+                                  StompSubscriptionHandler subscriptionHandler) {
         Validate.notNull(cri, "CRI must not be null");
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
         Validate.notNull(subscriptionHandler, "subscriptionHandler must not be null");
@@ -267,6 +272,7 @@ public class EndpointConnectionHandler {
             throw new AuthorizationException("Not Authorized to subscribe to " + cri);
         }
 
+        Future<Void> ret;
         if (cri.scheme().equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
 
             EventConsumer eventConsumer = services.eventBusService.listen(cri);
@@ -292,6 +298,7 @@ public class EndpointConnectionHandler {
                     .exceptionHandler(subscriptionHandler::handleError);
 
             replaceSubscription(subscriptionIdentifier, eventConsumer);
+            ret = eventConsumer.completion();
 
             log.debug("New Service Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
@@ -306,6 +313,7 @@ public class EndpointConnectionHandler {
                          .exceptionHandler(subscriptionHandler::handleError);
 
             replaceSubscription(subscriptionIdentifier, eventConsumer);
+            ret = eventConsumer.completion();
 
             log.debug("New Event Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
@@ -314,7 +322,7 @@ public class EndpointConnectionHandler {
 
         } else if (cri.scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
 
-            incomingInvocationTracker.subscribeReplies(cri, subscriptionIdentifier, subscriptionHandler);
+            ret = incomingInvocationTracker.subscribeReplies(cri, subscriptionIdentifier, subscriptionHandler);
 
             log.debug("New Reply Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
@@ -324,6 +332,7 @@ public class EndpointConnectionHandler {
         } else {
             throw new IllegalArgumentException("CRI scheme not supported");
         }
+        return ret;
     }
 
     public void unsubscribe(String subscriptionIdentifier) {

@@ -4,7 +4,6 @@
 package org.kinotic.core.internal;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.ServiceRegistry;
@@ -145,27 +144,13 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                         Publish publish = AnnotationUtils.findAnnotation(inter, Publish.class);
 
                         if(publish != null) {
-                            String namespace = publish.namespace().isEmpty()
-                                    ? KinoticUtil.safeEncodeURI(inter.getPackageName())
-                                    : KinoticUtil.safeEncodeURI(publish.namespace());
-
-                            String name = publish.name().isEmpty() ? inter.getSimpleName() : publish.name();
                             String scope = MetaUtil.getScopeIfAvailable(instance, inter);
-                            String version = MetaUtil.getVersion(inter);
-
-                            if (!StringUtils.isNotBlank(version)) {
-                                throw new FatalBeanException("Version must be specified on the Published interface " + inter.getName() + " or in its package's package-info.java.");
+                            ServiceIdentifier serviceIdentifier;
+                            try {
+                                serviceIdentifier = KinoticUtil.serviceIdentifierOf(inter, scope);
+                            } catch (IllegalArgumentException e) {
+                                throw new FatalBeanException(e.getMessage(), e);
                             }
-
-                            // A service is addressable in its declared zone; with no declaration
-                            // it registers a single un-zoned address, whose reachability is
-                            // whatever the gateway's routing rules allow
-                            String zone = MetaUtil.getZone(inter);
-                            ServiceIdentifier serviceIdentifier = new ServiceIdentifier(zone,
-                                                                                        namespace,
-                                                                                        name,
-                                                                                        scope,
-                                                                                        version);
 
                             consumer.accept(serviceIdentifier, inter);
 

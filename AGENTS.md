@@ -33,7 +33,7 @@ The root `LICENSE.md` licenses everything under the Elastic License 2.0 with the
 
 ## Kinotic RPC stands alone
 
-Kinotic RPC — `kinotic-core`, `kinotic-api-gateway`, `kinotic-idl`, and the `core` and `idl` packages in `kinotic-js/workspace/packages/` — is licensed under the Apache License 2.0 (`LICENSE-APACHE`) so it can be used without Kinotic OS. None of its modules may depend on a Kinotic OS module (domain, persistence, management-api, system-api, the servers); `org.kinotic.java-common-conventions` fails the build if one declares such a project dependency. Code that only Kinotic OS uses belongs in an OS module, never in core, and anything RPC needs from the OS's model goes through an interface in core that the OS implements (`ZoneRulesResolver`, implemented by domain's `ScopedParticipantZoneRulesResolver`). A setting both RPC and the OS read lives on core's `KinoticProperties` (`kinotic.cors`).
+Kinotic RPC — `kinotic-core`, `kinotic-api-gateway`, `kinotic-client`, `kinotic-idl`, and the `core` and `idl` packages in `kinotic-js/workspace/packages/` — is licensed under the Apache License 2.0 (`LICENSE-APACHE`) so it can be used without Kinotic OS. None of its modules may depend on a Kinotic OS module (domain, persistence, management-api, system-api, the servers); `org.kinotic.java-common-conventions` fails the build if one declares such a project dependency. Code that only Kinotic OS uses belongs in an OS module, never in core, and anything RPC needs from the OS's model goes through an interface in core that the OS implements (`ZoneRulesResolver`, implemented by domain's `ScopedParticipantZoneRulesResolver`). A setting both RPC and the OS read lives on core's `KinoticProperties` (`kinotic.cors`).
 
 ## Don't guess from names
 

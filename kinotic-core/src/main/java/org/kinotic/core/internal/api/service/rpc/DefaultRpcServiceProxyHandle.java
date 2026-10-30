@@ -10,7 +10,6 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.vertx.core.Vertx;
-import io.vertx.core.eventbus.EventBus;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -19,7 +18,7 @@ import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
-import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
@@ -39,11 +38,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Base implementation of the {@link RpcServiceProxyHandle}
- * Will send all service requests on the Vertx {@link EventBus}
+ * Will send all service requests through the {@link RpcTransport} it is given
  *
  * Created by navid on 2019-04-18.
  */
@@ -59,8 +59,9 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private final CRI handlerCRI;
     private final RpcArgumentConverter rpcArgumentConverter;
     private final RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory;
-    private final EventBusService eventBusService;
-    private final SecurityContext securityContext;
+    private final RpcTransport transport;
+    // the participant an invocation is sent as, read when the invocation is made
+    private final Supplier<Participant> callerParticipant;
     private final ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
     private final RequestLivenessWatcher requestLivenessWatcher;
     private final TextMapPropagator propagator;
@@ -83,8 +84,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                         Class<T> serviceClass,
                                         RpcArgumentConverter rpcArgumentConverter,
                                         RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory,
-                                        EventBusService eventBusService,
-                                        SecurityContext securityContext,
+                                        RpcTransport transport,
+                                        Supplier<Participant> callerParticipant,
                                         ObjectProvider<ServiceDirectory> serviceDirectoryProvider,
                                         RequestLivenessWatcher requestLivenessWatcher,
                                         Vertx vertx,
@@ -97,8 +98,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         Validate.notNull(serviceClass, "serviceClass must not be null");
         Validate.notNull(rpcArgumentConverter, "argumentConverter must not be null");
         Validate.notNull(rpcReturnValueHandlerFactory, "returnValueHandlerFactory must not be null");
-        Validate.notNull(eventBusService, "eventBusService must not be null");
-        Validate.notNull(securityContext, "securityContext must not be null");
+        Validate.notNull(transport, "transport must not be null");
+        Validate.notNull(callerParticipant, "callerParticipant must not be null");
         Validate.notNull(serviceDirectoryProvider, "serviceDirectoryProvider must not be null");
         Validate.notNull(requestLivenessWatcher, "requestLivenessWatcher must not be null");
         Validate.notNull(vertx, "vertx must not be null");
@@ -112,8 +113,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         this.serviceClass = serviceClass;
         this.rpcArgumentConverter = rpcArgumentConverter;
         this.rpcReturnValueHandlerFactory = rpcReturnValueHandlerFactory;
-        this.eventBusService = eventBusService;
-        this.securityContext = securityContext;
+        this.transport = transport;
+        this.callerParticipant = callerParticipant;
         this.serviceDirectoryProvider = serviceDirectoryProvider;
         this.requestLivenessWatcher = requestLivenessWatcher;
         this.tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME);
@@ -144,7 +145,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         /*
           Response handler logic to correlate response from remote service invocation's
          */
-        replyEventConsumer = eventBusService.listen(this.handlerCRI);
+        replyEventConsumer = transport.listen(this.handlerCRI);
         replyEventConsumer.handler(event -> {
 
                     String correlationId = event.metadata().get(EventConstants.CORRELATION_ID_HEADER);
@@ -245,7 +246,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     // Published, not sent: the instance producing the stream is whichever one round-robin gave the request,
     // so every instance of the service gets the cancel and the ones without the stream ignore it
     private void sendCancel(CRI serviceCri, String correlationId){
-        eventBusService.publish(EventUtil.createStreamControlEvent(serviceCri, correlationId, EventConstants.CONTROL_VALUE_CANCEL));
+        transport.publish(EventUtil.createStreamControlEvent(serviceCri, correlationId, EventConstants.CONTROL_VALUE_CANCEL));
     }
 
     /**
@@ -323,17 +324,17 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                 log.trace("Proxy for {} Method Invoked {}", serviceClass.getSimpleName(), method.toString());
             }
 
-            // Propagate the participant active on the calling context so the callee sees the originator.
+            // Propagate the caller's participant so the callee sees the originator.
             Event<byte[]> rpcOutboundEvent = Event.create(requestCri,
                                                           metadata,
                                                           argumentData,
-                                                          securityContext.currentParticipant());
+                                                          callerParticipant.get());
 
             ret = handler.getReturnValue(new RpcRequest() {
                 @Override
                 public void send() {
                     // Send data to remote end to trigger service invocation
-                    eventBusService.sendWithAck(rpcOutboundEvent)
+                    transport.sendWithAck(rpcOutboundEvent)
                                    .onComplete(ar -> {
                                        if(ar.failed()) {
                                            // send failed, signal handler so failure can be relayed to the return value
@@ -377,12 +378,14 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         return ret;
     }
 
-    // Runs on the request's context when the node that took it leaves the cluster. Only the party that
-    // removes the handler signals it, so a reply that finished the request first leaves nothing to fail.
+    // Runs on the request's context when the receiver that took it is gone: a node that left the cluster, or
+    // a gateway connection that ended. Only the party that removes the handler signals it, so a reply that
+    // finished the request first leaves nothing to fail.
     private void failLost(String correlationId, CRI requestCri, String nodeId){
         RpcReturnValueHandler lost = responseMap.remove(correlationId);
         if(lost != null){
-            lost.processError(new RpcServiceUnavailableException("Node " + nodeId + " left the cluster while serving the request to " + requestCri.raw()));
+            lost.processError(new RpcServiceUnavailableException("The request to " + requestCri.raw()
+                                                                         + " was lost: its receiver " + nodeId + " is gone before it replied"));
         }
     }
 
