@@ -27,7 +27,8 @@ NOW="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
 umask 077
 
 secret() { openssl rand -base64 48 | tr -d '/+=' | cut -c1-"$1"; }
-bcrypt() { htpasswd -bnBC 12 "" "$1" | tr -d ':\n'; }
+# The password goes to htpasswd on stdin, so it never appears in a process listing
+bcrypt() { printf '%s' "$1" | htpasswd -niBC 12 "" | tr -d ':\n'; }
 es() { ssh "root@$HOST" "curl -sf -H 'Content-Type: application/json' $*"; }
 
 # A participant identity and its credential, as the bulk API takes them
@@ -82,6 +83,6 @@ for arg in "$@"; do
     "{\"id\":\"$machine_id\",\"type\":\"MACHINE\",\"machineType\":\"CLIENT\",\"displayName\":\"$node vm-manager\",\"enabled\":true,\"created\":\"$NOW\",\"updated\":\"$NOW\"}" \
     | bulk
   printf 'KINOTIC_CLIENT_ID=%s\nKINOTIC_CLIENT_SECRET=%s\n' "$machine_id" "$machine_secret" \
-    | ssh "$target" 'sudo tee /etc/kinotic/vm-manager.secrets.env >/dev/null && sudo chmod 0600 /etc/kinotic/vm-manager.secrets.env && sudo systemctl restart kinotic-vm-manager'
+    | ssh "$target" "sudo sh -c 'umask 077 && cat > /etc/kinotic/vm-manager.secrets.env' && sudo systemctl restart kinotic-vm-manager"
   echo "==> Machine for $node installed on $target, its vm-manager restarted"
 done

@@ -21,6 +21,7 @@ import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.persistence.api.model.*;
 import org.kinotic.domain.api.model.persistence.*;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
@@ -459,8 +460,7 @@ public class DefaultEntityService implements EntityService {
     private String composeId(final String id, final EntityContext context){
         String ret;
         if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
-            String tenantId = context.requireTenantId();
-            ret = tenantId + "-" + id;
+            ret = DomainUtil.createEntityDocumentId(MultiTenancyType.SHARED, context.requireTenantId(), id);
         }else{
             ret = id;
         }
@@ -468,7 +468,7 @@ public class DefaultEntityService implements EntityService {
     }
 
     private String composeId(final TenantSpecificId id){
-        return id.tenantId() + "-" + id.entityId();
+        return DomainUtil.createEntityDocumentId(MultiTenancyType.SHARED, id.tenantId(), id.entityId());
     }
 
     private List<MultiGetOperation> composeIds(final List<String> ids, final EntityContext context){
@@ -480,7 +480,7 @@ public class DefaultEntityService implements EntityService {
             MultiGetOperation.Builder builder =  new MultiGetOperation.Builder();
             builder.index(entityDescriptor.itemIndex());
             if(multiTenancyShared){
-                builder.id(tenantId + "-" + id)
+                builder.id(DomainUtil.createEntityDocumentId(MultiTenancyType.SHARED, tenantId, id))
                        .routing(tenantId);
             }else{
                 builder.id(id);
@@ -741,7 +741,7 @@ public class DefaultEntityService implements EntityService {
         for (TenantSpecificId id : ids) {
             MultiGetOperation.Builder builder = new MultiGetOperation.Builder();
             builder.index(entityDescriptor.itemIndex())
-                   .id(id.tenantId() + "-" + id.entityId())
+                   .id(composeId(id))
                    .routing(id.tenantId());
             ret.add(builder.build());
             tenants.add(id.tenantId());

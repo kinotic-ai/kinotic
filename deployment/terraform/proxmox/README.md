@@ -81,7 +81,7 @@ deployment/terraform/set-dev-server-secret.sh kinotic-cloudflare-dns-api-token
 deployment/terraform/set-dev-server-secret.sh kinotic-proxmox-password
 ```
 
-`set-dev-server-secret.sh` reads the value without echo and replaces an existing entry, so a
+`set-dev-server-secret.sh` prompts for the value without echo and replaces an existing entry, so a
 rotation is the same command. Every `terraform plan` or `apply` in either root, and
 `redeploy.sh`, runs under the wrapper; `terraform output` and the scripts that only read outputs
 need no secrets:
@@ -177,6 +177,12 @@ grafana_ip        = "192.168.1.24/24"
 gateway           = "192.168.1.1"
 dns_servers       = ["192.168.1.1"]
 ```
+
+The provider verifies the API's TLS certificate, and the installer's is self-signed, so before
+the first plan the operator's machine must trust it: import the host's certificate (**Datacenter →
+Node → System → Certificates**, or `/etc/pve/local/pve-ssl.pem` over SSH) into the operator's
+keychain, or install a certificate the machine already trusts on the host. Until then,
+`-var proxmox_insecure=true` on each command skips the check for that one run.
 
 ```bash
 cd deployment/terraform/proxmox

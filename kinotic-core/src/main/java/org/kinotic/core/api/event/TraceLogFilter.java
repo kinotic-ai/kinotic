@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Answers whether traffic addressed to a given {@link CRI} is excluded from trace logging.
@@ -19,6 +21,8 @@ public class TraceLogFilter {
 
     private final AntPathMatcher matcher = new AntPathMatcher();
     private volatile TraceLogProperties patterns;
+    // the qualified names of the services published redacted, whose traffic carries credentials
+    private final Set<String> redactedServices = ConcurrentHashMap.newKeySet();
 
     public TraceLogFilter(KinoticProperties kinoticProperties) {
         setPatterns(kinoticProperties.getTraceLog());
@@ -44,9 +48,9 @@ public class TraceLogFilter {
     }
 
     /**
-     * Whether the given {@link CRI} is excluded from trace logging: it matches one of the exclude
-     * patterns and none of the include patterns. A reply destination is decided instead by the
-     * marker its request carried, which {@link #isExcluded(Event)} reads.
+     * Whether the given {@link CRI} is excluded from trace logging: it names a service published
+     * redacted, or it matches one of the exclude patterns and none of the include patterns. A reply
+     * destination is decided instead by the marker its request carried, which {@link #isExcluded(Event)} reads.
      *
      * @param rawCri the fully qualified {@link CRI} the traffic is addressed to
      * @return true if traffic addressed to the {@link CRI} must not be trace logged
@@ -58,7 +62,30 @@ public class TraceLogFilter {
         if (!rawCri.startsWith(EventConstants.REPLY_DESTINATION_SCHEME + ":")) {
             // One read, so includes and excludes are weighed as the single setting they were set as
             TraceLogProperties current = patterns;
-            ret = !matchesAny(current.getIncludes(), rawCri) && matchesAny(current.getExcludes(), rawCri);
+            ret = isRedacted(rawCri) || (!matchesAny(current.getIncludes(), rawCri) && matchesAny(current.getExcludes(), rawCri));
+        }
+        return ret;
+    }
+
+    /**
+     * Keeps every exchange with the service out of trace logging, whatever the patterns say, for the
+     * life of the node: the service's arguments or results carry credentials.
+     *
+     * @param qualifiedName the service's qualified name, as {@code ServiceIdentifier.qualifiedName()} returns it
+     */
+    public void redact(String qualifiedName) {
+        Validate.notBlank(qualifiedName, "qualifiedName must not be blank");
+        redactedServices.add(qualifiedName);
+    }
+
+    private boolean isRedacted(String rawCri) {
+        boolean ret = false;
+        if (!redactedServices.isEmpty()) {
+            try {
+                ret = redactedServices.contains(CRI.create(rawCri).resourceName());
+            } catch (RuntimeException e) {
+                // a destination that is not a CRI names no service
+            }
         }
         return ret;
     }

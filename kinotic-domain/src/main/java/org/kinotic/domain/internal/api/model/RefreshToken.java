@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.domain.api.model.security.KinoticAudience;
+import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 

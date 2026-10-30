@@ -58,6 +58,8 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     private static final String USER_AGENT = "kinotic-platform";
     /** GitHub's per_page maximum for the /user/installations collection. */
     private static final int USER_INSTALLATIONS_PAGE_SIZE = 100;
+    /** The largest compressed archive a template repository is read from. */
+    private static final int MAX_TARBALL_BYTES = 64 * 1024 * 1024;
     /**
      * Entry lifetime derived from the token GitHub actually issued rather than from an
      * assumption about its lifetime, so an entry is gone by the time it drops below
@@ -240,12 +242,9 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
         return request(HttpMethod.GET, "/repos/" + repoFullName + "/tarball/" + ref, installationToken)
                         .followRedirects(true)
                         .send()
-                        .compose(resp -> {
-                            if (resp.statusCode() == 200) {
-                                return Future.succeededFuture(resp.body());
-                            }
-                            return Future.failedFuture(httpError("downloadTarball", resp));
-                        });
+                        .compose(resp -> resp.statusCode() == 200
+                                ? boundedTarball("downloadTarball", resp.body())
+                                : Future.failedFuture(httpError("downloadTarball", resp)));
     }
 
     @Override
@@ -254,8 +253,15 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                         .ssl(true)
                         .send()
                         .compose(resp -> resp.statusCode() == 200
-                                ? Future.succeededFuture(resp.body())
+                                ? boundedTarball("downloadPublicTarball", resp.body())
                                 : Future.failedFuture(httpError("downloadPublicTarball", resp)));
+    }
+
+    // a template repository's archive is small, and the whole archive is held in memory, so a larger one is refused
+    private static Future<Buffer> boundedTarball(String op, Buffer body) {
+        return body.length() <= MAX_TARBALL_BYTES
+                ? Future.succeededFuture(body)
+                : Future.failedFuture(new GitHubApiException(op + " failed: the archive exceeds " + MAX_TARBALL_BYTES + " bytes"));
     }
 
     @Override
@@ -322,6 +328,36 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                             }
                             return ret;
                         });
+    }
+
+    @Override
+    public Future<String> getAuthenticatedLogin(String userAccessToken) {
+        return request(HttpMethod.GET, "/user", userAccessToken)
+                .send()
+                .compose(resp -> resp.statusCode() == 200
+                        ? Future.succeededFuture(resp.bodyAsJsonObject().getString("login"))
+                        : Future.failedFuture(httpError("getAuthenticatedLogin", resp)));
+    }
+
+    @Override
+    public Future<Boolean> isOrganizationOwner(String userAccessToken, String organizationLogin) {
+        // GET /user/memberships/orgs/{org} answers 404 for a user who is not a member, and an owner's
+        // membership is role "admin" in state "active"; a pending invitation is not a membership yet
+        return request(HttpMethod.GET, "/user/memberships/orgs/" + organizationLogin, userAccessToken)
+                .send()
+                .compose(resp -> {
+                    Future<Boolean> ret;
+                    if (resp.statusCode() == 200) {
+                        JsonObject membership = resp.bodyAsJsonObject();
+                        ret = Future.succeededFuture("active".equals(membership.getString("state"))
+                                                             && "admin".equals(membership.getString("role")));
+                    } else if (resp.statusCode() == 404) {
+                        ret = Future.succeededFuture(false);
+                    } else {
+                        ret = Future.failedFuture(httpError("isOrganizationOwner", resp));
+                    }
+                    return ret;
+                });
     }
 
     @Override

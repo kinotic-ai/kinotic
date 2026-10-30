@@ -13,7 +13,7 @@ import org.kinotic.system.api.model.llm.LlmConfiguration;
  * <p>
  * Published in the system zone, which only SYSTEM participants and the system's own cluster members may address.
  */
-@Publish
+@Publish(redacted = true)
 public interface LlmConfigurationService {
 
     /** Every configuration, a page at a time. */

@@ -5,6 +5,7 @@ import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.net.HostAndPort;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.ApplicationKey;
@@ -34,9 +35,9 @@ public class ApplicationSecurityService implements SecurityService {
     private final KinoticDomainProperties domainProperties;
 
     @Override
-    public Future<Participant> authenticate(Map<String, String> authenticationInfo) {
+    public Future<Participant> authenticate(Map<String, String> authenticationInfo, KinoticAudience audience) {
         ApplicationKey applicationKey = requestApplicationKey(authenticationInfo);
-        return credentialAuthenticationService.authenticate(authenticationInfo, (identity, participant) -> admits(identity, participant, applicationKey));
+        return credentialAuthenticationService.authenticate(authenticationInfo, audience, (identity, participant) -> admits(identity, participant, applicationKey));
     }
 
     private static boolean admits(ParticipantIdentity identity, Participant participant, ApplicationKey applicationKey) {

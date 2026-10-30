@@ -41,6 +41,13 @@ class InsertStatementParserTest {
     }
 
     @Test
+    void whenColumnNamedTwice_thenRejected() {
+        // the later value would replace the one the statement's tenant check saw
+        assertThrows(IllegalArgumentException.class, () -> parseInsert(
+            "INSERT INTO products (tenantId, name, tenantId) VALUES ('acme', 'Widget', 'other');"));
+    }
+
+    @Test
     void whenRoutingAndDocumentIdGiven_thenBothCarriedOnTheStatement() {
         InsertStatement statement = parseInsert(
             "INSERT INTO kinotic_application (id, organizationId) VALUES ('atlas-crm', 'test-org') "

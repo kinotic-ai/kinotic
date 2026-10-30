@@ -240,8 +240,8 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
     private Future<Requeue> finalizeRemoval(ProjectDeployment current) {
         String projectId = current.getId();
         String source = "removal of project " + projectId;
-        return Future.all(microserviceDeploymentRepository.findAllForProject(projectId),
-                          uiDeploymentRepository.findAllForProject(projectId))
+        return Future.all(microserviceDeploymentRepository.findAllForProject(projectId, current.getOrganizationId()),
+                          uiDeploymentRepository.findAllForProject(projectId, current.getOrganizationId()))
                 .compose(found -> {
                     List<MicroserviceDeployment> microservices = found.resultAt(0);
                     List<UiDeployment> uis = found.resultAt(1);
@@ -289,19 +289,12 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
         return ret;
     }
 
-    // An org member may already have removed the machine from the console
+    // A machine an org member already removed from the console deletes as nothing; any other failure fails
+    // the reconcile, which is retried, so the machine's credentials never outlive the project unnoticed
     private Future<Void> removeMachine(String machineIdentityId) {
-        Future<Void> ret;
-        if (machineIdentityId == null) {
-            ret = Future.succeededFuture();
-        } else {
-            ret = participantIdentityService.deleteById(machineIdentityId)
-                    .recover(error -> {
-                        log.warn("Machine {} could not be removed: {}", machineIdentityId, error.getMessage());
-                        return Future.succeededFuture();
-                    });
-        }
-        return ret;
+        return machineIdentityId == null
+                ? Future.succeededFuture()
+                : participantIdentityService.deleteById(machineIdentityId);
     }
 
     // The run reports that it is deploying, which generation of intent it answers, and the commit

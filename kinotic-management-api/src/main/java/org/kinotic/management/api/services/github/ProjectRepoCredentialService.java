@@ -9,7 +9,7 @@ import org.kinotic.management.api.model.ProjectRepoToken;
  * Short-lived credentials for writing the backing repositories of the caller's organization's projects, for a user of
  * that organization, or a service acting for one, that commits code into a project.
  */
-@Publish
+@Publish(redacted = true)
 @McpTool
 public interface ProjectRepoCredentialService {
 

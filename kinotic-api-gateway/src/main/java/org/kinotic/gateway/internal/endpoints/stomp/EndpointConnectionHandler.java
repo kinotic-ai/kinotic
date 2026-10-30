@@ -17,6 +17,8 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.ConnectionRevocationType;
+import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.core.api.utils.KinoticUtil;
@@ -26,8 +28,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.core.JacksonException;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.TreeMap;
 import java.util.UUID;
 
@@ -44,7 +49,13 @@ public class EndpointConnectionHandler {
     private final Map<String, EventConsumer> subscriptions = new HashMap<>();
     private final IncomingInvocationTracker incomingInvocationTracker;
     private final OutgoingInvocationTracker outgoingInvocationTracker;
+    // ends the connection with the cause given, when its authorization is revoked or its login's session ends
+    private final Consumer<Throwable> close;
+    // the registrations with the node's ConnectionRegistry, removed when the connection ends
+    private final List<Runnable> registrations = new ArrayList<>();
     private Session session;
+    // the browser login the connection was established with, or null for a client outside a browser
+    private String loginId;
     private long lastSessionFlush = 0;
     private ConnectedInfo connectedInfo;
     private StompAuthorizer stompAuthorizer;
@@ -52,17 +63,19 @@ public class EndpointConnectionHandler {
     private boolean sessionCreatedHere;
     private long sessionTimer = -1;
 
-    public EndpointConnectionHandler(Services services, ReplyFlowControl replyFlowControl) {
+    public EndpointConnectionHandler(Services services, ReplyFlowControl replyFlowControl, Consumer<Throwable> close) {
         this.services = services;
         this.securityService = services.securityService;
         this.incomingInvocationTracker = new IncomingInvocationTracker(services, replyFlowControl);
         this.outgoingInvocationTracker = new OutgoingInvocationTracker(services);
+        this.close = close;
     }
 
     public Future<MultiMap> handshake(RoutingContext routingContext) {
         session = routingContext.session();
         // the login the upgrading page made, carried by its session cookie
         this.connectedInfo = SessionBinding.connectedInfo(routingContext);
+        loginId = SessionBinding.loginId(routingContext);
         // an upgrade that presented no session cookie got a session created for it
         sessionCreatedHere = !SessionBinding.sessionPresented(routingContext);
 
@@ -81,7 +94,7 @@ public class EndpointConnectionHandler {
             return Future.succeededFuture(MultiMap.caseInsensitiveMultiMap());
         }
 
-        return securityService.authenticate(authenticationInfo)
+        return securityService.authenticate(authenticationInfo, KinoticAudience.PUBLISHED_SERVICES)
                               .recover(throwable -> {
                                   Throwable cause;
                                   if(throwable instanceof AuthenticationException){
@@ -121,6 +134,14 @@ public class EndpointConnectionHandler {
                     connectedInfo.setReplyToId(UUID.randomUUID().toString());
                 }
                 stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
+
+                // The participant is authenticated once, here, so a revocation of the identity or of the
+                // browser login ends the connection through the registry
+                registrations.add(services.connectionRegistry.register(ConnectionRevocationType.IDENTITY,
+                                                                       connectedInfo.getParticipant().getId(), close));
+                if (loginId != null) {
+                    registrations.add(services.connectionRegistry.register(ConnectionRevocationType.LOGIN, loginId, close));
+                }
 
                 signalActivity();
                 if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
@@ -193,9 +214,19 @@ public class EndpointConnectionHandler {
                 // the stream is whichever one took the request, and the others ignore an id they do not hold
                 if (incomingEvent.metadata().contains(EventConstants.CONTROL_HEADER)) {
                     if (EventConstants.CONTROL_VALUE_CANCEL.equals(incomingEvent.metadata().get(EventConstants.CONTROL_HEADER))) {
-                        incomingInvocationTracker.requestFinished(correlationId);
+                        // the cancel goes to the destination the request was sent to, not one the client names, so
+                        // the stream it ends is the one it forgets; a cancel for a request this connection does not
+                        // hold is dropped
+                        CRI destination = incomingInvocationTracker.cancel(correlationId);
+                        if (destination != null) {
+                            services.eventBusService.publish(Event.create(destination, incomingEvent.metadata(),
+                                                                          incomingEvent.data(), incomingEvent.sender()));
+                        } else {
+                            log.debug("Dropping a cancel of {}, which this connection does not hold", correlationId);
+                        }
+                    } else {
+                        services.eventBusService.publish(incomingEvent);
                     }
-                    services.eventBusService.publish(incomingEvent);
                     return Future.succeededFuture();
                 }
 
@@ -245,6 +276,8 @@ public class EndpointConnectionHandler {
         }
         subscriptions.forEach((s, eventConsumer) -> eventConsumer.unregister());
         subscriptions.clear();
+        registrations.forEach(Runnable::run);
+        registrations.clear();
         incomingInvocationTracker.dispose();
         outgoingInvocationTracker.dispose();
         // a NONE session ends with its connection however the connection ended
@@ -382,7 +415,8 @@ public class EndpointConnectionHandler {
 
     // The stored copy is refreshed rather than the local one: it carries the version the store expects and
     // whatever a request on the same cookie has put since. A session the store no longer has, deleted by a
-    // logout or expired, is never written back, because a put with no stored entry would re-create it.
+    // logout or expired, is never written back, because a put with no stored entry would re-create it; a
+    // connection a browser login established ends with it, since the login is gone with the session.
     private void flushSession(Session flushed) {
         services.sessionStore.get(flushed.id()).onComplete(ar -> {
             if (session != flushed) {
@@ -391,7 +425,11 @@ public class EndpointConnectionHandler {
             if (ar.failed()) {
                 log.warn("Session {} could not be read from the store", flushed.id(), ar.cause());
             } else if (ar.result() == null) {
-                log.debug("Session {} is no longer in the store and is not refreshed", flushed.id());
+                if (sessionCreatedHere) {
+                    log.debug("Session {} is no longer in the store and is not refreshed", flushed.id());
+                } else {
+                    close.accept(new AuthenticationException("The session the connection was established with has ended"));
+                }
             } else {
                 Session stored = ar.result();
                 session = stored;

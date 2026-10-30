@@ -5,8 +5,10 @@ import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
@@ -34,7 +36,8 @@ import java.util.function.BiPredicate;
  *       the identity itself and must agree with the scope headers when they are supplied. Both verify the
  *       bcrypt secret hash.</li>
  *   <li><b>Kinotic JWT</b> — {@code Authorization: Bearer <jwt>} header. The JWT was minted by
- *       {@link KinoticJwtIssuer} through one of the OAuth grants. We validate the JWT signature, then resolve
+ *       {@link KinoticJwtIssuer} through one of the OAuth grants. We validate the JWT signature and that its
+ *       {@code aud} names the surface the caller serves, then resolve
  *       the identity the {@code sub} claim names in the scope the token's {@code organizationId} and
  *       {@code applicationId} claims carry ({@link ParticipantIdentityService#resolveParticipant}), so a token
  *       outliving the user or scope it was minted for is refused. The scope headers do not select scope
@@ -54,8 +57,10 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
 
     @Override
     public Future<Participant> authenticate(Map<String, String> authenticationInfo,
+                                            KinoticAudience audience,
                                             BiPredicate<ParticipantIdentity, Participant> admitted) {
-        return authenticateIdentity(authenticationInfo)
+        Validate.notNull(audience, "audience is required");
+        return authenticateIdentity(authenticationInfo, audience)
                 .compose(authenticated -> {
                     Future<Participant> ret;
                     if (admitted.test(authenticated.identity(), authenticated.participant())) {
@@ -71,7 +76,7 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
                 });
     }
 
-    private Future<AuthenticatedIdentity> authenticateIdentity(Map<String, String> authenticationInfo) {
+    private Future<AuthenticatedIdentity> authenticateIdentity(Map<String, String> authenticationInfo, KinoticAudience audience) {
         // HTTP callers (AuthenticationHandler) lowercase all header names; STOMP preserves case.
         // Wrap in a case-insensitive view so both transports work with the same camelCase names.
         Map<String, String> authInfo = caseInsensitive(authenticationInfo);
@@ -90,7 +95,7 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
 
         Future<AuthenticatedIdentity> ret;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            ret = authenticateKinoticJwt(authHeader.substring(7));
+            ret = authenticateKinoticJwt(authHeader.substring(7), audience);
         } else if (clientId != null || clientSecret != null) {
             // an email is a user credential; anything else is a machine identity id
             if (clientId != null && clientId.indexOf('@') >= 0) {
@@ -178,13 +183,13 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
     }
 
     /**
-     * Validates a Kinotic-issued JWT and resolves it to the participant its {@code sub} acts as in the scope
-     * the token's {@code organizationId} / {@code applicationId} claims carry: an existing, enabled identity
-     * that may act there, a delegate only while its owner may (defense in depth against a token outliving
-     * the user or scope it was minted for).
+     * Validates a Kinotic-issued JWT, minted for {@code audience}, and resolves it to the participant its
+     * {@code sub} acts as in the scope the token's {@code organizationId} / {@code applicationId} claims carry: an
+     * existing, enabled identity that may act there, a delegate only while its owner may (defense in depth
+     * against a token outliving the user or scope it was minted for).
      */
-    private Future<AuthenticatedIdentity> authenticateKinoticJwt(String token) {
-        return jwtIssuer.authenticate(token)
+    private Future<AuthenticatedIdentity> authenticateKinoticJwt(String token, KinoticAudience audience) {
+        return jwtIssuer.authenticate(token, audience)
                         .recover(err -> Future.failedFuture(
                                 new AuthenticationException("JWT validation failed: " + err.getMessage(), err)))
                         .compose(user -> {

@@ -237,7 +237,7 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
      */
     private String tenantField(EntityDescriptor entity) {
         Validate.isTrue(entity.multiTenancyType() == MultiTenancyType.SHARED, "Entity %s has no tenant field", entity.name());
-        return entity.isMultiTenantSelectionEnabled() ? entity.tenantIdFieldName() : domainPersistenceProperties.getTenantIdFieldName();
+        return entity.tenantFieldName(domainPersistenceProperties.getTenantIdFieldName());
     }
 
     /**

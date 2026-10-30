@@ -3,7 +3,7 @@ package org.kinotic.domain.api.services.security;
 import io.vertx.core.Future;
 import org.kinotic.domain.api.model.security.DelegateSession;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
-import org.kinotic.domain.api.model.security.KinoticAudience;
+import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.domain.api.model.security.RefreshTokenRotation;
 
 import java.util.List;
@@ -29,7 +29,8 @@ public interface RefreshTokenService {
 
     /**
      * Validates and rotates a refresh token: the presented token is revoked and a fresh one
-     * issued in the same family. Presenting an already-revoked token revokes the whole family.
+     * issued in the same family. Of several rotations presenting one token at once, exactly one
+     * gets the replacement. Presenting an already-revoked token revokes the whole family.
      * Fails for any invalid, expired, reused, or revoked token, and when the owning identity no
      * longer exists or is disabled.
      *

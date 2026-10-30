@@ -105,7 +105,7 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                                                          Map<String, Object> verifiedClaims) {
         String email = OAuth2Util.stringClaim(verifiedClaims, "email");
         // an email a stranger's directory can set claims no one, as it signs no one up
-        boolean proven = email != null && (!admitsEveryDirectory(configuration) || OAuth2Util.isEmailProven(verifiedClaims, configuration.getProvider()));
+        boolean proven = email != null && OAuth2Util.isEmailProven(verifiedClaims, configuration);
         return proven
                 ? identityService.claimProvisionedApplicationUser(configuration.getId(), subject, email, scope)
                                  .compose(claimed -> claimed != null
@@ -121,7 +121,7 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
         // where every directory at the provider is admitted, the email the provider vouches for may be one a stranger's
         // directory set, and a user created under it would hold the email against its owner; a configuration naming one
         // directory trusts that directory's administrator, as its owner chose to
-        if (admitsEveryDirectory(configuration) && !OAuth2Util.isEmailProven(verifiedClaims, configuration.getProvider())) {
+        if (!OAuth2Util.isEmailProven(verifiedClaims, configuration)) {
             return Future.failedFuture(new UnverifiedEmailException("The provider does not prove the email belongs to the person signing in"));
         }
         String email = OAuth2Util.stringClaim(verifiedClaims, "email");
@@ -258,12 +258,6 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     // tenant's administrators decide who joins a tenant, so no method of the application's admits a person into one
     private static boolean admitsNewUsers(LoginScope scope) {
         return scope.tenantId() == null && scope.application().getTenantManagement() == TenantManagement.SYSTEM;
-    }
-
-    // Kinotic's registration admits every directory, as an organization's own one naming no single directory does
-    private static boolean admitsEveryDirectory(OwnedOidcConfiguration configuration) {
-        return OidcConfigurationService.isManaged(configuration)
-                || configuration.getProvider().admitsEveryDirectory(configuration.getProviderAccount());
     }
 
     private static ApplicationParticipantIdentity newUser(ApplicationKey application, String email, String displayName) {

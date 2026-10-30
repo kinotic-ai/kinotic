@@ -14,7 +14,7 @@ import java.util.List;
  * from the system console, an organization's user's from the portal. Every operation addresses the calling user — no parameter names whose profile is
  * meant — and only a person (never a delegate) may call these at all.
  */
-@Publish
+@Publish(redacted = true)
 public interface ProfileService {
 
     /** Returns the calling user's identity. */

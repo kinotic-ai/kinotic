@@ -20,7 +20,7 @@ import java.util.List;
  * participant: only org members may call, the application or project must belong to that
  * organization, and only its machines are visible or mutable.
  */
-@Publish
+@Publish(redacted = true)
 public interface MachineService {
 
     /**

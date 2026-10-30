@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
+import co.elastic.clients.elasticsearch._types.Result;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.*;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
@@ -92,6 +93,25 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
 
     protected Future<Void> deleteByIdSync(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
         return crudServiceTemplate.deleteByIdSync(indexName, id, builderConsumer)
+                                  .mapEmpty();
+    }
+
+    /**
+     * Deletes the document {@code id} and emits whether this call deleted it: true for exactly one caller, however
+     * many race for the same document, and false when the document was gone already. The deletion is visible to
+     * search when the future completes, so a one-time grant found by a search is spent by the call that gets true.
+     */
+    public Future<Boolean> consume(String id) {
+        return crudServiceTemplate.deleteByIdSync(indexName, id, null)
+                                  .map(response -> response.result() == Result.Deleted);
+    }
+
+    /**
+     * Deletes every document the query matches, visible to search when the future completes. Subclasses use this
+     * overload to cascade a deletion over the documents that name a deleted parent.
+     */
+    protected Future<Void> deleteByQuery(Consumer<DeleteByQueryRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.deleteByQuery(indexName, builderConsumer)
                                   .mapEmpty();
     }
 

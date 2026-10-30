@@ -10,6 +10,7 @@ import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.EventBusService;
+import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
@@ -28,6 +29,7 @@ import org.kinotic.core.api.utils.KinoticUtil;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ReactiveAdapterRegistry;
+import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 
@@ -76,6 +78,10 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     @Override
     public Future<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
         try {
+            Publish publish = AnnotationUtils.findAnnotation(serviceInterface, Publish.class);
+            if (publish != null && publish.redacted()) {
+                traceLogFilter.redact(serviceIdentifier.qualifiedName());
+            }
             return register(ServiceDescriptor.create(serviceIdentifier, serviceInterface), FunctionInstanceProvider.create(instance));
         } catch (Exception e) {
             return Future.failedFuture(e);

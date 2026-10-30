@@ -12,6 +12,7 @@ import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.TraceLogFilter;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,7 @@ import java.util.Map;
 public class DefaultStompServerHandler extends AbstractStompServerHandler {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultStompServerHandler.class);
+    private static final int INVALID_FRAME_EXCERPT_LENGTH = 256;
 
     private final EndpointConnectionHandler endpointConnectionHandler;
     private final ReplyFlowControl replyFlowControl;
@@ -36,7 +38,7 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
 
     public DefaultStompServerHandler(Services services) {
         this.replyFlowControl = new ReplyFlowControl(services);
-        this.endpointConnectionHandler = new EndpointConnectionHandler(services, replyFlowControl);
+        this.endpointConnectionHandler = new EndpointConnectionHandler(services, replyFlowControl, this::endConnection);
         this.jsonMapper = services.jsonMapper;
         this.traceLogFilter = services.traceLogFilter;
     }
@@ -115,6 +117,12 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
         }
     }
 
+    // The connection's authorization ended: a revoked identity or login, or a session that is gone
+    private void endConnection(Throwable cause) {
+        log.info("Ending STOMP connection: {}", cause.getMessage());
+        stompServerConnection.sendErrorAndDisconnect(cause);
+    }
+
     /**
      * Logs the failure, then sends an ERROR frame and closes the connection — the
      * STOMP-mandated response to any frame the server cannot process.
@@ -152,8 +160,11 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
     @Override
     public void exception(Throwable t) {
         // TODO: Add support for auto blacklisting client
-        if(t instanceof InvalidConnectFrame){
-            log.error("Invalid connect frame {}\nFrame: {}", t.getMessage(), ((InvalidConnectFrame) t).getData().toString());
+        if(t instanceof InvalidConnectFrame invalid){
+            // the frame is whatever bytes the client sent, so it is logged bounded and on one line
+            String frame = String.valueOf(invalid.getData());
+            log.error("Invalid connect frame {}: {} characters starting {}", t.getMessage(), frame.length(),
+                      KinoticUtil.singleLine(frame.substring(0, Math.min(frame.length(), INVALID_FRAME_EXCERPT_LENGTH))));
         }else{
             log.error("Client Caused Exception", t);
         }

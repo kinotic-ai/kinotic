@@ -88,6 +88,15 @@ public final class SessionBinding {
     }
 
     /**
+     * Names the login of the page that sent the request, in its session: what a
+     * {@link ConnectionRevocationService} revokes when the login ends. {@code null} when the request
+     * presented no session cookie.
+     */
+    public static String loginId(RoutingContext ctx) {
+        return sessionPresented(ctx) ? ctx.session().id() + "/" + loginKey(origin(ctx)) : null;
+    }
+
+    /**
      * Binds {@code connectedInfo} to the page at {@code origin} in the request's session, stamped with the
      * host the request was addressed to. {@code origin} is the calling page's for a login the page makes
      * directly, and the page that started the flow for a login completed by a redirect.

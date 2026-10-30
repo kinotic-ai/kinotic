@@ -108,7 +108,7 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
      * Deletes the site's directory through a removal workload on the node its project deploys to,
      * with a URL scoped to that directory, then the record. A project never deployed has no node,
      * and its site no files, nor does a site in an environment whose site storage is disabled; a removal
-     * that fails leaves the files for a later publish of the same label to adopt; the removal
+     * that fails keeps the record, so the reconcile is retried until the files are gone; the removal
      * workload's logs stay in the organization's log store.
      */
     private Future<Requeue> finalizeRemoval(UiDeployment current) {
@@ -134,10 +134,6 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
                                 });
                     }
                     return ret;
-                })
-                .recover(error -> {
-                    log.warn("Files of site {} could not be deleted: {}", current.getId(), error.getMessage());
-                    return Future.succeededFuture();
                 })
                 .compose(v -> uiDeploymentRepository.deleteByIdSync(current.getId()))
                 .map(Requeue.NONE);
