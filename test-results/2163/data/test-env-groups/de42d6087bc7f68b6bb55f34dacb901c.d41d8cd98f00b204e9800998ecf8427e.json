@@ -1,1 +1,0 @@
-{"id":"de42d6087bc7f68b6bb55f34dacb901c.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.sql.executor.QueryBuilderTest.whenTwoParametersCompareOneField_thenEachResolvesSeparately","name":"whenTwoParametersCompareOneField_thenEachResolvesSeparately()","status":"passed","testResultsByEnv":{"default":"01c7f4da3ba5f1507d523e941826a0b7"}}
