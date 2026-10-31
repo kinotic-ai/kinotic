@@ -3,6 +3,7 @@
 
 package org.kinotic.gateway.internal.endpoints.stomp;
 
+import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpHeaders;
@@ -136,11 +137,15 @@ public class EndpointConnectionHandler {
                 stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
 
                 // The participant is authenticated once, here, so a revocation of the identity or of the
-                // browser login ends the connection through the registry
+                // browser login ends the connection through the registry. A revocation arrives on the event
+                // bus consumer's context, and the connection's state is touched only on its own event loop,
+                // so the close is dispatched onto it
+                Context context = services.vertx.getOrCreateContext();
+                Consumer<Throwable> closeOnContext = cause -> context.runOnContext(v -> close.accept(cause));
                 registrations.add(services.connectionRegistry.register(ConnectionRevocationType.IDENTITY,
-                                                                       connectedInfo.getParticipant().getId(), close));
+                                                                       connectedInfo.getParticipant().getId(), closeOnContext));
                 if (loginId != null) {
-                    registrations.add(services.connectionRegistry.register(ConnectionRevocationType.LOGIN, loginId, close));
+                    registrations.add(services.connectionRegistry.register(ConnectionRevocationType.LOGIN, loginId, closeOnContext));
                 }
 
                 signalActivity();

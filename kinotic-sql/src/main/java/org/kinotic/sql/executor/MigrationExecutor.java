@@ -1,7 +1,9 @@
 package org.kinotic.sql.executor;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.Refresh;
+import co.elastic.clients.json.JsonData;
 import co.elastic.clients.elasticsearch.core.search.TotalHits;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
 import org.kinotic.sql.domain.Migration;
@@ -45,7 +47,10 @@ public class MigrationExecutor {
     }
 
     /**
-     * Ensures that the migration tracking index exists in Elasticsearch
+     * Ensures that the migration tracking index exists in Elasticsearch, with history keyed by organization and
+     * project. An index from before history carried the organization gets the field mapped and its system rows
+     * attributed to the system organization; a project's rows name no organization and stay as they are, so that
+     * project's migrations read as unapplied until the cluster is rebuilt.
      * @return CompletableFuture<Boolean> that completes with true if index was created, false if it already existed
      */
     public CompletableFuture<Boolean> ensureMigrationIndexExists() {
@@ -65,7 +70,19 @@ public class MigrationExecutor {
                             )
                     ).thenApply(response -> true);
                 }
-                return CompletableFuture.completedFuture(false);
+                // a term query on organizationId only matches once the field is mapped as a keyword; the mapping
+                // is the same whether it exists already or not, so the put is a no-op after the first
+                return client.indices().putMapping(m -> m.index(MIGRATION_INDEX)
+                                                        .properties("organizationId", p -> p.keyword(k -> k)))
+                        .thenCompose(mapped -> client.updateByQuery(u -> u
+                                .index(MIGRATION_INDEX)
+                                .refresh(true)
+                                .conflicts(Conflicts.Proceed)
+                                .query(q -> q.bool(b -> b.must(m -> m.term(t -> t.field("projectId").value(SYSTEM_PROJECT)))
+                                                          .mustNot(m -> m.exists(e -> e.field("organizationId")))))
+                                .script(s -> s.source(src -> src.scriptString("ctx._source.organizationId = params.organizationId"))
+                                              .params("organizationId", JsonData.of(SYSTEM_ORGANIZATION)))))
+                        .thenApply(response -> false);
             });
     }
 
