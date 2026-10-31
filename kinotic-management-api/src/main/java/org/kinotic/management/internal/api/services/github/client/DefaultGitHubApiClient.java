@@ -14,6 +14,7 @@ import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
+import io.vertx.ext.web.codec.BodyCodec;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -239,29 +240,30 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                                           String ref) {
         // The tarball endpoint 302s to codeload.github.com; followRedirects
         // handles the hop.
-        return request(HttpMethod.GET, "/repos/" + repoFullName + "/tarball/" + ref, installationToken)
-                        .followRedirects(true)
-                        .send()
-                        .compose(resp -> resp.statusCode() == 200
-                                ? boundedTarball("downloadTarball", resp.body())
-                                : Future.failedFuture(httpError("downloadTarball", resp)));
+        return downloadBounded("downloadTarball",
+                               request(HttpMethod.GET, "/repos/" + repoFullName + "/tarball/" + ref, installationToken)
+                                       .followRedirects(true));
     }
 
     @Override
     public Future<Buffer> downloadPublicTarball(String repoFullName) {
-        return webClient.get(API_PORT, ARCHIVE_HOST, "/" + repoFullName + "/tar.gz/HEAD")
-                        .ssl(true)
-                        .send()
-                        .compose(resp -> resp.statusCode() == 200
-                                ? boundedTarball("downloadPublicTarball", resp.body())
-                                : Future.failedFuture(httpError("downloadPublicTarball", resp)));
+        return downloadBounded("downloadPublicTarball",
+                               webClient.get(API_PORT, ARCHIVE_HOST, "/" + repoFullName + "/tar.gz/HEAD").ssl(true));
     }
 
-    // a template repository's archive is small, and the whole archive is held in memory, so a larger one is refused
-    private static Future<Buffer> boundedTarball(String op, Buffer body) {
-        return body.length() <= MAX_TARBALL_BYTES
-                ? Future.succeededFuture(body)
-                : Future.failedFuture(new GitHubApiException(op + " failed: the archive exceeds " + MAX_TARBALL_BYTES + " bytes"));
+    // A template repository's archive is small and is held whole in memory, so the body is bounded as it streams in:
+    // a larger archive fails the download before the rest of it is read
+    private static Future<Buffer> downloadBounded(String op, HttpRequest<Buffer> request) {
+        BoundedBody body = new BoundedBody(MAX_TARBALL_BYTES);
+        return request.as(BodyCodec.pipe(body, true))
+                      .send()
+                      .recover(err -> Future.failedFuture(body.exceeded()
+                              ? new GitHubApiException(op + " failed: the archive exceeds " + MAX_TARBALL_BYTES + " bytes")
+                              : err))
+                      .compose(resp -> resp.statusCode() == 200
+                              ? Future.succeededFuture(body.content())
+                              : Future.failedFuture(new GitHubApiException(op + " failed: HTTP " + resp.statusCode()
+                                                                           + " — " + body.content().toString())));
     }
 
     @Override

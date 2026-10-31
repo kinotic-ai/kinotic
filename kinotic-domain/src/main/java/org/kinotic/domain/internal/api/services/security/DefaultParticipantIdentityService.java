@@ -100,12 +100,19 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         return super.deleteByIdSync(id).compose(v -> connectionRevocationService.revokeIdentity(id));
     }
 
+    // A delegate's connection is registered under the delegate's own id and acts with its owner's authority, so a
+    // disabled owner's delegates lose their connections with it
     private Future<ParticipantIdentity> revokeConnectionsIfDisabled(ParticipantIdentity saved) {
         Future<ParticipantIdentity> ret;
         if (saved.isEnabled()) {
             ret = Future.succeededFuture(saved);
         } else {
-            ret = connectionRevocationService.revokeIdentity(saved.getId()).map(saved);
+            ret = connectionRevocationService.revokeIdentity(saved.getId())
+                    .compose(v -> identityRepository.findAllDelegatesByOwner(saved.getId(), Pageable.create(0, 1000, Sort.by("created"))))
+                    .compose(delegates -> Future.all(delegates.getContent().stream()
+                                                              .map(delegate -> connectionRevocationService.revokeIdentity(delegate.getId()))
+                                                              .toList()))
+                    .map(saved);
         }
         return ret;
     }

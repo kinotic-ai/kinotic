@@ -3,6 +3,7 @@ package org.kinotic.core.api.event;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.config.TraceLogProperties;
+import org.kinotic.core.api.utils.ZoneUtil;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 
@@ -82,7 +83,11 @@ public class TraceLogFilter {
         boolean ret = false;
         if (!redactedServices.isEmpty()) {
             try {
-                ret = redactedServices.contains(CRI.create(rawCri).resourceName());
+                CRI cri = CRI.create(rawCri);
+                // the zone and resource name joined as ServiceIdentifier.qualifiedName() joins them, whatever
+                // scope, path or version the destination carries
+                String qualifiedName = cri.zone() != null ? cri.zone() + ZoneUtil.ZONE_DELIMITER + cri.resourceName() : cri.resourceName();
+                ret = redactedServices.contains(qualifiedName);
             } catch (RuntimeException e) {
                 // a destination that is not a CRI names no service
             }

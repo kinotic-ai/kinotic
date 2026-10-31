@@ -43,6 +43,17 @@ public class TraceLogFilterTest {
     }
 
     @Test
+    public void aRedactedServiceStaysExcludedWhateverThePatternsSay() {
+        TraceLogFilter filter = excluding("**");
+        filter.setPatterns(new TraceLogProperties().setIncludes(List.of(SERVICE + "/*", "srv://*@system-api~**")));
+        filter.redact("system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService");
+
+        assertTrue(filter.isExcluded(SERVICE + "/heartbeat"));
+        assertTrue(filter.isExcluded("srv://dev-node-1@system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService/heartbeat"));
+        assertFalse(filter.isExcluded(OTHER_SERVICE + "/findClusterInfo"));
+    }
+
+    @Test
     public void aScopedInvocationNeedsTheScopeWildcard() {
         String scopedCri = "srv://dev-node-1@system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService/heartbeat";
 

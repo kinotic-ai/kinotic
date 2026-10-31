@@ -230,25 +230,27 @@ public class DefaultInviteService implements InviteService {
                         : Future.failedFuture(new ExistingUserException("This email already has a user here. Sign in instead.")));
     }
 
-    // the invited address makes the user its own: the name it gives, and the password it sets as its first sign-in
-    // method. The claim is written first, and only by one acceptance: a second acceptance of the same invitation, or
-    // an administrator disabling the user meanwhile, leaves the password of a user someone signs in as unset
+    // the invited address makes the user its own: the password it sets as its first sign-in method, and the name it
+    // gives. The password is written first, so a claim that then fails leaves a user the invitation can still claim;
+    // the claim itself is written by one acceptance only, so a second acceptance of the same invitation, or an
+    // administrator disabling the user meanwhile, signs no one in
     private Future<Void> claim(UserParticipantIdentity user, String displayName, String password) {
         String givenName = StringUtils.trimToNull(displayName);
-        return identityRepository.clearPending(user.getId(), givenName)
-                                 .compose(claimed -> {
-                                     Future<Void> ret;
-                                     if (claimed) {
-                                         // the participant the acceptance signs in carries the name as written
-                                         if (givenName != null) {
-                                             user.setDisplayName(givenName);
-                                         }
-                                         ret = identityService.setPassword(user.getId(), password);
-                                     } else {
-                                         ret = Future.failedFuture(new ExistingUserException("This email already has a user here. Sign in instead."));
-                                     }
-                                     return ret;
-                                 });
+        return identityService.setPassword(user.getId(), password)
+                              .compose(v -> identityRepository.clearPending(user.getId(), givenName))
+                              .compose(claimed -> {
+                                  Future<Void> ret;
+                                  if (claimed) {
+                                      // the participant the acceptance signs in carries the name as written
+                                      if (givenName != null) {
+                                          user.setDisplayName(givenName);
+                                      }
+                                      ret = Future.succeededFuture();
+                                  } else {
+                                      ret = Future.failedFuture(new ExistingUserException("This email already has a user here. Sign in instead."));
+                                  }
+                                  return ret;
+                              });
     }
 
     private static Future<Void> requireEnabled(UserParticipantIdentity user) {
