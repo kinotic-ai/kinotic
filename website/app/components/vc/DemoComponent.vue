@@ -7,9 +7,10 @@ interface DemoVideo {
   blurb: string
 }
 
+// The first video is the feature; the rest are listed below it.
 const videos: DemoVideo[] = [
   {
-    videoId: 'E5Y1ZSZhRZ0',
+    videoId: 'PLiqZyAafiU',
     kicker: '01 · 2:46',
     name: 'Why Kinotic?',
     poster: '/images/vc/why-kinotic-poster.webp',
@@ -48,8 +49,14 @@ defineEmits<{ play: [videoId: string] }>()
         Three short videos: why we built Kinotic, what it does, and how to start building on it.
       </p>
 
-      <div id="demo" class="demo__grid">
-        <article v-for="video in videos" :key="video.videoId" class="demo__card" data-reveal>
+      <div id="demo" class="demo__list">
+        <article
+          v-for="(video, index) in videos"
+          :key="video.videoId"
+          class="demo__card"
+          :class="index === 0 ? 'demo__card--feature' : 'demo__card--row'"
+          data-reveal
+        >
           <VcVideoPoster
             class="demo__player"
             :poster="video.poster"
@@ -89,9 +96,9 @@ defineEmits<{ play: [videoId: string] }>()
   line-height: 1.6;
 }
 
-.demo__grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+.demo__list {
+  display: flex;
+  flex-direction: column;
   gap: 24px;
   scroll-margin-top: 132px;
 }
@@ -103,11 +110,28 @@ defineEmits<{ play: [videoId: string] }>()
 
 .demo__player {
   aspect-ratio: 16 / 9;
+}
+
+.demo__card--feature .demo__player {
   border-bottom: 1px solid var(--color-k-border);
 }
 
-.demo__body {
-  padding: 26px 28px 30px;
+.demo__card--feature .demo__body {
+  padding: 30px 32px 34px;
+}
+
+.demo__card--row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: center;
+}
+
+.demo__card--row .demo__player {
+  border-right: 1px solid var(--color-k-border);
+}
+
+.demo__card--row .demo__body {
+  padding: 30px 36px;
 }
 
 .demo__kicker {
@@ -133,16 +157,23 @@ defineEmits<{ play: [videoId: string] }>()
   line-height: 1.65;
 }
 
-@media (max-width: 1020px) {
-  .demo__grid {
-    grid-template-columns: 1fr;
-    max-width: 560px;
-  }
-}
-
 @media (max-width: 768px) {
   .demo {
     --k-section-padding: 64px 0;
+  }
+
+  .demo__card--row {
+    grid-template-columns: 1fr;
+  }
+
+  .demo__card--row .demo__player {
+    border-right: none;
+    border-bottom: 1px solid var(--color-k-border);
+  }
+
+  .demo__card--feature .demo__body,
+  .demo__card--row .demo__body {
+    padding: 26px 24px 30px;
   }
 }
 </style>
