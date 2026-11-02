@@ -33,7 +33,7 @@ const founders: Founder[] = [
     roleTitle: 'Chief Creative Officer',
     photo: '/images/vc/founder-jimmy.webp',
     linkedIn: 'https://www.linkedin.com/in/jimmygramblin/',
-    bio: 'Design leader with 15+ years shaping products and brands for the world\'s leading companies. '
+    bio: 'Design leader with 20+ years shaping products and brands for the world\'s leading companies. '
       + 'Believes good design is artful restraint — and that platforms should feel that way too.',
   },
 ]
