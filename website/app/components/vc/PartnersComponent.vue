@@ -18,28 +18,43 @@
 <stop stop-color="#25e5a5" stop-opacity=".12"/>
 <stop offset="1" stop-color="#25e5a5" stop-opacity="0"/>
 </radialGradient>
+<radialGradient id="nodeGlow">
+<stop stop-color="#25e5a5" stop-opacity=".28"/>
+<stop offset="1" stop-color="#25e5a5" stop-opacity="0"/>
+</radialGradient>
 <pattern id="pathGrid" width="32" height="32" patternUnits="userSpaceOnUse">
 <path d="M32 0H0V32" fill="none" stroke="#fff" stroke-opacity=".035"/>
 </pattern>
 </defs>
 <rect width="500" height="440" fill="url(#pathGrid)"/>
 <ellipse cx="250" cy="230" rx="240" ry="205" fill="url(#pathGlow)"/>
+<circle cx="250" cy="250" r="110" fill="url(#nodeGlow)"/>
 <g fill="none" stroke-linecap="round" stroke-linejoin="round">
 <path d="M95 105V145C95 190 250 165 250 222" stroke="#25e5a5" stroke-width="3"/>
 <path d="M405 105V145C405 190 250 165 250 222" stroke="#ef1753" stroke-width="3"/>
-<path d="M250 222C250 258 305 252 305 282S220 302 220 334S250 351 250 375" stroke="#25e5a5" stroke-width="3"/>
+<path d="M250 244V375" stroke="#25e5a5" stroke-width="3"/>
 <path d="M242 366l8 9 8-9" stroke="#25e5a5" stroke-width="3"/>
-<circle cx="250" cy="222" r="12" fill="#0b1512" stroke="#25e5a5" stroke-width="2"/>
-<circle cx="250" cy="222" r="4" fill="#25e5a5" stroke="none"/>
+<path d="M276 222h26" stroke="#cbd4d0" stroke-opacity=".45" stroke-width="1.5"/>
+<circle cx="250" cy="222" r="22" fill="#0b1512" stroke="#25e5a5" stroke-width="2"/>
+<circle cx="250" cy="222" r="7" fill="#25e5a5" stroke="none"/>
 <circle cx="95" cy="105" r="5" fill="#25e5a5" stroke="none"/>
 <circle cx="405" cy="105" r="5" fill="#ef1753" stroke="none"/>
+</g>
+<g fill="#fff" fill-opacity=".9">
+<circle cx="95" cy="131" r="2.2"/>
+<circle cx="139" cy="173" r="2.2"/>
+<circle cx="216" cy="189" r="2.2"/>
+<circle cx="405" cy="131" r="2.2"/>
+<circle cx="361" cy="173" r="2.2"/>
+<circle cx="284" cy="189" r="2.2"/>
+<circle cx="250" cy="310" r="2.2"/>
 </g>
 <g font-family="monospace" font-size="12" letter-spacing="1.3" text-anchor="middle">
 <text x="95" y="64" fill="#25e5a5">OUR EXPERIENCE</text>
 <text x="95" y="85" fill="#8e9794" font-size="10" letter-spacing=".4">Building &amp; delivering</text>
 <text x="405" y="64" fill="#ef527d">YOUR GUIDANCE</text>
 <text x="405" y="85" fill="#8e9794" font-size="10" letter-spacing=".4">Strategy &amp; mentorship</text>
-<text x="322" y="226" fill="#cbd4d0" font-size="10" text-anchor="start">TOGETHER</text>
+<text x="312" y="226" fill="#cbd4d0" font-size="10" text-anchor="start">TOGETHER</text>
 <text x="250" y="411" fill="#25e5a5">MARKET TRACTION</text>
 </g>
 </svg>

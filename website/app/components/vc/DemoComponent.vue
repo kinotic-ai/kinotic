@@ -1,5 +1,38 @@
 <script setup lang="ts">
-const DEMO_VIDEO = 'VwkE1fdu0F4'
+interface DemoVideo {
+  videoId: string
+  kicker: string
+  name: string
+  poster: string
+  blurb: string
+}
+
+const videos: DemoVideo[] = [
+  {
+    videoId: 'E5Y1ZSZhRZ0',
+    kicker: '01 · 2:46',
+    name: 'Why Kinotic?',
+    poster: '/images/vc/why-kinotic-poster.webp',
+    blurb: 'AI can write code. But can it ship? The gap between a prototype and a production system, '
+      + 'and why Kinotic exists to close it.',
+  },
+  {
+    videoId: 'wHOcN2r82t4',
+    kicker: '02 · 3:02',
+    name: 'Core Capabilities',
+    poster: '/images/vc/core-capabilities-poster.webp',
+    blurb: 'AI app development, CI/CD and cloud deployment in one platform — what Kinotic takes off '
+      + 'your plate.',
+  },
+  {
+    videoId: '8oOowmOBCzI',
+    kicker: '03 · 4:50',
+    name: 'Getting Started',
+    poster: '/images/vc/getting-started-poster.webp',
+    blurb: 'Build and deploy an AI application with Claude Code, from a blank workspace to a live '
+      + 'environment.',
+  },
+]
 
 defineEmits<{ play: [videoId: string] }>()
 </script>
@@ -8,26 +41,27 @@ defineEmits<{ play: [videoId: string] }>()
   <section class="k-section demo">
     <div class="k-wrap">
       <div class="k-eyebrow demo__eyebrow" data-reveal>
-        <span>GETTING STARTED</span>
+        <span>PRODUCT DEMO</span>
       </div>
       <h2 class="k-heading demo__title" data-reveal>See the product in motion</h2>
-      <p class="demo__lede" data-reveal>A walkthrough from a blank workspace to a running application.</p>
+      <p class="demo__lede" data-reveal>
+        Three short videos: why we built Kinotic, what it does, and how to start building on it.
+      </p>
 
-      <div id="demo" class="demo__card" data-reveal>
-        <VcVideoPoster
-          class="demo__player"
-          poster="/images/vc/product-demo-poster.webp"
-          label="Play the getting started demo"
-          @play="$emit('play', DEMO_VIDEO)"
-        />
-        <div class="demo__body">
-          <div class="demo__kicker">PRODUCT</div>
-          <h3 class="demo__name">Getting started demo</h3>
-          <p class="demo__blurb">
-            Describe an idea, scaffold the application, and ship it to a live environment — end to end
-            in one sitting.
-          </p>
-        </div>
+      <div id="demo" class="demo__grid">
+        <article v-for="video in videos" :key="video.videoId" class="demo__card" data-reveal>
+          <VcVideoPoster
+            class="demo__player"
+            :poster="video.poster"
+            :label="`Play ${video.name}`"
+            @play="$emit('play', video.videoId)"
+          />
+          <div class="demo__body">
+            <div class="demo__kicker">{{ video.kicker }}</div>
+            <h3 class="demo__name">{{ video.name }}</h3>
+            <p class="demo__blurb">{{ video.blurb }}</p>
+          </div>
+        </article>
       </div>
     </div>
   </section>
@@ -55,10 +89,16 @@ defineEmits<{ play: [videoId: string] }>()
   line-height: 1.6;
 }
 
+.demo__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  scroll-margin-top: 132px;
+}
+
 .demo__card {
   border: 1px solid var(--color-k-border);
   background: var(--color-k-bg-card);
-  scroll-margin-top: 132px;
 }
 
 .demo__player {
@@ -67,7 +107,7 @@ defineEmits<{ play: [videoId: string] }>()
 }
 
 .demo__body {
-  padding: 30px 32px 34px;
+  padding: 26px 28px 30px;
 }
 
 .demo__kicker {
@@ -91,6 +131,13 @@ defineEmits<{ play: [videoId: string] }>()
   color: var(--color-k-muted);
   font-size: 13.5px;
   line-height: 1.65;
+}
+
+@media (max-width: 1020px) {
+  .demo__grid {
+    grid-template-columns: 1fr;
+    max-width: 560px;
+  }
 }
 
 @media (max-width: 768px) {
