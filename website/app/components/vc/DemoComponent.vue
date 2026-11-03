@@ -7,16 +7,16 @@ interface DemoVideo {
   blurb: string
 }
 
-// The first video is the feature; the rest are listed below it.
-const videos: DemoVideo[] = [
-  {
-    videoId: 'PLiqZyAafiU',
-    kicker: '01 · 2:46',
-    name: 'Why Kinotic?',
-    poster: '/images/vc/why-kinotic-poster.webp',
-    blurb: 'AI can write code. But can it ship? The gap between a prototype and a production system, '
-      + 'and why Kinotic exists to close it.',
-  },
+const featured: DemoVideo = {
+  videoId: 'PLiqZyAafiU',
+  kicker: '01 · 2:46',
+  name: 'Why Kinotic?',
+  poster: '/images/vc/why-kinotic-poster.webp',
+  blurb: 'AI can write code. But can it ship? The gap between a prototype and a production system, '
+    + 'and why Kinotic exists to close it.',
+}
+
+const more: DemoVideo[] = [
   {
     videoId: 'wHOcN2r82t4',
     kicker: '02 · 3:02',
@@ -49,26 +49,35 @@ defineEmits<{ play: [videoId: string] }>()
         Three short videos: why we built Kinotic, what it does, and how to start building on it.
       </p>
 
-      <div id="demo" class="demo__list">
-        <article
-          v-for="(video, index) in videos"
-          :key="video.videoId"
-          class="demo__card"
-          :class="index === 0 ? 'demo__card--feature' : 'demo__card--row'"
-          data-reveal
-        >
-          <VcVideoPoster
-            class="demo__player"
-            :poster="video.poster"
-            :label="`Play ${video.name}`"
-            @play="$emit('play', video.videoId)"
+      <div id="demo" class="demo__stage">
+        <article class="demo__feature" data-reveal>
+          <VcFeaturedVideo
+            :poster="featured.poster"
+            :label="`Play ${featured.name}`"
+            @play="$emit('play', featured.videoId)"
           />
-          <div class="demo__body">
+          <div class="demo__feature-body">
+            <div>
+              <div class="demo__kicker">{{ featured.kicker }}</div>
+              <h3 class="demo__name demo__name--feature">{{ featured.name }}</h3>
+            </div>
+            <p class="demo__blurb demo__blurb--feature">{{ featured.blurb }}</p>
+          </div>
+        </article>
+
+        <div class="demo__more">
+          <article v-for="video in more" :key="video.videoId" class="demo__card" data-reveal>
+            <VcVideoPoster
+              class="demo__thumb"
+              :poster="video.poster"
+              :label="`Play ${video.name}`"
+              @play="$emit('play', video.videoId)"
+            />
             <div class="demo__kicker">{{ video.kicker }}</div>
             <h3 class="demo__name">{{ video.name }}</h3>
             <p class="demo__blurb">{{ video.blurb }}</p>
-          </div>
-        </article>
+          </article>
+        </div>
       </div>
     </div>
   </section>
@@ -76,6 +85,7 @@ defineEmits<{ play: [videoId: string] }>()
 
 <style scoped>
 .demo {
+  overflow: hidden;
   border-top: 1px solid var(--color-k-border);
 }
 
@@ -90,48 +100,43 @@ defineEmits<{ play: [videoId: string] }>()
 
 .demo__lede {
   max-width: 560px;
-  margin: 0 0 52px;
+  margin: 0 0 64px;
   color: var(--color-k-muted);
   font-size: 16px;
   line-height: 1.6;
 }
 
-.demo__list {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+.demo__stage {
   scroll-margin-top: 132px;
 }
 
+.demo__feature-body {
+  display: grid;
+  grid-template-columns: 5fr 7fr;
+  gap: 48px;
+  align-items: start;
+  margin-top: 34px;
+}
+
+.demo__more {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+
 .demo__card {
+  padding: 24px 24px 30px;
   border: 1px solid var(--color-k-border);
+  border-radius: 18px;
   background: var(--color-k-bg-card);
 }
 
-.demo__player {
+.demo__thumb {
+  margin-bottom: 24px;
   aspect-ratio: 16 / 9;
-}
-
-.demo__card--feature .demo__player {
-  border-bottom: 1px solid var(--color-k-border);
-}
-
-.demo__card--feature .demo__body {
-  padding: 30px 32px 34px;
-}
-
-.demo__card--row {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  align-items: center;
-}
-
-.demo__card--row .demo__player {
-  border-right: 1px solid var(--color-k-border);
-}
-
-.demo__card--row .demo__body {
-  padding: 30px 36px;
+  border: 1px solid var(--color-k-border);
+  border-radius: 10px;
 }
 
 .demo__kicker {
@@ -150,6 +155,11 @@ defineEmits<{ play: [videoId: string] }>()
   font-weight: 400;
 }
 
+.demo__name--feature {
+  margin: 0;
+  font-size: 24px;
+}
+
 .demo__blurb {
   margin: 0;
   color: var(--color-k-muted);
@@ -157,23 +167,31 @@ defineEmits<{ play: [videoId: string] }>()
   line-height: 1.65;
 }
 
+.demo__blurb--feature {
+  font-size: 15px;
+}
+
 @media (max-width: 768px) {
   .demo {
     --k-section-padding: 64px 0;
   }
 
-  .demo__card--row {
+  .demo__feature-body,
+  .demo__more {
     grid-template-columns: 1fr;
   }
 
-  .demo__card--row .demo__player {
-    border-right: none;
-    border-bottom: 1px solid var(--color-k-border);
+  .demo__feature-body {
+    gap: 12px;
+    margin-top: 26px;
   }
 
-  .demo__card--feature .demo__body,
-  .demo__card--row .demo__body {
-    padding: 26px 24px 30px;
+  .demo__more {
+    margin-top: 40px;
+  }
+
+  .demo__card {
+    border-radius: 12px;
   }
 }
 </style>
