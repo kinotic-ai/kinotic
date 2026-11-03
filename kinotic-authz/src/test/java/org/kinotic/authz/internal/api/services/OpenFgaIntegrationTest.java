@@ -63,8 +63,8 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
  * Exercises the store and relationship services against a real OpenFGA: the system store, created ahead of
  * the servers, found by name on first use, a generated model written once and reused while it is
  * unchanged, relationships written in batches, and checks answering from them. OpenFGA runs from the image the
- * dev stack declares when Docker is available, else at the URL in the {@code OPENFGA_URL} environment
- * variable, and the test is skipped when there is neither.
+ * dev stack declares when Docker is available, with its check cache on, else at the URL in the
+ * {@code OPENFGA_URL} environment variable, and the test is skipped when there is neither.
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -95,6 +95,9 @@ class OpenFgaIntegrationTest {
             openfga = new GenericContainer<>(openFgaImageFromCompose())
                     .withExposedPorts(8080)
                     .withCommand("run")
+                    // with no cache controller, a cached check answer lives its whole time to live whatever is
+                    // written meanwhile, so a check that skips the cache is told apart from one that reads it
+                    .withEnv("OPENFGA_CHECK_QUERY_CACHE_ENABLED", "true")
                     .waitingFor(Wait.forHttp("/healthz").forPort(8080).withStartupTimeout(Duration.ofMinutes(2)));
             openfga.start();
             apiUrl = "http://" + openfga.getHost() + ":" + openfga.getMappedPort(8080);
@@ -396,6 +399,28 @@ class OpenFgaIntegrationTest {
         assertTrue(await(relationshipService.holds(SYSTEM, contained)));
         await(Future.all(relationshipService.remove(SYSTEM, List.of(contained)), relationshipService.remove(SYSTEM, List.of(contained))));
         assertFalse(await(relationshipService.holds(SYSTEM, contained)));
+    }
+
+    @Test
+    void aConsistentCheckSeesARevokeACachedAnswerPredates() throws Exception {
+        Assumptions.assumeTrue(openfga != null, "Only the engine this test starts is known to cache checks");
+        await(storeService.ensureModel(SYSTEM, generator.systemModel(List.of(projectService()))));
+        RelationshipTuple membership = new RelationshipTuple("user:sally-cached", "member", "project_role_binding:sally_edits_billing_cached");
+        List<RelationshipTuple> written = List.of(
+                new RelationshipTuple("user:*", "project_can_edit", "project_role:project.editor_cached"),
+                new RelationshipTuple("project_role:project.editor_cached", "role", "project_role_binding:sally_edits_billing_cached"),
+                membership,
+                new RelationshipTuple("project_role_binding:sally_edits_billing_cached", "role_binding", "project:billing-cached"));
+        await(relationshipService.ensure(SYSTEM, written));
+        RelationshipTuple editing = new RelationshipTuple("user:sally-cached", "project_can_edit", "project:billing-cached");
+        assertTrue(await(relationshipService.check(SYSTEM, editing, Consistency.MINIMIZE_LATENCY)));
+
+        await(relationshipService.remove(SYSTEM, List.of(membership)));
+
+        // the cached allow outlives the revoke, which shows the cache answered; the consistent check does not read it
+        assertTrue(await(relationshipService.check(SYSTEM, editing, Consistency.MINIMIZE_LATENCY)));
+        assertFalse(await(relationshipService.check(SYSTEM, editing, Consistency.HIGHER_CONSISTENCY)));
+        await(relationshipService.remove(SYSTEM, written));
     }
 
     @Test

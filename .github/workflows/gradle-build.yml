@@ -105,11 +105,6 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # Branch-only: kinotic-frontend builds the first-party packages from kinotic-js/workspace
-      # with bun. Never merge into develop.
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-
       - name: Build with Gradle
         run: ./gradlew check -x :kinotic-test:test
 
@@ -155,11 +150,6 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
-
-      # Branch-only: kinotic-frontend builds the first-party packages from kinotic-js/workspace
-      # with bun. Never merge into develop.
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
 
       - name: Build server images
         run: ./gradlew :kinotic-server-management:bootBuildImage :kinotic-server-system:bootBuildImage :kinotic-server-app:bootBuildImage :kinotic-server-test:bootBuildImage
