@@ -1,7 +1,5 @@
 <script setup lang="ts">
-const nuxtApp = useNuxtApp()
-
-const openCookieSettings = () => nuxtApp.$cookieConsent.open()
+const { open: openCookieSettings } = useCookieConsent()
 </script>
 
 <template>
