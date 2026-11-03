@@ -15,7 +15,10 @@ export interface IProfileService {
 
     updateDisplayName(displayName: string): Promise<UserParticipantIdentity>
 
-    /** The ways the user signs in: its password, when it has one, and every provider identity bound to it. */
+    /**
+     * The ways the user signs in: its password, when it has one and its login takes a password, and every provider
+     * identity bound to it.
+     */
     findMySignInMethods(): Promise<SignInMethod[]>
 
     /**
@@ -28,13 +31,14 @@ export interface IProfileService {
 
     /**
      * Sets the user's password. A user that has one gives its current password; one that signs in by
-     * a provider alone gives null and gains a password as a second method.
+     * a provider alone gives null and gains a password as a second method. Refused for an organization's user while
+     * its organization's login takes no password.
      */
     setPassword(currentPassword: string | null, newPassword: string): Promise<void>
 
     /**
      * Removes a provider identity from the user's sign-in methods; the last method that still signs the user in
-     * (its password, or a configuration its organization's login offers) cannot be removed.
+     * (its password while its login takes one, or a configuration its organization's login offers) cannot be removed.
      */
     removeSignInMethod(methodId: string): Promise<void>
 

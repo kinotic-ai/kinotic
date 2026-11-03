@@ -75,6 +75,14 @@ public class ApplicationTests extends KinoticTestBase {
 			assertEquals("web", claimed.getPrimaryUiId());
 			assertEquals("https://primary-claim--web.test-org.example.com", claimed.getPrimaryUiUrl());
 			assertNotNull(claimed.getUpdated());
+
+			// a site published again under another sites domain moves the primary UI's address, and only the primary UI's
+			assertFalse(await(applicationRepository.updatePrimaryUiUrl(key, "admin", "https://primary-claim--admin.test-org.example.net")));
+			assertTrue(await(applicationRepository.updatePrimaryUiUrl(key, "web", "https://primary-claim--web.test-org.example.net")));
+			assertFalse(await(applicationRepository.updatePrimaryUiUrl(key, "web", "https://primary-claim--web.test-org.example.net")));
+			Application moved = await(applicationRepository.findById(created.getId(), TEST_ORG_ID));
+			assertEquals("web", moved.getPrimaryUiId());
+			assertEquals("https://primary-claim--web.test-org.example.net", moved.getPrimaryUiUrl());
 		} finally {
 			await(runAsOrganization(() -> applicationService.deleteById(created.getId())));
 		}

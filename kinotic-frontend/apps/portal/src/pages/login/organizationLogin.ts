@@ -1,3 +1,24 @@
+import { apiUrl } from '@kinotic-ai/frontend-common'
+
+/** A sign-in provider an organization's login offers, as `GET /api/auth/org/login/:orgId/providers` lists it. */
+export interface LoginProvider {
+    id: string
+    /** PASSWORD for an email and a password, OIDC for a provider. */
+    type: 'PASSWORD' | 'OIDC'
+    name: string
+    provider: string | null
+}
+
+/** The sign-in providers the login of organization `organizationId` offers, which also accept its invitations. */
+export async function findLoginProviders(organizationId: string): Promise<LoginProvider[]> {
+    const res = await fetch(apiUrl(`/api/auth/org/login/${encodeURIComponent(organizationId)}/providers`),
+                            { credentials: 'same-origin' })
+    if (!res.ok) {
+        throw new Error(`The organization's sign-in providers could not be loaded (${res.status})`)
+    }
+    return await res.json()
+}
+
 /** localStorage key of the id of the organization this browser last signed in to. */
 const LAST_ORGANIZATION_KEY = 'kinotic.lastOrganization'
 

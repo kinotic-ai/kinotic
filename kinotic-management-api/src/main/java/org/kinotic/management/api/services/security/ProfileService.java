@@ -31,8 +31,8 @@ public interface ProfileService {
     Future<UserParticipantIdentity> updateDisplayName(String displayName, Participant participant);
 
     /**
-     * The ways the calling user signs in: its password, when it has one, and every provider identity
-     * bound to it, in the order they were added.
+     * The ways the calling user signs in: its password, when it has one and its login takes a password, and every
+     * provider identity bound to it, in the order they were added.
      */
     Future<List<SignInMethod>> findMySignInMethods(Participant participant);
 
@@ -47,7 +47,7 @@ public interface ProfileService {
     /**
      * Sets the calling user's password. A user that has one proves it is the caller's by giving the
      * current password; a user that signs in by a provider alone gives none and gains a password as a
-     * second method.
+     * second method. Refused for an organization's user while its organization's login takes no password.
      *
      * @param currentPassword the user's password, required when it has one
      * @param newPassword     the password to set
@@ -56,8 +56,8 @@ public interface ProfileService {
 
     /**
      * Removes a provider identity from the calling user's sign-in methods. The last method that still signs
-     * the user in cannot be removed, so the user always keeps a way to sign in: its password, or a binding to a
-     * configuration its organization's login offers.
+     * the user in cannot be removed, so the user always keeps a way to sign in: its password while its login
+     * takes one, or a binding to a configuration its organization's login offers.
      *
      * @param methodId the method's id, as {@link SignInMethod#id()} names it
      */

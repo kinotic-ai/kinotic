@@ -70,6 +70,11 @@ public interface ApplicationSignUpService {
      * takes with the password the person chooses. An email the application already has a user under is sent nothing,
      * as is one whose link from an earlier call is still valid, and the call completes as it does for any other, so
      * it tells nothing about the email.
+     * <p>
+     * When {@code kinotic.domain.email.enabled} is {@code false}, no email is sent and the link is returned for the
+     * caller to show, so the address is never proven to be the caller's: a link from an earlier call that is still
+     * valid is returned again, and an email the application already has a user under fails with
+     * {@link ExistingUserException}.
      *
      * @param scope       the login, which must offer password sign-up ({@link #offersPasswordSignUp}: the application's
      *                    own login, whose {@link PasswordConfiguration} signs new people up); fails with
@@ -78,9 +83,10 @@ public interface ApplicationSignUpService {
      *                    checked before the call returns, with {@link IllegalArgumentException}
      * @param uiOrigin    the origin of the application's UI the link opens, which the caller has checked is one of the
      *                    application's
-     * @return completes once the email is sent, or once it is known none is
+     * @return a future emitting the verification link when email is disabled, or {@code null} once the email is sent
+     *         or once it is known none is
      */
-    Future<Void> initiatePasswordSignUp(LoginScope scope, String email, String uiOrigin);
+    Future<String> initiatePasswordSignUp(LoginScope scope, String email, String uiOrigin);
 
     /**
      * Completes a sign-up {@link #initiatePasswordSignUp} started: consumes the token and creates the application's

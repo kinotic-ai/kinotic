@@ -25,7 +25,7 @@ public class Tenant implements ApplicationScoped<String> {
     /**
      * The tenant's id, the slugified {@link #name} minted at creation: lowercase letters, digits and single
      * interior dashes, at most {@link org.kinotic.domain.api.utils.HostLabelUtil#MAX_TENANT_ID_LENGTH} characters,
-     * since it is the first name of the tenant's site labels, and unique within the organization. The
+     * since it is the first name of the tenant's site labels, and unique within its application. The
      * {@link ParticipantIdentity#getTenantId()} of the tenant's users.
      */
     private String id;

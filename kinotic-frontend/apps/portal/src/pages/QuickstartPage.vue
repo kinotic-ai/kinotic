@@ -56,6 +56,32 @@
                 </div>
               </div>
 
+              <!-- Claude Code's /mcp list, where the plugin's own server sits beside the one added for this Kinotic -->
+              <div v-if="step.id === 'authorize' && LOCAL_MCP_SERVER && !loading"
+                   class="mt-3 rounded-lg bg-surface-950 px-3.5 py-3 font-mono text-xs text-surface-300 dark:ring-1 dark:ring-surface-700">
+                <div class="text-sky-300">Manage MCP servers</div>
+                <div class="mt-2 font-semibold text-surface-100">User MCPs</div>
+                <div class="mt-1 rounded-md bg-green-400/10 px-2 py-1 ring-1 ring-green-400/40">
+                  <div class="flex items-center gap-2">
+                    <span class="text-green-400">❯</span>
+                    <span class="text-amber-400">⚠</span>
+                    <span class="min-w-0 truncate font-semibold text-surface-0">kinotic-local</span>
+                    <span class="hidden whitespace-nowrap text-surface-400 sm:inline">needs authentication</span>
+                  </div>
+                  <div class="mt-0.5 pl-7 font-sans text-[11px] font-medium text-green-400">For local use: authenticate it</div>
+                </div>
+                <div class="mt-2 font-semibold text-surface-100">Built-in MCPs</div>
+                <div class="mt-1 px-2 py-1">
+                  <div class="flex items-center gap-2 opacity-60">
+                    <span class="invisible">❯</span>
+                    <span class="text-amber-400">⚠</span>
+                    <span class="min-w-0 truncate">plugin:kinotic:kinotic-os</span>
+                    <span class="hidden whitespace-nowrap text-surface-400 sm:inline">needs authentication</span>
+                  </div>
+                  <div class="mt-0.5 pl-7 font-sans text-[11px] text-surface-400">For Kinotic Cloud: not needed locally</div>
+                </div>
+              </div>
+
               <p v-if="!loading && !step.done && index === currentIndex && step.hint" class="mt-3 text-sm leading-6 text-muted-color">{{ step.hint }}</p>
               <div v-if="!loading && !step.done && index === currentIndex && step.actions.length" class="mt-3 flex flex-wrap gap-2">
                 <Button v-for="action in step.actions" :key="action.label" :label="action.label"
@@ -287,7 +313,7 @@
 import { computed, markRaw, onMounted, ref, type Component } from 'vue'
 import Button from 'primevue/button'
 import Skeleton from 'primevue/skeleton'
-import { ArrowRight, ArrowUpRight, BookOpen, Boxes, Braces, ChartLine, Check, CloudUpload, Copy, Database, FileCode, FolderGit2, GitBranch,
+import { ArrowRight, ArrowUpRight, BookOpen, Boxes, ChartLine, Check, CloudUpload, Copy, Database, FolderGit2, GitBranch,
          GitCommitHorizontal, Globe, Layers, Library, Package, Table, Terminal } from '@lucide/vue'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DelegateType, type DelegatingParticipantIdentity, type GitHubAppInstallation, type Project, RepoHostType, type RepositoryHost } from '@kinotic-ai/management-api'
@@ -309,10 +335,10 @@ const debug = createDebug('quickstart')
 const QUICK_START_URL = 'https://kinotic.ai/getting-started/quick-start'
 const PLUGIN_COMMANDS = ['/plugin marketplace add kinotic-ai/agent-plugin', '/plugin install kinotic@kinotic']
 const AUTHORIZE_COMMANDS = ['/mcp']
-// The MCP server the Kinotic plugin connects Claude Code to, Kinotic Cloud's
-const PLUGIN_MCP_URL = 'https://api.kinotic.ai/mcp'
-// This deployment's MCP server; one other than the plugin's, such as a demonstration server's, is added beside it
+// This deployment's MCP server
 const MCP_URL = new URL(apiUrl('/mcp'), window.location.origin).toString()
+// The plugin's own MCP server is Kinotic Cloud's, so a Kinotic running on this machine is added beside it
+const LOCAL_MCP_SERVER = ['localhost', '127.0.0.1'].includes(new URL(MCP_URL).hostname)
 const LOCAL_AUTHORIZE_COMMANDS = [`claude mcp add -s user --transport http kinotic-local ${MCP_URL}`, '/mcp']
 const NEW_APP_COMMANDS = ['/kinotic:new-app my-app']
 // How many projects the checklist reads to find the most recently updated one
@@ -326,7 +352,7 @@ type FeatureId = 'data' | 'deploy' | 'observe'
 
 const FEATURES: { id: FeatureId, title: string, icon: Component, bar: string, href: string, description: string }[] = [
   { id: 'data', title: 'Model your data', icon: markRaw(Table), bar: 'bg-purple-500', href: 'https://kinotic.ai/apps/persistence/overview',
-    description: 'Define entities in TypeScript and get typed repositories, backing storage, and GraphQL and OpenAPI endpoints for them.' },
+    description: 'Define entities in TypeScript and get typed repositories and backing storage for them.' },
   { id: 'deploy', title: 'Deploy on every push', icon: markRaw(CloudUpload), bar: 'bg-sky-500', href: 'https://kinotic.ai/apps/deployment/push-to-deploy',
     description: 'Pushing to a project\'s default branch builds and deploys its microservices and publishes its UIs.' },
   { id: 'observe', title: 'See it running', icon: markRaw(ChartLine), bar: 'bg-green-500', href: 'https://kinotic.ai/apps/services/overview',
@@ -343,9 +369,7 @@ const CLAUDE_OUTPUTS = [
 
 // Placeholders for the feature illustrations
 const DATA_OUTPUTS = [
-  { label: 'PersonRepository', icon: markRaw(Database), tint: TINTS.purple },
-  { label: 'GraphQL API', icon: markRaw(Braces), tint: TINTS.red },
-  { label: 'OpenAPI', icon: markRaw(FileCode), tint: TINTS.green }
+  { label: 'PersonRepository', icon: markRaw(Database), tint: TINTS.purple }
 ]
 const DEPLOY_STEPS = [
   { label: 'Sync', icon: markRaw(FolderGit2) },
@@ -354,8 +378,8 @@ const DEPLOY_STEPS = [
   { label: 'Publish', icon: markRaw(Globe) }
 ]
 const LOG_LINES = [
-  { level: 'INFO', time: '12:04:31', text: 'PersonRepository.save 12ms' },
-  { level: 'INFO', time: '12:04:32', text: 'GET /api/people 200 8ms' },
+  { level: 'INFO', time: '12:04:31', text: 'PersonService.createPerson 12ms' },
+  { level: 'INFO', time: '12:04:32', text: 'PersonRepository.save 8ms' },
   { level: 'WARN', time: '12:04:35', text: 'slow query findAll 412ms' }
 ]
 
@@ -432,12 +456,12 @@ const steps = computed<Step[]>(() => [
   {
     id: 'authorize',
     title: 'Connect Claude to Kinotic',
-    description: MCP_URL === PLUGIN_MCP_URL
-        ? 'Run /mcp in Claude Code, select kinotic-os and choose Authenticate, then approve the consent screen that opens in your browser.'
-        : 'The plugin connects to Kinotic Cloud, so add this server beside it from a terminal. Then run /mcp in Claude Code, select kinotic-local and choose Authenticate, and approve the consent screen that opens in your browser.',
+    description: LOCAL_MCP_SERVER
+        ? 'For local use, add the kinotic-local server from a terminal, then run /mcp in Claude Code, authenticate kinotic-local, and approve the consent screen that opens in your browser. Don\'t worry about plugin:kinotic:kinotic-os: the plugin adds it for use with Kinotic Cloud.'
+        : 'Run /mcp in Claude Code, select plugin:kinotic:kinotic-os and choose Authenticate, then approve the consent screen that opens in your browser.',
     done: mcpClient.value !== null,
     doneDetail: mcpClient.value?.displayName ? `${mcpClient.value.displayName} connected` : undefined,
-    commands: MCP_URL === PLUGIN_MCP_URL ? AUTHORIZE_COMMANDS : LOCAL_AUTHORIZE_COMMANDS,
+    commands: LOCAL_MCP_SERVER ? LOCAL_AUTHORIZE_COMMANDS : AUTHORIZE_COMMANDS,
     actions: [],
     revisit: { label: 'Connected apps', to: '/account/connected-apps' }
   },

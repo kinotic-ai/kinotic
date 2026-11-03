@@ -45,8 +45,8 @@ public class UiDeployment implements Reconcilable<DeploymentState>, Organization
     private String name;
 
     /**
-     * Where the site is served, {@code https://<id>.<sites domain>}, fixed when the label is
-     * minted.
+     * Where the site is served, {@code https://<id>.<sites domain>}, under the sites domain of the site's
+     * latest publish.
      */
     private String url;
 

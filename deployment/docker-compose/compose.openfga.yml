@@ -1,7 +1,9 @@
 # OpenFGA, the authorization engine every server checks against, with the Postgres it stores relationships
 # in. The migrate job prepares the schema before the engine starts, and openfga-init creates the system
 # store, which the servers look up by name and never create. The caches match what the servers are
-# tuned for: a check answers from cached subproblems, invalidated by the cache controller on every write.
+# tuned for: a check answers from cached subproblems, which the cache controller invalidates once it reads a
+# write from the store's changelog, so a cached answer can predate a write by the controller's interval, ten
+# seconds by default. A function declared consistent asks for higher consistency and skips the caches.
 # The integration tests switch the caches off through environment variables of the same names, so a check
 # sees a write at once.
 services:

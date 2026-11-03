@@ -24,8 +24,8 @@ public non-sealed interface ApplicationParticipant extends ScopedParticipant {
     String getApplicationId();
 
     /**
-     * @return the tenant slice of the Application's end-user data this participant belongs
-     *         to, which every application user has, or null for an identity of the Application in no tenant
+     * @return the tenant slice of the Application's end-user data this participant belongs to, which every
+     *         application user has, or null for one of the Application's machines, which belong to no tenant
      */
     String getTenantId();
 

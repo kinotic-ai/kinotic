@@ -31,7 +31,7 @@ export class UiDeployment implements Reconcilable<DeploymentState> {
     public name!: string
 
     /**
-     * Where the site is served, `https://<id>.<sites domain>`, fixed when the label is minted.
+     * Where the site is served, `https://<id>.<sites domain>`, under the sites domain of the site's latest publish.
      */
     public url!: string
 

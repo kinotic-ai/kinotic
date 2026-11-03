@@ -1,7 +1,8 @@
 services:
   kinotic-migration:
     container_name: kinotic-migration
-    pull_policy: missing
+    # KINOTIC_PULL_POLICY, as compose.kinotic-servers.yml describes
+    pull_policy: ${KINOTIC_PULL_POLICY:-missing}
     image: kinoticai/kinotic-migration:${kinoticVersion:-5.0.0-SNAPSHOT}
     depends_on:
       kinotic-elasticsearch:

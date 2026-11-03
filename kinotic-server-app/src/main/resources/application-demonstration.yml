@@ -5,8 +5,8 @@
 kinotic:
   cors:
     # An application UI's vite dev server on any local port, and the sites the local edge serves
-    # under sites.localhost
-    allowedOriginPattern: "http:\\/\\/localhost:\\d+|http:\\/\\/[a-z0-9-]+\\.[a-z0-9-]+\\.sites\\.localhost:8088"
+    # under sites.kinotic.localhost
+    allowedOriginPattern: "http:\\/\\/localhost:\\d+|http:\\/\\/[a-z0-9-]+\\.[a-z0-9-]+\\.sites\\.kinotic\\.localhost:8088"
     allowCredentials: true
   domain:
     email:
@@ -21,12 +21,14 @@ kinotic:
       jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys
     publishedSites:
       # The domain the local edge serves the sites under, so a published UI signs its users in
-      domain: sites.localhost
+      domain: sites.kinotic.localhost
     secretStorage:
       backend: IN_MEMORY
       # The management server's key: SecretNameDeriver must derive the same storage names on every server
       masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
-    appApiBaseUrl: http://localhost:58505
+    # Under kinotic.localhost, as the sites are, so a site and its application's API host are one site to the
+    # browser and the SameSite=Lax session cookie travels between them, as both do under kinotic.ai in production
+    appApiBaseUrl: http://apps-api.kinotic.localhost:58505
   appServer:
     # An application UI's vite dev server on any local port signs its users in to the application
     # whose API host its proxy addresses

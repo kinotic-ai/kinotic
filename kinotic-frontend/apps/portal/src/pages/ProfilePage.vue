@@ -104,7 +104,7 @@
                     v-tooltip.top="methods.length < 2 ? 'Add another sign-in method first' : undefined"
                     @click="removeMethod(method)" />
           </li>
-          <li v-if="!hasPassword" class="flex flex-wrap items-center gap-3 border-b border-surface-100 px-6 py-3.5 dark:border-surface-800">
+          <li v-if="!hasPassword && passwordOffered" class="flex flex-wrap items-center gap-3 border-b border-surface-100 px-6 py-3.5 dark:border-surface-800">
             <KeyRound :size="18" :stroke-width="1.75" class="shrink-0 text-surface-400" aria-hidden="true" />
             <span class="flex-1 text-sm text-muted-color">No password set</span>
             <Button label="Set password" size="small" severity="secondary" outlined @click="openPasswordDialog" />
@@ -168,6 +168,8 @@ import { emailNotVerifiedMessage } from '@/util/oidcConfigurations'
 import { DatetimeUtil, showErrorToast, statusSeverity } from '@kinotic-ai/frontend-common'
 import { PageHeader } from '@kinotic-ai/frontend-common'
 import { PROFILE_STATE } from '@/states/IProfileState'
+import { KinoticStates } from '@/states'
+import { findLoginProviders } from '@/pages/login/organizationLogin'
 
 /** One read-only fact about the user, rendered as a column of the identity card's footer. */
 interface ProfileDetail {
@@ -186,6 +188,8 @@ const router = useRouter()
 
 const methods = ref<SignInMethod[]>([])
 const connectableProviders = ref<LoginProviderSummary[]>([])
+/** Whether the organization's login takes an email and a password, so the user may set one. */
+const passwordOffered = ref(false)
 
 const passwordFormVisible = ref(false)
 const currentPassword = ref('')
@@ -248,14 +252,20 @@ function consumeConnectResult() {
 
 async function loadSignIn() {
   try {
-    const [found, connectable] = await Promise.all([
-      Kinotic.profile.findMySignInMethods(), Kinotic.profile.findConnectableProviders()
+    const [found, connectable, offered] = await Promise.all([
+      Kinotic.profile.findMySignInMethods(), Kinotic.profile.findConnectableProviders(), findPasswordOffered()
     ])
     methods.value = found
     connectableProviders.value = connectable
+    passwordOffered.value = offered
   } catch (err) {
     showErrorToast(toast, 'Failed to load your sign-in methods', err, { life: 8000 })
   }
+}
+
+async function findPasswordOffered(): Promise<boolean> {
+  const providers = await findLoginProviders(KinoticStates.getUserState().getOrganizationId())
+  return providers.some(provider => provider.type === 'PASSWORD')
 }
 
 function openPasswordDialog() {

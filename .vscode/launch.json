@@ -1,54 +1,51 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    // The servers run in docker compose (deployment/docker-compose); these run the UIs and the
+    // vm-manager node from source against them. .vscode/DEBUGGING.md walks through each.
     "version": "0.2.0",
     "configurations": [
         {
-            "command": "pnpm dev",
-            "name": "Start Structures Frontend",
+            "name": "Portal: Dev Server",
             "request": "launch",
             "type": "node-terminal",
-            "cwd": "${workspaceFolder}/structures-frontend-next",
-            "env": {
-                "NODE_ENV": "development"
-            }
+            "command": "pnpm dev",
+            "cwd": "${workspaceFolder}/kinotic-frontend"
         },
         {
-            "name": "Launch Chrome Debugger for UI",
+            "name": "System Console: Dev Server",
+            "request": "launch",
+            "type": "node-terminal",
+            "command": "pnpm dev:system",
+            "cwd": "${workspaceFolder}/kinotic-frontend"
+        },
+        {
+            "name": "Portal: Chrome",
             "request": "launch",
             "type": "chrome",
             "url": "http://localhost:5173",
-            "webRoot": "${workspaceFolder}/structures-frontend-next",
-            "sourceMapPathOverrides": {
-                "webpack:///src/*": "${webRoot}/*",
-                "webpack:///./src/*": "${webRoot}/*",
-                "webpack:///./*": "${webRoot}/*",
-                "webpack:///*": "${webRoot}/*",
-                "webpack:///./~/*": "${webRoot}/node_modules/*"
-            },
-            "userDataDir": "${workspaceFolder}/.vscode/chrome-debug-profile",
-            "runtimeArgs": [
-                "--disable-features=VizDisplayCompositor"
-            ]
+            "webRoot": "${workspaceFolder}/kinotic-frontend/apps/portal",
+            "userDataDir": "${workspaceFolder}/.vscode/chrome-debug-profile"
         },
         {
-            "type": "java",
-            "name": "StructuresServerApplication",
+            "name": "System Console: Chrome",
             "request": "launch",
-            "mainClass": "org.kinotic.structuresserver.StructuresServerApplication",
-            "projectName": "structures-server",
-            "vmArgs": "-XX:MaxDirectMemorySize=1g -Xmx4096m -XX:+AlwaysPreTouch -XX:+UseG1GC -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -cp ${workspaceFolder}/structures-core/src/main/resources",
-            "env": {
-                "SPRING_PROFILES_ACTIVE": "development",
-                "JAVA_TOOL_OPTIONS": " --add-opens=jdk.management/com.sun.management.internal=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.management/com.sun.jmx.mbeanserver=ALL-UNNAMED --add-opens=jdk.internal.jvmstat/sun.jvmstat.monitor=ALL-UNNAMED --add-opens=java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED",
-                // "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4317",
-                // "OTEL_EXPORTER_OTLP_PROTOCOL": "grpc",
-                // "OTEL_LOGS_EXPORTER": "otlp",
-                // "OTEL_METRICS_EXPORTER": "otlp",
-                // "OTEL_TRACES_EXPORTER": "otlp",
-                // "OTEL_SERVICE_NAME": "structures-server"
-            }
+            "type": "chrome",
+            "url": "http://localhost:5174",
+            "webRoot": "${workspaceFolder}/kinotic-frontend/apps/system",
+            "userDataDir": "${workspaceFolder}/.vscode/chrome-debug-profile"
+        },
+        {
+            "name": "Chrome: Attach",
+            "request": "attach",
+            "type": "chrome",
+            "port": 9222,
+            "webRoot": "${workspaceFolder}/kinotic-frontend/apps/portal"
+        },
+        {
+            "name": "vm-manager Node",
+            "request": "launch",
+            "type": "node-terminal",
+            "command": "bun run dev",
+            "cwd": "${workspaceFolder}/kinotic-js/workspace/packages/vm-manager"
         }
     ]
 }

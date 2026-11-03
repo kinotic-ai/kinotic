@@ -25,6 +25,16 @@ public class ApplicationRepository extends AbstractOrganizationScopedRepository<
             }
             """;
 
+    private static final String UPDATE_PRIMARY_UI_URL_SCRIPT = """
+            def app = ctx._source;
+            if (app.primaryUiId != params.primaryUiId || app.primaryUiUrl == params.primaryUiUrl) {
+                ctx.op = 'noop';
+            } else {
+                app.primaryUiUrl = params.primaryUiUrl;
+                app.updated = params.updated;
+            }
+            """;
+
     public ApplicationRepository(CrudServiceTemplate crudServiceTemplate) {
         super("kinotic_application", Application.class, crudServiceTemplate);
     }
@@ -64,6 +74,26 @@ public class ApplicationRepository extends AbstractOrganizationScopedRepository<
         return crudServiceTemplate.scriptedUpdate(indexName,
                                                   composeDocumentId(applicationKey.applicationId(), applicationKey.organizationId()),
                                                   CLAIM_PRIMARY_UI_SCRIPT,
+                                                  Map.of("primaryUiId", uiName, "primaryUiUrl", uiUrl, "updated", new Date()),
+                                                  b -> b.routing(applicationKey.organizationId()));
+    }
+
+    /**
+     * Sets where the application's primary UI is served when the UI is its primary UI, leaving the application as
+     * it is otherwise.
+     *
+     * @param applicationKey the application whose primary UI's address to set
+     * @param uiName         the name of the published UI
+     * @param uiUrl          where the UI's site is served
+     * @return a future emitting true when the address changed, false when the UI is not the primary UI or the
+     *         address was already {@code uiUrl}
+     */
+    public Future<Boolean> updatePrimaryUiUrl(ApplicationKey applicationKey, String uiName, String uiUrl) {
+        Validate.notBlank(uiName, "uiName cannot be blank");
+        Validate.notBlank(uiUrl, "uiUrl cannot be blank");
+        return crudServiceTemplate.scriptedUpdate(indexName,
+                                                  composeDocumentId(applicationKey.applicationId(), applicationKey.organizationId()),
+                                                  UPDATE_PRIMARY_UI_URL_SCRIPT,
                                                   Map.of("primaryUiId", uiName, "primaryUiUrl", uiUrl, "updated", new Date()),
                                                   b -> b.routing(applicationKey.organizationId()));
     }

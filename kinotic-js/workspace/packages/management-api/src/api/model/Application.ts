@@ -35,7 +35,8 @@ export class Application implements Identifiable<string> {
 
     /**
      * Where the primary UI's site is served, or null while none is designated. Set by the
-     * platform when the primary UI is designated; a value a caller saves is replaced.
+     * platform when the primary UI is designated, and moved when the site is published under
+     * another sites domain; a value a caller saves is replaced.
      */
     public primaryUiUrl: string | null = null
 

@@ -1,7 +1,7 @@
 name: GHCR Cleanup
 
 # Every push to develop or main, and every pull request into them, stages kinotic-server-management,
-# kinotic-server-system, kinotic-server-app, kinotic-server-test, kinotic-sites-edge, kinotic-ui and kinotic-migration on ghcr.io under sha-<commit> (see
+# kinotic-server-system, kinotic-server-app, kinotic-server-test, kinotic-sites-edge, kinotic-ui and kinotic-migration on ghcr.io under sha-<commit>, and their arm64 builds under sha-<commit>-arm64 (see
 # gradle-build.yml), and nothing outside that workflow ever reads those tags — what ships is
 # promoted to Docker Hub. So a staged image is dead weight as soon as no one is going
 # to re-run the jobs of the run that produced it, and without this job they accumulate forever.
@@ -29,7 +29,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      # A run stages sha-<commit> in build/migration_image and pulls it back in the suites that
+      # A run stages sha-<commit> in build/migration_image, and sha-<commit>-arm64 in arm64_images, and pulls the first back in the suites that
       # follow, so any commit whose run has not finished is still live no matter how old the image
       # is. older-than alone does not settle this: it filters on the package version's updated_at,
       # and a rebuild of an unchanged commit does not always advance that. Archives are byte
@@ -50,7 +50,8 @@ jobs:
           queued=$(gh api "${runs}?status=queued&per_page=100" --jq '.workflow_runs[].head_sha')
           develop=$(gh api "repos/${GITHUB_REPOSITORY}/branches/develop" --jq '.commit.sha')
           main=$(gh api "repos/${GITHUB_REPOSITORY}/branches/main" --jq '.commit.sha')
-          tags=$(printf '%s\n' $in_progress $queued $develop $main | sort -u | sed 's/^/sha-/' | paste -sd, -)
+          # each commit stages sha-<commit> and its arm64 build, sha-<commit>-arm64
+          tags=$(printf '%s\n' $in_progress $queued $develop $main | sort -u | sed 's/.*/sha-&,sha-&-arm64/' | paste -sd, -)
           echo "Protected from this sweep: ${tags}"
           echo "tags=${tags}" >> "$GITHUB_OUTPUT"
 

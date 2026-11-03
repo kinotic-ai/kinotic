@@ -45,7 +45,7 @@ kinotic:
       generateMissing: true
       jwtSigningKeysPath: ${user.home}/.kinotic/dev-system-secrets/jwt-signing-keys
     # The app server on this machine: the host of an application's or a tenant's OIDC callback
-    appApiBaseUrl: http://localhost:58505
+    appApiBaseUrl: http://apps-api.kinotic.localhost:58505
     secretStorage:
       backend: IN_MEMORY
       # Base64-encoded 32-byte key used by SecretNameDeriver to derive opaque, deterministic storage names; every

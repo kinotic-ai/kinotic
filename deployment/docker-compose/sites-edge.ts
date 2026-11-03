@@ -6,7 +6,7 @@
  * for the real account.
  *
  * Environment:
- *   SITES_DOMAIN       the domain every site is under (default sites.localhost)
+ *   SITES_DOMAIN       the domain every site is under (default sites.kinotic.localhost)
  *   AZURITE_ENDPOINT   Azurite's blob endpoint, with the account (default http://127.0.0.1:10000/devstoreaccount1)
  *   PORTAL_BASE_URL    where an organization's own host sends the browser (default http://localhost:9090)
  *   PORT               the port the sites are served on (default 8088)
@@ -66,7 +66,7 @@ for (let attempt = 1; ; attempt++) {
 }
 
 const env = {
-    SITES_DOMAIN: process.env.SITES_DOMAIN ?? 'sites.localhost',
+    SITES_DOMAIN: process.env.SITES_DOMAIN ?? 'sites.kinotic.localhost',
     SITES_STORAGE_URL: endpoint,
     SITES_STORAGE_SAS: containerSas(),
     PORTAL_BASE_URL: process.env.PORTAL_BASE_URL ?? 'http://localhost:9090',

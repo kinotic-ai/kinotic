@@ -6,7 +6,9 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
     healthcheck:
-      test: ["CMD-SHELL", "curl --silent --fail 127.0.0.1:9200/_cluster/health || exit 1"]
+      # a restarted node answers _cluster/health with 200 while its shards are still recovering (status red), so the
+      # check waits for yellow, which answers 408 until every primary shard is active
+      test: ["CMD-SHELL", "curl --silent --fail '127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=8s' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

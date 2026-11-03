@@ -10,7 +10,7 @@
       "name": "testConfig",
       "testKind": "junit",
       "env": {
-        "JAVA_TOOL_OPTIONS": "-Dspring.profiles.active=test,debug,eviction-tracking --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED",
+        "JAVA_TOOL_OPTIONS": "-Dspring.profiles.active=test --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED",
       },
       "vmargs": [
         "-XX:MaxDirectMemorySize=1g",
@@ -36,7 +36,7 @@
             "**/node_modules/**"
         ]
     },
-    "typescript.tsdk": "structures-frontend-next/node_modules/typescript/lib",
+    "typescript.tsdk": "kinotic-frontend/apps/portal/node_modules/typescript/lib",
     "typescript.enablePromptUseWorkspaceTsdk": true,
     "volar.useWorkspaceTsdk": true,
     "workbench.colorTheme": "Darcula (IntelliJ)"

@@ -7,7 +7,6 @@
   "scripts": {
     "dev": "pnpm --filter kinotic-portal dev",
     "build": "pnpm -r build",
-    "build:dev": "pnpm -r build:dev",
     "dev:system": "pnpm --filter kinotic-system-console dev",
     "publish": "node --experimental-strip-types scripts/publish.ts"
   }

@@ -15,7 +15,6 @@ import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIden
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -174,8 +173,8 @@ public final class AuthzGraphUtil {
 
     /**
      * The tuples an application's user holds in its application's own store: the user is an end user of the
-     * application, and, for a user of a tenant, the tenant is placed under the application with the user as a
-     * member. The system's store holds the first of them, the end user tuple, alone.
+     * application, and its tenant is placed under the application with the user as a member. The system's store
+     * holds the first of them, the end user tuple, alone.
      *
      * @param user an application's user
      * @return the tuples, the end user tuple first
@@ -183,13 +182,10 @@ public final class AuthzGraphUtil {
     public static List<RelationshipTuple> applicationUserTuples(ApplicationParticipantIdentity user) {
         String me = authzUser(user.getId());
         String application = authzApplication(user.getOrganizationId(), user.getApplicationId());
-        List<RelationshipTuple> ret = new ArrayList<>(List.of(new RelationshipTuple(me, AuthzConstants.END_USER_RELATION, application)));
-        if (user.getTenantId() != null) {
-            String tenant = AuthzUtil.object(AuthzConstants.TENANT_TYPE, user.getTenantId());
-            ret.add(containment(application, tenant));
-            ret.add(new RelationshipTuple(me, AuthzConstants.MEMBER_RELATION, tenant));
-        }
-        return ret;
+        String tenant = AuthzUtil.object(AuthzConstants.TENANT_TYPE, user.getTenantId());
+        return List.of(new RelationshipTuple(me, AuthzConstants.END_USER_RELATION, application),
+                       containment(application, tenant),
+                       new RelationshipTuple(me, AuthzConstants.MEMBER_RELATION, tenant));
     }
 
     /**
