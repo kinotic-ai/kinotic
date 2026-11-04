@@ -8,7 +8,7 @@ interface DemoVideo {
 }
 
 const featured: DemoVideo = {
-  videoId: 'PLiqZyAafiU',
+  videoId: 'rApdW9iKt3g',
   kicker: '01 · 2:46',
   name: 'Why Kinotic?',
   poster: '/images/vc/why-kinotic-poster.webp',
