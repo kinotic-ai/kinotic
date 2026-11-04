@@ -20,7 +20,6 @@ import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.DestructionAwareBeanPostProcessor;
-import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -140,24 +139,15 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                 if (!interfaces.isEmpty()) {
 
                     for (Class<?> inter : interfaces) {
-
-                        Publish publish = AnnotationUtils.findAnnotation(inter, Publish.class);
-
-                        if(publish != null) {
-                            String scope = MetaUtil.getScopeIfAvailable(instance, inter);
-                            ServiceIdentifier serviceIdentifier;
-                            try {
-                                serviceIdentifier = KinoticUtil.serviceIdentifierOf(inter, scope);
-                            } catch (IllegalArgumentException e) {
-                                throw new FatalBeanException(e.getMessage(), e);
-                            }
-
-                            consumer.accept(serviceIdentifier, inter);
-
-                        }else{
-                            // Ths should never happen
-                            throw new FatalBeanException("Publish scanning failed for bean:" + instance);
+                        String scope = MetaUtil.getScopeIfAvailable(instance, inter);
+                        ServiceIdentifier serviceIdentifier;
+                        try {
+                            serviceIdentifier = KinoticUtil.serviceIdentifierOf(inter, scope);
+                        } catch (IllegalArgumentException e) {
+                            throw new FatalBeanException(e.getMessage(), e);
                         }
+
+                        consumer.accept(serviceIdentifier, inter);
                     }
                 }
             } catch (FatalBeanException e) {

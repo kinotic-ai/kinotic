@@ -1,5 +1,7 @@
 package org.kinotic.client.internal.api;
 
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
@@ -34,8 +36,9 @@ public class ConnectionLivenessWatcher implements RequestLivenessWatcher {
     /**
      * The connection ended: every request watched on it is lost.
      * @param connectionId the id of the connection that ended
+     * @return completes once every lost request's callback has run
      */
-    public void connectionEnded(String connectionId) {
+    public Future<Void> connectionEnded(String connectionId) {
         if (connectionId.equals(liveConnectionId)) {
             liveConnectionId = null;
         }
@@ -45,7 +48,9 @@ public class ConnectionLivenessWatcher implements RequestLivenessWatcher {
                 lost.add(requestKey);
             }
         });
-        lost.forEach(this::connectionLost);
+        List<Future<Void>> callbacks = new ArrayList<>();
+        lost.forEach(requestKey -> callbacks.add(connectionLost(requestKey)));
+        return Future.all(callbacks).mapEmpty();
     }
 
     @Override
@@ -70,11 +75,21 @@ public class ConnectionLivenessWatcher implements RequestLivenessWatcher {
     // The callback is dispatched to the context the watch was started from rather than run inline: a burst of
     // lost requests drains as separate tasks, and watch() is called from inside the proxy's responseMap update,
     // which the callback's removal would re-enter
-    private void connectionLost(String requestKey) {
+    private Future<Void> connectionLost(String requestKey) {
+        Future<Void> ret = Future.succeededFuture();
         ConnectionWatch watch = watches.remove(requestKey);
         if (watch != null) {
-            watch.context().runOnContext(v -> watch.onConnectionLost().run());
+            Promise<Void> done = Promise.promise();
+            watch.context().runOnContext(v -> {
+                try {
+                    watch.onConnectionLost().run();
+                } finally {
+                    done.complete();
+                }
+            });
+            ret = done.future();
         }
+        return ret;
     }
 
 }

@@ -27,7 +27,6 @@ import org.kinotic.core.internal.utils.MetaUtil;
 import org.kinotic.core.internal.utils.TelemetryUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.InvocationHandler;
@@ -62,7 +61,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private final RpcTransport transport;
     // the participant an invocation is sent as, read when the invocation is made
     private final Supplier<Participant> callerParticipant;
-    private final ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
+    // the directory an unreachable service is reported against, or null for a process holding none
+    private final Supplier<ServiceDirectory> serviceDirectory;
     private final RequestLivenessWatcher requestLivenessWatcher;
     private final TextMapPropagator propagator;
     private final Tracer tracer;
@@ -86,7 +86,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                         RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory,
                                         RpcTransport transport,
                                         Supplier<Participant> callerParticipant,
-                                        ObjectProvider<ServiceDirectory> serviceDirectoryProvider,
+                                        Supplier<ServiceDirectory> serviceDirectory,
                                         RequestLivenessWatcher requestLivenessWatcher,
                                         Vertx vertx,
                                         ClassLoader classLoader,
@@ -100,7 +100,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         Validate.notNull(rpcReturnValueHandlerFactory, "returnValueHandlerFactory must not be null");
         Validate.notNull(transport, "transport must not be null");
         Validate.notNull(callerParticipant, "callerParticipant must not be null");
-        Validate.notNull(serviceDirectoryProvider, "serviceDirectoryProvider must not be null");
+        Validate.notNull(serviceDirectory, "serviceDirectory must not be null");
         Validate.notNull(requestLivenessWatcher, "requestLivenessWatcher must not be null");
         Validate.notNull(vertx, "vertx must not be null");
         Validate.notNull(classLoader, "classLoader must not be null");
@@ -115,7 +115,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         this.rpcReturnValueHandlerFactory = rpcReturnValueHandlerFactory;
         this.transport = transport;
         this.callerParticipant = callerParticipant;
-        this.serviceDirectoryProvider = serviceDirectoryProvider;
+        this.serviceDirectory = serviceDirectory;
         this.requestLivenessWatcher = requestLivenessWatcher;
         this.tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME);
         this.propagator = openTelemetry.getPropagators().getTextMapPropagator();
@@ -344,7 +344,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
 
                                                Throwable throwable = KinoticUtil.mapSendFailure(ar.cause(),
                                                                                                 requestCri,
-                                                                                                serviceDirectoryProvider.getIfAvailable());
+                                                                                                serviceDirectory.get());
                                                handler.processError(throwable);
                                            }catch (Exception e){
                                                log.error("URGENT: Unhandled exception in RpcReturnValueHandler.processError, Proxy Will be Released!!", e);

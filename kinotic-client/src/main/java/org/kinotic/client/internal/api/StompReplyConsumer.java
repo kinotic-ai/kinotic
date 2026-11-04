@@ -54,7 +54,7 @@ public class StompReplyConsumer implements EventConsumer {
 
     /**
      * @return completes once the gateway has receipted the subscription on the current connection, or fails when
-     *         the connection ends first
+     *         the connection ends first or the receipt is overdue, which ends the connection
      */
     Future<Void> ready() {
         return ready;
@@ -68,7 +68,14 @@ public class StompReplyConsumer implements EventConsumer {
         this.subscriptionId = subscriptionId;
         this.destination = destination;
         this.ready = receipt;
-        receipt.onSuccess(v -> completion.tryComplete());
+        // the registration completes or fails with the first subscription's receipt
+        receipt.onComplete(ar -> {
+            if (ar.succeeded()) {
+                completion.tryComplete();
+            } else {
+                completion.tryFail(ar.cause());
+            }
+        });
     }
 
     void unsubscribed() {

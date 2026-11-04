@@ -38,8 +38,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Default {@link KinoticConnection}: a STOMP connection to the gateway's WebSocket endpoint, kept alive across
@@ -107,9 +106,12 @@ public class DefaultKinoticConnection implements KinoticConnection {
         Validate.isTrue(serverUri.getScheme() != null && WEBSOCKET_SCHEMES.contains(serverUri.getScheme()),
                         "serverUrl must be a ws:// or wss:// URL but was '%s'", options.getServerUrl());
         Validate.isTrue(serverUri.getHost() != null, "serverUrl must name a host but was '%s'", options.getServerUrl());
+        Validate.isTrue(!serverUri.getPath().endsWith(GATEWAY_PATH),
+                        "serverUrl names the gateway without its %s path, which the client appends itself", GATEWAY_PATH);
         Validate.isTrue(serverUri.getQuery() == null && serverUri.getFragment() == null,
                         "serverUrl must carry no query or fragment but was '%s'", options.getServerUrl());
         Validate.notNull(options.getOpenTelemetry(), "openTelemetry must not be null");
+        Validate.isTrue(options.getAuthHeaders().keySet().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null key");
         Validate.isTrue(options.getAuthHeaders().values().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null value");
         Validate.isTrue(options.getMaxFrameSize() >= 1, "maxFrameSize must be at least 1 byte");
         ReconnectOptions reconnect = options.getReconnect();
@@ -129,7 +131,11 @@ public class DefaultKinoticConnection implements KinoticConnection {
 
     private DefaultKinoticConnection(Vertx vertx, ConnectOptions options) {
         this.options = options;
-        JsonMapper.Builder jsonMapperBuilder = RpcServiceProxyFactory.jsonMapperBuilder();
+        // the gateway's participant model is not on this classpath, so a participant is read as what every participant has
+        SimpleModule participantModule = new SimpleModule("KinoticClientModule")
+                .addAbstractTypeMapping(Participant.class, ConnectedParticipant.class);
+        // registered before the customizer, whose own mapping of a participant then takes precedence
+        JsonMapper.Builder jsonMapperBuilder = RpcServiceProxyFactory.jsonMapperBuilder().addModule(participantModule);
         if (options.getJsonMapperCustomizer() != null) {
             options.getJsonMapperCustomizer().accept(jsonMapperBuilder);
         }
@@ -139,17 +145,16 @@ public class DefaultKinoticConnection implements KinoticConnection {
         // called on and shares its context with no other connection
         this.context = ((ContextInternal) vertx.getOrCreateContext()).duplicate();
         this.livenessWatcher = new ConnectionLivenessWatcher(vertx);
-        this.transport = new StompRpcTransport(context, options.getServerUrl(), NODE_NAME);
+        this.transport = new StompRpcTransport(context, options.getServerUrl(), NODE_NAME,
+                                               options.getReconnect().getConnectionTimeout().toMillis());
         KinoticProperties properties = new KinoticProperties().setMaxEventPayloadSize(options.getMaxFrameSize());
         this.proxyFactory = new RpcServiceProxyFactory(transport, livenessWatcher, vertx, options.getOpenTelemetry(),
                                                        properties, jsonMapper, NODE_NAME);
-        // the gateway's participant model is not on this classpath, so the participant is read as what every participant has
-        SimpleModule participantModule = new SimpleModule("KinoticClientModule")
-                .addAbstractTypeMapping(Participant.class, ConnectedParticipant.class);
-        this.connectedInfoReader = jsonMapper.rebuild()
-                                             .addModule(participantModule)
-                                             .build()
-                                             .readerFor(ConnectedInfo.class);
+        // the CONNECTED frame is the client's own protocol, read by a mapper the customizer never touched
+        this.connectedInfoReader = RpcServiceProxyFactory.jsonMapperBuilder()
+                                                         .addModule(participantModule)
+                                                         .build()
+                                                         .readerFor(ConnectedInfo.class);
     }
 
     private Future<KinoticConnection> start() {
@@ -231,37 +236,36 @@ public class DefaultKinoticConnection implements KinoticConnection {
 
     private void attemptConnection() {
         reconnectTimer = -1;
-        ReconnectOptions reconnect = options.getReconnect();
-        WebSocketConnectOptions webSocketOptions = new WebSocketConnectOptions()
-                .setAbsoluteURI(options.getServerUrl().replaceAll("/+$", "") + GATEWAY_PATH)
-                .setTimeout(reconnect.getConnectionTimeout().toMillis());
-        if (options.getSslOptions() != null) {
-            webSocketOptions.setSslOptions(options.getSslOptions());
-        }
-        options.getAuthHeaders().forEach(webSocketOptions::putHeader);
-
-        // One outcome per attempt: the first of the CONNECTED frame, a failure and the timeout settles it, and a
-        // connection the gateway accepts after that belongs to no attempt and is closed
-        AtomicBoolean settled = new AtomicBoolean(false);
-        long timer = vertx.setTimer(reconnect.getConnectionTimeout().toMillis(), id -> {
-            if (settled.compareAndSet(false, true)) {
-                attemptFailed(new TimeoutException("The gateway at " + options.getServerUrl() + " did not accept the connection within "
-                                                           + reconnect.getConnectionTimeout().toMillis() + " ms"));
+        try {
+            ReconnectOptions reconnect = options.getReconnect();
+            WebSocketConnectOptions webSocketOptions = new WebSocketConnectOptions()
+                    .setAbsoluteURI(options.getServerUrl().replaceAll("/+$", "") + GATEWAY_PATH)
+                    .setTimeout(reconnect.getConnectionTimeout().toMillis());
+            if (options.getSslOptions() != null) {
+                webSocketOptions.setSslOptions(options.getSslOptions());
             }
-        });
-        stompClient.connect(webSocketOptions, CONNECT_HEADERS)
+            options.getAuthHeaders().forEach(webSocketOptions::putHeader);
+
+            // the attempt as a whole is bounded by the connection timeout; a connection the gateway accepts after
+            // the attempt was settled belongs to no attempt and is closed
+            Future<StompClientConnection> attempt = stompClient.connect(webSocketOptions, CONNECT_HEADERS);
+            attempt.timeout(reconnect.getConnectionTimeout().toMillis(), TimeUnit.MILLISECONDS)
                    .onComplete(ar -> {
-                       if (settled.compareAndSet(false, true)) {
-                           vertx.cancelTimer(timer);
-                           if (ar.succeeded()) {
-                               connectionAccepted(ar.result());
-                           } else {
-                               attemptFailed(ar.cause());
-                           }
-                       } else if (ar.succeeded()) {
-                           ar.result().close();
+                       if (ar.succeeded()) {
+                           connectionAccepted(ar.result());
+                       } else {
+                           attemptFailed(ar.cause());
                        }
                    });
+            attempt.onSuccess(connection -> {
+                if (connection != current) {
+                    connection.close();
+                }
+            });
+        } catch (Exception e) {
+            // a throw here would otherwise leave the attempt unsettled, which no caller can detect
+            attemptFailed(e);
+        }
     }
 
     private void connectionAccepted(StompClientConnection connection) {
@@ -321,16 +325,15 @@ public class DefaultKinoticConnection implements KinoticConnection {
             current = null;
             currentConnectionId = null;
             transport.disconnected();
-            livenessWatcher.connectionEnded(connectionId);
+            Future<Void> pendingFailed = livenessWatcher.connectionEnded(connectionId);
             if (!closing) {
                 log.warn("The connection to {} was lost, reconnecting", options.getServerUrl(), cause);
-                // the watcher dispatched the failures of the pending calls to this context, so a state change queued
-                // behind them is seen once every pending call has failed
-                context.runOnContext(v -> {
+                // reported once every pending call has failed, on whichever context its caller's watch ran that
+                pendingFailed.onComplete(ar -> context.runOnContext(v -> {
                     if (!closing) {
                         changeState(ConnectionState.RECONNECTING);
                     }
-                });
+                }));
                 scheduleAttempt();
             }
         }

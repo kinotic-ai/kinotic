@@ -4,7 +4,6 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.RpcTransport;
 import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
@@ -27,10 +26,7 @@ import org.kinotic.core.internal.api.service.rpc.types.FluxReturnValueHandlerFac
 import org.kinotic.core.internal.api.service.rpc.types.MonoRpcReturnValueHandlerFactory;
 import org.kinotic.core.internal.api.service.rpc.types.VertxFutureRpcReturnValueHandlerFactory;
 import org.kinotic.core.internal.config.KinoticJacksonConfig;
-import org.kinotic.vertx.jackson3.VertxJackson3Module;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.ReactiveAdapterRegistry;
-import tools.jackson.databind.MapperFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -54,14 +50,6 @@ public class RpcServiceProxyFactory {
     private final RpcReturnValueHandlerFactory returnValueHandlerFactory;
     private final TraceLogFilter traceLogFilter;
     private final OpenTelemetry openTelemetry;
-    // a process outside the cluster holds no service directory to report an unreachable service to
-    private final ObjectProvider<ServiceDirectory> serviceDirectoryProvider = new ObjectProvider<>() {
-        @Override
-        public ServiceDirectory getIfAvailable() {
-            return null;
-        }
-    };
-
     /**
      * @param transport              carries the proxies' requests and replies
      * @param requestLivenessWatcher fails a proxy's request when the receiver its acknowledgement named is gone
@@ -117,10 +105,7 @@ public class RpcServiceProxyFactory {
      * @return the builder
      */
     public static JsonMapper.Builder jsonMapperBuilder() {
-        return JsonMapper.builder()
-                         .addModule(new VertxJackson3Module())
-                         .addModule(KinoticJacksonConfig.kinoticCoreModule())
-                         .disable(MapperFeature.DETECT_PARAMETER_NAMES);
+        return KinoticJacksonConfig.configure(JsonMapper.builder());
     }
 
     /**
@@ -151,10 +136,11 @@ public class RpcServiceProxyFactory {
                                                   // a process outside the cluster authenticates no participant of its
                                                   // own; the gateway names the connection's participant as the sender
                                                   () -> null,
-                                                  serviceDirectoryProvider,
+                                                  // and holds no service directory to report an unreachable service to
+                                                  () -> null,
                                                   requestLivenessWatcher,
                                                   vertx,
-                                                  Thread.currentThread().getContextClassLoader(),
+                                                  serviceInterface.getClassLoader(),
                                                   openTelemetry,
                                                   traceLogFilter);
     }

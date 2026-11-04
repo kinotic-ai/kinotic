@@ -1,5 +1,6 @@
 package org.kinotic.client;
 
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -76,10 +77,12 @@ public class KinoticConnectionTests {
 
     @AfterEach
     public void closeConnections() throws Exception {
-        for (KinoticConnection connection : connections) {
-            connection.close().toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        try {
+            List<Future<Void>> closes = connections.stream().map(KinoticConnection::close).toList();
+            Future.all(closes).toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } finally {
+            connections.clear();
         }
-        connections.clear();
     }
 
     @Test

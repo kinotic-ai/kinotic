@@ -42,7 +42,7 @@ public class ConnectOptions {
     private ClientSSLOptions sslOptions;
 
     /**
-     * The largest reply the client accepts, in bytes; a larger frame ends the connection. A request larger than the
+     * The largest reply the client accepts, in bytes; a reply whose body reaches it ends the connection. A request larger than the
      * gateway's {@code kinotic.maxEventPayloadSize} is refused by the gateway. Defaults to that property's default.
      */
     private int maxFrameSize = new KinoticProperties().getMaxEventPayloadSize();

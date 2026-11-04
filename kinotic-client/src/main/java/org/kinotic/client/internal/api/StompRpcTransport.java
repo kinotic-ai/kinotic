@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The {@link RpcTransport} of a gateway connection: requests go out as STOMP SEND frames and replies come back
@@ -48,6 +49,8 @@ public class StompRpcTransport implements RpcTransport {
     private final Context context;
     private final String serverUrl;
     private final String nodeName;
+    // how long the gateway has to receipt a subscription before the connection counts as lost
+    private final long subscriptionTimeoutMillis;
     // by the address a proxy listens on, which its requests name as their reply-to
     private final Map<String, StompReplyConsumer> consumers = new HashMap<>();
     private StompClientConnection connection;
@@ -171,10 +174,15 @@ public class StompRpcTransport implements RpcTransport {
                                      address.resourceName(),
                                      address.path(),
                                      address.version());
+        StompClientConnection subscribedOn = connection;
         Future<Void> receipt = connection.subscribe(subscriptionId,
                                                     destination.raw(),
                                                     Map.of(Frame.RECEIPT, subscriptionId),
-                                                    frame -> consumer.deliver(toEvent(frame)));
+                                                    frame -> consumer.deliver(toEvent(frame)))
+                                         .timeout(subscriptionTimeoutMillis, TimeUnit.MILLISECONDS);
+        // a gateway that confirms no subscription cannot carry the proxy's calls, so the connection is lost and the
+        // reconnect subscribes again; a receipt the gateway refused ends the connection already
+        receipt.onFailure(cause -> subscribedOn.close());
         consumer.subscribed(subscriptionId, destination, receipt);
     }
 
