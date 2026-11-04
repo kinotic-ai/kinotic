@@ -1,6 +1,5 @@
 package org.kinotic.client.internal.api;
 
-import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
@@ -69,7 +68,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
 
     private final ConnectOptions options;
     private final Vertx vertx;
-    private final Context context;
+    private final ContextInternal context;
     private final StompRpcTransport transport;
     private final ConnectionLivenessWatcher livenessWatcher;
     private final RpcServiceProxyFactory proxyFactory;
@@ -158,7 +157,9 @@ public class DefaultKinoticConnection implements KinoticConnection {
     }
 
     private Future<KinoticConnection> start() {
-        Promise<KinoticConnection> promise = Promise.promise();
+        // a promise of the context reports a throw from the caller's handler to the context, where a context-less
+        // one would drop it
+        Promise<KinoticConnection> promise = context.promise();
         initialConnect = promise;
         context.runOnContext(v -> {
             stompClient = StompClient.create(vertx, new StompClientOptions()
@@ -202,7 +203,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
 
     @Override
     public Future<Void> close() {
-        Promise<Void> promise = Promise.promise();
+        Promise<Void> promise = context.promise();
         context.runOnContext(v -> closeOnContext().onComplete(promise));
         return promise.future();
     }
@@ -328,9 +329,10 @@ public class DefaultKinoticConnection implements KinoticConnection {
             Future<Void> pendingFailed = livenessWatcher.connectionEnded(connectionId);
             if (!closing) {
                 log.warn("The connection to {} was lost, reconnecting", options.getServerUrl(), cause);
-                // reported once every pending call has failed, on whichever context its caller's watch ran that
+                // reported once every pending call has failed, on whichever context its caller's watch ran that,
+                // unless a connection was established or the close began in the meantime
                 pendingFailed.onComplete(ar -> context.runOnContext(v -> {
-                    if (!closing) {
+                    if (!closing && current == null) {
                         changeState(ConnectionState.RECONNECTING);
                     }
                 }));

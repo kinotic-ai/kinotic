@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 /**
- * Options for {@link KinoticConnection#connect(ConnectOptions)}.
+ * Options for {@link KinoticConnection#connect(io.vertx.core.Vertx, ConnectOptions)}.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
