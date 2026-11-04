@@ -10,6 +10,7 @@ deployment/terraform/azure/
 │   ├── main.tf
 │   ├── email.tf
 │   ├── keyvault.tf
+│   ├── license.tf             # Key Vault key that signs Kinotic Enterprise License keys
 │   └── terraform.tfvars
 ├── cluster/                   # AKS, K8s resources — destroy and rebuild freely
 │   ├── main.tf
@@ -62,8 +63,8 @@ cd deployment/terraform/azure
 ### 3. Create the terraform operators group (once)
 
 The platform Key Vault uses RBAC, and `global/keyvault.tf` grants the
-`Key Vault Secrets Officer` data-plane role to the `kinotic-terraform-operators`
-Entra group. Anyone who runs `terraform apply` in `global/` must be a member.
+`Key Vault Secrets Officer` data-plane role, and `global/license.tf` the `Key Vault Crypto Officer`
+role for the license signing key, to the `kinotic-terraform-operators` Entra group. Anyone who runs `terraform apply` in `global/` must be a member.
 
 ```bash
 GROUP_ID=$(az ad group create --display-name kinotic-terraform-operators \
