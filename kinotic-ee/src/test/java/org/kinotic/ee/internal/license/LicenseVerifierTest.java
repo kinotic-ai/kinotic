@@ -8,7 +8,8 @@ import org.springframework.core.env.StandardEnvironment;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
+import java.security.GeneralSecurityException;
+import java.security.spec.ECGenParameterSpec;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
@@ -29,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class LicenseVerifierTest {
 
-    private final KeyPair trusted = ed25519();
+    private final KeyPair trusted = p256();
     private final LicenseVerifier verifier = new LicenseVerifier(trusted.getPublic());
 
     @Test
@@ -39,7 +40,7 @@ class LicenseVerifierTest {
                          .subject("Acme")
                          .expiration(Date.from(expiresAt))
                          .claim("features", List.of("ENTERPRISE_IDENTITY_PROVIDERS", "A_FEATURE_OF_A_NEWER_SERVER"))
-                         .signWith(trusted.getPrivate())
+                         .signWith(trusted.getPrivate(), Jwts.SIG.ES256)
                          .compact();
         License license = verifier.verify(key);
         assertEquals("Acme", license.licensee());
@@ -55,7 +56,7 @@ class LicenseVerifierTest {
                          .subject("Acme")
                          .expiration(Date.from(Instant.now().plus(1, ChronoUnit.DAYS)))
                          .claim("features", List.of("AZURE_KEY_VAULT"))
-                         .signWith(ed25519().getPrivate())
+                         .signWith(p256().getPrivate(), Jwts.SIG.ES256)
                          .compact();
         assertThrows(JwtException.class, () -> verifier.verify(key));
     }
@@ -66,7 +67,7 @@ class LicenseVerifierTest {
                          .subject("Acme")
                          .expiration(Date.from(Instant.now().minus(1, ChronoUnit.DAYS)))
                          .claim("features", List.of("AZURE_KEY_VAULT"))
-                         .signWith(trusted.getPrivate())
+                         .signWith(trusted.getPrivate(), Jwts.SIG.ES256)
                          .compact();
         assertThrows(JwtException.class, () -> verifier.verify(key));
     }
@@ -75,9 +76,9 @@ class LicenseVerifierTest {
     void aKeyNamingNoLicenseeOrExpiryIsRefused() {
         String noLicensee = Jwts.builder()
                                 .expiration(Date.from(Instant.now().plus(1, ChronoUnit.DAYS)))
-                                .signWith(trusted.getPrivate())
+                                .signWith(trusted.getPrivate(), Jwts.SIG.ES256)
                                 .compact();
-        String noExpiry = Jwts.builder().subject("Acme").signWith(trusted.getPrivate()).compact();
+        String noExpiry = Jwts.builder().subject("Acme").signWith(trusted.getPrivate(), Jwts.SIG.ES256).compact();
         assertThrows(IllegalArgumentException.class, () -> verifier.verify(noLicensee));
         assertThrows(IllegalArgumentException.class, () -> verifier.verify(noExpiry));
     }
@@ -94,10 +95,12 @@ class LicenseVerifierTest {
         return ret;
     }
 
-    private static KeyPair ed25519() {
+    private static KeyPair p256() {
         try {
-            return KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
-        } catch (NoSuchAlgorithmException e) {
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");
+            generator.initialize(new ECGenParameterSpec("secp256r1"));
+            return generator.generateKeyPair();
+        } catch (GeneralSecurityException e) {
             throw new IllegalStateException(e);
         }
     }

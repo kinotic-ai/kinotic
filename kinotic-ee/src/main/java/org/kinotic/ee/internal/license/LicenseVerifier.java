@@ -19,8 +19,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Verifies Kinotic Enterprise License keys. A key is a JWT signed with Minds Ignited's Ed25519 license signing key:
- * its {@code sub} names the licensee, its {@code exp} is when the license expires, and its {@code features} claim
+ * Verifies Kinotic Enterprise License keys. A key is a JWT signed with ES256 by Minds Ignited's EC P-256 license
+ * signing key: its {@code sub} names the licensee, its {@code exp} is when the license expires, and its {@code features} claim
  * lists the {@link EnterpriseFeature} names it turns on.
  */
 @Slf4j
@@ -29,9 +29,9 @@ public class LicenseVerifier {
     /** The property holding the server's license key. */
     public static final String LICENSE_KEY_PROPERTY = "kinotic.ee.licenseKey";
 
-    // X.509 SubjectPublicKeyInfo of Minds Ignited's Ed25519 license signing key, Base64 without the PEM armor.
+    // X.509 SubjectPublicKeyInfo of Minds Ignited's EC P-256 license signing key, Base64 without the PEM armor.
     // TODO before merge: replace this throwaway key, whose private key was discarded, with Minds Ignited's public key
-    private static final String TRUSTED_PUBLIC_KEY = "MCowBQYDK2VwAyEAtC/X6nEM52IvA1TMTOi+4Tkf5tl4+asVoemtbb2WK1w=";
+    private static final String TRUSTED_PUBLIC_KEY = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkYFsxwbhq11bFWK1REL7m2yyP4K/ukypr6iwbLufkrjG4cG+Fq6PnMQcVGV/XwoIU8zS9Im1sw5Q0MfvkQIqVA==";
 
     private static final String FEATURES_CLAIM = "features";
 
@@ -46,7 +46,7 @@ public class LicenseVerifier {
     private static LicenseVerifier trusted() {
         try {
             X509EncodedKeySpec spec = new X509EncodedKeySpec(Base64.getDecoder().decode(TRUSTED_PUBLIC_KEY));
-            return new LicenseVerifier(KeyFactory.getInstance("Ed25519").generatePublic(spec));
+            return new LicenseVerifier(KeyFactory.getInstance("EC").generatePublic(spec));
         } catch (Exception e) {
             throw new IllegalStateException("The trusted license signing key cannot be read", e);
         }
