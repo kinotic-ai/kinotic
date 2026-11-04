@@ -42,9 +42,8 @@ public class ConnectOptions {
     private ClientSSLOptions sslOptions;
 
     /**
-     * The largest STOMP frame the connection carries in either direction, in bytes: a larger reply ends the
-     * connection, and a request is written in WebSocket frames up to it, so it must not exceed the gateway's
-     * {@code kinotic.maxEventPayloadSize}. Defaults to that property's default.
+     * The largest reply the client accepts, in bytes; a larger frame ends the connection. A request larger than the
+     * gateway's {@code kinotic.maxEventPayloadSize} is refused by the gateway. Defaults to that property's default.
      */
     private int maxFrameSize = new KinoticProperties().getMaxEventPayloadSize();
 

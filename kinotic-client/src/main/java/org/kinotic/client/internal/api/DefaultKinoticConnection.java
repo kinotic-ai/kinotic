@@ -38,7 +38,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -413,11 +412,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
             }
             handles.forEach(RpcServiceProxyHandle::release);
             handles.clear();
-            // a gateway that is gone answers the DISCONNECT with nothing, so its receipt is waited for no longer
-            // than an attempt would be, and the socket is closed with the client either way
-            Future<Void> disconnected = current != null
-                    ? current.disconnect().timeout(options.getReconnect().getConnectionTimeout().toMillis(), TimeUnit.MILLISECONDS)
-                    : Future.succeededFuture();
+            Future<Void> disconnected = current != null ? current.disconnect() : Future.succeededFuture();
             closed = disconnected.transform(ar -> stompClient != null ? stompClient.close() : Future.succeededFuture())
                                  .transform(ar -> {
                                      changeState(ConnectionState.CLOSED);
