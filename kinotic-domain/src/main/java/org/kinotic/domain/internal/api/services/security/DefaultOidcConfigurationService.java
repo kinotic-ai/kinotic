@@ -7,6 +7,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.api.ee.services.OrganizationIdentityProvider;
 import org.kinotic.domain.api.model.security.ApplicationOidcConfiguration;
 import org.kinotic.domain.api.model.security.ApplicationSocialOidcConfiguration;
 import org.kinotic.domain.api.model.security.ManagedOidcConfiguration;
@@ -44,13 +45,15 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
     private final SecretStorageService secretStorageService;
     private final SecurityContext securityContext;
     private final OrganizationSignInGuard signInGuard;
+    private final Map<OidcProviderType, OrganizationIdentityProvider> identityProviders;
 
     public DefaultOidcConfigurationService(OidcConfigurationRepository repository,
                                            ApplicationRepository applicationRepository,
                                            TenantRepository tenantRepository,
                                            SecretStorageService secretStorageService,
                                            SecurityContext securityContext,
-                                           OrganizationSignInGuard signInGuard) {
+                                           OrganizationSignInGuard signInGuard,
+                                           List<OrganizationIdentityProvider> identityProviders) {
         super(repository);
         this.oidcRepository = repository;
         this.applicationRepository = applicationRepository;
@@ -58,6 +61,8 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
         this.secretStorageService = secretStorageService;
         this.securityContext = securityContext;
         this.signInGuard = signInGuard;
+        this.identityProviders = identityProviders.stream()
+                                                  .collect(Collectors.toMap(OrganizationIdentityProvider::type, provider -> provider));
     }
 
     @Override
@@ -79,7 +84,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                 // a configuration signing in through its own client names it, or every sign-in fails at the provider
                 Validate.isTrue(StringUtils.isNotBlank(owned.getClientId()),
                                 "%s needs the client id of its registration with the provider", owned.getClass().getSimpleName());
-                owned.setAuthority(owned.getProvider().authority(owned.getProviderAccount()));
+                owned.setAuthority(requireIdentityProvider(owned.getProvider()).authority(owned.getProviderAccount()));
             }
             if (owned instanceof OrganizationOidcConfiguration) {
                 // an organization's members are added by its administrators, whom its provider then signs in
@@ -131,6 +136,13 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                 .compose(v -> offeredAtOrganizationLogin(found) && !entity.isEnabled()
                         ? signInGuard.requireMembersKeepSignInWithout(((OrganizationOidcConfiguration) found).getOrganizationId(), found.getId())
                         : Future.succeededFuture()));
+    }
+
+    private OrganizationIdentityProvider requireIdentityProvider(OidcProviderType provider) {
+        OrganizationIdentityProvider ret = identityProviders.get(provider);
+        Validate.isTrue(ret != null, "An organization cannot configure a %s provider with a client of its own on this server;"
+                + " Okta and Microsoft Entra are Kinotic Enterprise Features", provider.key());
+        return ret;
     }
 
     // whether configuration is one the organization's own login offers, which members may sign in through
