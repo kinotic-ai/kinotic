@@ -492,6 +492,8 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Run E2E tests
+        env:
+          KINOTIC_EE_LICENSEKEY: ${{ secrets.KINOTIC_EE_LICENSE_KEY }}
         run: |
           cd kinotic-js/e2e-tests
           docker compose -f ../../deployment/docker-compose/compose.elasticsearch.yml pull --quiet &

@@ -29,7 +29,7 @@ dependencies {
 	implementation "com.github.ben-manes.caffeine:caffeine"
 
 
-	// The OIDC configuration tests save Okta and Microsoft Entra configurations, whose providers are Enterprise Features
+	// KinoticTestBeansConfiguration registers the Okta and Microsoft Entra providers the OIDC configuration tests save
 	testImplementation project(':kinotic-ee')
 
 	// PersistenceInitializer injects HealthChecks (normally provided by the api-gateway module,

@@ -18,6 +18,8 @@ x-kinotic-server-e2e-environment: &kinotic-server-e2e-environment
   # KinoticJwtIssuer signs every access token with these keys, the dummy set mounted below; without it
   # the OAuth token endpoints cannot mint a token.
   KINOTIC_DOMAIN_SYSTEMSECRETS_JWTSIGNINGKEYSPATH: /system-secrets/jwt-signing-keys
+  # The suites save Okta and Microsoft Entra configurations, an Enterprise Feature the license key turns on
+  KINOTIC_EE_LICENSEKEY: ${KINOTIC_EE_LICENSEKEY:-}
   # The nodes find each other over this static address list and form one Ignite cluster. A node
   # the running suite did not start does not resolve; Ignite logs the miss and carries on.
   KINOTIC_IGNITE_DISCOVERYTYPE: LOCAL
