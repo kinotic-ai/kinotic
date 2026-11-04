@@ -4853,7 +4853,7 @@ Your organization administrator adds the application's sign-in providers in the 
 </tbody>
 </table>
 
-Okta, and Google or Microsoft for one tenant, always use your own credentials. Sign-in and sign-up behave the same either way. Switching a provider between the two is an edit of the same configuration, and its users stay the same users: a user is bound to the identifier the provider gives the person under every client it registers — Google's `sub`, Microsoft's directory and object ids — so a person who signed up under Kinotic's registration signs in under yours, and back. One exception: Microsoft identifies a guest (B2B) user by the directory they sign in to, and Kinotic's registration signs a guest in through their home directory while your own registration naming your directory signs them in through yours. A guest who signed up one way is therefore not recognized the other way, in either direction of a switch: their email already has a user, so the sign-in is refused with `user_exists`, or with `no_user` where the provider does not sign people up. A configuration using Kinotic's registration keeps any client ID and secret it holds, so switching back needs no new setup. Kinotic's registration is shared by every application that uses it, so a user who revokes it at the provider revokes it for all of them.
+Okta, and Google or Microsoft for one tenant, always use your own credentials. Okta and Microsoft with your own credentials are [Enterprise Features](https://kinotic.ai/platform/enterprise-license); Google, and Microsoft managed by Kinotic, are not. Sign-in and sign-up behave the same either way. Switching a provider between the two is an edit of the same configuration, and its users stay the same users: a user is bound to the identifier the provider gives the person under every client it registers — Google's `sub`, Microsoft's directory and object ids — so a person who signed up under Kinotic's registration signs in under yours, and back. One exception: Microsoft identifies a guest (B2B) user by the directory they sign in to, and Kinotic's registration signs a guest in through their home directory while your own registration naming your directory signs them in through yours. A guest who signed up one way is therefore not recognized the other way, in either direction of a switch: their email already has a user, so the sign-in is refused with `user_exists`, or with `no_user` where the provider does not sign people up. A configuration using Kinotic's registration keeps any client ID and secret it holds, so switching back needs no new setup. Kinotic's registration is shared by every application that uses it, so a user who revokes it at the provider revokes it for all of them.
 
 A provider's `createUserOnSignIn` is its `signUp`: on, it signs new people up where the scope admits them, as described above.
 
@@ -5613,6 +5613,8 @@ Once your first app is deployed, explore the rest of the documentation:
 
 An **authentication provider** is an identity provider, such as Okta or a Microsoft Entra ID directory, that your organization's members use to sign in to the Kinotic portal.
 
+Google is included with every Kinotic server. Okta and Microsoft Entra ID through your organization's own client are [Enterprise Features](https://kinotic.ai/platform/enterprise-license), whether your organization offers them at its own login, an application's login or a tenant's login. An application's login can still offer Microsoft through Kinotic's managed registration without them.
+
 You add providers in the Kinotic portal under **Organization settings > Authentication providers**. Each provider is offered on your organization's login page once its **callback URL** is registered at the provider.
 
 ## Setup order
@@ -5640,6 +5642,7 @@ The setup goes back and forth once: you create the app in Okta, add the provider
 
 ## Prerequisites
 
+- A Kinotic server with the Enterprise Features. Okta sign-in is an [Enterprise Feature](https://kinotic.ai/platform/enterprise-license).
 - Administrator access to your **Okta Admin Console** (for example `https://yourorg-admin.okta.com`).
 - Administrator access to your **Kinotic organization**.
 
@@ -11608,6 +11611,26 @@ Enterprise Extension Point.
       </code>
       
       , the default), which keeps secrets in process memory and loses them on restart
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Okta and Microsoft Entra ID sign-in through an organization's own client, at the organization's login, an application's login or a tenant's login
+    </td>
+    
+    <td>
+      <code>
+        org.kinotic.domain.api.ee.services.OrganizationIdentityProvider
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        GoogleIdentityProvider
+      </code>
+      
+      , which signs in with Google. Microsoft sign-in through Kinotic's managed registration is not an Enterprise Feature
     </td>
   </tr>
 </tbody>

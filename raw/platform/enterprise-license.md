@@ -151,6 +151,26 @@ Enterprise Extension Point.
       , the default), which keeps secrets in process memory and loses them on restart
     </td>
   </tr>
+  
+  <tr>
+    <td>
+      Okta and Microsoft Entra ID sign-in through an organization's own client, at the organization's login, an application's login or a tenant's login
+    </td>
+    
+    <td>
+      <code>
+        org.kinotic.domain.api.ee.services.OrganizationIdentityProvider
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        GoogleIdentityProvider
+      </code>
+      
+      , which signs in with Google. Microsoft sign-in through Kinotic's managed registration is not an Enterprise Feature
+    </td>
+  </tr>
 </tbody>
 </table>
 

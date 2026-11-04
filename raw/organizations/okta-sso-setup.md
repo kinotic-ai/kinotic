@@ -13,6 +13,7 @@ The setup goes back and forth once: you create the app in Okta, add the provider
 
 ## Prerequisites
 
+- A Kinotic server with the Enterprise Features. Okta sign-in is an [Enterprise Feature](https://kinotic.ai/platform/enterprise-license).
 - Administrator access to your **Okta Admin Console** (for example `https://yourorg-admin.okta.com`).
 - Administrator access to your **Kinotic organization**.
 
