@@ -16,8 +16,13 @@ so humans and AI can build enterprise software at internet scale.
 [![Java 25](https://img.shields.io/badge/Java-25-171717)](buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle)
 [![License Elastic 2.0 + Apache 2.0 + Enterprise](https://img.shields.io/badge/license-Elastic%202.0%20%2B%20Apache%202.0%20%2B%20Enterprise-28FEB4)](LICENSE.md)
 [![Documentation](https://img.shields.io/badge/docs-kinotic.ai-171717)](https://kinotic.ai/docs/)
+[![GitHub stars](https://img.shields.io/github/stars/kinotic-ai/kinotic?style=flat&color=28FEB4)](https://github.com/kinotic-ai/kinotic/stargazers)
 
-[Website](https://kinotic.ai) · [Documentation](https://kinotic.ai/docs/) · [Get Started](https://kinotic.ai/get-started/) · [Test Reports](https://kinotic.ai/test-results)
+[Website](https://kinotic.ai) · [Documentation](https://kinotic.ai/docs/) · [Get Started](https://kinotic.ai/get-started/) · [Test Reports](https://kinotic.ai/test-results) · [Videos](https://www.youtube.com/@Kinoticsoftware)
+
+<a href="https://www.youtube.com/watch?v=PLiqZyAafiU"><img src="https://img.youtube.com/vi/PLiqZyAafiU/maxresdefault.jpg" width="640" alt="Watch the Kinotic demo video"></a>
+
+If Kinotic is useful or interesting to you, please ⭐ star the repo. It helps others find it.
 
 </div>
 
@@ -455,6 +460,16 @@ AI agents should not need to understand every cloud API, Kubernetes primitive, n
 They need a higher-level operating environment.
 
 **That's what Kinotic is.**
+
+## Support the project
+
+- ⭐ [Star the repo](https://github.com/kinotic-ai/kinotic) so more developers can find Kinotic
+- 👀 Watch releases to follow new versions
+- 🐛 [Open an issue](https://github.com/kinotic-ai/kinotic/issues) with bugs, questions, or ideas
+- 🛠️ Pick up a [good first issue](https://github.com/kinotic-ai/kinotic/labels/good%20first%20issue)
+- 🎬 Watch more on [YouTube](https://www.youtube.com/@Kinoticsoftware)
+
+[![Star History Chart](https://api.star-history.com/svg?repos=kinotic-ai/kinotic&type=Date)](https://star-history.com/#kinotic-ai/kinotic&Date)
 
 ---
 
