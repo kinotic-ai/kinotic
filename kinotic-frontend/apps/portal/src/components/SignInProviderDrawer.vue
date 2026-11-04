@@ -37,6 +37,9 @@
             <span class="flex-1">{{ choiceName(choice) }}</span>
             <Lock :size="14" :stroke-width="1.75" class="text-surface-400" aria-hidden="true" />
           </div>
+          <p v-if="enterpriseProvider" class="mt-1.5 text-[0.8125rem] text-muted-color">
+            {{ providerDisplayName(provider) }} with your own credentials is a Kinotic Enterprise Feature.
+          </p>
         </div>
 
         <div v-if="applicationId !== null">
@@ -231,6 +234,9 @@ const REGISTRATION_OPTIONS = [
   }
 ]
 
+/** The provider kinds whose sign-in through an organization's own client is a Kinotic Enterprise Feature. */
+const ENTERPRISE_PROVIDERS: OidcProviderType[] = [OidcProviderType.AZURE_AD, OidcProviderType.OKTA]
+
 const PASSWORD = 'password' as const
 /** What the provider list offers: an OIDC provider kind, or an email and a password. */
 type ProviderChoice = OidcProviderType | typeof PASSWORD
@@ -263,6 +269,10 @@ const callbackUrl = ref<string | null>(null)
 
 const isNew = computed(() => props.configuration === null && props.password === null)
 const isPassword = computed(() => choice.value === PASSWORD)
+// an organization's own client for these providers is an Enterprise Feature; Kinotic's managed registration is not
+const enterpriseProvider = computed(() => !isPassword.value
+    && ENTERPRISE_PROVIDERS.includes(provider.value)
+    && !managed.value)
 /** The scopes a new email and password may be offered at: those that take none yet. */
 const freePasswordScopes = computed(() => [null, ...(props.applicationId === null ? [] : props.tenants.map(tenant => tenant.id))]
     .filter(scope => !props.passwordScopes.includes(scope)))

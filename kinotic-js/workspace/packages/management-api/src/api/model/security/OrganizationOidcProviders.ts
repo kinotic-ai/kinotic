@@ -3,8 +3,9 @@ import type { OrganizationOidcProvider } from '@/api/model/security/Organization
 
 /**
  * The provider kinds an organization may configure for itself, in the order to offer them, with the account each
- * asks for: the kinds `OidcProviderType` gives an authority template on the server, which validates every save
- * against the same patterns.
+ * asks for: the kinds the server has an `OrganizationIdentityProvider` for, which validates every save against the
+ * same patterns. Okta and Microsoft Entra are Kinotic Enterprise Features, and a server without them refuses a
+ * configuration of either that uses the organization's own client.
  */
 export const ORGANIZATION_OIDC_PROVIDERS: OrganizationOidcProvider[] = [
     { provider: OidcProviderType.GOOGLE, providerAccountLabel: null, providerAccountPattern: null, everyDirectoryAccounts: [] },
