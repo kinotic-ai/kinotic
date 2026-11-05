@@ -10,7 +10,6 @@ dependencies {
 
     implementation 'org.kinotic:vertx-stomp-lite'
 
-    implementation 'tools.jackson.core:jackson-core'
     // api scope: ConnectOptions customizes the JsonMapper the proxies convert with
     api 'tools.jackson.core:jackson-databind'
     // api scope: ConnectOptions takes the OpenTelemetry the proxies trace with
