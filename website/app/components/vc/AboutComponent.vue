@@ -17,19 +17,13 @@ defineEmits<{ play: [videoId: string] }>()
         building software, infrastructure and products together.
       </p>
 
-      <div class="about__video" data-reveal>
-        <div class="about__glow about__glow--top" />
-        <div class="about__glow about__glow--left" />
-        <div class="about__glow about__glow--right" />
-        <div class="about__glow about__glow--bottom" />
-        <VcVideoPoster
-          class="about__player"
-          poster="/images/vc/founders-video-poster.webp"
-          label="Play the founders video"
-          @play="$emit('play', FOUNDERS_VIDEO)"
-        />
-        <div class="about__rule" />
-      </div>
+      <VcFeaturedVideo
+        class="about__video"
+        data-reveal
+        poster="/images/vc/founders-video-poster.webp"
+        label="Play the founders video"
+        @play="$emit('play', FOUNDERS_VIDEO)"
+      />
 
       <div class="about__story" data-reveal>
         <div class="about__story-copy">
@@ -92,57 +86,8 @@ defineEmits<{ play: [videoId: string] }>()
 }
 
 .about__video {
-  position: relative;
   max-width: 900px;
   margin: 64px auto 0;
-}
-
-.about__glow {
-  position: absolute;
-  pointer-events: none;
-  filter: blur(24px);
-  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(236, 31, 82, 0.2), transparent 70%);
-}
-
-.about__glow--top {
-  left: 6%;
-  top: -56px;
-  width: 88%;
-  height: 200px;
-  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(236, 31, 82, 0.32), transparent 70%);
-}
-
-.about__glow--left {
-  left: -70px;
-  top: 22%;
-  width: 220px;
-  height: 400px;
-}
-
-.about__glow--right {
-  right: -70px;
-  top: 30%;
-  width: 220px;
-  height: 380px;
-}
-
-.about__glow--bottom {
-  left: 14%;
-  bottom: -52px;
-  width: 72%;
-  height: 170px;
-  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(236, 31, 82, 0.26), transparent 70%);
-}
-
-.about__player {
-  aspect-ratio: 16 / 9;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 18px;
-}
-
-.about__rule {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
 }
 
 .about__story {
@@ -210,10 +155,6 @@ defineEmits<{ play: [videoId: string] }>()
 
   .about__lede {
     font-size: 18px;
-  }
-
-  .about__player {
-    border-radius: 12px;
   }
 
   .about__story {

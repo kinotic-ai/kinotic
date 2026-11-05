@@ -16,8 +16,13 @@ so humans and AI can build enterprise software at internet scale.
 [![Java 25](https://img.shields.io/badge/Java-25-171717)](buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle)
 [![License Elastic 2.0 + Apache 2.0 + Enterprise](https://img.shields.io/badge/license-Elastic%202.0%20%2B%20Apache%202.0%20%2B%20Enterprise-28FEB4)](LICENSE.md)
 [![Documentation](https://img.shields.io/badge/docs-kinotic.ai-171717)](https://kinotic.ai/docs/)
+[![GitHub stars](https://img.shields.io/github/stars/kinotic-ai/kinotic?style=flat&color=28FEB4)](https://github.com/kinotic-ai/kinotic/stargazers)
 
-[Website](https://kinotic.ai) · [Documentation](https://kinotic.ai/docs/) · [Get Started](https://kinotic.ai/get-started/) · [Test Reports](https://kinotic.ai/test-results)
+[Website](https://kinotic.ai) · [Documentation](https://kinotic.ai/docs/) · [Get Started](https://kinotic.ai/get-started/) · [Test Reports](https://kinotic.ai/test-results) · [Videos](https://www.youtube.com/@Kinoticsoftware)
+
+<a href="https://www.youtube.com/watch?v=rApdW9iKt3g"><img src="website/public/images/vc/why-kinotic-poster.webp" width="640" alt="Watch Why Kinotic?"></a>
+
+If Kinotic is useful or interesting to you, please ⭐ star the repo. It helps others find it.
 
 </div>
 
@@ -378,8 +383,8 @@ Kinotic provides the higher-level abstractions while allowing developers and org
 The project is licensed under the Elastic License 2.0 with the Kinotic Additional Limitations,
 except Kinotic RPC, the service and event layer in `kinotic-core`, `kinotic-api-gateway`,
 `kinotic-idl` and the `@kinotic-ai/core` and `@kinotic-ai/idl` packages, which is licensed under the
-Apache License 2.0, and the Enterprise Features in [`kinotic-ee/`](kinotic-ee), which are licensed
-under the Kinotic Enterprise License and need an agreement with Minds Ignited for production use. See
+Apache License 2.0, and the Enterprise Features in Java packages named `ee`, which are licensed
+under the Kinotic Enterprise License ([LICENSE-ENTERPRISE](LICENSE-ENTERPRISE)) and need an agreement with Minds Ignited for production use. See
 [LICENSE.md](LICENSE.md) for the terms governing the project, and [CLA.md](CLA.md) for the
 agreement contributors accept.
 
@@ -455,6 +460,16 @@ AI agents should not need to understand every cloud API, Kubernetes primitive, n
 They need a higher-level operating environment.
 
 **That's what Kinotic is.**
+
+## Support the project
+
+- ⭐ [Star the repo](https://github.com/kinotic-ai/kinotic) so more developers can find Kinotic
+- 👀 Watch releases to follow new versions
+- 🐛 [Open an issue](https://github.com/kinotic-ai/kinotic/issues) with bugs, questions, or ideas
+- 🛠️ Pick up a [good first issue](https://github.com/kinotic-ai/kinotic/labels/good%20first%20issue)
+- 🎬 Watch more on [YouTube](https://www.youtube.com/@Kinoticsoftware)
+
+[![Star History Chart](https://api.star-history.com/svg?repos=kinotic-ai/kinotic&type=Date)](https://star-history.com/#kinotic-ai/kinotic&Date)
 
 ---
 

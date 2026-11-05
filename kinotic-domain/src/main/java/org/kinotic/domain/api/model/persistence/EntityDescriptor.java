@@ -41,6 +41,18 @@ public record EntityDescriptor(String id,
         return tenantIdFieldName != null;
     }
 
+    /**
+     * The field holding an item's tenant on a {@link MultiTenancyType#SHARED} entity: the entity's own tenant id
+     * field, or else the platform's.
+     *
+     * @param defaultTenantIdFieldName the platform's tenant id field, which an entity without a tenant id field of its
+     *                                 own stores its tenants in
+     * @return the field name
+     */
+    public String tenantFieldName(String defaultTenantIdFieldName){
+        return tenantIdFieldName != null ? tenantIdFieldName : defaultTenantIdFieldName;
+    }
+
     public boolean isStream(){
         return timeReferenceFieldName != null;
     }

@@ -1,11 +1,13 @@
 package org.kinotic.sql.parsers;
 
+import org.apache.commons.lang3.Validate;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.InsertStatement;
 import org.kinotic.sql.parser.KinoticSQLParser;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -33,6 +35,9 @@ public class InsertStatementParser implements StatementParser {
         // Parse column names if specified
         if (insertContext.LPAREN() != null) {
             insertContext.columnName().forEach(column -> columns.add(Identifiers.name(column.identifier())));
+            // a column named twice would let its later value replace the one the statement's checks saw
+            Validate.isTrue(new HashSet<>(columns).size() == columns.size(),
+                            "INSERT INTO %s names a column more than once: %s", tableName, columns);
         }
 
         // Parse values from valueList

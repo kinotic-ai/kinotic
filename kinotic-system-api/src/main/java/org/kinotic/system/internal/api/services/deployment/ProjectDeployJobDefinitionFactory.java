@@ -104,7 +104,7 @@ public class ProjectDeployJobDefinitionFactory {
                 // resume must replay the recorded choice from the run's own records, never
                 // re-derive it and risk landing on a different node
                 .task(Tasks.fromCallable("Resolve deployment target",
-                                         () -> resolveTarget(projectId, existing)
+                                         () -> resolveTarget(project, existing)
                                                  .compose(target -> recordTarget(project, target))
                                                  .toCompletionStage().toCompletableFuture())
                            .icon("crosshair")
@@ -181,7 +181,8 @@ public class ProjectDeployJobDefinitionFactory {
      * a node with the capacity the sync workload needs and derives the checkout directory from
      * the node's advertised workload data directory. Either way the run's workloads get fresh ids.
      */
-    private Future<DeployTarget> resolveTarget(String projectId, ProjectDeployment existing) {
+    private Future<DeployTarget> resolveTarget(Project project, ProjectDeployment existing) {
+        String projectId = project.getId();
         Future<DeployTarget> ret;
         String syncWorkloadId = UUID.randomUUID().toString();
         String uiPublishWorkloadId = UUID.randomUUID().toString();
@@ -215,8 +216,10 @@ public class ProjectDeployJobDefinitionFactory {
                                     "Node " + node.getId() + " does not advertise a workload data directory"));
                         } else {
                             resolved = Future.succeededFuture(
+                                    // a project id is unique only within its organization, so the checkout
+                                    // directory is qualified by it: projects of two organizations never share one
                                     new DeployTarget(node.getId(),
-                                                     node.getWorkloadDataDir() + "/projects/" + projectId,
+                                                     node.getWorkloadDataDir() + "/projects/" + project.getOrganizationId() + "/" + projectId,
                                                      syncWorkloadId,
                                                      uiPublishWorkloadId,
                                                      sbomWorkloadId));
@@ -294,7 +297,7 @@ public class ProjectDeployJobDefinitionFactory {
      */
     private Future<MicroserviceDeployments> ensureRuntimeWorkloads(Project project, ProjectArtifacts artifacts, String commitSha) {
         String source = "deploy of " + commitSha;
-        return microserviceDeploymentRepository.findAllForProject(project.getId())
+        return microserviceDeploymentRepository.findAllForProject(project.getId(), project.getOrganizationId())
                 .compose(existing -> {
                     Map<String, MicroserviceDeployment> unmatched = new HashMap<>();
                     existing.forEach(deployment -> unmatched.put(deployment.getName(), deployment));
@@ -307,7 +310,7 @@ public class ProjectDeployJobDefinitionFactory {
                                                           orphan -> microserviceDeploymentRepository.updateDesired(orphan.getId(), new DeploymentState(DeploymentStatusType.ORPHANED, commitSha),
                                                                                                                    null, source)));
                 })
-                .compose(v -> awaitAnswered("Microservices of project " + project.getId(), () -> microserviceDeploymentRepository.findAllForProject(project.getId()),
+                .compose(v -> awaitAnswered("Microservices of project " + project.getId(), () -> microserviceDeploymentRepository.findAllForProject(project.getId(), project.getOrganizationId()),
                                             MicroserviceDeployment::getName, System.currentTimeMillis() + CONVERGENCE_TIMEOUT.toMillis()))
                 .compose(rows -> requireNoneFailed(rows,
                                                    row -> row.getState().getObserved().phase() == DeploymentStatusType.FAILED,
@@ -316,8 +319,10 @@ public class ProjectDeployJobDefinitionFactory {
                 .map(MicroserviceDeployments::new);
     }
 
+    // A project id is unique only within its organization, and the microservice deployment index is not
+    // organization-scoped, so the organization is part of the id
     private static String deploymentId(Project project, MicroserviceArtifact artifact) {
-        return project.getId() + ":" + artifact.name();
+        return project.getOrganizationId() + "--" + project.getId() + ":" + artifact.name();
     }
 
     // The record a microservice's first intent creates, belonging to the project's deployment
@@ -371,7 +376,7 @@ public class ProjectDeployJobDefinitionFactory {
         // nothing serves a site without site storage, so nothing is uploaded either
         boolean serving = properties.getSystemApi().getUiDeployment().storesSites();
         String source = "deploy of " + commitSha;
-        return uiDeploymentRepository.findAllForProject(project.getId())
+        return uiDeploymentRepository.findAllForProject(project.getId(), project.getOrganizationId())
                 .compose(existing -> {
                     Map<String, UiDeployment> unmatched = new HashMap<>();
                     existing.forEach(deployment -> unmatched.put(deployment.getName(), deployment));
@@ -392,7 +397,7 @@ public class ProjectDeployJobDefinitionFactory {
                     return published.compose(v -> sequentially(new ArrayList<>(unmatched.values()),
                                                                orphan -> uiDeploymentRepository.updateDesired(orphan.getId(), new DeploymentState(DeploymentStatusType.ORPHANED, commitSha), null, source)));
                 })
-                .compose(v -> awaitAnswered("UIs of project " + project.getId(), () -> uiDeploymentRepository.findAllForProject(project.getId()),
+                .compose(v -> awaitAnswered("UIs of project " + project.getId(), () -> uiDeploymentRepository.findAllForProject(project.getId(), project.getOrganizationId()),
                                             UiDeployment::getName, System.currentTimeMillis() + CONVERGENCE_TIMEOUT.toMillis()))
                 .map(UiDeployments::new);
     }

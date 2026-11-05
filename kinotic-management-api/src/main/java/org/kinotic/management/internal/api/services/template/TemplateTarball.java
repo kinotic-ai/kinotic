@@ -3,6 +3,7 @@ package org.kinotic.management.internal.api.services.template;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+import org.apache.commons.io.input.BoundedInputStream;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -12,9 +13,21 @@ import java.util.Map;
 
 /**
  * Parses a GitHub repository tarball (gzipped tar with all paths wrapped in a
- * single root directory) into a map of repo-relative path to file.
+ * single root directory) into a map of repo-relative path to file. A template repository is
+ * small, so an archive holding more than {@link #MAX_FILES} files, a file larger than
+ * {@link #MAX_FILE_BYTES}, or more than {@link #MAX_TOTAL_BYTES} of files in all is refused.
  */
 public final class TemplateTarball {
+
+    /** The largest file a template repository holds. */
+    public static final int MAX_FILE_BYTES = 8 * 1024 * 1024;
+    /** The most file content a template repository holds in all. */
+    public static final long MAX_TOTAL_BYTES = 128L * 1024 * 1024;
+    // the decompressed archive as a whole: the files, their headers and padding, and the entries skipped as
+    // directories, links or outside the root, which the file limits never count
+    private static final long MAX_ARCHIVE_BYTES = 2 * MAX_TOTAL_BYTES;
+    /** The most files a template repository holds. */
+    public static final int MAX_FILES = 10_000;
 
     private TemplateTarball() {
     }
@@ -22,11 +35,18 @@ public final class TemplateTarball {
     /**
      * @return regular files keyed by repo-relative path, in archive order
      * @throws UncheckedIOException when {@code tarGz} is not a readable gzipped tar
+     * @throws IllegalArgumentException when the archive exceeds what a template repository holds
      */
     public static Map<String, TarballFile> parse(byte[] tarGz) {
         Map<String, TarballFile> files = new LinkedHashMap<>();
-        try (TarArchiveInputStream tar = new TarArchiveInputStream(
-                new GzipCompressorInputStream(new ByteArrayInputStream(tarGz)))) {
+        long totalBytes = 0;
+        try (TarArchiveInputStream tar = new TarArchiveInputStream(BoundedInputStream.builder()
+                .setInputStream(new GzipCompressorInputStream(new ByteArrayInputStream(tarGz)))
+                .setMaxCount(MAX_ARCHIVE_BYTES)
+                .setOnMaxCount((max, count) -> {
+                    throw new IllegalArgumentException("The repository tarball decompresses to more than " + max + " bytes");
+                })
+                .get())) {
             TarArchiveEntry entry;
             while ((entry = tar.getNextEntry()) != null) {
                 if (!entry.isFile()) {
@@ -38,8 +58,21 @@ public final class TemplateTarball {
                     continue;
                 }
                 RepoTreePath.requireContained(path);
+                if (files.size() == MAX_FILES) {
+                    throw new IllegalArgumentException("The repository tarball holds more than " + MAX_FILES + " files");
+                }
+                // the entry's header size is as untrusted as its content, so the content itself is counted,
+                // one byte past the cap at most
+                byte[] content = tar.readNBytes(MAX_FILE_BYTES + 1);
+                if (content.length > MAX_FILE_BYTES) {
+                    throw new IllegalArgumentException("The repository file " + path + " exceeds " + MAX_FILE_BYTES + " bytes");
+                }
+                totalBytes += content.length;
+                if (totalBytes > MAX_TOTAL_BYTES) {
+                    throw new IllegalArgumentException("The repository tarball holds more than " + MAX_TOTAL_BYTES + " bytes of files");
+                }
                 boolean executable = (entry.getMode() & 0100) != 0;
-                files.put(path, new TarballFile(tar.readAllBytes(), executable));
+                files.put(path, new TarballFile(content, executable));
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Unable to read repository tarball", e);

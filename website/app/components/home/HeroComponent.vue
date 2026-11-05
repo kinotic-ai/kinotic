@@ -2,6 +2,9 @@
 const RED: [number, number, number] = [236, 31, 82]
 const MINT: [number, number, number] = [40, 254, 180]
 const BLOB_COUNT = 24
+// Backing-store pixels per CSS pixel. The blobs are soft radial gradients, so drawing them at
+// half resolution and letting CSS stretch the canvas looks the same and cuts each frame's fill cost.
+const CANVAS_SCALE = 0.5
 
 interface Blob {
   x: number
@@ -16,18 +19,17 @@ interface Blob {
 const plasma = useTemplateRef<HTMLCanvasElement>('plasma')
 
 let frame = 0
-let stopResize: (() => void) | undefined
+let stopPlasma: (() => void) | undefined
 
 /**
- * Paints the drifting colour field behind the hero copy. Under
- * prefers-reduced-motion it renders a single static frame instead of animating.
+ * Paints the drifting colour field behind the hero copy, animating while the hero is on
+ * screen. Under prefers-reduced-motion it renders a single static frame instead.
  */
 function startPlasma(canvas: HTMLCanvasElement) {
   const ctx = canvas.getContext('2d')
   const host = canvas.parentElement
   if (!ctx || !host) return
 
-  const dpr = Math.min(2, window.devicePixelRatio || 1)
   let width = 0
   let height = 0
 
@@ -35,13 +37,13 @@ function startPlasma(canvas: HTMLCanvasElement) {
     const rect = host.getBoundingClientRect()
     width = Math.max(1, rect.width)
     height = Math.max(1, rect.height)
-    canvas.width = width * dpr
-    canvas.height = height * dpr
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    canvas.width = Math.max(1, Math.round(width * CANVAS_SCALE))
+    canvas.height = Math.max(1, Math.round(height * CANVAS_SCALE))
+    ctx.setTransform(CANVAS_SCALE, 0, 0, CANVAS_SCALE, 0, 0)
   }
   resize()
   window.addEventListener('resize', resize)
-  stopResize = () => window.removeEventListener('resize', resize)
+  stopPlasma = () => window.removeEventListener('resize', resize)
 
   const blobs: Blob[] = Array.from({ length: BLOB_COUNT }, () => ({
     x: Math.random() * width,
@@ -95,7 +97,22 @@ function startPlasma(canvas: HTMLCanvasElement) {
     ctx.globalCompositeOperation = 'source-over'
     frame = requestAnimationFrame(tick)
   }
-  frame = requestAnimationFrame(tick)
+
+  // Every frame competes with input handling on the main thread, so the loop stops while the
+  // hero is scrolled out of view.
+  const visibility = new IntersectionObserver(([entry]) => {
+    if (entry?.isIntersecting) {
+      if (!frame) frame = requestAnimationFrame(tick)
+    } else {
+      cancelAnimationFrame(frame)
+      frame = 0
+    }
+  })
+  visibility.observe(canvas)
+  stopPlasma = () => {
+    window.removeEventListener('resize', resize)
+    visibility.disconnect()
+  }
 }
 
 onMounted(() => {
@@ -104,7 +121,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(frame)
-  stopResize?.()
+  stopPlasma?.()
 })
 </script>
 
@@ -115,16 +132,18 @@ onBeforeUnmount(() => {
     <div class="hero__grid" />
 
     <div class="k-wrap hero__inner">
+      <!-- The copy holds the page's Largest Contentful Paint, so it paints with the prerendered
+           HTML instead of waiting for the scroll reveal. -->
       <div class="hero__copy">
-        <div class="k-eyebrow" data-reveal>
+        <div class="k-eyebrow">
           <span>KINOTIC OS</span>
         </div>
-        <h1 class="k-heading hero__title" data-reveal>Prototype to production</h1>
-        <p class="hero__lede" data-reveal>
+        <h1 class="k-heading hero__title">Prototype to production</h1>
+        <p class="hero__lede">
           Linux abstracted the hardware. Kinotic OS abstracts the cloud, so humans and AI can build
           enterprise software at internet scale.
         </p>
-        <HomeWaitlistForm class="hero__waitlist" submit-label="Join waitlist" />
+        <HomeGettingStarted class="hero__getting-started" />
       </div>
 
       <!-- Software factory: ideas flow in on the red pipes, deployed apps leave on the mint ones. -->
@@ -269,8 +288,8 @@ onBeforeUnmount(() => {
   margin: 26px 0 0;
 }
 
-.hero__waitlist {
-  margin-top: 36px;
+.hero__getting-started {
+  margin-top: 30px;
 }
 
 .hero__visual {

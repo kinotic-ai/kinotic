@@ -78,7 +78,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         List<Migration> migrations = List.of();
 
         // When
-        migrationExecutor.executeProjectMigrations(migrations, "test_project_no_migrations").get();
+        migrationExecutor.executeProjectMigrations(migrations, "test-org", "test_project_no_migrations").get();
 
         // Then
         // No exception should be thrown
@@ -100,7 +100,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         Migration migration = migration(1, "V1__create_test_table", migrationContent);
 
         // When
-        migrationExecutor.executeProjectMigrations(List.of(migration), "test_project_create_table").get();
+        migrationExecutor.executeProjectMigrations(List.of(migration), "test-org", "test_project_create_table").get();
 
         // Then
         assertTrue(asyncClient.indices().exists(e -> e.index("test_table_create")).get().value());
@@ -143,7 +143,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         Migration indexTemplateMigration = migration(2, "V2__create_index_template", indexTemplateContent);
 
         // When
-        migrationExecutor.executeProjectMigrations(List.of(componentTemplateMigration, indexTemplateMigration), "test_project_index_template").get();
+        migrationExecutor.executeProjectMigrations(List.of(componentTemplateMigration, indexTemplateMigration), "test-org", "test_project_index_template").get();
 
         // Then
         GetComponentTemplateResponse componentTemplate = client.cluster().getComponentTemplate(g -> g.name("test_template_index"));
@@ -170,7 +170,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         Migration alterTableMigration = migration(2, "V2__add_age_column", alterTableContent);
 
         // When
-        migrationExecutor.executeProjectMigrations(List.of(createTableMigration, alterTableMigration), "test_project_alter_table").get();
+        migrationExecutor.executeProjectMigrations(List.of(createTableMigration, alterTableMigration), "test-org", "test_project_alter_table").get();
 
         // Then
         GetMappingResponse mapping = client.indices().getMapping(m -> m.index("test_table_alter"));
@@ -220,7 +220,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         Migration reindexMigration = migration(4, "V4__reindex_data", reindexContent);
 
         // When
-        migrationExecutor.executeProjectMigrations(List.of(createSourceMigration, createDestMigration, insertMigration, reindexMigration), "test_project_reindex").get();
+        migrationExecutor.executeProjectMigrations(List.of(createSourceMigration, createDestMigration, insertMigration, reindexMigration), "test-org", "test_project_reindex").get();
 
         // Then
         CountResponse count = client.count(c -> c.index("test_table_reindex_dest"));
@@ -263,7 +263,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         Migration reindexMigration = migration(4, "V4__reindex_with_script", reindexContent);
 
         // When
-        migrationExecutor.executeProjectMigrations(List.of(createSourceMigration, createDestMigration, insertMigration, reindexMigration), "test_project_reindex_script").get();
+        migrationExecutor.executeProjectMigrations(List.of(createSourceMigration, createDestMigration, insertMigration, reindexMigration), "test-org", "test_project_reindex_script").get();
 
         // Then
         CountResponse count = client.count(c -> c.index("test_table_reindex_script_dest"));
@@ -308,7 +308,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         Migration updateMigration = migration(3, "V3__update_age", updateContent);
 
         // When
-        migrationExecutor.executeProjectMigrations(List.of(createTableMigration, insertMigration, updateMigration), "test_project_update").get();
+        migrationExecutor.executeProjectMigrations(List.of(createTableMigration, insertMigration, updateMigration), "test-org", "test_project_update").get();
 
         // Then
         @SuppressWarnings("rawtypes")
@@ -339,7 +339,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__create_decimal_table", createContent),
                     migration(2, "V2__insert_decimal_data",  insertContent),
-                    migration(3, "V3__update_by_price",      updateContent)), "test_project_decimal").get();
+                    migration(3, "V3__update_by_price",      updateContent)), "test-org", "test_project_decimal").get();
 
         // Then only the 19.99 row is above the threshold, which orders numerically rather than lexically
         @SuppressWarnings("rawtypes")
@@ -371,7 +371,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         // When
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__create_routed_table", createContent),
-                    migration(2, "V2__insert_routed_row",   insertContent)), "test_project_routed").get();
+                    migration(2, "V2__insert_routed_row",   insertContent)), "test-org", "test_project_routed").get();
 
         // Routing only decides placement on a multi-shard index; assert the precondition so this
         // cannot quietly become a no-op if the cluster's default shard count ever drops to one
@@ -407,7 +407,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__create_binary_table", createContent),
                     migration(2, "V2__insert_binary_data",  insertContent),
-                    migration(3, "V3__increment_quantity",  updateContent)), "test_project_binary").get();
+                    migration(3, "V3__increment_quantity",  updateContent)), "test-org", "test_project_binary").get();
 
         // Then the operand is read from the stored document rather than passed as a script param
         @SuppressWarnings("rawtypes")
@@ -444,7 +444,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         Migration deleteMigration = migration(3, "V3__delete_data", deleteContent);
 
         // When
-        migrationExecutor.executeProjectMigrations(List.of(createTableMigration, insertMigration, deleteMigration), "test_project_delete").get();
+        migrationExecutor.executeProjectMigrations(List.of(createTableMigration, insertMigration, deleteMigration), "test-org", "test_project_delete").get();
 
         // Then
         CountResponse count = client.count(c -> c.index("test_table_delete"));
@@ -458,7 +458,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
 
         // When/Then
         assertThrows(IllegalArgumentException.class, () ->
-            migrationExecutor.executeProjectMigrations(List.of(migration), "test_project_invalid_version").get()
+            migrationExecutor.executeProjectMigrations(List.of(migration), "test-org", "test_project_invalid_version").get()
         );
     }
 
@@ -471,7 +471,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
 
         // When/Then
         assertThrows(IllegalStateException.class, () -> 
-            migrationExecutor.executeProjectMigrations(List.of(migration1, migration2), "test_project_duplicate_version").get()
+            migrationExecutor.executeProjectMigrations(List.of(migration1, migration2), "test-org", "test_project_duplicate_version").get()
         );
     }
 
@@ -490,7 +490,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         Migration createTableMigrationAgain = migration(2, "V2__create_test_table_again", createTableContent);
 
         // When
-        migrationExecutor.executeProjectMigrations(List.of(createTableMigration, createTableMigrationAgain), "test_project_if_not_exists").get();
+        migrationExecutor.executeProjectMigrations(List.of(createTableMigration, createTableMigrationAgain), "test-org", "test_project_if_not_exists").get();
 
         // Then
         assertTrue(asyncClient.indices().exists(e -> e.index("test_table_if_not_exists")).get().value());
@@ -522,7 +522,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         Migration migration = migration(1, "V1__create_numeric_table", migrationContent);
 
         // When
-        migrationExecutor.executeProjectMigrations(List.of(migration), "test_project_numeric_types").get();
+        migrationExecutor.executeProjectMigrations(List.of(migration), "test-org", "test_project_numeric_types").get();
 
         // Then
         assertTrue(asyncClient.indices().exists(e -> e.index("test_table_numeric")).get().value());

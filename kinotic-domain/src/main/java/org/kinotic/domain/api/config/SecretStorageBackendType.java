@@ -9,7 +9,7 @@ public enum SecretStorageBackendType {
      */
     IN_MEMORY,
     /**
-     * Azure Key Vault backed secret storage, provided by the {@code kinotic-ee} module.
+     * Azure Key Vault backed secret storage, an Enterprise Feature.
      */
     AZURE
 }

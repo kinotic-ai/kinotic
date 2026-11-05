@@ -33,6 +33,7 @@
 import Drawer from 'primevue/drawer'
 import { X } from '@lucide/vue'
 import '../styles/modal-mask.css'
+import '../styles/drawer-slide.css'
 
 /**
  * A panel that slides in from the right over a dimmed, blurred page to create or edit one
@@ -52,6 +53,7 @@ const emit = defineEmits<{
 
 const pt = {
   mask: { class: 'modal-mask' },
+  transition: { name: 'drawer-slide' },
   header: { class: 'items-start border-b border-surface-200 dark:border-surface-800' },
   footer: { class: 'border-t border-surface-200 dark:border-surface-800' },
   // A square hover tile matching the controls' 6px radius, rather than the default circle

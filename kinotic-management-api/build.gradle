@@ -35,6 +35,7 @@ dependencies {
     implementation 'com.github.ben-manes.caffeine:caffeine'
 
     implementation 'org.apache.commons:commons-compress'
+    implementation 'commons-io:commons-io'
 
     // Maven's version order, which Maven advisories' ranges are written in
     implementation 'org.apache.maven:maven-artifact'

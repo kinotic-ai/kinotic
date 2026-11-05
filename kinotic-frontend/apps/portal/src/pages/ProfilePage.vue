@@ -111,11 +111,13 @@
           </li>
         </ul>
 
-        <div v-if="connectableProviders.length > 0" class="flex flex-wrap items-center gap-3 px-6 py-4">
+        <div v-if="connectableProviders.length > 0" class="flex flex-col gap-3 px-6 py-4">
           <span class="text-xs text-muted-color">Connect another way to sign in:</span>
-          <SocialAuthButton v-for="provider in connectableProviders" :key="provider.configurationId" :provider="provider.provider"
-                            :name="provider.type === OidcConfigurationType.ORG_SIGNUP ? undefined : provider.name"
-                            :action="apiUrl('/api/auth/org/methods/start/' + encodeURIComponent(provider.configurationId))" intent="connect" />
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
+            <SocialAuthButton v-for="provider in connectableProviders" :key="provider.configurationId" :provider="provider.provider"
+                              :name="provider.type === OidcConfigurationType.ORG_SIGNUP ? undefined : provider.name"
+                              :action="apiUrl('/api/auth/org/methods/start/' + encodeURIComponent(provider.configurationId))" intent="connect" />
+          </div>
         </div>
       </section>
     </div>

@@ -49,14 +49,17 @@ public class UiDeploymentRepository extends AbstractReconcilableRepository<UiDep
     }
 
     /**
-     * Lists the deployments of the project's UIs, ordered by name.
+     * Lists the deployments of the project's UIs, ordered by name. A project id is unique only
+     * within its organization, so the organization is part of the key.
      *
-     * @param projectId the project whose UI deployments to list
+     * @param projectId      the project whose UI deployments to list
+     * @param organizationId the organization the project belongs to
      * @return a future emitting the deployments, empty when the project has none
      */
-    public Future<List<UiDeployment>> findAllForProject(String projectId) {
+    public Future<List<UiDeployment>> findAllForProject(String projectId, String organizationId) {
         Validate.notBlank(projectId, "projectId cannot be blank");
-        return findAllOrderedByName(termFilter("projectId", projectId));
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return findAllOrderedByName(composeFilter(termFilter("organizationId", organizationId), termFilter("projectId", projectId)));
     }
 
     /**

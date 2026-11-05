@@ -1,5 +1,8 @@
-// Visitors' existing choices live under this key, so it stays fixed.
-const STORAGE_KEY = 'kinotic-clarity-consent'
+import { setClarityConsent } from '~/utils/clarity'
+import { setGoogleAnalyticsConsent } from '~/utils/googleAnalytics'
+
+/** The localStorage key holding the visitor's choice. Existing choices live under it, so it stays fixed. */
+export const CONSENT_STORAGE_KEY = 'kinotic-clarity-consent'
 
 /** A visitor's choice for each optional cookie category. Necessary storage is always on. */
 export interface ConsentChoice {
@@ -14,7 +17,7 @@ export const NO_CONSENT: ConsentChoice = { analytics: false, marketing: false }
 export function readConsent(): ConsentChoice | null {
   let stored: string | null = null
   try {
-    stored = localStorage.getItem(STORAGE_KEY)
+    stored = localStorage.getItem(CONSENT_STORAGE_KEY)
   } catch {
     // Storage is unavailable in some private modes; treat it as no choice.
   }
@@ -41,8 +44,14 @@ export function readConsent(): ConsentChoice | null {
 /** Saves the visitor's choice for later visits. */
 export function persistConsent(choice: ConsentChoice): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(choice))
+    localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(choice))
   } catch {
     // Storage is unavailable in some private modes; the choice lasts for this page load.
   }
+}
+
+/** Grants or revokes each analytics provider's storage to match the visitor's choice. */
+export function applyConsent(choice: ConsentChoice): void {
+  setClarityConsent(choice)
+  setGoogleAnalyticsConsent(choice)
 }

@@ -23,8 +23,10 @@ import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.services.SecretStorageService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
+import org.kinotic.domain.internal.api.ee.services.security.EnterpriseIdentityProviders;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -44,13 +46,17 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
     private final SecretStorageService secretStorageService;
     private final SecurityContext securityContext;
     private final OrganizationSignInGuard signInGuard;
+    private final GoogleIdentityProvider googleIdentityProvider;
+    private final ObjectProvider<EnterpriseIdentityProviders> enterpriseIdentityProviders;
 
     public DefaultOidcConfigurationService(OidcConfigurationRepository repository,
                                            ApplicationRepository applicationRepository,
                                            TenantRepository tenantRepository,
                                            SecretStorageService secretStorageService,
                                            SecurityContext securityContext,
-                                           OrganizationSignInGuard signInGuard) {
+                                           OrganizationSignInGuard signInGuard,
+                                           GoogleIdentityProvider googleIdentityProvider,
+                                           ObjectProvider<EnterpriseIdentityProviders> enterpriseIdentityProviders) {
         super(repository);
         this.oidcRepository = repository;
         this.applicationRepository = applicationRepository;
@@ -58,6 +64,8 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
         this.secretStorageService = secretStorageService;
         this.securityContext = securityContext;
         this.signInGuard = signInGuard;
+        this.googleIdentityProvider = googleIdentityProvider;
+        this.enterpriseIdentityProviders = enterpriseIdentityProviders;
     }
 
     @Override
@@ -79,7 +87,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                 // a configuration signing in through its own client names it, or every sign-in fails at the provider
                 Validate.isTrue(StringUtils.isNotBlank(owned.getClientId()),
                                 "%s needs the client id of its registration with the provider", owned.getClass().getSimpleName());
-                owned.setAuthority(owned.getProvider().authority(owned.getProviderAccount()));
+                owned.setAuthority(authorityOf(owned.getProvider(), owned.getProviderAccount()));
             }
             if (owned instanceof OrganizationOidcConfiguration) {
                 // an organization's members are added by its administrators, whom its provider then signs in
@@ -131,6 +139,20 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                 .compose(v -> offeredAtOrganizationLogin(found) && !entity.isEnabled()
                         ? signInGuard.requireMembersKeepSignInWithout(((OrganizationOidcConfiguration) found).getOrganizationId(), found.getId())
                         : Future.succeededFuture()));
+    }
+
+    private String authorityOf(OidcProviderType provider, String providerAccount) {
+        String ret;
+        EnterpriseIdentityProviders enterprise = enterpriseIdentityProviders.getIfAvailable();
+        if (provider == OidcProviderType.GOOGLE) {
+            ret = googleIdentityProvider.authority(providerAccount);
+        } else if (enterprise != null && enterprise.supports(provider)) {
+            ret = enterprise.authority(provider, providerAccount);
+        } else {
+            throw new IllegalArgumentException(("An organization cannot configure a %s provider with a client of its own on this server;"
+                    + " Okta and Microsoft Entra are Kinotic Enterprise Features").formatted(provider.key()));
+        }
+        return ret;
     }
 
     // whether configuration is one the organization's own login offers, which members may sign in through

@@ -39,7 +39,7 @@ const save = (choice: ConsentChoice) => emit('save', choice)
     aria-live="polite"
     aria-label="Cookie consent"
   >
-    <p class="consent__text font-[InterRegular] text-[14px] leading-[150%]">
+    <p class="consent__text font-k-body text-[14px] leading-[150%]">
       We use Microsoft Clarity and Google Analytics to understand how visitors
       use our site, and Google and Microsoft may use this data for advertising.
       By default we collect only anonymous, cookieless data. Accept all, reject
@@ -52,17 +52,17 @@ const save = (choice: ConsentChoice) => emit('save', choice)
     <ul v-if="customizing" class="consent__list mt-4 divide-y border-y">
       <li class="flex items-center justify-between gap-6 py-3">
         <div>
-          <div class="consent__title font-[InterMedium] text-[14px]">Necessary</div>
-          <p class="consent__muted mt-0.5 font-[InterRegular] text-[13px] leading-[150%]">
+          <div class="consent__title font-k-body font-medium text-[14px]">Necessary</div>
+          <p class="consent__muted mt-0.5 font-k-body text-[13px] leading-[150%]">
             Keeps the site working and remembers this choice.
           </p>
         </div>
-        <span class="consent__muted shrink-0 font-[InterMedium] text-[12px]">Always on</span>
+        <span class="consent__muted shrink-0 font-k-body font-medium text-[12px]">Always on</span>
       </li>
       <li v-for="category in categories" :key="category.key" class="flex items-center justify-between gap-6 py-3">
         <div>
-          <div :id="`consent-${category.key}`" class="consent__title font-[InterMedium] text-[14px]">{{ category.label }}</div>
-          <p class="consent__muted mt-0.5 font-[InterRegular] text-[13px] leading-[150%]">
+          <div :id="`consent-${category.key}`" class="consent__title font-k-body font-medium text-[14px]">{{ category.label }}</div>
+          <p class="consent__muted mt-0.5 font-k-body text-[13px] leading-[150%]">
             {{ category.description }}
           </p>
         </div>
@@ -180,7 +180,8 @@ html.k-canvas-dark .consent {
   height: 40px;
   padding: 0 20px;
   border-radius: 9999px;
-  font-family: InterMedium, sans-serif;
+  font-family: var(--font-k-body);
+  font-weight: 500;
   font-size: 13px;
   color: var(--consent-button-text);
   transition: background 0.15s ease, transform 0.15s ease;

@@ -25,9 +25,10 @@ import java.util.Collection;
  * {@link ManagedOidcConfiguration} is saved or deleted by a system participant only, an
  * {@link OwnedOidcConfiguration} by an organization participant of the organization it names, and an
  * {@link ApplicationOidcConfiguration} must name an application of that organization. An organization's
- * configuration must name a provider kind {@link OidcProviderType#offeredToOrganizations() offered to
- * organizations} and its account there in the form the kind expects; its authority is derived from the
- * two on every save. An application's configuration that starts signing in through Kinotic's registration
+ * configuration signing in through a client of its own must name Google, which every organization may configure,
+ * or, as a Kinotic Enterprise Feature, Okta or Microsoft Entra, and its account there in the form that provider
+ * expects; its authority is derived from the two on every save. An application's configuration
+ * that starts signing in through Kinotic's registration
  * ({@link ClientRegistrationType#MANAGED}) must name a provider kind the system holds an enabled
  * {@link ApplicationSocialOidcConfiguration} for, and needs no account or client of its own; once it does, it saves
  * whether or not the system still holds one. An enabled {@link ApplicationSocialOidcConfiguration} is refused while
@@ -44,6 +45,20 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
     static boolean isManaged(OidcConfiguration configuration) {
         return configuration instanceof ApplicationOidcConfiguration forApplication
                 && forApplication.getClientRegistrationType() == ClientRegistrationType.MANAGED;
+    }
+
+    /**
+     * Whether a sign-in through {@code configuration} admits the users of every directory at its provider rather
+     * than one directory's: every {@link ManagedOidcConfiguration}, a configuration that signs in through one
+     * ({@link #isManaged}), and an organization's own configuration whose account at its provider
+     * {@link OidcProviderType#admitsEveryDirectory(String) admits every directory}. Where every directory is
+     * admitted, the email the provider vouches for may be one a stranger's directory set, so only an email the
+     * token proves ({@code OAuth2Util.isEmailProven}) signs anyone up or claims a user.
+     */
+    static boolean admitsEveryDirectory(OidcConfiguration configuration) {
+        return !(configuration instanceof OwnedOidcConfiguration owned)
+                || isManaged(owned)
+                || owned.getProvider().admitsEveryDirectory(owned.getProviderAccount());
     }
 
     /** The configurations among {@code ids} that exist, of any kind, in one read. */

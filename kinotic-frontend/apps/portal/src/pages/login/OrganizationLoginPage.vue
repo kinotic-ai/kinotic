@@ -246,22 +246,6 @@ function displayError(text: string) {
   gap: 0.75rem;
 }
 
-.login-providers :deep(.social-auth-button-form),
-.login-providers :deep(.social-auth-button--mark) {
-  width: 100%;
-}
-
-.login-providers :deep(.social-auth-button--mark) {
-  height: 3.5rem;
-  border-radius: 5px;
-  border-color: var(--lp-provider-border);
-  font-weight: 400;
-}
-
-.login-providers :deep(.social-auth-button--mark:hover) {
-  border-color: var(--lp-provider-border-hover);
-}
-
 .login-divider {
   margin: 1.5rem 0 0;
   font-size: 0.75rem;
