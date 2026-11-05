@@ -13,6 +13,7 @@ import org.kinotic.core.internal.api.service.ExceptionConverter;
 import org.kinotic.core.internal.api.service.json.JacksonExceptionConverter;
 import org.kinotic.core.internal.api.service.rpc.DefaultRpcServiceProxyHandle;
 import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverter;
+import org.kinotic.core.internal.api.service.rpc.RpcProxyServices;
 import org.kinotic.core.internal.api.service.rpc.RpcResponseConverter;
 import org.kinotic.core.internal.api.service.rpc.RpcResponseConverterComposite;
 import org.kinotic.core.internal.api.service.rpc.RpcReturnValueHandlerFactory;
@@ -42,14 +43,8 @@ import tools.jackson.databind.json.JsonMapper;
  */
 public class RpcServiceProxyFactory {
 
-    private final RpcTransport transport;
-    private final RequestLivenessWatcher requestLivenessWatcher;
-    private final Vertx vertx;
-    private final String nodeName;
     private final RpcArgumentConverter argumentConverter;
-    private final RpcReturnValueHandlerFactory returnValueHandlerFactory;
-    private final TraceLogFilter traceLogFilter;
-    private final OpenTelemetry openTelemetry;
+    private final RpcProxyServices services;
     /**
      * @param transport              carries the proxies' requests and replies
      * @param requestLivenessWatcher fails a proxy's request when the receiver its acknowledgement named is gone
@@ -68,19 +63,9 @@ public class RpcServiceProxyFactory {
                                   KinoticProperties properties,
                                   JsonMapper jsonMapper,
                                   String nodeName) {
-        Validate.notNull(transport, "transport must not be null");
-        Validate.notNull(requestLivenessWatcher, "requestLivenessWatcher must not be null");
-        Validate.notNull(vertx, "vertx must not be null");
-        Validate.notNull(openTelemetry, "openTelemetry must not be null");
         Validate.notNull(properties, "properties must not be null");
         Validate.notNull(jsonMapper, "jsonMapper must not be null");
         Validate.notBlank(nodeName, "nodeName must not be blank");
-        this.transport = transport;
-        this.requestLivenessWatcher = requestLivenessWatcher;
-        this.vertx = vertx;
-        this.nodeName = nodeName;
-        this.traceLogFilter = new TraceLogFilter(properties);
-        this.openTelemetry = openTelemetry;
 
         ReactiveAdapterRegistry reactiveAdapterRegistry = new ReactiveAdapterRegistry();
         KinoticUtil.registerVertxFutureAdapter(reactiveAdapterRegistry);
@@ -90,11 +75,23 @@ public class RpcServiceProxyFactory {
                 .addConverters(new JacksonRpcResponseConverter(jsonMapper, reactiveAdapterRegistry, properties),
                                new TextRpcResponseConverter(),
                                new BinaryRpcResponseConverter(reactiveAdapterRegistry));
-        this.returnValueHandlerFactory = new RpcReturnValueHandlerFactoryComposite()
+        RpcReturnValueHandlerFactory returnValueHandlerFactory = new RpcReturnValueHandlerFactoryComposite()
                 .addFactories(new CompletableFutureValueHandlerFactory(responseConverter, exceptionConverter),
                               new VertxFutureRpcReturnValueHandlerFactory(responseConverter, exceptionConverter),
                               new MonoRpcReturnValueHandlerFactory(responseConverter, exceptionConverter),
                               new FluxReturnValueHandlerFactory(responseConverter, exceptionConverter));
+        this.services = new RpcProxyServices(nodeName,
+                                             returnValueHandlerFactory,
+                                             transport,
+                                             // a process outside the cluster authenticates no participant of its
+                                             // own; the gateway names the connection's participant as the sender
+                                             () -> null,
+                                             // and holds no service directory to report an unreachable service to
+                                             () -> null,
+                                             requestLivenessWatcher,
+                                             vertx,
+                                             openTelemetry,
+                                             new TraceLogFilter(properties));
     }
 
     /**
@@ -128,21 +125,10 @@ public class RpcServiceProxyFactory {
      */
     public <T> RpcServiceProxyHandle<T> serviceProxy(ServiceIdentifier serviceIdentifier, Class<T> serviceInterface) {
         return new DefaultRpcServiceProxyHandle<>(serviceIdentifier,
-                                                  nodeName,
                                                   serviceInterface,
                                                   argumentConverter,
-                                                  returnValueHandlerFactory,
-                                                  transport,
-                                                  // a process outside the cluster authenticates no participant of its
-                                                  // own; the gateway names the connection's participant as the sender
-                                                  () -> null,
-                                                  // and holds no service directory to report an unreachable service to
-                                                  () -> null,
-                                                  requestLivenessWatcher,
-                                                  vertx,
                                                   serviceInterface.getClassLoader(),
-                                                  openTelemetry,
-                                                  traceLogFilter);
+                                                  services);
     }
 
 }

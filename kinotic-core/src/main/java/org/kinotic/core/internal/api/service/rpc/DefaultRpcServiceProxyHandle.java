@@ -79,48 +79,41 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private final Set<String> recentlyReaped = ConcurrentHashMap.newKeySet();
     private static final long REAP_DEBOUNCE_MS = 5000;
 
+    /**
+     * @param serviceIdentifier    the service the proxy addresses
+     * @param serviceClass         the interface the proxy implements
+     * @param rpcArgumentConverter converts the proxy's arguments to the content type the service takes
+     * @param classLoader          the class loader the proxy is defined in
+     * @param services             what every proxy of the process shares
+     */
     public DefaultRpcServiceProxyHandle(ServiceIdentifier serviceIdentifier,
-                                        String nodeName,
                                         Class<T> serviceClass,
                                         RpcArgumentConverter rpcArgumentConverter,
-                                        RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory,
-                                        RpcTransport transport,
-                                        Supplier<Participant> callerParticipant,
-                                        Supplier<ServiceDirectory> serviceDirectory,
-                                        RequestLivenessWatcher requestLivenessWatcher,
-                                        Vertx vertx,
                                         ClassLoader classLoader,
-                                        OpenTelemetry openTelemetry,
-                                        TraceLogFilter traceLogFilter) {
+                                        RpcProxyServices services) {
 
         Validate.notNull(serviceIdentifier, "serviceIdentifier must not be null");
-        Validate.notBlank(nodeName, "nodeName must not be blank");
         Validate.notNull(serviceClass, "serviceClass must not be null");
         Validate.notNull(rpcArgumentConverter, "argumentConverter must not be null");
-        Validate.notNull(rpcReturnValueHandlerFactory, "returnValueHandlerFactory must not be null");
-        Validate.notNull(transport, "transport must not be null");
-        Validate.notNull(callerParticipant, "callerParticipant must not be null");
-        Validate.notNull(serviceDirectory, "serviceDirectory must not be null");
-        Validate.notNull(requestLivenessWatcher, "requestLivenessWatcher must not be null");
-        Validate.notNull(vertx, "vertx must not be null");
         Validate.notNull(classLoader, "classLoader must not be null");
-        Validate.notNull(openTelemetry, "openTelemetry must not be null");
-        Validate.notNull(traceLogFilter, "traceLogFilter must not be null");
+        Validate.notNull(services, "services must not be null");
+        Validate.notBlank(services.getNodeName(), "nodeName must not be blank");
 
         this.serviceIdentifier = serviceIdentifier;
-        this.nodeName = nodeName;
+        this.nodeName = services.getNodeName();
         String encodedNodeName = KinoticUtil.safeEncodeURI(nodeName);
         this.serviceClass = serviceClass;
         this.rpcArgumentConverter = rpcArgumentConverter;
-        this.rpcReturnValueHandlerFactory = rpcReturnValueHandlerFactory;
-        this.transport = transport;
-        this.callerParticipant = callerParticipant;
-        this.serviceDirectory = serviceDirectory;
-        this.requestLivenessWatcher = requestLivenessWatcher;
+        this.rpcReturnValueHandlerFactory = services.getReturnValueHandlerFactory();
+        this.transport = services.getTransport();
+        this.callerParticipant = services.getCallerParticipant();
+        this.serviceDirectory = services.getServiceDirectory();
+        this.requestLivenessWatcher = services.getRequestLivenessWatcher();
+        OpenTelemetry openTelemetry = services.getOpenTelemetry();
         this.tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME);
         this.propagator = openTelemetry.getPropagators().getTextMapPropagator();
-        this.traceLogFilter = traceLogFilter;
-        this.vertx = vertx;
+        this.traceLogFilter = services.getTraceLogFilter();
+        this.vertx = services.getVertx();
 
         this.handlerCRI = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME, encodedNodeName + ":" + UUID.randomUUID(), KinoticUtil.safeEncodeURI(serviceClass.getName())+"RpcProxyResponseHandler");
 

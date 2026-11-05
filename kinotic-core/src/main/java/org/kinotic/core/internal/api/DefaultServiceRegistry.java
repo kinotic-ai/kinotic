@@ -21,6 +21,7 @@ import org.kinotic.core.internal.api.service.invoker.ArgumentResolverComposite;
 import org.kinotic.core.internal.api.service.invoker.ReturnValueConverterComposite;
 import org.kinotic.core.internal.api.service.invoker.ServiceInvocationSupervisor;
 import org.kinotic.core.internal.api.service.rpc.DefaultRpcServiceProxyHandle;
+import org.kinotic.core.internal.api.service.rpc.RpcProxyServices;
 import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverter;
 import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverterResolver;
 import org.kinotic.core.internal.api.service.rpc.RpcReturnValueHandlerFactory;
@@ -134,18 +135,24 @@ public class DefaultServiceRegistry implements ServiceRegistry {
         Validate.isTrue(rpcArgumentConverterResolver.canResolve(contentTypeExpected), "The contentType:"+contentTypeExpected+" does not have any configured RpcArgumentConverter's");
         RpcArgumentConverter rpcArgumentConverter = rpcArgumentConverterResolver.resolve(contentTypeExpected);
         return new DefaultRpcServiceProxyHandle<>(serviceIdentifier,
-                                                  kinotic.serverInfo().getNodeName(),
                                                   serviceInterface,
                                                   rpcArgumentConverter,
-                                                  rpcReturnValueHandlerFactory,
-                                                  eventBusService,
-                                                  securityContext::currentParticipant,
-                                                  serviceDirectoryProvider::getIfAvailable,
-                                                  requestLivenessWatcher,
-                                                  vertx,
                                                   Thread.currentThread().getContextClassLoader(),
-                                                  openTelemetry,
-                                                  traceLogFilter);
+                                                  proxyServices());
+    }
+
+    // what every proxy of this cluster member shares: its requests go through the event bus as the calling
+    // context's participant, and an unreachable service is reported to the directory when there is one
+    private RpcProxyServices proxyServices() {
+        return new RpcProxyServices(kinotic.serverInfo().getNodeName(),
+                                    rpcReturnValueHandlerFactory,
+                                    eventBusService,
+                                    securityContext::currentParticipant,
+                                    serviceDirectoryProvider::getIfAvailable,
+                                    requestLivenessWatcher,
+                                    vertx,
+                                    openTelemetry,
+                                    traceLogFilter);
     }
 
     @Override
