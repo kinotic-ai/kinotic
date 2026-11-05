@@ -1,4 +1,4 @@
-package org.kinotic.ee.internal.api.services;
+package org.kinotic.domain.internal.api.ee.services;
 
 import com.azure.core.exception.HttpResponseException;
 import com.azure.core.exception.ResourceNotFoundException;

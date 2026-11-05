@@ -190,6 +190,30 @@ if (project.ext.kinoticRpc) {
     }
 }
 
+// A module with an ee package holds Enterprise Implementations, which LICENSE.md licenses under the Kinotic Enterprise
+// License; Kinotic RPC must stay usable under the Apache License 2.0 alone, so it may hold none
+def mainJavaDir = file('src/main/java')
+project.ext.kinoticEnterprise = mainJavaDir.isDirectory() && java.nio.file.Files.walk(mainJavaDir.toPath()).withCloseable { paths ->
+    paths.anyMatch { path -> path.fileName.toString() == 'ee' && java.nio.file.Files.isDirectory(path) }
+}
+if (project.ext.kinoticRpc && project.ext.kinoticEnterprise) {
+    throw new GradleException("${project.path} is part of Kinotic RPC and may not hold an ee package")
+}
+if (!project.ext.kinoticRpc) {
+    // Every published jar, the sources and javadoc jars included, carries the root LICENSE.md that routes its
+    // packages, and the Kinotic Enterprise License when it holds Enterprise Implementations
+    tasks.withType(Jar).configureEach {
+        from(rootProject.file('LICENSE.md')) {
+            into 'META-INF'
+        }
+        if (project.ext.kinoticEnterprise) {
+            from(rootProject.file('LICENSE-ENTERPRISE')) {
+                into 'META-INF'
+            }
+        }
+    }
+}
+
 dependencies {
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 

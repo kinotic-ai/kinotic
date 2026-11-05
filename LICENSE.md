@@ -2,9 +2,10 @@ Copyright (c) 2026 Minds Ignited LLC. All rights reserved.
 
 Portions of this software are licensed as follows:
 
-- All content that resides in the [`kinotic-ee/`](kinotic-ee) directory of this repository is
+- All content that resides in a Java package that has a segment named `ee`, or in a directory
+  named `ee`, other than an Enterprise Extension Point (each an "Enterprise Implementation"), is
   licensed under the Kinotic Enterprise License defined in
-  [`kinotic-ee/LICENSE`](kinotic-ee/LICENSE).
+  [`LICENSE-ENTERPRISE`](LICENSE-ENTERPRISE).
 
 - All content that resides in the [`kinotic-core/`](kinotic-core),
   [`kinotic-api-gateway/`](kinotic-api-gateway), [`kinotic-client/`](kinotic-client),
@@ -17,8 +18,9 @@ Portions of this software are licensed as follows:
 - All third-party components incorporated into the Kinotic software are licensed under the
   original license provided by the owner of the applicable component.
 
-- Content outside of the above-mentioned directories is available under the "Elastic License 2.0"
-  as defined below, subject to the Kinotic Additional Limitations that precede it.
+- Content outside of the above-mentioned packages and directories is available under the
+  "Elastic License 2.0" as defined below, subject to the Kinotic Additional Limitations that
+  precede it.
 
 # Kinotic Additional Limitations
 
@@ -31,11 +33,10 @@ violates them is not licensed. The terms "Development and Testing", "Enterprise 
 ## Enterprise Extension Points
 
 Any interface, abstract class, or annotation in a Java package that has a segment named `ee`
-(for example `org.kinotic.domain.api.ee.services`), or in a directory named `ee`, outside the
-`kinotic-ee/` directory, is an Enterprise Extension Point. The capability an Enterprise
-Extension Point provides is an Enterprise Feature, licensed only under the Kinotic Enterprise
-License. A type is an Enterprise Extension Point in every published version of the software that
-places it in such a package or directory.
+(for example `org.kinotic.domain.api.ee.services`), or in a directory named `ee`, is an
+Enterprise Extension Point. The capability an Enterprise Extension Point provides is an Enterprise
+Feature, licensed only under the Kinotic Enterprise License. A type is an Enterprise Extension
+Point in every published version of the software that places it in such a package or directory.
 
 ## Substitute implementations
 
@@ -43,8 +44,8 @@ Except as a written agreement with the licensor expressly permits, you may not, 
 Use:
 
 1. implement or extend an Enterprise Extension Point, or use such an implementation, other than
-   one the licensor provides in `kinotic-ee/` or includes in the software under the Elastic
-   License 2.0 and that you use unmodified;
+   an Enterprise Implementation or an implementation the licensor includes in the software under
+   the Elastic License 2.0 and that you use unmodified;
 2. modify the software to move a type out of such a package or directory, or to replace, bypass,
    or wrap an Enterprise Extension Point or the code that uses it, so that its capability is
    provided by other software; or

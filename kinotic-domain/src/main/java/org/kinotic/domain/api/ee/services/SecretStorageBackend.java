@@ -10,8 +10,8 @@ import java.util.Map;
  * never on raw scope/key values.
  *
  * <p>This is an Enterprise Extension Point: Production Use of any implementation other than the
- * ones in {@code kinotic-ee} or the unmodified {@code InMemoryBackend} requires a Kinotic
- * Enterprise License. See the Kinotic Additional Limitations in {@code LICENSE.md}.
+ * Enterprise Implementations in Kinotic's {@code ee} packages or the unmodified {@code InMemoryBackend}
+ * requires a Kinotic Enterprise License. See the Kinotic Additional Limitations in {@code LICENSE.md}.
  */
 public interface SecretStorageBackend {
 
