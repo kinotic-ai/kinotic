@@ -61,8 +61,10 @@ locals {
         SHELL             = "/bin/bash"
       }
     }
+    # Loki runs compose-otel.yml's command: 30 days' retention and the deletion API. The
+    # compactor works under /loki, the mounted data directory, by the image config's path prefix.
     loki = {
-      entrypoint = "/usr/bin/loki -config.file=/etc/loki/local-config.yaml -auth.enabled=true -querier.multi-tenant-queries-enabled=true"
+      entrypoint = "/usr/bin/loki -config.file=/etc/loki/local-config.yaml -auth.enabled=true -querier.multi-tenant-queries-enabled=true -store.retention=720h -compactor.retention-enabled=true -compactor.delete-request-store=filesystem -compactor.delete-request-cancel-period=1h"
       env = {
         PATH          = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/busybox"
         SSL_CERT_FILE = "/etc/ssl/certs/ca-certificates.crt"
