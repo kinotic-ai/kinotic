@@ -9,9 +9,5 @@ import java.util.Set;
 /**
  * An event of the shape a module publishes: a record holding a nested record, a JDK value type and an enum set.
  */
-record SampleClusterEvent(Key key, Instant at, Set<ServerType> serverTypeFilter) implements ClusterEvent {
-
-    record Key(String organizationId, String applicationId) implements java.io.Serializable {
-    }
-
+record SampleClusterEvent(SampleClusterEventKey key, Instant at, Set<ServerType> serverTypeFilter) implements ClusterEvent {
 }

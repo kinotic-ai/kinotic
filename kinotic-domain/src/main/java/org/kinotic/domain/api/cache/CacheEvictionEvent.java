@@ -17,7 +17,6 @@ import java.util.Set;
 public class CacheEvictionEvent implements ClusterEvent {
 
     private final EvictionSourceType evictionSourceType;
-    private final EvictionSourceOperation evictionOperation;
 
     /**
      * ID of the {@link EntityDefinition} that is being evicted
@@ -32,20 +31,14 @@ public class CacheEvictionEvent implements ClusterEvent {
      */
     private final ApplicationKey applicationKey;
 
-    public static CacheEvictionEvent modifiedNamedQuery(ApplicationKey applicationKey, String entityDefinitionId, String namedQueryId) {
-        return new CacheEvictionEvent(EvictionSourceType.NAMED_QUERY, EvictionSourceOperation.MODIFY, entityDefinitionId, namedQueryId, applicationKey);
+    /** The eviction of a named query that changed or was deleted. */
+    public static CacheEvictionEvent namedQuery(ApplicationKey applicationKey, String entityDefinitionId, String namedQueryId) {
+        return new CacheEvictionEvent(EvictionSourceType.NAMED_QUERY, entityDefinitionId, namedQueryId, applicationKey);
     }
 
-    public static CacheEvictionEvent deletedNamedQuery(ApplicationKey applicationKey, String entityDefinitionId, String namedQueryId) {
-        return new CacheEvictionEvent(EvictionSourceType.NAMED_QUERY, EvictionSourceOperation.DELETE, entityDefinitionId, namedQueryId, applicationKey);
-    }
-
-    public static CacheEvictionEvent modifiedEntityDefinition(ApplicationKey applicationKey, String entityDefinitionId) {
-        return new CacheEvictionEvent(EvictionSourceType.ENTITY_DEFINITION, EvictionSourceOperation.MODIFY, entityDefinitionId, null, applicationKey);
-    }
-
-    public static CacheEvictionEvent deletedEntityDefinition(ApplicationKey applicationKey, String entityDefinitionId) {
-        return new CacheEvictionEvent(EvictionSourceType.ENTITY_DEFINITION, EvictionSourceOperation.DELETE, entityDefinitionId, null, applicationKey);
+    /** The eviction of an entity definition that changed or was deleted. */
+    public static CacheEvictionEvent entityDefinition(ApplicationKey applicationKey, String entityDefinitionId) {
+        return new CacheEvictionEvent(EvictionSourceType.ENTITY_DEFINITION, entityDefinitionId, null, applicationKey);
     }
 
     @Override

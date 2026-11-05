@@ -26,6 +26,8 @@ import java.util.Set;
 /**
  * Broadcasts each event as an Ignite compute task to the nodes its server types select and waits for every one's
  * answer, retrying against the cluster's current membership until each has handled it.
+ *
+ * Created By Nic Padilla on 2/12/25
  */
 @Slf4j
 @Component
@@ -33,7 +35,9 @@ public class DefaultClusterEventPublisher implements ClusterEventPublisher {
 
     private static final int MAX_ATTEMPTS = 3;
     private static final long RETRY_DELAY_MS = 1000L;
-    private static final long NODE_TIMEOUT_MS = 30000L;
+    // an event's handlers act in memory, so a node that has not answered within this is down, not slow, and the
+    // caller waiting on the delivery is held for at most the attempts times this
+    private static final long NODE_TIMEOUT_MS = 5000L;
 
     private final Ignite ignite;
     private final Vertx vertx;

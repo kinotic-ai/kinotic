@@ -65,10 +65,20 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
 
     /** Evicts cached queries after a successful write; shared by every save/create path. */
     private Future<NamedQueriesDefinition> evictModified(NamedQueriesDefinition definition) {
-        return clusterEventPublisher.publish(CacheEvictionEvent.modifiedNamedQuery(definition.applicationKey(),
-                                                                                   definition.getEntityDefinitionName(),
-                                                                                   definition.getId()))
-                                    .map(definition);
+        return evict(definition).map(definition);
+    }
+
+    /**
+     * Evicts the queries every app server compiled from the definition. The definition is already written when the
+     * eviction fails, so the failure says so: a repeat of the request writes the same state and evicts again.
+     */
+    private Future<Void> evict(NamedQueriesDefinition definition) {
+        return clusterEventPublisher.publish(CacheEvictionEvent.namedQuery(definition.applicationKey(),
+                                                                           definition.getEntityDefinitionName(),
+                                                                           definition.getId()))
+                                    .recover(error -> Future.failedFuture(new IllegalStateException(
+                                            "Named queries " + definition.getId() + " were saved, but an app server did not acknowledge"
+                                            + " the eviction of its cache: " + error.getMessage(), error)));
     }
 
     @Override
@@ -89,9 +99,7 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
                                 new IllegalArgumentException("NamedQuery cannot be found for id: " + id));
                     }
                     return super.deleteByIdSync(id)
-                            .compose(v -> clusterEventPublisher.publish(CacheEvictionEvent.deletedNamedQuery(namedQuery.applicationKey(),
-                                                                                                             namedQuery.getEntityDefinitionName(),
-                                                                                                             namedQuery.getId())));
+                            .compose(v -> evict(namedQuery));
                 });
     }
 
