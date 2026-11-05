@@ -5,13 +5,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.core.api.KinoticNodeAttributes;
 import org.kinotic.core.api.event.ClusterEvent;
 
 import java.util.Set;
 
 /**
- * A revocation delivered to every server node, each of which runs a gateway: the connections of the named identity
- * or login end.
+ * A revocation delivered to every node running the API gateway: the connections of the named identity or login
+ * end.
  */
 @Getter
 @Setter
@@ -25,7 +26,7 @@ public class ConnectionRevocation implements ClusterEvent {
 
     @Override
     public Set<String> nodeAttributeFilter() {
-        return Set.of();
+        return Set.of(KinoticNodeAttributes.API_GATEWAY);
     }
 
 }

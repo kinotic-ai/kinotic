@@ -1,8 +1,9 @@
 # General properties shared by all profiles
 kinotic:
   ignite:
-    # the node attribute a cluster event for this server's nodes names
+    # the node attributes a cluster event for this server's nodes names
     nodeAttributes:
+      "[kinotic.apiGateway]": true
       "[kinotic.managementServer]": true
   domain:
     oauth:

@@ -3,7 +3,7 @@ package org.kinotic.core.api.security;
 import io.vertx.core.Future;
 
 /**
- * Ends the realtime connections an identity or a browser login holds, on every node of the cluster. A connection
+ * Ends the realtime connections an identity or a browser login holds, on every gateway node of the cluster. A connection
  * is authenticated once, when it is established, and carries its participant for its life, so a disabled or removed
  * identity, or a login that was logged out, keeps its authority on the connections it already holds until they are
  * ended here.

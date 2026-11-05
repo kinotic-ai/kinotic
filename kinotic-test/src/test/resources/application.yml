@@ -18,6 +18,7 @@ kinotic:
   ignite:
     # every module runs in this one node, so it carries every server's attribute and receives every cluster event
     nodeAttributes:
+      "[kinotic.apiGateway]": true
       "[kinotic.appServer]": true
       "[kinotic.managementServer]": true
       "[kinotic.systemServer]": true

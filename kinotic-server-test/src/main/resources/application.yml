@@ -1,0 +1,5 @@
+kinotic:
+  ignite:
+    # the node attribute a cluster event for this server's nodes names
+    nodeAttributes:
+      "[kinotic.apiGateway]": true

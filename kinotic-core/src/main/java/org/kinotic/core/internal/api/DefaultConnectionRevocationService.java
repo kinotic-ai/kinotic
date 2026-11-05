@@ -10,8 +10,8 @@ import org.kinotic.core.api.security.ConnectionRevocationType;
 import org.springframework.stereotype.Component;
 
 /**
- * Delivers each revocation to every node through the {@link ClusterEventPublisher}, so every gateway holding a
- * connection it names ends it.
+ * Delivers each revocation to every gateway node through the {@link ClusterEventPublisher}, so every gateway
+ * holding a connection it names ends it.
  */
 @Component
 @RequiredArgsConstructor
