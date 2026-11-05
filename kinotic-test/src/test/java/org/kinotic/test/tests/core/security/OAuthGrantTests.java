@@ -19,6 +19,7 @@ import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -110,6 +111,21 @@ public class OAuthGrantTests extends KinoticTestBase {
         DeviceCodePollResult again = await(deviceCodes.poll(ISSUER, started.deviceCode()));
         assertEquals(PollStatus.INVALID, again.status());
         assertNull(again.approver());
+    }
+
+    @Test
+    public void anApprovedDeviceCodeIsRedeemedByExactlyOneOfTwoRacingPolls() throws Exception {
+        DeviceCodeGrantStart started = await(deviceCodes.start(ISSUER, "laptop"));
+        Participant approver = await(identities.resolveParticipant(user, user.getOrganizationId(), null));
+        await(deviceCodes.approve(ISSUER, started.userCode(), approver));
+
+        // both polls are in flight before either is awaited, so they race for the one redemption
+        Future<DeviceCodePollResult> first = deviceCodes.poll(ISSUER, started.deviceCode());
+        Future<DeviceCodePollResult> second = deviceCodes.poll(ISSUER, started.deviceCode());
+        List<PollStatus> statuses = List.of(await(first).status(), await(second).status());
+
+        assertEquals(1, statuses.stream().filter(PollStatus.APPROVED::equals).count());
+        assertEquals(1, statuses.stream().filter(PollStatus.INVALID::equals).count());
     }
 
     private Throwable failure(Supplier<Future<?>> call) {
