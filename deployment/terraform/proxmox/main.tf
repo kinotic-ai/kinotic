@@ -246,7 +246,7 @@ locals {
     }]...), {
     SPRING_PROFILES_ACTIVE       = "dev-server"
     BPL_JVM_HEAD_ROOM            = "10"
-    JAVA_TOOL_OPTIONS            = "-XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED"
+    JAVA_TOOL_OPTIONS            = "-XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-exports=java.base/jdk.internal.ref=ALL-UNNAMED --add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED"
     KINOTIC_MAX_OFF_HEAP_MEMORY  = "419430400"
     KINOTIC_DOMAIN_EMAIL_ENABLED = "true"
 

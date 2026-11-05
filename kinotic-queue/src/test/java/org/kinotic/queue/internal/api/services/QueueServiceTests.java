@@ -1,0 +1,296 @@
+package org.kinotic.queue.internal.api.services;
+
+import io.vertx.core.Future;
+import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.kinotic.queue.api.model.QueueDefinition;
+import org.kinotic.queue.api.model.QueuePosition;
+import org.kinotic.queue.api.model.QueueRecord;
+import org.kinotic.queue.api.model.StartPosition;
+import org.kinotic.queue.api.services.QueueService;
+import org.kinotic.queue.api.services.QueueSubscription;
+import org.kinotic.queue.internal.QueueTestNode;
+import org.kinotic.queue.internal.TestSubscriber;
+import org.kinotic.queue.internal.cluster.LocalQueueRepository;
+import org.kinotic.queue.internal.cluster.QueueDefinitionRepository;
+import org.kinotic.queue.internal.cluster.message.ShardId;
+import org.kinotic.queue.internal.log.ShardLog;
+
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.kinotic.queue.internal.QueueTestSupport.appendAll;
+import static org.kinotic.queue.internal.QueueTestSupport.await;
+import static org.kinotic.queue.internal.QueueTestSupport.keyOf;
+import static org.kinotic.queue.internal.QueueTestSupport.payload;
+import static org.kinotic.queue.internal.QueueTestSupport.range;
+import static org.kinotic.queue.internal.QueueTestSupport.value;
+
+/**
+ * Behavioral tests for {@link DefaultQueueService} on a single queue node holding real Chronicle Queue files:
+ * per-key ordering, at-least-once resume after the node restarts, start positions, and backpressure.
+ */
+public class QueueServiceTests {
+
+    @TempDir
+    private Path directory;
+
+    private QueueTestNode node;
+    private QueueService service;
+
+    @BeforeEach
+    public void setUp() throws Exception {
+        startNode();
+    }
+
+    @AfterEach
+    public void tearDown() throws Exception {
+        node.close();
+    }
+
+    @Test
+    public void createQueueIfNotExistKeepsTheOriginalShardCountAndWriteSyncing() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 4, false)));
+
+        QueueDefinition stored = await(service.createQueueIfNotExist(new QueueDefinition("orders", 8, true)));
+
+        assertEquals(4, stored.shardCount());
+        assertFalse(stored.syncWrites());
+    }
+
+    @Test
+    public void aQueueWithoutWriteSyncingKeepsItsRecordsAndSettingAcrossARestart() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 2, false)));
+        for (int i = 0; i < 10; i++) {
+            await(service.append("orders", "key-" + i, payload(i)));
+        }
+
+        // The restarted node is a new cluster member that knows the queue only from its disk
+        node.close();
+        startNode();
+
+        assertFalse(await(service.createQueueIfNotExist(new QueueDefinition("orders", 2))).syncWrites());
+        TestSubscriber subscriber = subscribe("billing", StartPosition.EARLIEST);
+        Set<Integer> received = new HashSet<>();
+        for (int i = 0; i < 10; i++) {
+            received.add(value(subscriber.next()));
+        }
+        assertEquals(range(0, 10), received);
+    }
+
+    @Test
+    public void recordsWithTheSameKeyAreDeliveredInAppendOrder() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 4)));
+        for (int i = 0; i < 50; i++) {
+            await(service.append("orders", "customer-" + (i % 5), payload(i)));
+        }
+
+        TestSubscriber subscriber = subscribe("billing", StartPosition.EARLIEST);
+        Map<String, List<Integer>> byKey = new HashMap<>();
+        for (int i = 0; i < 50; i++) {
+            QueueRecord record = subscriber.next();
+            byKey.computeIfAbsent(record.key(), k -> new ArrayList<>()).add(value(record));
+        }
+
+        assertEquals(5, byKey.size());
+        byKey.forEach((key, values) -> {
+            int customer = Integer.parseInt(key.substring("customer-".length()));
+            for (int i = 0; i < values.size(); i++) {
+                assertEquals(customer + i * 5, values.get(i), "out of order for " + key);
+            }
+        });
+    }
+
+    @Test
+    public void appendsMadeWithoutWaitingAreWrittenInTheOrderTheyWereCalled() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 4)));
+        List<Future<QueuePosition>> appends = new ArrayList<>();
+        for (int i = 0; i < 200; i++) {
+            appends.add(service.append("orders", "same-key", payload(i)));
+        }
+        await(Future.all(appends));
+
+        TestSubscriber subscriber = subscribe("billing", StartPosition.EARLIEST);
+        for (int i = 0; i < 200; i++) {
+            assertEquals(i, value(subscriber.next()));
+        }
+        assertNull(subscriber.poll(500));
+    }
+
+    @Test
+    public void consumerResumesAfterItsLastCommitAcrossARestart() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 1)));
+        long lastOffset = -1;
+        for (int i = 0; i < 10; i++) {
+            QueuePosition position = await(service.append("orders", "key", payload(i)));
+            assertTrue(position.offset() > lastOffset);
+            lastOffset = position.offset();
+        }
+        TestSubscriber first = subscribe("billing", StartPosition.EARLIEST);
+        QueueRecord committed = null;
+        for (int i = 0; i < 6; i++) {
+            QueueRecord record = first.next();
+            if (i == 3) {
+                committed = record;
+            }
+        }
+        await(first.commit(committed));
+        await(first.close());
+
+        // The restarted node is a new cluster member that knows the queue only from its disk
+        node.close();
+        startNode();
+        assertTrue(await(service.append("orders", "key", payload(10))).offset() > lastOffset);
+
+        TestSubscriber resumed = subscribe("billing", StartPosition.EARLIEST);
+        for (int i = 4; i <= 10; i++) {
+            assertEquals(i, value(resumed.next()));
+        }
+        assertNull(resumed.poll(500));
+    }
+
+    @Test
+    public void latestStartsWithTheNextAppendedRecord() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 2)));
+        for (int i = 0; i < 5; i++) {
+            await(service.append("orders", "key-" + i, payload(i)));
+        }
+
+        TestSubscriber subscriber = subscribe("audit", StartPosition.LATEST);
+        // Appended as soon as the subscription opened, before any fetch of it can have reached the owner
+        await(service.append("orders", "key-5", payload(5)));
+
+        assertEquals(5, value(subscriber.next()));
+        assertNull(subscriber.poll(500));
+    }
+
+    @Test
+    public void pausedSubscriptionDeliversOnlyWhatIsFetched() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 1)));
+        TestSubscriber subscriber = subscribe("billing", StartPosition.EARLIEST);
+        subscriber.onContext(QueueSubscription::pause);
+        appendAll(service, "orders", 0, 5);
+        assertNull(subscriber.poll(500));
+
+        subscriber.onContext(s -> s.fetch(2));
+
+        assertEquals(0, value(subscriber.next()));
+        assertEquals(1, value(subscriber.next()));
+        assertNull(subscriber.poll(500));
+    }
+
+    @Test
+    public void commitOfARecordNotYetDeliveredFails() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 1)));
+        await(service.append("orders", "key", payload(0)));
+        TestSubscriber subscriber = subscribe("billing", StartPosition.EARLIEST);
+        QueueRecord delivered = subscriber.next();
+        QueueRecord ahead = new QueueRecord(new QueuePosition("orders", 0, delivered.position().offset() + 1),
+                                            "key", payload(1));
+
+        assertThrows(IllegalArgumentException.class, () -> await(subscriber.commit(ahead)));
+    }
+
+    @Test
+    public void appendOfARecordLargerThanTheMaximumEventPayloadFails() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 1)));
+
+        assertThrows(IllegalArgumentException.class, () -> await(service.append("orders", "key", new byte[2 * 1024 * 1024])));
+    }
+
+    @Test
+    public void appendToAMissingOrInvalidQueueFails() {
+        assertThrows(IllegalArgumentException.class, () -> await(service.append("missing", "key", payload(0))));
+        assertThrows(IllegalArgumentException.class, () -> await(service.append("../outside", "key", payload(0))));
+    }
+
+    @Test
+    public void aHandlerFetchingOneRecordAtATimeReceivesEveryRecordOfManyShards() throws Exception {
+        int count = 16_384;
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 64)));
+        List<Future<QueuePosition>> appends = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            appends.add(service.append("orders", "key-" + i, new byte[0]));
+        }
+        await(Future.all(appends));
+
+        AtomicInteger received = new AtomicInteger();
+        CompletableFuture<Throwable> stopped = new CompletableFuture<>();
+        node.vertx().getOrCreateContext().runOnContext(v -> service.subscribe("orders", "billing", StartPosition.EARLIEST).onSuccess(subscription -> {
+            subscription.exceptionHandler(stopped::complete);
+            subscription.endHandler(ignored -> stopped.complete(new IllegalStateException("the subscription ended")));
+            // Paused while every shard fills the buffer, then every buffered record arrives inside fetch(1) of the record
+            // before it
+            subscription.pause();
+            subscription.handler(record -> {
+                received.incrementAndGet();
+                subscription.fetch(1);
+            });
+            node.vertx().setTimer(3_000, t -> subscription.fetch(1));
+        }).onFailure(stopped::complete));
+        Awaitility.await().atMost(Duration.ofSeconds(60)).until(() -> received.get() >= count || stopped.isDone());
+
+        assertFalse(stopped.isDone(), () -> "the subscription stopped: " + stopped.join());
+        assertEquals(count, received.get());
+    }
+
+    @Test
+    public void aSubscriptionReadsEveryShardOfAQueueWithManyShards() throws Exception {
+        int shards = 300;
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", shards)));
+        // Every shard is fetched while it is empty, so each holds its fetch open
+        TestSubscriber subscriber = subscribe("billing", StartPosition.EARLIEST);
+        List<Future<QueuePosition>> appends = new ArrayList<>();
+        for (int shard = 0; shard < shards; shard++) {
+            appends.add(service.append("orders", keyOf(shard, shards), payload(shard)));
+        }
+        await(Future.all(appends));
+
+        Set<Integer> delivered = new HashSet<>();
+        while (delivered.size() < shards) {
+            delivered.add(value(subscriber.next()));
+        }
+        assertEquals(range(0, shards), delivered);
+    }
+
+    @Test
+    public void anAppendTheShardsOwnerCanNoLongerWriteIsWrittenByItsNextOwner() throws Exception {
+        await(service.createQueueIfNotExist(new QueueDefinition("orders", 1)));
+        await(service.append("orders", "key", payload(0)));
+        // What a newer owner's takeover does to this node's copy: it promises to refuse the current owner's epoch
+        ShardId shardId = node.bean(QueueDefinitionRepository.class).findStored("orders").shardId(0);
+        ShardLog copy = node.bean(LocalQueueRepository.class).findShard(shardId);
+        copy.promise(copy.acceptedEpoch() + 1);
+
+        await(service.append("orders", "key", payload(1)));
+
+        TestSubscriber subscriber = subscribe("billing", StartPosition.EARLIEST);
+        assertEquals(0, value(subscriber.next()));
+        assertEquals(1, value(subscriber.next()));
+    }
+
+    private void startNode() throws Exception {
+        node = QueueTestNode.start("single", directory.resolve("single"), 1);
+        service = node.queueService();
+    }
+
+    private TestSubscriber subscribe(String consumerName, StartPosition startPosition) throws Exception {
+        return new TestSubscriber(node, "orders", consumerName, startPosition);
+    }
+}
