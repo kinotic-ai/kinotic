@@ -47,4 +47,9 @@ public interface ClientTestService {
      */
     CompletableFuture<Shape> shape(double radius);
 
+    /**
+     * Returns a string of the length, for a reply larger than a WebSocket frame.
+     */
+    CompletableFuture<String> pad(int length);
+
 }

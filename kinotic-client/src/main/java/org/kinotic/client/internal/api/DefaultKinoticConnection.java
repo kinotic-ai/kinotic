@@ -5,6 +5,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.UpgradeRejectedException;
+import io.vertx.core.http.WebSocketClientOptions;
 import io.vertx.core.http.WebSocketConnectOptions;
 import io.vertx.core.internal.ContextInternal;
 import io.vertx.ext.stomp.lite.client.StompClient;
@@ -113,6 +114,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
         Validate.isTrue(options.getAuthHeaders().keySet().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null key");
         Validate.isTrue(options.getAuthHeaders().values().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null value");
         Validate.isTrue(options.getMaxBodyLength() >= 1, "maxBodyLength must be at least 1 byte");
+        Validate.isTrue(options.getMaxWebSocketFrameSize() >= 1, "maxWebSocketFrameSize must be at least 1 byte");
         ReconnectOptions reconnect = options.getReconnect();
         Validate.isTrue(reconnect.getMaxAttempts() >= 0, "reconnect.maxAttempts must not be negative");
         // Vert.x schedules no timer under a millisecond, so the delays and the timeout are at least that
@@ -163,6 +165,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
         initialConnect = promise;
         context.runOnContext(v -> {
             stompClient = StompClient.create(vertx, new StompClientOptions()
+                    .setWebSocketClientOptions(new WebSocketClientOptions().setMaxFrameSize(options.getMaxWebSocketFrameSize()))
                     .setMaxBodyLength(options.getMaxBodyLength())
                     .setConnectTimeout(options.getReconnect().getConnectionTimeout().toMillis()));
             attemptConnection();

@@ -8,7 +8,6 @@ import io.vertx.ext.stomp.lite.StompServerHandlerFactory;
 import io.vertx.ext.stomp.lite.StompServerOptions;
 import io.vertx.ext.stomp.lite.StompServerVerticle;
 import io.vertx.ext.stomp.lite.StompServerVerticleFactory;
-import io.vertx.ext.stomp.lite.frame.FrameParser;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
@@ -94,9 +93,7 @@ public class ApiGatewayVertcleFactory {
         HttpServerOptions serverOptions = new HttpServerOptions()
                 .setPort(properties.getApiGateway().getStompPort())
                 .setWebSocketSubProtocols(List.of("v12.stomp"))
-                // a WebSocket frame carries the largest STOMP frame the parser's limits allow, so a client that writes
-                // a frame whole, as a browser may, is refused by those limits and never by the transport
-                .setMaxWebSocketFrameSize(FrameParser.maxFrameLength(stompServerOptions));
+                .setMaxWebSocketFrameSize(properties.getMaxEventPayloadSize());
         ApiGatewayUtil.applySsl(serverOptions, properties.getApiGateway().getSsl());
 
         return StompServerVerticleFactory.create(serverOptions, stompServerOptions, stompServerHandlerFactory, router);

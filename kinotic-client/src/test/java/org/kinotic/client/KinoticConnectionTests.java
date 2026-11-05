@@ -104,6 +104,17 @@ public class KinoticConnectionTests {
     }
 
     @Test
+    public void testReplyLargerThanADefaultWebSocketFrameArrives() throws Exception {
+        // the gateway writes a reply in WebSocket frames of up to its payload limit, well over Vert.x's 64 KB default
+        KinoticConnection connection = connect(options(TestGatewayApplication.CLIENT_SECRET));
+        ClientTestService service = connection.serviceProxy(ClientTestService.class).getService();
+
+        String reply = service.pad(200_000).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+        Assertions.assertEquals(200_000, reply.length());
+    }
+
+    @Test
     public void testMapperCustomizerConvertsWhatTheDefaultMapperCannot() throws Exception {
         // the gateway serializes the Circle; a Shape return type converts only once a module names the Circle
         KinoticConnection plain = connect(options(TestGatewayApplication.CLIENT_SECRET));
