@@ -479,9 +479,11 @@ final class ShardOwner {
         sweepTimer = vertx.setPeriodic(SWEEP_INTERVAL_MS, t -> sweep());
         producersRecovered = vertx.executeBlocking(this::scanProducerBatches, false)
                                   .recover(e -> {
-                                      log.warn("Reading the producers' last batches of {} failed; a batch sent again before the owner"
-                                                       + " changed may be written twice", shardId, e);
-                                      return Future.succeededFuture(Map.of());
+                                      // Without the producers' last batches, a batch sent again before the owner changed
+                                      // would be written twice, so the shard is recovered again rather than served
+                                      log.warn("Reading the producers' last batches of {} failed, stepping down", shardId, e);
+                                      stepDown();
+                                      return Future.failedFuture(changedOwner(shardId));
                                   })
                                   .onSuccess(producerBatches::putAll)
                                   .mapEmpty();
