@@ -1,6 +1,6 @@
 import type { Component } from 'vue'
 import { type RouteLocationNormalized, type RouteMeta, type RouteRecordRaw } from 'vue-router'
-import { ChartLine, CloudUpload, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, ListTree, Server, Settings, Table, User, Users, Zap } from '@lucide/vue'
+import { ChartLine, CloudUpload, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, ListTree, Server, Settings, ShieldAlert, Table, User, Users, Zap } from '@lucide/vue'
 import { apiUrl, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 import { ConnectedAppsPage, OAuthConsentPage } from '@kinotic-ai/frontend-common/management'
 
@@ -86,6 +86,14 @@ const pageRoutes: RouteRecordRaw[] = [
       path: ':jobRunId',
       component: () => import('@/pages/JobRunPage.vue'),
       props: true
+    }
+  ]),
+
+  organizationPage('/vulnerabilities', organizationItem('Vulnerabilities', ShieldAlert, 25, 'Organization'), [
+    {
+      name: 'vulnerabilities',
+      path: '',
+      component: () => import('@/pages/VulnerabilitiesPage.vue')
     }
   ]),
 

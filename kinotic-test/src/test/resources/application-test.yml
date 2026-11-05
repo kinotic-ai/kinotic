@@ -24,6 +24,8 @@ kinotic:
     licenseKey: eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJLaW5vdGljIEV2YWx1YXRpb24gLSBkZXZlbG9wbWVudCBhbmQgdGVzdGluZyBvbmx5LCBub3QgZm9yIHByb2R1Y3Rpb24gdXNlIiwiaWF0IjoxNzkzODQxOTgxLCJleHAiOjIxMTQyOTQ0MDAsImZlYXR1cmVzIjpbIioiXX0.41zerfYDi74rzxfDfRqUE_WFK44lvtOt2MKAY9_ECmsCpDaWJO2MuLvU_NGfXgV69XxVS3pkxMSB0JGIa1hKRg
   maxNumberOfCoresToUse: 4
   systemApi:
+    # tests store the advisories they check SBOMs against; OSV is never read
+    disableOsvImport: true
     deployment:
       # required at boot; no deployment ever runs in tests, workloads would reach the local gateway
       managementServer:

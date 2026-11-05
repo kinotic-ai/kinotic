@@ -112,9 +112,7 @@ public class JobInterpreter {
             if (definition.isParallel()) {
                 executeChildrenParallel(path, scope, definition.getTasks());
             } else {
-                for (JobNode child : definition.getTasks()) {
-                    executeChild(path, scope, child);
-                }
+                executeChildrenInTurn(path, scope, definition);
             }
             notifyTaskCompleted(path, Store.none(), null, null, null, null);
         } catch (Throwable t) {
@@ -298,6 +296,28 @@ public class JobInterpreter {
             ret = stateSerializer.serializeWireValue(node.description(), value);
         }
         return ret;
+    }
+
+    // Runs the children one after another. A definition continuing on failure runs every child and
+    // fails with the first failure once all have run; any other stops at the first failure
+    private void executeChildrenInTurn(String parentPath, DefaultJobContext scope, DefaultJobDefinition definition) {
+        Throwable firstError = null;
+        for (JobNode child : definition.getTasks()) {
+            try {
+                executeChild(parentPath, scope, child);
+            } catch (RunCancelledException e) {
+                throw e;
+            } catch (Throwable t) {
+                if (!definition.isContinueOnFailure()) {
+                    rethrow(t);
+                } else if (firstError == null) {
+                    firstError = t;
+                }
+            }
+        }
+        if (firstError != null) {
+            rethrow(firstError);
+        }
     }
 
     private void executeChildrenParallel(String parentPath, DefaultJobContext scope, List<JobNode> children) {

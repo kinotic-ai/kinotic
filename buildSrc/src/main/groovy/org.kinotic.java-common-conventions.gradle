@@ -151,6 +151,8 @@ dependencyManagement {
         dependency "org.apache.ignite:ignite-slf4j:${igniteVersion}"
         dependency "org.apache.ignite:ignite-spring:${igniteVersion}"
 
+        dependency "org.apache.maven:maven-artifact:${mavenArtifactVersion}"
+
         dependency "org.kinotic:vertx-jackson3-codec:${vertxJackson3CodecVersion}"
         dependency "org.kinotic:vertx-stomp-lite:${vertxStompLiteVersion}"
 
