@@ -4,17 +4,19 @@ import lombok.Data;
 import org.kinotic.core.api.event.ClusterEvent;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
-import org.kinotic.domain.api.utils.DomainUtil;
 
 import java.util.Set;
 
 /**
  * Cache eviction event specifically for caches that need to be evicted
  * This is used when a {@link EntityDefinition} or named query is updated and related caches need to be evicted.
- * It is delivered to the app servers, where the entity services that hold the caches run.
+ * It is delivered to the nodes running the persistence module, where the entity services that hold the caches run.
  */
 @Data
 public class CacheEvictionEvent implements ClusterEvent {
+
+    // advertised by every node running kinotic-persistence, from the module's META-INF/kinotic-persistence.properties
+    private static final String PERSISTENCE_NODE_ATTRIBUTE = "kinotic.persistence";
 
     private final EvictionSourceType evictionSourceType;
 
@@ -43,6 +45,6 @@ public class CacheEvictionEvent implements ClusterEvent {
 
     @Override
     public Set<String> nodeAttributeFilter() {
-        return Set.of(DomainUtil.APP_SERVER_NODE_ATTRIBUTE);
+        return Set.of(PERSISTENCE_NODE_ATTRIBUTE);
     }
 }

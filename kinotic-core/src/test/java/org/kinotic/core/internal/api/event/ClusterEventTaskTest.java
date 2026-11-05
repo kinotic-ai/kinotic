@@ -50,7 +50,7 @@ public class ClusterEventTaskTest {
     private static SampleClusterEvent sampleEvent(Serializable detail) {
         return new SampleClusterEvent(new SampleClusterEventKey("acme", "orders", detail),
                                       Instant.parse("2026-11-05T10:15:30Z"),
-                                      Set.of("kinotic.appServer"));
+                                      Set.of("kinotic.sample"));
     }
 
     // what the task publishes into a node's Spring context when it runs there

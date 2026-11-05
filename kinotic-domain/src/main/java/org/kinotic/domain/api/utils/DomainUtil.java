@@ -65,12 +65,6 @@ public class DomainUtil {
     public static final String APP_ZONE_PREFIX = "app";
 
     /**
-     * The Ignite node attribute an app server's nodes carry, set in the server's {@code kinotic.ignite.nodeAttributes},
-     * which a cluster event for the app servers names.
-     */
-    public static final String APP_SERVER_NODE_ATTRIBUTE = "kinotic.appServer";
-
-    /**
      * The zone an application's own services are addressed in, {@code app.<organizationId>.<applicationId>},
      * which the application's runtimes and users reach and nothing outside the application does.
      *
