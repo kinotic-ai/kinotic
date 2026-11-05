@@ -193,14 +193,26 @@ Add `compose-otel.yml` to bring up the collector and the three stores next to El
 docker compose -f compose-otel.yml -f compose.elasticsearch.yml -f compose.kibana.yml up -d
 ```
 
-The compose servers export to the collector, `otel-collector:4317` on the compose network. Each
-store's API is on the host, and takes the tenant in an `X-Scope-OrgID` header:
+The compose servers export to the collector, `otel-collector:4317` on the compose network. A
+stack that ran an earlier `compose-otel.yml` still has its Grafana container; `docker compose
+-f compose-otel.yml up -d --remove-orphans` removes it and frees port 3000.
 
-| Signal | Store | Where to look |
-|---|---|---|
-| Traces | Tempo, <http://localhost:3200> | `GET /api/search?tags=service.name%3Dkinotic-server-management`, then `GET /api/traces/<traceID>` (tenant `kinotic-system`) |
-| Metrics | Mimir, <http://localhost:9009> | The Prometheus API under `/prometheus`, e.g. `GET /prometheus/api/v1/query?query=jvm_memory_used_bytes{job="kinotic-server-management"}` (tenant `kinotic-system`) |
-| Logs | Loki, <http://localhost:3100> | `GET /loki/api/v1/query_range?query={service_name="kinotic-server-management"}`, one node by adding `service_instance_id` (tenant `kinotic-system`) |
+Each store's API is on the host and takes the tenant in an `X-Scope-OrgID` header; `curl -G`
+with `--data-urlencode` sends a selector's braces and quotes as they are:
+
+```bash
+# traces: the recent traces of one server, then one of them
+curl -sG -H 'X-Scope-OrgID: kinotic-system' http://localhost:3200/api/search \
+     --data-urlencode 'tags=service.name=kinotic-server-management' | jq '.traces[].traceID'
+curl -s -H 'X-Scope-OrgID: kinotic-system' http://localhost:3200/api/traces/<traceID> | jq
+# metrics: the Prometheus API under /prometheus
+curl -sG -H 'X-Scope-OrgID: kinotic-system' http://localhost:9009/prometheus/api/v1/query \
+     --data-urlencode 'query=jvm_memory_used_bytes{job="kinotic-server-management"}' | jq
+# logs: one server's lines of the last hour; one node by adding service_instance_id to the selector
+curl -sG -H 'X-Scope-OrgID: kinotic-system' http://localhost:3100/loki/api/v1/query_range \
+     --data-urlencode 'query={service_name="kinotic-server-management"}' \
+     --data-urlencode "start=$(date -u -d '1 hour ago' +%s)000000000" | jq '.data.result[].values'
+```
 
 All three run multi-tenant. The server's own telemetry lands in the `kinotic-system` tenant —
 the collector stamps it on pushes that name none — and each organization's workload telemetry
@@ -261,23 +273,23 @@ docker compose -f compose-otel.yml restart mimir tempo
 To see what's actually stored rather than what should be:
 
 ```bash
-curl -s 'http://localhost:9009/prometheus/api/v1/label/__name__/values' | jq -r '.data[]' | grep -E 'jvm|http|traces_'
+curl -s -H 'X-Scope-OrgID: kinotic-system' 'http://localhost:9009/prometheus/api/v1/label/__name__/values' | jq -r '.data[]' | grep -E 'jvm|http|traces_'
 curl -s -H 'X-Scope-OrgID: kinotic-system' 'http://localhost:3100/loki/api/v1/labels' | jq
 ```
 
 ### Correlation between signals
 
-- **Log → trace**: expand a log line in Explore or the dashboard's log panel; the `TraceID`
-  derived field links into Tempo. It matches the `trace_id` structured-metadata key, not the
-  line text — OTLP log records carry the trace context as metadata, so a body regex finds
-  nothing.
-- **Metric → trace**: exemplar dots on the p95 latency panel jump to the trace behind the
-  sample. Requires `max_global_exemplars_per_user` above 0 in `mimir.yml` — Mimir's default of
-  `0` disables exemplar ingestion outright, unlike the series limits where `0` means unlimited.
-- **Trace → logs / metrics**: a span in Tempo has *Logs for this span* and the span-metrics
-  queries wired through `tracesToLogsV2` / `tracesToMetrics`.
-- **Service graph**: Tempo's *Service Graph* tab and the node graph come from the
-  `service-graphs` processor writing `traces_service_graph_*` into Mimir.
+- **Log → trace**: a log record carries `trace_id` and `span_id` as structured metadata, not in
+  the line, so a Loki query reads them with the selector (`{service_name="kinotic-server-app"} | trace_id != ""`)
+  and the trace is `GET /api/traces/<trace_id>` on Tempo; a body regex finds nothing.
+- **Metric → trace**: Mimir keeps an exemplar per histogram bucket naming the trace behind the
+  sample, read with `GET /prometheus/api/v1/query_exemplars`. Requires
+  `max_global_exemplars_per_user` above 0 in `mimir.yml` — Mimir's default of `0` disables
+  exemplar ingestion outright, unlike the series limits where `0` means unlimited.
+- **Trace → logs / metrics**: the span's `trace_id` selects its logs in Loki as above, and its
+  `service.name` is the `service` label of the span metrics the metrics-generator writes.
+- **Service graph**: the `service-graphs` processor writes `traces_service_graph_*` series into
+  Mimir, one per calling and called service pair, which a Prometheus query reads like any other.
 
 The servers send no email: each link a person must open is logged and shown in the portal
 ([Demonstration server](../../website/content/04.platform/03.configuration.md)).

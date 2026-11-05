@@ -102,8 +102,8 @@
       <text class="t-chip" x="380" y="413" text-anchor="middle">Mimir</text>
       <text class="t-tiny" x="380" y="428" text-anchor="middle">:9009</text>
 
-      <text class="t-tiny" x="558" y="413" text-anchor="middle">OTLP from</text>
-      <text class="t-tiny" x="558" y="426" text-anchor="middle">servers, nodes</text>
+      <text class="t-tiny" x="465" y="413" text-anchor="middle">OTLP from</text>
+      <text class="t-tiny" x="465" y="426" text-anchor="middle">servers, nodes</text>
 
       <!-- the edge → each server, by SNI -->
       <line class="flow" x1="155" y1="384" x2="155" y2="480" marker-end="url(#ds-ink)"></line>

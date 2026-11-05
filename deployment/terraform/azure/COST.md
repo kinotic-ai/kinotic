@@ -87,7 +87,7 @@ Includes observability stack (Loki + Tempo + Mimir + Alloy).
 | Private DNS Zone (blob) | privatelink.blob.core.windows.net | 1 | $0.50 | $1 |
 | Organization storage | Storage account + private endpoint | per org | ~$7.50 | +$7.50 per org |
 
-### Beta Total: ~$624/mo, plus ~$7.50 per organization
+### Beta Total: ~$623/mo, plus ~$7.50 per organization
 
 ### Beta Resource Utilization (48 GB across 3 nodes)
 
@@ -106,7 +106,7 @@ Memory reservations (requests) determine scheduling, not actual usage.
 | Mimir | 512 MB | 1 | 0.5 GB |
 | Alloy (per node) | 256 MB | 3 | 0.75 GB |
 | System (kube, ECK, cert-mgr, Reloader, Cilium) | — | — | ~5 GB |
-| **Reserved** | | | **~37.5 GB** |
+| **Reserved** | | | **~37.25 GB** |
 | **Available for rolling updates** | | | **~4.5 GB** |
 
 **Beta sizing notes:**
@@ -144,7 +144,7 @@ AKS Standard tier with uptime SLA.
 | Private DNS Zone (blob) | privatelink.blob.core.windows.net | 1 | $0.50 | $1 |
 | Organization storage | Storage account + private endpoint | per org | ~$7.50 | +$7.50 per org |
 
-### Production Total: ~$2,076/mo, plus ~$7.50 per organization
+### Production Total: ~$2,075/mo, plus ~$7.50 per organization
 
 The per-organization line is the private endpoint; the account itself is cents. At a
 thousand organizations that is ~$7,300/mo, which is where service endpoints or a shared

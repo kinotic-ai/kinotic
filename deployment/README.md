@@ -73,7 +73,7 @@ automatically: Reloader restarts the pods.
 
 ## Observability
 
-Centralized logs, traces and metrics using Grafana's stack:
+Centralized logs, traces and metrics, each in a multi-tenant store the servers read:
 
 - **Alloy** — DaemonSet on each node, collects pod logs, ships to Loki under the `kinotic-system` tenant. Pipeline config in `helm/observability/alloy-config.alloy`.
 - **Loki** — Multi-tenant log storage (`auth_enabled: true`): one tenant per organization for workload logs, plus the reserved `kinotic-system` tenant for system logs. Azure Blob Storage.

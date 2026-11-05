@@ -57,6 +57,15 @@ terraform output set_user_tenant_id
 
 ## Monitoring
 
+**Loki:** no external LB; forward its service and query it with the tenant header, which Loki
+requires (`auth_enabled: true`, no gateway):
+```bash
+kubectl port-forward svc/loki -n observability 3100:3100
+curl -sG -H 'X-Scope-OrgID: kinotic-system' http://localhost:3100/loki/api/v1/query_range \
+     --data-urlencode 'query={namespace="kinotic"} | json | level="ERROR"' \
+     --data-urlencode "start=$(date -u -d '1 hour ago' +%s)000000000" | jq '.data.result[].values'
+```
+
 **Useful Loki queries:**
 ```
 {namespace="kinotic"}                          # All the servers' logs

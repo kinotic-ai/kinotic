@@ -27,10 +27,10 @@ data "terraform_remote_state" "azure" {
 locals {
   azure = data.terraform_remote_state.azure.outputs
 
-  edge_ip    = split("/", var.edge_ip)[0]
-  loki_ip    = split("/", var.loki_ip)[0]
-  tempo_ip   = split("/", var.tempo_ip)[0]
-  mimir_ip   = split("/", var.mimir_ip)[0]
+  edge_ip  = split("/", var.edge_ip)[0]
+  loki_ip  = split("/", var.loki_ip)[0]
+  tempo_ip = split("/", var.tempo_ip)[0]
+  mimir_ip = split("/", var.mimir_ip)[0]
 
   # The private network: the host is its gateway, the edge takes .10, the ES nodes .11 to .13,
   # the servers .20, .22 and .23, the migration .21, Summit 42 .24
@@ -101,8 +101,13 @@ locals {
   es_healthy = "curl -sf 'http://${local.es_ips[0]}:9200/_cluster/health?wait_for_nodes=3&wait_for_status=yellow&timeout=30s' >/dev/null"
 
   # Loki, Tempo and Mimir run the compose stack's config files, with the compose service
-  # names replaced by the containers' addresses
-  tempo_config = replace(file("${local.compose_dir}/tempo.yml"), "http://mimir:9009", "http://${local.mimir_ip}:9009")
+  # names replaced by the containers' addresses, which the servers and the nodes reach them at
+  service_urls = {
+    "http://loki:3100"  = "http://${local.loki_ip}:3100"
+    "http://mimir:9009" = "http://${local.mimir_ip}:9009"
+    "http://tempo:3200" = "http://${local.tempo_ip}:3200"
+  }
+  tempo_config = replace(file("${local.compose_dir}/tempo.yml"), "http://mimir:9009", local.service_urls["http://mimir:9009"])
 
   es_nodes = { for i in range(3) : "es-${i + 1}" => {
     vm_id    = 101 + i

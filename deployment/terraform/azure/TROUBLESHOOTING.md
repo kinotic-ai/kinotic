@@ -122,7 +122,7 @@ resultsCache:
 ### LoadBalancer service unreachable from internet (empty subnet NSG)
 
 **Cause:** A custom NSG associated with the AKS subnet that has no explicit inbound allow rules blocks all internet traffic. Azure's default NSG behavior denies inbound from the internet. AKS creates its own NSG in the MC_ resource group with the correct LB rules, but a subnet-level NSG takes precedence.
-**Symptoms:** No LoadBalancer service is reachable from outside the cluster — not the servers. Internal cluster-to-pod connectivity works. Azure LB health probes, rules, and MC_ NSG all look correct.
+**Symptoms:** No LoadBalancer service is reachable from outside the cluster, the servers included. Internal cluster-to-pod connectivity works. Azure LB health probes, rules, and MC_ NSG all look correct.
 **Fix:** Remove the custom NSG from the AKS subnet. AKS manages its own NSG:
 ```bash
 # Remove NSG association from subnet
