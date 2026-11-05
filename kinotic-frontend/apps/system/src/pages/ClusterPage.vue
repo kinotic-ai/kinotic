@@ -54,7 +54,7 @@
       </DashboardSection>
 
       <DashboardSection :icon="Server" :tint="TINTS.ink" title="Server nodes" :count="cluster?.nodes.length"
-                        description="Each server and how many nodes run it; select one to list only its nodes. Logs follows a node's logs. Logging opens its logger levels and trace-log filters.">
+                        description="Each server and how many nodes run it; select one to list its nodes. Logs follows a node's logs. Logging opens its logger levels and trace-log filters.">
         <!-- the cluster's shape at a glance: its servers in the order their first node joined, linked,
              with a pulse running between them while the cluster serves -->
         <div v-if="serverGroups.length > 0"
@@ -83,67 +83,73 @@
             </button>
           </template>
         </div>
-        <div v-if="orderedNodes.length > 0" class="flex flex-wrap items-center gap-3 border-b border-surface-200 px-5 py-3 dark:border-surface-700">
-          <IconField class="w-full sm:w-80">
-            <InputIcon class="pi pi-search" />
-            <InputText v-model="nodeSearch" placeholder="Search by name, address or id" size="small" class="w-full" />
-          </IconField>
-          <Button v-if="serverFilter" :label="`Only ${serverFilter}`" icon="pi pi-times" icon-pos="right" severity="secondary"
-                  size="small" outlined @click="serverFilter = null" />
-        </div>
-        <DataTable :value="pageNodes" size="small" class="text-sm" data-key="nodeId">
-          <template #empty>
-            <div v-if="loading" class="py-6 text-center text-sm text-muted-color">Loading cluster topology…</div>
-            <EmptyChartCharacter v-else class="py-6" title="No server nodes reported" />
-          </template>
-          <Column header="Node" style="width: 38%">
-            <template #body="{ data }">
-              <span class="flex items-center gap-3">
-                <span :class="['flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', TINTS.ink]">
-                  <Server :size="16" :stroke-width="1.75" aria-hidden="true" />
-                </span>
-                <span class="min-w-0">
-                  <span class="flex items-center gap-2">
-                    <span class="truncate font-semibold text-surface-950 dark:text-surface-0">{{ nodeTitle(data) }}</span>
-                    <span class="shrink-0 rounded-md bg-surface-100 px-1.5 text-[0.6875rem] font-medium tabular-nums text-surface-600 dark:bg-surface-800 dark:text-surface-300"
-                          v-tooltip.top="'Order it joined the cluster'">#{{ data.order }}</span>
+        <template v-if="orderedNodes.length === 0">
+          <div v-if="loading" class="py-6 text-center text-sm text-muted-color">Loading cluster topology…</div>
+          <EmptyChartCharacter v-else class="py-6" title="No server nodes reported" />
+        </template>
+        <p v-else-if="serverFilter === null" class="px-5 py-4 text-sm text-muted-color">Select a server above to list its nodes.</p>
+        <template v-else>
+          <div class="flex flex-wrap items-center gap-3 border-b border-surface-200 px-5 py-3 dark:border-surface-700">
+            <IconField class="w-full sm:w-80">
+              <InputIcon class="pi pi-search" />
+              <InputText v-model="nodeSearch" placeholder="Search by name, address or id" size="small" class="w-full" />
+            </IconField>
+            <Button :label="`${serverFilter} nodes`" icon="pi pi-times" icon-pos="right" severity="secondary"
+                    size="small" outlined v-tooltip.top="'Close the node list'" @click="serverFilter = null" />
+          </div>
+          <DataTable :value="pageNodes" size="small" class="text-sm" data-key="nodeId">
+            <template #empty>
+              <div class="py-6 text-center text-sm text-muted-color">No {{ serverFilter }} node matches the search.</div>
+            </template>
+            <Column header="Node" style="width: 38%">
+              <template #body="{ data }">
+                <span class="flex items-center gap-3">
+                  <span :class="['flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', TINTS.ink]">
+                    <Server :size="16" :stroke-width="1.75" aria-hidden="true" />
                   </span>
-                  <span class="mt-0.5 block truncate font-mono text-xs text-muted-color" v-tooltip.top="data.nodeId">{{ shortId(data.nodeId) }}</span>
+                  <span class="min-w-0">
+                    <span class="flex items-center gap-2">
+                      <span class="truncate font-semibold text-surface-950 dark:text-surface-0">{{ nodeTitle(data) }}</span>
+                      <span class="shrink-0 rounded-md bg-surface-100 px-1.5 text-[0.6875rem] font-medium tabular-nums text-surface-600 dark:bg-surface-800 dark:text-surface-300"
+                            v-tooltip.top="'Order it joined the cluster'">#{{ data.order }}</span>
+                    </span>
+                    <span class="mt-0.5 block truncate font-mono text-xs text-muted-color" v-tooltip.top="data.nodeId">{{ shortId(data.nodeId) }}</span>
+                  </span>
                 </span>
-              </span>
-            </template>
-          </Column>
-          <Column header="Version">
-            <template #body="{ data }">
-              <span class="inline-flex items-center gap-1.5">
-                <span class="whitespace-nowrap rounded-md bg-surface-100 px-1.5 py-0.5 font-mono text-xs text-surface-700 dark:bg-surface-800 dark:text-surface-200"
-                      v-tooltip.top="data.version ?? undefined">{{ releaseOf(data.version) }}</span>
-                <Tag v-if="commonVersion && data.version !== commonVersion" value="behind" severity="warn" />
-              </span>
-            </template>
-          </Column>
-          <Column header="Address" class="hidden md:table-cell">
-            <template #body="{ data }">
-              <span class="inline-flex items-center gap-1.5" v-tooltip.top="data.addresses.join(', ')">
-                <span class="font-mono text-surface-800 dark:text-surface-100">{{ primaryAddress(data.addresses) }}</span>
-                <span v-if="data.addresses.length > 1" class="text-xs text-muted-color">+{{ data.addresses.length - 1 }}</span>
-              </span>
-            </template>
-          </Column>
-          <Column style="width: 13rem">
-            <template #body="{ data }">
-              <div class="flex justify-end">
-                <Button v-if="data.telemetryServiceName" label="Logs" icon="pi pi-align-left" severity="secondary" text
-                        size="small" @click="openServerLogs(data)" />
-                <Button label="Logging" icon="pi pi-sliders-h" severity="secondary" text size="small"
-                        @click="openLogLevel(data.nodeId)" />
-              </div>
-            </template>
-          </Column>
-        </DataTable>
-        <TablePaginator v-if="visibleNodes.length" class="border-t border-surface-200 px-5 py-3 dark:border-surface-700"
-                        :first="nodeFirst" :rows="nodePageSize" :total-records="visibleNodes.length"
-                        :rows-per-page-options="NODE_PAGE_SIZES" @page="onNodePage" />
+              </template>
+            </Column>
+            <Column header="Version">
+              <template #body="{ data }">
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="whitespace-nowrap rounded-md bg-surface-100 px-1.5 py-0.5 font-mono text-xs text-surface-700 dark:bg-surface-800 dark:text-surface-200"
+                        v-tooltip.top="data.version ?? undefined">{{ releaseOf(data.version) }}</span>
+                  <Tag v-if="commonVersion && data.version !== commonVersion" value="behind" severity="warn" />
+                </span>
+              </template>
+            </Column>
+            <Column header="Address" class="hidden md:table-cell">
+              <template #body="{ data }">
+                <span class="inline-flex items-center gap-1.5" v-tooltip.top="data.addresses.join(', ')">
+                  <span class="font-mono text-surface-800 dark:text-surface-100">{{ primaryAddress(data.addresses) }}</span>
+                  <span v-if="data.addresses.length > 1" class="text-xs text-muted-color">+{{ data.addresses.length - 1 }}</span>
+                </span>
+              </template>
+            </Column>
+            <Column style="width: 13rem">
+              <template #body="{ data }">
+                <div class="flex justify-end">
+                  <Button v-if="data.telemetryServiceName" label="Logs" icon="pi pi-align-left" severity="secondary" text
+                          size="small" @click="openServerLogs(data)" />
+                  <Button label="Logging" icon="pi pi-sliders-h" severity="secondary" text size="small"
+                          @click="openLogLevel(data.nodeId)" />
+                </div>
+              </template>
+            </Column>
+          </DataTable>
+          <TablePaginator v-if="visibleNodes.length" class="border-t border-surface-200 px-5 py-3 dark:border-surface-700"
+                          :first="nodeFirst" :rows="nodePageSize" :total-records="visibleNodes.length"
+                          :rows-per-page-options="NODE_PAGE_SIZES" @page="onNodePage" />
+        </template>
       </DashboardSection>
 
       <div class="grid gap-4 lg:grid-cols-2">
@@ -279,7 +285,7 @@ const orderedNodes = computed(() => [...(cluster.value?.nodes ?? [])].sort((a, b
 
 const NODE_PAGE_SIZES = [10, 25, 50, 100]
 
-/** The server, by name, whose nodes alone the node list shows, or null for every server's. */
+/** The server, by name, whose nodes the node list shows, or null while no server is selected. */
 const serverFilter = ref<string | null>(null)
 const nodeSearch = ref('')
 const nodeFirst = ref(0)
