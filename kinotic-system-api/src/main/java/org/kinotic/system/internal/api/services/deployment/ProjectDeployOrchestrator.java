@@ -83,8 +83,9 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
     private final ParticipantIdentityService participantIdentityService;
     private final JobRunRepository jobRunRepository;
 
-    // The projects whose deployment job this node is running, so a record left DEPLOYING by a master
-    // that died mid-run is told apart from one this master is running without a read of the run
+    // The projects whose deployment job this node is running, by organization and project since a
+    // project id is unique within its organization alone, so a record left DEPLOYING by a master that
+    // died mid-run is told apart from one this master is running without a read of the run
     private final Set<String> running = ConcurrentHashMap.newKeySet();
 
     /**
@@ -148,7 +149,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
         } else if (intentSeen && !deploying) {
             // deployed, or failed and waiting for the next push: a build that failed is not retried
             ret = Future.succeededFuture(Requeue.NONE);
-        } else if (deploying && running.contains(current.getId())) {
+        } else if (deploying && running.contains(runKey(current.getOrganizationId(), current.getId()))) {
             ret = Future.succeededFuture(Requeue.NONE);
         } else {
             // a record left DEPLOYING by a run this node is not running is deployed again once that run
@@ -195,13 +196,14 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                                                                     projectId),
                                              new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getOrganizationId(), projectId));
         String jobRunId = handle.getJobRunId();
+        String runKey = runKey(project.getOrganizationId(), projectId);
         log.debug("Deploying project {} at commit {} in job run {}", projectId, commitSha, jobRunId);
-        running.add(projectId);
+        running.add(runKey);
 
         Promise<Void> outcome = Promise.promise();
         recordDeploying(existing, jobRunId, generation)
                 .onFailure(error -> {
-                    running.remove(projectId);
+                    running.remove(runKey);
                     outcome.fail(error);
                 })
                 // The job starts when its events are subscribed, so the DEPLOYING record
@@ -215,7 +217,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                                           new DeploymentState(DeploymentStatusType.FAILED, DeploymentState.commitOf(existing.getState().getObserved())),
                                           error.getMessage())
                                     .onComplete(recorded -> {
-                                        running.remove(projectId);
+                                        running.remove(runKey);
                                         // the run's failure is the record's, not the worker's: a retry waits for the next push
                                         outcome.complete();
                                     });
@@ -225,11 +227,16 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                             recordOutcome(existing, jobRunId, generation,
                                           new DeploymentState(DeploymentStatusType.RUNNING, commitSha), null)
                                     .onComplete(recorded -> {
-                                        running.remove(projectId);
+                                        running.remove(runKey);
                                         outcome.handle(recorded);
                                     });
                         }));
         return outcome.future();
+    }
+
+    // an organization id holds no "--", so the key names one (organization, project)
+    private static String runKey(String organizationId, String projectId) {
+        return organizationId + "--" + projectId;
     }
 
     /**
