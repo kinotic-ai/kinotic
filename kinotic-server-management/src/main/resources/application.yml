@@ -1,5 +1,9 @@
 # General properties shared by all profiles
 kinotic:
+  ignite:
+    # the node attribute a cluster event for this server's nodes names
+    nodeAttributes:
+      "[kinotic.managementServer]": true
   domain:
     oauth:
       # Clients permitted to start an authorization-code flow, by Client ID Metadata Document URL.

@@ -10,8 +10,8 @@ import io.vertx.core.Future;
 public interface ClusterEventPublisher {
 
     /**
-     * Publishes {@code event} as a Spring application event on every node its
-     * {@link ClusterEvent#serverTypeFilter() server types} select and completes once each has handled it; a filter
+     * Publishes {@code event} as a Spring application event on every node carrying the
+     * {@link ClusterEvent#nodeAttributeFilter() attributes it names} and completes once each has handled it; a filter
      * no node matches is handled as nothing. A node that
      * fails or does not answer in time is retried against the cluster's current membership, so a node that left is
      * not waited for and one that joined meanwhile receives it; a node that already handled the event handles it

@@ -1,9 +1,5 @@
 package org.kinotic.core.api;
 
-import org.apache.ignite.cluster.ClusterNode;
-
-import java.util.Set;
-
 /**
  * The Ignite node attributes every Kinotic server node carries, which identify it to the rest of the cluster.
  */
@@ -31,21 +27,6 @@ public final class KinoticNodeAttributes {
      * the server's other nodes; absent when the deployment configures none.
      */
     public static final String TELEMETRY_SERVICE_INSTANCE_ID = "kinotic.telemetryServiceInstanceId";
-
-    /**
-     * The name of the {@link ServerType} the node's server is of; absent on a server that declares none, which runs
-     * every module.
-     */
-    public static final String SERVER_TYPE = "kinotic.serverType";
-
-    /**
-     * Whether the node is selected by one of the given server types: its server is of one of them, or declares no
-     * type and so runs every module.
-     */
-    public static boolean isServerType(ClusterNode node, Set<ServerType> types) {
-        String serverType = node.attribute(SERVER_TYPE);
-        return serverType == null || types.stream().anyMatch(type -> type.name().equals(serverType));
-    }
 
     private KinoticNodeAttributes() {
     }

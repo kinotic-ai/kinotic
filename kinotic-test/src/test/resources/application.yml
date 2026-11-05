@@ -15,6 +15,12 @@ spring:
 kinotic:
   debug: true
   maxNumberOfCoresToUse: 4
+  ignite:
+    # every module runs in this one node, so it carries every server's attribute and receives every cluster event
+    nodeAttributes:
+      "[kinotic.appServer]": true
+      "[kinotic.managementServer]": true
+      "[kinotic.systemServer]": true
   domain:
     # the portal the links open: the one kinotic-ui serves on 9090
     portalBaseUrl: http://localhost:9090

@@ -2,7 +2,6 @@ package org.kinotic.core.internal.api.event;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.junit.jupiter.api.Test;
-import org.kinotic.core.api.ServerType;
 import org.springframework.context.PayloadApplicationEvent;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -51,7 +50,7 @@ public class ClusterEventTaskTest {
     private static SampleClusterEvent sampleEvent(Serializable detail) {
         return new SampleClusterEvent(new SampleClusterEventKey("acme", "orders", detail),
                                       Instant.parse("2026-11-05T10:15:30Z"),
-                                      Set.of(ServerType.APP, ServerType.SYSTEM));
+                                      Set.of("kinotic.appServer"));
     }
 
     // what the task publishes into a node's Spring context when it runs there

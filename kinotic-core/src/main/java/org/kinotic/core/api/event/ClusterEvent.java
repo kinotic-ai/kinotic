@@ -1,7 +1,5 @@
 package org.kinotic.core.api.event;
 
-import org.kinotic.core.api.ServerType;
-
 import java.io.Serializable;
 import java.util.Set;
 
@@ -12,8 +10,9 @@ import java.util.Set;
 public interface ClusterEvent extends Serializable {
 
     /**
-     * The {@link ServerType}s whose nodes the event is delivered to; empty for every server node.
+     * The names of the Ignite node attributes a node carries to be delivered the event, whatever their values; empty
+     * for every node.
      */
-    Set<ServerType> serverTypeFilter();
+    Set<String> nodeAttributeFilter();
 
 }

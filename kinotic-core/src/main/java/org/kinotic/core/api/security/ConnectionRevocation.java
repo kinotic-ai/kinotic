@@ -5,7 +5,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.core.api.ServerType;
 import org.kinotic.core.api.event.ClusterEvent;
 
 import java.util.Set;
@@ -25,7 +24,7 @@ public class ConnectionRevocation implements ClusterEvent {
     private String id;
 
     @Override
-    public Set<ServerType> serverTypeFilter() {
+    public Set<String> nodeAttributeFilter() {
         return Set.of();
     }
 

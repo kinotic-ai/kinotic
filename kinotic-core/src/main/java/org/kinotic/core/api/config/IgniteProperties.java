@@ -5,6 +5,9 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -117,6 +120,12 @@ public class IgniteProperties {
      * The work directory for Ignite
      */
     private String workDirectory = "/tmp/ignite";
+
+    /**
+     * Attributes the node advertises to the cluster, by name, beside the ones Kinotic sets for it. A cluster event
+     * names the attributes the nodes it is delivered to carry, so these say which events reach this node.
+     */
+    private Map<String, String> nodeAttributes = new HashMap<>();
 
     @Override
     public String toString() {

@@ -1,10 +1,10 @@
 package org.kinotic.domain.api.cache;
 
 import lombok.Data;
-import org.kinotic.core.api.ServerType;
 import org.kinotic.core.api.event.ClusterEvent;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
+import org.kinotic.domain.api.utils.DomainUtil;
 
 import java.util.Set;
 
@@ -42,7 +42,7 @@ public class CacheEvictionEvent implements ClusterEvent {
     }
 
     @Override
-    public Set<ServerType> serverTypeFilter() {
-        return Set.of(ServerType.APP);
+    public Set<String> nodeAttributeFilter() {
+        return Set.of(DomainUtil.APP_SERVER_NODE_ATTRIBUTE);
     }
 }

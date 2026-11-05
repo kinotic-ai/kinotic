@@ -1,6 +1,5 @@
 package org.kinotic.systemserver.internal.config;
 
-import org.kinotic.core.api.ServerType;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.systemserver.api.config.KinoticSystemServerProperties;
@@ -23,11 +22,6 @@ public class SystemServerConfiguration {
 	public ZonePartitioningService zonePartitioningService() {
 		Set<String> zones = Set.of(DomainUtil.SYSTEM_API_ZONE, DomainUtil.MANAGEMENT_API_ZONE);
 		return ZonePartitioningService.of("system", zones, zones);
-	}
-
-	@Bean
-	public ServerType serverType() {
-		return ServerType.SYSTEM;
 	}
 
 	/**
